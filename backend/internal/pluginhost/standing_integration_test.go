@@ -227,6 +227,8 @@ func TestNoRunStartHostFunction(t *testing.T) {
 		"changeset.propose",
 		"changeset.redirect.upsert",
 		"changeset.term.upsert",
+		"comments.counts",
+		"comments.thread",
 		"db.exec",
 		"db.query",
 		"entities.get",

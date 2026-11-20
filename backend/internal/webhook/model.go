@@ -17,6 +17,10 @@ const (
 	EventEntityDeleted   = "entity.deleted"
 	EventFormSubmitted   = "form.submitted"
 	EventImportCompleted = "import.completed"
+	EventCommentCreated  = "comment.created"
+	EventCommentApproved = "comment.approved"
+	EventCommentSpam     = "comment.spam"
+	EventCommentDeleted  = "comment.deleted"
 	// EventTest is the synthetic event of "Send test"; it is never subscribable.
 	EventTest = "webhook.test"
 )
@@ -40,6 +44,7 @@ const (
 var eventTypes = []string{
 	EventEntityCreated, EventEntityUpdated, EventEntityPublished,
 	EventEntityDeleted, EventFormSubmitted, EventImportCompleted,
+	EventCommentCreated, EventCommentApproved, EventCommentSpam, EventCommentDeleted,
 }
 
 // ValidEvents returns the subscribable events in a stable order.

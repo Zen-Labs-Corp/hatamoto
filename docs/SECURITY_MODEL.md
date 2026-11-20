@@ -61,6 +61,15 @@ owner role), shown with a New badge on the install prompt, and not part of the r
 permission review (the index and the browse cards do not list it). Revoking the grant
 takes effect on the next page load.
 
+Comments reach plugins only through the `comments.read` permission. A plugin
+that holds it hears about new, approved, spam and deleted comments, may read
+approved comments of public entities, and may add to the spam score of a new
+comment in the `comment.check` filter. It never gets the commenter's email, a
+hash of it, the IP address, the user agent or the author's web address, no
+unapproved comment through the host API, and it has no function to write or
+moderate comments. The `comment.check` filter fails closed: an error, trap,
+timeout, reject or open circuit breaker holds the comment for moderation.
+
 ### Plugin database role
 
 Each plugin that asks for `db.*` gets its own Postgres login role that owns one

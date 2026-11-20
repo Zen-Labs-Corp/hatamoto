@@ -10,15 +10,15 @@ A plugin reaches the server through one imported function, `hm_call`, in the was
 
 ## SDK version
 
-The contract between the server and a plugin is the Go module `hatamoto.dev/sdk`. The current SDK version is `0.24.0`. The manifest declares the range a plugin was built against, and the server refuses a plugin whose range does not contain a version it serves. This server serves `0.24.0` and also plugins built for `0.5.0` to `0.23.0` (see [The sdk range](manifest.md#the-sdk-range)). Minor versions are additive, and before 1.0 a breaking change bumps the minor.
+The contract between the server and a plugin is the Go module `hatamoto.dev/sdk`. The current SDK version is `0.25.0`. The manifest declares the range a plugin was built against, and the server refuses a plugin whose range does not contain a version it serves. This server serves `0.25.0` and also plugins built for `0.5.0` to `0.24.0` (see [The sdk range](manifest.md#the-sdk-range)). Minor versions are additive, and before 1.0 a breaking change bumps the minor.
 
 ```go
 // backend/pkg/sdk/version.go
-const Version = "0.24.0"
-var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0", "0.22.0", "0.22.2", "0.23.0"}
+const Version = "0.25.0"
+var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0", "0.22.0", "0.22.2", "0.23.0", "0.24.0"}
 ```
 
-Fetch it with `go get hatamoto.dev/sdk@v0.24.0`. SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. The import path is a vanity path that points at the public SDK repository, so it does not change if the repository moves. It is a root module with plain tags: version `v0.24.0` is the git tag `v0.24.0`. The SDK root package has no dependencies beyond the standard library, and its `guest` subpackage is the Go layer over the Extism PDK. The Go helpers are `guest.OnAction`, `guest.OnFilter`, `guest.OnHTTP`, `guest.OnCron`, `guest.OnRunStep`, `guest.OnFunc`, `guest.Call`, `guest.Config`, `guest.Log`, `guest.Reject`, `guest.CapabilityDenied` and `guest.Handle`.
+Fetch it with `go get hatamoto.dev/sdk@v0.25.0`. SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. The import path is a vanity path that points at the public SDK repository, so it does not change if the repository moves. It is a root module with plain tags: version `v0.25.0` is the git tag `v0.25.0`. The SDK root package has no dependencies beyond the standard library, and its `guest` subpackage is the Go layer over the Extism PDK. The Go helpers are `guest.OnAction`, `guest.OnFilter`, `guest.OnHTTP`, `guest.OnCron`, `guest.OnRunStep`, `guest.OnFunc`, `guest.Call`, `guest.Config`, `guest.Log`, `guest.Reject`, `guest.CapabilityDenied` and `guest.Handle`.
 
 ## How calls work
 
@@ -39,6 +39,7 @@ A plugin always loads. What it may do is decided by the owner, and nothing is gr
 | `redirects.read` | `redirects.list` |
 | removed in 0.17 | `entities.write`, `terms.write`, `menus.write`, `media.write` and `redirects.write` no longer exist. A manifest that lists one is refused at load. Content is staged in a run with the `changeset.*` functions, which need no permission (see [Runs and changesets](#runs-and-changesets)) |
 | `forms.read` | `forms.list`, `forms.submissions`, and delivery of the `form.submitted` action |
+| `comments.read` | `comments.thread`, `comments.counts`, delivery of the `comment.*` actions, and the `comment.check` filter; there is no write function for comments |
 | `settings` | `settings.get` (the plugin's own settings) |
 | `log` | `log` |
 | `mail.send` | `mail.send` |
@@ -109,6 +110,8 @@ Every call has a deadline of at most 15 seconds and never longer than the hook c
 | `redirects.list` | `{ "search"?, "page"?, "per_page"? }` | `{ "items", "total" }` |
 | `forms.list` | `{}` | `{ "items": [ { id, name, slug, status, fields } ] }` |
 | `forms.submissions` | `{ "form_slug", "limit"?, "offset"? }` | `{ "items", "total" }`, never with IP or user agent |
+| `comments.thread` | `{ "entity_id", "page"? }` | `{ "items": [ { id, parent_id?, depth?, author_name, staff?, body_html, created_at } ], "page", "has_more"? }`: approved comments of a published entity whose comments are shown, otherwise an empty thread. Never the email, hashes, IP address, user agent or author web address |
+| `comments.counts` | `{ "entity_ids": [1 to 100 ids] }` | `{ "counts": { "<id>": n } }`: approved comments per entity, `0` when the entity is not public or has comments hidden or off. An empty list or more than 100 ids is `invalid_argument` |
 | `settings.get` | `{}` | the plugin's settings, schema defaults merged in |
 | `log` | `{ "level", "message" }` (level is `debug`, `info`, `warn` or `error`) | `{}` |
 | `mail.send` | `{ "to": [1 to 10 addresses], "subject", "text"?, "html"? }` | `{ "sent": n }` |
@@ -136,7 +139,7 @@ Content changes are made by a **run** the owner starts. The plugin declares it i
 | `permissions`, `log`, `settings.get`, `run.info`, `run.checkpoint`, `run.progress`, `run.finish`, `run.fail` | yes | yes |
 | `http.fetch`, `packages.inspect`, `upload.read`, `buffer.put`, `media.import_url` | yes | no |
 | `buffer.get`, `buffer.list`, `site.info`, `entities.slug_taken`, published reads, `changeset.*` | no | yes |
-| `kv.*`, `db.*`, `mail.send`, `forms.list`, `forms.submissions` | no | no |
+| `kv.*`, `db.*`, `mail.send`, `forms.list`, `forms.submissions`, `comments.thread`, `comments.counts` | no | no |
 
 A function not allowed in the current phase fails with `phase_denied`, and so does a run function called outside a run.
 

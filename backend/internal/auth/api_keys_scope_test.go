@@ -77,6 +77,25 @@ func TestFormsScope(t *testing.T) {
 	}
 }
 
+func TestCommentsScopes(t *testing.T) {
+	w := &APIKey{Scopes: []APIKeyScope{ScopeWriteComments}}
+	if !w.HasScope(ScopeReadComments) || !w.HasScope(ScopeWriteComments) {
+		t.Error("write:comments must imply read:comments")
+	}
+	if (&APIKey{Scopes: []APIKeyScope{ScopeReadComments}}).HasScope(ScopeWriteComments) {
+		t.Error("read:comments grants write:comments")
+	}
+	all := &APIKey{Scopes: []APIKeyScope{ScopeAll}}
+	if !all.HasScope(ScopeReadComments) || !all.HasScope(ScopeWriteComments) {
+		t.Error("* must grant both")
+	}
+	for _, sc := range []APIKeyScope{ScopeReadComments, ScopeWriteComments} {
+		if !IsValidScope(string(sc)) || OwnerOnlyScope(sc) {
+			t.Errorf("%s: invalid or owner-only", sc)
+		}
+	}
+}
+
 // Owner-only scopes follow the creator's current role, also through "*".
 func TestAPIKeyOwnerOnlyScopes(t *testing.T) {
 	ownerOnly := []APIKeyScope{ScopeReadSEO, ScopeWriteSEO, ScopeWriteTerms}

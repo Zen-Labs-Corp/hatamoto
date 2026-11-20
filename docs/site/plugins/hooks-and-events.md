@@ -32,6 +32,11 @@ A plugin handles a hook by exporting a function named after it: replace `.` with
 | `request.redirect` | filter | `filter_request_redirect` | RedirectContext | RedirectContext |
 | `entity.before_save` | filter (needs `entities.filter`) | `filter_entity_before_save` | EntityDraft | EntityDraft |
 | `builder.data` | filter | `filter_builder_data` | BuilderDataRequest | BuilderDataRequest |
+| `comment.created` | action (needs `comments.read`) | `on_comment_created` | CommentEvent | none |
+| `comment.approved` | action (needs `comments.read`) | `on_comment_approved` | CommentEvent | none |
+| `comment.spam` | action (needs `comments.read`) | `on_comment_spam` | CommentEvent | none |
+| `comment.deleted` | action (needs `comments.read`) | `on_comment_deleted` | CommentEvent (ids and `status` only) | none |
+| `comment.check` | filter (needs `comments.read`) | `filter_comment_check` | CommentCheck | CommentCheck (`score`, `reasons` only) |
 
 The Go tokens are `sdk.EntityCreated`, `sdk.EntityUpdated`, `sdk.EntityPublished`, `sdk.EntityDeleted`, `sdk.ImportCompleted`, `sdk.AgentHit`, `sdk.AgentFirstCrawl`, `sdk.FormSubmitted`, `sdk.JSONLDEnrich`, `sdk.SitemapURLsF`, `sdk.RenderHead`, `sdk.RenderPage`, `sdk.EntityBeforeSave` and `sdk.BuilderData`. The host registers a handler for every hook whose export exists and ignores the rest, so handle only what you need.
 
@@ -42,6 +47,8 @@ The Go tokens are `sdk.EntityCreated`, `sdk.EntityUpdated`, `sdk.EntityPublished
 **Filters** run in order on the request path. Plugins run in plugin-name order, and each filter receives the previous filter's result. Unknown fields in a returned value are ignored, and top-level fields a filter leaves out keep their previous value, so a filter may return only what it changed. A field it does return replaces the old one as a whole.
 
 ## Failure handling
+
+The one filter that fails closed is `comment.check`, described under [Comment hooks](#comment-hooks); every other filter follows the rule below.
 
 A filter that returns non-zero, traps, runs out of memory, exceeds its timeout or returns output that does not decode leaves the value as it was before that plugin. It is logged, the request goes on and the other plugins still run. An empty output from a filter means "unchanged". The instance that failed is discarded, while a guest that only reports an ordinary error (an error message plus non-zero status, no trap) keeps its instance.
 
@@ -69,6 +76,16 @@ func filterEntityBeforeSave() int32 { return guest.Run(sdk.EntityBeforeSave.Expo
 
 `operation` is `create`, `update` or `restore`, and `id` is empty for create. Returning a modified draft changes `name`, `slug` or `attributes` before they are saved; other fields are ignored. The result is validated and sanitised like any save. A page's `page_sections` are derived from `attributes.page_doc`, so to change a page's layout from a hook, edit `attributes.page_doc`. A hook's change to `page_sections` on a page that has a document is discarded, with only a warning in the server log.
 
+## Comment hooks
+
+The four comment actions and the `comment.check` filter exist since SDK 0.25.0 and reach only plugins that hold `comments.read`.
+
+`comment.created` fires when a comment is stored as pending or approved, or confirmed by its author. A comment that is auto-approved also fires `comment.approved`; the two may arrive in either order, so key on the comment `id` and read `status`. `comment.spam` fires when a moderator marks a comment as spam. `comment.deleted` fires when a comment is trashed or deleted and when a commenter's data is erased and the comment is deleted with it (a comment kept for its replies is anonymised instead and announces nothing); it carries ids and `status` only, may arrive twice for one comment (trash, then delete) and is not sent for replies removed with their parent or for unconfirmed drafts purged after 24 hours. A comment the spam filters store as spam fires nothing, and edits, unapprovals and restoring a trashed comment send no event. Use the comment `id` as the idempotency key.
+
+`comment.check` runs on a new comment before it is stored and may only add to its spam score. The plugin receives `body`, `link_domains` and `body_hash`, and answers with `score` (0 to 100, a negative value counts as 0) and up to 8 `reasons` of 200 bytes, which are prefixed with the plugin name. The host adds the scores of all plugins and maps the sum onto its own scale: 100 alone marks the comment as spam. Unlike other filters it fails closed: any error, trap, timeout, reject, busy plugin or open circuit breaker holds the comment for moderation, so it is not lost. All plugins share one budget of 500 ms, and each call also has the plugin's own timeout (default 250 ms, `limits.hook_timeouts_ms["comment.check"]`). A cold instance may not start within the budget, so the first comment after a restart can be held.
+
+Plugins never receive the commenter's email, hashes of it, the IP address, the user agent, the author's web address, a spam score or reasons in an event, or the raw body in an event.
+
 ## Payloads
 
 IDs are UUID strings and timestamps are RFC 3339.
@@ -90,6 +107,8 @@ IDs are UUID strings and timestamps are RFC 3339.
 ```
 
 **AgentFirstCrawlEvent** fires once per entity, on the first served AI fetch: `entity_id`, `agent_id`, `operator`, `purpose`, `first_at` and `published_at` (omitted when the entity has no publish time).
+
+**CommentEvent** carries `id`, `entity_id`, `parent_id`, `author_name`, `staff`, `body_html` (sanitised), `status` (`pending`, `approved`, `spam` or `trash`), `locale` and `created_at`; empty optional fields are left out. **CommentCheck** is `body`, `link_domains`, `body_hash` plus the output fields `score` and `reasons`, which arrive empty.
 
 **FormSubmittedEvent** fires after a public form submission was stored. It carries the submitted fields, so it is delivered only to plugins that hold `forms.read`. The visitor's IP address and user agent are never included. `attribution` (`first` and `last` touch with `channel`, `source`, `medium`, `campaign`, `landing`) arrived with SDK 0.14.0; it is left out when none was recorded, and older plugins ignore it.
 

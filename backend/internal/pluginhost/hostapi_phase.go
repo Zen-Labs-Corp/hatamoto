@@ -89,6 +89,8 @@ var fnPhases = map[string]phaseSet{
 	sdk.FnDBExec:           phNone,
 	sdk.FnMailSend:         phNone,
 	sdk.FnFormsList:        phNone,
+	sdk.FnCommentsThread:   phNone,
+	sdk.FnCommentsCounts:   phNone,
 	sdk.FnFormsSubmissions: phNone,
 }
 

@@ -128,4 +128,4 @@ If the tag is missing but the log line appears, the page came from the page cach
 
 If the filter returns an error or takes longer than its time limit (250 ms by default), the page still loads, without the tag, and the server logs the failure. This is true for every filter.
 
-To react to other events, such as a form being sent or an import finishing, or to refuse a save with `entity.before_save`, pick the hook from [Hooks and events](hooks-and-events.md) and add a handler and an export the same way.
+To react to other events, such as a form being sent, an import finishing or a comment arriving (`comment.created` needs the `comments.read` permission), or to refuse a save with `entity.before_save`, pick the hook from [Hooks and events](hooks-and-events.md) and add a handler and an export the same way.

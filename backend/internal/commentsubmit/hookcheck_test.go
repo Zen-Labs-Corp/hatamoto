@@ -10,6 +10,9 @@ import (
 
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/hooks"
+	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/spam"
+	"hatamoto.dev/sdk"
 )
 
 type fakeEngine struct {
@@ -40,13 +43,13 @@ func TestHookCheckerNoFilters(t *testing.T) {
 func TestHookCheckerScores(t *testing.T) {
 	f := &fakeEngine{count: 1, apply: func(_ context.Context, v any) (any, error) {
 		p := v.(CheckPayload)
-		p.Score += 2
+		p.Score += 40
 		p.Reasons = append(p.Reasons, "sus")
 		return p, nil
 	}}
 	in := comment.CheckInput{Body: "hi", LinkDomains: []string{"a.test"}, BodyHash: "h", IPHash: "ip", NetHash: "net"}
 	s, r, err := HookChecker{Engine: f}.Check(context.Background(), in)
-	if err != nil || s != 2 || len(r) != 1 || r[0] != "sus" {
+	if err != nil || s != 4 || len(r) != 1 || r[0] != "sus" {
 		t.Fatalf("got %d %v %v", s, r, err)
 	}
 	want := CheckPayload{Body: "hi", LinkDomains: []string{"a.test"}, BodyHash: "h"}
@@ -117,5 +120,34 @@ func TestHookCheckerRealEngineHolds(t *testing.T) {
 	f := &fakeEngine{count: 1, apply: func(context.Context, any) (any, error) { panic("boom") }}
 	if _, _, err := (HookChecker{Engine: f}).Check(context.Background(), comment.CheckInput{}); err != ErrHookHold {
 		t.Errorf("engine panic: err = %v", err)
+	}
+}
+
+func TestCommentCheckPoints(t *testing.T) {
+	for _, c := range []struct{ in, want int }{
+		{-5, 0}, {0, 0}, {4, 0}, {5, 1}, {25, 3}, {100, 10}, {1 << 30, 10},
+	} {
+		if got := commentCheckPoints(c.in); got != c.want {
+			t.Errorf("commentCheckPoints(%d) = %d, want %d", c.in, got, c.want)
+		}
+	}
+	if commentCheckPoints(25) < spam.HoldScore || commentCheckPoints(100) != spam.SpamScore {
+		t.Error("25 must hold and 100 must be spam alone")
+	}
+}
+
+func TestHookNameIsSDK(t *testing.T) {
+	if HookName != sdk.CommentCheckF.Name {
+		t.Fatalf("HookName = %q, want %q", HookName, sdk.CommentCheckF.Name)
+	}
+}
+
+func TestCheckPayloadWire(t *testing.T) {
+	got, err := jsonx.MarshalPinned(CheckPayload{Body: "b", BodyHash: "h"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `{"body":"b","body_hash":"h"}`; string(got) != want {
+		t.Fatalf("got %s, want %s", got, want)
 	}
 }

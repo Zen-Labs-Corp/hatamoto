@@ -57,6 +57,7 @@ func (s *Server) setupPlugins() {
 			Media:     s.mediaService,
 			Redirects: s.redirectService,
 			Forms:     s.formService,
+			Comments:  pluginCommentReader{s},
 			Settings:  s.pluginSettings,
 			DB:        pdb,
 			Fetcher:   s.pluginFetcher(),

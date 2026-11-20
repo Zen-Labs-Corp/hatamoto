@@ -21,6 +21,10 @@ webhooks.
 | `entity.deleted` | `entity_id`, `entity_name`, `schema_slug`, `locale` |
 | `form.submitted` | `form_id`, `form_slug`, `submission_id`, `attribution` when recorded (never the fields) |
 | `import.completed` | `created`, `failed`, `source`, `updated` |
+| `comment.created` | `comment_id`, `entity_id`, `parent_id` (null for a top-level comment), `author_name`, `body_html`, `status`, `created_at` |
+| `comment.approved` | same fields as `comment.created` |
+| `comment.spam` | same fields as `comment.created` |
+| `comment.deleted` | `comment_id`, `entity_id`, `parent_id` |
 
 Every active `form.submitted` hook fires for all forms; a form's Settings tab lists them.
 
@@ -31,6 +35,19 @@ read the submission through the API if you need it. An import fires
 `import.completed` once per batch and no per-entity events. "Send test" delivers
 a synthetic `webhook.test` event (`data.message`) that cannot be subscribed to.
 Changes made through the CLI fire no hooks, so they send nothing.
+
+Comment events:
+
+- `comment.created` fires when a comment is stored as pending or approved, or when its author confirms it. A comment auto-approved on arrival also fires `comment.approved`; the two may arrive in either order, so key on the comment id and read `status`. A comment the spam filters store as spam fires nothing, and no event fires for an unconfirmed draft.
+- `comment.approved` fires when a comment becomes approved, by a moderator or automatically.
+- `comment.spam` fires when a moderator marks a comment as spam.
+- `comment.deleted` fires when a comment is trashed or deleted and when a commenter's data is erased and the comment is deleted with it. A comment kept for its replies is anonymised instead and fires no event, so a receiver that mirrored its name or body is not told. It may arrive twice for one comment (trash, then delete). It is not sent for replies removed together with their parent, nor for unconfirmed drafts purged after 24 hours. Edits, unapprovals and restoring a trashed comment send no event.
+
+Treat `comment_id` as the idempotency key. A comment payload carries the author's display name and the sanitised comment HTML, and never the commenter's email, any hash, IP address, user agent, spam score or reasons, or the raw body. Comments are off by default, so nothing fires until an owner turns them on; the events can be subscribed to beforehand. A binary older than this release rejects `comment.*` when a subscription is edited, so remove those events before downgrading.
+
+```json
+{"id": "<delivery id>", "event": "comment.created", "timestamp": "2026-11-20T10:00:00Z", "data": {"comment_id": "<uuid>", "entity_id": "<uuid>", "parent_id": null, "author_name": "Ada", "body_html": "<p>Nice post.</p>", "status": "pending", "created_at": "2026-11-20T10:00:00Z"}}
+```
 
 Every request is a `POST` with `Content-Type: application/json` and the body
 

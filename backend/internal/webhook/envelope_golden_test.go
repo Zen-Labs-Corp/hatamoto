@@ -40,6 +40,8 @@ func mapped(name string, p any) func(t *testing.T) any {
 func goldenCases() []goldenCase {
 	entity := sdk.EntityEvent{ID: "e-1", SchemaSlug: "post", Slug: "tom", Locale: "fr-CA", Name: tricky, Status: "published", Version: 3}
 	touch := &sdk.FormTouch{Channel: "organic", Source: "example.org/?a=1&b=2", Medium: "<web>", Campaign: "spring \u2028 sale", Landing: "/café"}
+	comment := sdk.CommentEvent{ID: "c-1", EntityID: "e-1", AuthorName: tricky, BodyHTML: "<p>" + tricky + "</p>", Status: "approved",
+		CreatedAt: time.Date(2026, 10, 19, 11, 0, 0, 0, time.UTC)}
 	return []goldenCase{
 		{"created", EventEntityCreated, mapped(sdk.EntityCreated.Name, entity)},
 		{"deleted", EventEntityDeleted, mapped(sdk.EntityDeleted.Name, entity)},
@@ -50,6 +52,8 @@ func goldenCases() []goldenCase {
 		{"form with attribution", EventFormSubmitted, mapped(sdk.FormSubmitted.Name,
 			sdk.FormSubmittedEvent{FormID: "f-1", FormSlug: "contact", SubmissionID: "s-1", Attribution: &sdk.FormAttribution{First: touch, Last: &sdk.FormTouch{Channel: "direct"}}})},
 		{"import", EventImportCompleted, mapped(sdk.ImportCompleted.Name, sdk.ImportEvent{Source: "wp & <co>", Created: 4, Updated: 2, Failed: 1})},
+		{"comment approved", EventCommentApproved, mapped(sdk.CommentApproved.Name, comment)},
+		{"comment deleted", EventCommentDeleted, mapped(sdk.CommentDeleted.Name, comment)},
 		{"nil data", EventEntityCreated, func(*testing.T) any { return nil }},
 		{"test event", EventTest, func(*testing.T) any { return map[string]string{"message": "test delivery from Hatamoto"} }},
 	}
@@ -90,6 +94,16 @@ var goldenWant = map[string]struct{ body, sig, sigV2 string }{
 		"{\"id\":\"id-import\",\"event\":\"import.completed\",\"timestamp\":\"2026-10-19T12:00:00Z\",\"data\":{\"created\":4,\"failed\":1,\"source\":\"wp \\u0026 \\u003cco\\u003e\",\"updated\":2}}",
 		"sha256=58707e3de92956142bd710c1f70ca056af3ee942b33e0bd2bcf74842b67c9ee5",
 		"t=1700000000,v1=eac86a0aebed2a496e866c4934c1f6783c0a989762e119325fd4b541aec8924c",
+	},
+	"comment approved": {
+		"{\"id\":\"id-comment approved\",\"event\":\"comment.approved\",\"timestamp\":\"2026-10-19T12:00:00Z\",\"data\":{\"comment_id\":\"c-1\",\"entity_id\":\"e-1\",\"parent_id\":null,\"author_name\":\"Tom \\u0026 \\u003cJerry\\u003e \\u2028 café\",\"body_html\":\"\\u003cp\\u003eTom \\u0026 \\u003cJerry\\u003e \\u2028 café\\u003c/p\\u003e\",\"status\":\"approved\",\"created_at\":\"2026-10-19T11:00:00Z\"}}",
+		"sha256=837f6c5587358a08c7af989927cb74d1a1bba8dc13aaa7688435d7ef452d9aab",
+		"t=1700000000,v1=c7cbfad66a5e0b9b6d6e2c1b13da3af8dc19f5b269d6c0de5d1a3c4333c8c256",
+	},
+	"comment deleted": {
+		"{\"id\":\"id-comment deleted\",\"event\":\"comment.deleted\",\"timestamp\":\"2026-10-19T12:00:00Z\",\"data\":{\"comment_id\":\"c-1\",\"entity_id\":\"e-1\",\"parent_id\":null}}",
+		"sha256=ac301ff119264c7d19ec22ca9094dca418f9f5770a74a357651e9ba5e9f24944",
+		"t=1700000000,v1=396742da42e714eb6406f669ce4cd0ca759f0a7a5f7aa83c681d29561f250f42",
 	},
 	"nil data": {
 		"{\"id\":\"id-nil data\",\"event\":\"entity.created\",\"timestamp\":\"2026-10-19T12:00:00Z\",\"data\":null}",

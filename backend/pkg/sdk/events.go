@@ -224,6 +224,63 @@ type FormAttribution struct {
 	Last  *FormTouch `json:"last,omitzero"`
 }
 
+// CommentEvent is the payload of comment.created|approved|spam|deleted (since 0.25.0).
+// It never carries the commenter's email, any hash, IP address, user agent,
+// spam score/reasons or the raw body. comment.deleted carries ids and status only.
+type CommentEvent struct {
+	ID         string    `json:"id"`
+	EntityID   string    `json:"entity_id"`
+	ParentID   string    `json:"parent_id,omitempty"`
+	AuthorName string    `json:"author_name,omitempty"`
+	Staff      bool      `json:"staff,omitempty"`     // written by a signed-in owner/editor
+	BodyHTML   string    `json:"body_html,omitempty"` // sanitised once on write
+	Status     string    `json:"status"`              // pending|approved|spam|trash
+	Locale     string    `json:"locale,omitempty"`
+	CreatedAt  time.Time `json:"created_at,omitzero"` // left out on comment.deleted
+}
+
+// CommentCheckMaxScore is the most one comment.check plugin can add; larger
+// values are cut to it, negative ones count as 0. The host maps the sum of all
+// plugins (cut to the same maximum) onto its own spam scale: CommentCheckMaxScore
+// alone is enough to mark a comment as spam.
+const CommentCheckMaxScore = 100
+
+// CommentCheck is the value of the comment.check filter: the raw body text,
+// the domains it links to and a site-keyed hash of the normalised body. Never
+// an IP address, a network hash, an email, a name or the entity.
+// Score and Reasons are output only and arrive empty; the host keeps at most
+// 8 reasons of 200 bytes each, prefixed with the plugin name.
+type CommentCheck struct {
+	Body        string   `json:"body"`
+	LinkDomains []string `json:"link_domains,omitempty"`
+	BodyHash    string   `json:"body_hash,omitempty"`
+	Score       int      `json:"score,omitempty"`
+	Reasons     []string `json:"reasons,omitempty"`
+}
+
+// CommentItem is one approved comment in comments.thread.
+type CommentItem struct {
+	ID         string    `json:"id"`
+	ParentID   string    `json:"parent_id,omitempty"`
+	Depth      int       `json:"depth,omitempty"`
+	AuthorName string    `json:"author_name"`
+	Staff      bool      `json:"staff,omitempty"`
+	BodyHTML   string    `json:"body_html"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+// CommentThread is the result of comments.thread.
+type CommentThread struct {
+	Items   []CommentItem `json:"items"`
+	Page    int           `json:"page"`
+	HasMore bool          `json:"has_more,omitempty"`
+}
+
+// CommentCounts is the result of comments.counts: approved comments per entity id.
+type CommentCounts struct {
+	Counts map[string]int `json:"counts"`
+}
+
 // PageContext is the value filtered by render.page for one public page view.
 // The result may reorder or replace Blocks, hide blocks by id (Hide) and set
 // cookies (SetCookies). Cookies holds only the cookie names the plugin

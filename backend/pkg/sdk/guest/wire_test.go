@@ -405,7 +405,7 @@ func wireFillValue(v reflect.Value, m wireFill, depth int) {
 
 func wireTypes() map[string]reflect.Type {
 	m := map[string]reflect.Type{}
-	for _, v := range []any{sdk.EntityRef{}, sdk.EntityEvent{}, sdk.ImportEvent{}, sdk.HeadContext{}, sdk.SiteGraph{}, sdk.HeadTag{}, sdk.AgentHitEvent{}, sdk.AgentFirstCrawlEvent{}, sdk.JSONLDDoc{}, sdk.Alternate{}, sdk.SitemapURL{}, sdk.SitemapURLs{}, sdk.EntityDraft{}, sdk.FormSubmittedEvent{}, sdk.FormTouch{}, sdk.FormAttribution{}, sdk.PageContext{}, sdk.EntitySummary{}, sdk.Block{}, sdk.SetCookie{}, sdk.RedirectContext{}, sdk.Redirect{}, sdk.BuilderDataRequest{}, sdk.BuilderDataQuery{}, sdk.BuilderDataResult{}, sdk.BuilderDataItem{},
+	for _, v := range []any{sdk.EntityRef{}, sdk.EntityEvent{}, sdk.ImportEvent{}, sdk.HeadContext{}, sdk.SiteGraph{}, sdk.HeadTag{}, sdk.AgentHitEvent{}, sdk.AgentFirstCrawlEvent{}, sdk.JSONLDDoc{}, sdk.Alternate{}, sdk.SitemapURL{}, sdk.SitemapURLs{}, sdk.EntityDraft{}, sdk.FormSubmittedEvent{}, sdk.FormTouch{}, sdk.FormAttribution{}, sdk.PageContext{}, sdk.EntitySummary{}, sdk.Block{}, sdk.SetCookie{}, sdk.RedirectContext{}, sdk.Redirect{}, sdk.CommentEvent{}, sdk.CommentCheck{}, sdk.CommentItem{}, sdk.CommentThread{}, sdk.CommentCounts{}, sdk.BuilderDataRequest{}, sdk.BuilderDataQuery{}, sdk.BuilderDataResult{}, sdk.BuilderDataItem{},
 		sdk.CallRequest{}, sdk.CallResponse{}, sdk.HostError{}, sdk.HTTPRequest{}, sdk.HTTPUser{}, sdk.HTTPResponse{}, sdk.CronEvent{},
 		sdk.Limits{}, sdk.Manifest{}, sdk.CSP{}, sdk.BuilderSource{}, sdk.BuilderParam{}, sdk.BuilderOption{}, sdk.PageOptions{}, sdk.Route{}, sdk.AdminUI{}, sdk.CronJob{},
 		sdk.Run{}, sdk.StandingApproval{}, sdk.RunInput{}, sdk.RunStep{}, sdk.RunStepResult{}, sdk.RunInfo{}, sdk.RunCheckpointArgs{}, sdk.RunProgressArgs{}, sdk.RunFinishArgs{}, sdk.RunFailArgs{}, sdk.UploadReadArgs{}, sdk.UploadChunk{}, sdk.BufferPutArgs{}, sdk.BufferGetArgs{}, sdk.BufferValue{}, sdk.BufferListArgs{}, sdk.BufferKeys{}, sdk.MediaImportURLArgs{}, sdk.MediaHandle{}, sdk.SiteInfo{}, sdk.SlugTakenArgs{}, sdk.SlugTaken{}, sdk.SEO{}, sdk.EntityUpsert{}, sdk.TermUpsert{}, sdk.PersonUpsert{}, sdk.MediaAttach{}, sdk.MediaAlt{}, sdk.MenuUpsert{}, sdk.MenuItem{}, sdk.RedirectUpsert{}, sdk.ChangesetDeleteArgs{}, sdk.UpsertResult{}, sdk.Proposal{}} {
@@ -667,6 +667,21 @@ var wireCases = []struct{ typ, state, want string }{
 	{"Proposal", "edge", `{"kind":"","payload":{}}`},
 	{"Proposal", "edge null", `{"kind":"","payload":null}`},
 	{"Proposal", "edge empty string", `{"kind":"","payload":""}`},
+	{"CommentEvent", "zero", `{"id":"","entity_id":"","status":""}`},
+	{"CommentEvent", "full", `{"id":"s\u003c","entity_id":"s\u003c","parent_id":"s\u003c","author_name":"s\u003c","staff":true,"body_html":"s\u003c","status":"s\u003c","locale":"s\u003c","created_at":"2024-01-02T03:04:05Z"}`},
+	{"CommentEvent", "edge", `{"id":"","entity_id":"","status":"","created_at":"2024-01-02T03:04:05Z"}`},
+	{"CommentCheck", "zero", `{"body":""}`},
+	{"CommentCheck", "full", `{"body":"s\u003c","link_domains":["s\u003c"],"body_hash":"s\u003c","score":1,"reasons":["s\u003c"]}`},
+	{"CommentCheck", "edge", `{"body":""}`},
+	{"CommentItem", "zero", `{"id":"","author_name":"","body_html":"","created_at":"0001-01-01T00:00:00Z"}`},
+	{"CommentItem", "full", `{"id":"s\u003c","parent_id":"s\u003c","depth":1,"author_name":"s\u003c","staff":true,"body_html":"s\u003c","created_at":"2024-01-02T03:04:05Z"}`},
+	{"CommentItem", "edge", `{"id":"","author_name":"","body_html":"","created_at":"2024-01-02T03:04:05Z"}`},
+	{"CommentThread", "zero", `{"items":null,"page":0}`},
+	{"CommentThread", "full", `{"items":[{"id":"s\u003c","parent_id":"s\u003c","depth":1,"author_name":"s\u003c","staff":true,"body_html":"s\u003c","created_at":"2024-01-02T03:04:05Z"}],"page":1,"has_more":true}`},
+	{"CommentThread", "edge", `{"items":[],"page":0}`},
+	{"CommentCounts", "zero", `{"counts":null}`},
+	{"CommentCounts", "full", `{"counts":{"k":1}}`},
+	{"CommentCounts", "edge", `{"counts":{}}`},
 }
 
 func TestWireSDKTypesViaGuest(t *testing.T) {

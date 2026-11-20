@@ -124,9 +124,15 @@ package sdk
 // An older host ignores the field and calls the filter on every
 // page, so a plugin that keeps a lower range must still check p.Path itself;
 // it declares ^0.24 to rely on the host doing the scoping.
-const Version = "0.24.0"
+//
+// 0.25.0 is additive over 0.24: the comment.created, comment.approved,
+// comment.spam and comment.deleted actions (CommentEvent), the comment.check
+// filter (CommentCheck; it may only add to the score and any failure holds the
+// comment), the comments.thread and comments.counts host functions and the
+// comments.read permission.
+const Version = "0.25.0"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.
 // Caret ranges before 1.0 stop at the next minor, so a purely additive minor
 // lists its predecessors here. 0.4 plugins were native Go.
-var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0", "0.22.0", "0.22.2", "0.23.0"}
+var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0", "0.22.0", "0.22.2", "0.23.0", "0.24.0"}

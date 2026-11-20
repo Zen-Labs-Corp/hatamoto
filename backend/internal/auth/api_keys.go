@@ -52,7 +52,11 @@ const (
 	ScopeWriteSEO APIKeyScope = "write:seo"
 	// Forms and their submissions (personal data): read only.
 	ScopeReadForms APIKeyScope = "read:forms"
-	ScopeAll       APIKeyScope = "*"
+	// Comments moderation (commenter names and comment text; never email/IP through keys).
+	// write:comments implies read:comments.
+	ScopeReadComments  APIKeyScope = "read:comments"
+	ScopeWriteComments APIKeyScope = "write:comments"
+	ScopeAll           APIKeyScope = "*"
 )
 
 // ValidScopes returns all valid API key scopes.
@@ -73,6 +77,8 @@ func ValidScopes() []APIKeyScope {
 		ScopeReadSEO,
 		ScopeWriteSEO,
 		ScopeReadForms,
+		ScopeReadComments,
+		ScopeWriteComments,
 		ScopeAll,
 	}
 }

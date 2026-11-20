@@ -5,25 +5,21 @@ import (
 	"errors"
 
 	"hatamoto.dev/core/internal/comment"
+	"hatamoto.dev/core/internal/spam"
+	"hatamoto.dev/sdk"
 )
 
-// HookName is the filter plugins attach to.
+// HookName is the filter plugins attach to (sdk.CommentCheckF).
 const HookName = "comment.check"
 
 // ErrHookHold is returned when the comment.check chain cannot give a verdict;
 // comment.RunCheckers turns any error into a hold.
 var ErrHookHold = errors.New("commentsubmit: comment.check unavailable")
 
-// CheckPayload is passed to the filters, which return the same type. Score is
-// additive points. It carries the body, its link domains and its hash only:
-// never an IP, a network hash, an email or a name.
-type CheckPayload struct {
-	Body        string
-	LinkDomains []string
-	BodyHash    string
-	Score       int
-	Reasons     []string
-}
+// CheckPayload is the value of the comment.check chain: the public SDK type, so
+// what a plugin sees is the documented wire shape. Body, link domains and the
+// body hash only: never an IP, a network hash, an email, a name or the entity.
+type CheckPayload = sdk.CommentCheck
 
 type filterEngine interface {
 	FilterCount(string) int
@@ -60,5 +56,12 @@ func (h HookChecker) Check(ctx context.Context, in comment.CheckInput) (score in
 	if !ok {
 		return 0, nil, ErrHookHold
 	}
-	return res.Score, res.Reasons, nil
+	return commentCheckPoints(res.Score), res.Reasons, nil
+}
+
+// commentCheckPoints maps the plugins' total (0..sdk.CommentCheckMaxScore, cut)
+// onto the spam scale, rounding half up: the maximum is spam.SpamScore points.
+func commentCheckPoints(s int) int {
+	s = min(max(s, 0), sdk.CommentCheckMaxScore)
+	return (s*spam.SpamScore + sdk.CommentCheckMaxScore/2) / sdk.CommentCheckMaxScore
 }
