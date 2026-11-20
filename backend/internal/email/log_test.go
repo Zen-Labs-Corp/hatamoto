@@ -181,3 +181,33 @@ func TestCleanError(t *testing.T) {
 		t.Error("nil error must give empty text")
 	}
 }
+
+func TestCommentConfirmationLogKeepsNoAddress(t *testing.T) {
+	const addr = "Visitor.Name@example.test"
+	check := func(name string, e LogEntry) {
+		t.Helper()
+		all := strings.Join(e.Recipients, " ") + " " + e.Error + " " + e.Subject
+		if strings.Contains(strings.ToLower(all), "visitor.name") {
+			t.Errorf("%s: address kept in the log: %+v", name, e)
+		}
+		if len(e.Recipients) != 1 || e.Recipients[0] != "V***@example.test" {
+			t.Errorf("%s: recipients = %v", name, e.Recipients)
+		}
+	}
+	data := CommentConfirmationData{SiteName: "S", EntityTitle: "T", URL: "https://x/-/comments/confirm/TOKEN", ExpiresIn: "24 hours"}
+
+	svc, rec, _ := newLoggedSink(t, smtptest.Options{}, nil)
+	if err := svc.SendCommentConfirmation(context.Background(), addr, data); err != nil {
+		t.Fatal(err)
+	}
+	check("sent", rec.entries[0])
+
+	svc, rec, _ = newLoggedSink(t, smtptest.Options{RejectRcpt: true}, nil)
+	if err := svc.SendCommentConfirmation(context.Background(), addr, data); err == nil {
+		t.Fatal("want the refusal")
+	}
+	if rec.entries[0].Status != StatusFailed {
+		t.Fatalf("row = %+v", rec.entries[0])
+	}
+	check("failed", rec.entries[0])
+}

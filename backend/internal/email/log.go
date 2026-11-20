@@ -65,6 +65,22 @@ func (k Kind) StoresBody() bool {
 	return true
 }
 
+// StoresRecipients reports whether the log may keep the recipient addresses of
+// a mail of this kind. A comment confirmation goes to an address a visitor
+// typed, which may not be theirs, so only a masked form is kept.
+func (k Kind) StoresRecipients() bool {
+	return k != KindCommentConfirmation
+}
+
+// maskAddress keeps the first letter and the domain: "a***@example.com".
+func maskAddress(addr string) string {
+	at := strings.LastIndex(addr, "@")
+	if at < 1 {
+		return "***"
+	}
+	return addr[:1] + "***" + addr[at:]
+}
+
 const (
 	// maxLoggedBody caps each stored body, the same cap as plugin mail.
 	maxLoggedBody = 256 << 10
@@ -115,9 +131,17 @@ func (s *Service) record(ctx context.Context, c Config, opts SendOptions, to []s
 	if kind == "" {
 		kind = KindOther
 	}
+	recipients, errText := to, cleanError(sendErr, c)
+	if !kind.StoresRecipients() {
+		recipients = make([]string, len(to))
+		for i, addr := range to {
+			recipients[i] = maskAddress(addr)
+			errText = strings.NewReplacer(addr, recipients[i], strings.ToLower(addr), recipients[i]).Replace(errText)
+		}
+	}
 	e := LogEntry{
-		Recipients: to, Subject: subject, Kind: kind, Plugin: opts.Plugin, Status: status,
-		Error: cleanError(sendErr, c), MessageID: messageID, ResentFrom: opts.ResentFrom,
+		Recipients: recipients, Subject: subject, Kind: kind, Plugin: opts.Plugin, Status: status,
+		Error: errText, MessageID: messageID, ResentFrom: opts.ResentFrom,
 	}
 	if kind.StoresBody() {
 		e.BodyText, e.BodyHTML = capBody(textBody), capBody(htmlBody)
