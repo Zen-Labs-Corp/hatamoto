@@ -295,6 +295,37 @@ func TestSubmitDraftFields(t *testing.T) {
 	}
 }
 
+func TestSubmitNotifyRepliesOptIn(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(h *harness)
+		want  bool
+	}{
+		{"rotated name opts in", func(h *harness) { h.post.Set(h.names().Extra, "1") }, true},
+		{"no box means no", func(h *harness) {}, false},
+		{"fixed field name is ignored", func(h *harness) { h.post.Set("extra", "1") }, false},
+		{"admin post never subscribes", func(h *harness) {
+			u := uuid.New()
+			h.req.AdminUserID, h.req.AdminName = &u, "Site"
+			h.post.Set(h.names().Extra, "1")
+		}, false},
+		{"device-confirmed path keeps the flag", func(h *harness) {
+			h.known(true)
+			h.post.Set(h.names().Extra, "1")
+		}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+			tc.setup(h)
+			h.submit(t)
+			if len(h.c.stored) != 1 || h.c.stored[0].NotifyReplies != tc.want {
+				t.Fatalf("stored = %+v, want NotifyReplies %v", h.c.stored, tc.want)
+			}
+		})
+	}
+}
+
 func TestSubmitRateLimitDropsWithoutStoring(t *testing.T) {
 	h := newHarness(t)
 	for i := 0; i < 3; i++ {
