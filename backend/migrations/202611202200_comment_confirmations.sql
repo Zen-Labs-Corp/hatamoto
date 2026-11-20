@@ -7,8 +7,9 @@
 -- +goose Up
 CREATE TABLE IF NOT EXISTS hatamoto_comment_confirmations (
     token_hash   bytea PRIMARY KEY CHECK (octet_length(token_hash) = 32),
-    -- comment_id is declared before commenter_id on purpose: the insert's
-    -- foreign-key locks then follow the comment -> commenter lock order.
+    -- Foreign-key checks take share locks on the comment and the commenter row.
+    -- Postgres orders them by trigger name, not column order, so do not rely
+    -- on the order of these columns for locking.
     comment_id   uuid REFERENCES hatamoto_comments(id) ON DELETE SET NULL,
     commenter_id uuid NOT NULL REFERENCES hatamoto_commenters(id) ON DELETE CASCADE,
     ip_hash      text NOT NULL DEFAULT '',
