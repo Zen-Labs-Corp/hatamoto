@@ -17,10 +17,10 @@
       "cap": 108761
     },
     "editor_js_total_gzip": {
-      "value": 295649,
+      "value": 296708,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 296673
+      "cap": 297732
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -119,6 +119,10 @@
     {
       "reason": "builder loop params editor",
       "date": "2026-11-10"
+    },
+    {
+      "reason": "panel fixes: abort in-flight picker loads, clear aria-busy, drop cache after in-panel writes (editor_js_total_gzip 295649 -> 296708, cap 296673 -> 297732)",
+      "date": "2026-11-20"
     }
   ]
 }
