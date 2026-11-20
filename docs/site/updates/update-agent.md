@@ -87,7 +87,7 @@ Environment variables win over the stored settings, and the admin shows those fi
 | `HATAMOTO_UPDATES` | `auto` | `auto` (also `on`, `true`, `1`), `notify`, or `off` (also `false`, `0`, `no`, `disabled`), case-insensitive. Any other value fails closed to `off` and logs a warning. |
 | `HATAMOTO_UPDATE_CHANNEL` | `stable` | `stable`, `edge` or `canary`. An invalid value is logged and ignored. |
 | `HATAMOTO_UPDATE_URL` | `https://hatamoto.dev/releases` | Another base URL for a mirror. Must be a plain `https://host/path` with no credentials, query or fragment. |
-| `HATAMOTO_UPDATE_BACKUP` | on | Set to `0` to skip the pre-update database dump. |
+| `HATAMOTO_UPDATE_BACKUP` | on | Set to `0` to skip the pre-update backup. |
 | `WORKER_DISABLE_JOBS` | empty | A comma-separated list of jobs; include `update_check` to stop scheduled checks. The CLI still works. |
 | `HATAMOTO_WORKER` | on | `off` runs no scheduler, so no scheduled checks. |
 
@@ -128,43 +128,33 @@ Before switching, the agent checks that:
 
 Any miss is shown in `update status` and retried at the next check. `hatamoto update apply vX.Y.Z --force` skips the SDK and disk checks. The agent also skips a run, reporting `busy`, while a switch is in progress or the running release is still unproven.
 
-It then takes the pre-update database dump described below. A failed dump never stops an update.
+It then takes the pre-update backup described below. If the backup fails, the release is not installed.
 
-## The pre-update database dump
+## The pre-update backup
 
-Before a scheduled install, `hatamoto update check` or the admin's **Update now**, the agent runs `pg_dump` against the database in `DATABASE_URL` and writes:
+Before a scheduled install, `hatamoto update check`, `hatamoto update apply vX.Y.Z` or the admin's **Update now**, the agent takes a full backup, the same kind as **Back up now** in Settings > Backups & recovery, and writes it as:
 
 ```text
-$HATAMOTO_DATA/backups/pre-<version>.dump
+$HATAMOTO_DATA/backups/<time>-pre_update.tar
 ```
 
-For example `pre-v1.4.2.dump`. `hatamoto update apply vX.Y.Z` from the command line takes no dump.
+For example `20261120T053826Z-pre_update.tar`, with a `.json` file of the same name beside it. [Back up and restore](../operate/backups.md) describes what the archive holds and how `hatamoto backup restore` puts it back.
 
-- The format is `pg_dump --format=custom`, so restore it with `pg_restore`.
-- The `backups` directory is created with mode 0700 and the file is 0600, because it holds the whole database.
-- Only one dump is kept. Writing a new `pre-*.dump` removes older ones. Other file names in the directory are left alone.
-- The connection is passed to `pg_dump` through `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` and `PGSSLMODE`, so the password never shows in a process listing.
-- A dump has a ten minute limit.
-- The dump is taken only when `pg_dump` is installed and its major version equals the server's major version (and is at least 10). Otherwise the status notes `no database backup` with the reason. The official image does not bundle `pg_dump`; install a matching `postgresql-client` on a systemd host if you want it.
-- The dump is a copy for you. The agent never restores it, and a failure never stops an update.
-- Set `HATAMOTO_UPDATE_BACKUP=0` to turn it off (the status notes `database backup is off`), for example if your own backups already run on a tighter schedule.
+- The `backups` directory has mode 0700, because the archives hold the whole database.
+- The newest five pre-update backups are kept; `HATAMOTO_BACKUP_KEEP_PRE_UPDATE` sets another number from 1 to 50. Manual backups are counted separately.
+- The database part is written by `pg_dump`, connected to `DATABASE_DIRECT_URL`, or to `DATABASE_URL` when that is not set. The connection is passed through `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` and `PGSSLMODE`, so the password never shows in a process listing.
+- When another backup is running, the agent waits up to ten minutes for it to finish.
+- `pg_dump` must be installed, with the same major version as the database server (10 or later). The official image and the image built in [Install with Docker](../getting-started/install-docker.md) include `pg_dump` 16. On a systemd host, install the `postgresql-client` package of your server's major version.
+- If the backup fails, for example because `pg_dump` is missing, the release is **not installed**. `update status` shows `backup failed` with the reason, and Settings > Updates shows **Backup failed**. Fix the cause and select **Update now** again, or install that one release without a backup: **Update to vX.Y.Z without a backup** in the admin, or `hatamoto update apply vX.Y.Z --no-backup`.
+- Set `HATAMOTO_UPDATE_BACKUP=0` to turn the backup off for every update (the status notes `backup skipped`), for example if your own backups already run on a tighter schedule.
 
-The dump is not your backup strategy. It covers one point in time before an update and lives next to the data it protects.
-
-Restoring the dump into a scratch database, as an example to adapt:
-
-```bash
-createdb hatamoto_restore
-pg_restore --no-owner --dbname hatamoto_restore "$HATAMOTO_DATA/backups/pre-v1.4.2.dump"
-```
-
-Do not restore over a live database unless you also restore the binary the dump was taken with.
+The pre-update backup is not your backup strategy. It covers one point in time before an update and lives next to the data it protects. To restore one, give its id to `hatamoto backup restore` as described in [Back up and restore](../operate/backups.md), with the Hatamoto version that made it.
 
 ### What to back up for a full restore
 
 | What | Where |
 |---|---|
-| Database | `pg_dump` of `DATABASE_URL` (the pre-update dump is one example) |
+| Database | `pg_dump` of `DATABASE_URL` (a pre-update backup holds one) |
 | Server secret | `$HATAMOTO_SECRETS_DIR` (default `./data/secrets` under the working directory, `/data/secrets` in its own volume in the Docker image). Without it, a new secret is generated, and flash cookies, theme preview links and stored WordPress import credentials made with the old one stop working. Sessions and API keys live in the database and are not affected. |
 | Uploads | `MEDIA_UPLOAD_DIR` (default `./uploads`, `/app/uploads` in the image) |
 | Install id | `$HATAMOTO_DATA/install_id` (optional; it only sets your rollout bucket) |
@@ -189,6 +179,7 @@ Restore the database and secrets first, then bring up the binary, which runs `mi
 | `rolled back yanked` | The running release was withdrawn and the box moved away from it. |
 | `rollback pending` | A check without install found the running release withdrawn; the next scheduled run rolls back. |
 | `update failed` | An **Update now** from the admin stopped with an error. |
+| `backup failed` | The pre-update backup failed, so the release was not installed. |
 | `notify` | Mode notify: a release is reported, not installed. |
 | `off` | Updates are off. |
 | `busy` | A switch, an unproven release, an import or another check is in progress. |

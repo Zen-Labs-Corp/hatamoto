@@ -13,7 +13,7 @@ hatamoto update status
 hatamoto update check [--dry-run]
 hatamoto update pin vMAJOR.MINOR
 hatamoto update unpin
-hatamoto update apply vMAJOR.MINOR.PATCH [--force]
+hatamoto update apply vMAJOR.MINOR.PATCH [--force] [--no-backup]
 hatamoto update apply --file F --record R [--sig S]
 hatamoto update retry vMAJOR.MINOR.PATCH [--force] [--no-backup]
 hatamoto update rollback [--force]
@@ -76,7 +76,7 @@ last check  2026-11-02T09:14:07Z ok
 
 ## check
 
-Checks the channel now, stores the outcome like a scheduled check and, when policy allows, installs, taking the pre-update database dump first. In mode `off` it makes no request and the status line reads `off: updates are off`.
+Checks the channel now, stores the outcome like a scheduled check and, when policy allows, installs, taking the pre-update backup first. In mode `off` it makes no request and the status line reads `off: updates are off`.
 
 Add `--dry-run` to decide without installing or storing anything: the status line then ends with `(dry run: nothing installed)`.
 
@@ -122,7 +122,7 @@ status      blocked: v1.4.2 removes permission "entities.write", still used by p
 
 When another check is running the command stops with `not installing vX now: <reason>`.
 
-Like a scheduled install and the admin's **Update now**, this route takes the pre-update database dump first, unless you pass `--no-backup`. It does not touch the stored status.
+Like a scheduled install and the admin's **Update now**, this route takes the pre-update backup first, unless you pass `--no-backup`. It does not touch the stored status.
 
 ## apply --file
 
@@ -184,7 +184,7 @@ It refuses a version that:
 | Flag | Meaning |
 |---|---|
 | `--force` | Skip the plugin and theme preflight, as for `apply`. |
-| `--no-backup` | Skip the pre-update database dump. |
+| `--no-backup` | Skip the pre-update backup. |
 
 The admin's **Retry** button on **Settings > Updates** does the same for the owner. See [Check for and apply an update](check-and-apply-an-update.md).
 

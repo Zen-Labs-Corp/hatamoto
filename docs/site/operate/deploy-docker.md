@@ -18,7 +18,7 @@ In this guide you make the Docker stack from the getting-started guide fit for p
 
 ### Know what you are running
 
-1. Read what the image sets. It is `debian:bookworm-slim` with CA certificates and the `hatamoto` program added, and the source tree's own `Dockerfile` builds the same image from source. The command is `supervise`: the **supervisor** is the process that starts the server, watches it and switches to a new release after an update. It runs as PID 1 with no shell or entrypoint script, so if it exits, Docker restarts the container.
+1. Read what the image sets. It is `debian:bookworm-slim` with CA certificates, `pg_dump` 16 and the `hatamoto` program added, and the source tree's own `Dockerfile` builds the same image from source. The command is `supervise`: the **supervisor** is the process that starts the server, watches it and switches to a new release after an update. It runs as PID 1 with no shell or entrypoint script, so if it exits, Docker restarts the container.
 
    | Item | Value |
    |---|---|
@@ -31,6 +31,7 @@ In this guide you make the Docker stack from the getting-started guide fit for p
    | Uploads | `/app/uploads` (the default `MEDIA_UPLOAD_DIR` is `./uploads`, relative to `/app`) |
    | Port | `EXPOSE 8090` |
    | Health check | `hatamoto healthcheck` every 30 seconds, 5 second timeout, 30 second start period, 3 retries |
+   | Backup tool | `pg_dump` 16 from `postgresql-client-16`, for the backups in the admin and the backup taken before each update. Its major version must match the database server's: change both if you run another Postgres major |
 
 2. Know the four named volumes, and back them all up (see [Back up and restore](backups.md)). The `secrets` volume sits inside `/data` so the secret survives if `data` is recreated. Do not remove it.
 

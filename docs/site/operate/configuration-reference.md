@@ -201,7 +201,7 @@ Which command reads which variable is listed in the [command-line reference](cli
 |---|---|---|
 | `$HATAMOTO_SECRETS_DIR/secrets.env` | The generated server secret, mode 0600, directory 0700. | No. Back it up, or set the secret in the environment. |
 | `$HATAMOTO_DATA/releases` | Release binaries and the supervisor's state (`state.json`, `supervisor.pid`). | The binaries can be fetched again. |
-| `$HATAMOTO_DATA/backups/pre-<version>.dump` | The database dump taken before an update, mode 0600, directory 0700. One is kept. See [Backups and rollback](../updates/backups-and-rollback.md). | No, but it is not a backup plan. |
+| `$HATAMOTO_DATA/backups` | Backup archives, `<time>-<kind>.tar` with a `.json` file each, directory 0700: manual ones, scheduled ones and one taken before each update. By default the newest 10 manual, 7 scheduled and 5 pre-update backups are kept. See [Back up and restore](backups.md). | No, but the copies taken before updates are not a backup plan. |
 | `$HATAMOTO_DATA/cache/wasm` | Compiled plugin code. | Yes, recreated on demand. |
 | `$HATAMOTO_DATA/install_id` | A random identifier for this install, mode 0600. It decides when this install is offered a new release and never leaves the machine. | Keep it with the data directory; a new one changes when releases arrive. |
 | `MEDIA_UPLOAD_DIR` | Uploaded media files, including generated image variants. The database only stores their records. With `MEDIA_STORAGE=s3` nothing is written here and the files live in the bucket instead. | No. Back it up (with `s3`, back up the bucket: see [Keep media in object storage](media-object-storage.md)). |
