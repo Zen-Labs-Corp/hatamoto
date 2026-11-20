@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/comment"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
 )
 
@@ -112,7 +112,7 @@ func TestCommentEventDeletedCarriesIDsOnly(t *testing.T) {
 
 func TestCommentEventNeverLeaksPrivateFields(t *testing.T) {
 	c := testComment(comment.StatusPending)
-	b, err := json.Marshal(commentEvent(c))
+	b, err := jsonx.Marshal(commentEvent(c))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestPluginCommentReaderWithoutComments(t *testing.T) {
 	if err != nil || th.Items == nil || len(th.Items) != 0 || th.Page != 1 {
 		t.Fatalf("thread %+v err %v", th, err)
 	}
-	b, _ := json.Marshal(th)
+	b, _ := jsonx.Marshal(th)
 	if !strings.Contains(string(b), `"items":[]`) {
 		t.Errorf("items not an empty array: %s", b)
 	}

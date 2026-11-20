@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -12,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/comment"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/mcpserver"
 )
 
@@ -129,7 +129,7 @@ func TestMCPCommentListFilterAndRows(t *testing.T) {
 	if f.filter.EntityID != ent.String() || f.filter.PerPage != 10 || f.filter.Page != 2 || f.filter.Status != "pending" {
 		t.Errorf("filter %+v", f.filter)
 	}
-	b, _ := json.Marshal(rows[0])
+	b, _ := jsonx.Marshal(rows[0])
 	for _, bad := range []string{"RAWBODY", "COMMENTER-1", "USER-1", "body_raw", "commenter"} {
 		if strings.Contains(string(b), bad) {
 			t.Errorf("row leaks %q: %s", bad, b)
