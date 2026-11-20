@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -131,7 +132,7 @@ func (a *Admin) handleCommentBlocklistsSave(w http.ResponseWriter, r *http.Reque
 	if !clear {
 		text := r.PostForm.Get("entries")
 		var errs []ui.FieldError
-		entries, errs = cmtrParseDomains(text, "bl-"+kind+"-entries")
+		entries, errs = cmtrParseDomains(text, "bl-"+kind+"-entries", a.cmtrStoredEntries(r.Context(), svc, kind))
 		if len(errs) > 0 {
 			a.renderCmtrBlocklists(w, r, svc, http.StatusUnprocessableEntity, kind, text, errs)
 			return
@@ -151,10 +152,29 @@ func (a *Admin) handleCommentBlocklistsSave(w http.ResponseWriter, r *http.Reque
 	Redirect(w, r, a.adminPath+cmtrBlocklistsPath)
 }
 
+// cmtrStoredEntries is what the kind already holds. Spam learning stores hosts
+// the shape check refuses (IDN, single label), and saving the card must not
+// fail on lines the owner never typed.
+func (a *Admin) cmtrStoredEntries(ctx context.Context, svc CommentsService, kind string) map[string]bool {
+	lists, err := svc.Blocklists(ctx)
+	if err != nil {
+		return nil
+	}
+	known := map[string]bool{}
+	for _, l := range lists {
+		if l.Kind == kind {
+			for _, e := range l.Entries {
+				known[e] = true
+			}
+		}
+	}
+	return known
+}
+
 // cmtrParseDomains reads one domain per line: trimmed, lower case, without a
 // scheme, a path or a leading "@", deduplicated. Each bad line is reported by
-// its number.
-func cmtrParseDomains(text, fieldID string) ([]string, []ui.FieldError) {
+// its number. A line the store already holds (known) is kept as it is.
+func cmtrParseDomains(text, fieldID string, known map[string]bool) ([]string, []ui.FieldError) {
 	var out []string
 	var errs []ui.FieldError
 	seen := map[string]bool{}
@@ -171,7 +191,7 @@ func cmtrParseDomains(text, fieldID string) ([]string, []ui.FieldError) {
 		if j := strings.IndexAny(d, "/?#"); j >= 0 {
 			d = d[:j]
 		}
-		if !cmtrDomainShape(d) {
+		if !known[d] && !cmtrDomainShape(d) {
 			errs = append(errs, ui.FieldError{ID: fieldID, Label: "Line " + strconv.Itoa(i+1), Message: "Line " + strconv.Itoa(i+1) + " is not a domain"})
 			continue
 		}

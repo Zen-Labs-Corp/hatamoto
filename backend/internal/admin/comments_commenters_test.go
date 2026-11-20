@@ -111,6 +111,26 @@ func TestCommentBlocklistsInvalid(t *testing.T) {
 	}
 }
 
+// Learned entries the shape check refuses (IDN, single label) must not block
+// saving the card; a new line of that shape still does.
+func TestCommentBlocklistsKeepLearnedEntries(t *testing.T) {
+	t.Parallel()
+
+	fake := cmtrBlocklistsFake()
+	fake.blocklists[1] = Blocklist{Kind: "link_domain", Entries: []string{"пример.рф", "localhost"}, Count: 2}
+	svc := &cmtrSaveFake{fakeComments: fake}
+	p := newCommentsRig(t, nil)
+	p.a.deps.Comments = svc
+	rec := p.do("POST", "/admin/settings/comments/blocklists", "owner-token", url.Values{"kind": {"link_domain"}, "entries": {"пример.рф\nlocalhost\nnew.example"}}, nil)
+	if rec.Code != 303 || !svc.saved || len(svc.entries) != 3 {
+		t.Fatalf("POST = %d saved=%v entries=%v, want the learned lines kept", rec.Code, svc.saved, svc.entries)
+	}
+	rec = p.do("POST", "/admin/settings/comments/blocklists", "owner-token", url.Values{"kind": {"link_domain"}, "entries": {"пример.рф\nбыл.рф"}}, nil)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "Line 2 is not a domain") {
+		t.Errorf("a new IDN line = %d, want 422 on line 2", rec.Code)
+	}
+}
+
 func TestCommentBlocklistsUnsupported(t *testing.T) {
 	t.Parallel()
 
