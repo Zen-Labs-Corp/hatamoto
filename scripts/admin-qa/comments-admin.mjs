@@ -2,15 +2,24 @@
 // understand switch, and the plain-page path with JavaScript off), the editor's read-only settings, the sidebar
 // item and badge, the audit entry, and the moderation basics (held reasons, approve from the row menu, bulk trash),
 // on a desktop and a 390px viewport. Comments are switched off again at the end, even after a failure.
+// First it checks the no-address state (the seed has no site address): the warning, the disabled switch, no enable
+// dialog and the link to Settings > General; a screenshot goes to shots-out/comments/. Then it sets the address and
+// clears it again at the end.
 // Needs QA_SEED_COMMENTS=1 for checks 4 (badge) and 6 (moderation); without it they are skipped with a note.
 // node scripts/admin-qa/comments-admin.mjs   Exit 1 on a failed check, a console error or a page error.
-import { launch, newSession, base, admin } from "./lib.mjs";
+import fs from "node:fs";
+import path from "node:path";
+import { launch, newSession, base, admin, here } from "./lib.mjs";
 
 const seeded = process.env.QA_SEED_COMMENTS === "1";
 const CALLOUT = "Turning comments on will invite spam. Bots and spammers find comment forms within days. Every comment with a link and every first comment will wait in your moderation queue.";
 const WARNING = "Are you sure? Turning comments on will invite spam to this site. You will need to check the moderation queue regularly.";
 const UNDERSTAND = "I understand this will invite spam";
+const NO_ADDRESS = "Comments need your site's public address to send confirmation emails.";
 const settings = `${admin}/settings/comments`;
+const general = `${admin}/settings/general`;
+const shots = process.env.SHOTS || path.join(here, "shots-out", "comments");
+fs.mkdirSync(shots, { recursive: true });
 
 const b = await launch();
 let bad = 0;
@@ -30,6 +39,13 @@ const watch = (p) => {
   p.on("dialog", (d) => d.accept().catch(() => {}));
 };
 const text = (p) => p.locator("body").innerText().then(norm);
+// Sets (or, with "", clears) the site address on Settings > General.
+async function setAddress(p, url) {
+  await p.goto(base + general);
+  await p.fill("#url", url);
+  await p.getByRole("button", { name: "Save identity" }).click();
+  await p.waitForLoadState("load");
+}
 const sw = (p) => p.getByRole("switch").first();
 const overflow = (p) => p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 const commentsLink = (p) => p.locator(`.hm-nav-link[href$="/comments"]`).first();
@@ -52,6 +68,17 @@ const page = await newSession(b, { width: 1440 });
 watch(page);
 let nojs;
 try {
+  // ============ 0. no site address: warned and blocked ============
+  await page.goto(base + settings);
+  ok((await text(page)).includes(NO_ADDRESS), "no address: settings say comments need the public address");
+  ok(await sw(page).isDisabled(), "no address: the switch is disabled");
+  ok((await page.locator("dialog#comments-enable").count()) === 0, "no address: there is no enable dialog");
+  ok((await page.locator('a[href$="/settings/general#identity"]').count()) > 0, "no address: a link leads to Settings > General");
+  await page.screenshot({ path: path.join(shots, "settings-comments-no-address.png"), fullPage: true });
+  await setAddress(page, base);
+  await page.goto(base + settings);
+  ok(!(await text(page)).includes(NO_ADDRESS), "address set: the warning is gone");
+
   // ============ 1. the callout and the switch, off ============
   await page.goto(base + settings);
   ok((await text(page)).includes(CALLOUT), "settings: the callout carries the first warning verbatim");
@@ -150,6 +177,7 @@ try {
   }
   await page.goto(base + settings);
   ok(!(await sw(page).isChecked()), "cleanup: comments are off again");
+  await setAddress(page, "");
   await nojs?.context().close();
 }
 ok(errors.length === 0, `no console or page errors${errors.length ? ": " + errors.slice(0, 3).join(" | ") : ""}`);
