@@ -168,13 +168,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.24.0`; plugins built for `^0.5` to `^0.23` still load, unless they request a removed write permission):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.25.0`; plugins built for `^0.5` to `^0.24` still load, unless they request a removed write permission):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.24.0
+go get hatamoto.dev/sdk@v0.25.0
 ```
 
 SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -184,7 +184,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.24.0` is the git tag `v0.24.0`. The core repository stays
+plain release tags: version `0.25.0` is the git tag `v0.25.0`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`). Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -201,7 +201,7 @@ different repository.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.24 is current (0.24.0).
+> SDK 0.25 is current (0.25.0).
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
@@ -362,11 +362,11 @@ Fired for `comment.created`, `comment.approved`, `comment.spam` and `comment.del
 ```
 `parent_id`, `author_name`, `staff`, `body_html` and `locale` are left out when empty. `status` is `pending`, `approved`, `spam` or `trash`; `staff` is true for a comment written by a signed-in owner or editor. `body_html` is sanitised once when the comment is written.
 
-- `comment.created` fires when a comment is stored as pending or approved, or confirmed by its author. A comment that is auto-approved also fires `comment.approved` right after. A comment the spam filters store as spam fires nothing, and no event fires for an unconfirmed draft.
+- `comment.created` fires when a comment is stored as pending or approved, or confirmed by its author. A comment that is auto-approved also fires `comment.approved`; the two may arrive in either order, so key on the comment `id` and read `status`. A comment the spam filters store as spam fires nothing, and no event fires for an unconfirmed draft.
 - `comment.approved` fires when a comment becomes approved.
 - `comment.spam` fires when a moderator marks a comment as spam.
-- `comment.deleted` fires when a comment is trashed or deleted and when a commenter's data is erased. The payload holds ids and `status` only. It may arrive twice for one comment (trash, then delete) and is not sent for replies removed together with their parent or for unconfirmed drafts purged after 24 hours. Use `id` as the idempotency key.
-- Edits and unapprovals send no event.
+- `comment.deleted` fires when a comment is trashed or deleted and when a commenter's data is erased and the comment is deleted with it. A comment kept for its replies is anonymised instead and fires no event, so a receiver that mirrored its name or body is not told. The payload holds ids and `status` only. It may arrive twice for one comment (trash, then delete) and is not sent for replies removed together with their parent or for unconfirmed drafts purged after 24 hours. Use `id` as the idempotency key.
+- Edits, unapprovals and restoring a trashed comment send no event.
 
 A comment event never carries the commenter's email, a hash, the IP address, the user agent, the author's web address, a spam score or reasons, or the raw body.
 
@@ -527,7 +527,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 |---|---|
 | `name` | `^[a-z][a-z0-9-]{1,39}$`; equals the directory name. `browse`, `security` and `webhooks` are reserved: a new install under them is refused (the admin serves `/plugins/browse` and `/plugins/security`), while a plugin already installed as `browse` or `security` can still be updated and uninstalled |
 | `version` | the plugin's own semver |
-| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.24.0 and also serves `^0.5` to `^0.23` plugins |
+| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.25.0 and also serves `^0.5` to `^0.24` plugins |
 | `description` | optional |
 | `config` | string map readable in the guest (`pdk.GetConfig`) |
 | `permissions` | capabilities the plugin asks for; see [Permissions](#permissions). Unknown names are refused |

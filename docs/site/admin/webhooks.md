@@ -51,10 +51,10 @@ A row's menu offers **Edit**, **Pause** or **Resume**, **Send test**, **New secr
 
 Comment events:
 
-- `comment.created` fires when a comment is stored as pending or approved, or when its author confirms it. A comment auto-approved on arrival also fires `comment.approved` right after; `status` tells the two apart. A comment the spam filters store as spam fires nothing, and no event fires for an unconfirmed draft.
+- `comment.created` fires when a comment is stored as pending or approved, or when its author confirms it. A comment auto-approved on arrival also fires `comment.approved`; the two may arrive in either order, so key on the comment id and read `status`. A comment the spam filters store as spam fires nothing, and no event fires for an unconfirmed draft.
 - `comment.approved` fires when a comment becomes approved, by a moderator or automatically.
 - `comment.spam` fires when a moderator marks a comment as spam.
-- `comment.deleted` fires when a comment is trashed or deleted and when a commenter's data is erased. It may arrive twice for one comment (trash, then delete). It is not sent for replies removed together with their parent, nor for unconfirmed drafts purged after 24 hours. Edits and unapprovals send no event.
+- `comment.deleted` fires when a comment is trashed or deleted and when a commenter's data is erased and the comment is deleted with it. A comment kept for its replies is anonymised instead and fires no event, so a receiver that mirrored its name or body is not told. It may arrive twice for one comment (trash, then delete). It is not sent for replies removed together with their parent, nor for unconfirmed drafts purged after 24 hours. Edits, unapprovals and restoring a trashed comment send no event.
 
 Treat `comment_id` as the idempotency key. A comment payload carries the author's display name and the sanitised comment HTML, and never the commenter's email, any hash, IP address, user agent, spam score or reasons, or the raw body. Comments are off by default, so nothing fires until an owner turns them on; the events can be subscribed to beforehand. A binary older than this release rejects `comment.*` when a subscription is edited, so remove those events before downgrading.
 
