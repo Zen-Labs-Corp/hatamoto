@@ -33,7 +33,7 @@ Commenters can tick "Email me when someone replies". It only takes effect once t
 
 Every mail has a one-click unsubscribe link, also sent as a `List-Unsubscribe` header. A moderator who unsubscribed can turn mail back on from the same page.
 
-When surge mode starts, every owner with an email address gets one mail (whatever the Email moderators setting), with a link to the pending queue. The next one comes only after the surge has ended: 10 minutes in which no server saw more than 30 comments in 10 minutes. The mail holds no comment text and no commenter names, and has no unsubscribe link (it is a rare site alarm). It needs the site address and outgoing email, like the other mails.
+When surge mode starts, every owner with an email address gets one mail (whatever the Email moderators setting), with a link to the pending queue. The next one comes only after the surge has ended: no server that can send the surge mail has reported a surge for 12 minutes (the 10 minute window plus the one minute between reports and the one minute a mail run may take). A server that cannot send (no outgoing email, no site address, or `comment_notify` switched off) does not report, so it does not keep the episode open. The mail holds no comment text and no commenter names, and has no unsubscribe link (it is a rare site alarm). It needs the site address and outgoing email, like the other mails.
 
 ## Trust levels
 

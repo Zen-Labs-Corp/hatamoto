@@ -16,6 +16,13 @@ import (
 // surgeMailTimeout bounds one surge mail run, which happens off the request.
 const surgeMailTimeout = time.Minute
 
+// surgeQuiet is the quiet time after the last heartbeat that ends an episode.
+// The heartbeat only records the last reported surge comment: reports are at
+// most SurgeBeat apart, and one can be dropped while a run is in flight (up to
+// surgeMailTimeout). So the heartbeat can trail the local surge window by that
+// much; without the padding the same surge could claim a second mail.
+const surgeQuiet = commentsubmit.SurgeWindow + commentsubmit.SurgeBeat + surgeMailTimeout
+
 // surgeClaimer is the part of *comment.Service the surge notifier uses.
 type surgeClaimer interface {
 	NoteSurge(ctx context.Context, quiet time.Duration) (bool, error)
@@ -56,7 +63,7 @@ func (n *commentSurgeNotifier) run(ctx context.Context) error {
 	if len(owners) == 0 {
 		return nil
 	}
-	won, err := n.claim.NoteSurge(ctx, commentsubmit.SurgeWindow)
+	won, err := n.claim.NoteSurge(ctx, surgeQuiet)
 	if err != nil || !won {
 		return err
 	}

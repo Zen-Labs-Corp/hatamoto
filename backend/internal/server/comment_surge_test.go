@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/comment"
+	"hatamoto.dev/core/internal/commentsubmit"
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/user"
 )
@@ -98,12 +99,33 @@ func TestSurgeNotifierMailsOncePerEpisode(t *testing.T) {
 		t.Errorf("the same episode mailed again: %d mails", len(mail.sent))
 	}
 
-	claim.now = claim.now.Add(10 * time.Minute)
+	claim.now = claim.now.Add(surgeQuiet)
 	if err := n.run(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if len(mail.sent) != 4 {
 		t.Errorf("a new episode sent %d mails in total, want 4", len(mail.sent))
+	}
+}
+
+// A beat at T, unreported surge comments until T+59s, the next beat at
+// T+SurgeWindow: the local window never emptied, so no second mail.
+func TestSurgeNotifierHeartbeatGapKeepsEpisode(t *testing.T) {
+	t0 := time.Now()
+	claim := &fakeSurgeClaim{now: t0}
+	mail := &fakeSurgeMail{configured: true}
+	n := newSurgeNotifier(claim, mail, "https://site.test", "a@example.test")
+	ctx := context.Background()
+
+	if err := n.run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	claim.now = t0.Add(commentsubmit.SurgeWindow)
+	if err := n.run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(mail.sent) != 1 {
+		t.Fatalf("a heartbeat gap inside one surge sent %d mails, want 1", len(mail.sent))
 	}
 }
 

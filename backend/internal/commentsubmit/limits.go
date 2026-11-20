@@ -18,7 +18,8 @@ const (
 	SurgeLimit = defaultSurgeLimit
 	// SurgeWindow is the surge sliding window; an episode ends after a full window without a surge.
 	SurgeWindow = surgeWindow
-	surgeBeat   = time.Minute // at most one surge callback per replica per minute
+	// SurgeBeat is the least time between two surge callbacks from one replica.
+	SurgeBeat = time.Minute
 )
 
 // ReasonSlowMode is the hold reason this part adds next to the model's comment.Reason* constants.
@@ -151,7 +152,7 @@ func (s *Surge) Beat(started bool) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := s.now()
-	if !started && !s.lastBeat.IsZero() && now.Sub(s.lastBeat) < surgeBeat {
+	if !started && !s.lastBeat.IsZero() && now.Sub(s.lastBeat) < SurgeBeat {
 		return false
 	}
 	s.lastBeat = now
