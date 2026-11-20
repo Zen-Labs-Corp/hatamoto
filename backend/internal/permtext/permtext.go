@@ -22,6 +22,7 @@ var texts = map[string]Text{
 	sdk.PermMediaRead:     {Help: "Read the media library"},
 	sdk.PermRedirectsRead: {Help: "Read redirects"},
 	sdk.PermFormsRead:     {Help: "Hear about form submissions"},
+	sdk.PermCommentsRead:  {Help: "Read approved comments, hear about new, approved, spam and deleted comments, and add to the spam score of new comments"},
 	sdk.PermSettings:      {Help: "Store its own settings"},
 	sdk.PermLog:           {Help: "Write to the server log"},
 	sdk.PermMailSend:      {Help: "Send email"},

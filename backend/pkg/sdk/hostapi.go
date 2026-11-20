@@ -74,6 +74,9 @@ const (
 	FnFormsList        = "forms.list"
 	FnFormsSubmissions = "forms.submissions" // {form_slug, limit?, offset?}
 
+	FnCommentsThread = "comments.thread" // {entity_id, page?} -> CommentThread (approved only)
+	FnCommentsCounts = "comments.counts" // {entity_ids (1..100)} -> CommentCounts (approved only)
+
 	FnSettingsGet     = "settings.get"     // {} -> the plugin's own settings object
 	FnLog             = "log"              // {level, message}
 	FnMailSend        = "mail.send"        // {to[], subject, text?, html?}

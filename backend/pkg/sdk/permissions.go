@@ -59,6 +59,10 @@ const (
 	// never in permissions (it is not in Permissions), and the owner ticks it
 	// separately. It is stored with the other grants.
 	PermUICamera Permission = "ui.allow:camera"
+
+	// PermCommentsRead lets a plugin read approved comments, hear about
+	// comment.created|approved|spam|deleted and register comment.check.
+	PermCommentsRead Permission = "comments.read"
 )
 
 // Permissions lists every capability, in a stable order.
@@ -67,7 +71,7 @@ var Permissions = []Permission{
 	PermRedirectsRead, PermFormsRead,
 	PermSettings, PermLog, PermMailSend, PermHTTPFetch, PermHTTPFetchAny, PermKV, PermDB,
 	PermBuilderData, PermBuilderIsland, PermSiteScripts,
-	PermPackagesInspect, PermEntitiesFilter,
+	PermPackagesInspect, PermEntitiesFilter, PermCommentsRead,
 }
 
 // ValidPermission reports whether p is a known capability.

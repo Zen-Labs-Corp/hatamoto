@@ -50,6 +50,20 @@ var (
 	// the submitted fields, so it reaches only plugins granted forms.read.
 	FormSubmitted = Action[FormSubmittedEvent]{"form.submitted"}
 
+	// CommentCreated fires after a comment was stored as pending or approved
+	// (or its author confirmed it). It reaches only plugins granted comments.read.
+	CommentCreated = Action[CommentEvent]{"comment.created"}
+	// CommentApproved fires when a comment becomes approved, including auto-approval.
+	// It reaches only plugins granted comments.read.
+	CommentApproved = Action[CommentEvent]{"comment.approved"}
+	// CommentSpam fires when a moderator marks a comment as spam. It reaches
+	// only plugins granted comments.read.
+	CommentSpam = Action[CommentEvent]{"comment.spam"}
+	// CommentDeleted fires when a comment is trashed or deleted; the payload
+	// holds ids and status only. It may arrive twice for one comment. It reaches
+	// only plugins granted comments.read.
+	CommentDeleted = Action[CommentEvent]{"comment.deleted"}
+
 	JSONLDEnrich = Filter[JSONLDDoc]{"jsonld.enrich"}
 	SitemapURLsF = Filter[SitemapURLs]{"sitemap.urls"}
 
@@ -91,6 +105,12 @@ var (
 	// trap or timeout leaves the affected values empty and the render
 	// degraded (fail open).
 	BuilderData = Filter[BuilderDataRequest]{"builder.data"}
+
+	// CommentCheckF may only ADD to the spam score of a new comment. Any error,
+	// trap, timeout, reject, busy plugin or open breaker holds the comment for
+	// moderation (fail closed, like entity.before_save). It is registered only
+	// while the plugin holds comments.read.
+	CommentCheckF = Filter[CommentCheck]{"comment.check"}
 )
 
 // ActionNames and FilterNames list every built-in hook, in a stable order.
@@ -98,9 +118,11 @@ var (
 	ActionNames = []string{
 		EntityCreated.Name, EntityUpdated.Name, EntityPublished.Name, EntityDeleted.Name, ImportCompleted.Name,
 		AgentHit.Name, AgentFirstCrawl.Name, FormSubmitted.Name,
+		CommentCreated.Name, CommentApproved.Name, CommentSpam.Name, CommentDeleted.Name,
 	}
 	FilterNames = []string{
 		JSONLDEnrich.Name, SitemapURLsF.Name, RenderHead.Name, RenderPage.Name, EntityBeforeSave.Name, BuilderData.Name, RenderSiteGraph.Name, RequestRedirect.Name,
+		CommentCheckF.Name,
 	}
 )
 
