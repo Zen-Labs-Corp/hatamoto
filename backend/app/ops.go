@@ -78,7 +78,12 @@ func runOps(ctx context.Context, args []string, _ *slog.Logger, out io.Writer) e
 		}
 		secret, err := serverSecret()
 		if err != nil {
-			return fmt.Errorf("read the server secret: %w", err)
+			if args[0] == "import" {
+				return fmt.Errorf("read the server secret: %w", err)
+			}
+			// An export is still useful without a check, as in the backup engine.
+			fmt.Fprintf(os.Stderr, "warning: cannot read the server secret (%v); exporting without a secret check\n", err)
+			secret = ""
 		}
 		if args[0] == "export" {
 			return runExport(ctx, db, cfg.Server.MediaUploadDir, store, secret, args[1:], out)
