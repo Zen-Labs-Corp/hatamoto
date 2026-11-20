@@ -146,6 +146,12 @@ func (r *postRig) names(v url.Values) spam.Names {
 }
 
 func (r *postRig) do(v url.Values, mut ...func(*http.Request)) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	r.doTo(rec, v, mut...)
+	return rec
+}
+
+func (r *postRig) doTo(rec *httptest.ResponseRecorder, v url.Values, mut ...func(*http.Request)) {
 	req := httptest.NewRequest(http.MethodPost, "/-/comments/"+r.entity.String(), strings.NewReader(v.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.RemoteAddr = postIP + ":4711"
@@ -153,9 +159,7 @@ func (r *postRig) do(v url.Values, mut ...func(*http.Request)) *httptest.Respons
 	for _, m := range mut {
 		m(req)
 	}
-	rec := httptest.NewRecorder()
 	r.srv.handleCommentPost(rec, req)
-	return rec
 }
 
 func header(k, v string) func(*http.Request) { return func(r *http.Request) { r.Header.Set(k, v) } }
@@ -522,6 +526,26 @@ func TestCommentPostNoJSInvalidRerendersPage(t *testing.T) {
 	}
 	if len(f.notFound) != 0 {
 		t.Fatalf("404 rows: %v", f.notFound)
+	}
+}
+
+// The security middleware sets the global policy before the handler runs; the
+// re-rendered page must carry the page policy, as a normal GET does.
+func TestCommentPostNoJSRerenderCarriesPageCSP(t *testing.T) {
+	r := newPostRig(t)
+	r.mountPage(t)
+	v, _ := r.longPost()
+	rec := httptest.NewRecorder()
+	rec.Header().Set("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none'")
+	r.doTo(rec, v)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d, want 200", rec.Code)
+	}
+	if csp := rec.Header().Get("Content-Security-Policy"); !strings.Contains(csp, "frame-src 'self' https:") {
+		t.Fatalf("CSP = %q, want the page policy", csp)
+	}
+	if rec.Header().Get("X-Frame-Options") != "SAMEORIGIN" || !strings.Contains(rec.Header().Get("Cache-Control"), "no-store") {
+		t.Fatalf("headers = %v", rec.Header())
 	}
 }
 

@@ -307,7 +307,9 @@ func (s *Server) writeCommentPage(w http.ResponseWriter, r *http.Request, path s
 	req.Form, req.PostForm = nil, nil
 	req.Header.Del("HX-Request")
 	req.Header.Del("Content-Type")
-	bw := &bufferedResponse{h: http.Header{}}
+	// Seeded with the outgoing headers (the security middleware's CSP) so the
+	// page handlers adjust them as they do on a normal GET.
+	bw := &bufferedResponse{h: w.Header().Clone()}
 	if path == "/" {
 		hp.handleRenderHome(bw, req)
 	} else {
@@ -316,6 +318,7 @@ func (s *Server) writeCommentPage(w http.ResponseWriter, r *http.Request, path s
 	if bw.status != http.StatusOK {
 		return false // a redirect, 404 or 5xx must not answer the post
 	}
+	clear(w.Header())
 	for k, v := range bw.h {
 		w.Header()[k] = v
 	}
