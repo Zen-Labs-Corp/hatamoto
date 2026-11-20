@@ -70,3 +70,12 @@ func TestSendCommentConfirmation_EscapesTitle(t *testing.T) {
 		t.Errorf("raw <script> in the HTML part:\n%s", data)
 	}
 }
+
+func TestSendCommentConfirmation_TitleQuotedPlainly(t *testing.T) {
+	data := sendCommentConfirmation(t, CommentConfirmationData{
+		SiteName: "S", EntityTitle: `Say "hi"`, URL: "https://example.test/-/comments/confirm/TOKEN", ExpiresIn: "24 hours",
+	})
+	if !strings.Contains(data, `comment on "Say "hi"" at S`) {
+		t.Errorf("text part must not escape the title:\n%s", data)
+	}
+}

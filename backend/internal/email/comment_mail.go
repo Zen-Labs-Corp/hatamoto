@@ -21,7 +21,7 @@ func (s *Service) SendCommentConfirmation(ctx context.Context, to string, data C
 	if err != nil {
 		return err
 	}
-	text := fmt.Sprintf("Someone used this address to comment on %q at %s.\nConfirm it was you:\n\n  %s\n\nThe link works once and expires in %s.\n\nIf this was not you, ignore this email. Nothing will be published.\n",
+	text := fmt.Sprintf("Someone used this address to comment on \"%s\" at %s.\nConfirm it was you:\n\n  %s\n\nThe link works once and expires in %s.\n\nIf this was not you, ignore this email. Nothing will be published.\n",
 		data.EntityTitle, data.SiteName, data.URL, data.ExpiresIn)
 	subject := "Confirm your comment on " + data.SiteName
 	if clean, ok := SanitizeHeader(subject); ok {
