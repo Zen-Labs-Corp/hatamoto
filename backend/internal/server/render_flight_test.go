@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -15,16 +16,19 @@ import (
 	"hatamoto.dev/core/internal/render"
 )
 
-// flightWaitFor polls cond for up to 5 s.
-func flightWaitFor(t *testing.T, what string, cond func() bool) {
+// flightWaitFor polls cond for up to 5 s. It runs on handler goroutines too,
+// so a timeout is reported with t.Errorf (never FailNow) and returns false.
+func flightWaitFor(t *testing.T, what string, cond func() bool) bool {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for !cond() {
 		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
+			t.Errorf("timed out waiting for %s", what)
+			return false
 		}
 		time.Sleep(time.Millisecond)
 	}
+	return true
 }
 
 func TestConcurrentMissRendersOnce(t *testing.T) {
@@ -307,5 +311,51 @@ func TestFlightUnstorableMarksExpireAndStayBounded(t *testing.T) {
 	}
 	if len(f.unstorable) > maxUnstorable {
 		t.Fatalf("%d marks kept, bound is %d", len(f.unstorable), maxUnstorable)
+	}
+}
+
+func TestFlightRejectedLeaderStoreSendsFollowersToRender(t *testing.T) {
+	const n = 5
+	f := newRenderFixture(t)
+	key := cache.RenderedPageKey(f.h.engine.Version(), "/about")
+	var loads atomic.Int32
+	f.next = func() (*routeResult, pageOutcome, error) {
+		if loads.Add(1) == 1 {
+			flightWaitFor(t, "followers to park", func() bool { return f.h.flight.waiting(key) == n-1 })
+			// An invalidation lands while the leader renders: its store is rejected.
+			f.cache.mu.Lock()
+			f.cache.gen++
+			f.cache.mu.Unlock()
+			return okPage("StaleLeader")()
+		}
+		return okPage("FreshFollower")()
+	}
+	bodies := make([]string, n)
+	var wg sync.WaitGroup
+	for i := range n {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			bodies[i] = f.get("/about").Body.String()
+		}()
+	}
+	wg.Wait()
+
+	if got := loads.Load(); got != n {
+		t.Fatalf("loads = %d, want %d (every follower renders itself)", got, n)
+	}
+	stale := 0
+	for _, b := range bodies {
+		if strings.Contains(b, "StaleLeader") {
+			stale++
+		}
+	}
+	if stale != 1 { // only the leader's own response
+		t.Fatalf("%d responses carry the leader's body, want 1 (its own)", stale)
+	}
+	for _, k := range f.cache.sets {
+		if strings.Contains(string(f.cache.data[k]), "StaleLeader") {
+			t.Fatal("the rejected leader body was stored")
+		}
 	}
 }
