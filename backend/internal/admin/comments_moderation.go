@@ -171,7 +171,7 @@ func (a *Admin) handleComments(w http.ResponseWriter, r *http.Request) {
 		PrimaryFilters: primary, PopoverFilters: popover, Chips: chips,
 		ClearHref: modHref(base, commentListParams{Status: p.Status, Q: p.Q, Entity: p.Entity, Trust: p.Trust}.query()),
 		ListBar:   true, Live: true, Target: "comments-results", ChipsOutside: true,
-		Bulk: modBulkActions(a.adminPath), BulkURL: a.adminPath + "/comments/bulk",
+		Bulk: modBulkActions(a.adminPath, p.Status), BulkURL: a.adminPath + "/comments/bulk",
 		Empty: ui.Empty{Icon: "inbox", Title: "No comments here", Body: "Nothing matches this view."},
 	}
 
@@ -517,14 +517,26 @@ func (a *Admin) handleCommentEdit(w http.ResponseWriter, r *http.Request) {
 // modMaxBulk caps one bulk request.
 const modMaxBulk = 100
 
-func modBulkActions(adminPath string) []ui.BulkAction {
+// modBulkActions are the bulk actions that make sense on a tab: no Approve on
+// Approved, no Spam on Spam, no Trash on Trash.
+func modBulkActions(adminPath, tab string) []ui.BulkAction {
 	target := adminPath + "/comments/bulk"
-	return []ui.BulkAction{
-		{Label: "Approve selected", Action: target, Value: "approve"},
-		{Label: "Spam", Action: target, Value: "spam", Danger: true},
-		{Label: "Trash", Action: target, Value: "trash", Danger: true},
-		{Label: "Delete", Action: target, Value: "delete", Danger: true, Confirm: "Delete the selected comments and their replies for good?"},
+	var out []ui.BulkAction
+	switch tab {
+	case modStatusPending:
+		out = append(out, ui.BulkAction{Label: "Approve selected", Action: target, Value: "approve"})
+	case modStatusSpam:
+		out = append(out, ui.BulkAction{Label: "Not spam", Action: target, Value: "approve"})
+	case modStatusTrash:
+		out = append(out, ui.BulkAction{Label: "Restore", Action: target, Value: "approve"})
 	}
+	if tab != modStatusSpam {
+		out = append(out, ui.BulkAction{Label: "Spam", Action: target, Value: "spam", Danger: true})
+	}
+	if tab != modStatusTrash {
+		out = append(out, ui.BulkAction{Label: "Trash", Action: target, Value: "trash", Danger: true})
+	}
+	return append(out, ui.BulkAction{Label: "Delete", Action: target, Value: "delete", Danger: true, Confirm: "Delete the selected comments and their replies for good?"})
 }
 
 // modUniqueIDs keeps the valid, distinct ids in order.
@@ -594,19 +606,28 @@ func (a *Admin) handleCommentsBulk(w http.ResponseWriter, r *http.Request) {
 		}
 		n, err = svc.Delete(ctx, ids, actor)
 		verb = "deleted"
-		if err == nil {
-			a.audit(r, "comments.delete", "comments", map[string]any{"count": n})
-		}
 	default:
 		a.Error(w, r, http.StatusBadRequest, "Unknown action", "Choose an action for the selected comments.")
 		return
 	}
+	// Rows changed before an error are real: audit them either way.
+	if n > 0 {
+		a.audit(r, "comments."+action, "comments", map[string]any{"ids": ids, "done": n, "skipped": len(ids) - n})
+	}
 	if err != nil {
 		a.logger().Error("comment bulk "+action+" failed", "err", err)
-		a.SetFlash(w, r, "error", "The selected comments could not be changed.")
+		a.SetFlash(w, r, "error", fmt.Sprintf("%d of %d %s %s, then it stopped. Try again.", n, len(ids), plural(len(ids), "comment", "comments"), verb))
 		Redirect(w, r, back)
 		return
 	}
-	a.SetFlash(w, r, "success", fmt.Sprintf("%d %s %s.", n, plural(n, "comment", "comments"), verb))
+	msg := fmt.Sprintf("%d %s %s.", n, plural(n, "comment", "comments"), verb)
+	kind := "success"
+	switch skipped := len(ids) - n; {
+	case n == 0:
+		kind, msg = "error", fmt.Sprintf("Nothing changed: the selected %s cannot be %s.", plural(len(ids), "comment", "comments"), verb)
+	case skipped > 0:
+		msg += fmt.Sprintf(" %d skipped (already in that state or gone).", skipped)
+	}
+	a.SetFlash(w, r, kind, msg)
 	Redirect(w, r, back)
 }

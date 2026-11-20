@@ -27,6 +27,7 @@ type fakeComments struct {
 	commenters []CommenterRow
 	options    []EntityOption
 	hasMore    bool
+	skip       int // rows a bulk action cannot change (stale state)
 	err        error
 }
 
@@ -115,7 +116,7 @@ func (f *fakeComments) Approve(_ context.Context, ids []string, actor string) (i
 		return 0, f.err
 	}
 	f.record("approve", actor, ids...)
-	return len(ids), nil
+	return max(len(ids)-f.skip, 0), nil
 }
 
 func (f *fakeComments) Vouch(_ context.Context, commenterID, actor string) (string, error) {
@@ -136,7 +137,7 @@ func (f *fakeComments) MarkSpam(_ context.Context, ids []string, teach SpamTeach
 	}
 	f.record("spam", actor, ids...)
 	f.lastTeach = teach
-	return len(ids), nil
+	return max(len(ids)-f.skip, 0), nil
 }
 
 func (f *fakeComments) Trash(_ context.Context, ids []string, actor string) (int, error) {
@@ -146,7 +147,7 @@ func (f *fakeComments) Trash(_ context.Context, ids []string, actor string) (int
 		return 0, f.err
 	}
 	f.record("trash", actor, ids...)
-	return len(ids), nil
+	return max(len(ids)-f.skip, 0), nil
 }
 
 func (f *fakeComments) Delete(_ context.Context, ids []string, actor string) (int, error) {
@@ -156,7 +157,7 @@ func (f *fakeComments) Delete(_ context.Context, ids []string, actor string) (in
 		return 0, f.err
 	}
 	f.record("delete", actor, ids...)
-	return len(ids), nil
+	return max(len(ids)-f.skip, 0), nil
 }
 
 func (f *fakeComments) Edit(_ context.Context, id, body, actor string) error {

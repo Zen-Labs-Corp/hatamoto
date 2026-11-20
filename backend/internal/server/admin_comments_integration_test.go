@@ -202,6 +202,10 @@ func TestCommentsAdminIntegration(t *testing.T) {
 	if n, err := a.Approve(ctx, []string{c1.String(), c2.String(), ghost.String()}, actor.String()); err != nil || n != 2 {
 		t.Errorf("bulk Approve = %d, %v, want 2", n, err)
 	}
+	// Rows that cannot make the move are skipped, not fatal: c1 and c2 are approved already.
+	if n, err := a.Approve(ctx, []string{c1.String(), c2.String()}, actor.String()); err != nil || n != 0 {
+		t.Errorf("re-Approve = %d, %v, want 0 and no error", n, err)
+	}
 	if g, err := a.Comment(ctx, ghost.String()); err != nil || g.Status != "draft" {
 		t.Errorf("ghost = %+v, %v", g, err)
 	}

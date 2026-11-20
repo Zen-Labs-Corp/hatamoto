@@ -382,6 +382,53 @@ func TestCommentsBulkApprove(t *testing.T) {
 	}
 }
 
+func TestCommentsBulkPartial(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{skip: 1}
+	p := newCommentsRig(t, svc)
+	rec := p.do("POST", "/admin/comments/bulk", "owner-token", url.Values{"action": {"trash"}, "id": {commentsTestID, modSecondID}}, nil)
+	if rec.Code != 303 {
+		t.Fatalf("code = %d", rec.Code)
+	}
+	if flash := p.followFlash(rec.Result().Cookies()); !strings.Contains(flash, "1 comment moved to trash.") || !strings.Contains(flash, "1 skipped") {
+		t.Errorf("flash = %q, want done and skipped counts", flash)
+	}
+	if len(p.events) != 1 || p.events[0].Action != "comments.trash" || p.events[0].Detail["done"] != 1 || p.events[0].Detail["skipped"] != 1 {
+		t.Errorf("audit events = %+v", p.events)
+	}
+	// Nothing could change: say so, and audit nothing.
+	svc.skip = 2
+	p.events = nil
+	rec = p.do("POST", "/admin/comments/bulk", "owner-token", url.Values{"action": {"trash"}, "id": {commentsTestID, modSecondID}}, nil)
+	if flash := p.followFlash(rec.Result().Cookies()); !strings.Contains(flash, "Nothing changed") || len(p.events) != 0 {
+		t.Errorf("flash = %q events = %+v", flash, p.events)
+	}
+}
+
+func TestCommentsBulkActionsPerTab(t *testing.T) {
+	t.Parallel()
+
+	for tab, hidden := range map[string]string{modStatusApproved: "Approve selected", modStatusSpam: "Approve selected", modStatusTrash: "Approve selected"} {
+		for _, a := range modBulkActions("/admin", tab) {
+			if a.Label == hidden {
+				t.Errorf("%s tab offers %q", tab, a.Label)
+			}
+		}
+	}
+	has := func(tab, label string) bool {
+		for _, a := range modBulkActions("/admin", tab) {
+			if a.Label == label {
+				return true
+			}
+		}
+		return false
+	}
+	if has(modStatusSpam, "Spam") || has(modStatusTrash, "Trash") || !has(modStatusPending, "Approve selected") || !has(modStatusTrash, "Restore") {
+		t.Error("bulk actions do not follow the tab")
+	}
+}
+
 func TestCommentsBulkSpam(t *testing.T) {
 	t.Parallel()
 
@@ -409,7 +456,7 @@ func TestCommentsBulkDeleteNeedsConfirm(t *testing.T) {
 	if code != 303 || !slices.Equal(svc.calls, []string{"delete"}) {
 		t.Errorf("confirmed delete = %d calls=%v", code, svc.calls)
 	}
-	if len(p.events) != 1 || p.events[0].Action != "comments.delete" || p.events[0].Detail["count"] != 2 {
+	if len(p.events) != 1 || p.events[0].Action != "comments.delete" || p.events[0].Detail["done"] != 2 {
 		t.Errorf("audit events = %+v", p.events)
 	}
 }

@@ -389,12 +389,13 @@ func (a commentsAdmin) nonDrafts(ctx context.Context, ids []uuid.UUID) ([]uuid.U
 }
 
 // each applies fn to every id and counts the ones that changed. A comment
-// that is already gone is skipped.
+// that is already gone, or that cannot make the move (another moderator got
+// there first), is skipped, so one stale row never stops the rest.
 func each(ids []uuid.UUID, fn func(uuid.UUID) error) (int, error) {
 	n := 0
 	for _, id := range ids {
 		err := fn(id)
-		if errors.Is(err, comment.ErrNotFound) {
+		if errors.Is(err, comment.ErrNotFound) || errors.Is(err, comment.ErrBadTransition) {
 			continue
 		}
 		if err != nil {
