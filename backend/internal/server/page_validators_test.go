@@ -183,6 +183,8 @@ func TestCachedVariantFPUsesGivenFingerprint(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/p", nil)
 	r.Header.Set("Accept-Encoding", "gzip")
 	warn := func(string, ...any) {}
+	// A variant is only stored while its plain page is cached.
+	_ = c.Set(ctx, key, plain, time.Hour)
 	gen := c.Generation()
 
 	enc, first := cachedVariantFP(r, c, key, plain, fp, time.Hour, gen, warn)

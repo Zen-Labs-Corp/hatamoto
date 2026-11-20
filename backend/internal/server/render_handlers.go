@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
@@ -72,6 +74,9 @@ type htmlCache interface {
 	// the cache: it may have read the data from before the change.
 	Generation() uint64
 	SetIfGeneration(ctx context.Context, key string, value []byte, ttl time.Duration, gen uint64) (bool, error)
+	// SetIfGenerationTagged stores a page that depends only on the given tags:
+	// it is rejected by a global purge or a drop of one of those tags.
+	SetIfGenerationTagged(ctx context.Context, key string, value []byte, ttl time.Duration, gen uint64, tags ...string) (bool, error)
 }
 
 // renderHandlers serves the public site from the Go theme engine. Every
@@ -81,6 +86,9 @@ type htmlCache interface {
 type renderHandlers struct {
 	engine pageRenderer
 	cache  htmlCache
+	// flight lets concurrent misses on one page key share one render. Nil
+	// disables it; a pointer because the handlers are copied (preview, preload).
+	flight *renderFlight
 	// cacheTTL is how long a rendered page stays cached (HATAMOTO_PAGE_CACHE_TTL);
 	// zero means config.DefaultPageCacheTTL.
 	cacheTTL time.Duration
@@ -146,6 +154,7 @@ type renderHandlers struct {
 func (s *Server) newRenderHandlers(engine pageRenderer, pageCache *cache.Cache) *renderHandlers {
 	h := &renderHandlers{
 		engine: engine,
+		flight: &renderFlight{},
 		logger: s.logger,
 		// Without PUBLIC_BASE_URL the canonical URLs come from the request
 		// Host, so such pages must never be cached (see renderHandlers).
@@ -434,36 +443,18 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 	cacheable := h.cache != nil && h.baseURLPinned && h.runtime.Enabled() && (r.URL.RawQuery == "" || pageN > 0) && !filtered && !uncached
 	key := ""
 	var gen uint64
+	var hitGen uint64
 	if cacheable {
 		// Read before the page itself: a purge after this point rejects the
 		// variant store below, so no stale compressed copy outlives it.
-		hitGen := h.cache.Generation()
+		hitGen = h.cache.Generation()
 		key = cache.RenderedPageKey(h.engine.Version(), path)
 		if pageN > 0 { // read-only until a render proves the page has a paged loop
 			key = cache.RenderedPageKey(h.engine.Version(), path+"?page="+strconv.Itoa(pageN))
 		}
 		// A preload refresh skips the read so the page is re-rendered and overwritten.
 		if body := h.cachedBody(r, key); len(body) > 0 {
-			// A redirect created after the page was cached must win over the
-			// cached copy; the lookup is cheap (cached in the redirect service).
-			if h.redirectIfMatched(w, r, path) {
-				return
-			}
-			var fp []byte
-			if pv := h.validators; pv != nil {
-				sum := fingerprintSum(body)
-				now := pv.clock()
-				since := pv.stamp(key, sum)
-				setValidators(w.Header(), sum, since, now)
-				if notModified(r, sum, since, now) {
-					h.writeNotModified(w, r, body)
-					return
-				}
-				var fpBuf [fingerprintLen]byte
-				fp = binary.BigEndian.AppendUint64(fpBuf[:0], sum)
-			}
-			enc, packed := h.encodedVariantFP(r, key, body, fp, hitGen)
-			h.writeHTMLEncoded(w, r, http.StatusOK, body, false, enc, packed)
+			h.serveCached(w, r, path, key, body, hitGen)
 			return
 		}
 	}
@@ -473,6 +464,36 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 	}
 	if cacheable && h.snapshotDegraded(r.Context()) {
 		cacheable = false
+	}
+	// Concurrent misses on one key render once: the first request leads, the
+	// rest wait for its stored page. A refresh must re-render and a smoke
+	// request judges its own render, so neither joins.
+	// A key whose last render was not storable (dynamic, degraded, 404) skips
+	// the flight too: its followers would only wait to render themselves.
+	var call *flightCall
+	leader := false
+	flightEligible := cacheable && h.flight != nil && !refreshRequested(r.Context()) && !isSmokeRequest(r.Context())
+	// notStorable records that this key's render will not be cached.
+	notStorable := func() {
+		if flightEligible {
+			h.flight.markUnstorable(key)
+		}
+	}
+	if flightEligible && !h.flight.skip(key) {
+		call, leader = h.flight.join(key)
+		if leader {
+			// Covers every exit that does not store: followers then render on their own.
+			defer h.flight.finish(key, call, flightResult{})
+		} else {
+			res, ok := h.flight.wait(r.Context(), call)
+			if !ok {
+				return // this request's client is gone; the leader is unaffected
+			}
+			if res.stored {
+				h.serveCached(w, r, path, key, res.body, h.cache.Generation())
+				return
+			}
+		}
 	}
 	if cacheable {
 		gen = h.cache.Generation() // before any read of page data
@@ -495,10 +516,12 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		return
 	}
 	if rr.Redirect != nil {
+		notStorable()
 		writeRenderRedirect(w, r, rr.Redirect)
 		return
 	}
 	if rr.NotFound || outcome.NotFound {
+		notStorable()
 		h.writeNotFound(w, r, path)
 		return
 	}
@@ -517,6 +540,7 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 	v, err := h.buildView(r.Context(), r, rr)
 	var pe *pageError
 	if errors.As(err, &pe) && pe.status == http.StatusNotFound {
+		notStorable()
 		h.writeNotFoundQuiet(w, r) // e.g. ?page past the last page: not a broken link
 		return
 	}
@@ -551,6 +575,7 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 
 	// a failed query reports no items, not a missing page: that degrades below instead
 	if v.LoopOutOfRange != nil && *v.LoopOutOfRange && (h.dataFailures == nil || h.dataFailures() == failuresBefore) {
+		notStorable()
 		h.writeNotFoundQuiet(w, r) // a paged loop has no such page
 		return
 	}
@@ -584,6 +609,26 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 	// one: a response the cache would not keep (preview, dynamic, a page past
 	// a paged loop) must not answer 304 either.
 	storable := cacheable && !private && !v.Preview && !v.Dynamic && (pageN == 0 || (v.PagedLoop != nil && *v.PagedLoop))
+	// Stored before the response is written (in memory, microseconds) so the
+	// followers are released without waiting for this client's network write.
+	stored := false
+	if storable {
+		ok, err := h.cache.SetIfGenerationTagged(r.Context(), key, buf.Bytes(), h.pageTTLFor(v), gen, pageCacheTags(v)...)
+		if err != nil {
+			h.logger.Warn("render: cache set failed", "error", err)
+		}
+		stored = ok && err == nil
+	}
+	if flightEligible {
+		if stored {
+			h.flight.markStorable(key)
+		} else if !storable {
+			h.flight.markUnstorable(key)
+		}
+	}
+	if leader {
+		h.flight.finish(key, call, flightResult{body: buf.Bytes(), stored: stored})
+	}
 	pluginhost.WriteSetCookies(w, r, cookies)
 	if pv := h.validators; storable && pv != nil {
 		// Hash exactly the bytes that get cached, so a later hit agrees.
@@ -599,11 +644,31 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 	} else {
 		h.writeHTML(w, r, http.StatusOK, buf.Bytes(), private)
 	}
-	if storable {
-		if _, err := h.cache.SetIfGeneration(r.Context(), key, buf.Bytes(), h.pageTTLFor(v), gen); err != nil {
-			h.logger.Warn("render: cache set failed", "error", err)
-		}
+}
+
+// serveCached answers from a cached page body: a redirect created after the
+// page was cached wins, then validators (304) and the encoded variant. hitGen
+// is the cache token read before the page itself.
+func (h *renderHandlers) serveCached(w http.ResponseWriter, r *http.Request, path, key string, body []byte, hitGen uint64) {
+	// The redirect lookup is cheap (cached in the redirect service).
+	if h.redirectIfMatched(w, r, path) {
+		return
 	}
+	var fp []byte
+	if pv := h.validators; pv != nil {
+		sum := fingerprintSum(body)
+		now := pv.clock()
+		since := pv.stamp(key, sum)
+		setValidators(w.Header(), sum, since, now)
+		if notModified(r, sum, since, now) {
+			h.writeNotModified(w, r, body)
+			return
+		}
+		var fpBuf [fingerprintLen]byte
+		fp = binary.BigEndian.AppendUint64(fpBuf[:0], sum)
+	}
+	enc, packed := h.encodedVariantFP(r, key, body, fp, hitGen)
+	h.writeHTMLEncoded(w, r, http.StatusOK, body, false, enc, packed)
 }
 
 // pageTTLFor is the cache lifetime of v's page: the configured TTL, capped by
@@ -614,6 +679,21 @@ func (h *renderHandlers) pageTTLFor(v *render.PageView) time.Duration {
 		ttl = v.MaxCacheAge
 	}
 	return ttl
+}
+
+// pageCacheTags: every page may show other entities (recent/query funcs in any
+// layout, related, breadcrumbs, alternates, refs), so it always carries
+// TagAnyEntity; its own entity tag lets an own-entity drop reach it.
+func pageCacheTags(v *render.PageView) []string {
+	tags := []string{cache.TagAnyEntity}
+	id := v.EntityID
+	if id == "" && v.Entity != nil {
+		id = v.Entity.ID
+	}
+	if u, err := uuid.Parse(id); err == nil {
+		tags = append(tags, cache.EntityTag(u))
+	}
+	return tags
 }
 
 // pagedQuery is N when rawQuery is exactly "page=N" in canonical decimal form

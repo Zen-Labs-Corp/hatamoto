@@ -48,6 +48,16 @@ const (
 )
 
 const (
+	// TagAnyEntity marks a page that may list or embed any entity, so every
+	// content change drops it.
+	TagAnyEntity = "any-entity"
+	// TagSitemaps marks sitemap XML, dropped by a content change.
+	TagSitemaps = "sitemaps"
+	// maxTagTicks bounds the per-tag drop record; see DeleteTagged.
+	maxTagTicks = 4096
+)
+
+const (
 	// defaultMaxEntries bounds memory: one entry per rendered page plus the
 	// sitemaps stays far below this on any realistic site.
 	defaultMaxEntries = 10000
@@ -60,6 +70,7 @@ type entry struct {
 	value   []byte
 	expires time.Time
 	seq     uint64 // write order, oldest first for cap eviction
+	tags    []string
 }
 
 // Cache is a concurrency-safe in-memory TTL cache.
@@ -69,8 +80,15 @@ type Cache struct {
 	logger  *slog.Logger
 
 	maxEntries int
-	sets       int    // writes since the last sweep
-	gen        uint64 // bumped by every delete; see SetIfGeneration
+	sets       int // writes since the last sweep
+
+	// Generations: tick advances on every delete. globalTick is the last
+	// tick of a drop that spares nothing, tagTick the last tick each tag was
+	// dropped at. A token (Generation) is stale for a store when a global
+	// drop or a drop of one of the store's tags happened after it.
+	tick, globalTick, tagFloor uint64
+	tagTick                    map[string]uint64
+	tagKeys                    map[string]map[string]struct{} // tag -> keys carrying it
 
 	// Accounting for "render:" entries only (see RenderStats).
 	seq          uint64 // last write sequence number
@@ -89,7 +107,7 @@ type Cache struct {
 // The byte cap starts at the automatic value for the process memory limit, so
 // the cache is bounded before the stored settings are read.
 func New(logger *slog.Logger) *Cache {
-	c := &Cache{entries: make(map[string]entry), logger: logger, maxEntries: defaultMaxEntries}
+	c := &Cache{entries: make(map[string]entry), tagTick: make(map[string]uint64), tagKeys: make(map[string]map[string]struct{}), logger: logger, maxEntries: defaultMaxEntries}
 	c.renderMaxBytes = AutoMaxBytes(debug.SetMemoryLimit(-1))
 	return c
 }
@@ -120,29 +138,99 @@ func (c *Cache) GetJSON(ctx context.Context, key string, dest any) error {
 func (c *Cache) Set(_ context.Context, key string, value []byte, ttl time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.setLocked(key, value, ttl)
+	tags, _ := c.effectiveTagsLocked(key, nil)
+	c.setLocked(key, value, ttl, tags)
 	return nil
 }
 
-// Generation returns a counter that every Delete and DeletePattern advances.
-// Read it before computing a value from the database and hand it to
-// SetIfGeneration.
+// Generation returns a token that every Delete, DeletePattern and DeleteTagged
+// advances. Read it before computing a value from the database and hand it to
+// SetIfGeneration or SetIfGenerationTagged.
 func (c *Cache) Generation() uint64 {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.gen
+	return c.tick
 }
 
-// SetIfGeneration is Set, skipped (false) when a delete ran since gen was read.
-// A render that started before a purge may hold data from before the change;
-// storing it would keep the stale page for the whole TTL.
-func (c *Cache) SetIfGeneration(_ context.Context, key string, value []byte, ttl time.Duration, gen uint64) (bool, error) {
+// SetIfGeneration is Set, skipped (false) when a global drop ran since gen was
+// read. A render that started before a purge may hold data from before the
+// change; storing it would keep the stale page for the whole TTL.
+func (c *Cache) SetIfGeneration(ctx context.Context, key string, value []byte, ttl time.Duration, gen uint64) (bool, error) {
+	return c.SetIfGenerationTagged(ctx, key, value, ttl, gen)
+}
+
+// SetIfGenerationTagged is SetIfGeneration for a value that depends only on
+// the given tags: it is skipped when a global drop ran since gen, or when any
+// of its tags was dropped since. A drop of an unrelated tag does not reject it.
+// Without explicit tags they are implied by the key (see effectiveTagsLocked).
+func (c *Cache) SetIfGenerationTagged(_ context.Context, key string, value []byte, ttl time.Duration, gen uint64, tags ...string) (bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.gen != gen {
+	eff, ok := c.effectiveTagsLocked(key, tags)
+	if !ok || c.globalTick > gen || (len(eff) > 0 && gen < c.tagFloor) {
 		return false, nil
 	}
-	return c.setLocked(key, value, ttl), nil
+	for _, t := range eff {
+		if c.tagTick[t] > gen {
+			return false, nil
+		}
+	}
+	return c.setLocked(key, value, ttl, eff), nil
+}
+
+// effectiveTagsLocked resolves the tags a stored key carries: the explicit
+// ones if given; else a variant inherits its plain key's (ok is false when
+// that key is gone, as the variant would outlive it); a rendered page counts
+// as TagAnyEntity and a sitemap as TagSitemaps. Anything else has none.
+func (c *Cache) effectiveTagsLocked(key string, explicit []string) (tags []string, ok bool) {
+	if len(explicit) > 0 {
+		seen := make(map[string]struct{}, len(explicit))
+		for _, t := range explicit {
+			if _, dup := seen[t]; !dup {
+				seen[t] = struct{}{}
+				tags = append(tags, t)
+			}
+		}
+		return tags, true
+	}
+	switch {
+	case isVariantKey(key):
+		plain, present := c.entries[plainKeyOf(key)]
+		if !present || time.Now().After(plain.expires) {
+			return nil, false
+		}
+		return plain.tags, true
+	case isRenderKey(key):
+		return []string{TagAnyEntity}, true
+	case strings.HasPrefix(key, "sitemap:"):
+		return []string{TagSitemaps}, true
+	}
+	return nil, true
+}
+
+// DeleteTagged removes every entry carrying one of the tags and rejects the
+// in-flight stores that depend on them. The global generation is untouched,
+// so a render of an unrelated page is still stored. It returns how many
+// entries were removed.
+func (c *Cache) DeleteTagged(_ context.Context, tags ...string) int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.tick++
+	n := 0
+	for _, t := range tags {
+		c.tagTick[t] = c.tick
+		for k := range c.tagKeys[t] {
+			c.removeLocked(k) // also unindexes k, deleting the set when empty
+			n++
+		}
+	}
+	if len(c.tagTick) > maxTagTicks {
+		// Forget the per-tag record; every older token now fails tagged stores,
+		// which can only cost a store, never serve a stale page.
+		c.tagTick = make(map[string]uint64)
+		c.tagFloor = c.tick
+	}
+	return n
 }
 
 // removeLocked is the single delete path so the render accounting cannot
@@ -158,6 +246,14 @@ func (c *Cache) removeLocked(key string) {
 		c.renderCount--
 		if isVariantKey(key) {
 			c.variantCount--
+		}
+	}
+	for _, t := range e.tags {
+		if set := c.tagKeys[t]; set != nil {
+			delete(set, key)
+			if len(set) == 0 {
+				delete(c.tagKeys, t)
+			}
 		}
 	}
 	delete(c.entries, key)
@@ -187,7 +283,7 @@ func (c *Cache) evictOldestLocked(incoming, target int64) {
 
 // setLocked stores the value and reports whether it was stored (a value
 // larger than the cap is refused).
-func (c *Cache) setLocked(key string, value []byte, ttl time.Duration) bool {
+func (c *Cache) setLocked(key string, value []byte, ttl time.Duration, tags []string) bool {
 	now := time.Now()
 	c.sets++
 	if c.sets >= sweepEvery {
@@ -234,7 +330,15 @@ func (c *Cache) setLocked(key string, value []byte, ttl time.Duration) bool {
 		}
 	}
 	c.seq++
-	c.entries[key] = entry{value: value, expires: now.Add(ttl), seq: c.seq}
+	c.entries[key] = entry{value: value, expires: now.Add(ttl), seq: c.seq, tags: tags}
+	for _, t := range tags {
+		set := c.tagKeys[t]
+		if set == nil {
+			set = make(map[string]struct{})
+			c.tagKeys[t] = set
+		}
+		set[key] = struct{}{}
+	}
 	return true
 }
 
@@ -290,7 +394,8 @@ func (c *Cache) SetJSON(ctx context.Context, key string, value any, ttl time.Dur
 func (c *Cache) Delete(_ context.Context, keys ...string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.gen++
+	c.tick++
+	c.globalTick = c.tick
 	for _, k := range keys {
 		c.removeLocked(k)
 	}
@@ -310,7 +415,8 @@ func (c *Cache) DeletePattern(_ context.Context, pattern string) error {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.gen++
+	c.tick++
+	c.globalTick = c.tick
 	for k := range c.entries {
 		if re.MatchString(k) {
 			c.removeLocked(k)
@@ -419,43 +525,15 @@ func NewCacheInvalidator(cache *Cache, logger *slog.Logger) *CacheInvalidator {
 	}
 }
 
-// InvalidateEntity invalidates all cache entries related to an entity.
+// InvalidateEntity drops what one entity's content change can reach: its own
+// pages, every page that may list or embed any entity, and the sitemaps. It
+// never moves the global generation, so an in-flight render of a page tagged
+// only with another entity is still stored. slug is only logged.
 func (ci *CacheInvalidator) InvalidateEntity(ctx context.Context, entityID uuid.UUID, slug string) error {
-	keys := []string{
-		PublicPageKey(slug),
-		PublicHomepageKey(),
-		EntityJSONLDKey(entityID),
-	}
-
-	if err := ci.cache.Delete(ctx, keys...); err != nil {
-		ci.logger.Warn("failed to invalidate entity cache",
-			slog.String("entity_id", entityID.String()),
-			slog.String("error", err.Error()))
-		return err
-	}
-
-	// Also invalidate archives since entity content may have changed
-	if err := ci.cache.DeletePattern(ctx, fmt.Sprintf("public:archive:%s:*", legacyKeyNamespace)); err != nil {
-		ci.logger.Warn("failed to invalidate archive cache",
-			slog.String("error", err.Error()))
-	}
-
-	// Invalidate all sitemap cache entries since entity publish state affects sitemaps
-	if err := ci.cache.DeletePattern(ctx, SitemapPattern()); err != nil {
-		ci.logger.Warn("failed to invalidate sitemap cache",
-			slog.String("error", err.Error()))
-	}
-
-	// Rendered pages embed navigation and sibling data: drop them all.
-	if err := ci.InvalidateRendered(ctx); err != nil {
-		ci.logger.Warn("failed to invalidate rendered pages",
-			slog.String("error", err.Error()))
-	}
-
+	ci.cache.DeleteTagged(ctx, EntityTag(entityID), TagAnyEntity, TagSitemaps)
 	ci.logger.Debug("invalidated entity cache",
 		slog.String("entity_id", entityID.String()),
 		slog.String("slug", slug))
-
 	return nil
 }
 

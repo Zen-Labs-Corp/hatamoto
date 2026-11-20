@@ -16,6 +16,8 @@ import (
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/sdk"
 )
 
 // renderProbe wraps a real in-process cache holding one rendered-page entry,
@@ -55,8 +57,18 @@ func TestEntityEventsClearRenderedPages(t *testing.T) {
 		s.registerRenderInvalidation()
 		sink := pluginhost.NewEntitySink(s.hooks, log)
 
+		tok := c.Generation()
 		sink.Emit(context.Background(), entity.Event{Kind: kind, ID: uuid.New(), Slug: "x"})
 		s.hooks.Wait()
+
+		// Every page carries TagAnyEntity, so an entity event rejects the
+		// in-flight store of any page, including one of another entity.
+		for _, path := range []string{"/b", "/l"} {
+			if ok, _ := c.SetIfGenerationTagged(context.Background(), "render:v1:probe:-:"+path, []byte("x"), time.Minute, tok,
+				pageCacheTags(&render.PageView{EntityID: uuid.NewString()})...); ok {
+				t.Errorf("%s: in-flight store of %s accepted", kind, path)
+			}
+		}
 
 		if !probe.cleared() {
 			t.Errorf("%s did not clear render:*", kind)
@@ -64,6 +76,55 @@ func TestEntityEventsClearRenderedPages(t *testing.T) {
 		if _, err := c.Get(context.Background(), cache.SitemapKey("index")); err == nil {
 			t.Errorf("%s left a stale cached sitemap", kind)
 		}
+	}
+}
+
+// ownTaggedStoreSurvives registers the entity hooks over a real cache and
+// reports whether an in-flight store of another entity's page, started before
+// fire, is still accepted after it.
+func ownTaggedStoreSurvives(t *testing.T, fire func(*Server)) bool {
+	t.Helper()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	c := cache.New(log)
+	s := &Server{
+		logger: log,
+		hooks:  hooks.New(log),
+		infra:  &Infrastructure{Cache: c, CacheInvalidator: cache.NewCacheInvalidator(c, log)},
+	}
+	s.registerRenderInvalidation()
+	tok := c.Generation()
+	fire(s)
+	s.hooks.Wait()
+	ok, _ := c.SetIfGenerationTagged(context.Background(), "render:v1:probe:-:/b", []byte("b"), time.Minute, tok, cache.EntityTag(uuid.New()))
+	return ok
+}
+
+func TestImportCompletedStaysGlobal(t *testing.T) {
+	if ownTaggedStoreSurvives(t, func(s *Server) {
+		pluginhost.NewEntitySink(s.hooks, s.logger).Emit(context.Background(), entity.Event{
+			Kind: entity.EventImportCompleted, Import: &entity.ImportSummary{Source: "x"},
+		})
+	}) {
+		t.Fatal("import.completed left an in-flight store alive")
+	}
+}
+
+func TestEntityEventWithoutIDStaysGlobal(t *testing.T) {
+	for name, payload := range map[string]any{
+		"empty id":   sdk.EntityEvent{ID: ""},
+		"bad id":     sdk.EntityEvent{ID: "not-a-uuid"},
+		"other type": "x",
+	} {
+		if ownTaggedStoreSurvives(t, func(s *Server) {
+			s.hooks.Fire(context.Background(), sdk.EntityUpdated.Name, payload)
+		}) {
+			t.Errorf("%s: event without a usable ID did not purge globally", name)
+		}
+	}
+	if !ownTaggedStoreSurvives(t, func(s *Server) {
+		s.hooks.Fire(context.Background(), sdk.EntityUpdated.Name, &sdk.EntityEvent{ID: uuid.NewString()})
+	}) {
+		t.Error("pointer payload with an ID went global")
 	}
 }
 
@@ -118,3 +179,33 @@ func TestScheduledPublishSinkClearsRenderedPagesSynchronously(t *testing.T) {
 type publishedFunc func()
 
 func (f publishedFunc) EntityPublished(context.Context, uuid.UUID, string, string, string, int) { f() }
+
+// The narrow path a comment change will use: another entity's page, tagged by
+// the real pageCacheTags, is untouched and its in-flight store still lands.
+func TestRenderedEntityDropSparesOtherPages(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+	c := cache.New(log)
+	a, b := uuid.New(), uuid.New()
+	tagsOf := func(id uuid.UUID) []string { return pageCacheTags(&render.PageView{EntityID: id.String()}) }
+	keyA, keyB := "render:v1:probe:-:/a", "render:v1:probe:-:/b"
+	if ok, _ := c.SetIfGenerationTagged(ctx, keyA, []byte("a"), time.Minute, c.Generation(), tagsOf(a)...); !ok {
+		t.Fatal("store /a rejected")
+	}
+	if ok, _ := c.SetIfGenerationTagged(ctx, keyB, []byte("b"), time.Minute, c.Generation(), tagsOf(b)...); !ok {
+		t.Fatal("store /b rejected")
+	}
+	tok := c.Generation()
+	if err := cache.NewCacheInvalidator(c, log).InvalidateRenderedEntity(ctx, a); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Get(ctx, keyA); err == nil {
+		t.Error("/a survived")
+	}
+	if _, err := c.Get(ctx, keyB); err != nil {
+		t.Error("/b dropped")
+	}
+	if ok, _ := c.SetIfGenerationTagged(ctx, keyB, []byte("b2"), time.Minute, tok, tagsOf(b)...); !ok {
+		t.Error("in-flight store of /b rejected")
+	}
+}
