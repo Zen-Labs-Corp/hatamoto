@@ -170,6 +170,12 @@ type PageView struct {
 	// >= 1 (pass .PageNum). Lazy and memoised per (limit, page). Never nil in a
 	// layout: a zero PostsPage on any other entity.
 	PostsByAuthor func(limit, page int) PostsPage
+	// Comments is the public thread; nil when comments are off, hidden or in
+	// preview, and themes then render nothing. CommentForm is nil when closed.
+	Comments     *CommentThread
+	CommentCount int  // approved comments on this entity
+	CommentsOpen bool // the form is shown
+	CommentForm  *CommentForm
 	// Uncacheable, when non-nil, is set during rendering if a lazy data source
 	// (Related) failed, so the caller serves the page but does not cache it.
 	Uncacheable *bool
