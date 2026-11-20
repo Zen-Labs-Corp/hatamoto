@@ -57,6 +57,10 @@ type manifest struct {
 	MediaStorage string    `json:"media_storage,omitempty"`
 	Trust        *TrustIDs `json:"trust,omitempty"`
 	ConfigPath   string    `json:"config_path,omitempty"`
+	// SecretCheck is portability.SecretCheck of the server secret at backup time
+	// (never the secret). Absent in older archives; older binaries ignore it
+	// (manifests are read with jsonx.StoredLoose).
+	SecretCheck string `json:"secret_check,omitempty"`
 }
 
 // describe fixes the mode of a finished part (pg_dump honours the umask) and

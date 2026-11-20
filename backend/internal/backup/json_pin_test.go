@@ -273,3 +273,27 @@ func TestManifestRolesRoundTrip(t *testing.T) {
 		t.Fatalf("roles = %v", sc.mf.Roles)
 	}
 }
+
+// secret_check is optional: absent for old archives, and unknown members of a
+// newer manifest are ignored, which is what lets older binaries read it.
+func TestManifestSecretCheckField(t *testing.T) {
+	if strings.Contains(string(manifestOf(t, pinManifest())), "secret_check") {
+		t.Fatal("an empty check must not be written")
+	}
+	mf := pinManifest()
+	mf.SecretCheck = "abc"
+	raw := manifestOf(t, mf)
+	if !strings.Contains(string(raw), `"secret_check": "abc"`) {
+		t.Fatalf("manifest = %s", raw)
+	}
+	path := tarWith(t, []string{coreName, manifestName}, map[string][]byte{coreName: []byte("core"), manifestName: raw})
+	sc, err := scanArchive(path)
+	if err != nil || sc.mf.SecretCheck != "abc" {
+		t.Fatalf("scan: %v, check %q", err, sc.mf.SecretCheck)
+	}
+	extra := strings.Replace(headManifestNulls, "\"kind\": \"manual\",", "\"kind\": \"manual\",\n  \"future_field\": 1,", 1)
+	path = tarWith(t, []string{coreName, manifestName}, map[string][]byte{coreName: []byte("core"), manifestName: []byte(extra)})
+	if _, err := scanArchive(path); err != nil {
+		t.Fatalf("an unknown member must be ignored: %v", err)
+	}
+}

@@ -46,6 +46,9 @@ type Options struct {
 	// Trust gives the key IDs recorded in the manifest; nil means the IDs
 	// embedded in this binary.
 	Trust func() (TrustIDs, error)
+	// Secret returns the server secret recorded as a check value; nil, an error
+	// or "" records none.
+	Secret func() (string, error)
 }
 
 // Request asks for one backup.
@@ -360,6 +363,17 @@ func (e *Engine) build(ctx context.Context, s *Store, info *Info, work string, r
 		}
 	}
 
+	// A pre-update backup must not fail on the secret: without it the backup
+	// just records no check.
+	secret := ""
+	if e.opts.Secret != nil {
+		if s, err := e.opts.Secret(); err != nil {
+			e.opts.Log.Warn("backup: cannot read the server secret; the backup records no secret check", "err", err)
+		} else {
+			secret = s
+		}
+	}
+
 	pr.step("content")
 	man, mediaObjects, err := e.exportContent(ctx, filepath.Join(work, "content.tar.gz"), req.WithMedia)
 	if err != nil {
@@ -410,7 +424,7 @@ func (e *Engine) build(ctx context.Context, s *Store, info *Info, work string, r
 		Kind: info.Kind, Target: info.Target, HatamotoVersion: e.opts.Version,
 		ServerMajor: server, PgDump: pgVersion, Parts: parts, Plugins: pluginNames, Roles: roles,
 		ContentRows: man.Rows, MediaFiles: man.MediaFiles, MediaBytes: man.MediaBytes, MediaMissing: man.MediaMissing, MediaStorage: mediaStorage,
-		Trust: &trust, ConfigPath: configPath,
+		Trust: &trust, ConfigPath: configPath, SecretCheck: portability.SecretCheck(secret),
 	}
 	size, names, err := writeArchive(s, info.ID, work, parts, mf)
 	if err != nil {
