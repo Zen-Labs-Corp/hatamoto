@@ -171,7 +171,7 @@ func (a *Admin) handleComments(w http.ResponseWriter, r *http.Request) {
 		ClearHref: modHref(base, commentListParams{Status: p.Status, Q: p.Q, Entity: p.Entity, Trust: p.Trust}.query()),
 		ListBar:   true, Live: true, Target: "comments-results", ChipsOutside: true,
 		Bulk: modBulkActions(a.adminPath), BulkURL: a.adminPath + "/comments/bulk",
-		Empty: ui.Empty{Icon: "message-square", Title: "No comments here", Body: "Nothing matches this view."},
+		Empty: ui.Empty{Icon: "inbox", Title: "No comments here", Body: "Nothing matches this view."},
 	}
 
 	page, err := svc.Queue(ctx, CommentFilter{

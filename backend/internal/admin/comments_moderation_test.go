@@ -440,3 +440,7 @@ func TestCommentsBulkNoCSRF(t *testing.T) {
 		t.Errorf("calls = %v", svc.calls)
 	}
 }
+
+func init() {
+	areaPages["commentsmoderation"] = []string{"comments/list", "comments/spam", "comments/reply", "comments/edit"}
+}
