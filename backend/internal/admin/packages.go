@@ -144,6 +144,10 @@ type PackageMeta struct {
 	// MarkupStopped lists the sections and partials that are not registered
 	// because they carry scripts and the plugin lacks site.scripts.
 	MarkupStopped []string
+	// TemplatesRefused lists the sections and partials that are not registered
+	// (refused at registration or by the last template compile), each with its
+	// reason.
+	TemplatesRefused []string
 	// AsksScripts: its manifest lists site.scripts, so the owner can grant it.
 	AsksScripts bool
 	// Uninstalling is set while an uninstall is unfinished (retry it).

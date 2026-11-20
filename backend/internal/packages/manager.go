@@ -1279,6 +1279,11 @@ func (m *Manager) ScriptsBlocked(name string) bool {
 // registered because they carry script constructs and it lacks site.scripts.
 func (m *Manager) MarkupStopped(name string) []string { return render.PluginMarkupStopped(name) }
 
+// TemplatesRefused lists the plugin's sections and partials that are not
+// registered (refused at registration or by the last template compile), with
+// the reason.
+func (m *Manager) TemplatesRefused(name string) []string { return render.PluginTemplatesRefused(name) }
+
 // SetAllowUnsigned stores the owner's opt-in for unsigned packages. until ends
 // a timed opt-in (nil: until turned off); duration is its label for the audit
 // row ("1h", "24h", "forever"; empty when turning it off).

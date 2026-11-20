@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"text/template/parse"
 )
 
@@ -49,10 +50,36 @@ type pluginRegistry struct {
 	// registered it, so a plugin's registrations can be removed on reload.
 	owner map[string]string
 	gen   int // bumped on every change
+	// refused holds, per plugin, what registration refused; compiled holds
+	// what the last template compile left out (vet rejections, fail-open
+	// skips). Both only feed the admin list: recording never bumps gen, so a
+	// refusal cannot trigger a rebuild.
+	refused  map[string][]string
+	compiled map[string][]string
+	// gate memoises the script/call-graph gate (a sample render of every
+	// template) for one registry generation and grant state. gateMu is never
+	// held together with mu while scanning.
+	gateMu    sync.Mutex
+	gateMemo  gateResult
+	gateScans atomic.Int64 // full gate passes run (test seam)
 }
 
+// gateResult is one withoutScripts pass and the state it was computed for.
+// Its maps are shared between callers and must not be modified.
+type gateResult struct {
+	valid      bool
+	gen        int
+	fp         uint64
+	out        pluginSnapshot
+	why, graph map[string][]string
+}
+
+// maxRefusedPerPlugin caps each per-plugin refusal list and the merged view.
+const maxRefusedPerPlugin = 20
+
 func newPluginRegistry() *pluginRegistry {
-	return &pluginRegistry{funcs: template.FuncMap{}, partials: map[string]string{}, sections: map[string]string{}, owner: map[string]string{}}
+	return &pluginRegistry{funcs: template.FuncMap{}, partials: map[string]string{}, sections: map[string]string{}, owner: map[string]string{},
+		refused: map[string][]string{}, compiled: map[string][]string{}}
 }
 
 var defaultPlugins = newPluginRegistry()
@@ -70,14 +97,69 @@ func RegisterPluginFunc(plugin, name string, fn any) error {
 // RegisterPluginPartial registers an html/template source as the partial
 // "plugin/<plugin>/<name>".
 func RegisterPluginPartial(plugin, name, src string) error {
-	return defaultPlugins.registerPartial(plugin, name, src)
+	err := defaultPlugins.registerPartial(plugin, name, src)
+	if err != nil {
+		defaultPlugins.noteRefused(plugin, err)
+	}
+	return err
 }
 
 // RegisterPluginSection registers an html/template source as the section type
 // typ. It defines "section-<typ>" like a theme's sections/<typ>.html and has
 // lower precedence: a theme section of the same type wins.
 func RegisterPluginSection(plugin, typ, src string) error {
-	return defaultPlugins.registerSection(plugin, typ, src)
+	err := defaultPlugins.registerSection(plugin, typ, src)
+	if err != nil {
+		defaultPlugins.noteRefused(plugin, err)
+	}
+	return err
+}
+
+// PluginTemplatesRefused lists the plugin's sections and partials that are
+// not registered, each with its reason: what registration refused, what the
+// last template compile left out, and the call-graph faults the gate finds
+// now (the live part, memoised per registry change and grant change). The
+// compile part is replaced on every compile, so with engines on different
+// themes the last compile wins. The list is sorted, deduplicated and capped;
+// it is nil when nothing was refused.
+func PluginTemplatesRefused(plugin string) []string {
+	g := defaultPlugins.gateResult()
+	return defaultPlugins.templatesRefused(plugin, g.graph[plugin]...)
+}
+
+func (r *pluginRegistry) noteRefused(plugin string, err error) {
+	msg := strings.TrimPrefix(err.Error(), "render: ")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if l := r.refused[plugin]; len(l) < maxRefusedPerPlugin && !slices.Contains(l, msg) {
+		r.refused[plugin] = append(l, msg)
+	}
+}
+
+// noteCompileRefused replaces the compile-time record of each plugin in
+// plugins with why[plugin] (none: the record is cleared).
+func (r *pluginRegistry) noteCompileRefused(plugins []string, why map[string][]string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, p := range plugins {
+		if l := why[p]; len(l) > 0 {
+			r.compiled[p] = slices.Clone(l)
+		} else {
+			delete(r.compiled, p)
+		}
+	}
+}
+
+func (r *pluginRegistry) templatesRefused(plugin string, gate ...string) []string {
+	r.mu.RLock()
+	out := slices.Concat(r.refused[plugin], r.compiled[plugin], gate)
+	r.mu.RUnlock()
+	if len(out) == 0 {
+		return nil
+	}
+	slices.Sort(out)
+	out = slices.Compact(out)
+	return out[:min(len(out), maxRefusedPerPlugin)]
 }
 
 // PluginSectionOwner returns the plugin that registered the section type, if
@@ -138,9 +220,6 @@ func (r *pluginRegistry) checkPartial(plugin, name, src string) error {
 	if src == "" {
 		return fmt.Errorf("render: plugin partial %s/%s: empty source", plugin, name)
 	}
-	if err := checkPluginLoops(src); err != nil {
-		return fmt.Errorf("render: plugin partial %s/%s: %w", plugin, name, err)
-	}
 	full := "plugin/" + pluginIdent(plugin) + "/" + name
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -186,9 +265,6 @@ func (r *pluginRegistry) registerSection(plugin, typ, src string) error {
 	if !sectionTypeRe.MatchString(typ) || strings.TrimSpace(src) == "" {
 		return fmt.Errorf("render: plugin section %s/%s: bad type (want %s) or empty source", plugin, typ, sectionTypeRe)
 	}
-	if err := checkPluginLoops(src); err != nil {
-		return fmt.Errorf("render: plugin section %s/%s: %w", plugin, typ, err)
-	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, dup := r.sections[typ]; dup {
@@ -203,6 +279,8 @@ func (r *pluginRegistry) registerSection(plugin, typ, src string) error {
 func (r *pluginRegistry) removePlugin(plugin string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	delete(r.refused, plugin)
+	delete(r.compiled, plugin)
 	for key, who := range r.owner {
 		if who != plugin {
 			continue
@@ -231,10 +309,49 @@ func (r *pluginRegistry) size() int {
 }
 
 // gated is snapshot without the partials and sections that carry script
-// constructs while their plugin lacks site.scripts.
+// constructs while their plugin lacks site.scripts. It is the serving path:
+// it always runs the scan against the live grants and never reads the memo,
+// so a revoke takes effect at once. It refreshes the memo with its own
+// result, keyed by the exact grant answers the scan used.
 func (r *pluginRegistry) gated() pluginSnapshot {
-	s, _ := r.snapshot().withoutScripts(pluginScriptsAllowed())
-	return s
+	snap, gen := r.snapshotGen()
+	res := r.scan(snap, gen, askGrants(snap.owner, pluginScriptsAllowed()))
+	r.gateMu.Lock()
+	r.gateMemo = res
+	r.gateMu.Unlock()
+	return res.out
+}
+
+// gateResult returns the gate's answer for the current registry and grants,
+// for the admin reads: the scan reruns only when either changed. Concurrent
+// callers wait for one scan; the registry lock is held only to copy the
+// snapshot. The grants are asked once, under gateMu, and the same answers
+// key the memo and drive the scan.
+func (r *pluginRegistry) gateResult() gateResult {
+	allowed := pluginScriptsAllowed()
+	r.gateMu.Lock()
+	defer r.gateMu.Unlock()
+	r.mu.RLock()
+	gen, owners := r.gen, maps.Clone(r.owner)
+	r.mu.RUnlock()
+	answers := askGrants(owners, allowed)
+	if m := r.gateMemo; m.valid && m.gen == gen && m.fp == fingerprintOf(answers) {
+		return m
+	}
+	snap, snapGen := r.snapshotGen()
+	if snapGen != gen { // registry changed since the first look: ask again for the new owners
+		gen, answers = snapGen, askGrants(snap.owner, allowed)
+	}
+	r.gateMemo = r.scan(snap, gen, answers)
+	return r.gateMemo
+}
+
+// scan runs the gate over snap with the given grant answers and keys the
+// result by them, so key and result cannot describe different grant states.
+func (r *pluginRegistry) scan(snap pluginSnapshot, gen int, answers map[string]bool) gateResult {
+	r.gateScans.Add(1)
+	out, why, graph := snap.withoutScripts(func(plugin string) bool { return answers[plugin] })
+	return gateResult{valid: true, gen: gen, fp: fingerprintOf(answers), out: out, why: why, graph: graph}
 }
 
 // pluginSnapshot is a consistent copy of the registry.
@@ -247,21 +364,25 @@ type pluginSnapshot struct {
 }
 
 func (r *pluginRegistry) snapshot() pluginSnapshot {
+	s, _ := r.snapshotGen()
+	return s
+}
+
+// snapshotGen is snapshot plus the generation it was taken at.
+func (r *pluginRegistry) snapshotGen() (pluginSnapshot, int) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	funcs := maps.Clone(r.funcs)
-	// "t" is the one core func plugin templates may call (theme strings); the
-	// vetting scratch sets know only the funcs of this snapshot. Do not add a
-	// core func that returns a map or a struct (dict, say): checkPluginLoops
-	// trusts any .Content chain at a template root because a plugin template
-	// cannot build a value with a Content of its own.
+	// "t" is the one core func plugin templates may call; the vetting scratch
+	// sets know only the funcs of this snapshot (a plugin template cannot reach
+	// a core func such as dict).
 	funcs["t"] = tFunc
 	return pluginSnapshot{
 		funcs:    funcs,
 		partials: maps.Clone(r.partials),
 		sections: maps.Clone(r.sections),
 		owner:    maps.Clone(r.owner),
-	}
+	}, r.gen
 }
 
 // vet returns the plugin templates that may be added to a theme's template
@@ -272,10 +393,13 @@ func (r *pluginRegistry) snapshot() pluginSnapshot {
 // unknown func, a call to another plugin's template, a section that does not define its own entry, a call cycle,
 // too many template calls or ranges nested too deeply across the plugin's
 // templates) rejects ALL of that plugin's templates, with a log line. The theme is never touched.
-func (s pluginSnapshot) vet(themeSections map[string]*SectionDef, log *slog.Logger) (partials, sections map[string]string) {
+// why says, per rejected plugin, the first reason (the one that is logged).
+func (s pluginSnapshot) vet(themeSections map[string]*SectionDef, log *slog.Logger) (partials, sections map[string]string, why map[string]string) {
 	rejected := map[string]bool{} // plugin name
+	why = map[string]string{}
 	reject := func(plugin, what string, err error) {
 		if !rejected[plugin] {
+			why[plugin] = "all templates: " + what + ": " + err.Error()
 			log.Warn("render: plugin templates rejected", "plugin", plugin, "template", what, "error", err)
 			NoteBootFault("plugin-templates-rejected:" + plugin)
 		}
@@ -352,7 +476,7 @@ func (s pluginSnapshot) vet(themeSections map[string]*SectionDef, log *slog.Logg
 			delete(sections, typ)
 		}
 	}
-	return partials, sections
+	return partials, sections, why
 }
 
 func validatePluginFunc(fn any) error {

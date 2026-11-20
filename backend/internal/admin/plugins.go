@@ -83,7 +83,7 @@ type pluginRow struct {
 	// owner grants site.scripts. AsksScripts says whether its manifest asks.
 	ScriptsBlocked, AsksScripts bool
 	// SectionsStopped: some of its sections or partials are not shown for the
-	// same reason.
+	// same reason, or are not registered.
 	SectionsStopped bool
 	// Update is the newer version the registry offers; "" when none, or when the
 	// row takes no update (legacy, blocked, uninstalling, not a package).
@@ -105,7 +105,7 @@ type pluginRow struct {
 }
 
 // attention says the row needs the owner: a plugin that failed or is blocked,
-// a stopped script or section.
+// a stopped script, or a section or partial that is not registered.
 func (r pluginRow) attention() bool {
 	return r.State.Marker == "Failed" || r.ScriptsBlocked || r.SectionsStopped
 }
@@ -248,7 +248,7 @@ func (a *Admin) handlePlugins(w http.ResponseWriter, r *http.Request) {
 			row.FirstParty = p.Package.FirstParty
 			row.Revoked = p.Package.RevokedText()
 			row.ScriptsBlocked, row.AsksScripts = p.Package.ScriptsBlocked, p.Package.AsksScripts
-			row.SectionsStopped = len(p.Package.MarkupStopped) > 0
+			row.SectionsStopped = len(p.Package.MarkupStopped) > 0 || len(p.Package.TemplatesRefused) > 0
 		}
 		if takesUpdate(p) {
 			row.updatable = true

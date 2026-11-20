@@ -6,6 +6,7 @@ import (
 
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/sdk"
 )
 
@@ -34,9 +35,12 @@ type pluginView struct {
 	// RequestHeaders are the extra request headers its routes receive.
 	RequestHeaders []string `json:"request_headers,omitempty"`
 	// omitzero: a declared empty "csp":{} is still listed, as before.
-	CSP              *sdk.CSP `json:"csp,omitzero"`
-	Funcs            []string `json:"funcs,omitempty"`
-	DataError        string   `json:"data_error,omitempty"`
+	CSP       *sdk.CSP `json:"csp,omitzero"`
+	Funcs     []string `json:"funcs,omitempty"`
+	DataError string   `json:"data_error,omitempty"`
+	// TemplatesRefused lists the sections and partials that are not registered,
+	// each with its reason.
+	TemplatesRefused []string `json:"templates_refused,omitempty"`
 	TempFileLimitOff bool     `json:"temp_file_limit_off,omitempty"`
 }
 
@@ -70,6 +74,7 @@ func (s *Server) pluginViews() []pluginView {
 			Version: m.Version, SDK: m.SDK, Description: m.Description, AllowedHosts: m.AllowedHosts,
 			Permissions: m.Asked(), Cron: m.Cron,
 			Cookies: m.Cookies, RedirectPaths: m.RedirectPaths, RequestHeaders: m.RequestHeaders, CSP: m.CSP, Funcs: m.Funcs, DataError: st.DataError, TempFileLimitOff: st.TempFileLimitOff,
+			TemplatesRefused: render.PluginTemplatesRefused(st.Name),
 		}
 		for _, r := range m.Routes {
 			v.Routes = append(v.Routes, routeView(r))
@@ -95,7 +100,7 @@ func (s *Server) pluginViews() []pluginView {
 //	{"public_objects"?: [...], "public_objects_allowed"?: bool,
 //	 "plugins": [{name, loaded, error?, hooks[], version, sdk, description,
 //	  allowed_hosts?, settings_schema?, permissions[], granted[], routes?,
-//	  cron?, cookies?, funcs?, data_error?}]}
+//	  cron?, cookies?, funcs?, data_error?, templates_refused?}]}
 //
 // Order: load order (plugin directory names, sorted).
 func (s *Server) handleListPlugins(w http.ResponseWriter, r *http.Request) {

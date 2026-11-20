@@ -8,6 +8,7 @@ import (
 
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/testutil"
 	"hatamoto.dev/sdk"
 )
@@ -31,6 +32,33 @@ func TestListPlugins_ListsRedirectPaths(t *testing.T) {
 	testutil.JSONEqual(t, `["/go","/go/"]`, string(body.Plugins[0]["redirect_paths"]))
 	if _, ok := body.Plugins[1]["redirect_paths"]; ok {
 		t.Error("a plugin without redirect paths lists the field")
+	}
+}
+
+func TestListPlugins_ListsTemplatesRefused(t *testing.T) {
+	// The render plugin registry is process-wide: the name is unique to this test.
+	testutil.Error(t, render.RegisterPluginSection("acme-json", "Bad", "x"))
+	t.Cleanup(func() { render.RemovePlugin("acme-json") })
+	s := &Server{pluginStatusFn: func() []pluginhost.Status {
+		return []pluginhost.Status{
+			{Name: "acme-json", Loaded: true, Manifest: sdk.Manifest{Name: "acme-json"}},
+			{Name: "acme-clean", Loaded: true, Manifest: sdk.Manifest{Name: "acme-clean"}},
+		}
+	}}
+	rec := httptest.NewRecorder()
+	s.handleListPlugins(rec, httptest.NewRequest(http.MethodGet, "/plugins", nil))
+
+	testutil.RequireEqual(t, http.StatusOK, rec.Code)
+	var body struct {
+		Plugins []map[string]jsontext.Value `json:"plugins"`
+	}
+	testutil.RequireNoError(t, jsonx.Unmarshal(rec.Body.Bytes(), &body))
+	testutil.RequireLen(t, body.Plugins, 2)
+	var refused []string
+	testutil.RequireNoError(t, jsonx.Unmarshal(body.Plugins[0]["templates_refused"], &refused))
+	testutil.RequireLen(t, refused, 1)
+	if _, ok := body.Plugins[1]["templates_refused"]; ok {
+		t.Error("a plugin without refusals lists the field")
 	}
 }
 

@@ -473,6 +473,29 @@ func TestPluginWithoutSiteScriptsGrantShowsBanner(t *testing.T) {
 	}
 }
 
+// Sections and partials that are not registered are listed on the plugin's page
+// with their reason, and the list row links to the callout. The scripts
+// paragraph stays out: the refusal has nothing to do with site.scripts.
+func TestPluginRefusedTemplatesShowInBanner(t *testing.T) {
+	t.Parallel()
+
+	g, _, fp := newPackageRig(t)
+	fp.list = append(fp.list, PluginInfo{Name: "refused", Package: &PackageMeta{Enabled: true, TemplatesRefused: []string{"plugin section acme/x: bad type"}}})
+	body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `href="/admin/plugins/refused/settings#needs-attention"`) {
+		t.Error("the list row does not link to the callout")
+	}
+	page := g.do("GET", "/admin/plugins/refused/permissions", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{`id="needs-attention"`, "Not registered", "plugin section acme/x: bad type"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("plugin page lacks %q", want)
+		}
+	}
+	if strings.Contains(page, "site.scripts") {
+		t.Error("the callout mentions site.scripts for a refusal that is not about scripts")
+	}
+}
+
 func TestPluginPermissionsPageUsesCardsGaugeAndCallout(t *testing.T) {
 	t.Parallel()
 

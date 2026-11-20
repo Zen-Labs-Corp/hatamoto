@@ -50,7 +50,7 @@ func reentersContent(p *parse.PipeNode, dot dotKind) bool {
 }
 
 // collectCalls records the calls and the range depth of l. dot says what the
-// dot is, as in checkPluginLoops.
+// dot is, as for a with (withDot).
 func collectCalls(l *parse.ListNode, depth int, dot dotKind, t *pluginTree) {
 	if l == nil {
 		return

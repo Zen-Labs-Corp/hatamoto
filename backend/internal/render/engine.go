@@ -401,6 +401,8 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 	snap := e.plugins.gated()
 	maps.Copy(funcs, snap.funcs)
 	funcs["t"] = newTFunc(th.Strings) // after the copy: the snapshot carries the generic one
+	// Compile-set only: the plugin snapshot never carries it, so plugin source cannot call it.
+	funcs[rangeBudgetFunc] = func(plugin, tmpl string) *rangeHandle { return newRangeHandle(e.log, plugin, tmpl) }
 
 	baseSrc, err := chain.ReadFile("layouts/base.html")
 	if err != nil {
@@ -427,7 +429,12 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 	// Plugin templates are vetted in scratch sets first (they may only define
 	// names of their own) and only the vetted ones join the theme's set, so a
 	// plugin can neither replace a theme template nor stop the theme compiling.
-	pPartials, pSections := snap.vet(th.Sections, e.log)
+	pPartials, pSections, vetWhy := snap.vet(th.Sections, e.log)
+	// refused feeds the admin list of templates that are not registered.
+	refused := map[string][]string{}
+	for plugin, why := range vetWhy {
+		refused[plugin] = append(refused[plugin], why)
+	}
 	names := make([]string, 0, len(pPartials))
 	for n := range pPartials {
 		names = append(names, n)
@@ -436,7 +443,11 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 	for _, n := range names {
 		if _, err := root.New(n).Parse(pPartials[n]); err != nil {
 			e.log.Warn("render: skipping plugin partial", "partial", n, "error", err) // fail-open
+			p := snap.owner["p:"+n]
+			refused[p] = append(refused[p], "partial "+n+": "+err.Error())
+			continue
 		}
+		rewritePluginRanges(root, n, pPartials[n], snap.owner["p:"+n])
 	}
 
 	// Plugin section packs sit below the theme: a theme section of the same
@@ -452,6 +463,10 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 		types = append(types, typ)
 	}
 	sort.Strings(types)
+	skipSection := func(typ, reason string) {
+		p := snap.owner["s:"+typ]
+		refused[p] = append(refused[p], "section "+typ+": "+reason)
+	}
 	first := true
 	for _, typ := range types {
 		if !sectionTypeRe.MatchString(typ) {
@@ -461,6 +476,7 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 		if _, err := root.New("sections/" + typ + ".html").Parse(th.Sections[typ].Template); err != nil {
 			if fromPlugin { // fail-open: a plugin section never breaks the theme
 				e.log.Warn("render: skipping plugin section", "type", typ, "error", err)
+				skipSection(typ, err.Error())
 				continue
 			}
 			return nil, fmt.Errorf("sections/%s.html: %w", typ, err)
@@ -468,13 +484,16 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 		if root.Lookup("section-"+typ) == nil {
 			if fromPlugin {
 				e.log.Warn("render: skipping plugin section", "type", typ, "error", "does not define its section template")
+				skipSection(typ, "does not define its section template")
 				continue
 			}
 			return nil, fmt.Errorf("sections/%s.html must define \"section-%s\"", typ, typ)
 		}
 		if fromPlugin {
+			rewritePluginRanges(root, "sections/"+typ+".html", th.Sections[typ].Template, snap.owner["s:"+typ])
 			if err := escapeProbe(root, typ); err != nil { // fail-open, as for a parse error
 				e.log.Warn("render: skipping plugin section", "type", typ, "error", err)
+				skipSection(typ, err.Error())
 				continue
 			}
 		}
@@ -488,6 +507,7 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 		dispatch.WriteString(`{{end}}`)
 	}
 	dispatch.WriteString(`{{end}}`)
+	e.plugins.noteCompileRefused(slices.Compact(slices.Sorted(maps.Values(snap.owner))), refused)
 	if _, err := root.New("section-dispatch").Parse(dispatch.String()); err != nil {
 		return nil, fmt.Errorf("section dispatch: %w", err)
 	}
@@ -656,6 +676,8 @@ func (e *Engine) execute(w io.Writer, candidates []string, v *PageView, status i
 }
 
 func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *PageView, status int) error {
+	f := enterRangeFunnel()
+	defer f.exit()
 	le, ok, err := c.pickEntry(candidates...)
 	if !ok {
 		return fmt.Errorf("render: no layout among %v", candidates)
@@ -752,6 +774,8 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 		d.JSHref = AssetPrefix + "hm.js"
 	}
 	e.isolateSections(v.Ctx, tmpl, d.Blocks)
+	// The trial render must not use up the page's range budget.
+	f.reset()
 	var buf bytes.Buffer // render fully first so a template error never emits a partial page
 	if err := safeExecute(&buf, tmpl, "base", d); err != nil {
 		return fmt.Errorf("render %s: %w", candidates[0], err)
@@ -828,6 +852,8 @@ func prepareBlock(c *compiled, v *PageView, s Section, canvas bool, settings map
 
 // safeExecute is ExecuteTemplate that turns a template panic into an error, so
 // one section cannot take the process down.
+// Callers run inside a range funnel (see enterRangeFunnel): plugin ranges bind
+// their budget to it.
 func safeExecute(w io.Writer, t *template.Template, name string, data any) (err error) {
 	defer func() {
 		if r := recover(); r != nil {

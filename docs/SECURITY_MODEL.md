@@ -132,34 +132,40 @@ refused, and so is a template that does. Such a section or partial is refused
 whatever the data, because the rule reads the template source.
 
 Plugin template text is trusted for CPU and memory, like theme markup: install
-only plugins you trust. The following rules are guards against accidental
-recursion, fan-out and nesting, not a bound on what a template can cost. A
-`range` may only iterate content data: `.Content...` or `$.Content...`, or a
-field of an item reached that way inside a `range` or `with` over it; a number,
-a variable, a function or method result and the bare dot of a template's root
-are refused. Ranges that start again from the content (`$.Content...`, or
+only plugins you trust. A plugin `range` may iterate any value. Every plugin
+`range` in a render draws on one budget of 100000 iterations per page render
+(theme templates are not counted); builder blocks, layout parts and the trial render of
+sections share the first budget and the page render gets a second, and the
+sample render gets one budget per sample render, not per template. When the budget is spent the loop stops and the rest of every
+later plugin loop in that render is left out; the page is served but not cached,
+and a warning naming the plugin and the template is logged, at most once a
+minute for each. The following rules are static guards against accidental
+recursion, fan-out and nesting, not a bound on what a template can cost. Ranges
+that start again from the content (`$.Content...`, or
 `.Content...` at a template root) may nest at most two deep, counting such
 ranges in a template called from inside a range; ranges over the current item's
 children add no depth. Across all of one plugin's templates, `{{template}}`
 calls may not form a cycle (a template that reaches itself, directly or through
 others), a template may not call another plugin's templates (its partials or its section names), and no template
-may expand to more than 1000 template calls. The range rule is checked on every
-load, including for a plugin that is already installed; a section or partial
-that breaks it is logged and not registered, and the plugin's other templates
-are unaffected. A broken call rule (a cycle, a call to another plugin, too many
-calls, ranges nested too deep) is checked together with the other template
-rules and rejects all of that plugin's templates, logged. For a plugin without
+may expand to more than 1000 template calls. A broken call rule (a cycle, a call
+to another plugin, too many calls, ranges nested too deep) is checked on every
+load, including for a plugin that is already installed, together with the other
+template rules, and rejects all of that plugin's templates, logged. Every section
+or partial that is not registered is listed with its reason on the plugin's
+admin page and in `GET /api/v1/plugins`. For a plugin without
 `site.scripts` the sample render of a template is also cut off at 256 KiB of
 output (the template is refused when it reaches that), and its string-building
 builtins (`printf`, `print`, `println`, `slice`, `html`, `js`, `urlquery`) return
 their real result cut to 4 KiB, so the compile-time render stays cheap and still
-sees a literal they build; the output of plugin funcs is not represented. A time or memory budget for
-template execution at request time is not part of this model.
+sees a literal they build; the output of plugin funcs is not represented. The
+only request-time bound on template execution is the range iteration budget;
+time and memory are otherwise not budgeted.
 
 | Guarantee | Package | Tests |
 |---|---|---|
 | `plugin.js` is not linked without the grant (the stylesheet is not gated) | `internal/render` | `TestPluginScriptNeedsGate` |
 | Public HTML is the same signed in and signed out, and no cookie value reaches it, so CSS on the page has no per-user secret to read | `internal/server` | `TestPublicHTMLCarriesNoPerUserSecrets` |
+| Plugin ranges stop at the per-render budget | `internal/render` | `TestPluginRangeBudgetStopsAndDegrades`, `TestSampleRenderBoundsRanges`, `TestSampleRenderSharesOneBudget` |
 | Sections and partials with scripting markup follow the grant, and the two exceptions stay allowed | `internal/render` | `TestPluginMarkupScriptsFollowTheGrant`, `TestPluginMarkupRefusedWithoutTheGrant`, `TestPluginMarkupExceptionsStayAllowed` |
 | The sample render is a defence-in-depth layer: the template is also rendered once on empty data and the output scanned. The source rule refuses `<scr{{"ipt"}}>`-style sources first, so the gate's call to it is not pinned by any test. Five representative printing-action sources passing both layers is a canary, not a proof | `internal/render` | `TestPluginSampleRenderStopsWhatTheSourceScanCannotSee`, `TestPluginSampleRenderCanary` |
 | A printing action only in text or in a quoted attribute value, never in a name, unquoted value, comment, doctype or raw-text element (`<style>` included); control structures, `{{break}}`/`{{continue}}` and `{{template}}` only in text; every branch starts and ends in text. Tag boundaries come from `x/net/html`'s tokenizer | `internal/render`, `internal/packages` (Postgres) | `TestPluginMarkupActionsNeedTheGrant`, `TestPluginMarkupActionsPartials`, `TestPluginMarkupActionsDefineEnd`, `TestHostilePluginJS_SectionsAndPartialsNeedTheGrant` |

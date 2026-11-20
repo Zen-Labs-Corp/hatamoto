@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"hash/fnv"
 	"html/template"
+	"maps"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"text/template/parse"
@@ -63,7 +65,7 @@ func checkPluginScripts(src string, funcs template.FuncMap) error {
 	return nil
 }
 
-// dotKind says what the dot is while checkPluginLoops walks a template.
+// dotKind says what the dot is while collectCalls walks a template.
 type dotKind int
 
 const (
@@ -122,61 +124,6 @@ func withDot(p *parse.PipeNode, dot dotKind) dotKind {
 		}
 	}
 	return dotContent
-}
-
-// checkPluginLoops refuses a range in any template src defines, at any depth,
-// unless it iterates content data: .Content... or $.Content... (also inside a
-// range or with over such data, where the dot is content). A number, a
-// variable, a function result or a method result (.PublishedAt.UnixNano) can
-// be arbitrarily large, so a template could not be stopped by its output cap.
-// The dot of a template is whatever its caller passes, so every template root
-// counts as unknown data and only .Content chains are accepted there. A source
-// that does not parse is left to vet, which rejects it.
-func checkPluginLoops(src string) error {
-	p := parse.New("loops")
-	p.Mode = parse.SkipFuncCheck
-	trees := map[string]*parse.Tree{}
-	if _, err := p.Parse(src, "", "", trees); err != nil {
-		return nil
-	}
-	errRange := errors.New("range may only iterate content data such as .Content.items, not a number, a variable or a function result")
-	var walk func(*parse.ListNode, dotKind) error
-	walk = func(l *parse.ListNode, dot dotKind) error {
-		if l == nil {
-			return nil
-		}
-		for _, n := range l.Nodes {
-			var body, other *parse.ListNode
-			inner := dot
-			switch x := n.(type) {
-			case *parse.RangeNode:
-				if !contentPipe(x.Pipe, dot) {
-					return errRange
-				}
-				body, other, inner = x.List, x.ElseList, dotItem
-			case *parse.IfNode:
-				body, other = x.List, x.ElseList
-			case *parse.WithNode:
-				body, other, inner = x.List, x.ElseList, withDot(x.Pipe, dot)
-			}
-			if err := walk(body, inner); err != nil {
-				return err
-			}
-			if err := walk(other, dot); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	for _, t := range trees {
-		if t.Root == nil {
-			continue
-		}
-		if err := walk(t.Root, dotRoot); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // errPluginOutput is errPackOutput worded for a plugin template.
@@ -269,33 +216,56 @@ func stubFuncs(funcs template.FuncMap) template.FuncMap {
 // call on nothing) is skipped here and is covered by the source scan of every
 // branch above.
 func scanSampleRender(src string, funcs template.FuncMap) error {
-	t, err := template.New("sample").Funcs(stubFuncs(funcs)).Parse(src)
-	if err != nil {
-		return nil
+	_, err := sampleRender(src, funcs)
+	return err
+}
+
+// sampleRender is scanSampleRender that also returns the pool it drew on, so a
+// test can count what was spent.
+func sampleRender(src string, funcs template.FuncMap) (*rangeBudget, error) {
+	// Without a load-time range rule a template could spin on a huge range
+	// that prints nothing, so the sample render gets one silent budget, shared
+	// by every template and every call in it: a template called from a range
+	// must not get a fresh budget per call.
+	fm := stubFuncs(funcs)
+	shared := &rangeBudget{left: pluginRangeBudget}
+	fm[rangeBudgetFunc] = func(plugin, tmpl string) *rangeHandle {
+		return &rangeHandle{b: shared, plugin: plugin, tmpl: tmpl}
 	}
-	for _, d := range t.Templates() {
+	t, err := template.New("sample").Funcs(fm).Parse(src)
+	if err != nil {
+		return shared, nil
+	}
+	rewritePluginRanges(t, "sample", src, "")
+	// Templates() walks a map; the pool is shared, so the order decides which
+	// template meets an empty pool. Sort for one verdict per source.
+	tmpls := t.Templates()
+	sort.Slice(tmpls, func(i, j int) bool { return tmpls[i].Name() < tmpls[j].Name() })
+	for _, d := range tmpls {
 		var out bytes.Buffer
 		data := preparedSection{Section: Section{Content: map[string]any{}}, Settings: map[string]any{}}
 		err := d.Execute(&cappedWriter{buf: &out, max: maxPackOutput}, data)
 		if errors.Is(err, errPackOutput) {
-			return fmt.Errorf("markup: sample render of %s: %w", d.Name(), errPluginOutput)
+			return shared, fmt.Errorf("markup: sample render of %s: %w", d.Name(), errPluginOutput)
 		}
 		if err != nil {
 			continue
 		}
 		if err := scanPluginScripts("sample render of "+d.Name(), out.String()); err != nil {
-			return err
+			return shared, err
 		}
 	}
-	return nil
+	return shared, nil
 }
 
 // withoutScripts drops the sections and blanks the partials of every plugin the gate
 // refuses that fail the script check, and returns why each was dropped
-// ("section promo", "partial card": reason), keyed by plugin.
-func (s pluginSnapshot) withoutScripts(allowed func(string) bool) (pluginSnapshot, map[string][]string) {
-	why := map[string][]string{}
-	out := s
+// ("section promo", "partial card": reason), keyed by plugin. Templates refused
+// for the call graph are not about scripts: they are returned apart, in graph,
+// in the same form.
+func (s pluginSnapshot) withoutScripts(allowed func(string) bool) (out pluginSnapshot, why, graph map[string][]string) {
+	why, graph = map[string][]string{}, map[string][]string{}
+	out = s
 	out.partials, out.sections = map[string]string{}, map[string]string{}
 	graphFaults := s.callGraphFaults(s.partials, s.sections)
 	keep := func(plugin, label, src string) bool {
@@ -314,10 +284,14 @@ func (s pluginSnapshot) withoutScripts(allowed func(string) bool) (pluginSnapsho
 		}
 		if err != nil {
 			msg := label + ": " + err.Error()
-			if !errors.Is(err, errPluginOutput) && graphFaults[plugin] == nil {
-				msg += " (not allowed without site.scripts)"
+			if graphFaults[plugin] != nil {
+				graph[plugin] = append(graph[plugin], msg)
+			} else {
+				if !errors.Is(err, errPluginOutput) {
+					msg += " (not allowed without site.scripts)"
+				}
+				why[plugin] = append(why[plugin], msg)
 			}
-			why[plugin] = append(why[plugin], msg)
 			return false
 		}
 		return true
@@ -339,23 +313,39 @@ func (s pluginSnapshot) withoutScripts(allowed func(string) bool) (pluginSnapsho
 	for _, l := range why {
 		sort.Strings(l)
 	}
-	return out, why
+	for _, l := range graph {
+		sort.Strings(l)
+	}
+	return out, why, graph
 }
 
 // gateFingerprint changes whenever the gate's answer for a registered plugin
 // does, so engines rebuild when the owner grants or revokes site.scripts.
 func (r *pluginRegistry) gateFingerprint(allowed func(string) bool) uint64 {
 	r.mu.RLock()
-	seen := map[string]bool{}
-	for _, plugin := range r.owner {
-		seen[plugin] = true
-	}
+	owners := maps.Clone(r.owner)
 	r.mu.RUnlock()
+	return fingerprintOf(askGrants(owners, allowed))
+}
+
+// askGrants asks the gate once per plugin that owns something in owners.
+func askGrants(owners map[string]string, allowed func(string) bool) map[string]bool {
+	answers := map[string]bool{}
+	for _, plugin := range owners {
+		if _, done := answers[plugin]; !done {
+			answers[plugin] = allowed != nil && allowed(plugin)
+		}
+	}
+	return answers
+}
+
+// fingerprintOf hashes a set of grant answers.
+func fingerprintOf(answers map[string]bool) uint64 {
 	var sum uint64
-	for plugin := range seen {
+	for plugin, ok := range answers {
 		h := fnv.New64a()
 		h.Write([]byte(plugin))
-		if allowed != nil && allowed(plugin) {
+		if ok {
 			h.Write([]byte{1})
 		}
 		sum += h.Sum64() // order-independent
@@ -367,7 +357,5 @@ func (r *pluginRegistry) gateFingerprint(allowed func(string) bool) uint64 {
 // plugin that are not registered because they carry script constructs and the
 // plugin does not hold site.scripts. It is empty once the owner grants it.
 func PluginMarkupStopped(plugin string) []string {
-	snap := defaultPlugins.snapshot()
-	_, why := snap.withoutScripts(pluginScriptsAllowed())
-	return why[plugin]
+	return slices.Clone(defaultPlugins.gateResult().why[plugin])
 }

@@ -551,18 +551,18 @@ func TestPluginSampleRenderCanary(t *testing.T) {
 	}
 }
 
-func TestPluginRegRefusesUnboundedRange(t *testing.T) {
+// Any range registers: the loop is bounded at render time, not refused at load.
+func TestPluginRegAcceptsAnyRange(t *testing.T) {
 	t.Parallel()
-	refused := map[string]string{
-		"number":   `{{range 2000000000}}x{{end}}`,
-		"variable": `{{$n := 9}}{{range $n}}x{{end}}`,
-		"func":     `{{range index .Content "items"}}x{{end}}`,
-		"in if":    `{{if .A}}{{range 5}}x{{end}}{{end}}`,
-		"in with":  `{{with .A}}{{range 5}}x{{end}}{{end}}`,
-		"in else":  `{{if .A}}y{{else}}{{range 5}}x{{end}}{{end}}`,
-		"in range": `{{range .A}}{{range 5}}x{{end}}{{end}}`,
-		"define":   `{{define "other"}}{{range 5}}x{{end}}{{end}}ok`,
-		// a with over a constant makes the dot a number
+	shapes := map[string]string{
+		"number":          `{{range 2000000000}}x{{end}}`,
+		"variable":        `{{$n := 9}}{{range $n}}x{{end}}`,
+		"func":            `{{range index .Content "items"}}x{{end}}`,
+		"in if":           `{{if .A}}{{range 5}}x{{end}}{{end}}`,
+		"in with":         `{{with .A}}{{range 5}}x{{end}}{{end}}`,
+		"in else":         `{{if .A}}y{{else}}{{range 5}}x{{end}}{{end}}`,
+		"in range":        `{{range .A}}{{range 5}}x{{end}}{{end}}`,
+		"define":          `{{define "other"}}{{range 5}}x{{end}}{{end}}ok`,
 		"with const dot":  `{{with 9000000000000000000}}{{range .}}{{end}}{{end}}`,
 		"root dot":        `{{range .}}x{{end}}`,
 		"method int":      `{{range .PublishedAt.UnixNano}}x{{end}}`,
@@ -575,17 +575,15 @@ func TestPluginRegRefusesUnboundedRange(t *testing.T) {
 		"with unknown":    `{{with .Page}}{{range .Items}}x{{end}}{{end}}`,
 		"with then field": `{{with .Content.box}}{{with 5}}{{range .}}x{{end}}{{end}}{{end}}`,
 		"else of range":   `{{range .Content.items}}y{{else}}{{range .Count}}x{{end}}{{end}}`,
-	}
-	accepted := map[string]string{
-		"field":         `{{range .Content.items}}x{{end}}`,
-		"decl":          `{{range $i, $v := .Content.items}}x{{end}}`,
-		"nested":        `{{range .Content.a}}{{range .b}}x{{end}}{{end}}`,
-		"root var":      `{{range $.Content.items}}x{{end}}`,
-		"children":      `{{range .Content.items}}{{range .children}}x{{end}}{{end}}`,
-		"dot in range":  `{{range .Content.items}}{{range .}}x{{end}}{{end}}`,
-		"root in range": `{{range .Content.items}}{{range $.Content.tags}}x{{end}}{{end}}`,
-		"with content":  `{{with .Content.box}}{{range .items}}x{{end}}{{end}}`,
-		"with root var": `{{with $.Content.box}}{{range .items}}x{{end}}{{end}}`,
+		"field":           `{{range .Content.items}}x{{end}}`,
+		"decl":            `{{range $i, $v := .Content.items}}x{{end}}`,
+		"nested":          `{{range .Content.a}}{{range .b}}x{{end}}{{end}}`,
+		"root var":        `{{range $.Content.items}}x{{end}}`,
+		"children":        `{{range .Content.items}}{{range .children}}x{{end}}{{end}}`,
+		"dot in range":    `{{range .Content.items}}{{range .}}x{{end}}{{end}}`,
+		"root in range":   `{{range .Content.items}}{{range $.Content.tags}}x{{end}}{{end}}`,
+		"with content":    `{{with .Content.box}}{{range .items}}x{{end}}{{end}}`,
+		"with root var":   `{{with $.Content.box}}{{range .items}}x{{end}}{{end}}`,
 	}
 	wrap := func(s string) string {
 		if strings.Contains(s, "{{define") {
@@ -593,42 +591,77 @@ func TestPluginRegRefusesUnboundedRange(t *testing.T) {
 		}
 		return `{{define "section-x"}}` + s + `{{end}}`
 	}
-	for name, src := range refused {
-		t.Run("section refused "+name, func(t *testing.T) {
+	for name, src := range shapes {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			reg := newPluginRegistry()
-			if err := reg.registerSection("acme", "x", wrap(src)); err == nil {
-				t.Error("accepted")
+			empty := reg.size()
+			if err := reg.registerSection("acme", "x", wrap(src)); err != nil {
+				t.Errorf("section: %v", err)
 			}
-			if reg.size() != 0 {
-				t.Error("registry changed")
+			if err := reg.checkPartial("acme", "x", src); err != nil {
+				t.Errorf("partial dry run: %v", err)
 			}
-		})
-		t.Run("partial refused "+name, func(t *testing.T) {
-			t.Parallel()
-			reg := newPluginRegistry()
-			if err := reg.registerPartial("acme", "x", src); err == nil {
-				t.Error("accepted")
+			if err := reg.registerPartial("acme", "x", src); err != nil {
+				t.Errorf("partial: %v", err)
 			}
-			if err := reg.checkPartial("acme", "x", src); err == nil {
-				t.Error("dry run accepted")
-			}
-			if reg.size() != 0 {
-				t.Error("registry changed")
+			if reg.size() == empty {
+				t.Error("registry did not change")
 			}
 		})
 	}
-	for name, src := range accepted {
-		t.Run("accepted "+name, func(t *testing.T) {
-			t.Parallel()
-			reg := newPluginRegistry()
-			if err := reg.registerSection("acme", "x", wrap(src)); err != nil {
-				t.Error(err)
-			}
-			if err := reg.registerPartial("acme", "x", src); err != nil {
-				t.Error(err)
-			}
-		})
+}
+
+// The compile-time sample render must stop on a range that prints nothing: the
+// output cap alone would never trip on it.
+func TestSampleRenderBoundsRanges(t *testing.T) { //nolint:paralleltest // sets the global script gate
+	for name, src := range map[string]string{
+		"huge":   `{{range 1000000000}}{{end}}`,
+		"nested": `{{range $i := 100000}}{{range $j := 100000}}{{end}}{{end}}`,
+	} {
+		start := time.Now()
+		got := gatedSections(t, map[string]string{"loop": src}, false)
+		if !got["loop"] {
+			t.Errorf("%s: section dropped", name)
+		}
+		if d := time.Since(start); d > 5*time.Second {
+			t.Errorf("%s: sample render took %v", name, d)
+		}
+	}
+}
+
+// The sample render has one budget for the whole render: a template called
+// from a range, or called many times, must not get a fresh budget per call.
+func TestSampleRenderSharesOneBudget(t *testing.T) {
+	t.Parallel()
+	for name, src := range map[string]string{
+		"define called from a range": `{{define "inner"}}{{range 100000000}}{{end}}{{end}}` +
+			`{{define "outer"}}{{range 100}}{{template "inner"}}{{end}}{{end}}`,
+		"many static calls": `{{define "inner"}}{{range 100000000}}{{end}}{{end}}` +
+			`{{define "outer"}}` + strings.Repeat(`{{template "inner"}}`, 100) + `{{end}}`,
+	} {
+		b, err := sampleRender(src, nil)
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+		// Every guard spend draws on the one pool, so it ends spent. With a
+		// pool per call this one would stay untouched.
+		if b.left != 0 {
+			t.Errorf("%s: %d left in the shared pool, want 0", name, b.left)
+		}
+	}
+}
+
+// The shared pool makes the verdict depend on which template runs first, so the
+// order must be fixed: the same source gives the same verdict every time.
+func TestSampleRenderVerdictIsStable(t *testing.T) {
+	t.Parallel()
+	src := `{{define "plugin/acme/warm"}}{{range 100000}}{{end}}{{end}}` +
+		`{{define "plugin/acme/grid"}}{{range 30000}}<span class="cell">0123456789</span>{{end}}{{end}}`
+	for i := range 20 {
+		if err := scanSampleRender(src, nil); !errors.Is(err, errPluginOutput) {
+			t.Fatalf("run %d: err = %v, want errPluginOutput", i, err)
+		}
 	}
 }
 
@@ -660,7 +693,8 @@ func vetPlugin(t *testing.T, partials, sections map[string]string) (gotPartials,
 			t.Fatalf("section %s: %v", typ, err)
 		}
 	}
-	return reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	p, s, _ := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return p, s
 }
 
 func TestPluginVetBoundsCallsAndNesting(t *testing.T) {
@@ -737,7 +771,7 @@ func TestPluginVetRefusesCallsToAnotherPlugin(t *testing.T) {
 	must(reg.registerSection("acme", "x", `{{define "section-x"}}{{template "plugin/acme/p" "aaaa"}}{{end}}`))
 	must(reg.registerPartial("beta", "q", `{{if .}}{{template "plugin/acme/p" (slice . 1)}}{{template "plugin/acme/p" (slice . 1)}}{{end}}`))
 	must(reg.registerPartial("beta", "ok", `<b>{{template "plugin/beta/q" "a"}}</b>`))
-	partials, sections := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	partials, sections, _ := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if len(partials) != 0 || len(sections) != 0 {
 		t.Errorf("kept partials %v, sections %v, want none", partials, sections)
 	}
@@ -769,7 +803,7 @@ func TestPluginVetRefusesCallsToAnotherPluginsSections(t *testing.T) {
 			if err := reg.registerSection("beta", "bx", tc.b); err != nil {
 				t.Fatal(err)
 			}
-			_, sections := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+			_, sections, _ := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 			if len(sections) != 0 {
 				t.Errorf("kept sections %v, want none", sections)
 			}
@@ -814,24 +848,24 @@ func TestPluginGateRefusesACallGraphFault(t *testing.T) {
 	if err := reg.registerSection("acme", "y", `{{define "section-y"}}<p>ok</p>{{end}}`); err != nil {
 		t.Fatal(err)
 	}
-	out, why := reg.snapshot().withoutScripts(nil)
+	out, why, graph := reg.snapshot().withoutScripts(nil)
 	if len(out.sections) != 0 {
 		t.Errorf("kept sections %v, want none", out.sections)
 	}
-	if len(why["acme"]) != 2 || strings.Contains(why["acme"][0], "site.scripts") {
-		t.Errorf("why = %v", why["acme"])
+	if len(why["acme"]) != 0 || len(graph["acme"]) != 2 || strings.Contains(graph["acme"][0], "site.scripts") {
+		t.Errorf("why = %v, graph = %v", why["acme"], graph["acme"])
 	}
 }
 
-// A core func that returns a map (dict) is not available to plugin templates:
-// a template that builds its own Content would get past the range rule.
+// Plugin templates see only the snapshot funcs: a core func that builds maps
+// (dict) stays unavailable.
 func TestPluginVetRefusesDict(t *testing.T) {
 	t.Parallel()
 	reg := newPluginRegistry()
 	if err := reg.registerPartial("acme", "p", `{{template "plugin/acme/q" (dict "Content" 5)}}`); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil))); len(got) != 0 {
+	if got, _, _ := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil))); len(got) != 0 {
 		t.Fatal("dict was available to a plugin template")
 	}
 }
