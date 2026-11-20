@@ -207,4 +207,4 @@ Each uncached render runs exactly one thread query. With a stream of one approva
 
 ### Server secret
 
-Rotating `HATAMOTO_SECRET` orphans every hash and makes the sealed emails unreadable. Commenters start again at `new`. It also signs every commenter device out, because `hm_c` is keyed from the secret.
+Rotating `HATAMOTO_SECRET` orphans every hash and makes the sealed emails unreadable. Commenters start again at `new`. It also signs every commenter device out, because `hm_c` is keyed from the secret. Exports and backups record a check value of the secret, and importing or restoring under a different secret is refused unless `--force` is given, which drops the commenter emails (see [EXPORT.md](EXPORT.md) and [BACKUPS.md](BACKUPS.md)).

@@ -18,7 +18,7 @@ hatamoto analytics first-crawls [--from D] [--to D] [--limit N]
 hatamoto analytics referrals [--from D] [--to D]                 # AI-assistant visits per day
 
 hatamoto export <file.tar.gz> [--no-submissions]
-hatamoto import <file.tar.gz>
+hatamoto import <file.tar.gz> [--force]                          # --force imports an archive made under a different server secret and drops the commenter emails
 hatamoto import wordpress (--url URL --user U --app-password P | --wxr FILE) [--scan-only] [--resume RUN] [--audit-url URL]
 
 hatamoto builder convert [--dry-run] [--verify-render] [--entity ID]
@@ -51,7 +51,7 @@ hatamoto backup create [--config P] [--with-media]                 # full backup
 hatamoto backup list [--json] [--remote]                           # needs only the data dir; --remote lists the off-site bucket (HATAMOTO_OFFSITE_*)
 hatamoto backup delete <id>
 hatamoto media migrate --to s3|local [--dry-run]                    # copy the media library between local disk and object storage (HATAMOTO_MEDIA_S3_*): verified by sha256, resumable, the source is kept; needs DATABASE_URL
-hatamoto backup restore <id|path.tar> [--dry-run] --admin-url DSN [--config-out P]   # rebuild a clean machine from a backup; --dry-run checks and writes nothing; --from-offsite <id> replaces <id|path.tar> and downloads from the off-site bucket
+hatamoto backup restore <id|path.tar> [--dry-run] [--force] --admin-url DSN [--config-out P]   # --force restores a backup made under a different server secret and drops the commenter emails; rebuild a clean machine from a backup; --dry-run checks and writes nothing; --from-offsite <id> replaces <id|path.tar> and downloads from the off-site bucket
 hatamoto registry index <dir> --key F [--meta F] [--out F] [--url-prefix P] [--valid-days N]   # N is 1 to 180, default 90
 hatamoto registry page <registry.json> [--out F] [--title T] [--intro T] [--write-url U] [--submit-url U] [--install-hint T] [--trusted-key K]   # static plugin directory page from a signed index, for operators without a CMS page (the Plugin directory section needs no CLI)
 ```

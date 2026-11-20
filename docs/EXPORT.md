@@ -7,7 +7,7 @@
 ```
 hatamoto export site.tar.gz            # DATABASE_URL, MEDIA_UPLOAD_DIR
 hatamoto export site.tar.gz --no-submissions
-DATABASE_URL=postgres://new-host/hatamoto hatamoto import site.tar.gz
+DATABASE_URL=postgres://new-host/hatamoto hatamoto import site.tar.gz [--force]
 hatamoto user reset-password --email you@example.com
 ```
 
@@ -39,22 +39,22 @@ Export and import are command line only. Admin → Settings → Tools → Export
 
 **Not included:** the comment settings (including the on/off switch), per-page comment modes, blocklists and form tokens (a backup has them; comment counts are rebuilt from the rows on import), API keys and sessions (secrets), crawler hits, analytics, 404 logs and the link index (history or derived data; the link index fills again as pages are saved), plugin credentials, settings and stored data. **Installed plugin and theme packages** (the `hatamoto_packages` table), the active theme and theme settings are not archived either, on purpose: a package is code the new host must trust by its own keys. Reinstall them on the new host (`hatamoto package install`, then `hatamoto theme activate`); packages already installed do not stop an import.
 
-## Format (version 1)
+## Format (version 2)
 
 A gzip-compressed tar, written and read as a stream:
 
-1. `format.json`, always first: `{"format":"hatamoto-export","version":1,"created_at":...,"schema_version":<newest migration>,"include_form_submissions":bool,"tables":[...]}`. `tables` is the order of the data files (parents before children).
+1. `format.json`, always first: `{"format":"hatamoto-export","version":2,"created_at":...,"schema_version":<newest migration>,"include_form_submissions":bool,"secret_check":"<base64url>","tables":[...]}`. `tables` is the order of the data files (parents before children). `secret_check` is an HMAC of a fixed label under a key derived from `HATAMOTO_SECRET`. It lets an import tell whether it runs under the same secret. It is never the secret, and it is left out when no secret is set where the export runs.
 2. `data/<table>.jsonl`: one JSON object per row, as PostgreSQL's `to_jsonb(row)` renders it (all columns, UUIDs and timestamps as strings with full precision). Generated columns (the search vector) are left out.
 3. `media/<storage_path>`: uploaded files, paths relative to `MEDIA_UPLOAD_DIR`.
 4. `manifest.json`, always last: row counts per table and the media file count. The import checks it, so a truncated archive is rejected.
 
-The `version` field changes only when this layout changes; an importer refuses a version newer than it knows. The comment tables did not change it (it stays 1), but an older Hatamoto refuses an archive that lists them (unknown table). Rows carry whatever columns the exporting version had: columns missing from an older archive take their defaults on import.
+The `version` field changes only when this layout changes; an importer refuses a version newer than it knows. Version 2 added `secret_check`; version 1 archives still import, and an older binary refuses a version 2 archive. An archive from a newer format gets `archive format vN is newer than this hatamoto supports (v2); upgrade first`. An older Hatamoto also refuses an archive that lists the comment tables (unknown table). Rows carry whatever columns the exporting version had: columns missing from an older archive take their defaults on import.
 
 ## Import rules
 
 - Only into an **empty** database: the import runs migrations, then refuses (`database is not empty`) if there are any entities, users, terms, menus, redirects, forms, media, authors, people links, section templates, link rules, comments or commenters. The built-in schemas and site config that migrations seed are replaced by the archive's.
-- **Older archives:** an archive written before people existed has authors but no `person` entities and no `hatamoto_user_people` file. It imports as it is (the built-in `person` type is kept), and once the import has committed, every author gets a non-public person and the posts are re-pointed at it, as the upgrade does. The file is optional and the format `version` stays 1; a binary from before people refuses an archive that lists it (unknown table), so import new archives with the new binary. If the people step fails, the import itself is kept and the error says so; the only expected cause is a content type of your own with the slug `person` in the archive, so rename it before exporting.
-- **Comments:** an archive without comment files imports with no comments. Keep the same `HATAMOTO_SECRET` on the new site: commenter emails are sealed with it, so under a different secret they become unreadable and the trust and rate-limit hashes stop matching (commenters start again at *new*; see `docs/COMMENTS.md`, "Server secret").
+- **Older archives:** an archive written before people existed has authors but no `person` entities and no `hatamoto_user_people` file. It imports as it is (the built-in `person` type is kept), and once the import has committed, every author gets a non-public person and the posts are re-pointed at it, as the upgrade does. The file is optional; a binary from before people refuses an archive that lists it (unknown table), so import new archives with the new binary. If the people step fails, the import itself is kept and the error says so; the only expected cause is a content type of your own with the slug `person` in the archive, so rename it before exporting.
+- **Comments:** an archive without comment files imports with no comments and is never refused over the secret. Commenter emails are sealed with `HATAMOTO_SECRET`, so keep the same secret on the new site. An archive with comment files made under a different secret is refused with `this archive was made with a different server secret`. `hatamoto import site.tar.gz --force` imports it anyway and blanks the commenter emails; the output says `dropped N commenter emails (different server secret)`. The email, IP and network hashes are kept but no longer match, so commenters start again at *new* (see `docs/COMMENTS.md`, "Server secret"). An archive without a check (made by an older release) imports with a warning, and so does an import where no secret is set, because the check cannot be verified.
 - IDs and timestamps (`created_at`, `updated_at`, `published_at`) are preserved; parent links are restored without touching `updated_at`.
 - Everything runs in one transaction; any error (including a bad manifest) rolls the database back; media files are staged in a temp directory under `MEDIA_UPLOAD_DIR` and linked into place just before the commit, and a failure removes only the files the import created.
 - Users are created with a password that cannot match anything. Set one with `hatamoto user reset-password --email ...`.
