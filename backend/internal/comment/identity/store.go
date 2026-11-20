@@ -99,6 +99,12 @@ func (s *pgStore) Consume(ctx context.Context, hash []byte, now time.Time) (comm
 	return commentID, commenterID, true, nil
 }
 
+// Release clears used_at of a token, after its confirmation failed.
+func (s *pgStore) Release(ctx context.Context, hash []byte) error {
+	_, err := s.db.Pool().Exec(ctx, `UPDATE hatamoto_comment_confirmations SET used_at = NULL WHERE token_hash = $1`, hash)
+	return err
+}
+
 // TokenVersion reads the commenter's current token_version.
 func (s *pgStore) TokenVersion(ctx context.Context, commenterID uuid.UUID) (int, bool, error) {
 	var v int

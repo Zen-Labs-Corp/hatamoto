@@ -37,6 +37,8 @@ type store interface {
 	Issue(ctx context.Context, r issueRow, l Limits) (bool, error)
 	Peek(ctx context.Context, hash []byte, now time.Time) (commentID, entityID, commenterID uuid.UUID, ok bool, err error)
 	Consume(ctx context.Context, hash []byte, now time.Time) (commentID, commenterID uuid.UUID, ok bool, err error)
+	// Release un-spends a token whose confirmation failed.
+	Release(ctx context.Context, hash []byte) error
 	TokenVersion(ctx context.Context, commenterID uuid.UUID) (int, bool, error)
 	Purge(ctx context.Context, now time.Time) (drafts, tokens, commenters int64, err error)
 }
@@ -218,19 +220,23 @@ func (s *Service) Confirm(ctx context.Context, raw string) (Confirmed, error) {
 	if !ok {
 		return Confirmed{}, ErrTokenInvalid
 	}
+	// Everything that can fail transiently runs while the token can still be
+	// released: a database blip must not leave the link dead.
+	ver, found, err := s.store.TokenVersion(ctx, commenterID)
+	if err != nil {
+		s.release(ctx, hash)
+		return Confirmed{}, err
+	}
+	if !found {
+		return Confirmed{}, ErrTokenInvalid
+	}
 	c, err := s.comments.Confirm(ctx, commentID)
 	if errors.Is(err, comment.ErrNotFound) || errors.Is(err, comment.ErrBadTransition) {
 		return Confirmed{}, ErrTokenInvalid
 	}
 	if err != nil {
+		s.release(ctx, hash)
 		return Confirmed{}, err
-	}
-	ver, found, err := s.store.TokenVersion(ctx, commenterID)
-	if err != nil {
-		return Confirmed{}, err
-	}
-	if !found {
-		return Confirmed{}, ErrTokenInvalid
 	}
 	set, err := s.comments.Settings(ctx)
 	if err != nil {
@@ -244,6 +250,14 @@ func (s *Service) Confirm(ctx context.Context, raw string) (Confirmed, error) {
 		Comment: c, CommenterID: commenterID, TokenVersion: ver,
 		CookieLifetime: time.Duration(days) * 24 * time.Hour,
 	}, nil
+}
+
+// release makes a consumed token usable again after a failed confirmation. A
+// failure to release is logged; the visitor can request a new mail.
+func (s *Service) release(ctx context.Context, hash []byte) {
+	if err := s.store.Release(context.WithoutCancel(ctx), hash); err != nil {
+		s.log.Warn("comment confirmation token not released", "error", err)
+	}
 }
 
 // Cookie builds the hm_c device cookie for a confirmation.

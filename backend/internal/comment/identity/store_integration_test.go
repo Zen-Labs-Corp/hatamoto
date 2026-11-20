@@ -195,6 +195,23 @@ func TestStore_ConsumeIsSingleUse(t *testing.T) {
 	}
 }
 
+func TestStore_ReleaseRestoresAConsumedToken(t *testing.T) {
+	f := newFixture(t)
+	c := f.draft("", "192.0.2.1")
+	now := time.Now().UTC()
+	raw, _ := f.issue(c, now)
+	h := mustHash(t, raw)
+	if _, _, ok, err := f.store.Consume(f.ctx, h, now); err != nil || !ok {
+		t.Fatalf("Consume ok = %v err = %v", ok, err)
+	}
+	if err := f.store.Release(f.ctx, h); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, ok, err := f.store.Consume(f.ctx, h, now); err != nil || !ok {
+		t.Errorf("Consume after Release ok = %v err = %v, want accepted", ok, err)
+	}
+}
+
 func TestStore_PeekNeedsDraft(t *testing.T) {
 	f := newFixture(t)
 	c := f.draft("", "192.0.2.1")

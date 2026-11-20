@@ -53,11 +53,13 @@ func (f *fakeMailer) SendCommentConfirmation(_ context.Context, to string, d ema
 
 // fakeStore applies the real limit arithmetic over an in-memory list.
 type fakeStore struct {
-	rows      []issueRow
-	issueN    int
-	versions  map[uuid.UUID]int
-	versionQs int
-	peekOK    bool
+	rows       []issueRow
+	issueN     int
+	versions   map[uuid.UUID]int
+	versionQs  int
+	peekOK     bool
+	released   int
+	versionErr error
 }
 
 func (f *fakeStore) Issue(_ context.Context, r issueRow, l Limits) (bool, error) {
@@ -89,8 +91,16 @@ func (f *fakeStore) Consume(context.Context, []byte, time.Time) (a, b uuid.UUID,
 	return uuid.New(), uuid.New(), true, nil
 }
 
+func (f *fakeStore) Release(context.Context, []byte) error {
+	f.released++
+	return nil
+}
+
 func (f *fakeStore) TokenVersion(_ context.Context, id uuid.UUID) (int, bool, error) {
 	f.versionQs++
+	if f.versionErr != nil {
+		return 0, false, f.versionErr
+	}
 	v, ok := f.versions[id]
 	return v, ok, nil
 }
@@ -313,9 +323,13 @@ func TestConfirm_MapsModelErrors(t *testing.T) {
 	} {
 		e := newEnv(t)
 		e.c.confirmErr = tc.in
+		e.svc.store = &versionAll{fakeStore: e.st, v: 1}
 		_, err := e.svc.Confirm(context.Background(), validToken(t))
 		if tc.invalid && !errors.Is(err, ErrTokenInvalid) {
 			t.Errorf("%s: err = %v, want ErrTokenInvalid", tc.name, err)
+		}
+		if wantRelease := !tc.invalid; (e.st.released == 1) != wantRelease {
+			t.Errorf("%s: released = %d, want release = %v", tc.name, e.st.released, wantRelease)
 		}
 		if !tc.invalid && (err == nil || errors.Is(err, ErrTokenInvalid) || err.Error() != "boom") {
 			t.Errorf("%s: err = %v, want unchanged", tc.name, err)
@@ -386,5 +400,17 @@ func TestNew_EmptySecretFails(t *testing.T) {
 	}
 	if _, err := New(Config{Secret: ""}); err == nil {
 		t.Error("New with empty secret succeeded")
+	}
+}
+
+func TestConfirm_ReleasesTokenOnTransientVersionError(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.st.versionErr = errors.New("boom")
+	if _, err := e.svc.Confirm(context.Background(), validToken(t)); err == nil || errors.Is(err, ErrTokenInvalid) {
+		t.Fatalf("err = %v, want the transient error", err)
+	}
+	if e.st.released != 1 || len(e.c.confirmed) != 0 {
+		t.Errorf("released = %d, confirmed = %d; want the token released before any confirm", e.st.released, len(e.c.confirmed))
 	}
 }
