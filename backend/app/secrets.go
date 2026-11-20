@@ -116,3 +116,16 @@ func writeSecretsFile(path string, m map[string]string) error {
 	}
 	return os.Rename(tmp.Name(), path)
 }
+
+// serverSecret is the secret a server started now would use: HATAMOTO_SECRET,
+// then JWT_SECRET, else secrets.env read-only (nothing is generated, so an
+// export or import never creates state). "" when there is none.
+func serverSecret() (string, error) {
+	if v := os.Getenv(secretEnv); v != "" {
+		return v, nil
+	}
+	if v := os.Getenv(legacySecretEnv); v != "" {
+		return v, nil
+	}
+	return storedSecret(secretsDirFromEnv())
+}
