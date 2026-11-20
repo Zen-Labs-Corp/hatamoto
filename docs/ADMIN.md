@@ -653,8 +653,9 @@ keyword, SEO title and description, canonical, social image, noindex, include in
    while the request runs; htmx's own indicator CSS is off because of the CSP). A template
    test fails on an `hx-get` or `hx-post` without one unless it is on its allow-list.
 5. **Fragments.** `IsHTMX(r)`; `Render` returns the whole document normally and only the
-   `main` block for an htmx request with an `HX-Target`; responses carry
-   `Vary: HX-Request, HX-Target`.
+   `main` block for a fragment request: htmx 2 sends an `HX-Target`, htmx 4 sends
+   `HX-Request-Type: partial`. A htmx 4 full request (`HX-Request-Type: full`) gets the whole
+   page. Responses carry `Vary: Cookie, HX-Request, HX-Target, HX-Request-Type`.
 6. Validation errors re-render in place with **422** (`admin.js` makes htmx swap
    it). Other failures: an error page, or for fragment requests an
    `HX-Trigger` toast plus `HX-Reswap: none`.
