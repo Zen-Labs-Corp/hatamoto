@@ -3,7 +3,12 @@ package server
 import (
 	"context"
 	"sync"
+	"time"
 )
+
+// defaultFlightWait bounds how long a follower parks behind a leader; a
+// leader stalled past it no longer holds the page hostage.
+const defaultFlightWait = 5 * time.Second
 
 // renderFlight lets concurrent misses on one page key share one render. Only a
 // result the leader stored is shared, so a follower gets exactly what a cache
@@ -12,6 +17,8 @@ import (
 type renderFlight struct {
 	mu    sync.Mutex
 	calls map[string]*flightCall
+	// maxWait overrides defaultFlightWait when positive (tests).
+	maxWait time.Duration
 }
 
 type flightCall struct {
@@ -58,11 +65,21 @@ func (f *renderFlight) finish(key string, c *flightCall, res flightResult) {
 	})
 }
 
-// wait blocks until the leader finishes; false when ctx ends first.
-func (c *flightCall) wait(ctx context.Context) (flightResult, bool) {
+// wait blocks until the leader finishes, for at most the flight's bound; a
+// timeout gives an empty result, so the follower renders on its own. ok is
+// false when ctx ends first.
+func (f *renderFlight) wait(ctx context.Context, c *flightCall) (res flightResult, ok bool) {
+	limit := f.maxWait
+	if limit <= 0 {
+		limit = defaultFlightWait
+	}
+	timer := time.NewTimer(limit)
+	defer timer.Stop()
 	select {
 	case <-c.done:
 		return c.res, true
+	case <-timer.C:
+		return flightResult{}, true
 	case <-ctx.Done():
 		return flightResult{}, false
 	}

@@ -476,7 +476,7 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 			// Covers every exit that does not store: followers then render on their own.
 			defer h.flight.finish(key, call, flightResult{})
 		} else {
-			res, ok := call.wait(r.Context())
+			res, ok := h.flight.wait(r.Context(), call)
 			if !ok {
 				return // this request's client is gone; the leader is unaffected
 			}

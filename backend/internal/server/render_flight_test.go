@@ -191,7 +191,7 @@ func TestRenderFlightFinishIdempotent(t *testing.T) {
 		t.Fatalf("second join: leader=%v waiting=%d", follower, f.waiting("k"))
 	}
 	got := make(chan flightResult, 1)
-	go func() { r, _ := fc.wait(context.Background()); got <- r }()
+	go func() { r, _ := f.wait(context.Background(), fc); got <- r }()
 
 	// An early-return leader finishes empty; a later finish must not override it.
 	f.finish("k", c, flightResult{})
@@ -204,5 +204,40 @@ func TestRenderFlightFinishIdempotent(t *testing.T) {
 	}
 	if _, leader := f.join("k"); !leader {
 		t.Fatal("join after finish must lead a new flight")
+	}
+}
+
+func TestFlightFollowerRendersItselfWhenLeaderStalls(t *testing.T) {
+	f := newRenderFixture(t)
+	f.h.flight.maxWait = 50 * time.Millisecond
+	release := make(chan struct{})
+	var loads atomic.Int32
+	f.next = func() (*routeResult, pageOutcome, error) {
+		if loads.Add(1) == 1 {
+			<-release // the stalled leader
+		}
+		return okPage("About")()
+	}
+	leaderDone := make(chan *httptest.ResponseRecorder, 1)
+	go func() { leaderDone <- f.get("/about") }()
+	deadline := time.Now().Add(5 * time.Second)
+	for loads.Load() == 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+
+	start := time.Now()
+	w := f.get("/about")
+	if w.Code != http.StatusOK || w.Body.Len() == 0 {
+		t.Fatalf("follower: status %d, %d bytes", w.Code, w.Body.Len())
+	}
+	if took := time.Since(start); took < 40*time.Millisecond || took > 4*time.Second {
+		t.Fatalf("follower returned after %v, want about the 50ms bound", took)
+	}
+	if got := loads.Load(); got != 2 {
+		t.Fatalf("loads = %d, want 2 (leader + follower's own render)", got)
+	}
+	close(release)
+	if w := <-leaderDone; w.Code != http.StatusOK {
+		t.Fatalf("leader: status %d", w.Code)
 	}
 }
