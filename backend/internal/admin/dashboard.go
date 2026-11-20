@@ -81,6 +81,7 @@ type dashSection struct {
 	Activity               []activityRow
 	More                   *ui.Button // link to the full screen, last in the card (only Label and Href are used)
 	ErrMsg                 string
+	Warn                   string // a standing warning shown at the top of the card
 }
 
 // dashKPI is one KPI card. Failed marks a card that could not load: the page

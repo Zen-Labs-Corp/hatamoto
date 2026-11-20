@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"hatamoto.dev/core/internal/admin/ui"
@@ -53,9 +54,19 @@ func (a *Admin) dashComments(ctx context.Context) (dashResult, error) {
 		sec.Rows = append(sec.Rows, dashRow{Title: r.AuthorName + " on " + r.EntityTitle, Summary: truncate(strings.Join(strings.Fields(r.BodyRaw), " "), cdashExcerpt),
 			When: fmtDateTime(r.CreatedAt.In(loc)), Href: queue})
 	}
+	if s.Enabled && a.dashNoAddress(ctx) {
+		sec.Warn = "Confirmation emails are not being sent: set your site address in Settings > General."
+	}
 	if len(sec.Rows) == 0 {
 		sec.State = dashEmpty
 		sec.Empty = ui.Empty{Icon: "quote", Title: "No comments waiting", Compact: true}
 	}
 	return dashResult{Sec: sec}, nil
+}
+
+// dashNoAddress is commentsNoAddress for a dashboard job, which only has ctx. Deps.BaseURL reads
+// only the request context (env, then the Site address setting), never headers.
+func (a *Admin) dashNoAddress(ctx context.Context) bool {
+	r, err := http.NewRequestWithContext(ctx, http.MethodGet, "/", nil)
+	return err != nil || a.commentsNoAddress(r)
 }
