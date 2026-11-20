@@ -30,6 +30,15 @@ func EncodedKey(key, encoding string) string {
 	return variantKeyPrefix + encoding + ":" + strings.TrimPrefix(key, renderKeyPrefix)
 }
 
+// plainKeyOf is the inverse of EncodedKey: the plain page key of a variant.
+func plainKeyOf(variant string) string {
+	rest := strings.TrimPrefix(variant, variantKeyPrefix)
+	if _, after, ok := strings.Cut(rest, ":"); ok {
+		rest = after
+	}
+	return renderKeyPrefix + rest
+}
+
 // InvalidateRendered drops every cached rendered page. Pages embed navigation
 // and sibling data, so any content, menu or site-config change invalidates the
 // whole set (coarse on purpose).
