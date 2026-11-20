@@ -77,7 +77,7 @@ with undo, history and keyboard shortcuts. [Page editor](docs/site/admin/page-ed
 
 ### See who reads your site, people and AI
 
-The overview shows what changed this week and what needs a look. Analytics are cookieless and count AI
+The overview shows what changed this week and what needs a review. Analytics are cookieless and count AI
 assistants as a channel of their own. The crawler report shows which AI agents fetch which pages, checks that
 each one is who it claims to be, and lets you allow or block a whole purpose (training, search, user fetches).
 [AI and SEO](docs/site/ai-seo/index.md), [Crawler analytics](docs/site/ai-seo/crawler-analytics.md)
