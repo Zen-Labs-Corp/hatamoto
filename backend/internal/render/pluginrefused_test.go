@@ -178,14 +178,24 @@ func TestPluginGateKeyMatchesScan(t *testing.T) { //nolint:paralleltest // uses 
 	asked := 0
 	SetPluginScriptGate(func(string) bool { asked++; return asked == 1 }) // true once, then false
 	g := defaultPlugins.gateResult()
-	if g.fp != fingerprintOf(map[string]bool{plugin: true}) || len(g.out.partials) == 0 {
-		t.Fatalf("result not keyed by the answers it used: fp=%d partials=%v", g.fp, g.out.partials)
+	// The first answer (true) keys the memo, so the scan must have used that
+	// same answer and kept the script, not asked again and got false.
+	if !strings.Contains(strings.Join(partialSources(g.out.partials), ""), "<script") || len(g.why[plugin]) != 0 {
+		t.Fatalf("result does not match its key: partials=%v why=%v", g.out.partials, g.why)
 	}
-	// With the grant revoked for real, the stored "allowed" entry must not be reused.
-	SetPluginScriptGate(func(string) bool { return false })
-	if stopped := PluginMarkupStopped(plugin); len(stopped) == 0 {
-		t.Fatal("revoked grant still serves the script partial from the memo")
+	// A memo keyed "granted" but holding a blanked partial would be hit here.
+	SetPluginScriptGate(func(string) bool { return true })
+	if stopped := PluginMarkupStopped(plugin); len(stopped) != 0 {
+		t.Fatalf("granted plugin still reported stopped from a mis-keyed memo: %v", stopped)
 	}
+}
+
+func partialSources(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for _, v := range m {
+		out = append(out, v)
+	}
+	return out
 }
 
 // The serving path reflects a revoke at once even with a warm memo.
@@ -195,11 +205,18 @@ func TestPluginGateServingIgnoresMemo(t *testing.T) { //nolint:paralleltest // u
 	if err := RegisterPluginPartial(plugin, "card", `<script>x()</script>`); err != nil {
 		t.Fatal(err)
 	}
+	// Warm the memo with a result keyed "granted" but holding a stopped partial.
+	asked := 0
+	SetPluginScriptGate(func(string) bool { asked++; return asked == 1 })
+	defaultPlugins.gateResult()
 	SetPluginScriptGate(func(string) bool { return true })
-	if len(defaultPlugins.gated().partials) == 0 {
-		t.Fatal("granted plugin's partial missing")
+	kept := false
+	for _, src := range defaultPlugins.gated().partials {
+		kept = kept || strings.Contains(src, "<script")
 	}
-	PluginMarkupStopped(plugin) // warm memo, granted
+	if !kept {
+		t.Fatal("serving path read a stale memo instead of scanning the live grants")
+	}
 	SetPluginScriptGate(func(string) bool { return false })
 	for name, src := range defaultPlugins.gated().partials {
 		if strings.Contains(src, "<script") {
