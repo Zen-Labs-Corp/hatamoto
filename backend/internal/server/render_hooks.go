@@ -74,23 +74,24 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 		fontsHandler = fonts.Handler(s.fonts)
 	}
 	mountRenderRoutes(r, renderRoutes{
-		pages:      h,
-		assets:     s.renderEngine.AssetHandler(),
-		fonts:      fontsHandler,
-		robots:     s.handleRobots,
-		sitemap:    s.handlePublicSitemap,
-		subSitemap: s.handlePublicSubSitemap,
-		llms:       s.handleLLMsTxt,
-		adsTxt:     s.handleAdsTxt(false),
-		appAdsTxt:  s.handleAdsTxt(true),
-		feed:       s.handleFeed,
-		xsl:        s.handleSitemapXSL,
-		formPost:   s.handlePublicFormPost,
-		keyFile:    s.indexNowKeyFile,
-		capture:    capture,
-		preview:    s.handlePreviewShare,
-		formPage:   s.handleFormPage,
-		favicon:    s.siteFavicon,
+		pages:          h,
+		assets:         s.renderEngine.AssetHandler(),
+		fonts:          fontsHandler,
+		robots:         s.handleRobots,
+		sitemap:        s.handlePublicSitemap,
+		subSitemap:     s.handlePublicSubSitemap,
+		llms:           s.handleLLMsTxt,
+		adsTxt:         s.handleAdsTxt(false),
+		appAdsTxt:      s.handleAdsTxt(true),
+		feed:           s.handleFeed,
+		xsl:            s.handleSitemapXSL,
+		formPost:       s.handlePublicFormPost,
+		keyFile:        s.indexNowKeyFile,
+		capture:        capture,
+		preview:        s.handlePreviewShare,
+		commentConfirm: s.handleCommentConfirm,
+		formPage:       s.handleFormPage,
+		favicon:        s.siteFavicon,
 
 		acquireBound: s.cfg.Database.PublicAcquireTimeout,
 	})
@@ -121,6 +122,10 @@ type renderRoutes struct {
 	// preview (optional) serves a shared draft preview link. It is mounted
 	// outside capture and the page cache.
 	preview http.HandlerFunc
+	// commentConfirm (optional) serves the comment confirmation link,
+	// /comments/confirm/{token}. Mounted outside capture and the page cache:
+	// GET only shows a button, POST confirms.
+	commentConfirm http.HandlerFunc
 	// formPage (optional) serves the hosted form page, GET /f/{slug}.
 	formPage http.HandlerFunc
 	// favicon (optional) returns the owner's favicon address ("" = none); the
@@ -184,6 +189,15 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 		// as page traffic.
 		previewLimiter := middleware.NewRateLimiter(1, 20)
 		r.HandleFunc("GET "+previewPathPrefix+"{token}", previewLimiter.Middleware(http.HandlerFunc(rt.preview)).ServeHTTP)
+	}
+
+	if rt.commentConfirm != nil {
+		// Own limiter: the token is a bearer secret, so guessing is throttled
+		// per client.
+		confirmLimiter := middleware.NewRateLimiter(1, 20)
+		h := confirmLimiter.Middleware(rt.commentConfirm).ServeHTTP
+		r.HandleFunc("GET "+commentConfirmPrefix+"{token}", h) // GET also matches HEAD
+		r.HandleFunc("POST "+commentConfirmPrefix+"{token}", h)
 	}
 
 	if rt.formPage != nil {

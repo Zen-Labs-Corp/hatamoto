@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/comment/identity"
 	"hatamoto.dev/core/internal/middleware"
 )
@@ -143,4 +145,56 @@ func (s *Server) commentConfirmHandler(ci commentIdentity, lookup commentEntityL
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}
+}
+
+// commentDraftsPurgeJob is the WORKER_DISABLE_JOBS name of the hourly purge.
+const commentDraftsPurgeJob = "comment_drafts_purge"
+
+// setupComments builds the comment store and the identity service. Without a
+// database, a server secret or a mail service the identity service stays nil
+// and the confirm route answers 404.
+func (s *Server) setupComments() {
+	if s.db == nil || s.cfg == nil || s.cfg.Secret == "" {
+		return
+	}
+	s.comments = comment.New(s.db, s.cfg.Secret, s.logger)
+	if s.emailService == nil {
+		return
+	}
+	svc, err := identity.New(identity.Config{
+		DB: s.db, Comments: s.comments, Mailer: s.emailService,
+		Site: func(ctx context.Context) (string, string) {
+			n, b, _ := s.digestSite(ctx)
+			return n, b
+		},
+		Secret: s.cfg.Secret, Now: time.Now, Logger: s.logger,
+	})
+	if err != nil {
+		s.logger.Error("comment identity disabled", "error", err)
+		return
+	}
+	s.commentIdentity = svc
+}
+
+// handleCommentConfirm is the mounted handler: 404 until setupComments built
+// the service.
+func (s *Server) handleCommentConfirm(w http.ResponseWriter, r *http.Request) {
+	var ci commentIdentity
+	if s.commentIdentity != nil { // avoid a typed-nil interface
+		ci = s.commentIdentity
+	}
+	s.commentConfirmHandler(ci, s.commentEntity)(w, r)
+}
+
+// scheduleCommentDraftsPurge schedules the hourly purge unless there is no
+// scheduler, database or identity service, or WORKER_DISABLE_JOBS names it.
+func (s *Server) scheduleCommentDraftsPurge() bool {
+	if s.db == nil || s.scheduler == nil || s.commentIdentity == nil || !workerJobEnabled(commentDraftsPurgeJob) {
+		return false
+	}
+	err := s.scheduler.ScheduleJitter(commentDraftsPurgeJob, time.Hour, 10*time.Minute, 3*time.Minute, s.commentIdentity.Purge)
+	if err != nil {
+		s.logger.Error("comment drafts purge job not scheduled", "error", err)
+	}
+	return err == nil
 }
