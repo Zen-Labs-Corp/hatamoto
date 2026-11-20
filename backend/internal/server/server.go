@@ -623,6 +623,7 @@ func (s *Server) setupDependencies() {
 			retention.AddPurge("user tokens", s.userTokens.PurgeExpired)
 			retention.AddPurge("email log", s.emailLog.Purge)
 			s.addFormRetention(retention)
+			s.addCommentRetention(retention)
 			s.scheduler.SetRetentionPurgeWorker(retention)
 		}
 
@@ -734,6 +735,7 @@ func (s *Server) setupDependencies() {
 	s.scheduleUserAccess()
 	s.setupComments()
 	s.scheduleCommentDraftsPurge()
+	s.setupCommentNotify()
 }
 
 // buildHandler wraps the finished mux in the global middleware. It runs after
