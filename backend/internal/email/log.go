@@ -22,6 +22,7 @@ const (
 	KindTest                Kind = "test"
 	KindRunDigest           Kind = "run_digest"
 	KindAccessEnding        Kind = "access_ending"
+	KindCommentConfirmation Kind = "comment_confirmation"
 	KindPlugin              Kind = "plugin"
 	KindOther               Kind = "other"
 )
@@ -54,11 +55,11 @@ type Recorder interface {
 }
 
 // StoresBody reports whether the log may keep the bodies of a mail of this
-// kind. The four that carry a one-time link or the secret admin address
+// kind. The kinds that carry a one-time link or the secret admin address
 // never do.
 func (k Kind) StoresBody() bool {
 	switch k {
-	case KindPasswordReset, KindInvite, KindAdminAddressChanged, KindAdminAddressSetup:
+	case KindPasswordReset, KindInvite, KindAdminAddressChanged, KindAdminAddressSetup, KindCommentConfirmation:
 		return false
 	}
 	return true
