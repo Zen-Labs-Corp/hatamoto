@@ -29,7 +29,7 @@ The Overview shows a Comments card with the newest waiting comments and a link t
 
 Owners and editors who have an email address get a mail when a comment waits for review. The "Email moderators" setting under Settings > Comments chooses how: a mail for each comment (at most one every 10 minutes per person, the rest in one summary), an hourly summary, or off. The mails go out from a job that runs every minute. Set the site address and outgoing email first, or nothing is sent.
 
-Commenters can tick "Email me when someone replies". It only takes effect once their address is confirmed, either through the confirmation email or on a device that already confirmed it. When a reply to their comment is approved, they get a mail with the link to the page: at most one every 15 minutes per person. Replies that arrive in between go out together in one summary when the 15 minutes are over. Nobody is mailed about their own reply.
+Commenters can tick "Email me when someone replies". It only takes effect once their address is confirmed, either through the confirmation email or on a device that already confirmed it. When a reply to their comment is approved, they get a mail with the link to the page: at most one every 15 minutes per person. Replies that arrive in between wait until the 15 minutes are over: a single one then goes out as the normal reply mail, several together in one summary. Nobody is mailed about their own reply.
 
 Every mail (the reply summary too) has a one-click unsubscribe link, also sent as a `List-Unsubscribe` header. A moderator who unsubscribed can turn mail back on from the same page.
 
