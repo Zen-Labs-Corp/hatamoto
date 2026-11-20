@@ -253,7 +253,7 @@ func (a *Admin) renderSubmissionsTab(w http.ResponseWriter, r *http.Request, f *
 		}
 	}
 	// The drawer script asks for the open submission alone.
-	if IsHTMX(r) && r.Header.Get("HX-Target") == "hm-ss-drawer" {
+	if hxTargetIs(r, "hm-ss-drawer") {
 		if drawer == nil {
 			http.NotFound(w, r)
 			return

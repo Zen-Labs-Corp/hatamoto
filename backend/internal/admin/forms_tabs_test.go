@@ -218,6 +218,12 @@ func TestSubmissionsTabOpensDrawerAndMarksRead(t *testing.T) {
 	if frag.Code != http.StatusOK || !strings.HasPrefix(frag.Body.String(), `<div data-hm-ss-id="`) || strings.Contains(frag.Body.String(), "<html") {
 		t.Errorf("fragment: %d %.120s", frag.Code, frag.Body.String())
 	}
+	// htmx 4 names the target tag#id and marks the request partial.
+	frag4 := g.do("GET", base+"?s="+sub.ID.String(), "owner-token", nil, map[string]string{
+		"HX-Request": "true", "HX-Request-Type": "partial", "HX-Target": "div#hm-ss-drawer"})
+	if frag4.Code != http.StatusOK || !strings.HasPrefix(frag4.Body.String(), `<div data-hm-ss-id="`) {
+		t.Errorf("v4 fragment: %d %.120s", frag4.Code, frag4.Body.String())
+	}
 	// Another form's submission is a 404 and is not touched.
 	if rec := g.do("GET", base+"?s="+foreign.ID.String(), "owner-token", nil, nil); rec.Code != http.StatusNotFound {
 		t.Errorf("foreign submission: %d, want 404", rec.Code)

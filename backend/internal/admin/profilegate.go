@@ -103,7 +103,7 @@ func (a *Admin) toCompleteProfile(w http.ResponseWriter, r *http.Request) {
 	var target string
 	switch {
 	case IsHTMX(r):
-		target = a.withNext(a.headedFor(r.Header.Get("HX-Current-URL")))
+		target = a.withNext(a.headedFor(hxCurrentURL(r)))
 	case r.Method == http.MethodGet || r.Method == http.MethodHead:
 		target = a.withNext(SafeNextFor(a.adminPath, r.URL.RequestURI()))
 	default:

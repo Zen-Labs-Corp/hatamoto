@@ -392,7 +392,7 @@ func (a *Admin) handleMedia(w http.ResponseWriter, r *http.Request) {
 	}
 	d.Back = a.adminPath + "/media?" + pq.Encode()
 	// The bar sits outside the swapped results, so search keystrokes and filters never rescan the library.
-	if r.Header.Get("HX-Request") != "true" && page == 1 && q == "" && typ == "" && folder == "" {
+	if !IsHTMX(r) && page == 1 && q == "" && typ == "" && folder == "" {
 		d.Storage, d.StorageNote, d.StorageSize = a.mediaStorage(ctx, ms)
 	}
 	if u := userFrom(ctx); u != nil && u.Role == "owner" {

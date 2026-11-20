@@ -412,7 +412,7 @@ func parseChangesetFrame(rest string) (changesetRef, bool) {
 func (a *Admin) refuse(w http.ResponseWriter, r *http.Request) {
 	r = withoutToken(r)
 	w = &sealWriter{ResponseWriter: w}
-	if r.Header.Get("HX-Request") == "true" {
+	if IsHTMX(r) {
 		w.Header().Set("HX-Refresh", "true")
 	}
 	httpx.Refuse(w, r)
