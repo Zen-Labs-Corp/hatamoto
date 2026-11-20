@@ -85,10 +85,13 @@ func (s *Server) handlePreviewShare(w http.ResponseWriter, r *http.Request) {
 // lets the page load its own stylesheets, images and fonts.
 const previewShareCSP = "sandbox allow-same-origin; script-src 'none'"
 
-// redactPreviewToken hides the token of a preview path in a logged path.
+// redactPreviewToken hides the token of a preview or comment confirmation
+// path in a logged path: both are bearer secrets.
 func redactPreviewToken(p string) string {
-	if strings.HasPrefix(p, previewPathPrefix) {
-		return previewPathPrefix + "<token>"
+	for _, prefix := range []string{previewPathPrefix, commentConfirmPrefix} {
+		if strings.HasPrefix(p, prefix) || strings.HasPrefix(muxCleanPath(p), prefix) {
+			return prefix + "<token>"
+		}
 	}
 	return p
 }

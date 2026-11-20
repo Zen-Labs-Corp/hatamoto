@@ -22,6 +22,7 @@ const (
 	KindTest                Kind = "test"
 	KindRunDigest           Kind = "run_digest"
 	KindAccessEnding        Kind = "access_ending"
+	KindCommentConfirmation Kind = "comment_confirmation"
 	KindPlugin              Kind = "plugin"
 	KindOther               Kind = "other"
 )
@@ -54,14 +55,30 @@ type Recorder interface {
 }
 
 // StoresBody reports whether the log may keep the bodies of a mail of this
-// kind. The four that carry a one-time link or the secret admin address
+// kind. The kinds that carry a one-time link or the secret admin address
 // never do.
 func (k Kind) StoresBody() bool {
 	switch k {
-	case KindPasswordReset, KindInvite, KindAdminAddressChanged, KindAdminAddressSetup:
+	case KindPasswordReset, KindInvite, KindAdminAddressChanged, KindAdminAddressSetup, KindCommentConfirmation:
 		return false
 	}
 	return true
+}
+
+// StoresRecipients reports whether the log may keep the recipient addresses of
+// a mail of this kind. A comment confirmation goes to an address a visitor
+// typed, which may not be theirs, so only a masked form is kept.
+func (k Kind) StoresRecipients() bool {
+	return k != KindCommentConfirmation
+}
+
+// maskAddress keeps the first letter and the domain: "a***@example.com".
+func maskAddress(addr string) string {
+	at := strings.LastIndex(addr, "@")
+	if at < 1 {
+		return "***"
+	}
+	return addr[:1] + "***" + addr[at:]
 }
 
 const (
@@ -75,11 +92,15 @@ const (
 
 // cleanError turns a send error into the text the log keeps: the first line,
 // whitespace collapsed, the configured SMTP credentials replaced and capped.
-func cleanError(err error, c Config) string {
+func cleanError(err error, c Config, mask map[string]string) string {
 	if err == nil {
 		return ""
 	}
 	msg := err.Error()
+	// Mask addresses before the cap, so a cut cannot leave a fragment.
+	for addr, masked := range mask {
+		msg = strings.NewReplacer(addr, masked, strings.ToLower(addr), masked).Replace(msg)
+	}
 	for _, secret := range []string{c.SMTPPassword, c.SMTPUsername} {
 		if secret != "" {
 			msg = strings.ReplaceAll(msg, secret, "[redacted]")
@@ -102,6 +123,21 @@ func capBody(s string) string {
 	return strings.ToValidUTF8(s[:maxLoggedBody], "")
 }
 
+// scrub returns the recipients and error text the log may keep for a mail of
+// this kind: masked where the kind keeps no plaintext address.
+func scrub(kind Kind, to []string, sendErr error, c Config) ([]string, string) {
+	if kind.StoresRecipients() {
+		return to, cleanError(sendErr, c, nil)
+	}
+	masked := make([]string, len(to))
+	mask := make(map[string]string, len(to))
+	for i, addr := range to {
+		masked[i] = maskAddress(addr)
+		mask[addr] = masked[i]
+	}
+	return masked, cleanError(sendErr, c, mask)
+}
+
 // record writes one log entry. It is the only writer: SendTrackedWith calls
 // it on every exit. A failure is logged and swallowed so a log problem never
 // turns a delivered mail into an error.
@@ -114,9 +150,10 @@ func (s *Service) record(ctx context.Context, c Config, opts SendOptions, to []s
 	if kind == "" {
 		kind = KindOther
 	}
+	recipients, errText := scrub(kind, to, sendErr, c)
 	e := LogEntry{
-		Recipients: to, Subject: subject, Kind: kind, Plugin: opts.Plugin, Status: status,
-		Error: cleanError(sendErr, c), MessageID: messageID, ResentFrom: opts.ResentFrom,
+		Recipients: recipients, Subject: subject, Kind: kind, Plugin: opts.Plugin, Status: status,
+		Error: errText, MessageID: messageID, ResentFrom: opts.ResentFrom,
 	}
 	if kind.StoresBody() {
 		e.BodyText, e.BodyHTML = capBody(textBody), capBody(htmlBody)

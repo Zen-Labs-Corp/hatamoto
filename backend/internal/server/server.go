@@ -29,6 +29,8 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/author"
 	"hatamoto.dev/core/internal/changeset"
+	"hatamoto.dev/core/internal/comment"
+	"hatamoto.dev/core/internal/comment/identity"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/consent"
 	"hatamoto.dev/core/internal/database"
@@ -116,28 +118,32 @@ type Server struct {
 	validateSession middleware.SessionValidator
 	// validateAPICookie resolves the API session cookie (API-kind sessions
 	// only); nil means authService's.
-	validateAPICookie      middleware.SessionValidator
-	apiCSRFKeyOnce         sync.Once
-	apiCSRFKeyVal          []byte
-	entityService          *entity.Service
-	formUsage              *entity.FormUsageIndex // where each form is placed; cleared by entity changes
-	previewLinks           *previewlink.Store     // shared draft preview links; nil without a database
-	mediaService           *media.Service
-	mediaStorage           media.BlobStore // the media store; nil for local disk
-	logoSizes              logoSizeCache   // logo pixel sizes by URL; see render_logo.go
-	menuService            *menu.Service
-	formService            *form.Service
-	spam                   *spam.Pipeline // nil in tests that skip spam checks
-	spamStore              *spam.Store
-	seoStore               *seo.Store     // site-wide SEO templates; nil in tests that skip them
-	consentStore           *consent.Store // cookie consent settings; nil in tests that skip them
-	consentCounter         *consent.Counter
-	tagsStore              *tags.Store // tracking (tag manager) settings; nil in tests that skip them
-	seoLogOnce             sync.Once
-	indexNow               *indexnow.Runner // nil in demo mode
-	indexNowBaseWarn       sync.Once
-	spamVerifier           *spam.HTTPVerifier
-	emailService           *email.Service
+	validateAPICookie middleware.SessionValidator
+	apiCSRFKeyOnce    sync.Once
+	apiCSRFKeyVal     []byte
+	entityService     *entity.Service
+	formUsage         *entity.FormUsageIndex // where each form is placed; cleared by entity changes
+	previewLinks      *previewlink.Store     // shared draft preview links; nil without a database
+	mediaService      *media.Service
+	mediaStorage      media.BlobStore // the media store; nil for local disk
+	logoSizes         logoSizeCache   // logo pixel sizes by URL; see render_logo.go
+	menuService       *menu.Service
+	formService       *form.Service
+	spam              *spam.Pipeline // nil in tests that skip spam checks
+	spamStore         *spam.Store
+	seoStore          *seo.Store     // site-wide SEO templates; nil in tests that skip them
+	consentStore      *consent.Store // cookie consent settings; nil in tests that skip them
+	consentCounter    *consent.Counter
+	tagsStore         *tags.Store // tracking (tag manager) settings; nil in tests that skip them
+	seoLogOnce        sync.Once
+	indexNow          *indexnow.Runner // nil in demo mode
+	indexNowBaseWarn  sync.Once
+	spamVerifier      *spam.HTTPVerifier
+	emailService      *email.Service
+	// comments is the comment store (nil without a database or server secret).
+	comments *comment.Service
+	// commentIdentity confirms commenter emails and signs hm_c (nil = confirm route 404s).
+	commentIdentity        *identity.Service
 	mailStore              smtpSettingsStore
 	emailLog               *emaillog.Store
 	fonts                  *fonts.Store  // owner fonts; nil in tests that skip them
@@ -721,6 +727,8 @@ func (s *Server) setupDependencies() {
 	s.setupStanding()
 	s.scheduleStandingDigest()
 	s.scheduleUserAccess()
+	s.setupComments()
+	s.scheduleCommentDraftsPurge()
 }
 
 // buildHandler wraps the finished mux in the global middleware. It runs after

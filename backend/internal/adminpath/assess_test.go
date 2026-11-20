@@ -126,3 +126,13 @@ func TestFontsIsReserved(t *testing.T) {
 		t.Errorf("/fonts: %v, want reserved", got.Level)
 	}
 }
+
+// The comment confirmation link lives under the reserved "-" segment, so an
+// install that already uses /comments (admin address, plugin paths) keeps working.
+func TestCommentsSegmentNotReserved(t *testing.T) {
+	for _, r := range ReservedPrefixes {
+		if r == "comments" {
+			t.Fatal("comments must not be reserved: existing installs may use /comments")
+		}
+	}
+}

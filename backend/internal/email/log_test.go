@@ -1,8 +1,10 @@
 package email
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"sync"
 	"testing"
@@ -71,6 +73,9 @@ func TestEveryKindLeavesOneRow(t *testing.T) {
 		}},
 		{KindPlugin, func() error { return svc.SendPlugin(ctx, "acme", []string{"a@example.com"}, "Hi", "<p>x</p>", "x") }},
 		{KindOther, func() error { return svc.Send(ctx, []string{"a@example.com"}, "Hi", "<p>x</p>", "x") }},
+		{KindCommentConfirmation, func() error {
+			return svc.SendCommentConfirmation(ctx, "a@example.com", CommentConfirmationData{SiteName: "S", EntityTitle: "T", URL: "https://x/-/comments/confirm/SECRET", ExpiresIn: "24 hours"})
+		}},
 	}
 	for i, st := range steps {
 		if err := st.send(); err != nil {
@@ -166,15 +171,59 @@ func TestResentFromAndBodyCap(t *testing.T) {
 
 func TestCleanError(t *testing.T) {
 	c := Config{SMTPUsername: "AKIAUSER", SMTPPassword: "s3cret"}
-	got := cleanError(errors.New("auth AKIAUSER  s3cret\r\nsecond   line"), c)
+	got := cleanError(errors.New("auth AKIAUSER  s3cret\r\nsecond   line"), c, nil)
 	if got != "auth [redacted] [redacted]" {
 		t.Errorf("got %q", got)
 	}
-	long := cleanError(errors.New(strings.Repeat("é", 500)), Config{})
+	long := cleanError(errors.New(strings.Repeat("é", 500)), Config{}, nil)
 	if r := []rune(long); len(r) != maxLoggedError {
 		t.Errorf("cap = %d runes", len(r))
 	}
-	if cleanError(nil, c) != "" {
+	if cleanError(nil, c, nil) != "" {
 		t.Error("nil error must give empty text")
+	}
+}
+
+func TestCommentConfirmationLogKeepsNoAddress(t *testing.T) {
+	const addr = "Visitor.Name@example.test"
+	check := func(name string, e LogEntry) {
+		t.Helper()
+		all := strings.Join(e.Recipients, " ") + " " + e.Error + " " + e.Subject
+		if strings.Contains(strings.ToLower(all), "visitor.name") {
+			t.Errorf("%s: address kept in the log: %+v", name, e)
+		}
+		if len(e.Recipients) != 1 || e.Recipients[0] != "V***@example.test" {
+			t.Errorf("%s: recipients = %v", name, e.Recipients)
+		}
+	}
+	data := CommentConfirmationData{SiteName: "S", EntityTitle: "T", URL: "https://x/-/comments/confirm/TOKEN", ExpiresIn: "24 hours"}
+
+	svc, rec, _ := newLoggedSink(t, smtptest.Options{}, nil)
+	if err := svc.SendCommentConfirmation(context.Background(), addr, data); err != nil {
+		t.Fatal(err)
+	}
+	check("sent", rec.entries[0])
+
+	svc, rec, _ = newLoggedSink(t, smtptest.Options{RejectRcpt: true}, nil)
+	var logs bytes.Buffer
+	svc.logger = slog.New(slog.NewTextHandler(&logs, nil))
+	if err := svc.SendCommentConfirmation(context.Background(), addr, data); err == nil {
+		t.Fatal("want the refusal")
+	}
+	if rec.entries[0].Status != StatusFailed {
+		t.Fatalf("row = %+v", rec.entries[0])
+	}
+	check("failed", rec.entries[0])
+	if strings.Contains(strings.ToLower(logs.String()), "visitor.name") {
+		t.Errorf("address in the process log: %s", logs.String())
+	}
+}
+
+func TestCleanErrorMasksBeforeTruncating(t *testing.T) {
+	addr := strings.Repeat("a", 290) + "@example.test"
+	err := errors.New("rcpt " + strings.Repeat("x", 250) + " " + addr)
+	got := cleanError(err, Config{}, map[string]string{addr: maskAddress(addr)})
+	if strings.Contains(got, "aaaaaaaa") {
+		t.Errorf("address fragment kept: %q", got)
 	}
 }

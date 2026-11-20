@@ -446,8 +446,12 @@ func (s *Service) SendTrackedWith(ctx context.Context, opts SendOptions, to []st
 	defer cancel()
 	if err := s.deliver(ctx, c, envelopeFrom, to, msg); err != nil {
 		s.record(ctx, c, opts, to, subject, htmlBody, textBody, "", StatusFailed, err)
+		logged := err.Error()
+		if !opts.Kind.StoresRecipients() {
+			_, logged = scrub(opts.Kind, to, err, c)
+		}
 		s.logger.Error("failed to send email",
-			slog.String("error", err.Error()),
+			slog.String("error", logged),
 			slog.String("subject", subject),
 		)
 		return "", fmt.Errorf("failed to send email: %w", err)
