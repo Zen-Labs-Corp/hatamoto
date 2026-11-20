@@ -285,6 +285,7 @@ type ThreadComment struct {
 type ThreadPage struct {
 	Comments []ThreadComment
 	Page     int
+	Pages    int // pages of top-level comments; Page when the page is past the end
 	HasMore  bool
 }
 

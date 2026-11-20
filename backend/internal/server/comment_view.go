@@ -166,7 +166,7 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 	}
 
 	thread := &render.CommentThread{
-		Items: nodes.items(), Total: counts[id].Approved, Page: page, Newest: set.Sort == comment.SortNewest,
+		Items: nodes.items(), Total: counts[id].Approved, Page: page, Pages: max(tp.Pages, page), Newest: set.Sort == comment.SortNewest,
 	}
 	if tp.HasMore {
 		thread.NextURL = v.Path + "?cpage=" + strconv.Itoa(page+1) + "#hm-comments"
@@ -178,6 +178,7 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 		}
 		thread.PrevURL += "#hm-comments"
 	}
+	thread.PageLinks = commentPageLinks(v.Path, page, thread.Pages)
 	if n := q.Get("cnotice"); commentNotices[n] {
 		thread.Notice = n
 	}
@@ -266,6 +267,35 @@ func convertNodes(ns []*commentNode) []render.CommentItem {
 	for i, n := range ns {
 		out[i] = n.item
 		out[i].Replies = convertNodes(n.kids)
+	}
+	return out
+}
+
+// commentPageURL is the link to one page of the thread; page 1 is the entity URL.
+func commentPageURL(path string, page int) string {
+	if page <= 1 {
+		return path + "#hm-comments"
+	}
+	return path + "?cpage=" + strconv.Itoa(page) + "#hm-comments"
+}
+
+// commentPageLinks lists the pager entries: the first page, the last page and
+// the pages next to the current one, with a gap entry (Page 0) between runs.
+func commentPageLinks(path string, page, pages int) []render.CommentPageLink {
+	if pages < 2 {
+		return nil
+	}
+	var out []render.CommentPageLink
+	last := 0
+	for p := 1; p <= pages; p++ {
+		if p != 1 && p != pages && (p < page-2 || p > page+2) {
+			continue
+		}
+		if last != 0 && p > last+1 {
+			out = append(out, render.CommentPageLink{})
+		}
+		out = append(out, render.CommentPageLink{Page: p, URL: commentPageURL(path, p), Current: p == page})
+		last = p
 	}
 	return out
 }

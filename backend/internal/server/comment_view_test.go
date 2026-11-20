@@ -3,8 +3,12 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -169,12 +173,21 @@ func TestCommentViewClosedShowsNoForm(t *testing.T) {
 func TestCommentViewPaging(t *testing.T) {
 	f := newViewFixture()
 	f.fake.thread.HasMore = true
+	f.fake.thread.Pages = 3
 	v := f.run("/post?cpage=2")
 	if f.fake.gotPage != 2 || !v.Page.NoIndex {
 		t.Fatalf("page %d noindex %v", f.fake.gotPage, v.Page.NoIndex)
 	}
 	if v.Comments.PrevURL != "/post#hm-comments" || v.Comments.NextURL != "/post?cpage=3#hm-comments" {
 		t.Fatalf("pager = %q %q", v.Comments.PrevURL, v.Comments.NextURL)
+	}
+	var got []string
+	for _, l := range v.Comments.PageLinks {
+		got = append(got, fmt.Sprintf("%d %s %v", l.Page, l.URL, l.Current))
+	}
+	want := []string{"1 /post#hm-comments false", "2 /post?cpage=2#hm-comments true", "3 /post?cpage=3#hm-comments false"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("page links = %q", got)
 	}
 	v = f.run("/post?cpage=3")
 	if v.Comments.PrevURL != "/post?cpage=2#hm-comments" {
@@ -315,5 +328,18 @@ func TestCommentViewOwnApprovedGetsActionsInsideTheWindow(t *testing.T) {
 	f.fake.editable = []comment.ThreadComment{{ID: uuid.New(), CreatedAt: time.Now()}}
 	if v := f.run("/post", cookie); v.Comments.Items[0].Editable || *v.Uncacheable {
 		t.Fatal("an item that is not on the page was marked")
+	}
+}
+
+func TestCommentPageLinksGaps(t *testing.T) {
+	var got []string
+	for _, l := range commentPageLinks("/p", 20, 40) {
+		got = append(got, strconv.Itoa(l.Page))
+	}
+	if want := "1 0 18 19 20 21 22 0 40"; strings.Join(got, " ") != want {
+		t.Fatalf("links = %q, want %q", got, want)
+	}
+	if commentPageLinks("/p", 1, 1) != nil {
+		t.Fatal("one page: no pager")
 	}
 }

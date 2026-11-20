@@ -17,7 +17,7 @@ import (
 // two constants differ only in the root order; nothing is interpolated.
 const threadSelect = `
 SELECT c.id, c.parent_id, c.depth, c.author_name, c.author_user_id IS NOT NULL,
-       c.body_html, c.created_at, c.edited_at, r.rk
+       c.body_html, c.created_at, c.edited_at, r.rk, r.roots
 FROM roots r
 JOIN hatamoto_comments c
   ON c.entity_id = $1 AND c.status = 'approved'
@@ -25,7 +25,8 @@ JOIN hatamoto_comments c
 ORDER BY r.rk, c.path`
 
 const threadNewestSQL = `WITH roots AS (
-    SELECT path, row_number() OVER (ORDER BY created_at DESC, seq DESC) AS rk
+    SELECT path, row_number() OVER (ORDER BY created_at DESC, seq DESC) AS rk,
+           count(*) OVER () AS roots
     FROM hatamoto_comments
     WHERE entity_id = $1 AND parent_id IS NULL AND status = 'approved'
     ORDER BY created_at DESC, seq DESC
@@ -33,7 +34,8 @@ const threadNewestSQL = `WITH roots AS (
 )` + threadSelect
 
 const threadOldestSQL = `WITH roots AS (
-    SELECT path, row_number() OVER (ORDER BY created_at ASC, seq ASC) AS rk
+    SELECT path, row_number() OVER (ORDER BY created_at ASC, seq ASC) AS rk,
+           count(*) OVER () AS roots
     FROM hatamoto_comments
     WHERE entity_id = $1 AND parent_id IS NULL AND status = 'approved'
     ORDER BY created_at ASC, seq ASC
@@ -63,15 +65,16 @@ func (s *Service) Thread(ctx context.Context, entityID uuid.UUID, page int) (Thr
 	}
 	defer rows.Close()
 
-	out := ThreadPage{Page: page, Comments: []ThreadComment{}}
+	out := ThreadPage{Page: page, Pages: page, Comments: []ThreadComment{}}
 	kept := map[uuid.UUID]bool{}
 	for rows.Next() {
 		var tc ThreadComment
-		var rk int64
+		var rk, roots int64
 		if err := rows.Scan(&tc.ID, &tc.ParentID, &tc.Depth, &tc.AuthorName, &tc.IsSiteAuthor,
-			&tc.BodyHTML, &tc.CreatedAt, &tc.EditedAt, &rk); err != nil {
+			&tc.BodyHTML, &tc.CreatedAt, &tc.EditedAt, &rk, &roots); err != nil {
 			return ThreadPage{}, err
 		}
+		out.Pages = int((roots + int64(set.PageSize) - 1) / int64(set.PageSize))
 		if rk > int64(offset+set.PageSize) { // rk counts from the first root, not from the page
 			out.HasMore = true
 			continue

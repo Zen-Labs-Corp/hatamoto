@@ -16,8 +16,16 @@ type CommentThread struct {
 	Items              []CommentItem
 	Total, Page, Pages int
 	PrevURL, NextURL   string
+	PageLinks          []CommentPageLink // the numbered pager; empty with one page
 	Notice, Error      string
 	Newest             bool
+}
+
+// CommentPageLink is one entry of the numbered pager. Page 0 is a gap ("…").
+type CommentPageLink struct {
+	Page    int
+	URL     string
+	Current bool
 }
 
 // CommentItem is one comment. Body is the stored, already sanitised body_html

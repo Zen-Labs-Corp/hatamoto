@@ -212,8 +212,8 @@ func TestThreadPageOneQuery(t *testing.T) {
 	if got := f.counter.Count() - n; got != 1 {
 		t.Fatalf("Thread ran %d statements, want 1: %v", got, f.counter.Since(n))
 	}
-	if !page.HasMore || page.Page != 1 {
-		t.Errorf("HasMore = %v Page = %d", page.HasMore, page.Page)
+	if !page.HasMore || page.Page != 1 || page.Pages != 2 {
+		t.Errorf("HasMore = %v Page = %d Pages = %d, want pages 2", page.HasMore, page.Page, page.Pages)
 	}
 
 	var rootOrder []uuid.UUID
@@ -260,7 +260,7 @@ func TestThreadPageOneQuery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if page2.HasMore || len(page2.Comments) == 0 || page2.Comments[0].ID != roots[0].id {
+	if page2.HasMore || page2.Pages != 2 || len(page2.Comments) == 0 || page2.Comments[0].ID != roots[0].id {
 		t.Errorf("page 2 = %d comments, HasMore %v, want the oldest root and its chain", len(page2.Comments), page2.HasMore)
 	}
 	for _, c := range page2.Comments {
