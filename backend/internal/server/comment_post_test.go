@@ -549,6 +549,19 @@ func TestCommentPostNoJSRerenderCarriesPageCSP(t *testing.T) {
 	}
 }
 
+func TestCommentFocus(t *testing.T) {
+	for code, want := range map[string]string{
+		commentsubmit.CodeName:        "name",
+		commentsubmit.CodeEmail:       "email",
+		commentsubmit.CodeEmailDomain: "email",
+		commentsubmit.CodeBodyLong:    "body",
+	} {
+		if got := commentFocus(code); got != want {
+			t.Errorf("commentFocus(%q) = %q, want %q", code, got, want)
+		}
+	}
+}
+
 func TestCommentPostNoJSNon200PageFallsBackTo303(t *testing.T) {
 	for name, set := range map[string]func(f *renderFixture){
 		"failure": func(f *renderFixture) {
