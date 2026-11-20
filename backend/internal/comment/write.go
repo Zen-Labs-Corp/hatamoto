@@ -43,20 +43,26 @@ func lockAndRecount(ctx context.Context, tx pgx.Tx, entityID uuid.UUID, now time
 }
 
 // refreshCommenter recomputes a commenter's approved count, first approval and
-// trust level from their comments.
+// trust level from their comments. It locks the commenter row first and counts
+// in a later statement, so a concurrent approval on another entity is seen.
 func refreshCommenter(ctx context.Context, tx pgx.Tx, id uuid.UUID, th Thresholds, now time.Time) error {
+	var one int
+	err := tx.QueryRow(ctx, `SELECT 1 FROM hatamoto_commenters WHERE id = $1 FOR UPDATE`, id).Scan(&one)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
 	st := TrustStats{}
 	var level string
-	err := tx.QueryRow(ctx, `UPDATE hatamoto_commenters c SET
+	err = tx.QueryRow(ctx, `UPDATE hatamoto_commenters c SET
 			approved_count = x.n,
 			first_approved_at = COALESCE(c.first_approved_at, CASE WHEN x.n > 0 THEN $2::timestamptz END)
 		FROM (SELECT count(*)::int AS n FROM hatamoto_comments WHERE commenter_id = $1 AND status = 'approved') x
 		WHERE c.id = $1
 		RETURNING c.trust_level, c.approved_count, c.first_approved_at, c.last_spam_at`, id, now).
 		Scan(&level, &st.ApprovedCount, &st.FirstApprovedAt, &st.LastSpamAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
-	}
 	if err != nil {
 		return err
 	}

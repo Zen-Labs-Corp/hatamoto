@@ -736,14 +736,14 @@ func TestObserverSeesEditAndUnapproval(t *testing.T) {
 	}
 }
 
-// waitForLockWait blocks until some session in the scratch database waits on a lock.
-func (f *fixture) waitForLockWait() {
+// waitForLockWait blocks until want sessions in the scratch database waits on a lock.
+func (f *fixture) waitForLockWait(want int) {
 	f.t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		var n int
 		f.scalar(&n, `SELECT count(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND datname = current_database()`)
-		if n > 0 {
+		if n >= want {
 			return
 		}
 		time.Sleep(20 * time.Millisecond)
@@ -787,7 +787,7 @@ func TestLockOrderCountsBeforeCommenter(t *testing.T) {
 			}
 			done := make(chan error, 1)
 			go func() { done <- run() }()
-			f.waitForLockWait()
+			f.waitForLockWait(1)
 			probe, err := f.db.Pool().Begin(f.ctx)
 			if err != nil {
 				t.Fatal(err)
@@ -801,5 +801,43 @@ func TestLockOrderCountsBeforeCommenter(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+func TestApprovedCountUnderConcurrentApprovals(t *testing.T) {
+	f := newFixture(t)
+	f.enable()
+	other := f.newEntity("other")
+	var ids []uuid.UUID
+	for _, e := range []uuid.UUID{f.entity, other} {
+		d := f.draft("race@example.test", "hi")
+		d.EntityID, d.Status = e, StatusPending
+		ids = append(ids, f.store(d).ID)
+	}
+	var commenter uuid.UUID
+	h := f.svc.Keys().HashEmail("race@example.test")
+	f.scalar(&commenter, `SELECT id FROM hatamoto_commenters WHERE email_hash = $1`, h)
+
+	holder, err := f.db.Pool().Begin(f.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer holder.Rollback(f.ctx)
+	if _, err := holder.Exec(f.ctx, `SELECT 1 FROM hatamoto_commenters WHERE id = $1 FOR UPDATE`, commenter); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 2)
+	for _, id := range ids {
+		go func() { _, err := f.svc.Approve(f.ctx, id, nil); done <- err }()
+	}
+	f.waitForLockWait(2)
+	holder.Rollback(f.ctx)
+	for range ids {
+		if err := <-done; err != nil {
+			t.Fatal(err)
+		}
+	}
+	if cm, err := f.svc.Commenter(f.ctx, h); err != nil || cm.ApprovedCount != 2 {
+		t.Errorf("approved_count = %d, %v; want 2", cm.ApprovedCount, err)
 	}
 }
