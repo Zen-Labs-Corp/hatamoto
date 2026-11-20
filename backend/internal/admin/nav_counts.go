@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"hatamoto.dev/core/internal/form"
@@ -74,8 +75,9 @@ func countLabel(n, one, many string) string {
 	return n + " " + many
 }
 
-// wireNavCounts gives the sidebar's Entities, Forms and Plugins items their markers:
-// the drafts waiting for review, the new form submissions and the installed plugins. The Plugins count is the
+// wireNavCounts gives the sidebar's Entities, Forms, Comments and Plugins items their markers:
+// the drafts waiting for review, the new form submissions, the comments waiting
+// for moderation and the installed plugins. The Plugins count is the
 // owner's: an editor admitted by a plugin UI does not see the installed total.
 func (a *Admin) wireNavCounts() {
 	entities := countBadge(navCountTTL, time.Now, navRefreshRun, a.entityDrafts)
@@ -89,6 +91,9 @@ func (a *Admin) wireNavCounts() {
 		it.Badge = func(string) string { return forms() }
 		it.BadgeLabel = func(_, b string) string { return countLabel(b, "new submission", "new submissions") }
 	})
+	if a.deps.Comments != nil {
+		a.wireCommentsNav()
+	}
 	a.nav.update(pluginsID, func(it *NavItem) {
 		it.Badge = func(role string) string {
 			if role != "owner" {
@@ -148,4 +153,87 @@ func (a *Admin) pluginTotal() (int, error) {
 		return 0, nil
 	}
 	return len(pa.Plugins()), nil
+}
+
+// wireCommentsNav gives the Comments item its visibility and badge. Both are
+// cached counts, so turning comments on or off would leave the item stale for
+// a whole ttl: refreshCommentsNav starts them over and fills them before it
+// returns.
+func (a *Admin) wireCommentsNav() {
+	var (
+		mu      sync.Mutex
+		pending func() string
+		shown   func() string
+	)
+	build := func(prime bool) {
+		var inline atomic.Bool
+		inline.Store(prime)
+		run := func(f func()) {
+			if inline.Load() {
+				f()
+				return
+			}
+			navRefreshRun(f)
+		}
+		p := countBadge(navCountTTL, time.Now, run, a.pendingComments)
+		sh := countBadge(navCountTTL, time.Now, run, a.commentsInUse)
+		if prime {
+			p()
+			sh()
+			inline.Store(false)
+		}
+		mu.Lock()
+		pending, shown = p, sh
+		mu.Unlock()
+	}
+	build(false)
+	a.refreshCommentsNav = func() { build(true) }
+	get := func() (func() string, func() string) {
+		mu.Lock()
+		defer mu.Unlock()
+		return pending, shown
+	}
+	a.nav.update("comments", func(it *NavItem) {
+		it.Visible = func(string) bool { _, sh := get(); return sh() != "" }
+		it.Badge = func(string) string { p, _ := get(); return p() }
+		it.BadgeLabel = func(_, b string) string { return countLabel(b, "comment to moderate", "comments to moderate") }
+	})
+}
+
+// pendingComments counts the comments waiting for moderation, site-wide.
+func (a *Admin) pendingComments() (int, error) {
+	svc := a.deps.Comments
+	if svc == nil {
+		return 0, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	c, err := svc.Counts(ctx)
+	return c.Pending, err
+}
+
+// commentsInUse is 1 when the Comments sidebar item shows: comments are on
+// for the site or any comment exists.
+func (a *Admin) commentsInUse() (int, error) {
+	svc := a.deps.Comments
+	if svc == nil {
+		return 0, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	s, err := svc.Settings(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if s.Enabled {
+		return 1, nil
+	}
+	c, err := svc.Counts(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if c.Pending+c.Approved+c.Spam+c.Trash > 0 {
+		return 1, nil
+	}
+	return 0, nil
 }

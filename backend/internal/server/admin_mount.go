@@ -126,6 +126,9 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	if s.spamStore != nil {
 		d.Spam = spamAdmin{store: s.spamStore, verifier: s.spamVerifier, key: s.spam.SecretKey}
 	}
+	if s.comments != nil && s.db != nil && s.entityService != nil {
+		d.Comments = commentsAdmin{svc: s.comments, db: s.db, entities: s.entityService}
+	}
 	if s.seoStore != nil && s.entityService != nil && s.db != nil {
 		d.SEO = seoAdmin{db: s.db, store: s.seoStore, entities: s.entityService}
 	}

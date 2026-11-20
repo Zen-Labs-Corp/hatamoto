@@ -1,0 +1,6 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Title "Description" .Description}}
+{{template "hm/filterbar" .Table}}
+<p id="comments-status" class="hm-visually-hidden" role="status">{{.Status}}</p>
+<div id="comments-results">{{template "hm/filterchips" .Table}}{{template "hm/table" .Results}}</div>
+{{end}}{{end}}

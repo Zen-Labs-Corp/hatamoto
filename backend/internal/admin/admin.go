@@ -276,6 +276,10 @@ type Deps struct {
 	// Spam is the spam protection settings behind Settings > Forms > Spam
 	// protection; nil answers that page with 503.
 	Spam SpamService
+	// Comments is the comment store behind the Comments screen and Settings >
+	// Comments; nil hides the sidebar item and the cards and answers those
+	// pages with 503.
+	Comments CommentsService
 	// SEO is the SEO settings store behind Settings > SEO; nil answers those
 	// pages with 503. Set it only when non-nil.
 	SEO SEOService
@@ -402,9 +406,11 @@ const DefaultAdminPath = "/admin"
 
 // Admin holds the parsed templates and assets and the HTTP handlers.
 type Admin struct {
-	deps    Deps
-	nav     *Nav
-	adminFS fs.FS
+	deps Deps
+	nav  *Nav
+	// refreshCommentsNav recounts the Comments sidebar item now; nil without a comment service.
+	refreshCommentsNav func()
+	adminFS            fs.FS
 	// adminPath is the normalised URL prefix. It lives on Admin, never on
 	// built state, so dev mode rebuilds keep it.
 	adminPath string
@@ -573,6 +579,7 @@ func (a *Admin) mountScreens(public, authed *httpx.Group) {
 	a.mountSettings(authed)
 	a.mountGrowth(authed)
 	a.mountContent(authed)
+	a.mountComments(authed)
 	a.mountImport(authed)
 	a.mountPageEditor(authed, public)
 	a.mountChangesets(authed, public)

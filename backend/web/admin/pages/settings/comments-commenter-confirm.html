@@ -1,0 +1,8 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Title}}
+<form method="post" action="{{.Action}}" class="hm-stack">{{template "hm/csrf" $}}
+<input type="hidden" name="back" value="{{.Back}}">
+{{template "hm/card-start" dict "ID" "commenter-confirm" "Title" "Confirm" "Heading" "h2"}}<p>{{.Body}}</p>
+{{template "hm/foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" .Back}}{{template "hm/button" dict "Label" .Label "Variant" "danger" "Type" "submit"}}{{template "hm/foot-end"}}{{template "hm/card-end"}}
+</form>
+{{end}}{{end}}

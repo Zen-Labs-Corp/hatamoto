@@ -1,7 +1,7 @@
 // Component glue for native elements: <dialog>, toasts. Everything else
 // (popover, details) needs no script.
 import { hmDate, hmTime, hmDateTime } from "@hm/dates";
-import { carryHref, confirmPost, isDismissed, markDismissed, phraseMatches, safeStorage, unsignedGatesMet } from "@hm/shelllogic";
+import { ackGateMet, carryHref, confirmPost, isDismissed, markDismissed, phraseMatches, safeStorage, unsignedGatesMet } from "@hm/shelllogic";
 
 // <button data-hm-open="dialog-id"> opens a modal dialog. Focus starts on [autofocus], else
 // the first field of the body, else its first button; on close it returns to the opener, or
@@ -491,3 +491,20 @@ document.addEventListener("change", (evt) => {
 document.addEventListener("DOMContentLoaded", () => syncGateAll(document));
 window.addEventListener("pageshow", () => syncGateAll(document));
 document.addEventListener("htmx:afterSettle", (evt) => syncGateAll(evt.target));
+
+// form[data-hm-ack]: its [data-hm-ack-submit] buttons (inside, or outside with form=<id>) stay
+// disabled until the "understand" switch is on. Server HTML never disables them.
+function syncAck(form) {
+  const on = ackGateMet(form.elements.understand?.checked === true);
+  for (const b of document.querySelectorAll("[data-hm-ack-submit]")) if (b.form === form) b.disabled = !on;
+}
+const syncAckAll = (root) => root.querySelectorAll?.("form[data-hm-ack]").forEach(syncAck);
+const onAck = (evt) => {
+  const f = evt.target.closest?.("form[data-hm-ack]");
+  if (f) syncAck(f);
+};
+document.addEventListener("input", onAck);
+document.addEventListener("change", onAck);
+document.addEventListener("DOMContentLoaded", () => syncAckAll(document));
+window.addEventListener("pageshow", () => syncAckAll(document));
+document.addEventListener("htmx:afterSettle", (evt) => syncAckAll(evt.target));

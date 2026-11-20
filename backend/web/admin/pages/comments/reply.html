@@ -1,0 +1,11 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Reply" "Description" "Answer this comment as the site."}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="post" action="{{adminPath}}/comments/{{.ID}}/reply" class="hm-stack">{{template "hm/csrf" $}}
+<input type="hidden" name="back" value="{{.Back}}">
+{{template "hm/card-start" dict "ID" "comment-reply" "Title" "Your reply" "Heading" "h2"}}<div class="hm-stack">
+<p>{{.Parent}}</p>
+{{template "hm/field" dict "ID" "body" "Name" "body" "Label" "Reply as the site" "Control" "textarea" "Rows" 6 "Value" .Body "Help" "Your reply is published at once and shows an author badge." "Error" (index .Errs "body")}}
+</div>{{template "hm/foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" .Back}}{{template "hm/button" dict "Label" "Post reply" "Variant" "primary" "Type" "submit"}}{{template "hm/foot-end"}}{{template "hm/card-end"}}
+</form>
+{{end}}{{end}}

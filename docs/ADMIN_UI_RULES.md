@@ -485,14 +485,14 @@ colour that is not a token; anything a second page needs becomes a partial.
   or misses the deadline turns only its own card into an error card (`hm/callout` plus
   a ghost "Reload the page" button) and its KPI cards into "n/a" with an error note and Reload under each; the cause is logged,
   never shown.
-- **Role split.** Owners see everything. Editors see Published, Drafts, New submissions
-  and Recent submissions; the 404 log, analytics and update stores are not called for
+- **Role split.** Owners see everything. Editors see Published, Drafts, New submissions,
+  Recent submissions and the Comments card; the 404 log, analytics and update stores are not called for
   them. A store that is not wired omits its cards.
 - **Bounds.** One context with a 4 s timeout covers the page; the cards run in parallel.
 
 - **Grid.** Two independent columns (`.hm-dash--cols`, each a `.hm-dash__col` stack), so a
   short card leaves no gap under it in the other column. Left: Site health (`#dash-health`)
-  then Activity (`#dash-activity`). Right: pages AI crawlers, recent submissions, missing
+  then Activity (`#dash-activity`). Right: pages AI crawlers, recent submissions, comments, missing
   pages. A column with no card is not rendered (`hm-dash--one`: the editor's Recent
   submissions fills the whole row). Below 1100px the columns stack, and below 640px the KPI
   row is two across. Site health rows are an OK/Check/Problem `hm/badge` (success, warning,
@@ -512,6 +512,7 @@ colour that is not a token; anything a second page needs becomes a partial.
 | Submissions | at most 20 forms, 200 rows each (spam counts), last 14 days, spam left out; a cut-off scan shows "N+" |
 | Missing pages | one read-only query: open entries seen in the last 7 days, 51 rows at most ("50+" when full) |
 | AI-referred visits | one 14-day window |
+| Comments | settings (cached) + one count + 5 pending rows |
 | Pages AI crawlers fetch most | 8 rows, last 30 days |
 | Site health | the existing health checks, grouped; read-only |
 | Activity | newest 6 of the audit log merged with update history; one source failing leaves the other |
@@ -521,6 +522,13 @@ in the last 7 days ("50+" past 50), while the bar values, headed "All-time hits"
 lifetime hit counts. The per-page analytics are AI crawler fetches, never "visits". Dates
 are absolute.
 
+### Tick-to-confirm (`data-hm-ack`)
+
+A `form[data-hm-ack]` disables its `[data-hm-ack-submit]` buttons until its
+`[name=understand]` control is on. The server HTML never renders those buttons disabled, so the
+form still works without script, and the server re-checks `understand=1` on every post. Used by
+Settings > Comments to turn comments on.
+
 ### Content screens
 
 - **List toolbar.** A list card's toolbar is one `hm/listbar` row (`ListBar` on the filter bar): the status segment at the start, then search, the type select and the Filters button at the end, right-aligned. Every control in it is `--control-h-sm` (32px) with `--radius-md`; selects show the lucide chevron-down in muted ink instead of the native triangle. Counts beside labels (segment, tabs, Entities subnav) are monospace. The Default/SEO toggle is not a row of its own: it sits in the table header's actions cell (`ui.Table.ViewTabs`). The Entities subtitle carries no count on the unfiltered list (the live region and the segment carry it); a type-filtered list keeps its "N posts" subtitle. Installed plugins use the same row for the status segment and search.
@@ -529,6 +537,7 @@ are absolute.
 - **Media.** Storage is one row: the total, a slim share bar and its four labelled parts (`.hm-media-storage`). Tile and picker meta (size, dimensions) is muted monospace. On a file's page the Details form sits under the preview; File and Where it is used are the right column, and each place it is used is a link row with a trailing chevron.
 - **Plugins and themes.** Versions (plugin list and head, theme cards and detail, hex values) are monospace. First-party packages carry the star pill on the installed list, the plugin head and the detail; a Browse card shows "First-party · N permissions" as one muted mono line instead (every card has a permission line, "N permissions" for community plugins), and its description drops a leading "<Title>:". The unsigned-packages banner on the plugin list and the unsigned-until pill on Package security are amber (`warning`), not red: the state is allowed, time-boxed and reversible. Theme cards have a hairline border (no accent ring) and show a miniature: on the Themes page the live theme's is an inline SVG painted from its own five colours (`fill=` attributes, never `style=`, never the admin accent) over a palette strip with hairlines between the swatches; the other themes carry no colour data and keep the neutral token-only site miniature (on Browse it stands in only when the registry has no screenshot). The name row holds the title, the Live seal pill (only on the live theme) and the `···` menu; there is no footer band, so Activate (secondary) and Update sit in one small action line at the end of the card body. Browse cards (`.hm-themecard`, `.hm-plugincard`) are whole-card links, so a nested `hm/button` is impossible: their action pills (`.hm-themecard__action`, `.hm-plugincard__action`) are a deliberate bespoke exception, sized to the small button height; the plugin card's Install is an outline pill, not a solid fill. Browse uses the shared list bar and shows the pager only when there is more than one page. An empty Plugins list only explains (the header keeps Upload and Browse) and "All plugins" stays current on Browse, Package security and a not-installed plugin's About page. Colours and fonts has no top callout: the "not used by the default theme" note sits under the Secondary and Theme accent swatches only, and swatch labels use the UI font while hex values stay mono. Explanatory intros on Design system, Layout parts and Presets are info callouts; Presets lay their breakpoint groups out in three columns from 48rem.
 - **Forms.** Submissions show Total, New and Last 7 days as a stat strip. In the 30-day tracker the busiest days (within a fifth of the peak) use the accent, other days with submissions stay green and empty days stay neutral. On one submission, Back to submissions and Delete submission are page header actions. The Settings tab shares the Build editor bar (`hm/formseditorbar`). Address and tag lists use `hm/taginput` (chips), the primitive for them (UI-06). A field row in the form editor reads grip, type icon, label, mono name, Required pill, then a trailing chevron.
+- **Comments.** The queue is a `hm/datatable` with Pending, Approved, Spam and Trash as the status segment. Its row actions are `ui.Action` posts (Approve, Trash) or plain links to their own pages (Reply, Edit, Spam), so no post form sits outside a dialog on a table page (UI-10). The sidebar marker is the number of comments waiting.
 - **Profile.** The email (monospace) and role badge sit in a meta line under the title. The Photo row is inline: a 48px avatar, Upload and the address. On Complete your profile, Save and continue is full width and Switch theme and Sign out are small labelled ghost buttons in a left-aligned row.
 
 ### Plugin frame

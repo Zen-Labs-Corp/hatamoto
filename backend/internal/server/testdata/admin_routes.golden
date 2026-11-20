@@ -31,6 +31,10 @@ GET /admin/builder/blocks/{id}/usage -> admin.(*Admin).handleBlockUsage-fm
 GET /admin/builder/stylespec -> admin.(*Admin).handleStyleSpec-fm
 GET /admin/builder/templates/{id} -> admin.(*Admin).handleTemplateNodes-fm
 GET /admin/changesets/{id}/frame/{seq}/{ticket} -> admin.(*Admin).handleChangesetFrame-fm
+GET /admin/comments -> admin.(*Admin).handleComments-fm
+GET /admin/comments/{id}/edit -> admin.(*Admin).handleCommentEditPage-fm
+GET /admin/comments/{id}/reply -> admin.(*Admin).handleCommentReplyPage-fm
+GET /admin/comments/{id}/spam -> admin.(*Admin).handleCommentSpamPage-fm
 GET /admin/entities -> admin.(*Admin).handleEntities-fm
 GET /admin/entities/export -> admin.(*Admin).handleEntityExportForm-fm
 GET /admin/entities/export.csv -> admin.(*Admin).handleEntityExport-fm
@@ -116,6 +120,13 @@ GET /admin/settings/backups/retention -> admin.(*Admin).handleRetentionPage-fm
 GET /admin/settings/backups/{id}/delete -> admin.(*Admin).handleBackupDeleteConfirm-fm
 GET /admin/settings/backups/{id}/download -> admin.(*Admin).handleBackupDownload-fm
 GET /admin/settings/changes -> admin.(*Admin).handleChanges-fm
+GET /admin/settings/comments -> admin.(*Admin).handleCommentSettings-fm
+GET /admin/settings/comments/blocklists -> admin.(*Admin).handleCommentBlocklists-fm
+GET /admin/settings/comments/commenters -> admin.(*Admin).handleCommenters-fm
+GET /admin/settings/comments/commenters/{id}/erase -> admin.(*Admin).handleCommenterErasePage-fm
+GET /admin/settings/comments/commenters/{id}/export -> admin.(*Admin).handleCommenterExport-fm
+GET /admin/settings/comments/commenters/{id}/{action} -> admin.(*Admin).handleCommenterConfirm-fm
+GET /admin/settings/comments/enable -> admin.(*Admin).handleCommentEnablePage-fm
 GET /admin/settings/content-model -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/email -> admin.(*Admin).handleEmail-fm
 GET /admin/settings/email/log -> admin.(*Admin).handleEmailLog-fm
@@ -258,6 +269,12 @@ POST /admin/accept -> admin.(*Admin).handleAccept-fm
 POST /admin/analytics/crawlers/robots -> admin.(*Admin).handleRobotsSave-fm
 POST /admin/analytics/traffic/settings -> admin.(*Admin).handleTrafficSettings-fm
 POST /admin/builder/presets -> admin.(*Admin).handlePresetCreate-fm
+POST /admin/comments/bulk -> admin.(*Admin).handleCommentsBulk-fm
+POST /admin/comments/{id}/approve -> admin.(*Admin).handleCommentApprove-fm
+POST /admin/comments/{id}/edit -> admin.(*Admin).handleCommentEdit-fm
+POST /admin/comments/{id}/reply -> admin.(*Admin).handleCommentReply-fm
+POST /admin/comments/{id}/spam -> admin.(*Admin).handleCommentSpam-fm
+POST /admin/comments/{id}/trash -> admin.(*Admin).handleCommentTrash-fm
 POST /admin/entities -> admin.(*Admin).handleEntityCreate-fm
 POST /admin/entities/bulk -> admin.(*Admin).handleEntitiesBulk-fm
 POST /admin/entities/drafts -> admin.(*Admin).handleEntityDraft-fm
@@ -272,6 +289,7 @@ POST /admin/entities/{id}/builder/recovery/discard -> admin.(*Admin).handleBuild
 POST /admin/entities/{id}/builder/save -> admin.(*Admin).handleBuilderSave-fm
 POST /admin/entities/{id}/builder/stage -> admin.(*Admin).handleBuilderStage-fm
 POST /admin/entities/{id}/builder/template -> admin.(*Admin).handleSaveTemplate-fm
+POST /admin/entities/{id}/comments -> admin.(*Admin).handleEntityComments-fm
 POST /admin/entities/{id}/delete -> admin.(*Admin).handleEntityDelete-fm
 POST /admin/entities/{id}/duplicate -> admin.(*Admin).handleEntityDuplicate-fm
 POST /admin/entities/{id}/edit -> admin.(*Admin).handlePageEditorPost-fm
@@ -369,6 +387,12 @@ POST /admin/settings/backups/offsite/test -> admin.(*Admin).handleOffsiteTest-fm
 POST /admin/settings/backups/retention -> admin.(*Admin).handleRetentionSave-fm
 POST /admin/settings/backups/{id}/delete -> admin.(*Admin).handleBackupDelete-fm
 POST /admin/settings/changes/{id}/undo -> admin.(*Admin).handleChangesUndo-fm
+POST /admin/settings/comments -> admin.(*Admin).handleCommentSettingsSave-fm
+POST /admin/settings/comments/blocklists -> admin.(*Admin).handleCommentBlocklistsSave-fm
+POST /admin/settings/comments/commenters/{id}/erase -> admin.(*Admin).handleCommenterErase-fm
+POST /admin/settings/comments/commenters/{id}/{action} -> admin.(*Admin).handleCommenterAction-fm
+POST /admin/settings/comments/enable -> admin.(*Admin).handleCommentEnable-fm
+POST /admin/settings/comments/switch -> admin.(*Admin).handleCommentSwitch-fm
 POST /admin/settings/email -> admin.(*Admin).handleEmailSave-fm
 POST /admin/settings/email/log/{id}/resend -> admin.(*Admin).handleEmailLogResend-fm
 POST /admin/settings/email/reset -> admin.(*Admin).handleEmailReset-fm
@@ -451,6 +475,7 @@ POST /admin/settings/tracking -> admin.(*Admin).handleTrackingSave-fm
 POST /admin/settings/tracking/notice -> admin.(*Admin).handleTrackingNotice-fm
 POST /admin/settings/types -> admin.(*Admin).handleSchemaCreate-fm
 POST /admin/settings/types/{id} -> admin.(*Admin).handleSchemaSave-fm
+POST /admin/settings/types/{id}/comments -> admin.(*Admin).handleSchemaComments-fm
 POST /admin/settings/types/{id}/delete -> admin.(*Admin).handleSchemaDelete-fm
 POST /admin/settings/updates -> admin.(*Admin).handleUpdatesSave-fm
 POST /admin/settings/updates/apply -> admin.(*Admin).handleUpdatesApply-fm

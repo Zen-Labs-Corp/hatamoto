@@ -51,7 +51,7 @@ var ownerOnly = []string{"owner"}
 var settingsLive = map[string]bool{
 	"types": true, "taxonomies": true, "users": true,
 	"menus":     true,
-	"redirects": true, "linking": true, "templates": true,
+	"redirects": true, "linking": true, "comments": true, "comment-blocklists": true, "commenters": true, "templates": true,
 	"themes": true, "blocks": true, "colours": true, "fonts": true, "additional-css": true, "design-system": true, "presets": true, "parts": true,
 	"import": true, "general": true, "branding": true, "export": true, "performance": true, "memory": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
@@ -122,6 +122,11 @@ var settingsRegistry = []settingsSectionDef{
 	}},
 	{ID: "linking", Label: "Internal linking", Icon: "link", Desc: "Links between your pages.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "linking", Label: "Internal linking", Final: "/settings/linking"},
+	}},
+	{ID: "comments", Label: "Comments", Icon: "quote", Desc: "Turn comments on, set trust levels and limits, and manage blocklists and commenters.", Group: "Content", Tabs: []settingsTabDef{
+		{ID: "comments", Label: "Comments", Final: "/settings/comments", Roles: ownerEditor},
+		{ID: "comment-blocklists", Label: "Blocklists", Final: "/settings/comments/blocklists", Roles: ownerEditor},
+		{ID: "commenters", Label: "Commenters", Final: "/settings/comments/commenters", Roles: ownerEditor},
 	}},
 	{ID: "integrations", Label: "Integrations", Icon: "key", Desc: "API keys for scripts and webhooks that send signed POSTs when content changes.", Group: "System", Tabs: []settingsTabDef{
 		{ID: "api", Label: "API keys", Final: "/settings/api-keys", Roles: ownerOnly},

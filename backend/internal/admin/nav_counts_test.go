@@ -285,3 +285,89 @@ func TestNewSubmissionsZeroAndNilStore(t *testing.T) {
 		t.Errorf("zero shows %q, want no badge", got)
 	}
 }
+
+func commentsNavItem(t *testing.T, svc CommentsService) NavItem {
+	t.Helper()
+	a := &Admin{nav: defaultNav("/admin")}
+	a.deps.Comments = svc
+	a.wireNavCounts()
+	for _, it := range a.nav.all() {
+		if it.ID == "comments" {
+			return it
+		}
+	}
+	t.Fatal("no comments nav item")
+	return NavItem{}
+}
+
+func TestCommentsBadge(t *testing.T) {
+	t.Parallel()
+
+	it := commentsNavItem(t, &fakeComments{counts: CommentCounts{Pending: 3}})
+	if !it.Visible("editor") || it.Badge("editor") != "3" {
+		t.Errorf("pending 3: visible %v, badge %q", it.Visible("editor"), it.Badge("editor"))
+	}
+	if got := it.BadgeLabel("editor", "3"); got != "3 comments to moderate" {
+		t.Errorf("label %q", got)
+	}
+	if got := it.BadgeLabel("editor", "1"); got != "1 comment to moderate" {
+		t.Errorf("label %q", got)
+	}
+
+	if it := commentsNavItem(t, &fakeComments{}); it.Visible("owner") {
+		t.Error("off and empty: the item must be hidden")
+	}
+	it = commentsNavItem(t, &fakeComments{settings: CommentSettings{Enabled: true}})
+	if !it.Visible("owner") || it.Badge("owner") != "" {
+		t.Errorf("enabled, none pending: visible %v, badge %q", it.Visible("owner"), it.Badge("owner"))
+	}
+	it = commentsNavItem(t, &fakeComments{counts: CommentCounts{Trash: 2}})
+	if !it.Visible("owner") {
+		t.Error("off with existing comments: the item must show")
+	}
+}
+
+func TestCommentsNavHiddenWithoutService(t *testing.T) {
+	t.Parallel()
+
+	a := &Admin{nav: defaultNav("/admin")}
+	a.wireNavCounts()
+	for _, it := range a.nav.For("owner", "/admin") {
+		if it.Label == "Comments" {
+			t.Error("Comments shows without a service")
+		}
+	}
+}
+
+// Turning comments on must show the item at once, not after the cached count expires.
+func TestCommentsNavRefreshAfterSwitch(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{counts: CommentCounts{Pending: 3}}
+	a := &Admin{nav: defaultNav("/admin")}
+	a.deps.Comments = svc
+	a.wireNavCounts()
+	item := func() NavItem {
+		for _, it := range a.nav.all() {
+			if it.ID == "comments" {
+				return it
+			}
+		}
+		t.Fatal("no comments nav item")
+		return NavItem{}
+	}
+	svc.mu.Lock()
+	svc.counts = CommentCounts{}
+	svc.mu.Unlock()
+	if item().Visible("owner") {
+		t.Fatal("off and empty: the item must be hidden")
+	}
+	svc.mu.Lock()
+	svc.settings.Enabled = true
+	svc.counts = CommentCounts{Pending: 3}
+	svc.mu.Unlock()
+	a.refreshCommentsNav()
+	if it := item(); !it.Visible("owner") || it.Badge("owner") != "3" {
+		t.Errorf("after the switch: visible %v, badge %q", it.Visible("owner"), it.Badge("owner"))
+	}
+}

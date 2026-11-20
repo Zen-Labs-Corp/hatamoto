@@ -1,0 +1,11 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Mark as spam" "Description" "This blocks the commenter and remembers the text."}}
+<form method="post" action="{{adminPath}}/comments/{{.ID}}/spam" class="hm-stack">{{template "hm/csrf" $}}
+<input type="hidden" name="back" value="{{.Back}}">
+{{template "hm/card-start" dict "ID" "comment-spam" "Title" "This comment" "Heading" "h2"}}<div class="hm-stack">
+<p>{{.Excerpt}}</p>
+{{if .HasLinks}}{{template "hm/field" dict "ID" "spam-link-domains" "Name" "link_domains" "Control" "switch" "Value" "1" "Label" "Also block the link domains in this comment"}}
+{{end}}{{template "hm/field" dict "ID" "spam-email-domain" "Name" "email_domain" "Control" "switch" "Value" "1" "Label" "Also block the commenter's email domain" "Help" "Only for throwaway domains. Never for a large provider such as gmail.com: every future commenter with an address there would be blocked."}}
+</div>{{template "hm/foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" .Back}}{{template "hm/button" dict "Label" "Mark as spam" "Variant" "danger" "Type" "submit"}}{{template "hm/foot-end"}}{{template "hm/card-end"}}
+</form>
+{{end}}{{end}}

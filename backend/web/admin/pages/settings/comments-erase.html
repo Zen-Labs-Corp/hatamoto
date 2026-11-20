@@ -1,0 +1,6 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Erase commenter" "Description" "Remove everything stored about one commenter."}}
+<section class="hm-stack">
+{{template "hm/danger-confirm" .Danger}}
+</section>
+{{end}}{{end}}
