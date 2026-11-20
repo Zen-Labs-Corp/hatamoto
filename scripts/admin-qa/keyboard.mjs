@@ -242,6 +242,33 @@ await check("blog editor ⋯ menu: arrows reach every visible item, none is a hi
   return seen.join(" > ");
 });
 // The classic page editor checks were removed with the classic editor (B10): pages
+// ---- converted dialogs (command="close"): placed before the builder checks so a builder failure cannot skip them ----
+await check("blog preview: Close closes the dialog and focus returns to the Preview button, Esc does the same", async () => {
+  await openEditor("post");
+  await p.locator("[data-hm-be-preview-toggle]").click();
+  await p.waitForSelector("#be-preview[open]", { timeout: 5000 });
+  await p.locator("[data-hm-be-preview-close]").click();
+  if (await p.evaluate(() => document.querySelector("#be-preview").open)) throw new Error("the Close button did not close the preview");
+  if (!(await p.evaluate(() => document.activeElement?.matches("[data-hm-be-preview-toggle]")))) throw new Error("focus did not return to the Preview button after Close");
+  await p.locator("[data-hm-be-preview-toggle]").click();
+  await p.waitForSelector("#be-preview[open]", { timeout: 5000 });
+  await p.keyboard.press("Escape");
+  if (await p.evaluate(() => document.querySelector("#be-preview").open)) throw new Error("Esc did not close the preview");
+  if (!(await p.evaluate(() => document.activeElement?.matches("[data-hm-be-preview-toggle]")))) throw new Error("focus did not return to the Preview button after Esc");
+  return "Close and Esc both close it and focus returns to the Preview button";
+});
+await check("link suggestions: the Suggest links button opens the dialog, Close closes it and focus returns to the editor", async () => {
+  await openEditor("post");
+  const suggest = p.locator('[aria-label="Suggest links from your link rules"]');
+  if (!(await suggest.count())) throw new Error("no Suggest links toolbar button on the blog editor");
+  await suggest.first().click();
+  await p.waitForSelector("#be-links[open]", { timeout: 5000 });
+  await p.locator("[data-hm-links-close]").click();
+  if (await p.evaluate(() => document.querySelector("#be-links").open)) throw new Error("the Close button did not close the dialog");
+  if (!(await p.evaluate(() => !!document.activeElement?.closest?.(".ProseMirror")))) throw new Error("focus did not return to the editor");
+  return "closed, focus back in the editor";
+});
+
 // always open in the builder, whose keyboard scripts follow.
 
 // ---- builder widgets (B3) ----
