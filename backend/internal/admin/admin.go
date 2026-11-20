@@ -276,6 +276,10 @@ type Deps struct {
 	// Spam is the spam protection settings behind Settings > Forms > Spam
 	// protection; nil answers that page with 503.
 	Spam SpamService
+	// Comments is the comment store behind the Comments screen and Settings >
+	// Comments; nil hides the sidebar item and the cards and answers those
+	// pages with 503.
+	Comments CommentsService
 	// SEO is the SEO settings store behind Settings > SEO; nil answers those
 	// pages with 503. Set it only when non-nil.
 	SEO SEOService
