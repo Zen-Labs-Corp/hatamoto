@@ -134,7 +134,7 @@ func (r *Runner) importComments(ctx context.Context) error {
 		return nil
 	}
 	if r.d.Comments == nil {
-		r.res.Warnings = append(r.res.Warnings, "comments not imported: the server secret is not configured")
+		r.res.Warnings = append(r.res.Warnings, "comments not imported: the server secret is not configured (set HATAMOTO_SECRET, or HATAMOTO_SECRETS_DIR to the directory holding secrets.env, and run the import again)")
 		return nil
 	}
 	// One read of the id map. A failed read must stop the step: treating it as

@@ -59,6 +59,19 @@ func randomSecret() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
+// storedSecret reads the server secret from <dir>/secrets.env without creating
+// or changing anything. It returns "" when the file or the key is missing.
+func storedSecret(dir string) (string, error) {
+	stored, err := readSecretsFile(filepath.Join(dir, "secrets.env"))
+	if err != nil {
+		return "", err
+	}
+	if v := stored[secretEnv]; v != "" {
+		return v, nil
+	}
+	return stored[legacySecretEnv], nil
+}
+
 func readSecretsFile(path string) (map[string]string, error) {
 	out := map[string]string{}
 	f, err := os.Open(path) // #nosec G304 -- operator-configured secrets dir

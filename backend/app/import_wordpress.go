@@ -78,7 +78,15 @@ func runImportWordPress(ctx context.Context, db *database.DB, cfg *config.Config
 	if err != nil {
 		return err
 	}
-	deps := wpimport.NewDeps(db, wpimport.DepsConfig{MediaDir: mediaDirOr(cfg.Server.MediaUploadDir), MediaBaseURL: cfg.Server.MediaBaseURL, MediaMaxMB: cfg.Server.MediaMaxSizeMB, Store: mc.Store, Secret: cfg.Secret}, logger)
+	// serve keeps a generated secret only in secrets.env, which the environment
+	// does not carry. Read it, read-only, so the comments are not skipped.
+	secret := cfg.Secret
+	if secret == "" {
+		if secret, err = storedSecret(secretsDirFromEnv()); err != nil {
+			return fmt.Errorf("read the server secret: %w", err)
+		}
+	}
+	deps := wpimport.NewDeps(db, wpimport.DepsConfig{MediaDir: mediaDirOr(cfg.Server.MediaUploadDir), MediaBaseURL: cfg.Server.MediaBaseURL, MediaMaxMB: cfg.Server.MediaMaxSizeMB, Store: mc.Store, Secret: secret}, logger)
 	defer deps.Close()
 	return importWordPress(ctx, deps, f, out)
 }

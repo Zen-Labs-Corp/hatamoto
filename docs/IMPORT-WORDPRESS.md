@@ -123,7 +123,7 @@ Comments are read from a WXR file only; the REST source does not carry them. Eac
 - **Pingbacks and trackbacks** are skipped and listed by post title and comment number, never by the pinging address.
 - **Comments stay off.** The import writes the comments but never changes the comments switch or a page's mode; turn comments on in the comment settings when you are ready. Nothing is sent to anyone and no webhook fires.
 
-The server secret is needed (every normal install has it); without it nothing is imported and the report carries a warning.
+The server secret is needed. The command reads it from `HATAMOTO_SECRET` (or `JWT_SECRET`), else from `secrets.env` in `HATAMOTO_SECRETS_DIR` (default `./data/secrets`), the file the server writes on first boot. It never creates one. Without a secret no comment is imported and the report carries a warning; supply it and run the import again.
 
 Menu items whose URL is not http, https, mailto, tel, sms or relative (a `javascript:` link) are left out and
 reported.
