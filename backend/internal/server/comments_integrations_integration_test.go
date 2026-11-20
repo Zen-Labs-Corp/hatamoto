@@ -16,7 +16,7 @@ import (
 
 // The plugin read API must see published entities of every public locale of a
 // multi-locale site, shared (und) content included, and still hide a draft and
-// an entity of a locale the site does not serve.
+// an entity of a configured but hidden locale.
 func TestPluginCommentReaderLocales_Integration(t *testing.T) {
 	ctx := context.Background()
 	env := newWireEnv(t, nil)
@@ -27,7 +27,7 @@ func TestPluginCommentReaderLocales_Integration(t *testing.T) {
 		}
 	}
 	exec(`UPDATE hatamoto_site_config SET language='en', prefix_all=false,
-		locales='[{"tag":"en","segment":""},{"tag":"nl","segment":"nl"}]'::jsonb`)
+		locales='[{"tag":"en","segment":""},{"tag":"nl","segment":"nl"},{"tag":"fr","segment":"fr","hidden":true}]'::jsonb`)
 	schemaID := uuid.New()
 	exec(`INSERT INTO hatamoto_entity_schemas (id,name,slug,schema,settings) VALUES ($1,'Rdr','rdr','{"type":"object"}','{"url_pattern":"/{slug}"}')`, schemaID)
 
