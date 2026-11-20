@@ -1,7 +1,8 @@
 package sdk
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"slices"
 	"strings"
 	"testing"
@@ -29,12 +30,12 @@ func TestCommentPayloadKeys(t *testing.T) {
 	}
 	banned := []string{"email", "ip", "user_agent", "net", "body_raw", "url", "website", "spam_"}
 	for name, v := range values {
-		raw, err := json.Marshal(v)
+		raw, err := jsonv2.Marshal(v)
 		if err != nil {
 			t.Fatal(err)
 		}
-		var m map[string]json.RawMessage
-		if err := json.Unmarshal(raw, &m); err != nil {
+		var m map[string]jsontext.Value
+		if err := jsonv2.Unmarshal(raw, &m); err != nil {
 			t.Fatal(err)
 		}
 		var got []string
