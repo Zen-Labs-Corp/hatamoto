@@ -583,4 +583,7 @@ func TestCommentSettingsEditorNoAddressNoLink(t *testing.T) {
 	if !strings.Contains(body, `id="comments-no-address"`) || strings.Contains(body, "Go to Settings &gt; General") {
 		t.Error("editor wants the callout without the button")
 	}
+	if !strings.Contains(body, "An owner must set the site address in Settings > General first.") || !strings.Contains(body, "An owner must set the site address before comments can be turned on.") {
+		t.Error("editor wants the owner-must-set copy in the callout and the switch help")
+	}
 }

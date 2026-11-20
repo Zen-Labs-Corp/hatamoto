@@ -82,6 +82,7 @@ type dashSection struct {
 	More                   *ui.Button // link to the full screen, last in the card (only Label and Href are used)
 	ErrMsg                 string
 	Warn                   string // a standing warning shown at the top of the card
+	WarnHref               string // where an owner can fix Warn; empty for other roles
 }
 
 // dashKPI is one KPI card. Failed marks a card that could not load: the page
@@ -563,7 +564,7 @@ func dashChange(cur, prev int64) *ui.StatChange {
 // only: the owner-only stores (404 log, analytics) are never called
 // for them.
 func (a *Admin) dashJobs(role string) []dashJob {
-	candidates := []*dashJob{a.contentJob(), a.submissionsJob(), a.commentsJob()}
+	candidates := []*dashJob{a.contentJob(), a.submissionsJob(), a.commentsJob(role == "owner")}
 	if role == "owner" {
 		candidates = append(candidates, a.healthJob(), a.referralsJob(), a.missingJob(), a.topPagesJob(), a.activityJob())
 	}

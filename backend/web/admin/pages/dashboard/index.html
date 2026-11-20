@@ -7,7 +7,7 @@
 {{end}}{{end}}
 {{define "dash-cards"}}{{range .}}
 {{template "hm/card-start" dict "ID" .ID "Title" .Title "Description" .Description}}
-{{with .Warn}}{{template "hm/callout" (dict "Kind" "warning" "Compact" true "Body" .)}}{{end}}{{if eq .State "error"}}{{template "hm/callout" (dict "Kind" "error" "Title" "Couldn't load this card." "Body" .ErrMsg)}}{{template "hm/button" (dict "Label" "Reload the page" "Href" (adminPath) "Variant" "ghost")}}
+{{$card := .}}{{with .Warn}}{{template "hm/callout" (dict "Kind" "warning" "Compact" true "Body" .)}}{{with $card.WarnHref}}{{template "hm/button" (dict "Label" "Go to Settings > General" "Href" . "Variant" "ghost")}}{{end}}{{end}}{{if eq .State "error"}}{{template "hm/callout" (dict "Kind" "error" "Title" "Couldn't load this card." "Body" .ErrMsg)}}{{template "hm/button" (dict "Label" "Reload the page" "Href" (adminPath) "Variant" "ghost")}}
 {{else if eq .State "empty"}}{{template "hm/empty" .Empty}}
 {{else if .Tracker}}{{template "hm/tracker" .Tracker}}
 {{else if .Activity}}<ul class="hm-dash__rows" role="list">{{range .Activity}}<li class="hm-dash__row"><span>{{.Who}}</span>{{template "hm/badge" .Badge}}{{with .Target}}<span>{{.}}</span>{{end}}<span class="hm-muted">{{.When}}</span></li>{{end}}</ul>

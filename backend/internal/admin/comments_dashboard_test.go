@@ -116,6 +116,9 @@ func TestDashCommentsWarnsWithoutAddress(t *testing.T) {
 			if !strings.Contains(card, cdashWarn) {
 				t.Errorf("%s/%s: no warning in the card", name, token)
 			}
+			if link := strings.Contains(card, `/settings/general#identity"`); link != (token == "owner-token") {
+				t.Errorf("%s/%s: settings link present = %v", name, token, link)
+			}
 			if name == "empty" && !strings.Contains(card, "No comments waiting") {
 				t.Errorf("%s: no empty state", token)
 			}

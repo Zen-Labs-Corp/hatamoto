@@ -17,19 +17,21 @@ const (
 )
 
 // commentsJob is the pending-comments card of the Overview; nil when no
-// comment service is wired. It adds no KPI card.
-func (a *Admin) commentsJob() *dashJob {
+// comment service is wired. It adds no KPI card. Only an owner gets the link
+// that fixes the warning.
+func (a *Admin) commentsJob(owner bool) *dashJob {
 	if a.deps.Comments == nil {
 		return nil
 	}
-	return &dashJob{Name: "comments", SecPos: 5, Run: a.dashComments,
+	return &dashJob{Name: "comments", SecPos: 5, Run: func(ctx context.Context) (dashResult, error) { return a.dashComments(ctx, owner) },
 		Fallback: dashSection{ID: "dash-comments", Title: "Comments", ErrMsg: "Comments could not be loaded."}}
 }
 
 // dashComments is the Comments card: the newest waiting comments and a link to
 // the queue. With the site switch off and nothing waiting there is no card.
-// Bounded reads: one Settings, one Counts, one Queue of cdashRows.
-func (a *Admin) dashComments(ctx context.Context) (dashResult, error) {
+// Bounded reads: one Settings, one Counts, one Queue of cdashRows, and the
+// cached site address when comments are on.
+func (a *Admin) dashComments(ctx context.Context, owner bool) (dashResult, error) {
 	svc := a.deps.Comments
 	s, err := svc.Settings(ctx)
 	if err != nil {
@@ -56,6 +58,9 @@ func (a *Admin) dashComments(ctx context.Context) (dashResult, error) {
 	}
 	if s.Enabled && a.dashNoAddress(ctx) {
 		sec.Warn = "Confirmation emails are not being sent: set your site address in Settings > General."
+		if owner {
+			sec.WarnHref = a.adminPath + "/settings/general#identity"
+		}
 	}
 	if len(sec.Rows) == 0 {
 		sec.State = dashEmpty
