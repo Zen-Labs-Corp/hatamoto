@@ -27,6 +27,14 @@ func truncRunes(s string, n int) string {
 // locks the entity's counts row first, so concurrent moderation cannot write
 // a stale count. It never touches hatamoto_entities.
 func lockAndRecount(ctx context.Context, tx pgx.Tx, entityID uuid.UUID, now time.Time) error {
+	if err := lockCounts(ctx, tx, entityID); err != nil {
+		return err
+	}
+	return recount(ctx, tx, entityID, now)
+}
+
+// lockCounts takes the entity's counts row lock, creating the row if needed.
+func lockCounts(ctx context.Context, tx pgx.Tx, entityID uuid.UUID) error {
 	if _, err := tx.Exec(ctx, `INSERT INTO hatamoto_comment_entities (entity_id) VALUES ($1) ON CONFLICT DO NOTHING`, entityID); err != nil {
 		return err
 	}
@@ -34,6 +42,10 @@ func lockAndRecount(ctx context.Context, tx pgx.Tx, entityID uuid.UUID, now time
 	if err := tx.QueryRow(ctx, `SELECT 1 FROM hatamoto_comment_entities WHERE entity_id = $1 FOR UPDATE`, entityID).Scan(&one); err != nil {
 		return err
 	}
+	return nil
+}
+
+func recount(ctx context.Context, tx pgx.Tx, entityID uuid.UUID, now time.Time) error {
 	_, err := tx.Exec(ctx, `UPDATE hatamoto_comment_entities SET
 			comment_count = (SELECT count(*) FROM hatamoto_comments WHERE entity_id = $1 AND status = 'approved'),
 			pending_count = (SELECT count(*) FROM hatamoto_comments WHERE entity_id = $1 AND status = 'pending'),
@@ -47,7 +59,7 @@ func lockAndRecount(ctx context.Context, tx pgx.Tx, entityID uuid.UUID, now time
 // in a later statement, so a concurrent approval on another entity is seen.
 func refreshCommenter(ctx context.Context, tx pgx.Tx, id uuid.UUID, th Thresholds, now time.Time) error {
 	var one int
-	err := tx.QueryRow(ctx, `SELECT 1 FROM hatamoto_commenters WHERE id = $1 FOR UPDATE`, id).Scan(&one)
+	err := tx.QueryRow(ctx, `SELECT 1 FROM hatamoto_commenters WHERE id = $1 FOR NO KEY UPDATE`, id).Scan(&one)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
@@ -109,6 +121,14 @@ func (s *Service) Store(ctx context.Context, d Draft) (Comment, error) {
 
 	var out Comment
 	err = s.db.WithTx(ctx, func(tx pgx.Tx) error {
+		// Lock order everywhere: entity counts row, then commenter row. The
+		// comment INSERT takes a KEY SHARE lock on the commenter row (foreign
+		// key), so the counts row has to be locked before it.
+		if countsStatus(d.Status) {
+			if err := lockCounts(ctx, tx, d.EntityID); err != nil {
+				return err
+			}
+		}
 		var commenterID *uuid.UUID
 		if d.Email != "" {
 			h := s.keys.HashEmail(d.Email)
@@ -116,9 +136,6 @@ func (s *Service) Store(ctx context.Context, d Draft) (Comment, error) {
 			if err != nil {
 				return err
 			}
-			// Lock order everywhere: entity counts row, then commenter row. So no
-			// lock on the commenter row is taken here; last_seen_at is touched
-			// after the recount below.
 			if _, err := tx.Exec(ctx, `INSERT INTO hatamoto_commenters (email_hash, email_sealed, created_at, last_seen_at)
 				VALUES ($1, $2, $3, $3) ON CONFLICT (email_hash) DO NOTHING`, h, sealed, now); err != nil {
 				return err
@@ -180,7 +197,7 @@ func (s *Service) Store(ctx context.Context, d Draft) (Comment, error) {
 			return err
 		}
 		if countsStatus(c.Status) {
-			if err := lockAndRecount(ctx, tx, c.EntityID, now); err != nil {
+			if err := recount(ctx, tx, c.EntityID, now); err != nil {
 				return err
 			}
 		}

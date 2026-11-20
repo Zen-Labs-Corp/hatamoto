@@ -795,7 +795,7 @@ func TestLockOrderCountsBeforeCommenter(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := probe.Exec(f.ctx, `SELECT 1 FROM hatamoto_commenters WHERE id = $1 FOR NO KEY UPDATE NOWAIT`, commenter); err != nil {
+			if _, err := probe.Exec(f.ctx, `SELECT 1 FROM hatamoto_commenters WHERE id = $1 FOR UPDATE NOWAIT`, commenter); err != nil {
 				t.Errorf("%s holds the commenter row while it waits for the counts row: %v", name, err)
 			}
 			probe.Rollback(f.ctx)
