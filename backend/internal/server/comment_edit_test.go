@@ -199,3 +199,21 @@ func TestCommentEditUnknownComment(t *testing.T) {
 		t.Fatalf("no service / bad id: %d", w.Code)
 	}
 }
+
+// With the comments site switch off the edit and delete routes answer 404,
+// like the post route, and change nothing.
+func TestCommentEditDeleteSwitchOffIs404(t *testing.T) {
+	for _, del := range []bool{false, true} {
+		r := newEditRig()
+		on := false
+		r.srv.commentSlot = &commentSlot{on: func() bool { return on }}
+		w := r.do(del, editForm("changed"))
+		if w.Code != http.StatusNotFound || r.ed.edited != nil || r.ed.trashed {
+			t.Fatalf("del=%v off: status %d edited %v trashed %v", del, w.Code, r.ed.edited, r.ed.trashed)
+		}
+		on = true
+		if w := r.do(del, editForm("changed")); w.Code != http.StatusSeeOther {
+			t.Fatalf("del=%v on: status %d", del, w.Code)
+		}
+	}
+}

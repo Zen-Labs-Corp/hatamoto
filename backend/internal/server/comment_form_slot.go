@@ -26,6 +26,10 @@ type commentSlot struct {
 	on                func() bool
 }
 
+// off reports whether the comments site switch is known to be off. A nil slot
+// (comments not wired) says false: callers have their own nil checks.
+func (c *commentSlot) off() bool { return c != nil && c.on != nil && !c.on() }
+
 // fill returns the body to write and whether it was personalised. It returns
 // the body unchanged when comments are off or the marker is absent. The input
 // is never modified: it is the cached entry.

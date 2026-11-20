@@ -53,7 +53,7 @@ func (s *Server) commentEditorOrNil() commentEditor {
 func (s *Server) serveOwnComment(w http.ResponseWriter, r *http.Request, ed commentEditor, del bool, now time.Time) {
 	w.Header().Set("Cache-Control", "no-store")
 	id, err := uuid.Parse(r.PathValue("commentID"))
-	if ed == nil || err != nil {
+	if ed == nil || err != nil || s.commentSlot.off() {
 		s.commentNotFound(w, r)
 		return
 	}
