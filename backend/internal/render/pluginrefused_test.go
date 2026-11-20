@@ -114,3 +114,20 @@ func TestPluginTemplatesRefusedCapped(t *testing.T) {
 		t.Error("recording a refusal changed the registry change counter")
 	}
 }
+
+// A call-graph fault is listed as not registered, with its reason, and is not
+// reported as a script stop: the plugin has no scripts to ask site.scripts for.
+func TestPluginTemplatesRefusedCallGraph(t *testing.T) { //nolint:paralleltest // uses the process-wide plugin registry
+	const plugin = "acme-selfcall"
+	if err := RegisterPluginPartial(plugin, "loop", `<p>{{template "plugin/acme_selfcall/loop" .}}</p>`); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { RemovePlugin(plugin) })
+	got := PluginTemplatesRefused(plugin)
+	if len(got) != 1 || !strings.HasPrefix(got[0], "partial plugin/acme_selfcall/loop: ") || strings.Contains(got[0], "site.scripts") {
+		t.Fatalf("refused = %v", got)
+	}
+	if stopped := PluginMarkupStopped(plugin); len(stopped) != 0 {
+		t.Errorf("stopped = %v, want none", stopped)
+	}
+}

@@ -258,10 +258,12 @@ func sampleRender(src string, funcs template.FuncMap) (*rangeBudget, error) {
 
 // withoutScripts drops the sections and blanks the partials of every plugin the gate
 // refuses that fail the script check, and returns why each was dropped
-// ("section promo", "partial card": reason), keyed by plugin.
-func (s pluginSnapshot) withoutScripts(allowed func(string) bool) (pluginSnapshot, map[string][]string) {
-	why := map[string][]string{}
-	out := s
+// ("section promo", "partial card": reason), keyed by plugin. Templates refused
+// for the call graph are not about scripts: they are returned apart, in graph,
+// in the same form.
+func (s pluginSnapshot) withoutScripts(allowed func(string) bool) (out pluginSnapshot, why, graph map[string][]string) {
+	why, graph = map[string][]string{}, map[string][]string{}
+	out = s
 	out.partials, out.sections = map[string]string{}, map[string]string{}
 	graphFaults := s.callGraphFaults(s.partials, s.sections)
 	keep := func(plugin, label, src string) bool {
@@ -283,7 +285,11 @@ func (s pluginSnapshot) withoutScripts(allowed func(string) bool) (pluginSnapsho
 			if !errors.Is(err, errPluginOutput) && graphFaults[plugin] == nil {
 				msg += " (not allowed without site.scripts)"
 			}
-			why[plugin] = append(why[plugin], msg)
+			if graphFaults[plugin] != nil {
+				graph[plugin] = append(graph[plugin], msg)
+			} else {
+				why[plugin] = append(why[plugin], msg)
+			}
 			return false
 		}
 		return true
@@ -305,7 +311,10 @@ func (s pluginSnapshot) withoutScripts(allowed func(string) bool) (pluginSnapsho
 	for _, l := range why {
 		sort.Strings(l)
 	}
-	return out, why
+	for _, l := range graph {
+		sort.Strings(l)
+	}
+	return out, why, graph
 }
 
 // gateFingerprint changes whenever the gate's answer for a registered plugin
@@ -334,6 +343,6 @@ func (r *pluginRegistry) gateFingerprint(allowed func(string) bool) uint64 {
 // plugin does not hold site.scripts. It is empty once the owner grants it.
 func PluginMarkupStopped(plugin string) []string {
 	snap := defaultPlugins.snapshot()
-	_, why := snap.withoutScripts(pluginScriptsAllowed())
+	_, why, _ := snap.withoutScripts(pluginScriptsAllowed())
 	return why[plugin]
 }

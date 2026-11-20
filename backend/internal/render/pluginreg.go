@@ -104,7 +104,8 @@ func RegisterPluginSection(plugin, typ, src string) error {
 // compile, so with engines on different themes the last compile wins. The
 // list is sorted, deduplicated and capped; it is nil when nothing was refused.
 func PluginTemplatesRefused(plugin string) []string {
-	return defaultPlugins.templatesRefused(plugin)
+	_, _, graph := defaultPlugins.snapshot().withoutScripts(pluginScriptsAllowed())
+	return defaultPlugins.templatesRefused(plugin, graph[plugin]...)
 }
 
 func (r *pluginRegistry) noteRefused(plugin string, err error) {
@@ -130,9 +131,9 @@ func (r *pluginRegistry) noteCompileRefused(plugins []string, why map[string][]s
 	}
 }
 
-func (r *pluginRegistry) templatesRefused(plugin string) []string {
+func (r *pluginRegistry) templatesRefused(plugin string, gate ...string) []string {
 	r.mu.RLock()
-	out := slices.Concat(r.refused[plugin], r.compiled[plugin])
+	out := slices.Concat(r.refused[plugin], r.compiled[plugin], gate)
 	r.mu.RUnlock()
 	if len(out) == 0 {
 		return nil
@@ -291,7 +292,7 @@ func (r *pluginRegistry) size() int {
 // gated is snapshot without the partials and sections that carry script
 // constructs while their plugin lacks site.scripts.
 func (r *pluginRegistry) gated() pluginSnapshot {
-	s, _ := r.snapshot().withoutScripts(pluginScriptsAllowed())
+	s, _, _ := r.snapshot().withoutScripts(pluginScriptsAllowed())
 	return s
 }
 

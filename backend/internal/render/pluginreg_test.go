@@ -848,12 +848,12 @@ func TestPluginGateRefusesACallGraphFault(t *testing.T) {
 	if err := reg.registerSection("acme", "y", `{{define "section-y"}}<p>ok</p>{{end}}`); err != nil {
 		t.Fatal(err)
 	}
-	out, why := reg.snapshot().withoutScripts(nil)
+	out, why, graph := reg.snapshot().withoutScripts(nil)
 	if len(out.sections) != 0 {
 		t.Errorf("kept sections %v, want none", out.sections)
 	}
-	if len(why["acme"]) != 2 || strings.Contains(why["acme"][0], "site.scripts") {
-		t.Errorf("why = %v", why["acme"])
+	if len(why["acme"]) != 0 || len(graph["acme"]) != 2 || strings.Contains(graph["acme"][0], "site.scripts") {
+		t.Errorf("why = %v, graph = %v", why["acme"], graph["acme"])
 	}
 }
 
