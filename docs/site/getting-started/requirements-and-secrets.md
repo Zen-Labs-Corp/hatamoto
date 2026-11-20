@@ -87,10 +87,10 @@ The signature is verified by `hatamoto update apply` (given `--sig release.json.
 
 ### The version command
 
-`hatamoto version` prints the version, the commit and the plugin SDK version stamped into the build:
+`hatamoto version` prints the version, the commit and the plugin SDK version stamped into the build, then the edition (`community` for the standard build):
 
 ```text
-hatamoto v1.1.0 (commit 478035ef543010635e28e108699b86f6713e622f, sdk 0.19.0)
+hatamoto v1.1.0 (commit 478035ef543010635e28e108699b86f6713e622f, sdk 0.19.0) (community)
 ```
 
 `hatamoto version --json` prints the same as JSON and adds the database schema head and the older SDK versions the build still serves, which is useful in a bug report.

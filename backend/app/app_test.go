@@ -2,12 +2,14 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/editionstate"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/migrations"
 	"hatamoto.dev/sdk"
@@ -136,6 +138,25 @@ func TestPrintVersion(t *testing.T) {
 	var b bytes.Buffer
 	printVersion(&b)
 	if !strings.HasPrefix(b.String(), "hatamoto ") || !strings.Contains(b.String(), "commit") {
+		t.Fatalf("got %q", b.String())
+	}
+	if !strings.HasSuffix(b.String(), " (community)\n") {
+		t.Fatalf("missing community edition suffix: %q", b.String())
+	}
+}
+
+type stubGate struct{}
+
+func (stubGate) FeatureEnabled(context.Context, string) (bool, error) { return false, nil }
+func (stubGate) PluginEntitled(context.Context, string) (bool, error) { return false, nil }
+
+func TestPrintVersionRegisteredEdition(t *testing.T) {
+	editionstate.Reset()
+	t.Cleanup(editionstate.Reset)
+	editionstate.Register("example", stubGate{})
+	var b bytes.Buffer
+	printVersion(&b)
+	if !strings.HasSuffix(b.String(), " (example)\n") {
 		t.Fatalf("got %q", b.String())
 	}
 }

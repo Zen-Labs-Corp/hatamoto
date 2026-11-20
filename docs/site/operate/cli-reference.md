@@ -41,7 +41,7 @@ docker compose exec hatamoto hatamoto migrate status
 | `hatamoto serve` | Ensures the server secret exists, loads and checks the configuration, connects to the database, applies migrations, seeds a fresh database (site configuration and a starter home page), then runs the site, API, admin and worker on `API_HOST:API_PORT`. `HATAMOTO_WORKER=off` turns the worker off. |
 | `hatamoto supervise` | The process to run as the service. Runs `serve` as a child process, keeps releases in `$HATAMOTO_DATA/releases`, switches to a newly applied release only after it starts and answers, and rolls back on its own. Needs no database. The systemd `ExecStart` and the Docker `CMD` use it. |
 | `hatamoto healthcheck` | Exits 0 when `http://127.0.0.1:$API_PORT/health` answers 200 within 4 seconds, otherwise non-zero. The Docker image's `HEALTHCHECK`. |
-| `hatamoto version [--json]` | Prints the version and commit. `--json` adds the plugin SDK version, the database schema head and the SDK versions this release stays compatible with. |
+| `hatamoto version [--json]` | Prints the version, commit, plugin SDK version and edition. `--json` adds the database schema head and the SDK versions this release stays compatible with. |
 | `hatamoto routes` | Lists the built-in HTTP routes as `PATTERN<TAB>handler`. |
 | `hatamoto help` | Prints the usage text. |
 

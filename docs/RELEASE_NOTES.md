@@ -1,5 +1,12 @@
 # Release notes
 
+## Unreleased: edition package and site id
+
+- **Editions.** A new public Go package, `hatamoto.dev/core/edition`, lets a wrapper module that calls `app.Main` register an edition name and a feature gate from an `init` function. A standard build registers nothing: the edition is `community` and every gated feature is off. A gate that errors denies.
+- **CLI.** `hatamoto version` ends with the edition, for example `(community)`. `version --json` is unchanged.
+- **Site id.** Each install gets a stable random id stored in the database (kept by a backup restore, not by content export/import). Hatamoto never sends it anywhere.
+- **Migration.** One new table, `hatamoto_site_identity`, created with its single row. Expand only. Rollback floor: unchanged.
+
 ## Unreleased: plugin templates refused by 1.3.8's range rule register again
 
 - **Plugin templates.** Plugin templates refused by 1.3.8's range rule register again. A plugin section or partial may `range` over any value; every plugin loop draws on one budget of 100000 iterations per page render, enforced while the page renders. A render that reaches it stops the loop, is served but not cached, and logs "plugin template range budget exceeded" with the plugin and template (at most once a minute each). 1.3.7 had no cap on plugin loops, so a page whose plugin loops exceed 100000 iterations is now cut short, served uncached and marked degraded.
