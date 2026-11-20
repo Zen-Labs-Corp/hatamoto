@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/portability"
 )
 
 func envOf(m map[string]string) func(string) string { return func(k string) string { return m[k] } }
@@ -103,5 +105,28 @@ func TestSecretFromEnvFile(t *testing.T) {
 		if got := secretFromEnvFile([]byte(c.body)); got != c.want {
 			t.Errorf("%q = %q, want %q", c.body, got, c.want)
 		}
+	}
+}
+
+// A forced restore over a different secret blanks the emails in the pause step,
+// as the app role; a matching one does not touch them.
+func TestRestoreStepsForceDropsCommenterEmails(t *testing.T) {
+	r := newStepsRig(t, nil)
+	r.d.dropEmails = true
+	if err := r.d.steps(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.pauseSQL) != 1 || !strings.HasPrefix(r.pauseSQL[0], pauseOffsiteSQL) || !strings.Contains(r.pauseSQL[0], portability.DropCommenterEmailsSQL) {
+		t.Fatalf("pause ran %q", r.pauseSQL)
+	}
+}
+
+func TestRestoreStepsMatchKeepsCommenterEmails(t *testing.T) {
+	r := newStepsRig(t, nil)
+	if err := r.d.steps(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.pauseSQL) != 1 || strings.Contains(r.pauseSQL[0], "hatamoto_commenters") {
+		t.Fatalf("pause ran %q", r.pauseSQL)
 	}
 }
