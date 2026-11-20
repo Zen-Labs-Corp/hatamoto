@@ -283,3 +283,101 @@ func TestCommenterActionNoCSRF(t *testing.T) {
 		t.Errorf("POST = %d calls=%v", rec.Code, svc.calls)
 	}
 }
+
+func cmtrPrivacyFake() *fakeComments {
+	svc := cmtrCommentersFake()
+	svc.supports = map[string]bool{"privacy": true}
+	return svc
+}
+
+func TestCommenterExport(t *testing.T) {
+	t.Parallel()
+
+	svc := cmtrPrivacyFake()
+	p := newCommentsRig(t, svc)
+	path := "/admin/settings/comments/commenters/" + cmtrTestID + "/export"
+	rec := p.do("GET", path, "editor-token", nil, nil)
+	if rec.Code != 403 || len(svc.calls) != 0 {
+		t.Fatalf("editor GET = %d calls=%v", rec.Code, svc.calls)
+	}
+	rec = p.do("GET", path, "owner-token", nil, nil)
+	h := rec.Header()
+	if rec.Code != 200 || h.Get("Content-Type") != "application/json" || h.Get("Cache-Control") != "no-store" ||
+		h.Get("X-Content-Type-Options") != "nosniff" || h.Get("Content-Disposition") != `attachment; filename="commenter-`+cmtrTestID+`.json"` {
+		t.Errorf("GET = %d headers %v", rec.Code, h)
+	}
+	if len(svc.calls) != 1 || svc.calls[0] != "export" || len(p.events) != 1 || p.events[0].Action != "comments.commenter.export" {
+		t.Errorf("calls=%v audit=%+v", svc.calls, p.events)
+	}
+
+	// Unsupported: the feature flag or the service itself refuses.
+	off := cmtrCommentersFake()
+	p2 := newCommentsRig(t, off)
+	if rec := p2.do("GET", path, "owner-token", nil, nil); rec.Code != 404 || len(off.calls) != 0 {
+		t.Errorf("unsupported GET = %d", rec.Code)
+	}
+	svc.err = ErrCommentsUnsupported
+	if rec := p.do("GET", path, "owner-token", nil, nil); rec.Code != 404 {
+		t.Errorf("service-unsupported GET = %d", rec.Code)
+	}
+}
+
+func TestCommenterErase(t *testing.T) {
+	t.Parallel()
+
+	svc := cmtrPrivacyFake()
+	p := newCommentsRig(t, svc)
+	path := "/admin/settings/comments/commenters/" + cmtrTestID + "/erase"
+	rec := p.do("POST", path, "owner-token", url.Values{"confirm_phrase": {"nope"}}, nil)
+	if rec.Code != 422 || len(svc.calls) != 0 || len(p.events) != 0 {
+		t.Fatalf("wrong phrase = %d calls=%v events=%d", rec.Code, svc.calls, len(p.events))
+	}
+	rec = p.do("POST", path, "owner-token", url.Values{"confirm_phrase": {"erase"}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/comments/commenters" {
+		t.Fatalf("POST = %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	if len(svc.calls) != 1 || svc.calls[0] != "erase" || svc.lastIDs[0] != cmtrTestID {
+		t.Errorf("calls = %v", svc.calls)
+	}
+	if len(p.events) != 1 || p.events[0].Action != "comments.commenter.erase" || p.events[0].Detail["deleted"] != 1 || p.events[0].Detail["anonymised"] != 0 || len(p.events[0].Detail) != 2 {
+		t.Errorf("audit = %+v", p.events)
+	}
+}
+
+func TestCommenterPrivacyHidden(t *testing.T) {
+	t.Parallel()
+
+	for name, rig := range map[string]struct {
+		svc   *fakeComments
+		token string
+	}{"unsupported": {cmtrCommentersFake(), "owner-token"}, "editor": {cmtrPrivacyFake(), "editor-token"}} {
+		p := newCommentsRig(t, rig.svc)
+		body := p.do("GET", "/admin/settings/comments/commenters", rig.token, nil, nil).Body.String()
+		if strings.Contains(body, cmtrTestID+"/export") || strings.Contains(body, cmtrTestID+"/erase") {
+			t.Errorf("%s: the list offers export or erase", name)
+		}
+	}
+	p := newCommentsRig(t, cmtrPrivacyFake())
+	body := p.do("GET", "/admin/settings/comments/commenters", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "/"+cmtrTestID+"/export") || !strings.Contains(body, "/"+cmtrTestID+"/erase") {
+		t.Error("an owner with privacy support does not see export and erase")
+	}
+}
+
+func TestCommenterErasePage(t *testing.T) {
+	t.Parallel()
+
+	p := newCommentsRig(t, cmtrPrivacyFake())
+	rec := p.do("GET", "/admin/settings/comments/commenters/"+cmtrTestID+"/erase", "owner-token", nil, nil)
+	body := rec.Body.String()
+	if rec.Code != 200 || !strings.Contains(body, "Comments nobody replied to are deleted.") {
+		t.Fatalf("GET = %d", rec.Code)
+	}
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %v", issues)
+	}
+	rec = p.do("POST", "/admin/settings/comments/commenters/"+cmtrTestID+"/erase", "owner-token", url.Values{"confirm_phrase": {"x"}}, nil)
+	if issues := a11y.Check(rec.Body.String(), a11y.Options{Page: true}); rec.Code != 422 || len(issues) > 0 {
+		t.Errorf("422 page = %d a11y %v", rec.Code, issues)
+	}
+}

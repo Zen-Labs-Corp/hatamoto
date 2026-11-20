@@ -251,6 +251,7 @@ func (a *Admin) handleCommenters(w http.ResponseWriter, r *http.Request) {
 		Query:   q, SearchLabel: "Search commenters",
 		Empty: ui.Empty{Icon: "users", Title: "No commenters", Body: "People who comment on your site show up here."},
 	}
+	privacy := cmtrPrivacy(r, svc)
 	for _, c := range list.Rows {
 		name := c.Name
 		if name == "" {
@@ -270,9 +271,15 @@ func (a *Admin) handleCommenters(w http.ResponseWriter, r *http.Request) {
 			ui.Action{Label: "Sign out all devices", Href: here, Post: act + "/signout" + back, ConfirmLabel: "Sign out",
 				Confirm: "Sign this commenter out on every device? They confirm their email again next time. Their trust level stays."},
 		)
+		if privacy {
+			acts = append(acts, ui.Action{Label: "Export", Href: act + "/export"})
+		}
 		if c.Trust != "blocked" {
 			acts = append(acts, ui.Action{Label: "Block", Href: here, Post: act + "/block" + back, Danger: true, ConfirmLabel: "Block commenter",
 				Confirm: "Block this commenter? Their comments will be held and never shown."})
+		}
+		if privacy {
+			acts = append(acts, ui.Action{Label: "Erase", Href: act + "/erase", Danger: true})
 		}
 		t.Rows = append(t.Rows, ui.Row{ID: c.ID, Label: "commenter " + name, Cells: []ui.Cell{
 			{Text: name}, {Badge: cmtrTrustBadge(c.Trust)}, {Text: strconv.Itoa(c.ApprovedCount)}, {Text: seen, Nowrap: true},
@@ -350,19 +357,117 @@ func (a *Admin) handleCommenterAction(w http.ResponseWriter, r *http.Request) {
 	Redirect(w, r, backTo(r, a.adminPath+cmtrCommentersPath, a.adminPath+cmtrCommentersPath))
 }
 
-// handleCommenterExport is a stub until its screen lands.
+// cmtrPrivacy reports whether the privacy actions (export, erase) apply: an
+// owner on a server whose comment service supports them.
+func cmtrPrivacy(r *http.Request, svc CommentsService) bool {
+	u := userFrom(r.Context())
+	return u != nil && u.Role == "owner" && svc.Supports("privacy")
+}
+
+// cmtrPrivacyID answers the privacy routes: the commenter id, or false after
+// writing the refusal (not an owner, no service, no privacy support, bad id).
+func (a *Admin) cmtrPrivacyID(w http.ResponseWriter, r *http.Request) (CommentsService, string, bool) {
+	if !a.requireOwner(w, r) {
+		return nil, "", false
+	}
+	svc := a.deps.Comments
+	if svc == nil {
+		a.unavailable(w, r, "Comments")
+		return nil, "", false
+	}
+	id := r.PathValue("id")
+	if _, err := uuid.Parse(id); err != nil || !svc.Supports("privacy") {
+		a.Error(w, r, http.StatusNotFound, "Not found", "Export and erase are not available for that commenter.")
+		return nil, "", false
+	}
+	return svc, id, true
+}
+
+// handleCommenterExport downloads everything stored about one commenter.
 func (a *Admin) handleCommenterExport(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
+	svc, id, ok := a.cmtrPrivacyID(w, r)
+	if !ok {
+		return
+	}
+	b, err := svc.ExportCommenter(r.Context(), id)
+	if errors.Is(err, ErrCommentsUnsupported) || errors.Is(err, ErrCommentNotFound) {
+		a.Error(w, r, http.StatusNotFound, "Not found", "That commenter cannot be exported.")
+		return
+	}
+	if err != nil {
+		a.logger().Error("comment commenter export", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The commenter could not be exported.")
+		return
+	}
+	a.audit(r, "comments.commenter.export", id, nil)
+	h := w.Header()
+	h.Set("Content-Type", "application/json")
+	h.Set("Content-Disposition", `attachment; filename="commenter-`+id+`.json"`)
+	h.Set("Cache-Control", "no-store")
+	h.Set("X-Content-Type-Options", "nosniff")
+	_, _ = w.Write(b)
 }
 
-// handleCommenterErasePage is a stub until its screen lands.
+type cmtrEraseData struct{ Danger ui.DangerConfirm }
+
+// cmtrEraseDanger is the typed confirm of the erase page.
+func (a *Admin) cmtrEraseDanger(r *http.Request, id string) ui.DangerConfirm {
+	list := a.adminPath + cmtrCommentersPath
+	return ui.DangerConfirm{
+		ID:     "dc-erase-commenter",
+		Title:  "Erase commenter",
+		Phrase: "erase",
+		Prompt: "To erase this commenter, type erase below.",
+		Action: list + "/" + id + "/erase",
+		Back:   list,
+		Label:  "Erase commenter",
+		CSRF:   csrfToken(r.Context()),
+		Body: []ui.DangerText{
+			{Parts: []ui.DangerPart{{Text: "Comments nobody replied to are deleted. Comments with replies keep their place in the thread, without the name or the text. The commenter record is deleted."}}},
+			{Parts: []ui.DangerPart{{Text: "This cannot be undone."}}},
+		},
+	}
+}
+
+func (a *Admin) renderCmtrErase(w http.ResponseWriter, r *http.Request, status int, dc ui.DangerConfirm) {
+	v := a.NewView(w, r, "Erase commenter")
+	v.Section, v.Tab = "comments", "commenters"
+	v.Width = "compact"
+	v.Data = cmtrEraseData{Danger: dc}
+	a.Render(w, r, status, "settings/comments-erase", v)
+}
+
 func (a *Admin) handleCommenterErasePage(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
+	_, id, ok := a.cmtrPrivacyID(w, r)
+	if !ok {
+		return
+	}
+	a.renderCmtrErase(w, r, http.StatusOK, a.cmtrEraseDanger(r, id))
 }
 
-// handleCommenterErase is a stub until its screen lands.
 func (a *Admin) handleCommenterErase(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
+	svc, id, ok := a.cmtrPrivacyID(w, r)
+	if !ok {
+		return
+	}
+	dc, ok := CheckDangerPhrase(r, a.cmtrEraseDanger(r, id))
+	if !ok {
+		a.renderCmtrErase(w, r, http.StatusUnprocessableEntity, dc)
+		return
+	}
+	deleted, anonymised, err := svc.EraseCommenter(r.Context(), id)
+	if errors.Is(err, ErrCommentsUnsupported) || errors.Is(err, ErrCommentNotFound) {
+		a.Error(w, r, http.StatusNotFound, "Not found", "That commenter cannot be erased.")
+		return
+	}
+	if err != nil {
+		a.logger().Error("comment commenter erase", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The commenter could not be erased.")
+		return
+	}
+	a.audit(r, "comments.commenter.erase", id, map[string]any{"deleted": deleted, "anonymised": anonymised})
+	a.SetFlash(w, r, "success", fmt.Sprintf("Commenter erased: %d comments deleted, %d anonymised.", deleted, anonymised))
+	Redirect(w, r, a.adminPath+cmtrCommentersPath)
 }
 
 // cmtrActor is the signed-in user's id for the service's audit trail.
