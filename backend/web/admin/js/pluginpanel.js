@@ -48,6 +48,7 @@ document.addEventListener("htmx:beforeRequest", (evt) => {
   const html = cache.get(evt.detail.pathInfo.requestPath);
   if (html !== undefined) {
     evt.preventDefault(); // no request: the fragment is already here
+    body.removeAttribute("aria-busy"); // htmx set it before this event and sends no request to clear it
     body.innerHTML = html; // the server's own markup, kept from the first open
     window.htmx.process(body);
     settle(dlg, body);

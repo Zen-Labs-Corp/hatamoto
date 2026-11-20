@@ -57,6 +57,7 @@ await card.click();
 await page.waitForSelector("#plugin-panel[open] #plugin-panel-body h3");
 ok((await page.locator("#plugin-panel-body").innerText()).includes("QA panel"), "second click: the panel opens with the content");
 ok(hits === 1, `second open sends no request (${hits} request)`);
+ok(await page.evaluate(() => !document.getElementById("plugin-panel-body").hasAttribute("aria-busy")), "second open: the panel body is not left aria-busy");
 await page.keyboard.press("Escape");
 await page.waitForFunction(() => !document.getElementById("plugin-panel").open);
 
