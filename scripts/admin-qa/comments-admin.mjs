@@ -24,7 +24,8 @@ const errors = [];
 const watch = (p) => {
   p.on("pageerror", (e) => errors.push(e.message));
   p.on("console", (m) => {
-    if (m.type() === "error") errors.push(m.text());
+    // The editor check below sends a POST that must be refused: its 403 is the expected console line.
+    if (m.type() === "error" && !(watch.expect403 && /status of 403/.test(m.text()))) errors.push(m.text());
   });
   p.on("dialog", (d) => d.accept().catch(() => {}));
 };
@@ -84,22 +85,10 @@ try {
   ok(!after.includes(CALLOUT) && (await sw(nojs).isChecked()), "no JS: the callout is gone and the switch is on");
 
   // ============ 4. sidebar item, badge, audit ============
-  let seen = false;
-  for (let i = 0; i < 35 && !seen; i++) {
-    await page.goto(base + settings);
-    seen = (await commentsLink(page).count()) > 0;
-    if (!seen) await page.waitForTimeout(1000);
-  }
-  ok(seen, "sidebar: the Comments item appears (up to the 30 s cache)");
+  await page.goto(base + settings);
+  ok((await commentsLink(page).count()) > 0, "sidebar: the Comments item shows right after turning comments on");
   if (seeded) {
-    let n = 0;
-    for (let i = 0; i < 35 && n === 0; i++) {
-      n = await badge(page);
-      if (n === 0) {
-        await page.waitForTimeout(1000);
-        await page.reload();
-      }
-    }
+    const n = await badge(page);
     ok(n > 0, `sidebar: the Comments badge shows pending (${n})`);
   } else skip("sidebar badge");
   await page.goto(`${base}${admin}/audit`);
@@ -111,11 +100,14 @@ try {
   ok(await sw(ed).isDisabled(), "editor: the switch on settings is disabled");
   await ed.goto(base + settings);
   const token = await ed.$eval('meta[name="csrf-token"]', (m) => m.content);
+  watch.expect403 = true;
   const st = await ed.evaluate(
     async ({ url, token }) => (await fetch(url, { method: "POST", body: new URLSearchParams({ understand: "1", _csrf: token }), credentials: "same-origin", headers: { "X-CSRF-Token": token } })).status,
     { url: `${base}${settings}/enable`, token },
   );
   ok(st === 403, `editor: POST enable answers 403 (${st})`);
+  await ed.waitForTimeout(200);
+  watch.expect403 = false;
   await ed.context().close();
 
   // ============ 6. moderation ============
