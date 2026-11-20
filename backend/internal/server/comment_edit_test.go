@@ -15,6 +15,8 @@ import (
 
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/comment/identity"
+	"hatamoto.dev/core/internal/commentsubmit"
+	"hatamoto.dev/core/internal/spam"
 )
 
 type fakeEditor struct {
@@ -215,5 +217,37 @@ func TestCommentEditDeleteSwitchOffIs404(t *testing.T) {
 		if w := r.do(del, editForm("changed")); w.Code != http.StatusSeeOther {
 			t.Fatalf("del=%v on: status %d", del, w.Code)
 		}
+	}
+}
+
+// holdRig gives the edit rig a submit pipeline whose blocked words hold "viagra".
+func (r *editRig) holdRig(t *testing.T) {
+	t.Helper()
+	set := spam.Defaults()
+	set.BlockedWords = []string{"viagra"}
+	pc := &postComments{set: comment.Defaults(), mode: comment.ModeOpen, used: map[string]bool{}, keys: comment.NewKeys(postSecret)}
+	r.srv.commentSubmit = &commentsubmit.Pipeline{
+		Comments: pc, Identity: &postIdentity{},
+		Spam:   &spam.Pipeline{Settings: fixedSettings{set}, SecretKey: spam.SecretKey(postSecret)},
+		Limits: commentsubmit.NewLimits(time.Now),
+	}
+	t.Cleanup(r.srv.commentSubmit.Limits.Stop)
+}
+
+func TestCommentEditRunsContentChecks(t *testing.T) {
+	r := newEditRig()
+	r.holdRig(t)
+	if w := r.do(false, editForm("cheap viagra here")); w.Code != http.StatusSeeOther {
+		t.Fatalf("status %d", w.Code)
+	}
+	if r.ed.edited == nil || !r.ed.edited.Hold {
+		t.Fatalf("a blocked-word edit was not held: %+v", r.ed.edited)
+	}
+	r.ed.edited = nil
+	if w := r.do(false, editForm("a fine rewording")); w.Code != http.StatusSeeOther {
+		t.Fatalf("status %d", w.Code)
+	}
+	if r.ed.edited == nil || r.ed.edited.Hold {
+		t.Fatalf("a clean edit was held: %+v", r.ed.edited)
 	}
 }

@@ -262,48 +262,12 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	case err != nil:
 		return Outcome{}, err
 	}
-	var signals []spam.Signal
-	hits, err := p.Comments.MatchBlocks(ctx, comment.Probe{
-		EmailDomain: comment.EmailDomain(email), LinkDomains: rendered.LinkDomains,
-		IPHash: ipHash, NetHash: netHash, BodyHash: rendered.BodyHash,
+	sr, verdict, hold, err := p.assess(ctx, spamSet, assessInput{
+		EntityID: req.EntityID, Name: name, Body: body, Email: email, Rendered: rendered,
+		IPHash: ipHash, NetHash: netHash, Issued: issued, IssuedOK: true, Now: now,
 	})
 	if err != nil {
 		return Outcome{}, err
-	}
-	if len(hits) > 0 {
-		signals = append(signals, spam.Signal{Reason: spam.ReasonBlocklist, Points: spam.PointsBlocklist})
-	}
-	dups, err := p.Comments.DuplicateSince(ctx, rendered.BodyHash, now.Add(-duplicateWindow))
-	if err != nil {
-		return Outcome{}, err
-	}
-	if dups > 0 {
-		signals = append(signals, spam.Signal{Reason: spam.ReasonDuplicate, Points: spam.PointsDuplicate})
-	}
-
-	// 10. Plugin checks, then the score.
-	score, checkReasons, hold := comment.RunCheckers(ctx, p.Checkers, comment.CheckInput{
-		EntityID: req.EntityID, Body: body, LinkDomains: rendered.LinkDomains, BodyHash: rendered.BodyHash,
-		IPHash: ipHash, NetHash: netHash,
-	}, comment.DefaultCheckTimeout)
-	if score != 0 || len(checkReasons) > 0 {
-		signals = append(signals, spam.Signal{Reason: "comment.check", Points: score})
-		for _, r := range checkReasons {
-			signals = append(signals, spam.Signal{Reason: r})
-		}
-	}
-	sr := spam.ScoreWith(spamSet, spam.ScoreInput{
-		Subject: spam.CommentSubject(entityID), Texts: []string{name, body}, Signals: signals,
-	}, issued, true, now)
-	verdict := "allow"
-	switch sr.Verdict {
-	case spam.Spam:
-		verdict = "spam"
-	case spam.Hold:
-		verdict = "hold"
-	}
-	if hold && verdict == "allow" {
-		verdict = "hold"
 	}
 
 	// 11. Trust and status.
@@ -371,4 +335,101 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	}
 	p.Limits.MarkPosted(commenterKey, entityID)
 	return Outcome{Kind: Posted, Comment: c}, nil
+}
+
+// assessInput is what the content checks look at, for a new comment or an edit.
+type assessInput struct {
+	EntityID       uuid.UUID
+	Name, Body     string
+	Email          string
+	Rendered       commentfmt.Result
+	IPHash         string
+	NetHash        string
+	Issued         time.Time
+	IssuedOK       bool
+	Now            time.Time
+	SkipDuplicates bool
+}
+
+// assess runs the content checks (blocklists, duplicates, plugin checks, score)
+// and returns the score, its verdict ("allow", "hold" or "spam") and whether a
+// plugin check asked for a hold.
+func (p *Pipeline) assess(ctx context.Context, spamSet spam.Settings, in assessInput) (spam.ScoreResult, string, bool, error) {
+	entityID := in.EntityID.String()
+	rendered, body := in.Rendered, in.Body
+	var signals []spam.Signal
+	hits, err := p.Comments.MatchBlocks(ctx, comment.Probe{
+		EmailDomain: comment.EmailDomain(in.Email), LinkDomains: rendered.LinkDomains,
+		IPHash: in.IPHash, NetHash: in.NetHash, BodyHash: rendered.BodyHash,
+	})
+	if err != nil {
+		return spam.ScoreResult{}, "", false, err
+	}
+	if len(hits) > 0 {
+		signals = append(signals, spam.Signal{Reason: spam.ReasonBlocklist, Points: spam.PointsBlocklist})
+	}
+	if !in.SkipDuplicates {
+		dups, err := p.Comments.DuplicateSince(ctx, rendered.BodyHash, in.Now.Add(-duplicateWindow))
+		if err != nil {
+			return spam.ScoreResult{}, "", false, err
+		}
+		if dups > 0 {
+			signals = append(signals, spam.Signal{Reason: spam.ReasonDuplicate, Points: spam.PointsDuplicate})
+		}
+	}
+
+	// Plugin checks, then the score.
+	score, checkReasons, hold := comment.RunCheckers(ctx, p.Checkers, comment.CheckInput{
+		EntityID: in.EntityID, Body: body, LinkDomains: rendered.LinkDomains, BodyHash: rendered.BodyHash,
+		IPHash: in.IPHash, NetHash: in.NetHash,
+	}, comment.DefaultCheckTimeout)
+	if score != 0 || len(checkReasons) > 0 {
+		signals = append(signals, spam.Signal{Reason: "comment.check", Points: score})
+		for _, r := range checkReasons {
+			signals = append(signals, spam.Signal{Reason: r})
+		}
+	}
+	sr := spam.ScoreWith(spamSet, spam.ScoreInput{
+		Subject: spam.CommentSubject(entityID), Texts: []string{in.Name, body}, Signals: signals,
+	}, in.Issued, in.IssuedOK, in.Now)
+	verdict := "allow"
+	switch sr.Verdict {
+	case spam.Spam:
+		verdict = "spam"
+	case spam.Hold:
+		verdict = "hold"
+	}
+	if hold && verdict == "allow" {
+		verdict = "hold"
+	}
+	return sr, verdict, hold, nil
+}
+
+// EditCheck is an edit of a comment, as the handler parsed it.
+type EditCheck struct {
+	EntityID uuid.UUID
+	Name     string
+	Body     string
+	Rendered commentfmt.Result
+	// BodyChanged is false when the new body hashes like the stored one (the
+	// stored comment would otherwise count as its own duplicate).
+	BodyChanged bool
+	IP          string
+	Now         time.Time
+}
+
+// HoldEdit runs the content checks of a new post on an edited body and reports
+// whether the comment must go back to moderation. The timing, honeypot, token,
+// captcha and rate checks belong to the form and do not apply.
+func (p *Pipeline) HoldEdit(ctx context.Context, e EditCheck) (bool, error) {
+	spamSet, err := p.Spam.Settings.Get(ctx)
+	if err != nil {
+		spamSet = spam.Defaults()
+	}
+	ipHash, netHash := p.Comments.Keys().HashIP(e.IP)
+	_, verdict, _, err := p.assess(ctx, spamSet, assessInput{
+		EntityID: e.EntityID, Name: e.Name, Body: e.Body, Rendered: e.Rendered,
+		IPHash: ipHash, NetHash: netHash, Now: e.Now.UTC(), SkipDuplicates: !e.BodyChanged,
+	})
+	return verdict != "allow", err
 }

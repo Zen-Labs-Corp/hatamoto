@@ -450,7 +450,8 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 // Edit stores a re-rendered body and sets edited_at. An edit by the commenter
-// that leaves links in the body moves an approved comment back to pending.
+// that leaves links in the body, or that the content checks held, moves an
+// approved comment back to pending.
 func (s *Service) Edit(ctx context.Context, id uuid.UUID, e Edited) (Comment, error) {
 	set, err := s.Settings(ctx)
 	if err != nil {
@@ -465,7 +466,7 @@ func (s *Service) Edit(ctx context.Context, id uuid.UUID, e Edited) (Comment, er
 		}
 		before = c
 		status := c.Status
-		if !e.ByAdmin && e.HasLinks && c.Status == StatusApproved {
+		if !e.ByAdmin && (e.HasLinks || e.Hold) && c.Status == StatusApproved {
 			status = StatusPending
 		}
 		out, err = scanComment(tx.QueryRow(ctx, `UPDATE hatamoto_comments SET body_raw = $2, body_html = $3,

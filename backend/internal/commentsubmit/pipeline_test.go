@@ -11,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/comment/identity"
+	"hatamoto.dev/core/internal/commentfmt"
 	"hatamoto.dev/core/internal/spam"
 )
 
@@ -356,5 +357,50 @@ func TestSubmitSurgeIgnoresInvalidTokens(t *testing.T) {
 	}
 	if active, _ := h.p.Limits.Surge().Note(); active {
 		t.Fatal("forged posts started surge mode")
+	}
+}
+
+func TestHoldEdit(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		setup func(h *harness)
+		body  string
+		want  bool
+	}{
+		{"clean", func(*harness) {}, "A fine edit.", false},
+		{"blocked words", func(h *harness) { h.sp.BlockedWords = []string{"viagra"} }, "cheap viagra", true},
+		{"body hash block", func(h *harness) { h.c.blocks = []comment.Block{{}} }, "A fine edit.", true},
+		{"checker hold", func(h *harness) { h.p.Checkers = []comment.Checker{scoreChecker{err: errors.New("down")}} }, "A fine edit.", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+			tc.setup(h)
+			h.p.Spam.Settings = spamSettings{*h.sp}
+			res, err := commentfmt.Render(tc.body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := h.p.HoldEdit(context.Background(), EditCheck{
+				EntityID: h.req.EntityID, Name: "Ada", Body: tc.body, Rendered: res, BodyChanged: true, IP: h.req.IP, Now: t0,
+			})
+			if err != nil || got != tc.want {
+				t.Fatalf("HoldEdit = %v, %v; want %v", got, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestHoldEditDuplicateOnlyWhenBodyChanged(t *testing.T) {
+	h := newHarness(t)
+	h.c.dups = 1
+	h.p.Spam.Settings = spamSettings{*h.sp}
+	res, _ := commentfmt.Render("same text")
+	e := EditCheck{EntityID: h.req.EntityID, Name: "Ada", Body: "same text", Rendered: res, IP: h.req.IP, Now: t0}
+	if hold, _ := h.p.HoldEdit(context.Background(), e); hold {
+		t.Error("an unchanged body counted as a duplicate of itself")
+	}
+	e.BodyChanged = true
+	if hold, _ := h.p.HoldEdit(context.Background(), e); !hold {
+		t.Error("a duplicate edit was not held")
 	}
 }

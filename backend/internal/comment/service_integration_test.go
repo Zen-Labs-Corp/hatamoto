@@ -981,3 +981,22 @@ func TestMarkSpamOnTrashedDraftLeavesEmailAlone(t *testing.T) {
 		t.Errorf("domain was blocked: %+v", hits)
 	}
 }
+
+func TestEditHeldDemotesApprovedComment(t *testing.T) {
+	f := newFixture(t)
+	var got [][2]Status
+	f.svc.Register(&updateRecorder{got: &got})
+	d := f.draft("held@example.test", "hello")
+	d.Status = StatusApproved
+	c := f.store(d)
+	c, err := f.svc.Edit(f.ctx, c.ID, Edited{BodyRaw: "hi", BodyHTML: "<p>hi</p>", Hold: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Status != StatusPending {
+		t.Errorf("held edit = %s, want pending", c.Status)
+	}
+	if want := [][2]Status{{StatusApproved, StatusPending}}; len(got) != 1 || got[0] != want[0] {
+		t.Errorf("OnUpdated events = %v, want %v", got, want)
+	}
+}

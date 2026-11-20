@@ -264,6 +264,9 @@ type Edited struct {
 	LinkDomains       []string
 	BodyHash          string
 	ByAdmin           bool
+	// Hold sends an approved comment back to moderation (the content checks
+	// of a new post held the edited text).
+	Hold bool
 }
 
 // ThreadComment is the public view: never body_raw, hashes or email.

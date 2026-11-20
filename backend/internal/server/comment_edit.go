@@ -14,6 +14,7 @@ import (
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/commentfmt"
 	"hatamoto.dev/core/internal/commentsubmit"
+	"hatamoto.dev/core/internal/middleware"
 )
 
 // editBodyField is the static field of the edit form. It is safe to name it
@@ -115,15 +116,26 @@ func (s *Server) serveOwnComment(w http.ResponseWriter, r *http.Request, ed comm
 		http.Redirect(w, r, path+"?cerror="+url.QueryEscape(code)+"#hm-comments", http.StatusSeeOther)
 		return
 	}
+	hold := false
+	if p := s.commentSubmit; p != nil {
+		hold, err = p.HoldEdit(ctx, commentsubmit.EditCheck{
+			EntityID: c.EntityID, Name: c.AuthorName, Body: body, Rendered: res,
+			BodyChanged: res.BodyHash != c.BodyHash, IP: middleware.GetClientIP(r), Now: now,
+		})
+		if err != nil {
+			s.commentFail(w, r, "comment edit: checks", err)
+			return
+		}
+	}
 	_, err = ed.Edit(ctx, id, comment.Edited{
 		BodyRaw: body, BodyHTML: res.HTML, HasLinks: res.HasLinks, LinkDomains: res.LinkDomains,
-		BodyHash: res.BodyHash, ByAdmin: false,
+		BodyHash: res.BodyHash, ByAdmin: false, Hold: hold,
 	})
 	if err != nil {
 		s.commentFail(w, r, "comment edit", err)
 		return
 	}
-	s.commentBypass.forget(commenter) // an edit with links may have made it pending
+	s.commentBypass.forget(commenter) // an edit with links or a hold may have made it pending
 	http.Redirect(w, r, path+"#hm-comments", http.StatusSeeOther)
 }
 
