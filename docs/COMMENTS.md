@@ -23,7 +23,7 @@ Comments are threaded, up to 5 levels by default. Themes can override the commen
 
 ## Privacy and retention
 
-No raw IP address is stored, only keyed hashes, which are pseudonymous personal data. A truncated user agent is stored with each comment. There is no website field. Spam and trash are purged after 30 days by default, and unconfirmed comments after 24 hours. The owner can export or erase (delete or anonymise) everything held for an email address, including the IP-hash block that marking one of its comments as spam added to the blocklist. Network (/24) blocks are shared by everyone on that network and are never removed by an erase. Not written yet.
+No raw IP address is stored, only keyed hashes, which are pseudonymous personal data. A truncated user agent is stored with each comment. There is no website field. Spam and trash are purged after 30 days by default, and unconfirmed comments after 24 hours.. The owner can export or erase (delete or anonymise) everything held for an email address, including the IP-hash block that marking one of its comments as spam added to the blocklist. Network (/24) blocks are shared by everyone on that network and are never removed by an erase. Not written yet.
 
 ## Plugins
 
@@ -57,7 +57,7 @@ The JSON keys in `hatamoto_comment_settings.settings`, with their defaults:
 | sort | newest |
 | `slow_mode_seconds` | 120 |
 | captcha | false |
-| `device_cookie_days` | 90 |
+| `device_cookie_days` | 90 (how long the `hm_c` commenter cookie lasts) |
 | `purge_days` | 30 |
 
 The default mode for a content type is `entity_schemas.settings.comments.mode`; a page overrides it with its own `mode`. Three numbers are fixed in code, not settings: `EditWindow` (15 minutes), `DraftTTL` (24 hours) and the 90-day spam quiet period a trusted commenter needs.
@@ -82,10 +82,29 @@ A `Checker` adds to the spam decision. Its input is the body, the link domains a
 
 `CommentSubject` gives the subject key for a comment form token, and `Hold` is a comment-only decision that forms never get. `Score`, `ScoreInput` and `Signal` sort a submission into three buckets: allow, hold or spam. Form behaviour is unchanged.
 
+### Identity
+
+Package `internal/comment/identity` confirms the commenter's email address and keeps the commenter signed in on that device. The flow:
+
+1. The public part stores the comment as a draft and calls `RequestConfirmation`.
+2. A mail goes out with the site name, the page title and a link. It never contains the commenter's name or the comment text.
+3. The link opens a page with one Confirm button. A GET never confirms anything, because mail scanners and link previews fetch links.
+4. A same-origin POST consumes the link, calls `comment.Service.Confirm`, sets the `hm_c` cookie and redirects to `#comment-<id>` on the page.
+
+The link works once and for 24 hours. Only its SHA-256 is stored, in `hatamoto_comment_confirmations`. At most 3 mails go to one address, 10 to one `ip_hash` and 30 to one `net_hash` per 24 hours. Over the limit the visitor sees the same page as before and nothing is sent.
+
+`hm_c` holds the commenter id and a token version. Trust stays in `hatamoto_commenters`, so a lost cookie costs one more confirmation and keeps the trust level. `RevokeDevices`, `Block` and a spam mark bump `token_version`, which invalidates every cookie of that commenter.
+
+Disposable email domains come from `hatamoto_comment_blocks` (kind `email_domain`, seeded, editable by the owner) and are refused with a neutral message.
+
+The hourly job `comment_drafts_purge` deletes drafts with status `draft` older than 24 hours, old confirmation rows and commenters that only ever had drafts.
+
+Set the site address before enabling comments: without it no confirmation mail is sent.
+
 ### Comment counts
 
 Counts live in `hatamoto_comment_entities`, not on the page row, so a moderation action never purges the whole page cache. Until targeted cache invalidation lands, a listing page can show counts up to the page cache time (5 minutes) out of date.
 
 ### Server secret
 
-Rotating `HATAMOTO_SECRET` orphans every hash and makes the sealed emails unreadable. Commenters start again at `new`.
+Rotating `HATAMOTO_SECRET` orphans every hash and makes the sealed emails unreadable. Commenters start again at `new`. It also signs every commenter device out, because `hm_c` is keyed from the secret.
