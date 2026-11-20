@@ -64,6 +64,41 @@ func TestRenderCommentsFragmentHasForm(t *testing.T) {
 	}
 }
 
+func TestRenderCommentsFragmentEchoSlots(t *testing.T) {
+	e := newTestEngine(t, Options{})
+	render := func(withValues bool) string {
+		v := minimalView()
+		p := CommentFormPlaceholders
+		p.Action = "/-/comments/e1"
+		if withValues {
+			p.BodyValue = CommentValuePlaceholders.BodyValue
+			p.NameValue = CommentValuePlaceholders.NameValue
+			p.EmailValue = CommentValuePlaceholders.EmailValue
+			p.Notify = true
+		}
+		v.Comments = &CommentThread{}
+		v.CommentForm = &p
+		var b bytes.Buffer
+		if err := e.RenderCommentsFragment(&b, v, nil); err != nil {
+			t.Fatal(err)
+		}
+		return b.String()
+	}
+	out := render(true)
+	for _, w := range []string{`value="__hmcf_vname__"`, `value="__hmcf_vemail__"`, `>__hmcf_vbody__</textarea>`, ` checked>`} {
+		if !strings.Contains(out, w) {
+			t.Errorf("echo render lacks %q:\n%s", w, out)
+		}
+	}
+	out = render(false)
+	if strings.Contains(out, `maxlength="80" value=`) || strings.Contains(out, `maxlength="254" value=`) {
+		t.Error("empty render carries value attributes")
+	}
+	if !strings.Contains(out, `required></textarea>`) || strings.Contains(out, "checked") {
+		t.Errorf("empty render not clean:\n%s", out)
+	}
+}
+
 func TestDefaultThemeCommentsOffEmitsNothing(t *testing.T) {
 	e := newTestEngine(t, Options{})
 	v := minimalView()
