@@ -18,6 +18,7 @@ type fakeComments struct {
 	lastActor  string
 	lastFilter CommentFilter
 	lastBody   string
+	lastAuthor string
 	lastMode   string
 	entity     EntityComments
 	schemaMode string
@@ -169,14 +170,14 @@ func (f *fakeComments) Edit(_ context.Context, id, body, actor string) error {
 	return nil
 }
 
-func (f *fakeComments) Reply(_ context.Context, parentID, body, actor, _ string) (string, error) {
+func (f *fakeComments) Reply(_ context.Context, parentID, body, actor, author string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.err != nil {
 		return "", f.err
 	}
 	f.record("reply", actor, parentID)
-	f.lastBody = body
+	f.lastBody, f.lastAuthor = body, author
 	return "reply-id", nil
 }
 

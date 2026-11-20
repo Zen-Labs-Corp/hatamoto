@@ -290,6 +290,24 @@ func TestCommentReply(t *testing.T) {
 	}
 }
 
+func TestCommentReplyNeverPublishesEmail(t *testing.T) {
+	t.Parallel()
+
+	// The editor has no display name, so CurrentUser.Name is the login email.
+	svc := &fakeComments{rows: modRows()}
+	p := newCommentsRig(t, svc)
+	modPost(t, p, "editor-token", "/reply", url.Values{"body": {"Thanks!"}})
+	if svc.lastAuthor != "Acme Site" {
+		t.Errorf("author = %q, want the site name, never the email", svc.lastAuthor)
+	}
+	svc = &fakeComments{rows: modRows()}
+	p = newCommentsRig(t, svc)
+	modPost(t, p, "owner-token", "/reply", url.Values{"body": {"Thanks!"}})
+	if svc.lastAuthor != "Owner Olga" {
+		t.Errorf("author = %q, want the display name", svc.lastAuthor)
+	}
+}
+
 func TestCommentReplyEmpty(t *testing.T) {
 	t.Parallel()
 

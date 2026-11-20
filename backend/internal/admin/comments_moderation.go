@@ -2,6 +2,7 @@ package admin
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -434,6 +435,16 @@ func (a *Admin) renderModForm(w http.ResponseWriter, r *http.Request, status int
 	a.Render(w, r, status, page, v)
 }
 
+// replyAuthor is the public name of a site reply: the user's display name, or
+// the site name. CurrentUser.Name falls back to the login email, which must
+// never be published.
+func (a *Admin) replyAuthor(ctx context.Context, u *CurrentUser) string {
+	if u != nil && u.Name != "" && !strings.EqualFold(u.Name, u.Email) {
+		return u.Name
+	}
+	return a.siteName(ctx)
+}
+
 func (a *Admin) handleCommentReplyPage(w http.ResponseWriter, r *http.Request) {
 	_, row, ok := a.modLoad(w, r)
 	if !ok {
@@ -451,7 +462,7 @@ func (a *Admin) handleCommentReply(w http.ResponseWriter, r *http.Request) {
 	d := modFormData{ID: row.ID, Parent: modExcerpt(row.BodyRaw), Body: body, Back: a.modBack(r)}
 	if msg == "" {
 		u := userFrom(r.Context())
-		_, err := svc.Reply(r.Context(), row.ID, body, modActor(r), cmp.Or(u.Name, u.Email))
+		_, err := svc.Reply(r.Context(), row.ID, body, modActor(r), a.replyAuthor(r.Context(), u))
 		switch {
 		case err == nil:
 			a.SetFlash(w, r, "success", "Reply posted.")
