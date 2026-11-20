@@ -25,6 +25,7 @@ Export and import are command line only. Admin → Settings → Tools → Export
 | `data/hatamoto_menus.jsonl`, `..._menu_items.jsonl` | menus |
 | `data/hatamoto_redirects.jsonl` | redirects |
 | `data/hatamoto_forms.jsonl`, `..._form_submissions.jsonl` | forms and, unless `--no-submissions`, their submissions |
+| `data/hatamoto_commenters.jsonl`, `..._comments.jsonl` | comments with their threading and status, unless `--no-submissions`; commenters with their trust level and the email sealed with the server secret (no author URL and no raw IP: only hashes) |
 | `data/hatamoto_media.jsonl`, `media/<path>` | media rows and the files (originals and image variants) |
 | `data/hatamoto_fonts.jsonl` | fonts the owner added (the font bytes are in the rows) |
 | `data/hatamoto_authors.jsonl` | legacy authors (name, bio, avatar); entities keep their `author_id` |
@@ -32,11 +33,11 @@ Export and import are command line only. Admin → Settings → Tools → Export
 | `data/hatamoto_section_templates.jsonl`, `..._internal_link_rules.jsonl` | reusable sections, internal-link rules |
 | `data/hatamoto_agent_robots_policy.jsonl`, `..._plugin_grants.jsonl` | the AI-crawler robots policy and the permissions granted to plugins |
 
-**Form submissions are included by default** (a backup should be complete) but hold visitor data: use `--no-submissions` for an archive you will share. Users are included because they own content; their emails are personal data too.
+**Form submissions are included by default** (a backup should be complete) but hold visitor data: use `--no-submissions` for an archive you will share: it also leaves out comments and commenters. Users are included because they own content; their emails are personal data too.
 
 **Form uploads are not included.** A submission's file answer is exported as a reference (`id`, `name`, `size`, `type`) in `hatamoto_form_submissions.jsonl`, not the file bytes. The files live in `<data>/private/form-uploads`; copy that directory yourself, and note that an import into a new site leaves those references without files (the download says "That file does not exist.").
 
-**Not included:** API keys and sessions (secrets), crawler hits, analytics, 404 logs and the link index (history or derived data; the link index fills again as pages are saved), plugin credentials, settings and stored data. **Installed plugin and theme packages** (the `hatamoto_packages` table), the active theme and theme settings are not archived either, on purpose: a package is code the new host must trust by its own keys. Reinstall them on the new host (`hatamoto package install`, then `hatamoto theme activate`); packages already installed do not stop an import.
+**Not included:** the comment settings (including the on/off switch), per-page comment modes, blocklists and form tokens (a backup has them; comment counts are rebuilt from the rows on import), API keys and sessions (secrets), crawler hits, analytics, 404 logs and the link index (history or derived data; the link index fills again as pages are saved), plugin credentials, settings and stored data. **Installed plugin and theme packages** (the `hatamoto_packages` table), the active theme and theme settings are not archived either, on purpose: a package is code the new host must trust by its own keys. Reinstall them on the new host (`hatamoto package install`, then `hatamoto theme activate`); packages already installed do not stop an import.
 
 ## Format (version 1)
 
@@ -47,12 +48,13 @@ A gzip-compressed tar, written and read as a stream:
 3. `media/<storage_path>`: uploaded files, paths relative to `MEDIA_UPLOAD_DIR`.
 4. `manifest.json`, always last: row counts per table and the media file count. The import checks it, so a truncated archive is rejected.
 
-The `version` field changes only when this layout changes; an importer refuses a version newer than it knows. Rows carry whatever columns the exporting version had: columns missing from an older archive take their defaults on import.
+The `version` field changes only when this layout changes; an importer refuses a version newer than it knows. The comment tables did not change it (it stays 1), but an older Hatamoto refuses an archive that lists them (unknown table). Rows carry whatever columns the exporting version had: columns missing from an older archive take their defaults on import.
 
 ## Import rules
 
-- Only into an **empty** database: the import runs migrations, then refuses (`database is not empty`) if there are any entities, users, terms, menus, redirects, forms, media, authors, people links, section templates or link rules. The built-in schemas and site config that migrations seed are replaced by the archive's.
+- Only into an **empty** database: the import runs migrations, then refuses (`database is not empty`) if there are any entities, users, terms, menus, redirects, forms, media, authors, people links, section templates, link rules, comments or commenters. The built-in schemas and site config that migrations seed are replaced by the archive's.
 - **Older archives:** an archive written before people existed has authors but no `person` entities and no `hatamoto_user_people` file. It imports as it is (the built-in `person` type is kept), and once the import has committed, every author gets a non-public person and the posts are re-pointed at it, as the upgrade does. The file is optional and the format `version` stays 1; a binary from before people refuses an archive that lists it (unknown table), so import new archives with the new binary. If the people step fails, the import itself is kept and the error says so; the only expected cause is a content type of your own with the slug `person` in the archive, so rename it before exporting.
+- **Comments:** an archive without comment files imports with no comments. Keep the same `HATAMOTO_SECRET` on the new site: commenter emails are sealed with it, so under a different secret they become unreadable and the trust and rate-limit hashes stop matching (commenters start again at *new*; see `docs/COMMENTS.md`, "Server secret").
 - IDs and timestamps (`created_at`, `updated_at`, `published_at`) are preserved; parent links are restored without touching `updated_at`.
 - Everything runs in one transaction; any error (including a bad manifest) rolls the database back; media files are staged in a temp directory under `MEDIA_UPLOAD_DIR` and linked into place just before the commit, and a failure removes only the files the import created.
 - Users are created with a password that cannot match anything. Set one with `hatamoto user reset-password --email ...`.
