@@ -352,7 +352,7 @@ func TestInvalidateRenderedEntity_OnlyThatEntity(t *testing.T) {
 	}
 	var gone []string
 	for _, p := range []string{"/a", "/fr/a", "/a?page=2"} {
-		k := store(p, EntityTag(a))
+		k := store(p, TagAnyEntity, EntityTag(a))
 		gone = append(gone, k)
 		for _, enc := range []string{"gzip", "zstd"} {
 			ek := EncodedKey(k, enc)
@@ -362,7 +362,7 @@ func TestInvalidateRenderedEntity_OnlyThatEntity(t *testing.T) {
 			gone = append(gone, ek)
 		}
 	}
-	keepB := store("/b", EntityTag(b))
+	keepB := store("/b", TagAnyEntity, EntityTag(b))
 	keepList := store("/", TagAnyEntity)
 	checkStats(t, c)
 	checkTags(t, c)
@@ -384,16 +384,15 @@ func TestInvalidateRenderedEntity_OnlyThatEntity(t *testing.T) {
 	checkStats(t, c)
 	checkTags(t, c)
 
-	// A content change keeps B's own-tagged page too.
-	store("/a", EntityTag(a))
+	// A broad entity change drops every page: production pages all carry TagAnyEntity.
+	store("/a", TagAnyEntity, EntityTag(a))
 	if err := ci.InvalidateEntity(ctx, a, "a"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.Get(ctx, keepB); err != nil {
-		t.Error("InvalidateEntity(A) dropped B's own page")
-	}
-	if _, err := c.Get(ctx, keepList); err == nil {
-		t.Error("InvalidateEntity(A) kept the listing page")
+	for _, k := range []string{keepB, keepList} {
+		if _, err := c.Get(ctx, k); err == nil {
+			t.Errorf("InvalidateEntity(A) kept %s", k)
+		}
 	}
 	checkTags(t, c)
 }
@@ -401,35 +400,42 @@ func TestInvalidateRenderedEntity_OnlyThatEntity(t *testing.T) {
 func TestInflightRenderOtherPageStillStored(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	ctx := context.Background()
-	ci := func(c *Cache) *CacheInvalidator { return NewCacheInvalidator(c, log) }
 	a, b := uuid.New(), uuid.New()
-	put := func(c *Cache, tok uint64, path string, tags ...string) bool {
-		ok, _ := c.SetIfGenerationTagged(ctx, RenderedPageKey("v", path), []byte("x"), time.Minute, tok, tags...)
+	// Production page tags: every page carries TagAnyEntity plus its own entity.
+	put := func(c *Cache, tok uint64, path string, id uuid.UUID) bool {
+		ok, _ := c.SetIfGenerationTagged(ctx, RenderedPageKey("v", path), []byte("x"), time.Minute, tok, TagAnyEntity, EntityTag(id))
 		return ok
 	}
 
+	// Narrow path: only A's pages are dropped and A's in-flight store is rejected.
 	c := New(log)
+	if !put(c, c.Generation(), "/a", a) || !put(c, c.Generation(), "/b", b) {
+		t.Fatal("initial stores rejected")
+	}
 	tok := c.Generation()
-	_ = ci(c).InvalidateRenderedEntity(ctx, a)
-	_ = ci(c).InvalidateEntity(ctx, a, "a")
-	if !put(c, tok, "/b", EntityTag(b)) {
+	if err := NewCacheInvalidator(c, log).InvalidateRenderedEntity(ctx, a); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Get(ctx, RenderedPageKey("v", "/a")); err == nil {
+		t.Error("/a survived InvalidateRenderedEntity(A)")
+	}
+	if _, err := c.Get(ctx, RenderedPageKey("v", "/b")); err != nil {
+		t.Error("/b dropped by InvalidateRenderedEntity(A)")
+	}
+	if !put(c, tok, "/b", b) {
 		t.Error("in-flight store of B rejected")
 	}
-	if put(c, tok, "/a", EntityTag(a)) {
+	if put(c, tok, "/a", a) {
 		t.Error("in-flight store of A accepted")
 	}
+	checkTags(t, c)
 
+	// Broad path: an entity event rejects B's in-flight store too.
 	c = New(log)
 	tok = c.Generation()
-	_ = ci(c).InvalidateRenderedEntity(ctx, a)
-	if !put(c, tok, "/", TagAnyEntity) {
-		t.Error("listing store rejected after InvalidateRenderedEntity")
-	}
-	c = New(log)
-	tok = c.Generation()
-	_ = ci(c).InvalidateEntity(ctx, a, "a")
-	if put(c, tok, "/", TagAnyEntity) {
-		t.Error("listing store accepted after InvalidateEntity")
+	_ = NewCacheInvalidator(c, log).InvalidateEntity(ctx, a, "a")
+	if put(c, tok, "/b", b) {
+		t.Error("in-flight store of B accepted after InvalidateEntity(A)")
 	}
 }
 

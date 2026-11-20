@@ -16,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/sdk"
 )
 
@@ -60,14 +61,13 @@ func TestEntityEventsClearRenderedPages(t *testing.T) {
 		sink.Emit(context.Background(), entity.Event{Kind: kind, ID: uuid.New(), Slug: "x"})
 		s.hooks.Wait()
 
-		// The global generation did not move: a page of another entity that
-		// started rendering before the event is still stored; one that may list
-		// any entity is not.
-		if ok, _ := c.SetIfGenerationTagged(context.Background(), "render:v1:probe:-:/b", []byte("b"), time.Minute, tok, cache.EntityTag(uuid.New())); !ok {
-			t.Errorf("%s: in-flight store of an unrelated page rejected", kind)
-		}
-		if ok, _ := c.SetIfGenerationTagged(context.Background(), "render:v1:probe:-:/l", []byte("l"), time.Minute, tok, cache.TagAnyEntity); ok {
-			t.Errorf("%s: in-flight store of a listing page accepted", kind)
+		// Every page carries TagAnyEntity, so an entity event rejects the
+		// in-flight store of any page, including one of another entity.
+		for _, path := range []string{"/b", "/l"} {
+			if ok, _ := c.SetIfGenerationTagged(context.Background(), "render:v1:probe:-:"+path, []byte("x"), time.Minute, tok,
+				pageCacheTags(&render.PageView{EntityID: uuid.NewString()})...); ok {
+				t.Errorf("%s: in-flight store of %s accepted", kind, path)
+			}
 		}
 
 		if !probe.cleared() {
@@ -179,3 +179,33 @@ func TestScheduledPublishSinkClearsRenderedPagesSynchronously(t *testing.T) {
 type publishedFunc func()
 
 func (f publishedFunc) EntityPublished(context.Context, uuid.UUID, string, string, string, int) { f() }
+
+// The narrow path a comment change will use: another entity's page, tagged by
+// the real pageCacheTags, is untouched and its in-flight store still lands.
+func TestRenderedEntityDropSparesOtherPages(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+	c := cache.New(log)
+	a, b := uuid.New(), uuid.New()
+	tagsOf := func(id uuid.UUID) []string { return pageCacheTags(&render.PageView{EntityID: id.String()}) }
+	keyA, keyB := "render:v1:probe:-:/a", "render:v1:probe:-:/b"
+	if ok, _ := c.SetIfGenerationTagged(ctx, keyA, []byte("a"), time.Minute, c.Generation(), tagsOf(a)...); !ok {
+		t.Fatal("store /a rejected")
+	}
+	if ok, _ := c.SetIfGenerationTagged(ctx, keyB, []byte("b"), time.Minute, c.Generation(), tagsOf(b)...); !ok {
+		t.Fatal("store /b rejected")
+	}
+	tok := c.Generation()
+	if err := cache.NewCacheInvalidator(c, log).InvalidateRenderedEntity(ctx, a); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Get(ctx, keyA); err == nil {
+		t.Error("/a survived")
+	}
+	if _, err := c.Get(ctx, keyB); err != nil {
+		t.Error("/b dropped")
+	}
+	if ok, _ := c.SetIfGenerationTagged(ctx, keyB, []byte("b2"), time.Minute, tok, tagsOf(b)...); !ok {
+		t.Error("in-flight store of /b rejected")
+	}
+}
