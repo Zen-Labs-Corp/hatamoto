@@ -2,12 +2,15 @@ package server
 
 import (
 	"bytes"
+	"context"
+	"html"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/commentsubmit"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/spam"
@@ -30,12 +33,46 @@ type commentSlot struct {
 // (comments not wired) says false: callers have their own nil checks.
 func (c *commentSlot) off() bool { return c != nil && c.on != nil && !c.on() }
 
+// commentEcho is a fixable comment error sent back with what the sender
+// typed. It travels on the request context, only on the POST response that
+// re-renders the form; it is never put in a URL or a cookie.
+type commentEcho struct {
+	EntityID uuid.UUID
+	Code     string // commentsubmit.Code*
+	ParentID string // "" or a usable parent id
+	Typed    *commentsubmit.Typed
+}
+
+type commentEchoKey struct{}
+
+func withCommentEcho(ctx context.Context, e commentEcho) context.Context {
+	return context.WithValue(ctx, commentEchoKey{}, &e)
+}
+
+func commentEchoFrom(ctx context.Context) *commentEcho {
+	e, _ := ctx.Value(commentEchoKey{}).(*commentEcho)
+	return e
+}
+
+// textareaValue escapes s for a <textarea> body. The parser drops one leading
+// newline there, so a value that starts with one gets an extra.
+func textareaValue(s string) string {
+	e := html.EscapeString(s)
+	if strings.HasPrefix(s, "\n") || strings.HasPrefix(s, "\r") {
+		return "\n" + e
+	}
+	return e
+}
+
 // fill returns the body to write and whether the response must be private
 // (no validators, no shared cache). The marker alone decides, never the site
 // switch: a page that carries it is never sent with placeholders or public
 // headers. A marker the slot cannot fill (an unreadable form) is returned as is
 // and private. Without the marker the body is unchanged and the flag false. The
-// input is never modified: it is the cached entry.
+// input is never modified: it is the cached entry. The typed values of a
+// context echo for this entity are inserted in the same single replacer pass as
+// the token and names (never before it, never in a second pass), so typed text
+// is never rewritten, whatever it contains.
 func (c *commentSlot) fill(r *http.Request, body []byte) ([]byte, bool) {
 	if c == nil || !bytes.Contains(body, []byte(render.CommentFormMarker)) {
 		return body, false
@@ -61,10 +98,15 @@ func (c *commentSlot) fill(r *http.Request, body []byte) ([]byte, bool) {
 	_, netHash := c.hashIP(middleware.GetClientIP(r))
 	tok := spam.IssueCommentToken(c.tokenKey, spam.CommentSubject(id.String()), netHash, c.now())
 	names := spam.FieldNames(c.nameKey, tok)
-	p := render.CommentFormPlaceholders
+	var vb, vn, ve string // empty without an echo: a value placeholder never leaks
+	if e := commentEchoFrom(r.Context()); e != nil && e.EntityID == id && e.Typed != nil {
+		vb, vn, ve = textareaValue(e.Typed.Body), html.EscapeString(e.Typed.Name), html.EscapeString(e.Typed.Email)
+	}
+	p, v := render.CommentFormPlaceholders, render.CommentValuePlaceholders
 	filled := strings.NewReplacer(
 		p.Token, tok, p.Body, names.Body, p.Name, names.Name,
 		p.Email, names.Email, p.Honeypot, names.Honeypot, p.Extra, names.Extra,
+		v.BodyValue, vb, v.NameValue, vn, v.EmailValue, ve,
 	).Replace(string(span))
 	out := make([]byte, 0, len(body)-len(span)+len(filled))
 	out = append(out, body[:start]...)

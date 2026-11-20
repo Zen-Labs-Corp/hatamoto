@@ -16,6 +16,7 @@ import (
 
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/comment/identity"
+	"hatamoto.dev/core/internal/commentsubmit"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -341,5 +342,35 @@ func TestCommentPageLinksGaps(t *testing.T) {
 	}
 	if commentPageLinks("/p", 1, 1) != nil {
 		t.Fatal("one page: no pager")
+	}
+}
+
+func TestCommentViewEcho(t *testing.T) {
+	f := newViewFixture()
+	echo := commentEcho{EntityID: f.id, Code: "body_long", ParentID: f.root.ID.String(),
+		Typed: &commentsubmit.Typed{Body: "x", Name: "Ana", Notify: true}}
+	run := func(e commentEcho) *render.PageView {
+		r := httptest.NewRequest(http.MethodGet, "/post", nil)
+		v := &render.PageView{EntityID: f.id.String(), Path: "/post", Uncacheable: new(bool)}
+		f.cv.fill(withCommentEcho(context.Background(), e), r, v)
+		return v
+	}
+	v := run(echo)
+	vp := render.CommentValuePlaceholders
+	form := v.CommentForm
+	if v.Comments.Error != "body_long" || form.ParentID != f.root.ID.String() || form.ReplyTo != "root" {
+		t.Fatalf("error/parent: %q %q %q", v.Comments.Error, form.ParentID, form.ReplyTo)
+	}
+	if form.BodyValue != vp.BodyValue || form.NameValue != vp.NameValue || form.EmailValue != "" || !form.Notify {
+		t.Fatalf("values: %+v", form)
+	}
+	if !*v.Uncacheable {
+		t.Fatal("echo render must be uncacheable")
+	}
+
+	echo.EntityID = uuid.New()
+	v = run(echo)
+	if v.Comments.Error != "" || v.CommentForm.ParentID != "" || v.CommentForm.BodyValue != "" || v.CommentForm.Notify || *v.Uncacheable {
+		t.Fatalf("echo for another entity applied: %+v", v.CommentForm)
 	}
 }

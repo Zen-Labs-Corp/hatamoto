@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -13,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/comment"
+	"hatamoto.dev/core/internal/commentsubmit"
 	"hatamoto.dev/core/internal/spam"
 )
 
@@ -162,5 +164,61 @@ func TestCommentSlotFillsWhateverTheFlagSays(t *testing.T) {
 			strings.Contains(w.Body.String(), "__hmcf_") {
 			t.Fatalf("%s %d: ETag %q, Cache-Control %q, body %s", name, i, w.Header().Get("ETag"), w.Header().Get("Cache-Control"), w.Body)
 		}
+	}
+}
+
+func echoSlotPage(id uuid.UUID) []byte {
+	page := string(slotPage(id))
+	page = strings.Replace(page, `<textarea id="__hmcf_body__" name="__hmcf_body__"></textarea>`,
+		`<textarea id="__hmcf_body__" name="__hmcf_body__">__hmcf_vbody__</textarea>`, 1)
+	page = strings.Replace(page, `<input name="__hmcf_name__">`, `<input name="__hmcf_name__" value="__hmcf_vname__">`, 1)
+	page = strings.Replace(page, `<input name="__hmcf_email__">`, `<input name="__hmcf_email__" value="__hmcf_vemail__">`, 1)
+	return []byte(page)
+}
+
+func echoFill(t *testing.T, slot *commentSlot, page []byte, e *commentEcho) string {
+	t.Helper()
+	r := httptest.NewRequest("GET", "/p", nil)
+	r.RemoteAddr = "203.0.113.9:1234"
+	if e != nil {
+		r = r.WithContext(withCommentEcho(r.Context(), *e))
+	}
+	out := mustFill(t, slot, r, page)
+	return string(out[bytes.Index(out, []byte(`<form class`)):])
+}
+
+func TestCommentSlotFillEchoValues(t *testing.T) {
+	slot, _ := slotFixture(true)
+	id := uuid.New()
+	page := echoSlotPage(id)
+	body := `a <b>"x"</b> & __hmcf_tok__ __hmcf_body__ __hmcf_vbody__`
+	typed := &commentsubmit.Typed{Body: body, Name: "Ana", Email: "ana@example.test"}
+
+	out := echoFill(t, slot, page, &commentEcho{EntityID: id, Typed: typed})
+	m := regexp.MustCompile(`(?s)<textarea[^>]*>(.*?)</textarea>`).FindStringSubmatch(out)
+	if m == nil || m[1] != html.EscapeString(body) {
+		t.Fatalf("textarea = %q, want the escaped typed body verbatim", m)
+	}
+	tok := slotTokRe.FindStringSubmatch(out)
+	if tok == nil || strings.Contains(tok[1], "__hmcf_") {
+		t.Fatalf("hm_ct = %v, want a real token", tok)
+	}
+	names := spam.FieldNames(slot.nameKey, tok[1])
+	if !strings.Contains(out, `name="`+names.Body+`"`) || !strings.Contains(out, `name="`+names.Name+`" value="Ana"`) ||
+		!strings.Contains(out, `value="ana@example.test"`) {
+		t.Fatalf("names or values wrong: %s", out)
+	}
+
+	// Another entity or no echo: the placeholders become empty.
+	for _, e := range []*commentEcho{{EntityID: uuid.New(), Typed: typed}, nil} {
+		out := echoFill(t, slot, page, e)
+		if strings.Contains(out, "__hmcf_") || strings.Contains(out, "Ana") {
+			t.Fatalf("no echo for this entity, got: %s", out)
+		}
+	}
+
+	out = echoFill(t, slot, page, &commentEcho{EntityID: id, Typed: &commentsubmit.Typed{Body: "\nhi"}})
+	if !strings.Contains(out, ">\n\nhi</textarea>") {
+		t.Fatalf("leading newline not kept: %s", out)
 	}
 }

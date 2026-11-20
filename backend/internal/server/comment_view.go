@@ -93,6 +93,10 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 		fail("comments: settings", err)
 		return
 	}
+	echo := commentEchoFrom(ctx)
+	if echo != nil && echo.EntityID != id {
+		echo = nil
+	}
 	q := r.URL.Query()
 	page := 1
 	if n, err := strconv.Atoi(q.Get("cpage")); err == nil && n > 1 {
@@ -185,6 +189,9 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 	if e := q.Get("cerror"); commentErrors[e] {
 		thread.Error = e
 	}
+	if echo != nil && commentErrors[echo.Code] {
+		thread.Error = echo.Code
+	}
 	v.Comments = thread
 	v.CommentCount = counts[id].Approved
 	v.CommentsOpen = mode == comment.ModeOpen
@@ -196,6 +203,27 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 	p.MaxBody = commentsubmit.MaxBodyRunes
 	if author, ok := replyable[q.Get("creply")]; ok {
 		p.ParentID, p.ReplyTo = q.Get("creply"), author
+	}
+	if echo != nil {
+		if echo.ParentID != "" {
+			p.ParentID, p.ReplyTo = echo.ParentID, replyable[echo.ParentID]
+		}
+		if t := echo.Typed; t != nil {
+			vp := render.CommentValuePlaceholders
+			if t.Body != "" {
+				p.BodyValue = vp.BodyValue
+			}
+			if t.Name != "" {
+				p.NameValue = vp.NameValue
+			}
+			if t.Email != "" {
+				p.EmailValue = vp.EmailValue
+			}
+			p.Notify = t.Notify
+		}
+		if v.Uncacheable != nil {
+			*v.Uncacheable = true
+		}
 	}
 	if set.Captcha && c.captcha != nil {
 		if w := c.captcha(ctx); w != nil && w.provider != "" {
