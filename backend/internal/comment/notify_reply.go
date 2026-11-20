@@ -107,7 +107,8 @@ func (s *Service) claimReplyRecipient(ctx context.Context, id uuid.UUID, now tim
 		rows, err := tx.Query(ctx, `SELECT q.comment_id, q.queued_at,
 				COALESCE(r.status = 'approved' AND p.status = 'approved' AND p.notify_replies
 					AND p.confirmed_at IS NOT NULL AND cm.trust_level <> 'blocked'
-					AND (r.commenter_id IS NULL OR r.commenter_id <> p.commenter_id), false)
+					AND (r.commenter_id IS NULL OR r.commenter_id <> p.commenter_id), false),
+				cm.email_hash, cm.email_sealed
 			FROM hatamoto_comment_reply_queue q
 			JOIN hatamoto_comments r ON r.id = q.comment_id
 			JOIN hatamoto_comments p ON p.id = r.parent_id
@@ -122,11 +123,13 @@ func (s *Service) claimReplyRecipient(ctx context.Context, id uuid.UUID, now tim
 			queuedAt time.Time
 		}
 		var eligible []pending
+		var hash string
+		var sealed []byte
 		var drop []uuid.UUID
 		for rows.Next() {
 			var p pending
 			var ok bool
-			if err := rows.Scan(&p.id, &p.queuedAt, &ok); err != nil {
+			if err := rows.Scan(&p.id, &p.queuedAt, &ok, &hash, &sealed); err != nil {
 				rows.Close()
 				return err
 			}
@@ -140,6 +143,8 @@ func (s *Service) claimReplyRecipient(ctx context.Context, id uuid.UUID, now tim
 		if err := rows.Err(); err != nil {
 			return err
 		}
+		// The address comes with the eligibility read, so a concurrent erase
+		// cannot fail a separate lookup and abort the run.
 		del := func(ids []uuid.UUID) error {
 			if len(ids) == 0 {
 				return nil
@@ -148,12 +153,6 @@ func (s *Service) claimReplyRecipient(ctx context.Context, id uuid.UUID, now tim
 			return err
 		}
 		if err := del(drop); err != nil || len(eligible) == 0 {
-			return err
-		}
-		var hash string
-		var sealed []byte
-		if err := tx.QueryRow(ctx, `SELECT email_hash, email_sealed FROM hatamoto_commenters WHERE id = $1`, id).
-			Scan(&hash, &sealed); err != nil {
 			return err
 		}
 		email, ok := s.keys.OpenEmail(sealed, hash)
