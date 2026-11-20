@@ -181,3 +181,20 @@ func TestCommentConfirm_EmptyPathRedirectsHome(t *testing.T) {
 		t.Errorf("Location = %q, want %q", got, want)
 	}
 }
+
+func TestConfirmTokenIsRedactedInLogs(t *testing.T) {
+	if got := redactPreviewToken(commentConfirmPrefix + "SECRET"); got != commentConfirmPrefix+"<token>" {
+		t.Errorf("redactPreviewToken = %q", got)
+	}
+	if got := redactPreviewToken("/-/comments/other"); got != "/-/comments/other" {
+		t.Errorf("redactPreviewToken touched %q", got)
+	}
+	f := newRenderFixture(t)
+	f.next = func() (*routeResult, pageOutcome, error) {
+		return &routeResult{NotFound: true}, pageOutcome{Status: 404, NotFound: true}, nil
+	}
+	f.get(commentConfirmPrefix + "SECRET")
+	if len(f.notFound) != 1 || strings.Contains(f.notFound[0], "SECRET") {
+		t.Errorf("404 log = %v, want the token hidden", f.notFound)
+	}
+}

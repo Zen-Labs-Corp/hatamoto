@@ -735,7 +735,7 @@ func (h *renderHandlers) pageCacheTTL() time.Duration {
 
 func (h *renderHandlers) writeNotFound(w http.ResponseWriter, r *http.Request, path string) {
 	if h.log404 != nil && !isPrefetch(r) {
-		h.log404(path, r.Referer(), r.UserAgent())
+		h.log404(redactPreviewToken(path), r.Referer(), r.UserAgent())
 	}
 	h.writeNotFoundQuiet(w, r)
 }
