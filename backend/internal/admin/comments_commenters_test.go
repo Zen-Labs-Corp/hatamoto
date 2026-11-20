@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/admin/a11y"
 )
@@ -145,5 +146,140 @@ func TestCommentBlocklistsBadKind(t *testing.T) {
 	}
 	if len(svc.calls) != 0 || len(p.events) != 0 {
 		t.Errorf("a refused save reached the service: %v", svc.calls)
+	}
+}
+
+const cmtrTestID = "5d1c7d3e-0a53-4d52-8d0e-6a3c6f6b8a11"
+
+func cmtrCommentersFake() *fakeComments {
+	return &fakeComments{commenters: []CommenterRow{
+		{ID: cmtrTestID, Name: "Alice", Trust: "new", ApprovedCount: 2, LastSeen: time.Date(2026, 11, 2, 10, 0, 0, 0, time.UTC)},
+		{ID: "6e2d8e4f-1b64-4e63-9e1f-7b4d7a7c9b22", Trust: "blocked"},
+	}}
+}
+
+func TestCommentersPage(t *testing.T) {
+	t.Parallel()
+
+	p := newCommentsRig(t, cmtrCommentersFake())
+	for _, token := range []string{"owner-token", "editor-token"} {
+		rec := p.do("GET", "/admin/settings/comments/commenters", token, nil, nil)
+		if rec.Code != 200 {
+			t.Fatalf("%s GET = %d", token, rec.Code)
+		}
+		body := rec.Body.String()
+		if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+			t.Errorf("a11y: %v", issues)
+		}
+		table := body[strings.Index(body, "<table"):strings.Index(body, "</table>")]
+		for _, want := range []string{"Alice", "Unnamed", "2 Nov 2026", "Vouch", "Block", "Sign out all devices", "commenter=" + cmtrTestID} {
+			if !strings.Contains(table, want) {
+				t.Errorf("%s: table lacks %q", token, want)
+			}
+		}
+		for _, bad := range []string{"@", "http", "Website", "Email"} {
+			if strings.Contains(table, bad) {
+				t.Errorf("%s: table contains %q", token, bad)
+			}
+		}
+	}
+}
+
+func TestCommentersHasMore(t *testing.T) {
+	t.Parallel()
+
+	svc := cmtrCommentersFake()
+	svc.hasMore = true
+	p := newCommentsRig(t, svc)
+	body := p.do("GET", "/admin/settings/comments/commenters?q=al", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `rel="next"`) || !strings.Contains(body, "page=2") || strings.Contains(body, `rel="prev"`) {
+		t.Errorf("page 1 pager wrong")
+	}
+	body = p.do("GET", "/admin/settings/comments/commenters?page=2", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `rel="prev"`) {
+		t.Errorf("page 2 lacks the previous link")
+	}
+}
+
+func TestCommenterVouch(t *testing.T) {
+	t.Parallel()
+
+	cmtrActionTest(t, "vouch", "editor-token", "vouch")
+}
+
+func TestCommenterBlock(t *testing.T) {
+	t.Parallel()
+
+	cmtrActionTest(t, "block", "owner-token", "block")
+}
+
+func TestCommenterSignout(t *testing.T) {
+	t.Parallel()
+
+	cmtrActionTest(t, "signout", "editor-token", "signout")
+}
+
+// cmtrActionTest posts one commenter action and checks the redirect, the one
+// recorded service call and the audit event.
+func cmtrActionTest(t *testing.T, action, token, call string) {
+	svc := cmtrCommentersFake()
+	p := newCommentsRig(t, svc)
+	path := "/admin/settings/comments/commenters/" + cmtrTestID + "/" + action
+	rec := p.do("POST", path, token, url.Values{}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/comments/commenters" {
+		t.Fatalf("POST = %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	if len(svc.calls) != 1 || svc.calls[0] != call || len(svc.lastIDs) != 1 || svc.lastIDs[0] != cmtrTestID {
+		t.Errorf("calls = %v ids = %v, want exactly %s", svc.calls, svc.lastIDs, call)
+	}
+	if len(p.events) != 1 || p.events[0].Action != "comments.commenter."+action || p.events[0].Target != cmtrTestID {
+		t.Errorf("audit = %+v", p.events)
+	}
+	// The back link stays inside the commenters area.
+	rec = p.do("POST", path+"?back=%2Fadmin%2Fsettings%2Fcomments%2Fcommenters%3Fq%3Dal", token, url.Values{}, nil)
+	if got := rec.Header().Get("Location"); got != "/admin/settings/comments/commenters?q=al" {
+		t.Errorf("back = %q", got)
+	}
+	rec = p.do("POST", path+"?back=https%3A%2F%2Felsewhere.test", token, url.Values{}, nil)
+	if got := rec.Header().Get("Location"); got != "/admin/settings/comments/commenters" {
+		t.Errorf("foreign back = %q", got)
+	}
+}
+
+func TestCommenterSignoutNotFound(t *testing.T) {
+	t.Parallel()
+
+	svc := cmtrCommentersFake()
+	svc.err = ErrCommentNotFound
+	p := newCommentsRig(t, svc)
+	rec := p.do("POST", "/admin/settings/comments/commenters/"+cmtrTestID+"/signout", "owner-token", url.Values{}, nil)
+	if rec.Code != 404 || len(p.events) != 0 {
+		t.Errorf("POST = %d events=%d", rec.Code, len(p.events))
+	}
+}
+
+func TestCommenterBadAction(t *testing.T) {
+	t.Parallel()
+
+	svc := cmtrCommentersFake()
+	p := newCommentsRig(t, svc)
+	for _, path := range []string{"/" + cmtrTestID + "/promote", "/not-a-uuid/vouch"} {
+		if rec := p.do("POST", "/admin/settings/comments/commenters"+path, "owner-token", url.Values{}, nil); rec.Code != 404 {
+			t.Errorf("POST %s = %d, want 404", path, rec.Code)
+		}
+	}
+	if len(svc.calls) != 0 || len(p.events) != 0 {
+		t.Errorf("a refused action reached the service: %v", svc.calls)
+	}
+}
+
+func TestCommenterActionNoCSRF(t *testing.T) {
+	t.Parallel()
+
+	svc := cmtrCommentersFake()
+	p := newCommentsRig(t, svc)
+	rec := p.do("POST", "/admin/settings/comments/commenters/"+cmtrTestID+"/block", "owner-token", url.Values{}, map[string]string{"X-CSRF-Token": ""})
+	if rec.Code != 403 || len(svc.calls) != 0 {
+		t.Errorf("POST = %d calls=%v", rec.Code, svc.calls)
 	}
 }

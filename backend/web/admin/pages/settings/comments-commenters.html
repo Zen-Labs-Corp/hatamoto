@@ -1,0 +1,6 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Commenters" "Description" "People who comment on your site. Vouch for the ones you know, block abusers, or sign someone out on every device."}}
+{{with $.SectionTabs}}{{template "hm/tabs" dict "Label" "Comments sections" "Items" .}}{{end}}
+{{template "hm/table" .Table}}
+{{if or .PrevHref .NextHref}}<nav class="hm-row" aria-label="Pagination">{{with .PrevHref}}{{template "hm/button" dict "Label" "Previous" "Href" . "Attrs" (attrmap "rel" "prev")}}{{end}}{{with .NextHref}}{{template "hm/button" dict "Label" "Next" "Href" . "Attrs" (attrmap "rel" "next")}}{{end}}</nav>{{end}}
+{{end}}{{end}}

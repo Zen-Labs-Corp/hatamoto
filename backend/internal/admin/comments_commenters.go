@@ -1,10 +1,14 @@
 package admin
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/admin/ui"
 )
@@ -200,14 +204,150 @@ func cmtrDomainShape(d string) bool {
 	return true
 }
 
-// handleCommenters is a stub until its screen lands.
-func (a *Admin) handleCommenters(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
+const cmtrCommentersPath = "/settings/comments/commenters"
+
+type cmtrCommentersData struct {
+	Table              ui.Table
+	PrevHref, NextHref string
 }
 
-// handleCommenterAction is a stub until its screen lands.
+func (a *Admin) handleCommenters(w http.ResponseWriter, r *http.Request) {
+	svc := a.deps.Comments
+	if svc == nil {
+		a.unavailable(w, r, "Comments")
+		return
+	}
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	page := pageParam(r)
+	list, err := svc.Commenters(r.Context(), q, page)
+	if err != nil {
+		a.logger().Error("comment commenters", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The commenters could not be loaded.")
+		return
+	}
+	base := a.adminPath + cmtrCommentersPath
+	query := url.Values{}
+	if q != "" {
+		query.Set("q", q)
+	}
+	pageHref := func(n int) string {
+		v := url.Values{}
+		for k, vs := range query {
+			v[k] = vs
+		}
+		if n > 1 {
+			v.Set("page", strconv.Itoa(n))
+		}
+		if len(v) == 0 {
+			return base
+		}
+		return base + "?" + v.Encode()
+	}
+	here := pageHref(page)
+	back := "?back=" + url.QueryEscape(here)
+	t := ui.Table{
+		ID: "commenters", Caption: "Commenters", BaseURL: base, CSRF: csrfToken(r.Context()),
+		Columns: []ui.Col{{Key: "name", Label: "Name", Role: "title"}, {Key: "trust", Label: "Trust"}, {Key: "approved", Label: "Approved", Role: "num"}, {Key: "seen", Label: "Last seen"}},
+		Query:   q, SearchLabel: "Search commenters",
+		Empty: ui.Empty{Icon: "users", Title: "No commenters", Body: "People who comment on your site show up here."},
+	}
+	for _, c := range list.Rows {
+		name := c.Name
+		if name == "" {
+			name = "Unnamed"
+		}
+		seen := "Never"
+		if !c.LastSeen.IsZero() {
+			seen = fmtDate(c.LastSeen.UTC())
+		}
+		act := a.adminPath + cmtrCommentersPath + "/" + c.ID
+		var acts []ui.Action
+		if c.Trust != "trusted" && c.Trust != "blocked" {
+			acts = append(acts, ui.Action{Label: "Vouch", Post: act + "/vouch" + back})
+		}
+		acts = append(acts,
+			ui.Action{Label: "Comments", Href: a.adminPath + "/comments?" + url.Values{"status": {"approved"}, "commenter": {c.ID}}.Encode()},
+			ui.Action{Label: "Sign out all devices", Href: here, Post: act + "/signout" + back, ConfirmLabel: "Sign out",
+				Confirm: "Sign this commenter out on every device? They confirm their email again next time. Their trust level stays."},
+		)
+		if c.Trust != "blocked" {
+			acts = append(acts, ui.Action{Label: "Block", Href: here, Post: act + "/block" + back, Danger: true, ConfirmLabel: "Block commenter",
+				Confirm: "Block this commenter? Their comments will be held and never shown."})
+		}
+		t.Rows = append(t.Rows, ui.Row{ID: c.ID, Label: "commenter " + name, Cells: []ui.Cell{
+			{Text: name}, {Badge: cmtrTrustBadge(c.Trust)}, {Text: strconv.Itoa(c.ApprovedCount)}, {Text: seen, Nowrap: true},
+		}, Actions: acts})
+	}
+	d := cmtrCommentersData{Table: t}
+	if page > 1 {
+		d.PrevHref = pageHref(page - 1)
+	}
+	if list.HasMore {
+		d.NextHref = pageHref(page + 1)
+	}
+	v := a.NewView(w, r, "Commenters")
+	v.Section, v.Tab = "comments", "commenters"
+	v.Data = d
+	a.Render(w, r, http.StatusOK, "settings/comments-commenters", v)
+}
+
+// cmtrTrustBadge names a trust level. Blocked is the only coloured one.
+func cmtrTrustBadge(trust string) *ui.Badge {
+	label := "New"
+	if trust != "" {
+		label = strings.ToUpper(trust[:1]) + trust[1:]
+	}
+	kind := "neutral"
+	switch trust {
+	case "blocked":
+		kind = "danger"
+	case "trusted":
+		kind = "success"
+	case "known":
+		kind = "info"
+	}
+	return &ui.Badge{Label: label, Kind: kind}
+}
+
+// handleCommenterAction runs vouch, block or signout for one commenter.
 func (a *Admin) handleCommenterAction(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
+	svc := a.deps.Comments
+	if svc == nil {
+		a.unavailable(w, r, "Comments")
+		return
+	}
+	id, action := r.PathValue("id"), r.PathValue("action")
+	if _, err := uuid.Parse(id); err != nil || (action != "vouch" && action != "block" && action != "signout") {
+		a.Error(w, r, http.StatusNotFound, "Not found", "That commenter action does not exist.")
+		return
+	}
+	var (
+		err error
+		msg string
+	)
+	switch action {
+	case "vouch":
+		_, err = svc.Vouch(r.Context(), id, cmtrActor(r))
+		msg = "Commenter is now known."
+	case "block":
+		err = svc.Block(r.Context(), id, cmtrActor(r))
+		msg = "Commenter blocked."
+	case "signout":
+		err = svc.RevokeDevices(r.Context(), id)
+		msg = "Commenter signed out on every device."
+	}
+	if errors.Is(err, ErrCommentNotFound) {
+		a.Error(w, r, http.StatusNotFound, "Not found", "That commenter does not exist.")
+		return
+	}
+	if err != nil {
+		a.logger().Error("comment commenter action", "action", action, "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The commenter could not be changed.")
+		return
+	}
+	a.audit(r, "comments.commenter."+action, id, map[string]any{})
+	a.SetFlash(w, r, "success", msg)
+	Redirect(w, r, backTo(r, a.adminPath+cmtrCommentersPath, a.adminPath+cmtrCommentersPath))
 }
 
 // handleCommenterExport is a stub until its screen lands.
