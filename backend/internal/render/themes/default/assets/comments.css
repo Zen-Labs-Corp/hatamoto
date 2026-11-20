@@ -16,3 +16,5 @@
 .hm-comment__edit textarea { width: 100%; font: inherit; color: inherit; background: var(--hm-bg); border: 1px solid var(--ht-line); border-radius: var(--hm-radius-md); padding: 0.5rem 0.75rem; }
 .hm-comment__delete { margin-top: 0.5rem; }
 .hm-comments__pager { display: flex; gap: 1.5rem; margin-top: 1.5rem; }
+/* Anchors clear the sticky site header (4rem) */
+#hm-comments, #hm-comment-form, .hm-comment { scroll-margin-top: 5rem; }
