@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/email/smtptest"
 )
@@ -238,5 +239,65 @@ func TestCommentNotify_EscapesHTML(t *testing.T) {
 		if strings.Contains(html, "<script>") || !strings.Contains(html, "&lt;script&gt;") {
 			t.Errorf("HTML not escaped:\n%s", html)
 		}
+	}
+}
+
+func surgeData() CommentSurgeData {
+	return CommentSurgeData{SiteName: "Site S", Limit: 30, Window: 10 * time.Minute,
+		ModerateURL: "https://example.test/admin/comments?status=pending"}
+}
+
+func TestSendCommentSurge(t *testing.T) {
+	svc, rec, srv := newLoggedSink(t, smtptest.Options{}, nil)
+	if err := svc.SendCommentSurge(context.Background(), "owner@example.test", surgeData()); err != nil {
+		t.Fatal(err)
+	}
+	head, body := oneMessage(t, srv)
+	if !strings.Contains(head, "Comments on Site S are in surge mode") {
+		t.Errorf("subject:\n%s", head)
+	}
+	if strings.Contains(head, "List-Unsubscribe") {
+		t.Errorf("unsubscribe header on a site alarm:\n%s", head)
+	}
+	for _, want := range []string{"More than 30 comments arrived in 10 minutes", "/comments?status=pending"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("body lacks %q:\n%s", want, body)
+		}
+	}
+	if len(rec.entries) != 1 {
+		t.Fatalf("log = %+v", rec.entries)
+	}
+	e := rec.entries[0]
+	if e.Kind != KindCommentSurge || e.BodyText != "" || e.BodyHTML != "" {
+		t.Errorf("entry = %+v", e)
+	}
+	if len(e.Recipients) != 1 || e.Recipients[0] != "owner@example.test" {
+		t.Errorf("recipients = %v", e.Recipients)
+	}
+}
+
+func TestSendCommentSurge_SiteNameInjection(t *testing.T) {
+	svc, _, srv := newLoggedSink(t, smtptest.Options{}, nil)
+	ctx := context.Background()
+	d := surgeData()
+	d.SiteName = "S\r\nBcc: x@example.test"
+	if err := svc.SendCommentSurge(ctx, "owner@example.test", d); err != nil {
+		t.Fatal(err)
+	}
+	d.SiteName = "<b>S</b>"
+	d.Window = time.Minute
+	if err := svc.SendCommentSurge(ctx, "owner@example.test", d); err != nil {
+		t.Fatal(err)
+	}
+	msgs := srv.Messages()
+	if len(msgs) != 2 {
+		t.Fatalf("messages = %d", len(msgs))
+	}
+	head, _, _ := strings.Cut(msgs[0].Data, "\r\n\r\n")
+	if strings.Contains(head, "Bcc:") || !strings.Contains(head, "Subject: Comments are in surge mode\r\n") {
+		t.Errorf("header not sanitised:\n%s", head)
+	}
+	if !strings.Contains(msgs[1].Data, "&lt;b&gt;S&lt;/b&gt;") || !strings.Contains(msgs[1].Data, "1 minute") {
+		t.Errorf("html not escaped or window text wrong:\n%s", msgs[1].Data)
 	}
 }

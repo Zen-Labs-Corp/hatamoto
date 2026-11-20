@@ -229,14 +229,14 @@ func TestCleanErrorMasksBeforeTruncating(t *testing.T) {
 }
 
 func TestCommentKindsStorage(t *testing.T) {
-	for _, k := range []Kind{KindCommentModeration, KindCommentDigest, KindCommentReply} {
+	for _, k := range []Kind{KindCommentModeration, KindCommentDigest, KindCommentReply, KindCommentSurge} {
 		if k.StoresBody() {
 			t.Errorf("%s must not store bodies", k)
 		}
 	}
 	for k, want := range map[Kind]bool{
 		KindCommentConfirmation: false, KindCommentReply: false,
-		KindCommentModeration: true, KindCommentDigest: true,
+		KindCommentModeration: true, KindCommentDigest: true, KindCommentSurge: true,
 	} {
 		if got := k.StoresRecipients(); got != want {
 			t.Errorf("%s StoresRecipients = %v, want %v", k, got, want)
