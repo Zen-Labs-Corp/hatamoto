@@ -35,7 +35,7 @@ func slotFixture(on bool) (*commentSlot, comment.Keys) {
 
 const slotForm = `<form class="f" method="post" action="/-/comments/%s" data-hm-cform hx-post="/-/comments/%s">` +
 	`<input type="hidden" name="hm_ct" value="__hmcf_tok__"><textarea id="__hmcf_body__" name="__hmcf_body__"></textarea>` +
-	`<input name="__hmcf_name__"><input name="__hmcf_email__"><input name="__hmcf_hp__"></form>`
+	`<input name="__hmcf_name__"><input name="__hmcf_email__"><input name="__hmcf_hp__"><input type="checkbox" name="__hmcf_extra__"></form>`
 
 func slotPage(id uuid.UUID) []byte {
 	form := bytes.ReplaceAll([]byte(slotForm), []byte("%s"), []byte(id.String()))
@@ -69,6 +69,9 @@ func TestCommentSlotFillPersonalises(t *testing.T) {
 	}
 	if bytes.Contains(a[bytes.Index(a, []byte(`<form class`)):], []byte("__hmcf_")) {
 		t.Fatal("placeholder left in the form")
+	}
+	if !bytes.Contains(a, []byte(`name="`+spam.FieldNames(slot.nameKey, string(slotTokRe.FindSubmatch(a)[1])).Extra+`"`)) {
+		t.Fatal("extra placeholder not filled with names.Extra")
 	}
 	if !bytes.HasSuffix(a, []byte("<p>after</p>")) {
 		t.Fatal("tail lost")

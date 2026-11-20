@@ -56,6 +56,7 @@ type CommentForm struct {
 	Name     string
 	Email    string
 	Honeypot string
+	Extra    string // rotated name of the reply opt-in checkbox
 	ParentID string
 	ReplyTo  string
 	Captcha  *CommentCaptcha
@@ -74,5 +75,5 @@ const CommentFormMarker = "data-hm-cform"
 // token and field-name slots before the server fills them per request.
 var CommentFormPlaceholders = CommentForm{
 	Token: "__hmcf_tok__", Body: "__hmcf_body__", Name: "__hmcf_name__",
-	Email: "__hmcf_email__", Honeypot: "__hmcf_hp__",
+	Email: "__hmcf_email__", Honeypot: "__hmcf_hp__", Extra: "__hmcf_extra__",
 }
