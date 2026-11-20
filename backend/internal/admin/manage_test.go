@@ -438,16 +438,22 @@ func TestSiteSettings(t *testing.T) {
 	}
 	compareGolden(t, "pages/settings-general.html", normalizePage(strings.ReplaceAll(page.Body.String(), g.keyID.String(), "KEY-ID")))
 	site := g.a.deps.Site.(*fakeSite)
-	form := url.Values{"name": {"Acme"}, "tagline": {"Fresh daily"}, "url": {"https://acme.example/"}, "domain": {"www.acme.example"}, "language": {"fr"}, "timezone": {"Europe/Paris"}, "logo": {"/media/logo.png"}, "colour": {"#112233"}}
+	form := url.Values{"name": {"Acme"}, "tagline": {"Fresh daily"}, "url": {"https://acme.example/"}, "domain": {"www.acme.example"}, "language": {"fr"}, "timezone": {"Europe/Paris"}, "logo": {"/media/logo.png"}, "favicon": {"/media/icon.png"}, "colour": {"#112233"}}
 	site.cfg.PrimaryColor = "#abcdef"
 	rec := g.do("POST", "/admin/settings/general/identity", "owner-token", form, nil)
 	// The brand colour moved to Appearance: identity ignores a stray field.
 	if rec.Code != 303 || site.cfg.CompanyName != "Acme" || site.cfg.Language != "fr" || site.cfg.Tagline != "Fresh daily" || site.cfg.PrimaryColor != "#abcdef" || g.flushed != 1 {
 		t.Fatalf("save: %d %+v flushed=%d", rec.Code, site.cfg, g.flushed)
 	}
-	bad := url.Values{"name": {""}, "url": {"ftp://x"}, "language": {"!!"}, "timezone": {"Nowhere/Land"}, "logo": {"javascript:alert(1)"}, "colour": {"red"}, "domain": {"a b/c"}, "tagline": {strings.Repeat("x", 201)}}
+	if site.cfg.FaviconURL != "/media/icon.png" {
+		t.Errorf("favicon = %q, want /media/icon.png", site.cfg.FaviconURL)
+	}
+	if body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `data-hm-media-picker="favicon"`) || !strings.Contains(body, `data-hm-media-picker="logo"`) {
+		t.Error("logo and favicon have no media picker")
+	}
+	bad := url.Values{"name": {""}, "url": {"ftp://x"}, "language": {"!!"}, "timezone": {"Nowhere/Land"}, "logo": {"javascript:alert(1)"}, "favicon": {"//evil.example/x.png"}, "colour": {"red"}, "domain": {"a b/c"}, "tagline": {strings.Repeat("x", 201)}}
 	rec = g.do("POST", "/admin/settings/general/identity", "owner-token", bad, nil)
-	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "There are 7 problems") {
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "There are 8 problems") {
 		t.Fatalf("errors: %d", rec.Code)
 	}
 	if issues := a11y.Check(rec.Body.String(), a11y.Options{Page: true}); len(issues) > 0 {

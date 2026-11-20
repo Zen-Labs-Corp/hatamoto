@@ -18,13 +18,14 @@ import (
 type settingsData struct {
 	Summary []ui.FieldError
 	// site
-	Site      siteForm
-	SiteErrs  map[string]string
-	Languages []ui.Option
-	Timezones []ui.Option
-	LogoURL   string
-	Tagline   string
-	Domain    string
+	Site       siteForm
+	SiteErrs   map[string]string
+	Languages  []ui.Option
+	Timezones  []ui.Option
+	LogoURL    string
+	FaviconURL string
+	Tagline    string
+	Domain     string
 }
 
 func (a *Admin) mountSettings(authed *httpx.Group) {
@@ -64,7 +65,7 @@ func (a *Admin) loadSite(ctx context.Context) (*siteconfig.Config, error) {
 
 func (a *Admin) renderSiteSettings(w http.ResponseWriter, r *http.Request, status int, d settingsData) {
 	d.Languages, d.Timezones = languageOptions(d.Site.Language), timezoneOptions(d.Site.Timezone)
-	for _, k := range []struct{ id, label string }{{"name", "Site name"}, {"url", "Site address"}, {"language", "Language"}, {"timezone", "Time zone"}, {"logo", "Logo"}, {"tagline", "Tagline"}, {"domain", "Custom domain"}} {
+	for _, k := range []struct{ id, label string }{{"name", "Site name"}, {"url", "Site address"}, {"language", "Language"}, {"timezone", "Time zone"}, {"logo", "Logo"}, {"favicon", "Favicon"}, {"tagline", "Tagline"}, {"domain", "Custom domain"}} {
 		if m := d.SiteErrs[k.id]; m != "" {
 			d.Summary = append(d.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}
@@ -85,10 +86,13 @@ type localeFielder interface{ LocaleField() string }
 
 func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 	f := siteForm{Name: r.PostFormValue("name"), URL: r.PostFormValue("url"), Language: r.PostFormValue("language"), Timezone: r.PostFormValue("timezone")}
-	d := settingsData{LogoURL: strings.TrimSpace(r.PostFormValue("logo")), Tagline: strings.TrimSpace(r.PostFormValue("tagline")), Domain: strings.TrimSpace(r.PostFormValue("domain"))}
+	d := settingsData{LogoURL: strings.TrimSpace(r.PostFormValue("logo")), FaviconURL: strings.TrimSpace(r.PostFormValue("favicon")), Tagline: strings.TrimSpace(r.PostFormValue("tagline")), Domain: strings.TrimSpace(r.PostFormValue("domain"))}
 	errs := f.validate()
 	if !validLogoURL(d.LogoURL) || utf8.RuneCountInString(d.LogoURL) > 500 {
 		errs["logo"] = "Enter a web address or a path starting with /"
+	}
+	if !validLogoURL(d.FaviconURL) || utf8.RuneCountInString(d.FaviconURL) > 500 || strings.ContainsAny(d.FaviconURL, " \"'<>\\`") {
+		errs["favicon"] = "Enter a web address or a path starting with /"
 	}
 	if utf8.RuneCountInString(d.Tagline) > 200 {
 		errs["tagline"] = "Use at most 200 characters"
@@ -115,7 +119,7 @@ func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 		a.renderSiteSettings(w, r, http.StatusUnprocessableEntity, d)
 		return
 	}
-	in := siteconfig.UpdateInput{CompanyName: &f.Name, PublicBaseURL: &f.URL, Language: &f.Language, Timezone: &f.Timezone, LogoURL: &d.LogoURL, Tagline: &d.Tagline, CustomDomain: &d.Domain}
+	in := siteconfig.UpdateInput{CompanyName: &f.Name, PublicBaseURL: &f.URL, Language: &f.Language, Timezone: &f.Timezone, LogoURL: &d.LogoURL, FaviconURL: &d.FaviconURL, Tagline: &d.Tagline, CustomDomain: &d.Domain}
 	if _, err := a.deps.Site.Update(r.Context(), in); err != nil {
 		a.logger().Error("save site settings failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be saved.")

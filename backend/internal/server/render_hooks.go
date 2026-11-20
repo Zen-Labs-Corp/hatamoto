@@ -88,6 +88,7 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 		capture:    capture,
 		preview:    s.handlePreviewShare,
 		formPage:   s.handleFormPage,
+		favicon:    s.siteFavicon,
 
 		acquireBound: s.cfg.Database.PublicAcquireTimeout,
 	})
@@ -120,6 +121,9 @@ type renderRoutes struct {
 	preview http.HandlerFunc
 	// formPage (optional) serves the hosted form page, GET /f/{slug}.
 	formPage http.HandlerFunc
+	// favicon (optional) returns the owner's favicon address ("" = none); the
+	// root icon paths then redirect to it instead of serving the theme's icons.
+	favicon func(context.Context) string
 }
 
 func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
@@ -157,7 +161,7 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 	}
 	r.HandleFunc("GET /sitemap.xsl", rt.xsl)
 	for _, name := range render.RootIcons {
-		r.HandleFunc("GET /"+name, rootIconHandler(rt.assets, name))
+		r.HandleFunc("GET /"+name, rootIconHandler(rt.assets, name, rt.favicon))
 	}
 	// GET only: an any-method pattern would conflict with the "GET /{rest...}"
 	// catch-all below.

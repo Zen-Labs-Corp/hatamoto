@@ -494,9 +494,11 @@ type Section struct {
 
 // SiteView is the site-wide data shared by every page.
 type SiteView struct {
-	Name        string
-	Tagline     string
-	LogoURL     string
+	Name    string
+	Tagline string
+	LogoURL string
+	// FaviconURL is the owner's favicon address; "" links the theme's root icons.
+	FaviconURL  string
 	Nav         []NavItem
 	FooterNav   []NavItem
 	SocialLinks []Link

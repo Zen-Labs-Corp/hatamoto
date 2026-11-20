@@ -58,6 +58,9 @@ func (r *PostgresRepository) Usage(ctx context.Context, stem string) ([]Usage, e
 		SELECT 'site', '00000000-0000-0000-0000-000000000000'::uuid, 'Site logo', ''
 		FROM hatamoto_site_config WHERE logo_url LIKE $1
 		UNION ALL
+		SELECT 'site', '00000000-0000-0000-0000-000000000000'::uuid, 'Site favicon', ''
+		FROM hatamoto_site_config WHERE favicon_url LIKE $1
+		UNION ALL
 		SELECT 'site', '00000000-0000-0000-0000-000000000000'::uuid, 'Theme settings', ''
 		FROM hatamoto_site_config WHERE theme_extra::text LIKE $1
 		UNION ALL

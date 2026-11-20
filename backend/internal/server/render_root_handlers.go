@@ -85,10 +85,35 @@ func (s *Server) robotsDenyTokens(ctx context.Context) []string {
 
 // rootIconHandler serves a site icon at the site root from the theme's
 // icons/ directory (the embedded default set unless the theme overrides it).
-func rootIconHandler(assets http.Handler, name string) http.HandlerFunc {
+// When the owner set a favicon in Settings > General (favicon returns a
+// non-empty address), it redirects there instead, so every theme, including
+// one whose head links the fixed root names, shows the owner's icon. The
+// redirect is cached briefly so a new favicon shows up soon.
+func rootIconHandler(assets http.Handler, name string, favicon func(context.Context) string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if favicon != nil {
+			if u := favicon(r.Context()); u != "" {
+				w.Header().Set("Cache-Control", "public, max-age=300")
+				http.Redirect(w, r, u, http.StatusFound)
+				return
+			}
+		}
 		r2 := r.Clone(r.Context())
 		r2.URL.Path = render.AssetPrefix + render.IconDir + name
 		assets.ServeHTTP(w, r2)
 	}
+}
+
+// siteFavicon returns the owner's favicon address from the site settings, or
+// "" when none is set or the settings cannot be read (the theme's icons are
+// served then).
+func (s *Server) siteFavicon(ctx context.Context) string {
+	if s.siteConfig == nil {
+		return ""
+	}
+	cfg, err := s.siteConfig.Get(ctx)
+	if err != nil || cfg == nil {
+		return ""
+	}
+	return cfg.FaviconURL
 }

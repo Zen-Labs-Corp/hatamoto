@@ -127,6 +127,9 @@ func (f *fakeSite) Update(_ context.Context, in siteconfig.UpdateInput) (*siteco
 	if in.Timezone != nil {
 		f.cfg.Timezone = *in.Timezone
 	}
+	if in.FaviconURL != nil {
+		f.cfg.FaviconURL = *in.FaviconURL
+	}
 	if in.Language != nil {
 		f.cfg.Language = *in.Language
 	}

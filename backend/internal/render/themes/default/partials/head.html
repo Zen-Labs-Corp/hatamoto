@@ -1,10 +1,12 @@
 {{define "head"}}<title>{{.Title}}</title>
 {{with .Description}}<meta name="description" content="{{.}}">
 {{end}}<link rel="canonical" href="{{.Canonical}}">
-<link rel="icon" href="/favicon.ico" sizes="32x32">
+{{with .Icon}}<link rel="icon" href="{{.}}">
+<link rel="apple-touch-icon" href="{{.}}">
+{{else}}<link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/apple-icon.png">
-{{with .Prev}}<link rel="prev" href="{{.}}">
+{{end}}{{with .Prev}}<link rel="prev" href="{{.}}">
 {{end}}{{with .Next}}<link rel="next" href="{{.}}">
 {{end}}{{range .Alt}}<link rel="alternate" hreflang="{{.Lang}}" href="{{.Href}}">
 {{end}}{{with .Robots}}<meta name="robots" content="{{.}}">

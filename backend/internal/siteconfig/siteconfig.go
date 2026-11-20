@@ -76,9 +76,11 @@ type Config struct {
 	// prune keeps (10 to 500).
 	EntityVersionsKeep int
 	// AdminBrand is the admin name, logo, accent and managed-by line.
-	AdminBrand        AdminBrand
-	CompanyName       string
-	LogoURL           string
+	AdminBrand  AdminBrand
+	CompanyName string
+	LogoURL     string
+	// FaviconURL is the site's browser icon ("" = the theme's own icons).
+	FaviconURL        string
 	CustomDomain      string
 	PrimaryColor      string
 	ThemeExtra        jsontext.Value // raw JSONB, callers parse if they need it
@@ -296,6 +298,7 @@ func (s *Store) Invalidate() {
 type UpdateInput struct {
 	CompanyName       *string
 	LogoURL           *string
+	FaviconURL        *string
 	CustomDomain      *string
 	PrimaryColor      *string
 	ThemeExtra        jsontext.Value
@@ -457,6 +460,10 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 	if in.PublicBaseURL != nil {
 		publicBaseURL = *in.PublicBaseURL
 	}
+	var faviconURL any
+	if in.FaviconURL != nil {
+		faviconURL = *in.FaviconURL
+	}
 	var cacheEnabled, cacheTTL, cacheTTLLegacy, preloadMode, preloadAfter, cacheMaxMB, preloadEnabled, preloadInterval any
 	if in.PageCacheEnabled != nil {
 		cacheEnabled = *in.PageCacheEnabled
@@ -550,13 +557,14 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 		  compress_responses = COALESCE($30, compress_responses),
 		  two_factor_policy  = COALESCE($31, two_factor_policy),
 		  visitor_entry      = COALESCE($32, visitor_entry),
+		  favicon_url        = COALESCE($33, favicon_url),
 		  updated_at         = NOW()
 		WHERE id = TRUE
 	`, companyName, logoURL, customDomain, primaryColor, themeExtra,
 		tagline, timezone, homepageEntityID, notificationEmail, postalAddress,
 		language, phone, businessHours, legacyWP, publicBaseURL, in.SetupCompleted,
 		cacheEnabled, cacheTTL, cacheMaxMB, preloadEnabled, preloadInterval,
-		cacheTTLLegacy, preloadMode, preloadAfter, locales, prefixAll, xDefaultLocale, businessProfile, sitemapNaming, compress, twoFactorPolicy, visitorEntry)
+		cacheTTLLegacy, preloadMode, preloadAfter, locales, prefixAll, xDefaultLocale, businessProfile, sitemapNaming, compress, twoFactorPolicy, visitorEntry, faviconURL)
 	if err != nil {
 		return nil, fmt.Errorf("update site config: %w", err)
 	}
@@ -833,7 +841,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		       entity_versions_keep,
 		       admin_brand_name, admin_logo_url, admin_accent,
 		       admin_managed_by_text, admin_managed_by_url,
-		       visitor_entry
+		       visitor_entry, favicon_url
 		FROM hatamoto_site_config
 		WHERE id = TRUE
 		LIMIT 1
@@ -853,7 +861,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		&cfg.EntityVersionsKeep,
 		&cfg.AdminBrand.Name, &cfg.AdminBrand.LogoURL, &cfg.AdminBrand.Accent,
 		&cfg.AdminBrand.ManagedText, &cfg.AdminBrand.ManagedURL,
-		&visitorEntry,
+		&visitorEntry, &cfg.FaviconURL,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotConfigured

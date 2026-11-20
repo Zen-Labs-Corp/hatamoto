@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json/jsontext"
 	"io"
 	"log/slog"
@@ -119,6 +120,29 @@ func TestRenderRoutesServeRootIcons(t *testing.T) {
 	}
 	if ct := getPath(h, "/favicon.ico").Header().Get("Content-Type"); ct != "image/x-icon" {
 		t.Errorf("favicon.ico Content-Type %q", ct)
+	}
+}
+
+func TestRenderRoutesRootIconsRedirectToFavicon(t *testing.T) {
+	f := newRenderFixture(t)
+	engine, err := render.New(render.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, h := baseRouter()
+	mountRenderRoutes(r, renderRoutes{
+		pages: f.h, assets: engine.AssetHandler(), robots: stub("robots"), sitemap: stub("sitemap"),
+		subSitemap: stub("sub"), llms: stub("llms"), xsl: stub("xsl"), formPost: stub("form"),
+		favicon: func(context.Context) string { return "/media/icon.png" },
+	})
+	for _, name := range render.RootIcons {
+		w := getPath(h, "/"+name)
+		if w.Code != http.StatusFound || w.Header().Get("Location") != "/media/icon.png" {
+			t.Errorf("/%s: status %d, Location %q, want 302 to /media/icon.png", name, w.Code, w.Header().Get("Location"))
+		}
+		if cc := w.Header().Get("Cache-Control"); !strings.Contains(cc, "max-age=300") {
+			t.Errorf("/%s: Cache-Control %q, want a short max-age", name, cc)
+		}
 	}
 }
 

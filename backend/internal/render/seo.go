@@ -27,6 +27,8 @@ type headView struct {
 	Description string
 	Canonical   string
 	Robots      string
+	// Icon is the owner's favicon address ("" = the theme's root icons).
+	Icon string
 	// Prev and Next are the absolute rel="prev"/"next" URLs of a paginated listing.
 	Prev, Next string
 	// Alt are the hreflang alternates, x-default last. Nil on a one-locale page.
@@ -87,6 +89,7 @@ func seoHeadWith(ctx context.Context, v *PageView, replaceSiteGraph bool, sg Sit
 	}
 	h.Canonical = firstNonEmpty(v.Page.CanonicalURL, strings.TrimRight(v.BaseURL, "/")+v.Path)
 	h.Alt = hreflangLinks(v)
+	h.Icon = v.Site.FaviconURL
 	if v.Preview {
 		h.Robots = "noindex,follow"
 	} else {

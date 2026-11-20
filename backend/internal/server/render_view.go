@@ -488,6 +488,7 @@ func (s *Server) buildSiteView(ctx context.Context) (render.SiteView, error) {
 		Name:         cfg.CompanyName,
 		Tagline:      cfg.Tagline,
 		LogoURL:      cfg.LogoURL,
+		FaviconURL:   cfg.FaviconURL,
 		Tokens:       themeTokens(theme),
 		SocialLinks:  socialLinks(cfg.ThemeExtra),
 		Nav:          s.headerNav(ctx, links),
