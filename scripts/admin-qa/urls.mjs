@@ -20,6 +20,8 @@ const pm = ".ProseMirror";
 const confirm = { name: "confirm", click: "[data-hm-confirm]" };
 // The header "New X" opens the create dialog on list screens (UI-D10: list first).
 const newDialog = { name: "new-dialog", click: "[data-hm-open]" };
+// Settings > Comments: the owner's switch opens the enable dialog (the editor sees a disabled switch, so the state is skipped there).
+const enableDialog = { name: "enable-dialog", click: '[data-hm-open="comments-enable"]' };
 
 export const screens = [
   // PR-0 admin-component-contracts: the dev styleguide shows every component in every variant (HATAMOTO_DEV=1).
@@ -122,6 +124,13 @@ export const screens = [
   { name: "forms-settings", path: "/admin/forms/design/{form}/settings", mock: null, roles: OE },
   { name: "forms-share", path: "/admin/forms/design/{form}/share", mock: null, roles: OE },
   { name: "submissions", path: "/admin/forms/design/{form}/submissions", legacy: "/admin/settings/submissions?form={form}", mock: "settings-submissions", roles: OE },
+  // Comments: not list screens (no create action). Comments stay off in every seed, so these show the off state.
+  { name: "comments", path: "/admin/comments", mock: null, roles: OE },
+  { name: "comments-approved", path: "/admin/comments?status=approved", mock: null, roles: OE },
+  { name: "settings-comments", path: "/admin/settings/comments", mock: null, roles: OE, states: [enableDialog] },
+  { name: "settings-comments-enable", path: "/admin/settings/comments/enable", mock: null, roles: O },
+  { name: "settings-comments-blocklists", path: "/admin/settings/comments/blocklists", mock: null, roles: OE },
+  { name: "settings-comments-commenters", path: "/admin/settings/comments/commenters", mock: null, roles: OE },
     // SEO and URLs
   { name: "settings-redirects", path: "/admin/settings/redirects", legacy: "/admin/redirects", mock: "settings-redirects", roles: OE, list: true, states: [newDialog] },
   { name: "settings-redirects-new", path: "/admin/settings/redirects/new", legacy: "/admin/redirects/new", mock: null, roles: OE },
