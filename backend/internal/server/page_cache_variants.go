@@ -11,7 +11,7 @@ import (
 	"hatamoto.dev/core/internal/httpx"
 )
 
-// encodedVariant returns the stored compressed form of a cached page for the
+// encodedVariantFP returns the stored compressed form of a cached page for the
 // coding the client negotiated, compressing the plain entry once on the first
 // request. The plain entry stays the source of truth (the preloader reads it);
 // variants are sibling keys under the same render: prefix, so a purge, the size
@@ -19,16 +19,8 @@ import (
 // before the plain entry was: a purge in between rejects the store. It returns
 // no coding when the response should go out plain (switch off, demo, no
 // compressible coding, body under the threshold, a refresh).
-func (h *renderHandlers) encodedVariant(r *http.Request, key string, plain []byte, gen uint64) (httpx.Encoding, []byte) {
-	if h.encodeCached == nil || !h.encodeCached() || refreshRequested(r.Context()) {
-		return httpx.EncodingNone, nil
-	}
-	return cachedVariant(r, h.cache, key, plain, h.pageCacheTTL(), gen, h.logger.Warn)
-}
-
-// encodedVariantFP is encodedVariant for a caller that already holds
-// fingerprint(plain), so a response hashes its body once. A nil fp is
-// computed lazily, after the early returns.
+// The caller passes fingerprint(plain), so a response hashes its body once; a
+// nil fp is computed lazily, after the early returns.
 func (h *renderHandlers) encodedVariantFP(r *http.Request, key string, plain, fp []byte, gen uint64) (httpx.Encoding, []byte) {
 	if h.encodeCached == nil || !h.encodeCached() || refreshRequested(r.Context()) {
 		return httpx.EncodingNone, nil
