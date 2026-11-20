@@ -109,6 +109,7 @@ func newRenderFixture(t *testing.T) *renderFixture {
 		baseURLPinned: true,
 		engine:        engine,
 		cache:         f.cache,
+		flight:        &renderFlight{},
 		validators:    newPageValidators(func() time.Time { return f.now }),
 		logger:        slog.New(slog.NewTextHandler(io.Discard, nil)),
 		log404:        func(path, _, _ string) { f.mu.Lock(); f.notFound = append(f.notFound, path); f.mu.Unlock() },
