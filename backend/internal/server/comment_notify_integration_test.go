@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"regexp"
 	"strings"
 	"sync"
@@ -324,5 +325,38 @@ func TestCommentNotifyQueuesWithoutWorker(t *testing.T) {
 	}
 	if queued != 1 {
 		t.Fatalf("queue rows = %d, want 1 on a replica without the worker", queued)
+	}
+}
+
+// TestCommentUnsubscribeOneClickThroughServer posts the RFC 8058 one-click body
+// through the full handler, with none of the headers a browser form sends, as a
+// mail provider does. No global origin or CSRF check may reject it.
+func TestCommentUnsubscribeOneClickThroughServer(t *testing.T) {
+	ctx := context.Background()
+	env := newWireEnv(t, nil)
+	s, _ := env.server(t, "/admin")
+	env.addOwner(t, s)
+	owner, err := s.userRepo.GetByEmail(ctx, "owner@example.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tok := comment.UnsubscribeToken(comment.UnsubscribeKey(env.cfg.Secret), comment.UnsubscribeModerator, owner.ID)
+
+	req := httptest.NewRequest(http.MethodPost, commentUnsubscribePrefix+tok, strings.NewReader("List-Unsubscribe=One-Click"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.RemoteAddr = "198.51.100.9:5000"
+	for _, h := range []string{"Origin", "Referer", "Sec-Fetch-Site", "Sec-Fetch-Mode", "Sec-Fetch-Dest"} {
+		if req.Header.Get(h) != "" {
+			t.Fatalf("test request carries %s", h)
+		}
+	}
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "unsubscribed") {
+		t.Fatalf("one-click POST = %d %q, want 200 unsubscribed", rec.Code, rec.Body.String())
+	}
+	var muted bool
+	if err := env.db.Pool().QueryRow(ctx, `SELECT muted FROM hatamoto_comment_moderator_notify WHERE user_id = $1`, owner.ID).Scan(&muted); err != nil || !muted {
+		t.Fatalf("moderator muted = %v, err %v; want true", muted, err)
 	}
 }
