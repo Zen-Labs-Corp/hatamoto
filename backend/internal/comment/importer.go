@@ -126,6 +126,8 @@ func (im *Importer) Import(ctx context.Context, batch []ImportedComment) (Import
 
 	err = im.db.WithTx(ctx, func(tx pgx.Tx) error {
 		// Same lock order as Service.Store: comment rows, counts row, commenter rows.
+		// Every existing row a reply can attach to is locked here: the parent and
+		// its ancestors, since max depth clamps a reply to an ancestor.
 		existing := map[uuid.UUID]importedParent{}
 		for _, b := range batch {
 			if b.ParentID == nil {
@@ -142,6 +144,15 @@ func (im *Importer) Import(ctx context.Context, batch []ImportedComment) (Import
 			}
 			if err != nil {
 				return err
+			}
+			if d := Depth(path); d > 1 {
+				anc := make([]string, 0, d-1)
+				for i := 1; i < d; i++ {
+					anc = append(anc, AncestorPath(path, i))
+				}
+				if _, err := tx.Exec(ctx, `SELECT id FROM hatamoto_comments WHERE path = ANY($1) ORDER BY path FOR KEY SHARE`, anc); err != nil {
+					return err
+				}
 			}
 			existing[*b.ParentID] = importedParent{id: *b.ParentID, path: path}
 		}

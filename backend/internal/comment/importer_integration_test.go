@@ -241,3 +241,67 @@ func TestImporterNoCommentfmtDependency(t *testing.T) {
 		}
 	}
 }
+
+// A reply to an existing max-depth comment attaches to its ancestor. That
+// ancestor must be locked before the counts row, or the importer deadlocks with
+// a moderator transition (which locks the comment, then counts).
+func TestImporterLocksAttachBeforeCounts(t *testing.T) {
+	f := newFixture(t)
+	at := time.Now().UTC().AddDate(-1, 0, 0)
+	var batch []ImportedComment
+	for i := 1; i <= 5; i++ {
+		parent := ""
+		if i > 1 {
+			parent = fmt.Sprint(i - 1)
+		}
+		batch = append(batch, importRow(f, fmt.Sprint(i), parent, "lock@example.test", StatusApproved, at.Add(time.Duration(i)*time.Minute)))
+	}
+	st, err := f.importer().Import(f.ctx, batch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf := st.IDs["5"]
+	attach := st.IDs["4"] // depth 4 = MaxDepth-1: where a reply to the leaf attaches
+
+	// Hold the counts row so the import blocks right after its first phase.
+	blocker, err := f.db.Pool().Begin(f.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer blocker.Rollback(f.ctx)
+	if _, err := blocker.Exec(f.ctx, `SELECT 1 FROM hatamoto_comment_entities WHERE entity_id = $1 FOR UPDATE`, f.entity); err != nil {
+		t.Fatal(err)
+	}
+	row := importRow(f, "new", "", "lock@example.test", StatusApproved, time.Now().UTC())
+	row.ParentID = &leaf
+	done := make(chan error, 1)
+	go func() {
+		stats, err := f.importer().Import(f.ctx, []ImportedComment{row})
+		if err == nil && stats.Clamped != 1 {
+			err = fmt.Errorf("clamped = %d, want 1", stats.Clamped)
+		}
+		done <- err
+	}()
+	f.waitForLockWait(1)
+
+	// While the import waits for counts it must already hold the attach row:
+	// a FOR UPDATE (what a moderator transition takes) cannot get it.
+	probe, err := f.db.Pool().Begin(f.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, perr := probe.Exec(f.ctx, `SELECT 1 FROM hatamoto_comments WHERE id = $1 FOR UPDATE NOWAIT`, attach)
+	probe.Rollback(f.ctx)
+	if perr == nil {
+		t.Error("attach row was not locked before the counts row")
+	}
+	blocker.Rollback(f.ctx)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	var parent uuid.UUID
+	f.scalar(&parent, `SELECT parent_id FROM hatamoto_comments WHERE author_name = 'Old new'`)
+	if parent != attach {
+		t.Errorf("reply attached to %v, want %v", parent, attach)
+	}
+}
