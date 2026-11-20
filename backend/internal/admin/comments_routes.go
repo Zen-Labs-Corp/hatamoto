@@ -29,6 +29,7 @@ func (a *Admin) mountComments(authed *httpx.Group) {
 	ed.HandleFunc("POST /settings/comments/blocklists", a.handleCommentBlocklistsSave)
 	ed.HandleFunc("GET /settings/comments/commenters", a.handleCommenters)
 	ed.HandleFunc("POST /settings/comments/commenters/{id}/{action}", a.handleCommenterAction) // vouch, block or signout
+	ed.HandleFunc("GET /settings/comments/commenters/{id}/{action}", a.handleCommenterConfirm) // block or signout
 	owner.HandleFunc("POST /settings/comments", a.handleCommentSettingsSave)
 	owner.HandleFunc("POST /settings/comments/switch", a.handleCommentSwitch)
 	owner.HandleFunc("GET /settings/comments/enable", a.handleCommentEnablePage)

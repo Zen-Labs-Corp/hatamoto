@@ -68,7 +68,9 @@ func TestCommentsEditorRoutesReachable(t *testing.T) {
 		{"POST", "/admin/settings/comments/blocklists"},
 		{"GET", "/admin/settings/comments/commenters"},
 		{"POST", "/admin/settings/comments/commenters/" + id + "/vouch"},
+		{"GET", "/admin/settings/comments/commenters/" + id + "/block"},
 		{"POST", "/admin/settings/comments/commenters/" + id + "/block"},
+		{"GET", "/admin/settings/comments/commenters/" + id + "/signout"},
 		{"POST", "/admin/settings/comments/commenters/" + id + "/signout"},
 	}
 	for _, rt := range routes {

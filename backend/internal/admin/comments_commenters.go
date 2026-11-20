@@ -269,14 +269,14 @@ func (a *Admin) handleCommenters(w http.ResponseWriter, r *http.Request) {
 		}
 		acts = append(acts,
 			ui.Action{Label: "Comments", Href: a.adminPath + "/comments?" + url.Values{"status": {"approved"}, "commenter": {c.ID}}.Encode()},
-			ui.Action{Label: "Sign out all devices", Href: here, Post: act + "/signout" + back, ConfirmLabel: "Sign out",
+			ui.Action{Label: "Sign out all devices", Href: act + "/signout" + back, Post: act + "/signout" + back, ConfirmLabel: "Sign out",
 				Confirm: "Sign this commenter out on every device? They confirm their email again next time. Their trust level stays."},
 		)
 		if privacy {
 			acts = append(acts, ui.Action{Label: "Export", Href: act + "/export"})
 		}
 		if c.Trust != "blocked" {
-			acts = append(acts, ui.Action{Label: "Block", Href: here, Post: act + "/block" + back, Danger: true, ConfirmLabel: "Block commenter",
+			acts = append(acts, ui.Action{Label: "Block", Href: act + "/block" + back, Post: act + "/block" + back, Danger: true, ConfirmLabel: "Block commenter",
 				Confirm: "Block this commenter? Their comments will be held and never shown."})
 		}
 		if privacy {
@@ -356,6 +356,35 @@ func (a *Admin) handleCommenterAction(w http.ResponseWriter, r *http.Request) {
 	a.audit(r, "comments.commenter."+action, id, map[string]any{})
 	a.SetFlash(w, r, "success", msg)
 	Redirect(w, r, backTo(r, a.adminPath+cmtrCommentersPath, a.adminPath+cmtrCommentersPath))
+}
+
+// cmtrConfirms are the actions that ask first. The dialog is the JS path;
+// the confirm page is the same question without JS.
+var cmtrConfirms = map[string]struct{ Title, Body, Label string }{
+	"block":   {"Block commenter", "Block this commenter? Their comments will be held and never shown.", "Block commenter"},
+	"signout": {"Sign out all devices", "Sign this commenter out on every device? They confirm their email again next time. Their trust level stays.", "Sign out"},
+}
+
+type cmtrConfirmData struct{ Title, Body, Label, Action, Back string }
+
+// handleCommenterConfirm is the no-JS confirm step of block and sign out.
+func (a *Admin) handleCommenterConfirm(w http.ResponseWriter, r *http.Request) {
+	if a.deps.Comments == nil {
+		a.unavailable(w, r, "Comments")
+		return
+	}
+	id, action := r.PathValue("id"), r.PathValue("action")
+	c, known := cmtrConfirms[action]
+	if _, err := uuid.Parse(id); err != nil || !known {
+		a.Error(w, r, http.StatusNotFound, "Not found", "That commenter action does not exist.")
+		return
+	}
+	list := a.adminPath + cmtrCommentersPath
+	v := a.NewView(w, r, c.Title)
+	v.Section, v.Tab = "comments", "commenters"
+	v.Width = "compact"
+	v.Data = cmtrConfirmData{Title: c.Title, Body: c.Body, Label: c.Label, Action: list + "/" + id + "/" + action, Back: backTo(r, list, list)}
+	a.Render(w, r, http.StatusOK, "settings/comments-commenter-confirm", v)
 }
 
 // cmtrPrivacy reports whether the privacy actions (export, erase) apply: an

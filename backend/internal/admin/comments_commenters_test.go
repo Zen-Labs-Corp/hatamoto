@@ -151,7 +151,7 @@ func TestCommentBlocklistsBadKind(t *testing.T) {
 
 // The a11y tests below cover these pages (TestEveryPageTemplateIsExercised).
 func init() {
-	areaPages["commentscommenters"] = []string{"settings/comments-blocklists", "settings/comments-commenters", "settings/comments-erase"}
+	areaPages["commentscommenters"] = []string{"settings/comments-blocklists", "settings/comments-commenters", "settings/comments-erase", "settings/comments-commenter-confirm"}
 }
 
 const cmtrTestID = "5d1c7d3e-0a53-4d52-8d0e-6a3c6f6b8a11"
@@ -384,5 +384,27 @@ func TestCommenterErasePage(t *testing.T) {
 	rec = p.do("POST", "/admin/settings/comments/commenters/"+cmtrTestID+"/erase", "owner-token", url.Values{"confirm_phrase": {"x"}}, nil)
 	if issues := a11y.Check(rec.Body.String(), a11y.Options{Page: true}); rec.Code != 422 || len(issues) > 0 {
 		t.Errorf("422 page = %d a11y %v", rec.Code, issues)
+	}
+}
+
+func TestCommenterConfirmPages(t *testing.T) {
+	t.Parallel()
+
+	p := newCommentsRig(t, cmtrCommentersFake())
+	base := "/admin/settings/comments/commenters/" + cmtrTestID
+	for _, action := range []string{"block", "signout"} {
+		rec := p.do("GET", base+"/"+action+"?back=%2Fadmin%2Fsettings%2Fcomments%2Fcommenters%3Fq%3Dal", "editor-token", nil, nil)
+		body := rec.Body.String()
+		if rec.Code != 200 || !strings.Contains(body, `action="`+base+"/"+action+`"`) || !strings.Contains(body, `value="/admin/settings/comments/commenters?q=al"`) {
+			t.Errorf("GET %s = %d, want a form posting to the action", action, rec.Code)
+		}
+		if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+			t.Errorf("%s a11y: %v", action, issues)
+		}
+	}
+	for _, path := range []string{base + "/vouch", base + "/nope", "/admin/settings/comments/commenters/not-a-uuid/block"} {
+		if rec := p.do("GET", path, "editor-token", nil, nil); rec.Code != 404 {
+			t.Errorf("GET %s = %d, want 404", path, rec.Code)
+		}
 	}
 }
