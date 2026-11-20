@@ -352,6 +352,7 @@ func (a *Admin) handleCommentApprove(w http.ResponseWriter, r *http.Request) {
 		a.modFail(w, r, "approved", err)
 		return
 	}
+	a.audit(r, "comments.approve", row.ID, map[string]any{"ids": []string{row.ID}, "done": 1})
 	msg := "Comment approved."
 	if r.PostFormValue("vouch") == "1" && row.CommenterID != "" {
 		trust, err := svc.Vouch(ctx, row.CommenterID, actor)
@@ -361,6 +362,7 @@ func (a *Admin) handleCommentApprove(w http.ResponseWriter, r *http.Request) {
 			Redirect(w, r, a.modBack(r))
 			return
 		}
+		a.audit(r, "comments.commenter.vouch", row.CommenterID, map[string]any{"comment": row.ID, "trust": trust})
 		msg += " " + cmp.Or(row.AuthorName, "The commenter") + " is now " + trust + "."
 	}
 	a.SetFlash(w, r, "success", msg)
@@ -376,6 +378,7 @@ func (a *Admin) handleCommentTrash(w http.ResponseWriter, r *http.Request) {
 		a.modFail(w, r, "moved to trash", err)
 		return
 	}
+	a.audit(r, "comments.trash", row.ID, map[string]any{"ids": []string{row.ID}, "done": 1})
 	a.SetFlash(w, r, "success", "Comment moved to trash.")
 	Redirect(w, r, a.modBack(r))
 }
@@ -409,6 +412,7 @@ func (a *Admin) handleCommentSpam(w http.ResponseWriter, r *http.Request) {
 		a.modFail(w, r, "marked as spam", err)
 		return
 	}
+	a.audit(r, "comments.spam", row.ID, map[string]any{"ids": []string{row.ID}, "done": 1, "link_domains": teach.LinkDomains, "email_domain": teach.EmailDomain})
 	a.SetFlash(w, r, "success", "Comment marked as spam.")
 	Redirect(w, r, a.modBack(r))
 }
@@ -473,9 +477,10 @@ func (a *Admin) handleCommentReply(w http.ResponseWriter, r *http.Request) {
 	d := modFormData{ID: row.ID, Parent: modExcerpt(row.BodyRaw), Body: body, Back: a.modBack(r)}
 	if msg == "" {
 		u := userFrom(r.Context())
-		_, err := svc.Reply(r.Context(), row.ID, body, modActor(r), a.replyAuthor(r.Context(), u))
+		replyID, err := svc.Reply(r.Context(), row.ID, body, modActor(r), a.replyAuthor(r.Context(), u))
 		switch {
 		case err == nil:
+			a.audit(r, "comments.reply", row.ID, map[string]any{"reply": replyID})
 			a.SetFlash(w, r, "success", "Reply posted.")
 			Redirect(w, r, a.adminPath+"/comments?status=approved")
 			return
@@ -510,6 +515,7 @@ func (a *Admin) handleCommentEdit(w http.ResponseWriter, r *http.Request) {
 		err := svc.Edit(r.Context(), row.ID, body, modActor(r))
 		switch {
 		case err == nil:
+			a.audit(r, "comments.edit", row.ID, map[string]any{})
 			a.SetFlash(w, r, "success", "Comment saved.")
 			Redirect(w, r, d.Back)
 			return

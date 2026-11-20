@@ -55,6 +55,8 @@ var auditLabels = map[string]string{
 	"comments.approve":             "Approved comments",
 	"comments.spam":                "Marked comments as spam",
 	"comments.trash":               "Moved comments to trash",
+	"comments.reply":               "Replied to a comment",
+	"comments.edit":                "Edited a comment",
 	"comments.delete":              "Deleted comments",
 	"updates.save":                 "Changed update settings",
 	"updates.check":                "Checked for updates",

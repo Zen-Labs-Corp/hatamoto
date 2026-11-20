@@ -183,6 +183,27 @@ func TestCommentApproveVouch(t *testing.T) {
 	}
 }
 
+// Every single-comment moderation action leaves an audit event with the actor and the comment id.
+func TestCommentModerationAudited(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct{ path, action string }{
+		{"/approve", "comments.approve"}, {"/trash", "comments.trash"}, {"/spam", "comments.spam"},
+		{"/reply", "comments.reply"}, {"/edit", "comments.edit"},
+	} {
+		p := newCommentsRig(t, &fakeComments{rows: modRows()})
+		modPost(t, p, "editor-token", tc.path, url.Values{"body": {"Some text"}})
+		if len(p.events) != 1 || p.events[0].Action != tc.action || p.events[0].Target != commentsTestID || p.events[0].Actor != "ed@example.com" || p.events[0].ActorID == "" {
+			t.Errorf("%s: audit events = %+v", tc.path, p.events)
+		}
+	}
+	p := newCommentsRig(t, &fakeComments{rows: modRows()})
+	modPost(t, p, "owner-token", "/approve", url.Values{"vouch": {"1"}})
+	if len(p.events) != 2 || p.events[0].Action != "comments.approve" || p.events[1].Action != "comments.commenter.vouch" {
+		t.Errorf("approve+vouch audit events = %+v", p.events)
+	}
+}
+
 func TestCommentTrash(t *testing.T) {
 	t.Parallel()
 
