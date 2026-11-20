@@ -16,7 +16,7 @@ import (
 	"hatamoto.dev/core/internal/supervisor"
 )
 
-const backupRestoreUsage = "usage: hatamoto backup restore (<id|path.tar> | --from-offsite <id>) --admin-url <DSN> [--dry-run] [--config-out <path>]" +
+const backupRestoreUsage = "usage: hatamoto backup restore (<id|path.tar> | --from-offsite <id>) --admin-url <DSN> [--dry-run] [--config-out <path>] [--force]" +
 	" [--offsite-endpoint U] [--offsite-region R] [--offsite-bucket B] [--offsite-prefix P] [--offsite-access-key K]"
 
 // offsiteFlags are the flags that name an off-site target on the command line.
@@ -52,7 +52,7 @@ func (o offsiteFlags) target() (offsite.Target, error) {
 type restoreArgs struct {
 	source, adminURL, configOut string
 	fromOffsite                 string
-	dryRun                      bool
+	dryRun, force               bool
 	offsite                     offsiteFlags
 }
 
@@ -60,6 +60,7 @@ func parseRestoreArgs(args []string) (restoreArgs, error) {
 	var a restoreArgs
 	pos, err := flagSet("backup restore", args, func(fs *flag.FlagSet) {
 		fs.BoolVar(&a.dryRun, "dry-run", false, "run every check, write nothing")
+		fs.BoolVar(&a.force, "force", false, "restore a backup made with a different server secret and drop its unreadable commenter emails")
 		fs.StringVar(&a.adminURL, "admin-url", "", "superuser DSN for the role bootstrap")
 		fs.StringVar(&a.configOut, "config-out", "", "absolute path to write the saved config to; without it the config is not written")
 		fs.StringVar(&a.fromOffsite, "from-offsite", "", "restore backup `id` from the off-site bucket instead of a local archive")
@@ -112,7 +113,7 @@ func runBackupRestore(ctx context.Context, args []string, out io.Writer, logger 
 		Run:         backup.OSExec,
 		Trust:       trustIDs(logger),
 		Log:         logger,
-	}, backup.RestoreRequest{Source: a.source, AdminURL: a.adminURL, ConfigOut: a.configOut, DryRun: a.dryRun})
+	}, backup.RestoreRequest{Source: a.source, AdminURL: a.adminURL, ConfigOut: a.configOut, DryRun: a.dryRun, Force: a.force})
 	if err != nil {
 		return err
 	}
