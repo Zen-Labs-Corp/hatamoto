@@ -88,7 +88,8 @@ img.hm-avatar { object-fit: cover; }
   .hm-sidebar__foot { order: 2; margin: 0; padding: 0; border: 0; flex: none; }
   .hm-sidebar__me { flex: none; padding: 0; }
   .hm-sidebar__name { display: none; }
-  .hm-nav-groups { order: 3; flex-direction: row; flex-basis: 100%; gap: 0; }
+  /* Nine items do not fit 390px at their 49px minimum: the strip scrolls instead of widening the page. */
+  .hm-nav-groups { order: 3; flex-direction: row; flex-basis: 100%; gap: 0; overflow-x: auto; }
   .hm-nav-group, .hm-nav-groups .hm-nav-list { display: contents; }
   .hm-nav-group__title { display: none; }
   .hm-sidebar > .hm-nav-groups .hm-nav-list > li { flex: 1 1 0; min-width: 0; }
