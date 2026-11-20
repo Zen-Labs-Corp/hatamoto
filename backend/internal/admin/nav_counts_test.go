@@ -338,3 +338,36 @@ func TestCommentsNavHiddenWithoutService(t *testing.T) {
 		}
 	}
 }
+
+// Turning comments on must show the item at once, not after the cached count expires.
+func TestCommentsNavRefreshAfterSwitch(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{counts: CommentCounts{Pending: 3}}
+	a := &Admin{nav: defaultNav("/admin")}
+	a.deps.Comments = svc
+	a.wireNavCounts()
+	item := func() NavItem {
+		for _, it := range a.nav.all() {
+			if it.ID == "comments" {
+				return it
+			}
+		}
+		t.Fatal("no comments nav item")
+		return NavItem{}
+	}
+	svc.mu.Lock()
+	svc.counts = CommentCounts{}
+	svc.mu.Unlock()
+	if item().Visible("owner") {
+		t.Fatal("off and empty: the item must be hidden")
+	}
+	svc.mu.Lock()
+	svc.settings.Enabled = true
+	svc.counts = CommentCounts{Pending: 3}
+	svc.mu.Unlock()
+	a.refreshCommentsNav()
+	if it := item(); !it.Visible("owner") || it.Badge("owner") != "3" {
+		t.Errorf("after the switch: visible %v, badge %q", it.Visible("owner"), it.Badge("owner"))
+	}
+}

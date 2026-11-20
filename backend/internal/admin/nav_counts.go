@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"hatamoto.dev/core/internal/form"
@@ -91,13 +92,7 @@ func (a *Admin) wireNavCounts() {
 		it.BadgeLabel = func(_, b string) string { return countLabel(b, "new submission", "new submissions") }
 	})
 	if a.deps.Comments != nil {
-		pending := countBadge(navCountTTL, time.Now, navRefreshRun, a.pendingComments)
-		shown := countBadge(navCountTTL, time.Now, navRefreshRun, a.commentsInUse)
-		a.nav.update("comments", func(it *NavItem) {
-			it.Visible = func(string) bool { return shown() != "" }
-			it.Badge = func(string) string { return pending() }
-			it.BadgeLabel = func(_, b string) string { return countLabel(b, "comment to moderate", "comments to moderate") }
-		})
+		a.wireCommentsNav()
 	}
 	a.nav.update(pluginsID, func(it *NavItem) {
 		it.Badge = func(role string) string {
@@ -158,6 +153,51 @@ func (a *Admin) pluginTotal() (int, error) {
 		return 0, nil
 	}
 	return len(pa.Plugins()), nil
+}
+
+// wireCommentsNav gives the Comments item its visibility and badge. Both are
+// cached counts, so turning comments on or off would leave the item stale for
+// a whole ttl: refreshCommentsNav starts them over and fills them before it
+// returns.
+func (a *Admin) wireCommentsNav() {
+	var (
+		mu      sync.Mutex
+		pending func() string
+		shown   func() string
+	)
+	build := func(prime bool) {
+		var inline atomic.Bool
+		inline.Store(prime)
+		run := func(f func()) {
+			if inline.Load() {
+				f()
+				return
+			}
+			navRefreshRun(f)
+		}
+		p := countBadge(navCountTTL, time.Now, run, a.pendingComments)
+		sh := countBadge(navCountTTL, time.Now, run, a.commentsInUse)
+		if prime {
+			p()
+			sh()
+			inline.Store(false)
+		}
+		mu.Lock()
+		pending, shown = p, sh
+		mu.Unlock()
+	}
+	build(false)
+	a.refreshCommentsNav = func() { build(true) }
+	get := func() (func() string, func() string) {
+		mu.Lock()
+		defer mu.Unlock()
+		return pending, shown
+	}
+	a.nav.update("comments", func(it *NavItem) {
+		it.Visible = func(string) bool { _, sh := get(); return sh() != "" }
+		it.Badge = func(string) string { p, _ := get(); return p() }
+		it.BadgeLabel = func(_, b string) string { return countLabel(b, "comment to moderate", "comments to moderate") }
+	})
 }
 
 // pendingComments counts the comments waiting for moderation, site-wide.

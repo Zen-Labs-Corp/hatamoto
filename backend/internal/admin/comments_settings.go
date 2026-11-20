@@ -313,6 +313,7 @@ func (a *Admin) handleCommentSwitch(w http.ResponseWriter, r *http.Request) {
 		if a.deps.Invalidate != nil {
 			a.deps.Invalidate(ctx)
 		}
+		a.recountCommentsNav()
 		a.SetFlash(w, r, "success", "Comments are off. Nothing new can be posted.")
 		Redirect(w, r, a.csetPath())
 	default:
@@ -368,6 +369,7 @@ func (a *Admin) handleCommentEnable(w http.ResponseWriter, r *http.Request) {
 	if a.deps.Invalidate != nil {
 		a.deps.Invalidate(ctx)
 	}
+	a.recountCommentsNav()
 	a.SetFlash(w, r, "success", "Comments are on. New comments wait in the moderation queue.")
 	Redirect(w, r, a.csetPath())
 }
@@ -378,4 +380,11 @@ func csetActor(r *http.Request) string {
 		return u.ID
 	}
 	return ""
+}
+
+// recountCommentsNav refreshes the sidebar item after the switch changed.
+func (a *Admin) recountCommentsNav() {
+	if a.refreshCommentsNav != nil {
+		a.refreshCommentsNav()
+	}
 }

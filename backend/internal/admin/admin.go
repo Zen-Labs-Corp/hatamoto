@@ -406,9 +406,11 @@ const DefaultAdminPath = "/admin"
 
 // Admin holds the parsed templates and assets and the HTTP handlers.
 type Admin struct {
-	deps    Deps
-	nav     *Nav
-	adminFS fs.FS
+	deps Deps
+	nav  *Nav
+	// refreshCommentsNav recounts the Comments sidebar item now; nil without a comment service.
+	refreshCommentsNav func()
+	adminFS            fs.FS
 	// adminPath is the normalised URL prefix. It lives on Admin, never on
 	// built state, so dev mode rebuilds keep it.
 	adminPath string
