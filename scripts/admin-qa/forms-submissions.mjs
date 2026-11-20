@@ -255,6 +255,7 @@ await page.evaluate(() => { window.__qaMark = 1; });
 await page.keyboard.press("j");
 await waitId(ids[1]);
 await page.goBack();
+await page.waitForFunction(() => window.__qaMark === undefined); // the new page, not the one being left
 await page.waitForLoadState("load");
 await page.waitForSelector("dialog[open]");
 ok(!(await page.evaluate(() => window.__qaMark)) && sParam() === ids[0] && (await drawerId()) === ids[0], "Back: the page reloads on the previous address with that submission open");
