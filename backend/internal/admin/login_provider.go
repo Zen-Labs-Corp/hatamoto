@@ -214,7 +214,23 @@ func (a *Admin) handleProviderCallback(w http.ResponseWriter, r *http.Request) {
 		a.providerFailed(w, r, next, err)
 		return
 	}
-	a.finishSignIn(w, r, token, next)
+	a.continueSignIn(w, r, token, next)
+}
+
+// continueSignIn sets the session cookie and answers 200 with a page that
+// moves on by itself, instead of redirecting. The provider's redirect back
+// starts a cross-site navigation, and a redirect inside it is still cross-site,
+// so the browser would not send the SameSite=Strict session cookie on it. The
+// page's own navigation (meta refresh or the link) is same-site.
+func (a *Admin) continueSignIn(w http.ResponseWriter, r *http.Request, token, next string) {
+	a.setSession(w, r, token)
+	if next == "" {
+		next = a.landing()
+	}
+	v := a.NewView(w, r, "Signed in")
+	v.ContinueTo = next
+	v.Data = struct{ Next string }{next}
+	a.Render(w, r, http.StatusOK, "auth/continue", v)
 }
 
 // providerFailed answers every provider sign-in problem the same way: the

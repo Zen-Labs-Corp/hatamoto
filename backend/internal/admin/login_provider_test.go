@@ -117,8 +117,18 @@ func TestProviderCallbackSignsIn(t *testing.T) {
 	g.mfa = true
 	c, state := g.start(t, "/admin/login/provider/example/start?next=%2Fadmin%2Fsettings%2Fusers")
 	rec := g.nav(cbPath+"?code=abc&state="+url.QueryEscape(state), c)
-	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/users" {
+	// Never a redirect: it would belong to the cross-site navigation, which
+	// does not carry the SameSite=Strict session cookie. A same-origin page
+	// moves on by itself instead.
+	if rec.Code != 200 || rec.Header().Get("Location") != "" {
 		t.Fatalf("callback: %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `http-equiv="refresh" content="0;url=/admin/settings/users"`) || !strings.Contains(body, `href="/admin/settings/users"`) {
+		t.Fatalf("no refresh or continue link in the page:\n%s", body)
+	}
+	if strings.Contains(body, "<script>") {
+		t.Fatal("the page needs no inline script")
 	}
 	if s := cookieNamed(rec, "hatamoto_session"); s == nil || s.Value != "owner-token" {
 		t.Fatalf("session cookie: %+v", s)
@@ -187,7 +197,7 @@ func TestProviderCallbackStateIsSingleUse(t *testing.T) {
 	g.mfa = true
 	c, state := g.start(t, "/admin/login/provider/example/start")
 	target := cbPath + "?code=abc&state=" + url.QueryEscape(state)
-	if rec := g.nav(target, c); rec.Code != 303 {
+	if rec := g.nav(target, c); rec.Code != 200 {
 		t.Fatalf("first use: %d", rec.Code)
 	}
 	if rec := g.nav(target, c); rec.Code != 422 || cookieNamed(rec, "hatamoto_session") != nil {
@@ -264,7 +274,7 @@ func TestProviderUserWithFactorGoesThroughSecondStepUnlessAsserted(t *testing.T)
 	g2.mfa = true
 	c, state = g2.start(t, "/admin/login/provider/example/start")
 	rec = g2.nav(cbPath+"?state="+url.QueryEscape(state), c)
-	if rec.Code != 303 || cookieNamed(rec, "hatamoto_session") == nil || cookieNamed(rec, "hm_2fa") != nil {
+	if rec.Code != 200 || rec.Header().Get("Location") != "" || cookieNamed(rec, "hatamoto_session") == nil || cookieNamed(rec, "hm_2fa") != nil {
 		t.Fatalf("MFA asserted: %d", rec.Code)
 	}
 }

@@ -721,7 +721,7 @@ func TestEveryPageTemplateIsExercised(t *testing.T) {
 	g := newRig(t)
 	_, pages := g.a.state()
 	covered := map[string]bool{
-		"errors/error": true, "errors/bare": true, "auth/login": true, "auth/forgot": true, "auth/reset": true, "auth/accept": true, "auth/sudo": true, // sudo: sudo_test.go
+		"errors/error": true, "errors/bare": true, "auth/login": true, "auth/forgot": true, "auth/reset": true, "auth/accept": true, "auth/sudo": true, "auth/continue": true, // sudo: sudo_test.go; continue: login_provider_test.go
 		"setup/account": true, "setup/admin-address": true, "setup/admin-address-strength": true, "setup/site": true, "setup/email": true, "setup/theme": true, "setup/content": true, "setup/done": true,
 		"users/list": true, "users/sign-in": true, "users/edit": true, "users/delete": true, "users/link": true, "profile/index": true, "profile/complete": true, "auth/two-step": true, "profile/security": true, "profile/security-totp": true, "profile/security-codes": true, "profile/security-passkey": true, // login_2fa_test.go, profile_security_test.go
 		"people/list": true, "people/new": true, "people/duplicates": true,

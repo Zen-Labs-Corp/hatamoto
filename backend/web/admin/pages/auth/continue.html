@@ -1,0 +1,7 @@
+{{template "layouts/bare" .}}
+{{define "main"}}{{with .Data}}<h1>Signed in</h1>
+<p>Taking you on. If nothing happens, use the button.</p>
+<div class="hm-stack">
+{{template "hm/button" dict "Label" "Continue" "Variant" "primary" "Href" .Next}}
+</div>
+{{end}}{{end}}
