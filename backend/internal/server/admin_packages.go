@@ -23,6 +23,7 @@ import (
 	"hatamoto.dev/core/internal/permtext"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/plugmanifest"
+	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/themestrings"
 	"hatamoto.dev/sdk"
 )
@@ -707,7 +708,7 @@ func (p *packageAdmin) meta(ctx context.Context, r packages.Row) *admin.PackageM
 	}
 	m := &admin.PackageMeta{Enabled: r.Enabled, Signed: r.Signed(), Signer: r.SignerKeyID, FirstParty: firstPartyRow(r), Source: string(r.Source),
 		Update: p.updateFor(ctx, packages.KindPlugin, r.Name, r.Version), UpdateNew: p.updateNewFor(ctx, r.Name, r.Version, man.Asked()),
-		Blocked: p.mgr().Blocked(packages.KindPlugin, r.Name), Revoked: r.DisabledReason, LoadError: p.mgr().LoadError(r.Name), ScriptsBlocked: scripts, MarkupStopped: p.mgr().MarkupStopped(r.Name), TemplatesRefused: p.mgr().TemplatesRefused(r.Name), AsksScripts: slices.Contains(man.Permissions, sdk.PermSiteScripts), Uninstalling: r.State == packages.StateUninstalling}
+		Blocked: p.mgr().Blocked(packages.KindPlugin, r.Name), Revoked: r.DisabledReason, LoadError: p.mgr().LoadError(r.Name), ScriptsBlocked: scripts, MarkupStopped: p.mgr().MarkupStopped(r.Name), TemplatesRefused: p.mgr().TemplatesRefused(r.Name), TemplatesPaused: pausedMeta(p.mgr().TemplatesPaused(r.Name)), AsksScripts: slices.Contains(man.Permissions, sdk.PermSiteScripts), Uninstalling: r.State == packages.StateUninstalling}
 	if r.Name == legacyWebhooksPlugin {
 		m.LegacyFirstParty = firstPartySigned(r)
 		m.WebhooksImported = p.s.webhooksImportRecorded(ctx)
@@ -752,6 +753,18 @@ func registryTags(in []packages.TagSummary) []admin.TagInfo {
 	var out []admin.TagInfo
 	for _, t := range in {
 		out = append(out, admin.TagInfo{Name: t.Name, Category: t.Category, Hosts: slices.Clone(t.Hosts)})
+	}
+	return out
+}
+
+// pausedMeta maps the render snapshot to the admin view (nil stays nil).
+func pausedMeta(in []render.PausedTemplate) []admin.PausedTemplate {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]admin.PausedTemplate, len(in))
+	for i, t := range in {
+		out[i] = admin.PausedTemplate{Kind: t.Kind, Name: t.Name, Until: t.Until}
 	}
 	return out
 }

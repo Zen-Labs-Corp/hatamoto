@@ -1284,6 +1284,12 @@ func (m *Manager) MarkupStopped(name string) []string { return render.PluginMark
 // the reason.
 func (m *Manager) TemplatesRefused(name string) []string { return render.PluginTemplatesRefused(name) }
 
+// TemplatesPaused lists the plugin's templates the range breaker paused, with
+// the time each is tried again. Nil when none.
+func (m *Manager) TemplatesPaused(name string) []render.PausedTemplate {
+	return render.PluginTemplatesPaused(name)
+}
+
 // SetAllowUnsigned stores the owner's opt-in for unsigned packages. until ends
 // a timed opt-in (nil: until turned off); duration is its label for the audit
 // row ("1h", "24h", "forever"; empty when turning it off).

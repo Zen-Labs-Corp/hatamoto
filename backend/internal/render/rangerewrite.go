@@ -3,6 +3,7 @@ package render
 import (
 	"html/template"
 	"strconv"
+	"strings"
 	"text/template/parse"
 )
 
@@ -16,9 +17,14 @@ const rangeBudgetVar = "$hm-budget"
 // package init, so the rewrite itself cannot fail at run time.
 var rangeDecl, rangeGuard parse.Node
 
+// rangeRun is the empty {{if $hm-budget.Run}}{{end}} that the rewrite fills with
+// the original tree, so a template the breaker paused renders nothing.
+var rangeRun *parse.IfNode
+
 func init() {
 	const snippet = `{{$hmbudget := ` + rangeBudgetFunc + ` "p" "t"}}` +
-		`{{range 1}}{{if $hmbudget.Spend}}{{break}}{{end}}{{end}}`
+		`{{range 1}}{{if $hmbudget.Spend}}{{break}}{{end}}{{end}}` +
+		`{{if $hmbudget.Run}}{{end}}`
 	funcs := map[string]any{rangeBudgetFunc: func(string, string) *rangeHandle { return nil }}
 	trees, err := parse.Parse("hm-range-guard", snippet, "", "", funcs)
 	if err != nil {
@@ -29,7 +35,9 @@ func init() {
 	decl.Pipe.Decl[0].Ident[0] = rangeBudgetVar
 	guard := root.Nodes[1].(*parse.RangeNode).List.Nodes[0].(*parse.IfNode)
 	guard.Pipe.Cmds[0].Args[0].(*parse.VariableNode).Ident[0] = rangeBudgetVar
-	rangeDecl, rangeGuard = decl, guard
+	run := root.Nodes[2].(*parse.IfNode)
+	run.Pipe.Cmds[0].Args[0].(*parse.VariableNode).Ident[0] = rangeBudgetVar
+	rangeDecl, rangeGuard, rangeRun = decl, guard, run
 }
 
 // guardRanges prepends the guard to the body of every range under l, at any
@@ -85,7 +93,21 @@ func rewriteRangeTree(t *parse.Tree, plugin, name string) {
 		s := args[i+1].(*parse.StringNode)
 		s.Text, s.Quoted = text, strconv.Quote(text)
 	}
-	t.Root.Nodes = append([]parse.Node{decl}, t.Root.Nodes...)
+	// The {{if}} wrap joins the contexts the escaper sees at the end of the body
+	// and of the empty else branch. That is only safe for a tree that is always
+	// entered from text and starts and ends every branch in text: a section the
+	// engine executes on its own. A partial can be called by a theme from a URL
+	// attribute or a script, where the join makes the escaper fail the page, so
+	// partials are never wrapped. Neither is a section with actions outside text
+	// (a site.scripts template, say). An unwrapped template that is paused stops
+	// its ranges at once (see Spend).
+	if !strings.HasPrefix(name, "section-") || checkPluginActions(name, t) != nil {
+		t.Root.Nodes = append([]parse.Node{decl}, t.Root.Nodes...)
+		return
+	}
+	run := rangeRun.Copy().(*parse.IfNode)
+	run.List.Nodes = t.Root.Nodes
+	t.Root.Nodes = []parse.Node{decl, run}
 }
 
 // definedNames lists the template names src defines, or nil if it does not parse.
