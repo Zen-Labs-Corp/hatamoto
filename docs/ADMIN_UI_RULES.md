@@ -56,6 +56,16 @@ This page writes the admin address as `<admin>`. Tests and the QA harness pin `H
 The CSS in `backend/web/admin/css/` is the source of truth; values in older design
 handoff material are stale, do not copy them.
 
+## Module pages
+
+A compiled-in module adds owner-only Settings pages with `hatamoto.dev/core/adminpages`
+(see `docs/adr/0008-module-admin-pages.md`). Its templates follow the same rules as
+core's: the same partials, tokens and copy rules. `hatamoto.dev/core/adminpages/designcheck.Check`
+runs UI-01, UI-02, UI-03, UI-05, UI-07, UI-08, UI-09 and UI-10 on them, plus MOD-01: no
+class that core's admin CSS does not define, no `<style>` element and no `style` attribute.
+A module ships templates only, no CSS or JavaScript. Core's allowlist of exceptions does
+not apply to modules; run `Check` in the module's tests.
+
 ## House rules
 
 1. **Card footer is right-aligned.** Every submit lives in a footer at the bottom

@@ -3,6 +3,10 @@ package ui
 // DangerConfirm is the hm/danger-confirm partial: an inline danger card with
 // a typed phrase. The server always checks the posted confirm_phrase (see
 // admin.CheckDangerPhrase); the submit state in the browser is only a hint.
+//
+// DangerConfirm, DangerText, DangerPart and ConfirmHidden are re-exported by
+// hatamoto.dev/core/adminpages and are a public contract: do not rename or
+// remove fields (TestDangerTypesFieldSet pins them).
 type DangerConfirm struct {
 	// ID keeps element ids unique when several cards share a page.
 	ID    string

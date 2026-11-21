@@ -5,12 +5,10 @@ import (
 	"io/fs"
 	"os"
 	"regexp"
-	"sort"
 	"strings"
 	"testing"
 	"testing/fstest"
 
-	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/web"
 )
 
@@ -35,7 +33,7 @@ type contractDecl struct {
 func contractDecls(t *testing.T, fsys fs.FS) []contractDecl {
 	t.Helper()
 	var out []contractDecl
-	for _, f := range readUIFiles(t, fsys) {
+	for _, f := range readUIFilesT(t, fsys) {
 		if !strings.HasSuffix(f.name, ".css") || f.name == "css/tokens.css" {
 			continue
 		}
@@ -374,46 +372,6 @@ var contractAllow = []uiAllowEntry{
 	{Rule: "DC-02", File: "css/partials/steps.css", Needle: `.hm-field__control[type="color"]`, Max: 4, Reason: "a colour swatch input is a block, not a text field; follow-up: move to field.css"},
 }
 
-// componentSpec is one entry of components.json, the single source of
-// component values (see docs/ADMIN_UI_RULES.md, Components).
-type componentSpec struct {
-	Selector     string                       `json:"selector"`
-	Owner        string                       `json:"owner"`
-	Partial      string                       `json:"partial,omitempty"`
-	Variants     map[string]string            `json:"variants,omitempty"`
-	Props        map[string]string            `json:"props"`
-	VariantProps map[string]map[string]string `json:"variantProps,omitempty"`
-}
-
-func loadComponents(fsys fs.FS) (map[string]componentSpec, error) {
-	b, err := fs.ReadFile(fsys, "components.json")
-	if err != nil {
-		return nil, err
-	}
-	var spec map[string]componentSpec
-	if err := jsonx.Unmarshal(b, &spec); err != nil {
-		return nil, fmt.Errorf("components.json: %w", err)
-	}
-	for _, name := range sortedNames(spec) {
-		c := spec[name]
-		for _, v := range sortedKeys(c.VariantProps) {
-			if _, ok := c.Variants[v]; !ok {
-				return nil, fmt.Errorf("components.json: %s has variantProps %q without a matching variants key", name, v)
-			}
-		}
-	}
-	return spec, nil
-}
-
-func sortedNames(spec map[string]componentSpec) []string {
-	names := make([]string, 0, len(spec))
-	for n := range spec {
-		names = append(names, n)
-	}
-	sort.Strings(names)
-	return names
-}
-
 func normSpace(s string) string { return strings.Join(strings.Fields(s), " ") }
 
 var dcClass = regexp.MustCompile(`\.([\w-]+)`)
@@ -562,15 +520,6 @@ func lintDC03(spec map[string]componentSpec, decls []contractDecl, fsys fs.FS) [
 		}
 	}
 	return out
-}
-
-func sortedKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 // lintDC02 reports a contract property set outside the owner file, on a rule

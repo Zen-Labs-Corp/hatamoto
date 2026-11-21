@@ -2,6 +2,7 @@ package admin
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -120,6 +121,8 @@ type Crumb = ui.Crumb
 // View is the root template data of every page. Partials never read it
 // implicitly: they take explicit dict arguments.
 type View struct {
+	// areas is the area set of the Admin that built the view; nil means the shared one.
+	areas    []*adminArea
 	Title    string
 	Crumbs   []Crumb
 	SiteName string
@@ -206,6 +209,8 @@ type View struct {
 	// nil outside demo mode or when the file has none for it.
 	DemoPitch *DemoPitch
 	Data      any // page-specific data
+	// ModuleBanners are the owner notices of compiled-in modules (GET only).
+	ModuleBanners []ModuleBanner
 }
 
 // DemoPitch is a demo note as the shell renders it.
@@ -417,6 +422,7 @@ func (a *Admin) build() error {
 	for key, file := range srcs.files {
 		pages[key] = &pageSet{fsys: srcs.fsys, file: file, base: srcs.base, fm: fm, lru: lru}
 	}
+	a.modulePageSets(pages, srcs, fm, lru)
 	a.mu.Lock()
 	a.assets, a.pages, a.loaded = as, pages, true
 	a.partials = &pageSet{base: srcs.base, fm: fm, lru: lru}
@@ -577,7 +583,8 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 	if addr := a.siteAddress(r); addr != "" {
 		v.SiteURL = addr + "/"
 	}
-	v.Section, v.Tab = areaLocateIn(a.adminPath, r.URL.Path)
+	v.areas = a.areas
+	v.Section, v.Tab = areaLocateAmong(a.areaSet(), a.adminPath, r.URL.Path)
 	if v.User != nil {
 		v.Nav = a.nav.For(v.User.Role, r.URL.Path)
 		if v.Section == "" && isPluginsPath(a.adminPath, r.URL.Path) {
@@ -591,23 +598,35 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 		v.StatsBanner = a.statsBanner(r, v.User, v.SetupPending)
 		v.AccessBanner = a.accessBanner(r, v.User)
 		v.ExportBanner = a.exportBanner(r, v.User)
+		v.ModuleBanners = a.moduleBanners(r, v.User)
 	}
 	return v
 }
+
+// errRender marks a render that failed before anything was written; the cause
+// is already logged.
+var errRender = errors.New("admin: render failed")
 
 // Render writes page with status. Normal requests get the whole
 // document; an htmx request targeting a region gets only the page's "main"
 // block. A template error becomes a 500 page, never a half-written response.
 func (a *Admin) Render(w http.ResponseWriter, r *http.Request, status int, page string, v *View) {
+	if a.render(w, r, status, page, v) != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	}
+}
+
+// render is Render that returns an error instead of answering it, so a caller
+// can show its own error page. Nothing is written when it returns one.
+func (a *Admin) render(w http.ResponseWriter, r *http.Request, status int, page string, v *View) error {
 	as, pages := a.state()
 	ps, ok := pages[page]
 	if !ok {
 		a.logger().Error("admin: unknown page", "page", page)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
+		return errRender
 	}
 	if len(v.Crumbs) == 0 {
-		v.Crumbs = defaultAreaCrumbs(a.adminPath, v.Path, v.Section, v.Tab, v.Title)
+		v.Crumbs = defaultAreaCrumbsIn(a.areaSet(), a.adminPath, v.Path, v.Section, v.Tab, v.Title)
 	}
 	name := "page"
 	if isFragment(r) {
@@ -616,29 +635,25 @@ func (a *Admin) Render(w http.ResponseWriter, r *http.Request, status int, page 
 	tmpl, err := ps.tmpl()
 	if err != nil {
 		a.logger().Error("admin: page template", "page", page, "err", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
+		return errRender
 	}
 	mods, err := pageModules(tmpl, as)
 	if err != nil {
 		a.logger().Error("admin: page modules", "page", page, "err", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
+		return errRender
 	}
 	v.Modules = mods
 	scripts, err := pageScripts(tmpl)
 	if err != nil {
 		a.logger().Error("admin: page scripts", "page", page, "err", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
+		return errRender
 	}
 	v.Scripts = append(v.Scripts, scripts...)
 	v.Width = pageWidth(v.Width)
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, name, v); err != nil {
 		a.logger().Error("admin: render failed", "page", page, "err", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
+		return errRender
 	}
 	if name == "page" && !v.SkipMarkupHooks && v.addMarkupNeeds(buf.String()) {
 		// The markup carries hooks (schemaform fields) whose scripts the page
@@ -646,8 +661,7 @@ func (a *Admin) Render(w http.ResponseWriter, r *http.Request, status int, page 
 		buf.Reset()
 		if err := tmpl.ExecuteTemplate(&buf, name, v); err != nil {
 			a.logger().Error("admin: render failed", "page", page, "err", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
+			return errRender
 		}
 	}
 	h := w.Header()
@@ -659,6 +673,7 @@ func (a *Admin) Render(w http.ResponseWriter, r *http.Request, status int, page 
 	if r.Method != http.MethodHead {
 		_, _ = w.Write(buf.Bytes())
 	}
+	return nil
 }
 
 // pageWidth maps a View.Width to one of the layout widths.

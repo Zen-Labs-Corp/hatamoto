@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/starter"
+	"hatamoto.dev/core/internal/adminpagestate"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/email"
@@ -195,7 +196,11 @@ type Mailer interface {
 // Deps is everything the admin needs. Interfaces are declared here (not in the
 // services) so handler tests run on fakes without a database.
 type Deps struct {
-	Logger *slog.Logger
+	// ModulePages and ModuleBanners are the owner-only Settings pages and
+	// banners that compiled-in modules registered; empty in a community build.
+	ModulePages   []adminpagestate.Page
+	ModuleBanners []adminpagestate.NamedBanner
+	Logger        *slog.Logger
 	// Sessions, Users and Site may be nil only in route-table builds: the
 	// handlers are never invoked there.
 	Sessions SessionStore
@@ -415,7 +420,11 @@ const DefaultAdminPath = "/admin"
 // Admin holds the parsed templates and assets and the HTTP handlers.
 type Admin struct {
 	deps Deps
-	nav  *Nav
+	// areas and settings are this Admin's secondary-nav areas: the shared
+	// ones, unless module pages add Settings sections.
+	areas    []*adminArea
+	settings *adminArea
+	nav      *Nav
 	// refreshCommentsNav recounts the Comments sidebar item now; nil without a comment service.
 	refreshCommentsNav func()
 	adminFS            fs.FS
@@ -501,6 +510,11 @@ func New(d Deps) (*Admin, error) {
 		speculation:   speculationRulesFor(adminPath),
 		appVersion:    displayAppVersion(d.AppVersion),
 		csrfKey:       deriveCSRFKey(d.FlashKey),
+	}
+	a.areas, a.settings = adminAreas, settingsArea
+	if len(d.ModulePages) > 0 {
+		a.settings = moduleSettingsArea(d.ModulePages)
+		a.areas = []*adminArea{a.settings, themeArea, analyticsArea}
 	}
 	a.sudo.store = &d.Sudo.s
 	a.tickets = &ticketStore{key: deriveTicketKey(a.csrfKey)}

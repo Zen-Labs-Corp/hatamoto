@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/admin/starter"
+	"hatamoto.dev/core/internal/adminpagestate"
 	"hatamoto.dev/core/internal/adminpath"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/httpx"
@@ -69,6 +70,11 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 		PublicAPIPrefix:  s.cfg.PublicSite.APIPrefix,
 		Demo:             s.cfg.Demo,
 		PreviewHost:      s.cfg.Admin.PreviewHost,
+		// The registry is frozen by app.Main before the server starts; every
+		// Admin (including a rebuild after an address change) derives its own
+		// Settings area from these copies.
+		ModulePages:   adminpagestate.Pages(),
+		ModuleBanners: adminpagestate.Banners(),
 	}
 	// Interfaces are only set from non-nil services (a typed nil would pass a
 	// nil check later); the route-table build has none and never serves.

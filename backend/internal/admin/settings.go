@@ -58,6 +58,7 @@ func (a *Admin) mountSettings(authed *httpx.Group) {
 	owner.HandleFunc("POST /settings/general/email", a.handleNotifySave)
 	a.mountAPIKeys(owner)
 	a.mountWebhooks(owner)
+	a.mountModulePages(owner)
 }
 
 func (a *Admin) loadSite(ctx context.Context) (*siteconfig.Config, error) {

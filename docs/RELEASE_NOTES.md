@@ -7,6 +7,13 @@
 - **Docs.** [ADR 0007](adr/0007-module-extension-points.md), a "Go module extension points" section in [Plugin API](PLUGIN_API.md) and module commands in [Command line](CLI.md).
 - **Migration.** None. Rollback floor: unchanged.
 
+## Unreleased: owner-only Settings pages and banners for compiled-in modules
+
+- **Modules.** A new public Go package, `hatamoto.dev/core/adminpages`, lets a wrapper module that calls `app.Main` add owner-only pages under Settings and owner banners at the top of the admin, from an `init` function. `adminpages/designcheck.Check` checks a module's templates against core's design rules in a test.
+- **Unchanged.** A standard build registers nothing, so no page or banner appears and nothing else changes.
+- **Docs.** [ADR 0008](adr/0008-module-admin-pages.md) has the compatibility rules.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: refused plugin templates listed at install, in plain words
 
 - **Admin.** A plugin's page lists templates that are not registered as soon as the install, update or enable finishes, one plain sentence each. The 256 KiB output limit is named as its own reason instead of a scripts stop.

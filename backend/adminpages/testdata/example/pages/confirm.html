@@ -1,0 +1,6 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Erase example data" "Description" "Remove everything the example module stores."}}
+<section class="hm-stack">
+{{template "hm/danger-confirm" .Danger}}
+</section>
+{{end}}{{end}}

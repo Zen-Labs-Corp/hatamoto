@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"hatamoto.dev/core/internal/adminpagestate"
 	"hatamoto.dev/core/internal/httpx"
 
 	"hatamoto.dev/core/internal/admin/ui"
@@ -38,7 +39,13 @@ type SettingsSection struct {
 type settingsTabDef struct {
 	ID, Label, Final, Legacy string
 	Roles                    []string
+	// Live marks a tab that answers on Final without a settingsLive entry
+	// (module pages, which exist per Admin).
+	Live bool
 }
+
+// tabLive reports whether the tab's page answers on its Final path.
+func tabLive(td settingsTabDef) bool { return td.Live || settingsLive[td.ID] }
 
 type settingsSectionDef struct {
 	ID, Label, Icon, Desc, Group string
@@ -239,9 +246,30 @@ var analyticsArea = &adminArea{ID: "analytics", Label: "Analytics", Entry: "/ana
 // adminAreas are the areas with a secondary sidebar.
 var adminAreas = []*adminArea{settingsArea, themeArea, analyticsArea}
 
+// moduleSettingsArea is the Settings area with one section per module page
+// appended after the core sections, in the System group, owners only. The core
+// registry is copied, never modified: it is shared by every Admin.
+func moduleSettingsArea(ps []adminpagestate.Page) *adminArea {
+	reg := make([]settingsSectionDef, len(settingsRegistry), len(settingsRegistry)+len(ps))
+	copy(reg, settingsRegistry)
+	for _, p := range ps {
+		icon := p.Icon
+		if _, err := iconSVG(icon); err != nil {
+			icon = "puzzle"
+		}
+		id := "module-" + p.ID
+		reg = append(reg, settingsSectionDef{ID: id, Label: p.Label, Icon: icon, Desc: p.Desc, Group: "System", Tabs: []settingsTabDef{
+			{ID: id, Label: p.Label, Final: "/settings/modules/" + p.ID, Roles: ownerOnly, Live: true},
+		}})
+	}
+	return &adminArea{ID: settingsArea.ID, Label: settingsArea.Label, Entry: settingsArea.Entry, Registry: reg}
+}
+
 // areaOfSection is the area that owns section, or nil.
-func areaOfSection(section string) *adminArea {
-	for _, ar := range adminAreas {
+func areaOfSection(section string) *adminArea { return areaOfSectionIn(adminAreas, section) }
+
+func areaOfSectionIn(areas []*adminArea, section string) *adminArea {
+	for _, ar := range areas {
 		for _, sd := range ar.Registry {
 			if sd.ID == section {
 				return ar
@@ -251,9 +279,9 @@ func areaOfSection(section string) *adminArea {
 	return nil
 }
 
-// areaOfTab is the area that owns tab, or nil.
-func areaOfTab(tab string) *adminArea {
-	for _, ar := range adminAreas {
+// areaOfTabIn is the area in areas that owns tab, or nil.
+func areaOfTabIn(areas []*adminArea, tab string) *adminArea {
+	for _, ar := range areas {
 		for _, sd := range ar.Registry {
 			for _, td := range sd.Tabs {
 				if td.ID == tab {
@@ -316,7 +344,7 @@ func (ar *adminArea) forPrefix(prefix, role string) []SettingsSection {
 				continue
 			}
 			href := td.Legacy
-			if settingsLive[td.ID] {
+			if tabLive(td) {
 				href = prefix + td.Final
 			}
 			if href == "" {
@@ -337,6 +365,11 @@ func (ar *adminArea) forPrefix(prefix, role string) []SettingsSection {
 // a "/" boundary, so a moved page (and its edit, confirm and error views)
 // lands in its area's frame without each handler naming its section.
 func areaLocateIn(prefix, full string) (section, tab string) {
+	return areaLocateAmong(adminAreas, prefix, full)
+}
+
+// areaLocateAmong is areaLocateIn over the given areas.
+func areaLocateAmong(areas []*adminArea, prefix, full string) (section, tab string) {
 	path, ok := strings.CutPrefix(full, prefix)
 	if !ok || (path != "" && path[0] != '/') {
 		return "", ""
@@ -348,10 +381,10 @@ func areaLocateIn(prefix, full string) (section, tab string) {
 	// The longest Final wins, so a tab that lives below another tab's path
 	// is not taken for a sub-page of it.
 	best := 0
-	for _, ar := range adminAreas {
+	for _, ar := range areas {
 		for _, sd := range ar.Registry {
 			for _, td := range sd.Tabs {
-				if settingsLive[td.ID] && len(td.Final) > best && (path == td.Final || strings.HasPrefix(path, td.Final+"/")) {
+				if tabLive(td) && len(td.Final) > best && (path == td.Final || strings.HasPrefix(path, td.Final+"/")) {
 					section, tab, best = sd.ID, td.ID, len(td.Final)
 				}
 			}
@@ -364,11 +397,15 @@ func areaLocateIn(prefix, full string) (section, tab string) {
 // prefix: the area, the section, the tab, then tail. The section and tab
 // collapse into one crumb when they share a label (General, Media, Blocks).
 func (a *Admin) areaCrumbs(tab string, tail ...Crumb) []Crumb {
-	return areaCrumbsFor(a.adminPath, tab, tail...)
+	return areaCrumbsIn(a.areaSet(), a.adminPath, tab, tail...)
 }
 
 func areaCrumbsFor(prefix, tab string, tail ...Crumb) []Crumb {
-	ar := areaOfTab(tab)
+	return areaCrumbsIn(adminAreas, prefix, tab, tail...)
+}
+
+func areaCrumbsIn(areas []*adminArea, prefix, tab string, tail ...Crumb) []Crumb {
+	ar := areaOfTabIn(areas, tab)
 	if ar == nil {
 		return tail
 	}
@@ -394,10 +431,10 @@ func areaCrumbsFor(prefix, tab string, tail ...Crumb) []Crumb {
 	return append(out, tail...)
 }
 
-// defaultAreaCrumbs gives an area sub-page that set no crumbs of its own the
+// defaultAreaCrumbsIn gives an area sub-page that set no crumbs of its own the
 // chain ending in its title. The tab's own page gets none.
-func defaultAreaCrumbs(prefix, path, section, tab, title string) []Crumb {
-	ar := areaOfTab(tab)
+func defaultAreaCrumbsIn(areas []*adminArea, prefix, path, section, tab, title string) []Crumb {
+	ar := areaOfTabIn(areas, tab)
 	if section == "" || ar == nil {
 		return nil
 	}
@@ -408,7 +445,7 @@ func defaultAreaCrumbs(prefix, path, section, tab, title string) []Crumb {
 			}
 		}
 	}
-	return areaCrumbsFor(prefix, tab, Crumb{Label: title})
+	return areaCrumbsIn(areas, prefix, tab, Crumb{Label: title})
 }
 
 // area is the area of the page's section, or nil.
@@ -416,7 +453,10 @@ func (v *View) area() *adminArea {
 	if v.Section == "" || v.User == nil {
 		return nil
 	}
-	return areaOfSection(v.Section)
+	if v.areas == nil {
+		return areaOfSection(v.Section)
+	}
+	return areaOfSectionIn(v.areas, v.Section)
 }
 
 // AreaNav is the secondary sidebar of the signed-in user; the shell renders it
@@ -508,7 +548,7 @@ func (a *Admin) areaEntry(ar *adminArea) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		role := userFrom(r.Context()).Role
 		want := r.URL.Query().Get("section")
-		if ar == settingsArea {
+		if ar == a.settingsArea() {
 			if to, ok := themeMoved[want]; ok {
 				if href := areaHref(a.adminPath, themeArea, role, to); href != "" {
 					http.Redirect(w, r, href, http.StatusSeeOther)
@@ -516,17 +556,17 @@ func (a *Admin) areaEntry(ar *adminArea) http.HandlerFunc {
 				}
 			}
 		}
-		if to, ok := settingsMovedOut[want]; ok && ar == settingsArea {
+		if to, ok := settingsMovedOut[want]; ok && ar == a.settingsArea() {
 			http.Redirect(w, r, a.adminPath+to, http.StatusSeeOther)
 			return
 		}
-		if tab, ok := settingsOldPages[want]; ok && ar == settingsArea {
+		if tab, ok := settingsOldPages[want]; ok && ar == a.settingsArea() {
 			if href := settingsTabHref(a.adminPath, role, tab); href != "" {
 				http.Redirect(w, r, href, http.StatusSeeOther)
 				return
 			}
 		}
-		if alias, ok := settingsSectionAliases[want]; ok && ar == settingsArea {
+		if alias, ok := settingsSectionAliases[want]; ok && ar == a.settingsArea() {
 			want = alias
 		}
 		to := areaHref(a.adminPath, ar, role, want)
@@ -542,7 +582,7 @@ func (a *Admin) areaEntry(ar *adminArea) http.HandlerFunc {
 // role: /settings, and each multi-tab section URL, which redirects to its
 // first reachable tab.
 func (a *Admin) mountSettingsFrame(authed *httpx.Group) {
-	authed.HandleFunc("GET /settings", a.areaEntry(settingsArea))
+	authed.HandleFunc("GET /settings", a.areaEntry(a.settingsArea()))
 	// Multi-tab sections whose ID is not already a tab URL, plus the old IDs.
 	for _, id := range []string{
 		"entity-models", "import-export", "security", "content-model", "seo", "team",
@@ -575,4 +615,21 @@ func (a *Admin) mountSettingsFrame(authed *httpx.Group) {
 // POST /theme of the admin colour-scheme switch is a different route.
 func (a *Admin) mountThemeFrame(authed *httpx.Group) {
 	authed.HandleFunc("GET /theme", a.areaEntry(themeArea))
+}
+
+// areaSet is the areas of this Admin: the shared ones, or with module pages the
+// Settings area replaced by its per-Admin copy.
+func (a *Admin) areaSet() []*adminArea {
+	if a.areas == nil {
+		return adminAreas
+	}
+	return a.areas
+}
+
+// settingsArea is this Admin's Settings area.
+func (a *Admin) settingsArea() *adminArea {
+	if a.settings == nil {
+		return settingsArea
+	}
+	return a.settings
 }
