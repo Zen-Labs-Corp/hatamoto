@@ -18,6 +18,7 @@ import (
 
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/editionstate"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/packages"
@@ -297,8 +298,9 @@ func packageManager(ctx context.Context, logger *slog.Logger, devFlag bool) (*pa
 	}
 	registerInstalledPluginTemplates(ctx, packages.NewStore(db.Pool()), logger)
 	mainReg, devReg := packageRegistries(cfg.Packages, trust)
+	pluginKey, _ := editionstate.PluginKey()
 	m := packages.NewManager(packages.Options{
-		Pool: db.Pool(), Trust: trust, AllowDev: dev, Engine: eng, Logger: logger,
+		Pool: db.Pool(), Trust: trust, PluginKey: pluginKey, Entitled: editionstate.Plugin, AllowDev: dev, Engine: eng, Logger: logger,
 		Registry: mainReg, DeveloperRegistry: devReg,
 		MenuSeeder: menu.NewService(menu.NewPostgresRepository(db), logger),
 	})

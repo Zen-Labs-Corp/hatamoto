@@ -304,7 +304,8 @@ func refusal(err error) error {
 		errors.Is(err, packages.ErrUnsigned), errors.Is(err, packages.ErrUntrustedKey), errors.Is(err, packages.ErrBadSignature),
 		errors.Is(err, packages.ErrUnsignedNotAllowed), errors.Is(err, packages.ErrSignerNotAllowed), errors.Is(err, packages.ErrDevDisabled),
 		errors.Is(err, packages.ErrReservedName), errors.Is(err, packages.ErrPermission), errors.Is(err, packages.ErrRegistryOff), errors.Is(err, packages.ErrCommunityScripts), errors.Is(err, packages.ErrCommunityTags), errors.Is(err, packages.ErrCommunityCSP),
-		errors.Is(err, packages.ErrDeveloperOff), errors.Is(err, packages.ErrDeveloperKeyMismatch), errors.Is(err, packages.ErrDeveloperSignerChanged), errors.Is(err, packages.ErrRevoked), errors.Is(err, packages.ErrRedirectPathTaken):
+		errors.Is(err, packages.ErrDeveloperOff), errors.Is(err, packages.ErrDeveloperKeyMismatch), errors.Is(err, packages.ErrDeveloperSignerChanged), errors.Is(err, packages.ErrRevoked), errors.Is(err, packages.ErrRedirectPathTaken),
+		errors.Is(err, packages.ErrCommercialNotEntitled), errors.Is(err, packages.ErrCommercialSigner):
 		return &admin.Refusal{Msg: strings.TrimPrefix(err.Error(), "package: ")}
 	}
 	if strings.Contains(err.Error(), "registry") || strings.Contains(err.Error(), "download") {
@@ -408,7 +409,8 @@ func (p *packageAdmin) SetEnabled(ctx context.Context, name string, on bool) err
 // redirect path another plugin holds) into readable ones; anything else is
 // left as it is.
 func enableRefusal(err error) error {
-	if errors.Is(err, packages.ErrRevoked) || errors.Is(err, packages.ErrRedirectPathTaken) {
+	if errors.Is(err, packages.ErrRevoked) || errors.Is(err, packages.ErrRedirectPathTaken) ||
+		errors.Is(err, packages.ErrCommercialNotEntitled) || errors.Is(err, packages.ErrCommercialSigner) {
 		return refusal(err)
 	}
 	return err

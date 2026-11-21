@@ -137,6 +137,9 @@ func (m *Manager) checkPolicy(ctx context.Context, p *Package, src Source) (*dev
 	if len(m.OnlySigners) > 0 && !slices.Contains(m.OnlySigners, signerOf(p)) {
 		return nil, ErrSignerNotAllowed
 	}
+	if isCommercial(p) {
+		return nil, m.commercialPolicy(ctx, p, src)
+	}
 	err := m.Trust.Verify(p)
 	switch {
 	case err == nil:

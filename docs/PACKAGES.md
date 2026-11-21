@@ -142,7 +142,19 @@ in `HATAMOTO_TRUSTED_KEYS` (base64 public keys, separated by commas or spaces;
    says production or its own `ENVIRONMENT=production`, and otherwise needs an
    explicit `--dev` flag (or `ENVIRONMENT=development`), because the CLI's own
    default environment is development.
-5. Replacing an installed package asks the owner to confirm when the new version
+5. A plugin whose manifest says `license: "commercial"` skips steps 2 to 4 and is
+   decided alone. It installs and loads only when the host's edition registered a
+   plugin key, the package is signed by exactly that key and the edition entitles
+   the plugin by name. `HATAMOTO_TRUSTED_KEYS`, the unsigned opt-in, the
+   developer index, a `theme dev` push and `HATAMOTO_PLUGIN_DIR` never admit it,
+   and the plugin key never signs anything else. Its `sdk` range must exclude
+   hosts older than 0.26 (for example `^0.26`), which would ignore the field.
+   The refusals are "commercial plugin not entitled on this site" (no key,
+   a dev source, or no entitlement) and "commercial plugin is not signed by this
+   site's plugin key". The check repeats on enable, load and every reconcile, so
+   losing the entitlement stops the plugin. The CLI has no site id: an edition
+   gate that needs one denies there, so install commercial plugins from the admin.
+6. Replacing an installed package asks the owner to confirm when the new version
    is not newer (a downgrade or the same version again), when another trusted key
    signed it (a plugin's grants are then cleared and must be ticked again), when
    a plugin update lists web addresses (`allowed_hosts`) the installed version did

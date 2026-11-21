@@ -106,3 +106,25 @@ func TestEnableRefusalRedirectPathTaken(t *testing.T) {
 		t.Errorf("an unrelated error was changed: %v", got)
 	}
 }
+
+// A commercial plugin the site may not use reads as a refusal, never a 500.
+func TestRefusalCommercial(t *testing.T) {
+	for _, err := range []error{
+		fmt.Errorf("audit-x: %w", packages.ErrCommercialNotEntitled),
+		fmt.Errorf("audit-x: %w", packages.ErrCommercialSigner),
+	} {
+		var r *admin.Refusal
+		if got := refusal(err); !errors.As(got, &r) || !strings.Contains(r.Msg, "commercial plugin") {
+			t.Errorf("%v: got %v, want a refusal containing %q", err, got, "commercial plugin")
+		}
+	}
+}
+
+// Turning a commercial plugin on without the entitlement is a refusal too.
+func TestEnableRefusalCommercial(t *testing.T) {
+	var r *admin.Refusal
+	err := enableRefusal(fmt.Errorf("audit-x: %w", packages.ErrCommercialNotEntitled))
+	if !errors.As(err, &r) || !strings.Contains(r.Msg, "commercial plugin") {
+		t.Errorf("got %v, want a refusal containing %q", err, "commercial plugin")
+	}
+}

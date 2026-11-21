@@ -54,3 +54,20 @@ func TestSDKRefusalMatchesCompatible(t *testing.T) {
 		}
 	}
 }
+
+func TestCommercialRangeRefusal(t *testing.T) {
+	for _, tc := range []struct {
+		license, rng string
+		refuse       bool
+	}{
+		{sdk.LicenseCommercial, "^0.26", false},
+		{sdk.LicenseCommercial, "^0.5", true},
+		{sdk.LicenseCommercial, ">=0.25.0", true},
+		{"", "^0.5", false},
+	} {
+		err := CommercialRangeRefusal(sdk.Manifest{Name: "pro", SDK: tc.rng, License: sdk.License(tc.license)})
+		if (err != nil) != tc.refuse {
+			t.Errorf("license %q sdk %q: err = %v, refuse want %v", tc.license, tc.rng, err, tc.refuse)
+		}
+	}
+}

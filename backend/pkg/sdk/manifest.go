@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"net/http"
@@ -51,12 +52,51 @@ const (
 	MaxOutputBytes      = 4 << 20 // 4 MiB
 )
 
+// LicenseCommercial marks a plugin that needs an edition's plugin key and entitlement (SDK 0.26).
+const LicenseCommercial = "commercial"
+
+// LicenseNotString is the value a stored manifest gets when its license member
+// is not a JSON string (the npm object form, an array). It is never commercial,
+// so such a plugin loads as a normal one, and ParseNew refuses it for new installs.
+const LicenseNotString = "(not a string)"
+
+// License is the manifest license member. Reading it never fails: a value that
+// is not a string becomes LicenseNotString, so a plugin installed before SDK
+// 0.26 (when hosts ignored the member) stays decodable.
+type License string
+
+// UnmarshalJSON accepts any JSON value; only a string keeps its value.
+func (l *License) UnmarshalJSON(b []byte) error {
+	var s string
+	switch jsontext.Value(b).Kind() {
+	case '"':
+		if err := jsonv2.Unmarshal(b, &s); err != nil {
+			return err
+		}
+	case 'n':
+	default:
+		s = LicenseNotString
+	}
+	*l = License(s)
+	return nil
+}
+
+// Valid reports whether l is accepted for a package that is being installed:
+// "" or exactly LicenseCommercial.
+func (l License) Valid() bool { return l == "" || l == LicenseCommercial }
+
 // Manifest is the content of a plugin's plugin.json.
 type Manifest struct {
 	Name        string `json:"name"`
 	Version     string `json:"version"` // the plugin's own semver
 	SDK         string `json:"sdk"`     // SDK range the plugin was built against, e.g. "^0.5"
 	Description string `json:"description,omitempty"`
+
+	// License is "" (default) or LicenseCommercial (SDK 0.26). A commercial plugin is
+	// installed and run only by a host whose edition holds a plugin key and entitles it.
+	// Only an exact LicenseCommercial has meaning when a manifest is loaded; any other
+	// value is a normal plugin. A new install accepts only "" or LicenseCommercial.
+	License License `json:"license,omitempty"`
 
 	// Config is handed to the guest (pdk.GetConfig).
 	Config map[string]string `json:"config,omitempty"`

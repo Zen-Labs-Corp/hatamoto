@@ -311,6 +311,9 @@ func ParseNew(raw []byte, lim Limits) (*Package, error) {
 		if err := checkManifestNames(p.Manifest); err != nil {
 			return nil, refuse("%s: %v", PluginManifest, err)
 		}
+		if man, err := p.PluginManifest(); err == nil && !man.License.Valid() {
+			return nil, refuse("%s: license %q (want \"\" or %q)", PluginManifest, string(man.License), sdk.LicenseCommercial)
+		}
 	}
 	return p, nil
 }
