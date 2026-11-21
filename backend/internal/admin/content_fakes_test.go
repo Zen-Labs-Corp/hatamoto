@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/auditctx"
 	"hatamoto.dev/core/internal/author"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
@@ -30,8 +31,9 @@ var t0 = time.Date(2026, 3, 1, 9, 0, 0, 0, time.UTC)
 // (validation by the real validator, versions on attribute change, parents).
 type fakeEntities struct {
 	mu            sync.Mutex
-	moveErr       error // MoveEntity fails with it
-	tookOwnership bool  // UpdateEntity reports a hand-over, as the service does for a plugin-owned entity
+	onAudit       func(AuditEvent) // records the row the entity store writes for an audited write
+	moveErr       error            // MoveEntity fails with it
+	tookOwnership bool             // UpdateEntity reports a hand-over, as the service does for a plugin-owned entity
 	schemas       []*entity.EntitySchema
 	ents          map[uuid.UUID]*entity.Entity
 	versions      map[uuid.UUID][]*entity.EntityVersion
@@ -180,7 +182,23 @@ func (f *fakeEntities) GetEntity(_ context.Context, id uuid.UUID) (*entity.Entit
 	c.Schema = f.schemaOf(e.SchemaID)
 	return &c, nil
 }
-func (f *fakeEntities) CreateEntity(_ context.Context, by *uuid.UUID, in *entity.CreateEntityInput) (*entity.Entity, error) {
+
+// audited records the row the real store writes in the write's transaction:
+// only for a call whose context carries an actor, merged like the store does.
+func (f *fakeEntities) audited(ctx context.Context, action string, e *entity.Entity, detail map[string]any) {
+	a, ok := auditctx.From(ctx)
+	if !ok || f.onAudit == nil {
+		return
+	}
+	detail["name"], detail["slug"] = e.Name, e.Slug
+	for k, v := range a.Detail {
+		if _, set := detail[k]; !set {
+			detail[k] = v
+		}
+	}
+	f.onAudit(AuditEvent{ActorID: a.ID, Actor: a.Name, Action: action, Target: e.ID.String(), Detail: detail})
+}
+func (f *fakeEntities) CreateEntity(ctx context.Context, by *uuid.UUID, in *entity.CreateEntityInput) (*entity.Entity, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	s := f.schemaOf(in.SchemaID)
@@ -203,10 +221,11 @@ func (f *fakeEntities) CreateEntity(_ context.Context, by *uuid.UUID, in *entity
 	e := &entity.Entity{ID: fid(f.nextID), SchemaID: s.ID, Name: in.Name, Slug: slug, Status: entity.StatusDraft, Attributes: in.Attributes, Version: 1,
 		ParentID: in.ParentID, AuthorID: in.AuthorID, BylinePersonID: in.BylinePersonID, BylineOrg: in.BylineOrg, CreatedBy: by, CreatedAt: t0, UpdatedAt: t0}
 	f.ents[e.ID] = e
+	f.audited(ctx, "entity.create", e, map[string]any{"status": string(e.Status)})
 	c := *e
 	return &c, nil
 }
-func (f *fakeEntities) UpdateEntity(_ context.Context, id uuid.UUID, _ *uuid.UUID, in *entity.UpdateEntityInput) (*entity.Entity, error) {
+func (f *fakeEntities) UpdateEntity(ctx context.Context, id uuid.UUID, _ *uuid.UUID, in *entity.UpdateEntityInput) (*entity.Entity, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	e, ok := f.ents[id]
@@ -270,11 +289,18 @@ func (f *fakeEntities) UpdateEntity(_ context.Context, id uuid.UUID, _ *uuid.UUI
 		e.BylinePersonID, e.BylineOrg = nil, true
 	}
 	e.UpdatedAt = t0.Add(48 * time.Hour)
+	if !in.Autosave {
+		d := map[string]any{}
+		if f.tookOwnership {
+			d["took_ownership"] = true
+		}
+		f.audited(ctx, "entity.update", e, d)
+	}
 	c := *e
 	c.TookOwnership = f.tookOwnership
 	return &c, nil
 }
-func (f *fakeEntities) UpdateEntityStatus(_ context.Context, id uuid.UUID, _ *uuid.UUID, st entity.EntityStatus) (*entity.Entity, error) {
+func (f *fakeEntities) UpdateEntityStatus(ctx context.Context, id uuid.UUID, _ *uuid.UUID, st entity.EntityStatus) (*entity.Entity, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	e, ok := f.ents[id]
@@ -285,10 +311,11 @@ func (f *fakeEntities) UpdateEntityStatus(_ context.Context, id uuid.UUID, _ *uu
 	if st == entity.StatusPublished && e.PublishedAt == nil {
 		e.PublishedAt = ptr(t0)
 	}
+	f.audited(ctx, fakeStatusAction(st), e, map[string]any{"to": string(st)})
 	c := *e
 	return &c, nil
 }
-func (f *fakeEntities) ScheduleEntity(_ context.Context, id uuid.UUID, _ *uuid.UUID, at time.Time) (*entity.Entity, error) {
+func (f *fakeEntities) ScheduleEntity(ctx context.Context, id uuid.UUID, _ *uuid.UUID, at time.Time) (*entity.Entity, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	e, ok := f.ents[id]
@@ -299,10 +326,11 @@ func (f *fakeEntities) ScheduleEntity(_ context.Context, id uuid.UUID, _ *uuid.U
 		return nil, entity.ErrScheduleInPast
 	}
 	e.Status, e.PublishedAt = entity.StatusScheduled, &at
+	f.audited(ctx, "entity.schedule", e, map[string]any{"publish_at": at.UTC().Format(time.RFC3339)})
 	c := *e
 	return &c, nil
 }
-func (f *fakeEntities) DeleteEntity(_ context.Context, id uuid.UUID) error {
+func (f *fakeEntities) DeleteEntity(ctx context.Context, id uuid.UUID) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if _, ok := f.ents[id]; !ok {
@@ -313,8 +341,20 @@ func (f *fakeEntities) DeleteEntity(_ context.Context, id uuid.UUID) error {
 			return entity.ErrHasChildren
 		}
 	}
+	f.audited(ctx, "entity.delete", f.ents[id], map[string]any{})
 	delete(f.ents, id)
 	return nil
+}
+
+// fakeStatusAction is the audit action of a move to st, as the store names it.
+func fakeStatusAction(st entity.EntityStatus) string {
+	switch st {
+	case entity.StatusPublished:
+		return "entity.publish"
+	case entity.StatusArchived:
+		return "entity.archive"
+	}
+	return "entity.unpublish"
 }
 
 // isUnder reports whether e is a descendant of root (callers hold f.mu).
@@ -506,6 +546,7 @@ type fakeTerms struct {
 	mu     sync.Mutex
 	terms  []*taxonomy.Term
 	attach map[uuid.UUID][]uuid.UUID // entity -> terms
+	actors []bool                    // per ReplaceEntityTerms call: did its ctx carry an audit actor
 	nextID int
 }
 
@@ -659,9 +700,11 @@ func (f *fakeTerms) ListTermsForEntity(_ context.Context, id uuid.UUID) ([]*taxo
 	}
 	return out, nil
 }
-func (f *fakeTerms) ReplaceEntityTerms(_ context.Context, id uuid.UUID, ids []uuid.UUID) error {
+func (f *fakeTerms) ReplaceEntityTerms(ctx context.Context, id uuid.UUID, ids []uuid.UUID) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	_, actor := auditctx.From(ctx)
+	f.actors = append(f.actors, actor)
 	f.attach[id] = slices.Clone(ids)
 	return nil
 }

@@ -11,7 +11,9 @@ import (
 // record wires a recording audit sink into the rig and returns the rows so far.
 func (c *contentRig) record() func() []AuditEvent {
 	var got []AuditEvent
-	c.a.deps.Audit = func(_ context.Context, e AuditEvent) { got = append(got, e) }
+	capture := func(e AuditEvent) { got = append(got, e) }
+	c.a.deps.Audit = func(_ context.Context, e AuditEvent) { capture(e) }
+	c.ents.onAudit = capture
 	return func() []AuditEvent { return got }
 }
 
@@ -201,5 +203,37 @@ func TestScheduledSaveWritesADistinctScheduleRow(t *testing.T) {
 	wantAudit(t, rows(), "entity.update", "entity.schedule")
 	if auditLabel("entity.schedule") == auditLabel("entity.update") || auditLabel("entity.schedule") == "entity.schedule" {
 		t.Errorf("schedule label = %q", auditLabel("entity.schedule"))
+	}
+}
+
+func TestEntityTxCreateWritesEntityCreate(t *testing.T) {
+	t.Parallel()
+
+	c := newContentRig(t)
+	rows := c.record()
+	form := url.Values{"type": {c.service.Slug}, "name": {"Zeta quartz"}, "attr.summary": {"New"}}
+	if rec := c.post("/admin/entities", form); rec.Code != 303 {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
+	}
+	wantAudit(t, rows(), "entity.create")
+	if d := rows()[0].Detail; d["name"] != "Zeta quartz" || d["schema"] != c.service.Slug || d["status"] != "draft" {
+		t.Errorf("detail = %v", d)
+	}
+}
+
+// The actor reaches the entity write only: the term call after a save keeps
+// the plain request context, so it cannot write a second row.
+func TestEntityTxTermCallCarriesNoActor(t *testing.T) {
+	t.Parallel()
+
+	c := newContentRig(t)
+	rows := c.record()
+	form := url.Values{"name": {"Beta"}, "slug": {"beta"}, "status": {"published"}, "_terms": {"1"}, "attr.summary": {"New"}}
+	if rec := c.post("/admin/entities/"+fid(12).String(), form); rec.Code != 303 {
+		t.Fatalf("save: %d", rec.Code)
+	}
+	wantAudit(t, rows(), "entity.update", "entity.publish")
+	if len(c.terms.actors) != 1 || c.terms.actors[0] {
+		t.Errorf("term calls carried an actor: %v", c.terms.actors)
 	}
 }
