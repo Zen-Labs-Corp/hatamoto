@@ -1,7 +1,7 @@
 ---
 title: Release process
 nav_title: Release process
-description: How a Hatamoto release is tagged, built reproducibly in CI, attested, signed offline, published and rolled out through the stable, edge and canary channels.
+description: How a Hatamoto release is tagged, built reproducibly in CI, attested, signed offline, published and rolled out through the stable, edge, canary and lts channels.
 ---
 
 This page is for maintainers and for anyone who wants to verify how the binary they run was made. It describes the shape of the process and the checks in it. Releases are built by CI from a tag, signed **offline** with keys that never touch CI, and rolled out gradually through channels. Operators do not need any of this to run or update Hatamoto. See [How updates work](../updates/overview.md) for the user side, and [Make your first contribution](contributing.md) for the checks a change passes before it reaches a release.
@@ -141,7 +141,7 @@ The script refuses to run unless the checked-out commit is the tag; the commit m
 
 ## Channels
 
-Rollout is controlled by three channel manifests, `canary`, `edge` and `stable`. Each lists releases with a **ramp**: percentages of installs that are offered the release from given times, for example 5 percent now, 25 percent after two days and 100 percent after four. A channel can also halt a release or yank one with a reason and a replacement. The commands edit the unsigned channel sources (`channel.json` files in a directory you pass with `--dir`):
+Rollout is controlled by four channel manifests, `canary`, `edge`, `stable` and `lts`. The `lts` manifest lists only releases of LTS lines (see [LTS branches](#lts-branches)). Each lists releases with a **ramp**: percentages of installs that are offered the release from given times, for example 5 percent now, 25 percent after two days and 100 percent after four. A channel can also halt a release or yank one with a reason and a replacement. The commands edit the unsigned channel sources (`channel.json` files in a directory you pass with `--dir`):
 
 ```bash
 cd backend
@@ -157,15 +157,17 @@ The two keys are deliberately separate. The release key signs what a release is 
 
 ## Channel signing
 
-The unsigned channel sources are public: `releases/channels/{canary,edge,stable}.json` in this repository. They change only through pull requests made with `go run ./tools/release channel ...`, never by hand, and `TestCommittedChannelSourcesParse` checks them on every change.
+The unsigned channel sources are public: `releases/channels/{canary,edge,lts,stable}.json` in this repository. They change only through pull requests made with `go run ./tools/release channel ...`, never by hand, and `TestCommittedChannelSourcesParse` checks them on every change.
 
-Signing and upload happen off GitHub, on the maintainer's signing machine. After a channel change is merged, and once a day, that machine signs the three channel files at the head of `main` with the manifest key, verifies each one against the embedded trust, and uploads them with a deploy key that the release server pins to the channels directory (`rrsync -wo -munge`, `--no-links`). A run that signed an older `main` than the current head publishes nothing, so a stale run cannot overwrite newer state. Neither key, nor any workflow that could use one, is in this repository: `scripts/test-channels-public.sh` (part of `make check`) fails on a channel signing workflow, a channel secret name or a tracked key file. An outside contributor's pull request can therefore never reach the manifest key.
+Signing and upload happen off GitHub, on the maintainer's signing machine. After a channel change is merged, and once a day, that machine signs the four channel files at the head of `main` with the manifest key, verifies each one against the embedded trust, and uploads them with a deploy key that the release server pins to the channels directory (`rrsync -wo -munge`, `--no-links`). A run that signed an older `main` than the current head publishes nothing, so a stale run cannot overwrite newer state. Neither key, nor any workflow that could use one, is in this repository: `scripts/test-channels-public.sh` (part of `make check`) fails on a channel signing workflow, a channel secret name or a tracked key file. An outside contributor's pull request can therefore never reach the manifest key.
+
+`lts.json` started as an empty source. Until the signing machine's run includes it, the live `lts.json` is missing and the freshness alarm reports it.
 
 A signed manifest is valid for 14 days, so boxes keep updating for two weeks even if the signing machine is down.
 
 ### Freshness alarm
 
-Re-signing can stop without anyone noticing: a failed daily run, a machine that is off or lost. Boxes then stop updating when the manifest expires. Two alarms run `scripts/check-channel-freshness.sh`, which downloads the three **live** manifests from `https://hatamoto.dev/releases/channels/` and fails, with an error annotation per channel, when any `expires_at` is too close. A healthy channel is never closer than 13 days. It reads the files that boxes read, so it also catches a broken upload.
+Re-signing can stop without anyone noticing: a failed daily run, a machine that is off or lost. Boxes then stop updating when the manifest expires. Two alarms run `scripts/check-channel-freshness.sh`, which downloads all four **live** manifests from `https://hatamoto.dev/releases/channels/` and fails, with an error annotation per channel, when any `expires_at` is too close. A healthy channel is never closer than 13 days. It reads the files that boxes read, so it also catches a broken upload.
 
 - The `channels-freshness` workflow in this repository runs daily. It needs no secret and does not depend on the signing machine. Under 11 days left (about three missed re-signs) it opens the `channels-freshness` issue, or comments on the open one; under 5 days the run fails too; once the manifests are fresh again it closes the issue.
 - A user timer on the signing machine (`deploy/channels/`) runs the same check daily with a 7 day limit.
@@ -173,9 +175,27 @@ Re-signing can stop without anyone noticing: a failed daily run, a machine that 
 Run it by hand any time:
 
 ```bash
-scripts/check-channel-freshness.sh                 # all three channels, 7 days
+scripts/check-channel-freshness.sh                 # all four channels, 7 days
 scripts/check-channel-freshness.sh --min-days 12   # stricter, e.g. right after a re-sign
 ```
+
+## LTS branches
+
+An LTS line is one minor version that keeps getting security fixes for 18 months. It is followed through the `lts` channel, which lists only releases of LTS lines.
+
+- **Cut.** `lts/vX.Y` is cut from the `vX.Y.Z` tag of a minor that is on `stable`, and announced with its end date. The 18 months count from the cut. From then on every `vX.Y.*` tag comes from that branch, and the next release on `main` is `vX.(Y+1).0` or later.
+- **Fixes.** Only security fixes, and critical regressions they need. A fix is merged to `main` first, then cherry-picked with `git cherry-pick -x`. No migrations. `min_from` and `rollback_floor` are never above `vX.Y.0`. The record kind is patch, with `security: true` for a security fix.
+- **Build and signing.** The same path as any release: the tag runs `release.yml`, the record is signed offline and `scripts/publish-release.sh` publishes it. Every edition build the release format lists is built and verified, as for main-line releases.
+- **Tagging.** `scripts/tag-release.sh` refuses a commit that is not on `main` today. Support for `lts/vX.Y` branches is added when the first LTS branch is cut.
+- **Channel.** Add the release to `lts` only, with the ramp you want (a slower ramp is fine):
+
+  ```bash
+  cd backend
+  go run ./tools/release channel add lts vX.Y.Z --record release.json --sig release.json.sig --ramp now:100 --dir DIR
+  ```
+
+- **What installs see.** The decision is the one in `backend/internal/updater/decide.go`. A server running `vX.Y.*` on `lts` is offered later `vX.Y.*` releases. A server already on a newer minor that switches to `lts` is offered nothing and stays where it is: updates never downgrade. The channel carries one LTS line per major. If you add a newer line of the same major, the followers of the older line are offered it like any minor update, so ramp it, and a pin does not hold back security releases. A line of another major is only shown as available and is never applied automatically.
+- **End of life.** Stop adding releases. The last entry stays listed. Followers move on by switching channel.
 
 ## Checklist for a maintainer
 
@@ -185,6 +205,6 @@ scripts/check-channel-freshness.sh --min-days 12   # stricter, e.g. right after 
 4. Review the record, set `rollback_floor` and `min_from`, and sign it offline.
 5. Publish the signed files with `scripts/publish-release.sh`.
 6. Verify the attestations, add the signature to the draft and publish the GitHub release (above), then publish the installer with `scripts/publish-install.sh`.
-7. Add the release to `canary`, `edge` and `stable` with a ramp (`releases/channels/` in this repository), merge the channel change, then re-sign and upload the channels on the signing machine.
+7. Add a main-line release to `canary`, `edge` and `stable` with a ramp (an LTS release goes to `lts` only, see [LTS branches](#lts-branches)) (`releases/channels/` in this repository), merge the channel change, then re-sign and upload the channels on the signing machine.
 8. Watch the update status of a test install. Halt the ramp if anything regresses.
 9. If the first-party plugin registry is near expiry, rebuild it. See [SDK and registry](sdk-and-registry.md).

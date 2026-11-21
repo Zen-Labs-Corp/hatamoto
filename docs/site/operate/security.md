@@ -46,7 +46,7 @@ The maintainers keep you informed while they work on it, agree a disclosure date
 ## How a fix ships
 
 1. **Private advisory.** The report becomes a private GitHub security advisory (one is opened for an emailed report). The discussion, the patch and any test happen in the advisory's private fork.
-2. **Release on every channel.** The fix is released on the `canary`, `edge` and `stable` update channels. The signed release record marks it as a security release, and inside the current major it skips the defer, window and pin settings that delay a normal release. See [How updates work](../updates/overview.md).
+2. **Release on every channel.** The fix is released on the `canary`, `edge` and `stable` update channels, and on `lts` while an LTS line is in its window. The signed release record marks it as a security release, and inside the current major it skips the defer, window and pin settings that delay a normal release. See [How updates work](../updates/overview.md).
 3. **Advisory and CVE.** When the fixed release is available, the advisory is published with the affected and fixed versions, and a CVE is requested through GitHub.
 4. **Go vulnerability database.** A vulnerability in the plugin SDK (`hatamoto.dev/sdk`) is also submitted to the Go vulnerability database, so `govulncheck` reports it to plugin authors.
 
@@ -59,10 +59,11 @@ If the problem is already exploited, or a fix cannot wait for these steps, the a
 | The latest stable release (`stable` channel) | Yes |
 | The current `edge` release | Yes |
 | `canary` builds | Fixes land here first; no separate support |
+| An LTS line (`lts` update channel, branch `lts/vX.Y`) | For 18 months from the branch cut |
 | The previous major (after 1.0) | For six months after the next major is released |
 | Older releases | No: update to the latest stable |
 
-Security fixes ship as new releases on the update channels. There are no backports to older minor versions of the current major. Self-hosted instances update themselves unless updates are turned off; see [Pin or turn off updates](../updates/pin-or-turn-off-updates.md).
+Security fixes ship as new releases on the update channels. There are no backports to older minor versions of the current major, except LTS lines. Self-hosted instances update themselves unless updates are turned off; see [Pin or turn off updates](../updates/pin-or-turn-off-updates.md).
 
 ## Scope
 

@@ -422,7 +422,7 @@ restores a backup; see [BACKUPS.md](BACKUPS.md#restoring-a-backup). Older
 | Variable | Meaning |
 |---|---|
 | `HATAMOTO_UPDATES` | `auto` (default; also `on`, `true`, `1`), `notify` (look, never install) or `off` (no network at all; also `false`, `0`, `no`, `disabled`). Any other value is treated as `off` and logged as a warning. |
-| `HATAMOTO_UPDATE_CHANNEL` | `stable` (default), `edge` or `canary` |
+| `HATAMOTO_UPDATE_CHANNEL` | `stable` (default), `edge`, `canary` or `lts` |
 | `HATAMOTO_UPDATE_URL` | another base URL, https only |
 | `WORKER_DISABLE_JOBS=update_check` | no scheduled checks (the CLI still works) |
 | `HATAMOTO_WORKER=off` | no scheduler at all, so no scheduled checks |
@@ -432,11 +432,11 @@ zone) live in one row of `hatamoto_update_settings`. Replicas that share a datab
 each replica still updates its own binaries. Security releases ignore the defer and the window.
 A dev build (a version that is not `vX.Y.Z`) never updates itself.
 
-A site can only choose `canary` with a binary from the release that adds it. If a site stored on
-`canary` ends up on an older binary (a rollback, or a yank without `--to`, that lands it on a
-binary older than the canary release), it cannot fetch updates until an owner picks `stable` or
+A site can only choose `canary` or `lts` with a binary from the release that adds it. If a site stored on
+`canary` or `lts` ends up on an older binary (a rollback, or a yank without `--to`, that lands it on a
+binary older than the release that added the channel), it cannot fetch updates until an owner picks `stable` or
 `edge` in Settings > Updates, or sets `HATAMOTO_UPDATE_CHANNEL=stable` (or `edge`). An old binary
-ignores `HATAMOTO_UPDATE_CHANNEL=canary` with a warning.
+ignores `HATAMOTO_UPDATE_CHANNEL=canary` or `lts` with a warning.
 
 **Commands.**
 
@@ -485,6 +485,7 @@ you. The details are in [The update agent](#the-update-agent).
 | Stay on one minor | `hatamoto update pin v1.4` and `hatamoto update unpin` (security releases inside the same major still apply) |
 | Pick a time | Settings > Updates > Maintenance window |
 | Early releases | `HATAMOTO_UPDATE_CHANNEL=edge` or `canary` (default `stable`). Default schedule: canary (bleeding edge, for testing, may break) gets each release first, edge 2 days later, stable from day 7 (5%, then 25% on day 9, 100% on day 11). The schedule is the operator's convention, and you can also choose the channel in Settings > Updates. |
+| Long-term support | `HATAMOTO_UPDATE_CHANNEL=lts`: security fixes only, for 18 months, on one minor line |
 | Go back | `hatamoto update rollback` (to the previous release, when the schema allows it) |
 | No internet | download the binary plus `release.json` and its `.sig`, then `hatamoto update apply --file F --record R --sig S` |
 
@@ -525,6 +526,7 @@ schema are untouched: an automatic release only ever adds to the schema (see
 
 - The latest minor of the current major gets every fix.
 - The previous major gets security fixes for six months after the new major is released.
+- An LTS line (the `lts` update channel) gets security fixes for 18 months from its branch cut.
 - An install that is too old to update directly (below the release's `min_from`) steps through the
   intermediate releases automatically, one hop per check.
 
