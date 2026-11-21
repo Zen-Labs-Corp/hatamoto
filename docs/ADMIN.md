@@ -980,7 +980,12 @@ hatamoto.dev. Update status lives on Settings > Updates and in the update banner
 
 ## Settings, users and email
 
-Users and settings are owner-only (editors have `<admin>/profile`). The last owner
+Users and settings are owner-only (editors have `<admin>/profile`). The six built-in roles are
+owner, editor, author, contributor, reviewer and read-only. Author, contributor, reviewer and
+read-only can read the admin, keep their own profile, password and two-step sign-in, and change
+nothing else; the content rules of the first three arrive in a later release. They never see
+plugin pages. The per-screen owner and editor columns in this file do not list them; the roles table is in `docs/site/admin/settings-users-email.md`. A key made
+for a user acts with at most that user's role. The last owner
 cannot be deleted or demoted (enforced in the repository, race-safe). Email is
 set up in Settings > Email (`<admin>/settings/email`, with `/test` and `/reset`) or by the
 server's `SMTP_*` environment; saved settings replace the environment as a whole, Save checks

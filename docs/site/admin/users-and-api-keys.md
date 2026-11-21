@@ -25,6 +25,10 @@ In this guide you invite a colleague to the admin and create a key that lets a p
 
    - **Editor** manages content: pages, posts, media, menus, forms, redirects and analytics.
    - **Owner** can do everything an editor can, plus users, settings, themes, plugins, API keys and content types (the kinds of content, such as pages and posts).
+   - **Author**, **Contributor** and **Reviewer** can currently read the admin and change nothing. Their content permissions arrive in a later release.
+   - **Read-only** sees the admin and changes nothing. They keep their own profile, password and two-step sign-in.
+
+   People with the newer roles never see plugin pages. An API key made for a user acts with at most that user's role.
 
 3. Press **Send invitation**. The users list opens with the invitation link in a banner. The link works once and expires after 7 days.
 
@@ -108,6 +112,6 @@ If someone loses their device and their recovery codes, run `hatamoto user reset
 - Your colleague appears in the users list with the role you chose, and their **Last sign-in** shows a date once they have signed in.
 - The `curl` command prints a JSON list, and the key's **Last used** column shows when it was used.
 
-If `curl` prints `{"error":"invalid api key"}`, the key was mistyped, revoked or expired, or the person who created it is no longer an owner or editor. If it prints `{"error":"forbidden"}`, the key does not have the scope that address needs: create a key with the right **Access**.
+If `curl` prints `{"error":"invalid api key"}`, the key was mistyped, revoked or expired, or the person who created it no longer has a role that may use keys. If it prints `{"error":"forbidden"}`, the key does not have the scope that address needs: create a key with the right **Access**.
 
 If your colleague never receives the email, set up outgoing email at **Settings > Email** (see [Set up email](../operate/email.md)) or send them the link yourself. Every scope and the server commands for users and keys are in the [Settings reference](settings-users-email.md).
