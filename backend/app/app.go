@@ -24,6 +24,7 @@ import (
 	"hatamoto.dev/core/internal/modhost"
 	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/server"
 	"hatamoto.dev/core/internal/siteid"
 	"hatamoto.dev/core/internal/user"
@@ -457,6 +458,9 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	}
 	for _, w := range cfg.Warnings {
 		logger.Warn("configuration: " + w)
+	}
+	if cfg.RunMode == runenv.ModeStaging {
+		logger.Warn(runenv.Summary())
 	}
 	// Missing or invalid object storage settings stop the start; an
 	// unreachable bucket does not (no network call is made here).
