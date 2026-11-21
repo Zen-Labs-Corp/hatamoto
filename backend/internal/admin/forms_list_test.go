@@ -53,7 +53,7 @@ func TestBuildFormsList(t *testing.T) {
 		}}, nil
 	}
 	forms, _ := ff.ListForms(context.Background(), "")
-	d := a.buildFormsList(context.Background(), ff, forms)
+	d := a.buildFormsList(context.Background(), ff, forms, true)
 
 	rows := listRows(t, d)
 	c := rows["Contact"]
@@ -122,7 +122,7 @@ func TestBuildFormsListCappedAndUnavailable(t *testing.T) {
 		return nil, errors.New("scan timed out")
 	}
 	forms, _ := ff.ListForms(context.Background(), "")
-	d := a.buildFormsList(context.Background(), ff, forms)
+	d := a.buildFormsList(context.Background(), ff, forms, true)
 
 	row := listRows(t, d)["Busy"]
 	if !strings.HasSuffix(row[3], "+") || strings.Contains(row[3], "spark") || row[6] != "—" {

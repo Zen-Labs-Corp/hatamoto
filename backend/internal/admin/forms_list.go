@@ -48,9 +48,9 @@ func (fa formActivity) sum(from, to int) int {
 
 // buildFormsList reads each form's submissions once (a 60-day scan) and derives
 // the 30-day count, the previous 30 days, the sparkline, spam caught and the
-// newest rows from it. A form whose scan fails shows dashes and is left out of
+// newest rows from it (only when withLatest: they hold personal data). A form whose scan fails shows dashes and is left out of
 // the totals; a capped scan shows a lower bound and no comparison or sparkline.
-func (a *Admin) buildFormsList(ctx context.Context, fs FormStore, forms []*form.Form) formsListData {
+func (a *Admin) buildFormsList(ctx context.Context, fs FormStore, forms []*form.Form, withLatest bool) formsListData {
 	loc := a.siteLocation(ctx)
 	now := analyticsNow().In(loc)
 	since := now.AddDate(0, 0, -(formsListWindowDays - 1))
@@ -105,7 +105,7 @@ func (a *Admin) buildFormsList(ctx context.Context, fs FormStore, forms []*form.
 			for d := range trend {
 				trend[d] += int64(fa.days[formsListWindowDays-formSparkDays+d])
 			}
-			if i < formsListMaxForms {
+			if withLatest && i < formsListMaxForms {
 				for _, s := range fa.subs[:min(len(fa.subs), formsListLatest)] {
 					latest = append(latest, latestRow{f, s})
 				}

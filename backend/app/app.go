@@ -70,7 +70,7 @@ commands:
   serve                            migrate the database, then run the server (site, API, admin, worker; HATAMOTO_WORKER=off disables the worker)
   migrate [up]                     apply pending database migrations
   migrate status                   list migrations and whether they are applied
-  user create --email E [--name N] [--role owner|editor] [--password P | --password-stdin]
+  user create --email E [--name N] [--role owner|editor|author|contributor|reviewer|read-only] [--password P | --password-stdin]
                                    create a user (a temporary password is printed unless one is given)
   user reset-password --email E [--password P | --password-stdin]
                                    set a new password (temporary one printed unless given), unlock, sign out

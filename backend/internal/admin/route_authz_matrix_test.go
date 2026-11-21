@@ -7,12 +7,21 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 var (
 	matrixRestRe  = regexp.MustCompile(`\{[^}]*\.\.\.\}`)
 	matrixParamRe = regexp.MustCompile(`\{[^}$]*\}`)
 )
+
+// principal is one matrix column: userID signs in on a fresh session, the zero
+// value is an anonymous visitor.
+type principal struct {
+	name   string
+	userID uuid.UUID
+}
 
 // adminAuthzMatrix requests every admin route as an anonymous visitor, an
 // editor and an owner, each on a fresh session, and returns one sorted line per
@@ -21,6 +30,11 @@ var (
 func adminAuthzMatrix(t *testing.T) []string {
 	t.Helper()
 	g := newRig(t)
+	return adminAuthzMatrixFor(g, []principal{{"anon", uuid.Nil}, {"editor", g.editor.ID}, {"owner", g.owner.ID}})
+}
+
+// adminAuthzMatrixFor is adminAuthzMatrix over any list of principals.
+func adminAuthzMatrixFor(g *rig, ps []principal) []string {
 	var lines []string
 	for _, rt := range g.routes {
 		method, path, _ := strings.Cut(rt.Pattern, " ")
@@ -28,18 +42,15 @@ func adminAuthzMatrix(t *testing.T) []string {
 		url = matrixRestRe.ReplaceAllString(url, "a/b")
 		url = matrixParamRe.ReplaceAllString(url, "p1")
 		line := rt.Pattern
-		for _, p := range []struct {
-			name  string
-			token func() string
-		}{
-			{"anon", func() string { return "" }},
-			{"editor", func() string { return g.freshToken(g.editor.ID) }},
-			{"owner", func() string { return g.freshToken(g.owner.ID) }},
-		} {
+		for _, p := range ps {
+			token := ""
+			if p.userID != uuid.Nil {
+				token = g.freshToken(p.userID)
+			}
 			cell := "reached"
 			func() {
 				defer func() { _ = recover() }()
-				rec := g.do(method, url, p.token(), nil, nil)
+				rec := g.do(method, url, token, nil, nil)
 				cell = strconv.Itoa(rec.Code)
 			}()
 			line += " " + p.name + "=" + cell

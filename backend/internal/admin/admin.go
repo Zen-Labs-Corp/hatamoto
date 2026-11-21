@@ -605,10 +605,13 @@ func (a *Admin) Mount(r *httpx.Group) {
 	own := g.Group("", secureHeaders, a.demoGuard)
 	own.HandleFunc("POST /theme", a.handleTheme)
 
-	authed := own.Group("", a.RequireSession, a.RequireTwoFactor, a.RequireProfile)
+	// account holds the signed-in user's own-account routes (sign-out, profile, security, sudo); authed adds the
+	// write guard for every other screen.
+	account := own.Group("", a.RequireSession, a.RequireTwoFactor, a.RequireProfile)
+	authed := account.Group("", a.writeGuard)
 	authed.HandleFunc("GET /", a.handleHome)
 
-	a.mountScreens(own, authed)
+	a.mountScreens(own, account, authed)
 	if a.deps.Dev {
 		authed.Group("", a.RequireCan(authz.ActionAdminStyleguide)).HandleFunc("GET /_styleguide", a.handleStyleguide)
 	}
@@ -621,18 +624,18 @@ func (a *Admin) Mount(r *httpx.Group) {
 }
 
 // mountScreens is where each admin area registers its routes.
-func (a *Admin) mountScreens(public, authed *httpx.Group) {
+func (a *Admin) mountScreens(public, account, authed *httpx.Group) {
 	limited := public
 	if a.deps.RateLimit != nil {
 		limited = public.Group("", a.deps.RateLimit)
 	}
-	a.mountLogin(limited, authed)
+	a.mountLogin(limited, account)
 	a.mountRecovery(limited)
 	a.mountAccept(limited)
 	a.mountSetup(limited, authed)
 	a.mountUsers(authed)
-	a.mountProfile(authed)
-	a.mountSudo(authed)
+	a.mountProfile(account)
+	a.mountSudo(account)
 	a.mountPeople(authed)
 	a.mountSettings(authed)
 	a.mountGrowth(authed)

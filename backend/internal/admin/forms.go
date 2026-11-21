@@ -48,14 +48,16 @@ func (a *Admin) mountForms(authed *httpx.Group) {
 	authed.HandleFunc("POST /forms/delete/{id}", a.handleFormDelete)
 	// The list, export and bulk routes take the form as ?form={id}; a single
 	// submission knows its form.
-	authed.HandleFunc("GET /forms/submissions", a.handleSubmissions)
-	authed.HandleFunc("GET /forms/submissions/export.csv", a.handleSubmissionsExport)
+	// Submissions hold personal data: every read of them asks form.submission.read.
+	read := authed.Group("", a.RequireCan(authz.ActionFormSubmissionRead))
+	read.HandleFunc("GET /forms/submissions", a.handleSubmissions)
+	read.HandleFunc("GET /forms/submissions/export.csv", a.handleSubmissionsExport)
 	authed.HandleFunc("POST /forms/submissions/bulk", a.handleSubmissionsBulk)
-	authed.HandleFunc("GET /forms/submissions/{sid}", a.handleSubmission)
-	authed.HandleFunc("GET /forms/submissions/{sid}/files/{field}", a.handleSubmissionFile)
+	read.HandleFunc("GET /forms/submissions/{sid}", a.handleSubmission)
+	read.HandleFunc("GET /forms/submissions/{sid}/files/{field}", a.handleSubmissionFile)
 	authed.HandleFunc("POST /forms/submissions/{sid}/status", a.handleSubmissionStatus)
 	authed.HandleFunc("POST /forms/submissions/{sid}/email", a.handleSubmissionEmail)
-	authed.HandleFunc("GET /forms/submissions/{sid}/delete", a.handleSubmissionDeleteForm)
+	read.HandleFunc("GET /forms/submissions/{sid}/delete", a.handleSubmissionDeleteForm)
 	authed.HandleFunc("POST /forms/submissions/{sid}/delete", a.handleSubmissionDelete)
 }
 
@@ -140,7 +142,8 @@ func (a *Admin) handleForms(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The forms could not be loaded.")
 		return
 	}
-	d := a.buildFormsList(r.Context(), fs, forms)
+	canRead := a.can(r.Context(), authz.ActionFormSubmissionRead)
+	d := a.buildFormsList(r.Context(), fs, forms, canRead)
 	d.Table.Empty = ui.Empty{Icon: "inbox", Title: "No forms yet", Body: "A form collects enquiries from your pages.", Actions: []ui.Button{{Label: "New form", Href: a.adminPath + "/forms/new", Variant: "primary", Attrs: map[string]string{"data-hm-open": "new-form"}}}}
 	v := a.NewView(w, r, "Forms")
 	actions := []ui.Button{}

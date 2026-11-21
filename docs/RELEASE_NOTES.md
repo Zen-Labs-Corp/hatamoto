@@ -1,5 +1,10 @@
 # Release notes
 
+## Unreleased: built-in roles
+
+- **Roles.** Four built-in roles: Author, Contributor, Reviewer and Read-only. Read-only users can see the admin and change nothing (admin, REST API, MCP). Author, Contributor and Reviewer have read-only rights until their content rules ship. Invite or create them in Settings > Users or with `hatamoto user create --role`. New roles never see plugin pages, and an API key acts with at most its creator's current role.
+- **Migration.** Widens the user and invite role checks (expand only). Do not roll back below this release once a user has one of the new roles.
+
 ## Unreleased: LTS update channel
 
 - **Updates.** A fourth update channel, `lts`, for long-term support lines: security fixes only, for 18 months, on one long-term support line per major version. Choose it only while the server runs an LTS version: on any other version, or while no LTS line exists, it gets no updates at all, not even security fixes. Choose it in Settings > Updates or with `HATAMOTO_UPDATE_CHANNEL=lts`. Older binaries ignore `lts` with a warning.

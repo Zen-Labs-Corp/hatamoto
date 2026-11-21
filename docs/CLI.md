@@ -181,5 +181,5 @@ A build that registers Go modules (see [Go module extension points](PLUGIN_API.m
   preview links 2 revoked
   users, passwords and second factors are unchanged
   ```
-- `user create` and `user reset-password` are documented in the README; they also work on an imported database. `user reset-password` works for every user whatever sign-in policy a compiled-in module registered, and for a user created without a password; it is how an owner who is locked out gets back in.
+- `user create` and `user reset-password` are documented in the README; `user create --role` takes `owner`, `editor`, `author`, `contributor`, `reviewer` or `read-only` (default `owner`), and any other value fails with `invalid role`; they also work on an imported database. `user reset-password` works for every user whatever sign-in policy a compiled-in module registered, and for a user created without a password; it is how an owner who is locked out gets back in.
 - Export and import: see [EXPORT.md](EXPORT.md). Plain files of the public site: see [STATIC_EXPORT.md](STATIC_EXPORT.md). Importing a WordPress site: see [IMPORT-WORDPRESS.md](IMPORT-WORDPRESS.md).

@@ -566,7 +566,14 @@ func dashChange(cur, prev int64) *ui.StatChange {
 // analytics) are never called for them.
 func (a *Admin) dashJobs(v viewer) []dashJob {
 	owner := v.Can(authz.ActionDashboardOwnerRead)
-	candidates := []*dashJob{a.contentJob(), a.submissionsJob(), a.commentsJob(owner)}
+	candidates := []*dashJob{a.contentJob()}
+	// Submissions and pending comments hold personal data: only the roles that may read them get the cards.
+	if v.Can(authz.ActionFormSubmissionRead) {
+		candidates = append(candidates, a.submissionsJob())
+	}
+	if v.Can(authz.ActionCommentRead) {
+		candidates = append(candidates, a.commentsJob(owner))
+	}
 	if owner {
 		candidates = append(candidates, a.healthJob(), a.referralsJob(), a.missingJob(), a.topPagesJob(), a.activityJob())
 	}

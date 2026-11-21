@@ -110,7 +110,7 @@ Bylines point at **people**, not at user accounts. A person is an entity of the 
 
 | Table | Contents |
 |---|---|
-| `hatamoto_users` | accounts with an argon2id password hash, a role (`owner` or `editor`) and login-lockout state |
+| `hatamoto_users` | accounts with an argon2id password hash, a role (`owner`, `editor`, `author`, `contributor`, `reviewer` or `read-only`) and login-lockout state |
 | `hatamoto_sessions` | admin sessions, stored as a SHA-256 hash of the cookie value, never the cookie itself |
 | `hatamoto_user_tokens` | one-time password reset and invitation tokens, stored as hashes |
 | `hatamoto_api_keys` | API keys (hash and prefix only), scopes, per-key rate limit (default 1000 requests per hour), expiry, last use and revocation |

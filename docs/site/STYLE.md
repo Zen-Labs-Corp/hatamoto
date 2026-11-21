@@ -327,7 +327,7 @@ These terms are fine in guides once glossed.
 | taxonomy | a way to group content, such as categories or tags |
 | slug | the short name in a page's address, such as `hello` in `/blog/hello` |
 | URL pattern | the rule that builds a page's address from its slug and type |
-| role (owner, editor) | what an account may do: an owner can do everything, an editor works on content |
+| role (owner, editor, author, contributor, reviewer, read-only) | what an account may do: an owner can do everything, an editor works on content, a read-only account only looks |
 | API key, scope | a secret string a program uses to act on your site; the scope limits what it may do |
 | webhook, signature | a web address Hatamoto calls when something happens; the signature proves the call came from your site |
 | hook: action, filter | a point where a plugin joins in: an action runs when something happens, a filter changes a value before it is used |

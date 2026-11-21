@@ -66,7 +66,7 @@ docker compose exec hatamoto hatamoto migrate status
 ## Users
 
 ```text
-hatamoto user create --email E [--name N] [--role owner|editor] [--password P | --password-stdin]
+hatamoto user create --email E [--name N] [--role owner|editor|author|contributor|reviewer|read-only] [--password P | --password-stdin]
 hatamoto user reset-password --email E [--password P | --password-stdin]
 hatamoto user reset-2fa --email E
 hatamoto user sign-out-all --yes
@@ -76,7 +76,7 @@ hatamoto user sign-out-all --yes
 |---|---|---|
 | `--email` | both | Required. The login address. |
 | `--name` | `create` | Display name. |
-| `--role` | `create` | `owner` or `editor`. Default `owner`. Any other value is rejected with `invalid role`. |
+| `--role` | `create` | `owner`, `editor`, `author`, `contributor`, `reviewer` or `read-only`. Default `owner`. Any other value is rejected with `invalid role`. |
 | `--password-stdin` | both | Read the password from the first line of standard input. |
 | `--password` | both | Pass the password as an argument. It shows up in the process list and shell history, so prefer `--password-stdin`. |
 

@@ -57,6 +57,26 @@ func matrixCell(code int, body string) string {
 // session auth, then the protected mounts) without CSRF and the demo guard.
 func routeAuthzMatrix(t *testing.T) []string {
 	t.Helper()
+	return routeAuthzMatrixFor(t, []principal{
+		{"anon", nil},
+		{"editor", []string{"Authorization", "Bearer test-session-editor"}},
+		{"owner", []string{"Authorization", "Bearer test-session-owner"}},
+		{"key-read-ed", []string{"X-API-Key", "key-read-ed"}},
+		{"key-all-ed", []string{"X-API-Key", "key-all-ed"}},
+		{"key-all-own", []string{"X-API-Key", "key-all-own"}},
+	})
+}
+
+// principal is one matrix column: a name and the request headers (name, value
+// pairs) it sends.
+type principal struct {
+	name string
+	hdr  []string
+}
+
+// routeAuthzMatrixFor is routeAuthzMatrix over any list of principals.
+func routeAuthzMatrixFor(t *testing.T, principals []principal) []string {
+	t.Helper()
 	s, err := routeShell()
 	if err != nil {
 		t.Fatal(err)
@@ -71,18 +91,6 @@ func routeAuthzMatrix(t *testing.T) []string {
 	g := httpx.NewGroup(mux, "")
 	r := g.Group("/api/v1", middleware.AuthOrAPIKey(keys, allowAll{}, middleware.AuthMiddleware(fakeSession, fakeAPISession, false)))
 	s.mountCoreProtectedRoutes(r)
-
-	principals := []struct {
-		name string
-		hdr  []string
-	}{
-		{"anon", nil},
-		{"editor", []string{"Authorization", "Bearer test-session-editor"}},
-		{"owner", []string{"Authorization", "Bearer test-session-owner"}},
-		{"key-read-ed", []string{"X-API-Key", "key-read-ed"}},
-		{"key-all-ed", []string{"X-API-Key", "key-all-ed"}},
-		{"key-all-own", []string{"X-API-Key", "key-all-own"}},
-	}
 
 	routes := g.Routes()
 	has := map[string]bool{}

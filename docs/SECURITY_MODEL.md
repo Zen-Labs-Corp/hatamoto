@@ -16,7 +16,7 @@ run with `-tags=integration`; the others run with plain `go test`.
 | Party | Trusted to | Not trusted to |
 |---|---|---|
 | The server's owner and admins | Do anything the admin allows, install code, change settings | Nothing: an owner can run any code on their own server by design |
-| Editors and API keys | Do what their role or key scopes allow | Reach owner-only screens, or act outside a key's scopes |
+| Editors, other roles and API keys | Do what their role or key scopes allow | Reach owner-only screens, or act outside a key's scopes |
 | Themes | Everything the template engine can do: a theme is trusted code like the binary | Be installed from an unknown signer (refused until the owner trusts the key) |
 | Plugins | Only the capabilities the owner granted, inside a WASM sandbox | Anything else: see "Plugins" |
 | The update channel and registry hosts | Nothing on their own: every release is checked against keys compiled into the binary, and every package against the first-party key, the keys in `HATAMOTO_TRUSTED_KEYS`, or (developer packages, only with the owner's switch on) the signer key registered in the developer index | Shipping code that is not signed |
@@ -24,6 +24,8 @@ run with `-tags=integration`; the others run with plain `go test`.
 | Reverse proxies | Tell the server the client address, only when listed in `HATAMOTO_TRUSTED_PROXIES` (loopback by default) | Anything from an unlisted address |
 
 The SEO and terms key scopes (`read:seo`, `write:seo`, `write:terms`) work only while the key's creator is an owner, also through `*`. Keys minted with `hatamoto apikey create --as <editor>` do not get them.
+
+The default role for accounts created by single sign-on may be any of the six built-in roles, so an owner can have new sign-ins start as Read-only.
 
 ## Guarantees and the tests that enforce them
 
@@ -376,6 +378,8 @@ access rules cover them. Files are checked by size and content type only; there 
 | The setup code is at least 12 characters once normalised and not trivial; a fresh install with a weak code does not start; an install that already has users only warns | `internal/config`, `internal/server` | `TestSetupCodeValidation`, `TestSetupCodeFreshInstallWithShortCodeIsRefused`, `TestSetupCodeUpgradedInstallWithShortCodeStarts` |
 | The setup wizard needs the code and works once | `internal/admin` | `TestSetupRequiresCodeAndIsOneShot` |
 | An API key's secret is shown once | `internal/admin` | `TestAPIKeysSecretShownOnce` |
+| Read-only users change nothing. The same holds for the author, contributor and reviewer roles until their content rules exist. The REST write guard covers `/api/v1` and the admin guard covers the signed-in admin; MCP decides per tool with the same ceiling; routes of a compiled-in module carry their own gates, so a module must check the role itself | `internal/admin`, `internal/server`, `internal/mcpserver` | `TestAdminRolesRouteMatrix`, `TestRESTRolesRouteMatrix`, `TestReadOnlyKeysCannotWrite` |
+| A key acts with at most its creator's current role: when the creator's role changes, the key follows at once, and a key made by a user with a read-only role cannot write whatever its scopes | `authz` | `TestKeyCreatorRoleCeiling` |
 | Key scopes are separate: `write:entities` does not imply the site-structure scopes, and each site-structure MCP write tool needs its own scope | `internal/auth`, `internal/mcpserver` | `TestSiteWriteScopes`, `TestSiteWriteScopesAreSeparate` |
 | The MCP endpoint refuses browser requests from origins that are not the site's or listed, and counts every request against the key's rate limit | `internal/mcpserver` | `TestOriginValidation`, `TestOriginWithoutPublicOriginRefusesBrowsers`, `TestRateLimitPerRequest` |
 | A user whose access end date has passed cannot sign in, and their live admin, bearer and API cookie sessions and the API keys they created are refused on the next request, without waiting for the hourly job | `internal/auth`, `internal/admin` | `TestAccessEndedRefusesEverySignIn`, `TestAccessEndedRefusesLiveSessions`, `TestAccessEndedAPIKeys`, `TestAccessEndedCookieRefused` |

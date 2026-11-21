@@ -1,7 +1,7 @@
 ---
 title: Create users
 nav_title: Create users
-description: Add owner and editor accounts, and reset a forgotten password, from the server's terminal.
+description: Add accounts with any built-in role, and reset a forgotten password, from the server's terminal.
 next: ../admin/tour.md, ../admin/users-and-api-keys.md
 ---
 
@@ -20,8 +20,12 @@ Each account has a **role**, which decides what it may do:
 |---|---|
 | `owner` | Everything, including settings, users, packages and updates. |
 | `editor` | Content work: pages, posts, media and similar. |
+| `author` | Reads the admin and changes nothing for now. Content permissions arrive in a later release. |
+| `contributor` | Reads the admin and changes nothing for now. Content permissions arrive in a later release. |
+| `reviewer` | Reads the admin and changes nothing for now. Content permissions arrive in a later release. |
+| `read-only` | Sees the admin and changes nothing. Keeps their own profile, password and two-step sign-in. |
 
-There is no viewer or author role. A new account is an `owner` unless you say otherwise.
+A new account is an `owner` unless you say otherwise.
 
 ## Steps
 
@@ -89,7 +93,7 @@ If the command does not work, its last line says why:
 
 - `email already exists`: the account is already there. Reset its password instead.
 - `no user with email sam@example.com`: no account has that address. Check the spelling, or create it.
-- `invalid role`: the role must be `owner` or `editor`.
+- `invalid role`: the role must be `owner`, `editor`, `author`, `contributor`, `reviewer` or `read-only`.
 - `password must be at least 12 characters`: choose a longer password, or leave it out to get a random one.
 - `DATABASE_URL is required`: the terminal does not have Hatamoto's settings loaded. Go back to step 1.
 - `password changed but revoking sessions failed`: the new password is set, but the account was not signed out everywhere. Run the reset again.

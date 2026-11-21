@@ -10,7 +10,9 @@
 #          on every row but other. authz.Default() must answer the same for
 #          an owner and an editor for every cited action (checked by
 #          coverage_test.go). Where a plugin's own role list narrows editors,
-#          roles is the widest answer and the note says so.
+#          roles is the widest answer and the note says so. It names the staff
+#          roles only: the author, contributor, reviewer and read-only roles
+#          pass just the actions in authz.readRights (see default.go).
 #
 # group  = a RequireRole / RequireCan / RequireOwnerOrKeyScope line (counted by the test)
 # inline = any other gate: an owner/editor check in a handler, a key scope
@@ -66,6 +68,7 @@ internal/server/server_core.go group user.manage roles=owner  # :72
 internal/server/server_core.go group plugin.manage,plugin.grant roles=owner  # :83
 internal/server/server_core.go group schema.manage roles=owner  # :102
 internal/server/server_core.go group apikey.manage roles=owner  # :181
+internal/server/server_core.go group form.submission.read roles=owner,editor  # :176 GET /forms/{id}/submissions, /{submissionId}
 internal/server/server_core.go group robots.policy.write roles=owner  # :248
 internal/server/server_core.go group author.manage roles=owner,editor  # :253
 internal/server/server_core.go group term.manage roles=owner  # :267
@@ -80,6 +83,8 @@ internal/admin/dashboard.go inline dashboard.read roles=owner,editor  # :584
 internal/admin/builder_editor.go inline builder.style roles=owner  # :164 canStyle is owner only
 internal/admin/entity_edit.go inline entity.update,entity.publish,entity.unpublish,entity.delete roles=owner,editor  # any signed-in user
 internal/admin/media.go inline media.read,media.upload,media.update,media.delete roles=owner,editor  # /media/* open to any signed-in user
+internal/admin/forms.go group form.submission.read roles=owner,editor  # :54 submission list, export, single, file, delete page
+internal/admin/forms_tabs.go inline form.submission.read roles=owner,editor  # :36 Submissions tab
 internal/admin/forms.go inline form.settings.manage roles=owner  # :68,:150 owner controls
 internal/admin/analytics_conversions.go inline form.submission.read roles=owner,editor  # :35 canViewSubmissions
 internal/admin/menus.go inline menu.manage,menu.read roles=owner,editor  # /theme/menus, any signed-in user
@@ -165,3 +170,5 @@ internal/mcpserver/tools_content.go inline entity.takeover,entity.duplicate,enti
 internal/mcpserver/tools_comments.go inline comment.read,comment.moderate,comment.reply_as_staff roles=owner,editor  # :79-152
 internal/mcpserver/tools_insight.go inline analytics.read roles=owner,editor  # :75-181
 internal/mcpserver/tools_seo.go inline settings.seo.read,settings.seo.write roles=owner  # :59-140
+internal/admin/admin.go inline site.write roles=owner,editor  # writeGuard (write_guard.go) on the signed-in admin group
+internal/server/server_core.go inline site.write roles=owner,editor  # middleware.WriteGuard on the REST protected group

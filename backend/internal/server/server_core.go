@@ -50,6 +50,9 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 	r.HandleFunc("GET /me", s.handleGetMe)
 	r.HandleFunc("PATCH /me", s.handleUpdateMe)
 
+	// Every other route: a user who may not change the site changes nothing.
+	r = r.Group("", middleware.WriteGuard)
+
 	// Cache management (owner only). Flushing the cache is a tenant-wide,
 	// potentially disruptive operation; gate it behind owner like /tenant.
 	{
@@ -170,8 +173,10 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 		r.HandleFunc("DELETE /{id}", s.handleDeleteForm)
 
 		// Submissions
-		r.HandleFunc("GET /{id}/submissions", s.handleListFormSubmissions)
-		r.HandleFunc("GET /{id}/submissions/{submissionId}", s.handleGetFormSubmission)
+		// Submissions hold personal data: reading them asks its own action.
+		read := r.Group("", middleware.RequireCan(authz.ActionFormSubmissionRead))
+		read.HandleFunc("GET /{id}/submissions", s.handleListFormSubmissions)
+		read.HandleFunc("GET /{id}/submissions/{submissionId}", s.handleGetFormSubmission)
 		r.HandleFunc("PATCH /{id}/submissions/{submissionId}", s.handleUpdateFormSubmission)
 		r.HandleFunc("DELETE /{id}/submissions/{submissionId}", s.handleDeleteFormSubmission)
 		r.HandleFunc("POST /{id}/submissions/{submissionId}/email", s.handleEmailFormSubmission)
