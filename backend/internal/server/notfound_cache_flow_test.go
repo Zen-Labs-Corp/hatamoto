@@ -161,6 +161,8 @@ func TestNotFoundStoreBypass(t *testing.T) {
 		setup  func(f *renderFixture)
 		// afterRender: decided from the render, so no sentinel can be seeded.
 		afterRender bool
+		// wantStatus -1: the response status is not checked.
+		wantStatus int
 	}{
 		{name: "query", target: "/nope?x=1"},
 		{name: "post", method: http.MethodPost, target: "/nope"},
@@ -201,7 +203,7 @@ func TestNotFoundStoreBypass(t *testing.T) {
 			f.h.dataFailures = func() int64 { n++; return n }
 		}},
 		{name: "long path", target: long},
-		{name: "degraded snapshot", target: "/nope", setup: func(f *renderFixture) {
+		{name: "degraded snapshot", target: "/nope", afterRender: true, setup: func(f *renderFixture) {
 			f.h.snapshot = func(context.Context) (*entity.URLSnapshot, error) { return nil, errors.New("db down") }
 		}},
 		{name: "page filter", target: "/members", setup: func(f *renderFixture) {
@@ -221,7 +223,7 @@ func TestNotFoundStoreBypass(t *testing.T) {
 			val := identity.SignDevice(identity.DeviceKey("bypass-secret"), identity.DeviceClaims{CommenterID: uuid.New(), TokenVersion: 1, Expires: time.Now().Add(time.Hour)})
 			r.AddCookie(&http.Cookie{Name: identity.CookieName, Value: val})
 		}},
-		{name: "busy pool", target: "/nope", afterRender: true,
+		{name: "busy pool", target: "/nope", afterRender: true, wantStatus: -1, // the caller maps a busy pool to 503
 			ctx: func(ctx context.Context) context.Context {
 				return database.WithPoolBusyScope(database.WithAcquireBound(ctx, time.Second))
 			},
@@ -261,10 +263,7 @@ func TestNotFoundStoreBypass(t *testing.T) {
 				}
 				rec := httptest.NewRecorder()
 				f.h.writeNotFoundQuiet(rec, req)
-				if tc.name == "busy pool" {
-					continue // the caller maps a busy pool to 503
-				}
-				if rec.Code != http.StatusNotFound {
+				if tc.wantStatus >= 0 && rec.Code != http.StatusNotFound {
 					t.Fatalf("status %d", rec.Code)
 				}
 				if strings.Contains(rec.Body.String(), "STORED-SENTINEL") {
@@ -278,22 +277,29 @@ func TestNotFoundStoreBypass(t *testing.T) {
 	}
 }
 
-// TestNotFoundStoreSkipsDegradedSnapshot: while the URL snapshot cannot be
-// read the locale setup is unknown, so a 404 is neither served from nor kept
-// in the store (a recovered snapshot would not purge a frozen wrong-locale body).
+// TestNotFoundStoreSkipsDegradedSnapshot: a body stored from a healthy
+// snapshot stays readable while the URL snapshot cannot be read, but a body
+// built meanwhile is never stored (a recovered snapshot would not purge a
+// frozen wrong-locale body).
 func TestNotFoundStoreSkipsDegradedSnapshot(t *testing.T) {
 	f := newRenderFixture(t)
 	f.h.notFound = newNotFoundCache()
 	f.h.snapshot = func(context.Context) (*entity.URLSnapshot, error) { return nil, errors.New("db down") }
-	req := httptest.NewRequest(http.MethodGet, "/nope", nil)
 	key := f.h.engine.Version() + "\x00/nope"
-	f.h.notFound.put(key, []byte("STORED-SENTINEL"), f.cache.Generation(), time.Now().Add(time.Hour))
+
 	rec := httptest.NewRecorder()
-	f.h.writeNotFoundQuiet(rec, req)
-	if strings.Contains(rec.Body.String(), "STORED-SENTINEL") {
-		t.Fatal("a degraded snapshot was served the stored body")
+	f.h.writeNotFoundQuiet(rec, httptest.NewRequest(http.MethodGet, "/nope", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status %d", rec.Code)
 	}
-	if n := len(f.h.notFound.m); n != 1 {
-		t.Fatalf("store holds %d entries, want only the sentinel", n)
+	if n := len(f.h.notFound.m); n != 0 {
+		t.Fatalf("a body built from a degraded snapshot was stored (%d entries)", n)
+	}
+
+	f.h.notFound.put(key, []byte("STORED-SENTINEL"), f.cache.Generation(), time.Now().Add(time.Hour))
+	rec = httptest.NewRecorder()
+	f.h.writeNotFoundQuiet(rec, httptest.NewRequest(http.MethodGet, "/nope", nil))
+	if !strings.Contains(rec.Body.String(), "STORED-SENTINEL") {
+		t.Fatal("a stored body was not served while the snapshot is degraded")
 	}
 }

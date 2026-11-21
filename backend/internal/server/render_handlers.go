@@ -816,6 +816,9 @@ func (h *renderHandlers) writeNotFoundQuiet(w http.ResponseWriter, r *http.Reque
 		body, hit = h.notFound.get(key, gen, now)
 	}
 	if !hit {
+		// Only a miss pays for this: a stored body was built from a healthy
+		// snapshot and stays readable, but a degraded one must not be kept.
+		storeOK = storeOK && !h.snapshotDegraded(r.Context())
 		before := render.DegradedCount()
 		var failuresBefore int64
 		if h.dataFailures != nil {
@@ -846,7 +849,8 @@ func (h *renderHandlers) writeNotFoundQuiet(w http.ResponseWriter, r *http.Reque
 
 // notFoundKey is the store key of a 404 for r and the page-cache token to
 // check it against; ok is false when this 404 must be rendered afresh and not
-// stored (the same rules as a page-cache read, and any query).
+// stored (the same rules as a page-cache read, and any query). The snapshot
+// state is checked by the caller, on a miss only.
 func (h *renderHandlers) notFoundKey(r *http.Request) (key string, gen uint64, ok bool) {
 	if h.notFound == nil || h.cache == nil || !h.baseURLPinned || !h.runtime.Enabled() {
 		return "", 0, false
@@ -859,7 +863,7 @@ func (h *renderHandlers) notFoundKey(r *http.Request) (key string, gen uint64, o
 	if r.URL.RawQuery != "" || len(path) > maxNotFoundPath ||
 		h.uncached || uncachedRequest(ctx) || h.commentBypass.applies(r) ||
 		isSmokeRequest(ctx) || refreshRequested(ctx) || hiddenLocalesServed(ctx) ||
-		h.pageFilter.Applies(path) || h.snapshotDegraded(ctx) {
+		h.pageFilter.Applies(path) {
 		return "", 0, false
 	}
 	return h.engine.Version() + "\x00" + path, h.cache.Generation(), true
