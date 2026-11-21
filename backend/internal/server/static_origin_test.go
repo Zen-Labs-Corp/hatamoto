@@ -153,3 +153,35 @@ func TestStaticOriginRefuseForeignMiddleware(t *testing.T) {
 		}
 	}
 }
+
+func TestStaticOriginForeignComparesNormalised(t *testing.T) {
+	t.Parallel()
+	srv, _ := newSpamServer(t, spam.Defaults(), nil)
+	setStaticForTest(srv)
+	stub := srv.refuseForeignOrigin(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	do := func(origin, host string) int {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/track", nil)
+		req.Host = host
+		req.Header.Set("Origin", origin)
+		rec := httptest.NewRecorder()
+		stub.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	if got := do(strings.ToUpper(testStaticSite), "x.test"); got != http.StatusNoContent {
+		t.Errorf("upper-case S = %d, want 204", got)
+	}
+	if got := do("https://Blog.Example.org", "blog.example.org"); got != http.StatusNoContent {
+		t.Errorf("own host, other case = %d, want 204", got)
+	}
+	if got := do("https://blog.example.org", "Blog.Example.org:443"); got != http.StatusNoContent {
+		t.Errorf("own host with default port = %d, want 204", got)
+	}
+	if got := do("https://evil.example", "x.test"); got != http.StatusForbidden {
+		t.Errorf("foreign = %d, want 403", got)
+	}
+	if got := do("https://a\"b", "a\"b"); got != http.StatusForbidden {
+		t.Errorf("malformed origin = %d, want 403", got)
+	}
+}

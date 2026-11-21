@@ -2,7 +2,8 @@ package server
 
 import (
 	"net/http"
-	"net/url"
+
+	"hatamoto.dev/core/internal/statichost"
 )
 
 // fromStaticSite reports a request from the static origin while static mode is
@@ -13,23 +14,34 @@ func (s *Server) fromStaticSite(r *http.Request) bool {
 }
 
 // foreignOrigin reports, in static mode only, an island POST from another
-// site: an Origin that is present, not "null", not S, not L and not this
-// request's own host. Such a post can only come from a page we never
-// published, so nothing from it may be stored. Served mode never refuses.
+// site: an Origin that is present, not "null", and that is not S, L or this
+// request's own host. Origins compare in normalised form (scheme, host, port,
+// case-insensitive), so a different spelling of S or L is still ours. The Host
+// fallback compares host and port only, because the scheme behind a proxy is
+// not known here. Such a post can only come from a page we never published,
+// so nothing from it may be stored. Served mode never refuses.
 func (s *Server) foreignOrigin(r *http.Request) bool {
 	hs := s.hosting.Load()
 	if !hs.Active() {
 		return false
 	}
 	origin := r.Header.Get("Origin")
-	if origin == "" || origin == "null" || origin == hs.Site || origin == hs.Live {
+	if origin == "" || origin == "null" {
 		return false
 	}
-	u, err := url.Parse(origin)
-	if err != nil || u.Host == "" {
+	norm, ok := statichost.NormalizeOrigin(origin)
+	if !ok {
 		return true // an unparsable Origin is not one of ours
 	}
-	return u.Host != r.Host
+	if norm == hs.Site || norm == hs.Live {
+		return false
+	}
+	for _, scheme := range []string{"http://", "https://"} {
+		if own, ok := statichost.NormalizeOrigin(scheme + r.Host); ok && own == norm {
+			return false
+		}
+	}
+	return true
 }
 
 // refuseForeignOrigin answers 403 {"error":"origin not allowed"} for a
