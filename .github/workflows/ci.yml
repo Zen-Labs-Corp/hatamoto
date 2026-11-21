@@ -232,6 +232,8 @@ jobs:
           # grant, and its section and partial templates need the grant too.
           must_run ./internal/packages TestHostilePluginJS_NotLinkedWithoutGrant TestHostilePluginJS_SectionsAndPartialsNeedTheGrant
           must_run ./internal/wasmhost TestHostileGuests
+          # The render query-count budget needs Postgres and skips without it; a skip must fail here.
+          must_run ./internal/server TestBudgetRenderQueries
           # D8: backup, restore and the role-admin bootstrap as a non-superuser admin. They skip
           # without psql/pg_dump of the server's major, so a skip (also of a subtest) fails here.
           must_run ./internal/backup TestBackupRestoreAsSuperuserAndCreateRoleAdmin TestBootstrapNeedsGrantOptionOnDatabaseCreate TestBootstrapRefusesSchemaOfAnotherOwner TestBootstrapWorksForAdminWithoutInheritance TestBootstrapRefusesAdminWithoutSetOnAppRole

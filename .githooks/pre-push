@@ -221,7 +221,8 @@ for sha in "${!base_of[@]}"; do
   ref=origin/main; git rev-parse -q --verify "$ref" >/dev/null || ref=$base
   targets=$(hm_go_targets "$wt" "$ref...$sha")
   # Always named: a renamed or moved test must fail the gate (integration-gate reports it missing), never switch the check off.
-  must_run='./internal/packages TestHostilePluginJS_NotLinkedWithoutGrant TestHostilePluginJS_SectionsAndPartialsNeedTheGrant'
+  must_run='./internal/packages TestHostilePluginJS_NotLinkedWithoutGrant TestHostilePluginJS_SectionsAndPartialsNeedTheGrant
+./internal/server TestBudgetRenderQueries'
   backend_int=()
   mapfile -t backend_int < <(awk -F'\t' '$1 == "backend" { print $2 }' <<<"$targets")
   # The integration-tagged run is a superset of the plain one for a package (no test file is

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test-ci-must-run.sh - the must-run rule (scripts/must-run-check.sh) and its wiring: the CI
-# step lists the D8 backup tests, a PostgreSQL client matching the server is installed before
+# step lists the D8 backup tests and the render query budget, a PostgreSQL client matching the server is installed before
 # it, and the local gate uses the same check (a registered check suite).
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
@@ -31,6 +31,7 @@ for t in TestBackupRestoreAsSuperuserAndCreateRoleAdmin TestBootstrapNeedsGrantO
   grep -qF "$t" <<<"$step" || fail "the Must-run step does not name $t"
 done
 grep -qF 'must-run-check.sh' <<<"$step" || fail "the Must-run step does not call must-run-check.sh"
+grep -qF 'must_run ./internal/server TestBudgetRenderQueries' <<<"$step" || fail "the Must-run step does not run TestBudgetRenderQueries"
 idle=$(awk '/^      - name: Idle memory budget really runs/{f=1;print;next} f&&/^      - name:/{exit} f' "$ci")
 [ -n "$idle" ] || fail "no Idle memory budget step in ci.yml"
 grep -qF 'TestBudgetIdleMemory' <<<"$idle" || fail "the idle memory step does not run TestBudgetIdleMemory"
@@ -47,4 +48,5 @@ grep -qF '/usr/lib/postgresql/' <<<"$instblock" || fail "the client install does
 # 3. local gate
 gate=$(awk '/^run_must\(\)/{f=1;print;next} f&&/^}/{print;exit} f' "$ROOT/scripts/integration-gate.sh")
 grep -qF 'must-run-check.sh' <<<"$gate" || fail "integration-gate.sh run_must does not call must-run-check.sh"
+grep -qF './internal/server TestBudgetRenderQueries' "$ROOT/.githooks/pre-push" || fail "pre-push must_run does not list TestBudgetRenderQueries"
 echo "ci-must-run tests ok"
