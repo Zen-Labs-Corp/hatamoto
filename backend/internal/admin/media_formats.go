@@ -99,6 +99,11 @@ func (a *Admin) handleMediaRebuild(w http.ResponseWriter, r *http.Request) {
 	}
 	switch err := svc.StartRebuild(r.Context(), actor); {
 	case err == nil:
+		detail := map[string]any{}
+		if st, err := svc.Status(r.Context()); err == nil {
+			detail["count"] = st.Total
+		}
+		a.audit(r, AuditMediaRebuilt, "media", detail)
 		a.SetFlash(w, r, "success", "Rebuild started.")
 	case errors.Is(err, media.ErrRebuildRunning):
 		a.SetFlash(w, r, "info", "A rebuild is already running.")

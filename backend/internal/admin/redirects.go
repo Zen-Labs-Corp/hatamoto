@@ -264,10 +264,14 @@ func (a *Admin) handle404Ignore(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := rs.Ignore404Entry(r.Context(), id); err != nil && !errors.Is(err, redirect.ErrNotFoundEntryNotFound) {
+	err := rs.Ignore404Entry(r.Context(), id)
+	if err != nil && !errors.Is(err, redirect.ErrNotFoundEntryNotFound) {
 		a.logger().Error("ignore 404 failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The entry could not be ignored.")
 		return
+	}
+	if err == nil {
+		a.audit(r, AuditNotFoundIgnored, id.String(), nil)
 	}
 	a.SetFlash(w, r, "success", "Entry ignored.")
 	Redirect(w, r, a.adminPath+"/settings/redirects/404")
@@ -291,10 +295,14 @@ func (a *Admin) handle404Delete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := rs.Delete404Entry(r.Context(), id); err != nil && !errors.Is(err, redirect.ErrNotFoundEntryNotFound) {
+	err := rs.Delete404Entry(r.Context(), id)
+	if err != nil && !errors.Is(err, redirect.ErrNotFoundEntryNotFound) {
 		a.logger().Error("delete 404 failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The entry could not be deleted.")
 		return
+	}
+	if err == nil {
+		a.audit(r, AuditNotFoundDeleted, id.String(), nil)
 	}
 	a.SetFlash(w, r, "success", "Entry deleted.")
 	Redirect(w, r, a.adminPath+"/settings/redirects/404")
@@ -530,6 +538,16 @@ func redirectErr(err error) (field, msg string, ok bool) {
 	return "", "", false
 }
 
+// auditPathOnly drops a query string: it can carry a token.
+func auditPathOnly(s string) string {
+	before, _, _ := strings.Cut(s, "?")
+	return before
+}
+
+func redirectAuditDetail(source, target string, code int, enabled bool) map[string]any {
+	return map[string]any{"source": auditPathOnly(source), "target": auditPathOnly(target), "status_code": code, "enabled": enabled}
+}
+
 func (a *Admin) handleRedirectCreate(w http.ResponseWriter, r *http.Request) {
 	rs, ok := a.redirectStore(w, r)
 	if !ok {
@@ -561,6 +579,7 @@ func (a *Admin) handleRedirectCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.invalidate(r.Context())
+	a.audit(r, AuditRedirectCreated, created.ID.String(), redirectAuditDetail(f.Source, f.Target, code, true))
 	a.SetFlash(w, r, "success", "Redirect created.")
 	Redirect(w, r, createdRedirect(a.adminPath+"/settings/redirects", created.ID.String()))
 }
@@ -617,6 +636,7 @@ func (a *Admin) handleRedirectSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.invalidate(r.Context())
+	a.audit(r, AuditRedirectUpdated, rd.ID.String(), redirectAuditDetail(f.Source, f.Target, code, f.Active))
 	a.SetFlash(w, r, "success", "Redirect saved.")
 	http.Redirect(w, r, a.adminPath+"/settings/redirects", http.StatusSeeOther)
 }
@@ -633,6 +653,7 @@ func (a *Admin) handleRedirectToggle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.invalidate(r.Context())
+	a.audit(r, AuditRedirectUpdated, rd.ID.String(), map[string]any{"enabled": on})
 	msg := "Redirect turned off."
 	if on {
 		msg = "Redirect turned on."
@@ -655,12 +676,18 @@ func (a *Admin) handleRedirectDelete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := a.deps.Growth.Redirects.DeleteRedirect(r.Context(), rd.ID); err != nil && !errors.Is(err, redirect.ErrRedirectNotFound) {
+	err := a.deps.Growth.Redirects.DeleteRedirect(r.Context(), rd.ID)
+	if err != nil && !errors.Is(err, redirect.ErrRedirectNotFound) {
 		a.logger().Error("delete redirect failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The redirect could not be deleted.")
 		return
 	}
 	a.invalidate(r.Context())
+	if err == nil {
+		a.audit(r, AuditRedirectDeleted, rd.ID.String(), map[string]any{
+			"source": auditPathOnly(rd.SourcePath), "target": auditPathOnly(rd.TargetURL), "status_code": rd.StatusCode,
+		})
+	}
 	a.SetFlash(w, r, "success", "Redirect deleted.")
 	Redirect(w, r, a.adminPath+"/settings/redirects")
 }
@@ -718,6 +745,11 @@ func (a *Admin) handleRedirectsBulk(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			a.logger().Error("bulk redirect action failed", "action", action, "err", err)
 			continue
+		}
+		if action == "delete" {
+			a.audit(r, AuditRedirectDeleted, id.String(), nil)
+		} else {
+			a.audit(r, AuditRedirectUpdated, id.String(), map[string]any{"enabled": action == "on"})
 		}
 		done++
 	}
