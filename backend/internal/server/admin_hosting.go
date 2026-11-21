@@ -100,6 +100,10 @@ func (h *hostingAdmin) Save(ctx context.Context, in admin.HostingInput) ([]ui.Fi
 	if err := check.Validate(); err != nil {
 		return []ui.FieldError{hostingFieldError(err)}, nil
 	}
+	// The store validates with the mode it keeps; Save never changes it.
+	if err := next.Validate(); err != nil {
+		return []ui.FieldError{hostingFieldError(err)}, nil
+	}
 	if in.Mode == staticexport.ModeStatic {
 		if errs := h.staticChecks(ctx, check); len(errs) > 0 {
 			return errs, nil

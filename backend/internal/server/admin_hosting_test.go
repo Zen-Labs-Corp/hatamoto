@@ -32,6 +32,9 @@ func (f *fakeHostingStore) Save(_ context.Context, s staticexport.Settings) erro
 	if f.saveErr != nil {
 		return f.saveErr
 	}
+	if err := s.Validate(); err != nil { // the real store validates too
+		return err
+	}
 	f.set, f.found = s, true
 	f.saves++
 	return nil
@@ -349,5 +352,22 @@ func TestHostingAdmin_NoSecretInErrors(t *testing.T) {
 	_, err = fx.h.Save(context.Background(), s3Input(secret))
 	if err == nil || strings.Contains(err.Error(), secret) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// Saving while static, asking for served, with the directory cleared: the
+// store validates with the stored (static) mode, so this must come back as a
+// field error and not as a failed save.
+func TestHostingAdmin_SaveServedRequestWithInvalidStaticTargetIsFieldError(t *testing.T) {
+	fx := newHostingFixture(t)
+	fx.store.found, fx.store.set = true, staticexport.Defaults()
+	fx.store.set.Mode, fx.store.set.Target, fx.store.set.DirPath = staticexport.ModeStatic, staticexport.TargetDir, "/srv/site"
+	in := dirInput("", admin.HostingServed)
+	errs, err := fx.h.Save(context.Background(), in)
+	if err != nil {
+		t.Fatalf("save returned an error (a 500 page): %v", err)
+	}
+	if len(errs) == 0 || fx.store.saves != 0 {
+		t.Fatalf("errs=%v saves=%d, want a field error and nothing saved", errs, fx.store.saves)
 	}
 }
