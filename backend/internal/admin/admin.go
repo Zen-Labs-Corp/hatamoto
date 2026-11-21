@@ -231,9 +231,12 @@ type Deps struct {
 	ProviderSignIn ProviderSignIn
 	// ProviderKey seals the provider sign-in state cookie.
 	ProviderKey []byte
-	Tokens      TokenService
-	Finder      UserFinder
-	Mailer      Mailer
+	// SignInSettings is the OIDC sign-in configuration on Settings > Sign-in;
+	// nil hides its card.
+	SignInSettings SignInSettingsService
+	Tokens         TokenService
+	Finder         UserFinder
+	Mailer         Mailer
 	// BaseURL returns the site address the owner or operator configured
 	// (PUBLIC_BASE_URL, else the Site address setting); "" when none is set.
 	// Emailed links use only this, never the request's headers.
