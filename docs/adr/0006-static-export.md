@@ -8,8 +8,10 @@ Status: accepted (2026-11-21)
    running site answers for that address, not a second rendering of it.
 2. Every page is fetched as an anonymous visitor: no cookie, no session, no
    special headers that change the body.
-3. A failed export changes nothing that is published. The previous output
-   stays as it was.
+3. A failed export to a directory changes nothing that is published: the
+   previous output stays as it was. S3 has no atomic swap, so a failed export
+   there can leave some files uploaded. It deletes nothing and writes no
+   manifest, and the CLI says the target is partially updated.
 4. An export deletes only files that an earlier export wrote, and only after
    every upload has worked.
 5. A site with the site access gate on (coming soon, maintenance, password) is

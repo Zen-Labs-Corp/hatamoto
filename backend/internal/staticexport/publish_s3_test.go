@@ -105,6 +105,29 @@ func TestS3Target_UploadErrorNoDeletes(t *testing.T) {
 	}
 }
 
+func TestS3Target_ModifiedAfterPartialPublish(t *testing.T) {
+	staged, next := stageFiles(t, map[string]string{"a.html": "a"})
+	d := Diff{Changed: []string{"a.html"}}
+
+	tgt, srv := s3Fixture(t, "")
+	srv.FailPut(func(key string) bool { return key == "a.html" })
+	if err := tgt.Publish(context.Background(), staged, d, next); err == nil {
+		t.Fatal("expected an upload error")
+	}
+	if tgt.Modified() {
+		t.Fatal("Modified before any upload succeeded")
+	}
+
+	tgt, srv = s3Fixture(t, "")
+	srv.FailPut(func(key string) bool { return key == ManifestFile })
+	if err := tgt.Publish(context.Background(), staged, d, next); err == nil {
+		t.Fatal("expected a manifest error")
+	}
+	if !tgt.Modified() {
+		t.Fatal("not Modified after an upload succeeded")
+	}
+}
+
 func TestS3Target_NoPreviousManifestDeletesNothing(t *testing.T) {
 	tgt, srv := s3Fixture(t, "p/")
 	srv.Put("p/stranger.html", []byte("not ours"), nil)

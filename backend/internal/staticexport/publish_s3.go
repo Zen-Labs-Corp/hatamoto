@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 
 	"hatamoto.dev/core/internal/s3"
 )
@@ -30,7 +31,13 @@ type S3Target struct {
 	prefix   string
 	describe string
 	key      string
+	puts     atomic.Int64
 }
+
+// Modified reports whether the last Publish uploaded at least one object. An
+// S3 publish is not atomic, so after an error the bucket may be part way to
+// the new export.
+func (t *S3Target) Modified() bool { return t.puts.Load() > 0 }
 
 // NewS3Target returns a target for prefix in bucket. endpoint only labels
 // the run record.
@@ -72,6 +79,7 @@ func (t *S3Target) Previous(ctx context.Context) (Manifest, bool, error) {
 func (t *S3Target) Publish(ctx context.Context, staged string, d Diff, next Manifest) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	t.puts.Store(0)
 
 	var (
 		wg       sync.WaitGroup
@@ -147,6 +155,7 @@ func (t *S3Target) put(ctx context.Context, staged, p string, e Entry) error {
 	if err != nil {
 		return fmt.Errorf("upload %s: %w", p, err)
 	}
+	t.puts.Add(1)
 	return nil
 }
 

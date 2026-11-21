@@ -215,10 +215,21 @@ func runStatic(ctx context.Context, args []string, out io.Writer) error {
 		fmt.Fprintln(out, "static: another export is running")
 		return exitError{1}
 	case err != nil:
-		fmt.Fprintf(out, "static: export failed, %s unchanged\n", t.Describe())
+		fmt.Fprintln(out, exportFailedLine(t))
 		return exitError{1}
 	}
 	return nil
+}
+
+// exportFailedLine says what a failed export left behind. A directory swap
+// either happens or not, and an S3 failure before the first upload changes
+// nothing; after an upload the bucket is partly updated (nothing is deleted
+// before every upload has finished).
+func exportFailedLine(t staticexport.Target) string {
+	if m, ok := t.(interface{ Modified() bool }); ok && m.Modified() {
+		return fmt.Sprintf("static: export failed, %s partially updated (no deletes)", t.Describe())
+	}
+	return fmt.Sprintf("static: export failed, %s unchanged", t.Describe())
 }
 
 // staticAdminPath reads the address the admin is served at without writing:

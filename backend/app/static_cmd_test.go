@@ -177,3 +177,25 @@ func TestExportServerSecret(t *testing.T) {
 		t.Fatalf("%s = %q", secretEnv, got)
 	}
 }
+
+func TestExportFailedLine(t *testing.T) {
+	dir, err := staticexport.NewDirTarget(filepath.Join(t.TempDir(), "site"), staticexport.DirGuard{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := exportFailedLine(dir); !strings.HasSuffix(got, " unchanged") {
+		t.Errorf("dir: %q", got)
+	}
+	s3t := staticexport.NewS3Target(nil, "https://s3.example.com", "b", "p/")
+	if got := exportFailedLine(s3t); !strings.HasSuffix(got, " unchanged") {
+		t.Errorf("s3 before any put: %q", got)
+	}
+	if got := exportFailedLine(modifiedTarget{s3t}); got != "static: export failed, s3://b/p/ partially updated (no deletes)" {
+		t.Errorf("s3 after a put: %q", got)
+	}
+}
+
+// modifiedTarget stands in for an S3 target that uploaded something.
+type modifiedTarget struct{ staticexport.Target }
+
+func (modifiedTarget) Modified() bool { return true }
