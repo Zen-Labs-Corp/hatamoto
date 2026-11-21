@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/s3/s3test"
 )
 
@@ -135,5 +136,25 @@ func TestS3UploadRecordsProvider(t *testing.T) {
 	}
 	if got := e.repo.byID[m.ID].StorageProvider; got != "s3" {
 		t.Errorf("stored provider = %q, want s3", got)
+	}
+}
+
+// In staging the bucket may be the production one: Delete keeps the object,
+// still succeeds (the caller removes its own record) and logs the family.
+func TestS3DeleteInStagingKeepsObjects(t *testing.T) {
+	t.Setenv(runenv.EnvVar, "staging")
+	ctx := context.Background()
+	store, fake := newTestS3Store(t, "site/")
+	if _, err := store.Put(ctx, "k/x.txt", strings.NewReader("data")); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Delete(ctx, "k/x.txt"); err != nil {
+		t.Fatalf("Delete in staging = %v", err)
+	}
+	if _, ok := fake.Objects()["site/k/x.txt"]; !ok {
+		t.Fatalf("object was deleted in staging: %v", fake.Objects())
+	}
+	if got := string(runenv.MediaDelete); got == "" {
+		t.Fatal("family has no label")
 	}
 }
