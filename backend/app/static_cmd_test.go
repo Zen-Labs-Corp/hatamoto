@@ -107,6 +107,24 @@ func TestResolveStaticTarget(t *testing.T) {
 		}
 	})
 
+	t.Run("s3 target above or beside the media prefix refused", func(t *testing.T) {
+		for _, tc := range []struct{ mediaPrefix, staticPrefix string }{
+			{"media/", ""}, {"media/", "media"}, {"site/media/", "site/"},
+		} {
+			env := map[string]string{
+				staticexport.EnvBucket: "my-site", staticexport.EnvEndpoint: "https://s3.example.com", staticexport.EnvRegion: "us-east-1",
+				staticexport.EnvAccessKey: "AKIAEXAMPLE", staticexport.EnvSecretKey: "topsecret", staticexport.EnvPrefix: tc.staticPrefix,
+				"MEDIA_STORAGE": "s3", "HATAMOTO_MEDIA_S3_ENDPOINT": "https://s3.example.com", "HATAMOTO_MEDIA_S3_REGION": "us-east-1",
+				"HATAMOTO_MEDIA_S3_BUCKET": "my-site", "HATAMOTO_MEDIA_S3_ACCESS_KEY": "AKIAEXAMPLE", "HATAMOTO_MEDIA_S3_SECRET_KEY": "topsecret",
+				"HATAMOTO_MEDIA_S3_PREFIX": tc.mediaPrefix,
+			}
+			_, err := resolveStaticTarget(ctx, staticArgs{target: "s3"}, staticTargetDeps{getenv: func(k string) string { return env[k] }, settings: noSettings, secret: secret})
+			if err == nil || !strings.Contains(err.Error(), "media") {
+				t.Errorf("media %q static %q: err = %v", tc.mediaPrefix, tc.staticPrefix, err)
+			}
+		}
+	})
+
 	t.Run("saved dir", func(t *testing.T) {
 		dir := filepath.Join(t.TempDir(), "saved")
 		saved := func(context.Context) (staticexport.Settings, bool, error) {

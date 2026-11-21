@@ -110,7 +110,7 @@ func resolveStaticTarget(ctx context.Context, a staticArgs, d staticTargetDeps) 
 // object storage (/media serves everything under the media prefix).
 func s3StaticTarget(endpoint, region, bucket, prefix, accessKey, secretKey string, getenv func(string) string) (staticexport.Target, error) {
 	if kind, _ := media.StorageFromEnv(getenv); kind == "s3" {
-		if mt, err := media.S3TargetFromEnv(getenv); err == nil && mt.SharesWith(endpoint, bucket, prefix) {
+		if mt, err := media.S3TargetFromEnv(getenv); err == nil && mt.Overlaps(endpoint, bucket, prefix) {
 			return nil, errors.New("the static export target and the media object storage share a bucket and overlapping prefixes; use a separate bucket or distinct prefixes")
 		}
 	}

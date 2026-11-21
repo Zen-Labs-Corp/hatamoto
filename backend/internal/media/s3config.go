@@ -114,3 +114,24 @@ func (t S3Target) SharesWith(endpoint, bucket, prefix string) bool {
 	}
 	return strings.HasPrefix(prefix, t.Prefix)
 }
+
+// Overlaps reports whether the other target writes to keys this one owns or
+// reads: the same bucket at the same endpoint with prefixes where either
+// contains the other (an empty prefix is the whole bucket). Prefixes are
+// compared with a trailing slash, so "media" overlaps "media/". Unlike
+// SharesWith, it also catches a target above the media prefix, which could
+// overwrite or delete media originals.
+func (t S3Target) Overlaps(endpoint, bucket, prefix string) bool {
+	norm := func(e string) string { return strings.ToLower(strings.TrimRight(strings.TrimSpace(e), "/")) }
+	if t.Bucket != bucket || norm(t.Endpoint) != norm(endpoint) {
+		return false
+	}
+	slash := func(p string) string {
+		if p != "" && !strings.HasSuffix(p, "/") {
+			return p + "/"
+		}
+		return p
+	}
+	mine, other := slash(t.Prefix), slash(prefix)
+	return strings.HasPrefix(other, mine) || strings.HasPrefix(mine, other)
+}
