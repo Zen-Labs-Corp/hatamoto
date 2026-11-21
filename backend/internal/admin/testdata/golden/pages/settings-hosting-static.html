@@ -128,12 +128,12 @@
 <label class="hm-field__check" for="hosting-target-1"><input class="hm-field__box" type="radio" id="hosting-target-1" name="target" value="s3" checked><span>S3-compatible storage</span></label>
 </fieldset>
 </div>
-<div class="hm-field">
+<div data-hosting-only="dir"><div class="hm-field">
 <label class="hm-field__label" for="hosting-dir">Directory</label>
 <input class="hm-field__control" type="text" id="hosting-dir" name="dir" aria-describedby="hosting-dir-help" autocomplete="off">
 <p class="hm-field__help" id="hosting-dir-help">An absolute path, for example /var/www/site. Your web server serves it.</p>
-</div>
-<p class="hm-muted">or</p>
+</div></div>
+<div data-hosting-only="s3">
 <div class="hm-field">
 <label class="hm-field__label" for="hosting-service">Storage service</label>
 <div class="hm-select" data-hm-select><select class="hm-field__control" id="hosting-service" name="service" aria-describedby="hosting-service-help"><option value="aws">Amazon S3</option><option value="r2" selected>Cloudflare R2</option><option value="b2">Backblaze B2</option><option value="minio">MinIO</option><option value="custom">Other S3-compatible storage</option></select></div>
@@ -168,6 +168,7 @@
 <input class="hm-field__control" type="password" id="hosting-secret-key" name="secret_key" placeholder="Saved" aria-describedby="hosting-secret-key-help" autocomplete="new-password">
 <p class="hm-field__help" id="hosting-secret-key-help">Saved. Leave blank to keep the saved key.</p>
 </div></div>
+</div>
 </div></section>
 <section class="hm-card" id="hosting-addresses" aria-labelledby="hosting-addresses-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="hosting-addresses-title">Addresses</h2></div>

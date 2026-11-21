@@ -10,8 +10,8 @@
 {{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "hosting-target-card" "Title" "Target" "Heading" "h2" "Description" "Where the exported files go. Used in static mode."}}
 {{template "hm/field" dict "ID" "hosting-target" "Name" "target" "Label" "Publish to" "Control" "radio" "Options" .TargetOptions "Error" (index .Errs "hosting-target")}}
-{{template "hm/field" dict "ID" "hosting-dir" "Name" "dir" "Label" "Directory" "Value" .Form.Dir "Help" "An absolute path, for example /var/www/site. Your web server serves it." "Error" (index .Errs "hosting-dir") "Attrs" (attrmap "autocomplete" "off")}}
-<p class="hm-muted">or</p>
+<div data-hosting-only="dir">{{template "hm/field" dict "ID" "hosting-dir" "Name" "dir" "Label" "Directory" "Value" .Form.Dir "Help" "An absolute path, for example /var/www/site. Your web server serves it." "Error" (index .Errs "hosting-dir") "Attrs" (attrmap "autocomplete" "off")}}</div>
+<div data-hosting-only="s3">
 {{template "hm/field" dict "ID" "hosting-service" "Name" "service" "Label" "Storage service" "Control" "select" "Options" .ServiceOptions "Help" "Only Amazon S3 builds the address from the region. For every other service enter the endpoint." "Error" (index .Errs "hosting-service")}}
 {{template "hm/field" dict "ID" "hosting-endpoint" "Name" "endpoint" "Label" "Endpoint" "Value" .Form.Endpoint "Help" "For example https://<account>.r2.cloudflarestorage.com. Needed for every service except Amazon S3." "Error" (index .Errs "hosting-endpoint") "Attrs" (attrmap "autocomplete" "off")}}
 {{template "hm/pair-start"}}{{template "hm/field" dict "ID" "hosting-bucket" "Name" "bucket" "Label" "Bucket" "Value" .Form.Bucket "Help" "The bucket must already exist." "Error" (index .Errs "hosting-bucket") "Attrs" (attrmap "autocomplete" "off")}}
@@ -19,6 +19,7 @@
 {{template "hm/field" dict "ID" "hosting-region" "Name" "region" "Label" "Region" "Value" .Form.Region "Help" "For example eu-west-1. Cloudflare R2 uses auto." "Error" (index .Errs "hosting-region") "Attrs" (attrmap "autocomplete" "off")}}
 {{template "hm/pair-start"}}{{template "hm/field" dict "ID" "hosting-access-key" "Name" "access_key" "Label" "Access key" "Value" .Form.AccessKey "Error" (index .Errs "hosting-access-key") "Attrs" (attrmap "autocomplete" "off")}}
 {{template "hm/field" dict "ID" "hosting-secret-key" "Name" "secret_key" "Label" "Secret key" "Type" "password" "Placeholder" (or (and .Form.SecretSaved "Saved") "") "Help" (or (and .Form.SecretLost "The saved secret key can no longer be read. Enter it again.") (and .Form.SecretSaved "Saved. Leave blank to keep the saved key.") "The key stays on the server and is never shown again.") "Error" (index .Errs "hosting-secret-key") "Attrs" (attrmap "autocomplete" "new-password")}}{{template "hm/pair-end"}}
+</div>
 {{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "hosting-addresses" "Title" "Addresses" "Heading" "h2"}}
 <div class="hm-setlist"><div class="hm-setrow">
