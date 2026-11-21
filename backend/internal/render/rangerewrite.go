@@ -3,6 +3,7 @@ package render
 import (
 	"html/template"
 	"strconv"
+	"strings"
 	"text/template/parse"
 )
 
@@ -93,11 +94,14 @@ func rewriteRangeTree(t *parse.Tree, plugin, name string) {
 		s.Text, s.Quoted = text, strconv.Quote(text)
 	}
 	// The {{if}} wrap joins the contexts the escaper sees at the end of the body
-	// and of the empty else branch, so it is only safe for a tree that starts and
-	// ends every branch in text. Any other tree (a site.scripts template that
-	// opens a <script> a theme partial closes, say) keeps its escaping as is and
-	// is not wrapped: when paused it stops its ranges at once (see Spend).
-	if checkPluginActions(name, t) != nil {
+	// and of the empty else branch. That is only safe for a tree that is always
+	// entered from text and starts and ends every branch in text: a section the
+	// engine executes on its own. A partial can be called by a theme from a URL
+	// attribute or a script, where the join makes the escaper fail the page, so
+	// partials are never wrapped. Neither is a section with actions outside text
+	// (a site.scripts template, say). An unwrapped template that is paused stops
+	// its ranges at once (see Spend).
+	if !strings.HasPrefix(name, "section-") || checkPluginActions(name, t) != nil {
 		t.Root.Nodes = append([]parse.Node{decl}, t.Root.Nodes...)
 		return
 	}
