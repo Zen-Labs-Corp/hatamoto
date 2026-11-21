@@ -326,7 +326,8 @@ func (r *PostgresSchemaRepository) CountEntities(ctx context.Context, schemaID u
 
 // PostgresEntityRepository implements EntityRepository using PostgreSQL.
 type PostgresEntityRepository struct {
-	db *database.DB
+	db      *database.DB
+	auditTx TxAudit
 }
 
 // NewPostgresEntityRepository creates a new PostgreSQL entity repository.
@@ -397,6 +398,12 @@ func (r *PostgresEntityRepository) Create(ctx context.Context, userID *uuid.UUID
 			return nil, fkViolation(err)
 		}
 		return nil, fmt.Errorf("failed to create entity: %w", err)
+	}
+
+	if a, ok := r.auditActor(ctx); ok {
+		if err := r.recordTx(ctx, tx, a, auditCreate, e.ID, map[string]any{"name": e.Name, "slug": e.Slug, "status": string(e.Status)}); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -648,6 +655,17 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 			RETURNING sort_order`, id, e.SchemaID, e.ParentID, e.Locale).Scan(&e.SortOrder)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("failed to place the entity among its new siblings: %w", err)
+		}
+	}
+
+	// An autosave is not an explicit save: it leaves no audit row.
+	if a, ok := r.auditActor(ctx); ok && !input.Autosave {
+		detail := map[string]any{"name": e.Name, "slug": e.Slug}
+		if input.TakeOwnership && prevOrigin != "owner" {
+			detail["took_ownership"] = true
+		}
+		if err := r.recordTx(ctx, tx, a, auditUpdate, e.ID, detail); err != nil {
+			return nil, err
 		}
 	}
 
