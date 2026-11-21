@@ -35,7 +35,7 @@ func TestStartModuleServices(t *testing.T) {
 	wait := startModuleServices(ctx, logger)
 	cancel()
 	done := make(chan struct{})
-	go func() { wait(); close(done) }()
+	go func() { wait(5 * time.Second); close(done) }()
 	select {
 	case <-done:
 	case <-time.After(5 * time.Second):
@@ -53,5 +53,28 @@ func TestStartModuleServices(t *testing.T) {
 	}
 	if strings.Contains(out, "context canceled") {
 		t.Errorf("cancellation was logged as an error:\n%s", out)
+	}
+}
+
+func TestModuleServicesWaitDeadline(t *testing.T) {
+	t.Cleanup(modhost.Reset)
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	modhost.RegisterService(modhost.Service{Name: "stuck", Run: func(context.Context) error { <-release; return nil }})
+	modhost.RegisterService(modhost.Service{Name: "polite", Run: func(ctx context.Context) error { <-ctx.Done(); return nil }})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	wait := startModuleServices(ctx, logger)
+	cancel()
+	start := time.Now()
+	wait(300 * time.Millisecond)
+	if d := time.Since(start); d > 3*time.Second {
+		t.Fatalf("wait took %v, want about the deadline", d)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "did not stop in time") || !strings.Contains(out, "stuck") || strings.Contains(out, "polite") {
+		t.Errorf("log should name only the stuck service:\n%s", out)
 	}
 }

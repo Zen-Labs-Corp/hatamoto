@@ -521,7 +521,7 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	startUpdater(srv, db.Pool(), db.Direct(), cfg.Server.MediaUploadDir, cfg.PublicSite.BaseURL, cfg.Demo.Enabled, cfg.Server.EnableWorker, logger)
 	svcCtx, stopServices := context.WithCancel(ctx)
 	waitServices := startModuleServices(svcCtx, logger)
-	defer func() { stopServices(); waitServices() }()
+	defer func() { stopServices(); waitServices(moduleServiceStopTimeout) }()
 	if err := srv.Start(); err != nil {
 		return fmt.Errorf("server error: %w", err)
 	}
