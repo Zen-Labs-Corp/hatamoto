@@ -449,10 +449,33 @@ func TestAuthOrAPIKeyOwnerOnlyScopeNeedsOwnerCreator(t *testing.T) {
 }
 
 func TestAPIKeyCreatorCanAct(t *testing.T) {
+	id := uuid.New()
 	for role, want := range map[string]bool{"owner": true, "editor": true, "viewer": false, "": false} {
-		if got := (&auth.APIKey{CreatorRole: role}).CreatorCanAct(); got != want {
+		if got := authzsubject.CreatorCanAct(context.Background(), &auth.APIKey{CreatedBy: &id, CreatorRole: role}); got != want {
 			t.Errorf("role %q: got %v want %v", role, got, want)
 		}
+	}
+}
+
+// Denying only apikey.creator.act must stop an owner-created * key on an
+// allow-listed route with the creator check's 401, not the allow-list's 403.
+func TestAPIKeyCreatorActDenied(t *testing.T) {
+	deny := authztest.Func(func(ctx context.Context, s authz.Subject, a authz.Action, o authz.Object) (bool, error) {
+		if a == authz.ActionAPIKeyCreatorAct {
+			return false, nil
+		}
+		return authz.Default().Can(ctx, s, a, o)
+	})
+	key := testKey(auth.ScopeAll)
+	key.CreatorRole = "owner"
+	h := newKeyHarness(t, true, map[string]*auth.APIKey{"k": key})
+	if rec := do(h.handler, "GET", "/api/v1/entities", "k"); rec.Code != http.StatusOK {
+		t.Fatalf("before deny: got %d want 200", rec.Code)
+	}
+	authztest.Use(t, deny)
+	rec := do(h.handler, "GET", "/api/v1/entities", "k")
+	if rec.Code != http.StatusUnauthorized || strings.TrimSpace(rec.Body.String()) != `{"error":"invalid api key"}` {
+		t.Errorf("got %d %q, want 401 invalid api key", rec.Code, rec.Body.String())
 	}
 }
 

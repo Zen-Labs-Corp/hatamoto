@@ -14,6 +14,7 @@ import (
 	"golang.org/x/time/rate"
 	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authzsubject"
 	"hatamoto.dev/core/internal/database"
 )
 
@@ -352,6 +353,12 @@ func APIKeyAuthMiddleware(apiKeyService *auth.APIKeyService, rateLimiter *APIKey
 				default:
 					http.Error(w, `{"error":"authentication failed"}`, http.StatusUnauthorized)
 				}
+				return
+			}
+
+			// The creator must still be allowed to act.
+			if !authzsubject.CreatorCanAct(r.Context(), apiKey) {
+				http.Error(w, `{"error":"authentication failed"}`, http.StatusUnauthorized)
 				return
 			}
 

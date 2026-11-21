@@ -116,8 +116,8 @@ func AuthOrAPIKey(v APIKeyValidator, limiter APIKeyAllower, next func(http.Handl
 			}
 
 			key, err := v.ValidateKey(r.Context(), raw)
-			// The creator must still be an owner/editor (key power never outlives it).
-			if err != nil || key == nil || key.CreatedBy == nil || !key.CreatorCanAct() {
+			// The creator must still be allowed to act (key power never outlives it).
+			if err != nil || key == nil || !authzsubject.CreatorCanAct(r.Context(), key) {
 				http.Error(w, `{"error":"invalid api key"}`, http.StatusUnauthorized)
 				return
 			}

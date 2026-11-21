@@ -184,7 +184,7 @@ func (s *Server) checkOrigin(next http.Handler) http.Handler {
 // orphaned keys fail as in the API's key middleware.
 func (s *Server) verify(ctx context.Context, token string, r *http.Request) (*auth.TokenInfo, error) {
 	key, err := s.d.Keys.ValidateKey(ctx, token)
-	if err != nil || key == nil || key.CreatedBy == nil || !key.CreatorCanAct() {
+	if err != nil || key == nil || !authzsubject.CreatorCanAct(ctx, key) {
 		return nil, fmt.Errorf("%w: invalid api key", auth.ErrInvalidToken)
 	}
 	exp := time.Now().Add(time.Hour)

@@ -502,9 +502,9 @@ func (s *APIKeyService) ValidateKey(ctx context.Context, plainKey string) (*APIK
 		return nil, ErrAPIKeyExpired
 	}
 
-	// The creator must still be an owner/editor: demotion or deletion revokes
-	// the key's effective power without touching the key.
-	if !apiKey.CreatorCanAct() {
+	// The creator is missing or their access ended (from the query). Whether
+	// the creator may still act is asked by the entry points via authz.
+	if apiKey.CreatorRole == "" {
 		return nil, ErrAPIKeyCreatorGone
 	}
 
