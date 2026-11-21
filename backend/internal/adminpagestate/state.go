@@ -100,6 +100,9 @@ func validate(p Page) error {
 	case p.Templates == nil:
 		return fmt.Errorf("page %q has no templates", p.ID)
 	}
+	if err := probeTemplates(p.Templates); err != nil {
+		return fmt.Errorf("page %q: templates not usable: %v", p.ID, err)
+	}
 	hasIndex := false
 	trial := http.NewServeMux() // one mux, so routes of the page that conflict are caught here
 	for _, rt := range p.Routes {
@@ -120,6 +123,19 @@ func validate(p Page) error {
 	if !hasIndex {
 		return fmt.Errorf("page %q has no GET route with an empty path", p.ID)
 	}
+	return nil
+}
+
+// probeTemplates catches a typed-nil FS (for example a nil *embed.FS), which
+// passes a nil check but panics when core lists the templates at boot. A
+// missing pages directory is fine: the page then fails closed at run time.
+func probeTemplates(fsys fs.FS) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%v", r)
+		}
+	}()
+	_, _ = fs.Stat(fsys, "pages")
 	return nil
 }
 

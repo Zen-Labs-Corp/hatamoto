@@ -48,6 +48,7 @@ func TestRegisterRejectsInvalidPages(t *testing.T) {
 		"invalid page id \"\"":         validPage(""),
 		"no label":                     mut(func(p *Page) { p.Label = " " }),
 		"no templates":                 mut(func(p *Page) { p.Templates = nil }),
+		"templates not usable":         mut(func(p *Page) { p.Templates = (*fstest.MapFS)(nil) }),
 		"no GET route":                 mut(func(p *Page) { p.Routes = []Route{{Method: "POST", Handle: ok}} }),
 		"not GET or POST":              mut(func(p *Page) { p.Routes = append(p.Routes, Route{Method: "PUT", Handle: ok}) }),
 		"nil handler":                  mut(func(p *Page) { p.Routes = append(p.Routes, Route{Method: "POST", Path: "/x"}) }),
