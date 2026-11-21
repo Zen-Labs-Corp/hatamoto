@@ -119,14 +119,29 @@ func (a *Admin) handleRobotsSave(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	changed := robotsChanged(r, stats, denied)
 	if err := stats.SetDenied(r.Context(), denied); err != nil {
 		a.logger().Error("save robots policy failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The robots policy could not be saved.")
 		return
 	}
 	a.invalidate(r.Context())
+	a.audit(r, AuditSettingsUpdated, "robots", map[string]any{"changed": changed})
 	a.SetFlash(w, r, "success", "Robots policy saved. robots.txt now tells these crawlers to stay away.")
 	http.Redirect(w, r, a.robotsReturn(r), http.StatusSeeOther)
+}
+
+// robotsChanged names the purposes whose allow or deny differs from the stored
+// policy; when the stored one cannot be read, every purpose.
+func robotsChanged(r *http.Request, stats AgentStats, denied []agents.Purpose) []string {
+	stored, err := stats.DeniedPurposes(r.Context())
+	out := []string{}
+	for _, p := range robotsPurposes {
+		if err != nil || slices.Contains(stored, p) != slices.Contains(denied, p) {
+			out = append(out, string(p))
+		}
+	}
+	return out
 }
 
 // robotsPosted is the policy a save post asks for. The Crawlers and Health
