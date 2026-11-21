@@ -284,6 +284,9 @@ func (a *Admin) handleSetupEmail(w http.ResponseWriter, r *http.Request) {
 	case !res.saved:
 		a.renderSetupEmail(w, r, http.StatusUnprocessableEntity, stored, res)
 	default:
+		if res.unchecked {
+			a.SetFlash(w, r, "warning", emailUncheckedNotice)
+		}
 		http.Redirect(w, r, a.adminPath+"/setup/theme", http.StatusSeeOther)
 	}
 }

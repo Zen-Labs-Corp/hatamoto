@@ -11,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/email"
+	"hatamoto.dev/core/internal/runenv"
 )
 
 const emailTestPassword = "smtp-p4ss-SECRET-0123456789"
@@ -354,5 +355,22 @@ func TestEmailReset(t *testing.T) {
 	}
 	if len(e.events) != 1 || e.events[0].Action != "email.settings.reset" {
 		t.Errorf("audit = %+v", e.events)
+	}
+}
+
+// In staging the connection check is switched off: the form still saves, and
+// the flash says the connection was not checked.
+func TestEmailSaveInStagingSavesWithoutCheck(t *testing.T) {
+	t.Setenv(runenv.EnvVar, "staging")
+	e := newEmailRig(t, &fakeEmailSettings{view: EmailSettingsView{Source: EmailSourceNone}, checkErr: runenv.ErrSuppressed})
+	rec := e.do("POST", "/admin/settings/email", "owner-token", goodEmailForm(), nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/email" {
+		t.Fatalf("save = %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if len(e.svc.saved) != 1 || e.svc.saved[0].Host != "smtp.example.com" {
+		t.Fatalf("saved = %+v", e.svc.saved)
+	}
+	if f := flashText(t, rec); !strings.Contains(f, "not checked") || !strings.Contains(f, "staging mode") {
+		t.Errorf("flash = %q", f)
 	}
 }

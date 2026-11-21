@@ -10,6 +10,7 @@ import (
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/mailsettings"
+	"hatamoto.dev/core/internal/runenv"
 )
 
 // EmailSource says where the live email configuration comes from.
@@ -231,7 +232,11 @@ func (a *Admin) handleEmailSave(w http.ResponseWriter, r *http.Request) {
 	case !res.saved:
 		a.renderEmail(w, r, http.StatusUnprocessableEntity, stored, res.echo, res.errs, res.checkFailed, nil)
 	default:
-		a.SetFlash(w, r, "success", "Email settings saved. Email is set up.")
+		if res.unchecked {
+			a.SetFlash(w, r, "warning", emailUncheckedNotice)
+		} else {
+			a.SetFlash(w, r, "success", "Email settings saved. Email is set up.")
+		}
 		http.Redirect(w, r, a.adminPath+emailPath, http.StatusSeeOther)
 	}
 }
@@ -242,8 +247,13 @@ type emailSubmission struct {
 	errs        []ui.FieldError
 	checkFailed string // the connection check refused it; nothing was saved
 	saved       bool
+	unchecked   bool // saved without a connection check (staging mode)
 	fatal       bool // the store failed
 }
+
+// emailUncheckedNotice is shown when the settings were saved in staging mode,
+// where the connection check is switched off.
+const emailUncheckedNotice = "Email settings saved, but the connection was not checked because of staging mode."
 
 // submitEmail validates the posted SMTP form, checks the connection and, only
 // when that works, saves and applies it. Shared by Settings > Email and the
@@ -256,7 +266,9 @@ func (a *Admin) submitEmail(r *http.Request, svc EmailSettingsService, stored Em
 	if len(errs) > 0 {
 		return res
 	}
-	if err := svc.Check(ctx, in, echo.KeepPassword); err != nil {
+	if err := svc.Check(ctx, in, echo.KeepPassword); errors.Is(err, runenv.ErrSuppressed) {
+		res.unchecked = true // staging: the check would reach the copied SMTP server
+	} else if err != nil {
 		a.logger().Warn("email settings check failed", "host", in.Host, "port", in.Port, "err", err)
 		res.checkFailed = emailCheckMessage(err)
 		return res
