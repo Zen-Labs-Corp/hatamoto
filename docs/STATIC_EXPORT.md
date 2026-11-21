@@ -14,8 +14,8 @@ This is not the other export commands:
 - [ADMIN_STATIC_EXPORT.md](ADMIN_STATIC_EXPORT.md) is a superseded note, kept
   for the record.
 
-The admin Hosting page and automatic triggers (run on publish or on a
-schedule) come in a later change. For now you run the command yourself.
+Owners can also switch static hosting on and run exports from Settings >
+Hosting; see [Settings > Hosting](#settings--hosting) below.
 
 ## Quick start
 
@@ -219,14 +219,65 @@ prints `unchanged`.
 A 404 or 410 on a link inside a page is a warning, not an error: it is a broken
 link on the live site. Up to 50 errors are kept.
 
+## Settings > Hosting
+
+Owners find the page under Settings > System > Hosting. It holds the mode, the
+target, the last export, the export log and the list of live islands.
+
+**Modes.** *Served* (the default) answers every page from Hatamoto. *Static
+files + live islands* publishes the pages as files and keeps the interactive
+parts (forms, search, comments, consent, the pageview beacon and plugin public
+routes) on this server, which answers them for the static site. The page lists
+the live islands and the ones that stay on Hatamoto, read from the island
+inventory. Switching the mode asks for your password again. It is refused while
+Site access or the demo is on, and while the target is incomplete.
+
+**Target.** A local directory, or S3-compatible storage (service, endpoint,
+region, bucket, folder prefix, access key and secret key). The secret key is
+stored sealed with a key derived from the server secret, is never shown again
+and a blank field keeps the saved one. The live origin is the address where the
+islands answer; it must differ from the site address in its host.
+
+**What starts an export.** With the worker running and the mode set to static,
+an export starts about 30 seconds after the last of these changes (at most
+about 2.5 minutes under constant edits):
+
+- an entity is published, unpublished, scheduled or changed;
+- menus, media, redirects or an approved comment change;
+- the theme or the site settings change, which re-publishes every file.
+
+On a served site, or without the worker, nothing runs by itself. Only one
+export runs at a time: if another process holds the run, the export is
+retried after the next window.
+
+**Buttons.** *Export now* starts an export without waiting. *Rebuild all*
+re-publishes every file instead of only the changed ones (removed files are
+still deleted) and asks for your password. Both need static mode and the
+worker.
+
+**Failures.** A failed run shows a banner on the dashboard and on the Hosting
+page, and every owner gets one email when a run fails after a run that did not.
+Further failures in the same streak do not send more mail.
+
+**Backup restore.** A backup restore switches the restored site to served, as
+it switches off-site backups off: check the target, then switch static on
+again. A restored copy never exports into the original's target.
+
+AI crawler analytics read the access log, and a static site does not pass
+through this server. See [access log ingest](site/ai-seo/access-log-ingest.md)
+to count those visits.
+
 ## Run records
 
-Each run is stored with its trigger (`cli` today), target, status, counts of
+Each run is stored with its trigger (`cli`, `manual`, `rebuild`, `mode` for the
+first export after switching to static, or the reason of a change: `entity`,
+`change`, `redirects`, `comment`, `theme`, `settings`), target, status, counts of
 pages, assets, media, redirects, changed, unchanged, removed and warnings,
 bytes, duration and errors. Only one run can be `running`. A run that stops
 sending its 30-second heartbeat for five minutes is marked failed
 ("abandoned"), so a crash does not block the next export. Records hold no
-secret, only the target (a directory, or endpoint, bucket and prefix).
+secret, only the target (a directory, or endpoint, bucket and prefix). Runs
+older than 90 days are deleted after each export; a running run never is.
 
 Run it from the service's directory, or set `HATAMOTO_DATA` and
 `MEDIA_UPLOAD_DIR`, so the server secret and media directory resolve as they do
