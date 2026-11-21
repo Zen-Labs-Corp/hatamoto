@@ -36,6 +36,7 @@ var inlineRoleAllow = []allowedInlineRole{
 	{"internal/server/handlers.go", "role == user.RoleOwner && !middleware.Can(", "domain: target role (the permission part asks authz)"},
 	{"internal/server/handlers.go", "*input.Role == user.RoleOwner", "domain: target role"},
 	{"internal/server/handlers.go", "target.Role != user.RoleOwner", "domain: target role"},
+	{"internal/admin/authz_can.go", "role != user.RoleOwner ||", "domain: target role (the permission part asks authz)"},
 	{"internal/siteconfig/siteconfig.go", "return role == \"owner\"", "two-factor policy binding (data policy, not a permission)"},
 	{"internal/admin/users.go", "case \"owner\":", "display: badge colour of a listed user's role"},
 	{"internal/admin/ui/ui.go", "c.Role == \"title\"", "table column role, not a user role"},
