@@ -440,3 +440,44 @@ func TestStaticExport_RunRecorded(t *testing.T) {
 		t.Fatalf("media = %d, want the image and its two variants", media)
 	}
 }
+
+// A served site's Test export writes the saved directory target, records a
+// run marked "test" and leaves the process snapshot (what visitors get) alone.
+func TestStaticExport_TestExportInServedMode(t *testing.T) {
+	x := newXPSite(t, "open")
+	ctx := context.Background()
+	dir := filepath.Join(t.TempDir(), "public")
+	set := staticexport.Defaults()
+	set.DirPath = dir
+	set.LiveOrigin = "https://live.example.net"
+	store := staticexport.NewSettingsStore(x.db.Pool())
+	if err := store.Save(ctx, set); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = x.db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_static_hosting_settings`) })
+
+	h := &hostingAdmin{
+		settings: store, runs: staticexport.NewRunStore(x.db.Pool()), key: staticexport.SecretKey("it-secret"),
+		siteURL: pluginEntityPaths{x.srv}.BaseURL, testExport: x.srv.StaticTestExport,
+		background: func() context.Context { return ctx },
+		dirGuard:   staticexport.DirGuard{Forbidden: []string{x.dataDir, x.mediaDir}},
+		spawn:      func(f func()) { f() },
+	}
+	before := x.srv.staticHosting()
+	if err := h.TestExport(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if after := x.srv.staticHosting(); after != before || after.Static {
+		t.Errorf("snapshot changed: %+v -> %+v", before, after)
+	}
+	if files := xpFiles(t, dir); len(files) == 0 {
+		t.Fatal("test export wrote nothing to the saved directory")
+	}
+	runs, err := h.runs.List(ctx, 1)
+	if err != nil || len(runs) != 1 {
+		t.Fatalf("runs = %v %v", runs, err)
+	}
+	if runs[0].Trigger != "test" || runs[0].Status != "ok" {
+		t.Errorf("run = %s %s %v", runs[0].Trigger, runs[0].Status, runs[0].Errors)
+	}
+}
