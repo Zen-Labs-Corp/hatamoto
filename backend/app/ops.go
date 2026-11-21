@@ -19,6 +19,8 @@ import (
 	"hatamoto.dev/core/internal/analytics"
 	"hatamoto.dev/core/internal/auditctx"
 	"hatamoto.dev/core/internal/auditlog"
+	"hatamoto.dev/core/internal/authzctx"
+	"hatamoto.dev/core/internal/authzsubject"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
@@ -183,12 +185,12 @@ func runEntity(ctx context.Context, db *database.DB, args []string, out io.Write
 	case "get", "publish", "unpublish":
 		var as string
 		pos, err := flagSet("entity "+sub, rest, func(fs *flag.FlagSet) {
-			fs.StringVar(&as, "as", "", "attribute the change to this user (email)")
+			fs.StringVar(&as, "as", "", "attribute the change to this user (email); their role applies")
 		})
 		if err != nil || len(pos) != 1 {
 			return fmt.Errorf("usage: hatamoto entity %s <id> [--as EMAIL]", sub)
 		}
-		actor, err := resolveActor(ctx, db, as)
+		ctx, actor, err := resolveActor(ctx, db, as)
 		if err != nil {
 			return err
 		}
@@ -222,11 +224,11 @@ func runEntity(ctx context.Context, db *database.DB, args []string, out io.Write
 			fs.StringVar(&attrs, "attributes", "", "attributes as a JSON object")
 			fs.StringVar(&attrsFile, "attributes-file", "", "file with the attributes JSON object")
 			fs.BoolVar(&publish, "publish", false, "publish right away (default: draft)")
-			fs.StringVar(&as, "as", "", "attribute the change to this user (email)")
+			fs.StringVar(&as, "as", "", "attribute the change to this user (email); their role applies")
 		}); err != nil {
 			return err
 		}
-		actor, err := resolveActor(ctx, db, as)
+		ctx, actor, err := resolveActor(ctx, db, as)
 		if err != nil {
 			return err
 		}
@@ -276,17 +278,18 @@ func cliActor(as string, id *uuid.UUID) auditctx.Actor {
 	return a
 }
 
-// resolveActor looks up the user a CLI change is attributed to (created_by /
-// updated_by). Empty means unattributed (NULL), as before.
-func resolveActor(ctx context.Context, db *database.DB, email string) (*uuid.UUID, error) {
+// resolveActor looks up the user a CLI change is made as. Empty means the
+// system (unattributed, NULL), as before; a user's changes are checked against
+// their role, through the returned context.
+func resolveActor(ctx context.Context, db *database.DB, email string) (context.Context, *uuid.UUID, error) {
 	if strings.TrimSpace(email) == "" {
-		return nil, nil
+		return ctx, nil, nil
 	}
 	u, err := user.NewPostgresRepository(db).GetByEmail(ctx, strings.TrimSpace(email))
 	if err != nil || u == nil {
-		return nil, fmt.Errorf("--as: no user with email %q", email)
+		return ctx, nil, fmt.Errorf("--as: no user with email %q", email)
 	}
-	return &u.ID, nil
+	return authzctx.With(ctx, authzsubject.ForSession(u.ID.String(), string(u.Role))), &u.ID, nil
 }
 
 func runRedirect(ctx context.Context, db *database.DB, args []string, out io.Writer, logger *slog.Logger) error {
