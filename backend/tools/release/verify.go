@@ -144,7 +144,12 @@ func verifyRecordDir(stdout io.Writer, opts release.Options, record, sigFile, di
 			continue
 		}
 		for _, platform := range release.Platforms {
-			if name := release.ArtifactName(ed, platform); fileExists(filepath.Join(dir, name)) {
+			name := release.ArtifactName(ed, platform)
+			ok, err := fileExists(filepath.Join(dir, name))
+			if err != nil {
+				return err
+			}
+			if ok {
 				return fmt.Errorf("%s is in %s but the record names no %s builds", name, dir, ed)
 			}
 		}

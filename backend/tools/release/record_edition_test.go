@@ -146,3 +146,53 @@ func TestRecordRefusesFactsFromAnotherEdition(t *testing.T) {
 	write("community")
 	runOK(t, env{}, recordArgs(facts, dir, out)...)
 }
+
+// Edition files that are symlinks are read like community files; only a
+// missing file is absent.
+func TestRecordFollowsEditionSymlinks(t *testing.T) {
+	dir := t.TempDir()
+	facts := writeDist(t, dir, "v1.2.3")
+	ed := release.Editions[0]
+	src := t.TempDir()
+	writeEditionFiles(t, src, ed, release.Platforms)
+	for _, p := range release.Platforms {
+		name := release.ArtifactName(ed, p)
+		if err := os.Symlink(filepath.Join(src, name), filepath.Join(dir, name)); err != nil {
+			t.Skip("symlinks unavailable:", err)
+		}
+	}
+	out := filepath.Join(dir, "release.json")
+	runOK(t, env{}, recordArgs(facts, dir, out)...)
+	rec, err := readRecord(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range release.Platforms {
+		want, err := hashFile(filepath.Join(src, release.ArtifactName(ed, p)))
+		if err != nil || rec.Editions[ed][p] != want {
+			t.Fatalf("%s: got %+v, want %+v (%v)", p, rec.Editions[ed][p], want, err)
+		}
+	}
+}
+
+func TestRecordRefusesUnusableEditionEntry(t *testing.T) {
+	for name, mk := range map[string]func(t *testing.T, path string){
+		"directory":           func(t *testing.T, path string) { os.Mkdir(path, 0o755) },
+		"dangling link":       func(t *testing.T, path string) { os.Symlink(filepath.Join(filepath.Dir(path), "nowhere"), path) },
+		"link to a directory": func(t *testing.T, path string) { os.Symlink(filepath.Dir(path), path) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			facts := writeDist(t, dir, "v1.2.3")
+			ed := release.Editions[0]
+			writeEditionFiles(t, dir, ed, release.Platforms)
+			victim := filepath.Join(dir, release.ArtifactName(ed, release.Platforms[0]))
+			os.Remove(victim)
+			mk(t, victim)
+			err := runErr(t, env{}, recordArgs(facts, dir, filepath.Join(dir, "release.json"))...)
+			if strings.Contains(err.Error(), "all or none") {
+				t.Fatalf("entry treated as absent: %v", err)
+			}
+		})
+	}
+}

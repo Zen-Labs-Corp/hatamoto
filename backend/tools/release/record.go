@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -189,7 +190,11 @@ func addEditions(rec *release.Record, dir string) error {
 	for _, ed := range release.Editions {
 		found := 0
 		for _, p := range release.Platforms {
-			if fileExists(filepath.Join(dir, release.ArtifactName(ed, p))) {
+			ok, err := fileExists(filepath.Join(dir, release.ArtifactName(ed, p)))
+			if err != nil {
+				return err
+			}
+			if ok {
 				found++
 			}
 		}
@@ -215,10 +220,21 @@ func addEditions(rec *release.Record, dir string) error {
 	return nil
 }
 
-// fileExists reports whether path is a regular file (not a symlink).
-func fileExists(path string) bool {
-	fi, err := os.Lstat(path)
-	return err == nil && fi.Mode().IsRegular()
+// fileExists reports whether path names a regular file, following symlinks
+// like hashFile does. Only a missing path is "absent"; a dangling link, a
+// directory, another non-regular file or an unreadable entry is an error.
+func fileExists(path string) (bool, error) {
+	if _, err := os.Lstat(path); errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	fi, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+	if !fi.Mode().IsRegular() {
+		return false, fmt.Errorf("%s is not a regular file", path)
+	}
+	return true, nil
 }
 
 // recordProblems lists what is wrong with rec; allowSame accepts a floor or
