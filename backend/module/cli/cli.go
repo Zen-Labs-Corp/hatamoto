@@ -15,5 +15,6 @@ type Command = modhost.CLICommand
 // Core command names always win over a module command of the same name.
 func Register(c Command) { modhost.RegisterCommand(c) }
 
-// Exit makes the command's process exit with code. A nil err prints nothing.
+// Exit makes the command's process exit with code (1 to 255; any other value
+// becomes 1). A nil err prints nothing.
 func Exit(code int, err error) error { return modhost.ExitError{Code: code, Err: err} }

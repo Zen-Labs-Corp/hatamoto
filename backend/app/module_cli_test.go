@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 
@@ -86,5 +87,18 @@ func TestRunModuleOpenError(t *testing.T) {
 	openModuleDB = func(context.Context) (*pgxpool.Pool, func(), error) { return nil, nil, errors.New("no db") }
 	if err := runModule(context.Background(), []string{"hello"}, nil); err == nil || err.Error() != "no db" {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestCallModuleCommandClampsExitCode(t *testing.T) {
+	env := &modhost.CLIEnv{Out: io.Discard, Err: io.Discard}
+	for code, want := range map[int]int{-1: 1, 0: 1, 1: 1, 255: 255, 256: 1, 1000: 1} {
+		cmd := modhost.CLICommand{Name: "x", Run: func(context.Context, *modhost.CLIEnv, []string) error {
+			return modhost.ExitError{Code: code}
+		}}
+		var ee exitError
+		if err := callModuleCommand(context.Background(), cmd, env, nil); !errors.As(err, &ee) || ee.code != want {
+			t.Errorf("code %d: err = %v, want exit %d", code, err, want)
+		}
 	}
 }

@@ -91,7 +91,11 @@ func callModuleCommand(ctx context.Context, cmd modhost.CLICommand, env *modhost
 		if ee.Err != nil {
 			fmt.Fprintln(env.Err, ee.Err)
 		}
-		return exitError{ee.Code}
+		code := ee.Code
+		if code < 1 || code > 255 {
+			code = 1 // os.Exit wraps modulo 256: 256 would read as success
+		}
+		return exitError{code}
 	}
 	return err
 }
