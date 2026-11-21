@@ -62,6 +62,7 @@ func sameHostInput() Input {
 		Headers:  testHeaders(),
 
 		MaxBodyMB: 15,
+		AdminPath: "/admin", AdminBodyMB: 300,
 		Redirects: testRedirects(),
 	}
 }
@@ -210,6 +211,17 @@ func TestNginxUploadLimitAndStreaming(t *testing.T) {
 			t.Errorf("%s: no body limit or HTTP/1.1 upstream:\n%s", name, conf)
 		}
 	}
+	// The large admin limit is inside the admin location only; the server keeps the public one.
+	for name, conf := range map[string]string{"same host": same.Nginx, "live origin": live.Nginx} {
+		if n := strings.Count(conf, "client_max_body_size 300m;"); n != 1 || strings.Count(conf, "proxy_request_buffering off;") != 1 {
+			t.Errorf("%s: the admin limit must appear once:\n%s", name, conf)
+		}
+		_, rest, _ := strings.Cut(conf, "location ^~ /admin/ {")
+		block, _, _ := strings.Cut(rest, "}")
+		if !strings.Contains(block, "client_max_body_size 300m;") || !strings.Contains(block, "proxy_request_buffering off;") {
+			t.Errorf("%s: the admin location lacks the upload limit:\n%s", name, block)
+		}
+	}
 	for _, loc := range []string{"location = /mcp {", "location ^~ /mcp/ {"} {
 		_, rest, ok := strings.Cut(same.Nginx, loc)
 		block, _, _ := strings.Cut(rest, "}")
@@ -221,7 +233,7 @@ func TestNginxUploadLimitAndStreaming(t *testing.T) {
 		t.Error("only the MCP locations stream")
 	}
 	in := sameHostInput()
-	in.MaxBodyMB = 0
+	in.MaxBodyMB, in.AdminBodyMB = 0, 0
 	if out, _ := Generate(in); strings.Contains(out.Nginx, "client_max_body_size") {
 		t.Error("an unset limit must leave nginx's default")
 	}

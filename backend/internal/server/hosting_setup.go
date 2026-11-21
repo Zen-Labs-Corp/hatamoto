@@ -28,19 +28,25 @@ type hostingSetupDeps struct {
 	adminPath func() string
 	apiPrefix string
 	upstream  string // dialable host:port
-	maxBodyMB int    // largest upload the web server must pass; 0 = unknown
+	maxBodyMB int    // largest public upload the web server must pass; 0 = unknown
+	adminMB   int    // largest admin upload (import, package, media); 0 = unknown
 	headers   func(ctx context.Context, live string) []secHeader
 	folder    func(dir string) string
 	reach     func() (string, time.Time)
 }
 
-// uploadLimitMB is the request body limit for a web server in front of
-// Hatamoto: the largest body Hatamoto accepts (a media or form file, or the
-// WordPress export, which is larger than the plugin, theme and CSV uploads),
-// plus room for the multipart framing and the other fields. Hatamoto enforces
-// each endpoint's own limit; the web server must only not refuse first.
+// uploadLimitMB is the request body limit a web server in front of Hatamoto
+// needs on every path: the largest public upload (a media or form file), plus
+// room for the multipart framing and the other fields. Hatamoto enforces each
+// endpoint's own limit; the web server must only not refuse first.
 func uploadLimitMB(mediaMaxMB int) int {
-	return max(mediaMaxMB, form.MaxFileUploadMB, importjob.MaxWXRBytes>>20) + 5
+	return max(mediaMaxMB, form.MaxFileUploadMB) + 5
+}
+
+// adminUploadLimitMB is the limit for the admin path only. The WordPress export
+// is larger than the plugin, theme and CSV uploads, so it sets the floor.
+func adminUploadLimitMB(mediaMaxMB int) int {
+	return max(uploadLimitMB(mediaMaxMB), importjob.MaxWXRBytes>>20+5)
 }
 
 // upstreamAddr is the address a web server on the same box dials to reach
@@ -100,6 +106,7 @@ func (h *hostingAdmin) Setup(ctx context.Context) (admin.HostingSetup, error) {
 		}
 		gen, err := webconf.Generate(webconf.Input{
 			Site: site, Live: live, Root: set.DirPath, Upstream: d.upstream, MaxBodyMB: d.maxBodyMB,
+			AdminPath: d.adminPath(), AdminBodyMB: d.adminMB,
 			Proxy:   statichost.ProxyPaths(d.adminPath(), d.apiPrefix),
 			Headers: headers, Redirects: rules,
 		})

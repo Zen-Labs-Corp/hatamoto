@@ -34,12 +34,17 @@ type Input struct {
 	Live     string // normalised live origin; "" = same host
 	Root     string // absolute export folder
 	Upstream string // host:port Hatamoto listens on
-	// MaxBodyMB is the largest request body nginx passes to Hatamoto (uploads);
-	// 0 leaves nginx's 1 MB default.
+	// MaxBodyMB is the largest request body nginx passes to Hatamoto on any
+	// path (public uploads); 0 leaves nginx's 1 MB default.
 	MaxBodyMB int
-	Proxy     []statichost.ProxyPath
-	Headers   []Header
-	Redirects []Redirect
+	// AdminPath and AdminBodyMB raise that limit under the admin path only,
+	// where the signed-in uploads and imports live (0 = no extra limit). nginx
+	// then also streams those bodies instead of spooling them to disk first.
+	AdminPath   string
+	AdminBodyMB int
+	Proxy       []statichost.ProxyPath
+	Headers     []Header
+	Redirects   []Redirect
 }
 
 // Output is the config for each server and the redirect rules left out.
@@ -94,7 +99,7 @@ func (in Input) validate() error {
 	if n, perr := strconv.Atoi(port); err != nil || perr != nil || n < 1 || n > 65535 || !upstreamHost(host) {
 		return fmt.Errorf("%w: upstream", ErrUnsafe)
 	}
-	if in.MaxBodyMB < 0 || in.MaxBodyMB > 4096 {
+	if in.MaxBodyMB < 0 || in.MaxBodyMB > 4096 || in.AdminBodyMB < 0 || in.AdminBodyMB > 4096 {
 		return fmt.Errorf("%w: upload limit", ErrUnsafe)
 	}
 	for _, p := range in.Proxy {

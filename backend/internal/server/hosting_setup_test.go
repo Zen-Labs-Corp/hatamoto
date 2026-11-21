@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -183,23 +184,30 @@ func TestHostingSetupNothingSaved(t *testing.T) {
 	}
 }
 
-// The upload ceiling reaches the generated nginx config: the larger of the media
-// and the form file limits, with room for the multipart framing.
+// The upload ceilings reach the generated nginx config: the public one (media
+// and form files, plus framing) server-wide, the larger admin one (the WordPress
+// export) inside the admin location only.
 func TestHostingSetupPassesUploadLimit(t *testing.T) {
 	t.Parallel()
-	if got, floor := uploadLimitMB(10), int(importjob.MaxWXRBytes>>20); got <= floor || got <= form.MaxFileUploadMB {
-		t.Errorf("limit for the default media size = %d, must exceed the export limit %d MB", got, floor)
+	if got := uploadLimitMB(10); got != max(10, form.MaxFileUploadMB)+5 {
+		t.Errorf("public limit for the default media size = %d", got)
 	}
 	if got := uploadLimitMB(1000); got != 1005 {
-		t.Errorf("limit for 1000 MB media = %d", got)
+		t.Errorf("public limit for 1000 MB media = %d", got)
+	}
+	if got, floor := adminUploadLimitMB(10), int(importjob.MaxWXRBytes>>20); got <= floor || got <= uploadLimitMB(10) {
+		t.Errorf("admin limit = %d, must exceed the export limit %d MB and the public one", got, floor)
 	}
 	fx := setupFixture(t, t.TempDir())
-	fx.h.setup.maxBodyMB = uploadLimitMB(1000)
+	fx.h.setup.maxBodyMB, fx.h.setup.adminMB = uploadLimitMB(10), adminUploadLimitMB(10)
 	got, err := fx.h.Setup(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(got.Nginx, "client_max_body_size 1005m;") {
-		t.Errorf("nginx config lacks the upload limit:\n%s", got.Nginx)
+	server, admin, ok := strings.Cut(got.Nginx, "location ^~ /admin/ {")
+	if !ok || !strings.Contains(server, fmt.Sprintf("client_max_body_size %dm;", uploadLimitMB(10))) ||
+		strings.Contains(server, fmt.Sprintf("client_max_body_size %dm;", adminUploadLimitMB(10))) ||
+		!strings.Contains(admin, fmt.Sprintf("client_max_body_size %dm;", adminUploadLimitMB(10))) {
+		t.Errorf("nginx config limits are wrong:\n%s", got.Nginx)
 	}
 }

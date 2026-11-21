@@ -37,6 +37,15 @@ func nginx(in Input, rules []rule) string {
 		}
 	}
 
+	// The admin takes the large uploads. Its limit sits here and not on the
+	// server: a public path must not be able to make nginx spool that much.
+	adminLimit := func(path string) {
+		if in.AdminBodyMB > 0 && strings.TrimRight(in.AdminPath, "/")+"/" == path {
+			w("		client_max_body_size %dm;", in.AdminBodyMB)
+			w("		proxy_request_buffering off;")
+		}
+	}
+
 	// A theme preview is a query or a cookie on any page: pass it to Hatamoto.
 	preview := func(indent string) {
 		w(indent+"if ($arg_%s != \"\") {", previewName)
@@ -80,6 +89,9 @@ func nginx(in Input, rules []rule) string {
 			default:
 				w("\tlocation = %s {", p.Path)
 			}
+			if p.Prefix {
+				adminLimit(p.Path)
+			}
 			proxy("\t\t", strings.HasPrefix(p.Path, "/mcp"))
 			w("\t}")
 		}
@@ -120,6 +132,12 @@ func nginx(in Input, rules []rule) string {
 		w("\tserver_name %s;", lname)
 		if in.MaxBodyMB > 0 {
 			w("\tclient_max_body_size %dm;", in.MaxBodyMB)
+		}
+		if in.AdminBodyMB > 0 && in.AdminPath != "" {
+			w("\tlocation ^~ %s/ {", strings.TrimRight(in.AdminPath, "/"))
+			adminLimit(strings.TrimRight(in.AdminPath, "/") + "/")
+			proxy("\t\t", false)
+			w("\t}")
 		}
 		w("\tlocation / {")
 		proxy("\t\t", true)
