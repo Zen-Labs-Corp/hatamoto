@@ -473,6 +473,17 @@ func (a *Admin) handleSetupContent(w http.ResponseWriter, r *http.Request) {
 		}
 		a.SetFlash(w, r, "success", starterSummary(res))
 		seed()
+	} else if a.deps.Starter != nil {
+		// The server made the home page before this wizard asked for the site
+		// name; the starter content renames it, the other choices do it here.
+		// Best effort: it never blocks finishing setup.
+		opts := starter.Options{SiteName: a.siteName(r.Context())}
+		if id, err := uuidOf(u.ID); err == nil {
+			opts.UserID = &id
+		}
+		if _, err := a.deps.Starter.NameSeedHome(r.Context(), opts); err != nil {
+			a.logger().Warn("setup: naming the home page failed", "err", err)
+		}
 	}
 	if _, err := a.deps.Site.Update(r.Context(), siteUpdateDone()); err != nil {
 		a.logger().Error("setup: mark complete failed", "err", err)

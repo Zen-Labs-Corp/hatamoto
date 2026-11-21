@@ -55,6 +55,10 @@ type fakeStarter struct {
 	calls int
 	opts  starter.Options
 	fail  bool
+	// named counts NameSeedHome calls; nameOpts is the last one's options.
+	named     int
+	nameOpts  starter.Options
+	nameFails bool
 }
 
 func (f *fakeStarter) Install(_ context.Context, o starter.Options) (starter.Result, error) {
@@ -64,6 +68,15 @@ func (f *fakeStarter) Install(_ context.Context, o starter.Options) (starter.Res
 		return starter.Result{}, http.ErrAbortHandler
 	}
 	return starter.Result{Pages: 3, Posts: 2, Menus: 2, MenuItems: 6, Forms: 1}, nil
+}
+
+func (f *fakeStarter) NameSeedHome(_ context.Context, o starter.Options) (bool, error) {
+	f.named++
+	f.nameOpts = o
+	if f.nameFails {
+		return false, http.ErrAbortHandler
+	}
+	return true, nil
 }
 
 type setupRig struct {
@@ -579,5 +592,39 @@ func TestSetupContentSeedErrorDoesNotBlockSetup(t *testing.T) {
 	rec := g.do("POST", "/admin/setup/content", "owner-token", url.Values{"content": {"empty"}}, nil)
 	if rec.Code != 303 || g.site.cfg.SetupCompletedAt == nil {
 		t.Fatalf("a seed error must not fail setup: %d", rec.Code)
+	}
+}
+
+// The server makes the home page before the wizard asks for the site name.
+// The starter content renames it; every other choice asks for it here, with
+// the name from the Your site step.
+func TestSetupContentNamesTheSeedHome(t *testing.T) {
+	t.Parallel()
+
+	for _, choice := range []string{"empty", "starter", "wordpress"} {
+		g := newSetupRig(t)
+		g.count.n = 1
+		g.site.cfg.CompanyName = "Acme"
+		if rec := g.do("POST", "/admin/setup/content", "owner-token", url.Values{"content": {choice}}, nil); rec.Code != 303 {
+			t.Fatalf("%s: %d", choice, rec.Code)
+		}
+		want := 1
+		if choice == "starter" {
+			want = 0
+		}
+		if g.starter.named != want {
+			t.Errorf("%s: NameSeedHome called %d times, want %d", choice, g.starter.named, want)
+		}
+		if want == 1 && (g.starter.nameOpts.SiteName != "Acme" || g.starter.nameOpts.UserID == nil) {
+			t.Errorf("%s: options %+v", choice, g.starter.nameOpts)
+		}
+	}
+
+	g := newSetupRig(t)
+	g.count.n = 1
+	g.starter.nameFails = true
+	rec := g.do("POST", "/admin/setup/content", "owner-token", url.Values{"content": {"empty"}}, nil)
+	if rec.Code != 303 || g.site.cfg.SetupCompletedAt == nil {
+		t.Fatalf("a naming error must not fail setup: %d", rec.Code)
 	}
 }

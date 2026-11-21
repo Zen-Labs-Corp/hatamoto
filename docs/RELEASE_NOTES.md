@@ -1,5 +1,11 @@
 # Release notes
 
+## Unreleased: the home page takes the site name at setup
+
+- **Setup.** The server makes the home page on its first start, before the setup wizard asks for the site name, so the page was named after the default "My Hatamoto site". It kept that name after setup, and with it the page title and `og:title` of the home page; with **Start empty** the hero headline kept it too. Finishing the wizard now gives the untouched first-boot home page the site name, as its page name and as its headline. **Install starter content** now renames the page as well; it already rewrote the content.
+- **Existing sites.** Nothing changes. A home page that is no longer the first-boot page is never touched, and a headline that was changed is kept.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: comments data model (off)
 
 - **Comments data model.** The tables and Go services for comments exist: storage, threads, trust levels, a blocklist, a safe-HTML formatter, and a comment-only spam decision. Nothing is wired to the server. Comments stay off; nothing is visible.

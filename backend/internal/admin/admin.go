@@ -67,9 +67,11 @@ type OwnerCreator interface {
 	CreateFirstOwner(ctx context.Context, name, email, password string) (*user.User, error)
 }
 
-// StarterInstaller installs the optional starter content.
+// StarterInstaller installs the optional starter content, or for a setup
+// without it, gives the first-boot home page the site name.
 type StarterInstaller interface {
 	Install(ctx context.Context, o starter.Options) (starter.Result, error)
+	NameSeedHome(ctx context.Context, o starter.Options) (bool, error)
 }
 
 // Authenticator signs people in (auth.Service).
