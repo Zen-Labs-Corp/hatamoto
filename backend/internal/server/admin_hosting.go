@@ -65,6 +65,7 @@ func (h *hostingAdmin) View(ctx context.Context) (admin.HostingView, error) {
 		Mode: set.Mode, Target: set.Target, Dir: set.DirPath, Service: set.Service, Endpoint: set.Endpoint,
 		Bucket: set.Bucket, Prefix: set.Prefix, Region: set.Region, AccessKey: set.AccessKey, LiveOrigin: set.LiveOrigin,
 		SecretSaved: readable, SecretLost: set.HasSecret() && !readable,
+		WorkerOff: h.trigger == nil,
 	}
 	if set.Mode == staticexport.ModeStatic {
 		if why := h.snapshot().InactiveReason(); why != "" {
@@ -197,6 +198,10 @@ func hostingRun(r staticexport.Run) admin.HostingRun {
 		out.FirstError = r.Errors[0]
 	}
 	return out
+}
+
+func (h *hostingAdmin) TestExport(context.Context) error {
+	return errors.New("test export is not available")
 }
 
 func (h *hostingAdmin) Runs(ctx context.Context, limit int) ([]admin.HostingRun, error) {

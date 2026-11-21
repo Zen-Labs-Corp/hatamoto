@@ -21,6 +21,10 @@ const (
 	HostingRunOK      = "ok"
 	HostingRunFailed  = "failed"
 	HostingRunRunning = "running"
+
+	// HostingTriggerTest marks a Test export run: it writes the saved target but
+	// is never the live export (no banner, no mail, not the Last export line).
+	HostingTriggerTest = "test"
 )
 
 var (
@@ -28,6 +32,10 @@ var (
 	ErrHostingExportQueued = errors.New("an export is running; another starts when it finishes")
 	// ErrHostingNotStatic: export actions need static mode.
 	ErrHostingNotStatic = errors.New("exports run only in static mode")
+	// ErrHostingNoTarget: the saved target is incomplete (no directory / no bucket).
+	ErrHostingNoTarget = errors.New("save a target first")
+	// ErrHostingTestBusy: an export is running; the test does not queue.
+	ErrHostingTestBusy = errors.New("an export is running; try the test export again when it finishes")
 )
 
 // HostingView is the saved hosting configuration. It never carries the secret.
@@ -51,6 +59,18 @@ type HostingView struct {
 	// snapshot is inactive, so pages are still served as in served mode. Safe
 	// to show.
 	IslandsWarning string
+
+	// WorkerOff: this process runs no export worker, so Export now and Rebuild
+	// all cannot start.
+	WorkerOff bool
+}
+
+// hostingTargetSaved reports whether the saved target can be exported to.
+func hostingTargetSaved(v HostingView) bool {
+	if v.Target == HostingTargetS3 {
+		return v.Bucket != ""
+	}
+	return v.Dir != ""
 }
 
 // HostingInput is one submitted form. SecretKey is empty when the owner left
@@ -89,6 +109,11 @@ type HostingService interface {
 	// Export starts an export now (full = Rebuild all) without waiting for it.
 	// ErrHostingNotStatic or ErrHostingExportQueued when it cannot start.
 	Export(ctx context.Context, full bool, trigger string) error
+	// TestExport starts a Test export of the SAVED target in any mode without
+	// waiting and without changing the mode or what visitors get.
+	// ErrHostingNoTarget, ErrHostingTestBusy or a safe refusal error when it
+	// cannot start.
+	TestExport(ctx context.Context) error
 	Runs(ctx context.Context, limit int) ([]HostingRun, error)
 	// LastRun is the newest FINISHED run (ok or failed); a running row is skipped.
 	LastRun(ctx context.Context) (HostingRun, bool, error)

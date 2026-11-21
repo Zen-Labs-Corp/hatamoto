@@ -32,6 +32,8 @@ type fakeHosting struct {
 	modeErr   error
 	exports   []hostingExportCall
 	exportErr error
+	tests     int
+	testErr   error
 	runs      []HostingRun
 	live      []HostingIsland
 	stays     []string
@@ -59,10 +61,17 @@ func (f *fakeHosting) Export(_ context.Context, full bool, trigger string) error
 	f.exports = append(f.exports, hostingExportCall{full, trigger})
 	return nil
 }
+func (f *fakeHosting) TestExport(context.Context) error {
+	if f.testErr != nil {
+		return f.testErr
+	}
+	f.tests++
+	return nil
+}
 func (f *fakeHosting) Runs(context.Context, int) ([]HostingRun, error) { return f.runs, nil }
 func (f *fakeHosting) LastRun(context.Context) (HostingRun, bool, error) {
 	for _, r := range f.runs {
-		if r.Result != HostingRunRunning {
+		if r.Result != HostingRunRunning && r.Trigger != HostingTriggerTest {
 			return r, true, nil
 		}
 	}
