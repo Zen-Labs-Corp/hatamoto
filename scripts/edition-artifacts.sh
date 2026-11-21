@@ -9,7 +9,7 @@
 # Environment:
 #   RELEASE_EDITIONS      space/comma list of edition names; empty => every subcommand prints "skipped", exit 0
 #   EDITION_REPO          owner/name of the edition build repository (fetch only)
-#   GH_TOKEN              token that may dispatch to and read the Actions artifacts of EDITION_REPO (fetch only; never printed)
+#   GH_TOKEN              token with Contents: write (to send the dispatch) and Actions: read (run and artifact) on EDITION_REPO (fetch only; never printed)
 #   EDITION_WAIT_SECONDS  how long to wait for the artifact (default 2700)
 #   EDITION_POLL_SECONDS  poll interval (default 30)
 #   EDITION_EVENT         repository_dispatch event type (default edition-build)

@@ -82,7 +82,7 @@ A build of another edition can ride in the same release. The repository opts in 
 
 - `RELEASE_EDITIONS`: the edition names to release, space or comma separated. Empty (the default) means the release run is exactly the one described above.
 - `EDITION_REPO`: `owner/name` of the edition build repository.
-- `EDITION_DISPATCH_TOKEN` (secret): a fine-grained token on the edition build repository only, with the permissions to send the dispatch and read the run and its artifact (Actions write and read). It is passed to one step and never printed.
+- `EDITION_DISPATCH_TOKEN` (secret): a fine-grained token on the edition build repository only, with Contents: write (to send the repository dispatch) and Actions: read (to read the run and its artifact). It is passed to one step and never printed.
 
 With the opt-in set, the `build` job runs `scripts/edition-artifacts.sh fetch` after the default build. It sends a `repository_dispatch` event of type `edition-build` with `client_payload.tag`, `client_payload.sha` and `client_payload.nonce` (unique to this dispatch) to the edition build repository, then polls for the Actions artifact until `EDITION_WAIT_SECONDS` (default 2700) has passed. The edition build must:
 
@@ -91,7 +91,7 @@ With the opt-in set, the `build` job runs `scripts/edition-artifacts.sh fetch` a
 
 The script requires the manifest's tag, sha and nonce to match this release exactly, so an artifact from another dispatch, another commit or a re-pointed tag is refused. It also refuses a missing or extra file, a checksum mismatch, an empty file and any name already in `dist/` (a dangling symlink included); only a fully verified set is copied into `dist/` (the manifest is not), where `record` adds it under `editions.<edition>`. A `RELEASE_EDITIONS` that is not empty but holds no edition name is an error. An API error such as 401, 403 or 404 fails the step at once; a 5xx is retried until the deadline. The step summary shows the edition run URL and the sha256 of every file, so the signer can cross-check them against that run. The step after `record` then requires all four platforms of every opted-in edition in the unsigned record.
 
-The secret is a repository secret, so a signed-tag check is the only gate in front of it. Keep `EDITION_DISPATCH_TOKEN` in a GitHub Environment whose deployment branches and tags are limited to `v*` tags (and whose required reviewers you choose), or use a fine-grained token limited to Actions: write on the edition build repository only, and set the `allowed_signers` list before storing the secret. The workflow does not declare an environment itself.
+The secret is a repository secret, so a signed-tag check is the only gate in front of it. Use a fine-grained token limited to that one repository, and keep tag signing enforced by setting the `allowed_signers` list (non-empty) before storing the secret.
 
 Every failure stops the `build` job (a missing token or repository variable included, never a silent skip), so no draft is created and `release.sh` fails on its run watch. The check is the same on every channel, because a channel only ever offers a signed record. The edition files are listed in `SHA256SUMS` and uploaded with the draft. They are not attested by this workflow: the offline signature over the record, which pins their hashes, is the trust root, so review `record --check` before signing.
 
