@@ -13,6 +13,22 @@ var restWriteAllow = map[string]string{
 	"PATCH /api/v1/me":         "own account",
 }
 
+// contentWriteAllow lists the non-read routes the content roles (author,
+// contributor, reviewer) may reach: entities and media, where the object rules
+// in the entity service and the media handlers decide.
+var contentWriteAllow = map[string]string{
+	"POST /api/v1/entities/{$}":                    "content write: create",
+	"POST /api/v1/entities/validate":               "content write: validate attributes",
+	"PUT /api/v1/entities/{id}":                    "content write: object rules in the service",
+	"PATCH /api/v1/entities/{id}":                  "content write: object rules in the service",
+	"PATCH /api/v1/entities/{id}/status":           "content write: object rules in the service",
+	"DELETE /api/v1/entities/{id}":                 "content write: object rules in the service",
+	"POST /api/v1/entities/{id}/restore/{version}": "content write: object rules in the service",
+	"POST /api/v1/media/upload":                    "content write: upload",
+	"PUT /api/v1/media/{id}":                       "content write: object rules in the handler",
+	"DELETE /api/v1/media/{id}":                    "content write: object rules in the handler",
+}
+
 // assertNoWrites fails when a non-read route answers a listed column with
 // anything but 403. Public rows (anon cell is not 401) are skipped; every
 // allow key must match a line, so the list cannot go stale.
@@ -71,7 +87,15 @@ func TestRESTRolesRouteMatrix(t *testing.T) {
 		}
 	}
 
-	assertNoWrites(t, lines, roles, restWriteAllow)
+	assertNoWrites(t, lines, []string{"read-only"}, restWriteAllow)
+	allow := map[string]string{}
+	for k, v := range restWriteAllow {
+		allow[k] = v
+	}
+	for k, v := range contentWriteAllow {
+		allow[k] = v
+	}
+	assertNoWrites(t, lines, []string{"author", "contributor", "reviewer"}, allow)
 }
 
 // Form submissions are personal data: the restricted roles are refused on both
