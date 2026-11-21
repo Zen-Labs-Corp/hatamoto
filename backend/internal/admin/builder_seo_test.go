@@ -111,14 +111,14 @@ func TestBuilderSEORefusals(t *testing.T) {
 	if rec := r.do("GET", r.url(r.page, "/builder/seo"), "", nil, nil); rec.Code == http.StatusOK {
 		t.Error("fragment served without a session")
 	}
-	// A viewer is refused exactly as the save route refuses one.
+	// A viewer is refused exactly as the save route refuses one (the write guard); the read-only fragment still opens.
 	r.editor.Role = "viewer"
 	save := r.postJSON(r.url(r.page, "/builder/save"), "editor-token", saveBody(r.page.Version, saveDoc, "save", ""), nil).Code
 	if got := r.analyze("editor-token", r.page, stageDoc).Code; got != save {
 		t.Errorf("viewer analyze %d, save %d", got, save)
 	}
-	if got := r.do("GET", r.url(r.page, "/builder/seo"), "editor-token", nil, nil).Code; got != save {
-		t.Errorf("viewer fragment %d, save %d", got, save)
+	if got := r.do("GET", r.url(r.page, "/builder/seo"), "editor-token", nil, nil).Code; got != http.StatusOK {
+		t.Errorf("viewer fragment %d, want 200 (a read)", got)
 	}
 	// Reuse blocks have no SEO.
 	if rec := r.analyze("owner-token", r.block, stageDoc); rec.Code != http.StatusNotFound {
