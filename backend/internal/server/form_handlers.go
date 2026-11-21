@@ -15,8 +15,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
+	"hatamoto.dev/core/internal/authzuser"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/form"
@@ -1059,7 +1061,7 @@ func (s *Server) isAdminAccountEmail(ctx context.Context, addr string) bool {
 				slog.String("error", err.Error()))
 			return false
 		}
-		return u.Role == user.RoleOwner || u.Role == user.RoleEditor
+		return authzuser.Can(ctx, s.logger, u, authz.ActionFormSubmissionRead)
 	}
 	return false
 }
