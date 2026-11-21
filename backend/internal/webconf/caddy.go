@@ -27,23 +27,23 @@ func caddy(in Input, rules []rule) string {
 		w("# Islands and the admin live on %s, which is passed to Hatamoto on %s.", hostOf(in.Live), in.Upstream)
 	}
 	w("%s {", caddyAddress(in.Site))
-	if in.Live == "" {
-		caddyProxyHandles(w, in)
-	}
-	headers := func(indent string) {
+	headers := func(indent, matcher string) {
 		if len(in.Headers) > 0 {
-			w(indent + "header {")
+			w(indent + "header " + matcher + "{")
 			for _, h := range in.Headers {
 				w(indent+"\t%s %q", h.Name, h.Value)
 			}
 			w(indent + "}")
 		}
 	}
+	if in.Live == "" {
+		caddyProxyHandles(w, in, func() { headers("\t\t", "@present ") })
+	}
 	w("\thandle {")
 	w("\t\troot * %s", in.Root)
 	w("\t\t@hidden path %s", strings.Join(hiddenFiles, " "))
 	w("\t\trespond @hidden 404")
-	headers("\t\t")
+	headers("\t\t", "")
 	for _, l := range caddyRedirects(rules) {
 		w("\t\t%s", l)
 	}
@@ -57,7 +57,7 @@ func caddy(in Input, rules []rule) string {
 	w("\t\thandle @notfound {")
 	w("\t\t\troot * %s", in.Root)
 	w("\t\t\trewrite * /404.html")
-	headers("\t\t\t")
+	headers("\t\t\t", "")
 	w("\t\t\tfile_server")
 	w("\t\t}")
 	w("\t}")
@@ -73,7 +73,10 @@ func caddy(in Input, rules []rule) string {
 }
 
 // caddyProxyHandles writes the matchers and handles that pass Hatamoto's paths on.
-func caddyProxyHandles(w func(string, ...any), in Input) {
+//
+// The security headers go on a file served from the folder only: Hatamoto sets
+// its own on what it answers.
+func caddyProxyHandles(w func(string, ...any), in Input, presentHeaders func()) {
 	var paths, regexps, fallback []string
 	for _, p := range in.Proxy {
 		switch {
@@ -108,6 +111,8 @@ func caddyProxyHandles(w func(string, ...any), in Input) {
 		w("\thandle @hatamoto_fallback {")
 		w("\t\troot * %s", in.Root)
 		w("\t\t@missing not file")
+		w("\t\t@present file")
+		presentHeaders()
 		w("\t\treverse_proxy @missing %s", in.Upstream)
 		w("\t\tfile_server")
 		w("\t}")

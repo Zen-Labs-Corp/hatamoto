@@ -21,6 +21,10 @@ server {
 		if ($cookie_hm_theme_preview != "") {
 			return 418;
 		}
+		add_header X-Content-Type-Options "nosniff" always;
+		add_header X-Frame-Options "SAMEORIGIN" always;
+		add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+		add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; form-action 'self'" always;
 		try_files $uri @hatamoto;
 	}
 	location = /admin {
@@ -86,6 +90,10 @@ server {
 		if ($cookie_hm_theme_preview != "") {
 			return 418;
 		}
+		add_header X-Content-Type-Options "nosniff" always;
+		add_header X-Frame-Options "SAMEORIGIN" always;
+		add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+		add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; form-action 'self'" always;
 		try_files $uri @hatamoto;
 	}
 	location ^~ /forms/ {
@@ -121,6 +129,10 @@ server {
 		if ($cookie_hm_theme_preview != "") {
 			return 418;
 		}
+		add_header X-Content-Type-Options "nosniff" always;
+		add_header X-Frame-Options "SAMEORIGIN" always;
+		add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+		add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; form-action 'self'" always;
 		try_files $uri @hatamoto;
 	}
 	location ^~ /p/ {
@@ -170,6 +182,10 @@ server {
 		if ($cookie_hm_theme_preview != "") {
 			return 418;
 		}
+		add_header X-Content-Type-Options "nosniff" always;
+		add_header X-Frame-Options "SAMEORIGIN" always;
+		add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+		add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; form-action 'self'" always;
 		try_files $uri @hatamoto;
 	}
 	location = /theme/assets/hm-live.js {

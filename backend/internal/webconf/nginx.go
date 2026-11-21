@@ -69,6 +69,7 @@ func nginx(in Input, rules []rule) string {
 				// The file when the folder has it, else Hatamoto.
 				w("\tlocation ^~ %s {", p.Path)
 				preview("\t\t")
+				headers() // on the file only: add_header does not reach @hatamoto
 				w("\t\ttry_files $uri @hatamoto;")
 				w("\t}")
 				continue

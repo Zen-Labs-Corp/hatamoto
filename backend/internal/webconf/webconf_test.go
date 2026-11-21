@@ -107,8 +107,12 @@ func TestNginxLiveOriginSplitsServers(t *testing.T) {
 		t.Errorf("live origin must split the proxy from the files:\n%s", live.Nginx)
 	}
 	// Headers sit only in the static locations: add_header in a proxied location would drop inherited ones.
-	if strings.Count(same.Nginx, "add_header X-Frame-Options") != 2 {
-		t.Errorf("headers must be set in / and /404.html only:\n%s", same.Nginx)
+	// Same host adds the four file-or-Hatamoto locations (media, theme, fonts, .well-known).
+	if n := strings.Count(same.Nginx, "add_header X-Frame-Options"); n != 2+4 {
+		t.Errorf("headers must be set in /, /404.html and the file-first locations only, got %d:\n%s", n, same.Nginx)
+	}
+	if n := strings.Count(live.Nginx, "add_header X-Frame-Options"); n != 2 {
+		t.Errorf("live origin headers must be set in / and /404.html only, got %d", n)
 	}
 }
 
@@ -255,7 +259,7 @@ func TestNginxPreviewReachesHatamotoFromFallbackPrefixes(t *testing.T) {
 	got, _ := Generate(sameHostInput())
 	for _, p := range []string{"/media/", "/theme/", "/fonts/"} {
 		want := "location ^~ " + p + " {\n\t\tif ($arg_hm_theme_preview != \"\") {\n\t\t\treturn 418;\n\t\t}\n" +
-			"\t\tif ($cookie_hm_theme_preview != \"\") {\n\t\t\treturn 418;\n\t\t}\n\t\ttry_files $uri @hatamoto;"
+			"\t\tif ($cookie_hm_theme_preview != \"\") {\n\t\t\treturn 418;\n\t\t}\n"
 		if !strings.Contains(got.Nginx, want) {
 			t.Errorf("nginx %s block does not hand a preview to Hatamoto", p)
 		}
@@ -275,5 +279,34 @@ func TestACMEChallengeIsServedFromTheFolder(t *testing.T) {
 	}
 	if !strings.Contains(got.Caddy, "/.well-known/*") || strings.Contains(strings.Split(got.Caddy, "@hatamoto_fallback")[0], "/.well-known/*") {
 		t.Error("caddy must list /.well-known/ among the file-first paths")
+	}
+}
+
+// A file served from the folder under /media, /theme or /fonts carries the same
+// security headers as a page; what Hatamoto answers keeps its own.
+func TestFallbackPrefixesKeepSecurityHeaders(t *testing.T) {
+	t.Parallel()
+	got, _ := Generate(sameHostInput())
+	for _, p := range []string{"/media/", "/theme/", "/fonts/", "/.well-known/"} {
+		start := strings.Index(got.Nginx, "location ^~ "+p+" {")
+		if start < 0 {
+			t.Fatalf("nginx has no %s block", p)
+		}
+		block := got.Nginx[start : start+strings.Index(got.Nginx[start:], "\n\t}")]
+		for _, h := range testHeaders() {
+			if !strings.Contains(block, "add_header "+h.Name+" ") {
+				t.Errorf("nginx %s block lacks %s", p, h.Name)
+			}
+		}
+	}
+	start := strings.Index(got.Caddy, "handle @hatamoto_fallback {")
+	block := got.Caddy[start : start+strings.Index(got.Caddy[start:], "\n\t}")]
+	if !strings.Contains(block, "@present file") || !strings.Contains(block, "header @present {") {
+		t.Errorf("caddy fallback handle must add headers to existing files only:\n%s", block)
+	}
+	for _, h := range testHeaders() {
+		if !strings.Contains(block, h.Name) {
+			t.Errorf("caddy fallback handle lacks %s", h.Name)
+		}
 	}
 }

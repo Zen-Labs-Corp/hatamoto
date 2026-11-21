@@ -17,6 +17,13 @@ example.com {
 	handle @hatamoto_fallback {
 		root * /srv/site/public
 		@missing not file
+		@present file
+		header @present {
+			X-Content-Type-Options "nosniff"
+			X-Frame-Options "SAMEORIGIN"
+			Referrer-Policy "strict-origin-when-cross-origin"
+			Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; form-action 'self'"
+		}
 		reverse_proxy @missing 127.0.0.1:8090
 		file_server
 	}
