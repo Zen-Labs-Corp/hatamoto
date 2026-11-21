@@ -96,6 +96,9 @@ type ProviderSignIn interface {
 type PasswordStep interface {
 	CheckPassword(ctx context.Context, email, password string) (*user.User, error)
 	IssueVerifiedSession(ctx context.Context, userID uuid.UUID, via authstate.Via, userAgent, ip string) (string, error)
+	// Admit is IssueVerifiedSession's refusals without the session: a provider
+	// sign-in asks it before it shows the second step.
+	Admit(ctx context.Context, userID uuid.UUID, via authstate.Via) error
 }
 
 // TwoFactorService is the second-factor domain (twofactor.Service) as the

@@ -32,6 +32,12 @@ func (s stepAuth) CheckPassword(ctx context.Context, email, password string) (*u
 	return u, err
 }
 
+func (s stepAuth) Admit(_ context.Context, _ uuid.UUID, _ authstate.Via) error {
+	s.fakeAuth.mu.Lock()
+	defer s.fakeAuth.mu.Unlock()
+	return s.fakeAuth.verifiedErr
+}
+
 func (s stepAuth) IssueVerifiedSession(ctx context.Context, id uuid.UUID, via authstate.Via, _, _ string) (string, error) {
 	s.fakeAuth.mu.Lock()
 	s.fakeAuth.vias = append(s.fakeAuth.vias, via)

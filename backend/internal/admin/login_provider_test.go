@@ -344,3 +344,38 @@ func TestProviderRoutesAreRateLimited(t *testing.T) {
 		t.Fatalf("rate limiter saw %d provider requests, want 2", hits.Load())
 	}
 }
+
+// An ended, locked or policy-refused user with a factor gets the neutral
+// refusal at the callback: no pending cookie and no code page.
+func TestProviderCallbackRefusesBeforeSecondStep(t *testing.T) {
+	t.Parallel()
+
+	for _, err := range []error{auth.ErrInvalidCredentials, auth.ErrAccountLocked} {
+		g := newProviderRig(t)
+		g.auth.verifiedErr = err
+		c, state := g.start(t, "/admin/login/provider/example/start")
+		rec := g.nav(cbPath+"?state="+url.QueryEscape(state), c)
+		if rec.Code != 422 || !strings.Contains(rec.Body.String(), providerMessage) || cookieNamed(rec, "hm_2fa") != nil || cookieNamed(rec, "hatamoto_session") != nil {
+			t.Fatalf("%v: %d, pending %v", err, rec.Code, cookieNamed(rec, "hm_2fa"))
+		}
+	}
+}
+
+// A user refused between the first step and the code is answered like a wrong
+// password, not with a 500.
+func TestTwoStepCompletionRefusalIsNeutral(t *testing.T) {
+	t.Parallel()
+
+	g := newProviderRig(t)
+	c, state := g.start(t, "/admin/login/provider/example/start")
+	rec := g.nav(cbPath+"?state="+url.QueryEscape(state), c)
+	pending := cookieNamed(rec, "hm_2fa")
+	if pending == nil {
+		t.Fatalf("no pending cookie: %d", rec.Code)
+	}
+	g.auth.verifiedErr = auth.ErrInvalidCredentials
+	done := g.second(pending.Value, "123456", nil)
+	if done.Code != 422 || cookieNamed(done, "hatamoto_session") != nil {
+		t.Fatalf("refused at completion: %d", done.Code)
+	}
+}

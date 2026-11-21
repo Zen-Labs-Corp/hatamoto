@@ -190,6 +190,12 @@ func (a *Admin) handleProviderCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	via := authstate.Via{Method: authstate.MethodProvider, Provider: id}
+	// Refuse an ended, locked or policy-refused user now, before any prompt
+	// or pending cookie: a refused user gets no code attempts.
+	if err := step.Admit(r.Context(), uid, via); err != nil {
+		a.providerFailed(w, r, next, err)
+		return
+	}
 	if !mfa && a.deps.TwoFactor != nil && len(a.deps.PendingKey) != 0 {
 		has, err := a.deps.TwoFactor.HasAnyFactor(r.Context(), uid)
 		if err != nil {

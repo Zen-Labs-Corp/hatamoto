@@ -214,8 +214,10 @@ func (a *Admin) handleTwoStep(w http.ResponseWriter, r *http.Request) {
 func (a *Admin) completeSignIn(w http.ResponseWriter, r *http.Request, ps PasswordStep, uid uuid.UUID, next string, via authstate.Via) {
 	token, err := ps.IssueVerifiedSession(r.Context(), uid, via, r.UserAgent(), middleware.GetClientIP(r))
 	if err != nil {
-		a.logger().Error("issue session failed", "err", err)
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "We could not sign you in. Try again in a moment.")
+		// A user ended, locked or refused by the policy since the first step is
+		// answered like a wrong password; loginFailed logs and 500s the rest.
+		a.clearPending(w, r)
+		a.loginFailed(w, r, err, "", SafeNextFor(a.adminPath, next))
 		return
 	}
 	a.clearPending(w, r)

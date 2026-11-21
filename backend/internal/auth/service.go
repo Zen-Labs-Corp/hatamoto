@@ -522,6 +522,13 @@ func (s *Service) issueAdmin(ctx context.Context, userID uuid.UUID, via authstat
 	return token, err
 }
 
+// Admit reports whether a session could be issued to the user now through via,
+// without issuing one: the same refusals as IssueVerifiedSession (ended access,
+// lock, policy). A caller asks it before it shows a second-step prompt.
+func (s *Service) Admit(ctx context.Context, userID uuid.UUID, via authstate.Via) error {
+	return s.admit(ctx, userID, via)
+}
+
 var viaPassword = authstate.Via{Method: authstate.MethodPassword}
 
 // admit refuses to issue a session to a user whose access has ended, who no
