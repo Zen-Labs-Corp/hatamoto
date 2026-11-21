@@ -108,18 +108,21 @@ func hostingChecks(s HostingSetup, onS3Tab bool, loc *time.Location) []hostingCh
 		headers += " They are included in the config below."
 	}
 	out = append(out, hostingCheck{"Security headers", headers, setupBadge("warning", "Add")})
-	out = append(out, hostingRedirectsCheck(s))
+	out = append(out, hostingRedirectsCheck(s, onS3Tab))
 	return out
 }
 
-func hostingRedirectsCheck(s HostingSetup) hostingCheck {
+func hostingRedirectsCheck(s HostingSetup, onS3Tab bool) hostingCheck {
 	const name = "Redirects"
 	if s.RedirectsSplit {
 		if s.Exact+s.Wildcard == 0 {
 			return hostingCheck{name, "The last export has no redirect rules.", setupBadge("success", "OK")}
 		}
-		d := fmt.Sprintf("A plain web server ignores _redirects: %d exact %s become meta-refresh pages and %d wildcard %s lost. The config below includes them.",
+		d := fmt.Sprintf("A plain web server ignores _redirects: %d exact %s become meta-refresh pages and %d wildcard %s lost.",
 			s.Exact, plural(s.Exact, "rule", "rules"), s.Wildcard, plural(s.Wildcard, "rule is", "rules are"))
+		if !onS3Tab {
+			d += " The config below includes them."
+		}
 		if len(s.Skipped) > 0 {
 			d += " Left out: " + strings.Join(s.Skipped, "; ") + "."
 		}

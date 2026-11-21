@@ -360,7 +360,7 @@ func TestHostingPageSetupCard(t *testing.T) {
 		t.Error("the S3 + CDN tab lacks its guidance")
 	}
 	// A directory target on the S3 tab has no folder row and no config to point at.
-	for _, bad := range []string{"The folder exists", "included in the config below"} {
+	for _, bad := range []string{"The folder exists", "included in the config below", "The config below includes them."} {
 		if strings.Contains(s3, bad) {
 			t.Errorf("the S3 + CDN tab shows %q", bad)
 		}
