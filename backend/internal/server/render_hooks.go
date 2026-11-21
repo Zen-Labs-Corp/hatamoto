@@ -16,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/statichost"
 	"hatamoto.dev/sdk"
 )
 
@@ -74,6 +75,7 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 		fontsHandler = fonts.Handler(s.fonts)
 	}
 	mountRenderRoutes(r, renderRoutes{
+		hosting:            &s.hosting,
 		pages:              h,
 		assets:             s.renderEngine.AssetHandler(),
 		fonts:              fontsHandler,
@@ -115,6 +117,7 @@ type renderRoutes struct {
 	// acquireBound is the public acquire timeout; 0 disables the bound.
 	acquireBound time.Duration
 	pages        *renderHandlers
+	hosting      *statichost.Holder // static hosting snapshot; nil means served mode
 	assets       http.Handler
 	// fonts (optional) serves GET /fonts/<sha256>.woff2 from the font store.
 	fonts      http.Handler
@@ -203,7 +206,7 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 	// Own limiter: the public API form route has its own bucket, and the two
 	// must not share a budget.
 	formLimiter := middleware.NewRateLimiter(0.1, 5).ByIPv6Prefix()
-	handleCORS(r, http.MethodPost, "/forms/{slug}/submit", rt.formPost, formLimiter.Middleware)
+	handleCORS(r, rt.hosting, http.MethodPost, "/forms/{slug}/submit", rt.formPost, formLimiter.Middleware)
 
 	if rt.preview != nil {
 		// Own limiter: the token is a bearer secret, so guessing is throttled

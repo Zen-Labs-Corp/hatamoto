@@ -24,6 +24,7 @@ import (
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/statichost"
 	"hatamoto.dev/sdk"
 )
 
@@ -85,7 +86,9 @@ type htmlCache interface {
 // server router.
 type renderHandlers struct {
 	engine pageRenderer
-	cache  htmlCache
+	// hosting is the per-Server static hosting snapshot; nil means served mode.
+	hosting *statichost.Holder
+	cache   htmlCache
 	// flight lets concurrent misses on one page key share one render. Nil
 	// disables it; a pointer because the handlers are copied (preview, preload).
 	flight *renderFlight
@@ -158,9 +161,10 @@ type renderHandlers struct {
 // be nil to run uncached.
 func (s *Server) newRenderHandlers(engine pageRenderer, pageCache *cache.Cache) *renderHandlers {
 	h := &renderHandlers{
-		engine: engine,
-		flight: &renderFlight{},
-		logger: s.logger,
+		engine:  engine,
+		hosting: &s.hosting,
+		flight:  &renderFlight{},
+		logger:  s.logger,
 		// Without PUBLIC_BASE_URL the canonical URLs come from the request
 		// Host, so such pages must never be cached (see renderHandlers).
 		baseURLPinned: s.cfg != nil && strings.TrimSpace(s.cfg.PublicSite.BaseURL) != "",
