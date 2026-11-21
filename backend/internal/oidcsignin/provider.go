@@ -309,11 +309,13 @@ func (p *Provider) discover(ctx context.Context, rt *Runtime, issuer string) (*o
 	return op, nil
 }
 
+var errNoClient = errors.New("no outbound client configured")
+
 // fetchProvider runs discovery, giving up after fetchTimeout or when ctx ends.
 func fetchProvider(ctx context.Context, rt *Runtime, issuer string) (*oidc.Provider, error) {
 	client := rt.Client
 	if client == nil {
-		client = http.DefaultClient
+		return nil, errNoClient
 	}
 	type result struct {
 		p   *oidc.Provider
@@ -390,7 +392,7 @@ func (p *Provider) Check(ctx context.Context, s Settings) error {
 	}
 	client := rt.Client
 	if client == nil {
-		client = http.DefaultClient
+		return errNoClient
 	}
 	rctx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()

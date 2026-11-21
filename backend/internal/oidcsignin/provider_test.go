@@ -312,3 +312,14 @@ func TestDiscoveryRefusesPlainHTTPEndpoints(t *testing.T) {
 		})
 	}
 }
+
+func TestNoOutboundClientFailsClosed(t *testing.T) {
+	r := newRig(t)
+	r.p.SetRuntime(Runtime{Settings: r.src, SecretKey: testKey})
+	if _, err := r.p.Start(context.Background(), authstate.StartRequest{CallbackURL: testCallback, State: testState}); ReasonOf(err) != reasonDiscoveryFailed {
+		t.Fatalf("Start = %v, want discovery_failed", err)
+	}
+	if err := r.p.Check(context.Background(), r.src.s); !errors.Is(err, errNoClient) {
+		t.Fatalf("Check = %v, want errNoClient", err)
+	}
+}
