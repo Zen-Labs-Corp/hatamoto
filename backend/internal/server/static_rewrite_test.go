@@ -52,7 +52,7 @@ func TestStaticRewritePage(t *testing.T) {
 		`href="https://example.net/y"`,
 		`"` + testStaticLive + `/search?q={search_term_string}"`,
 		`<head><meta name="hm-live-origin" content="` + testStaticLive + `"><script src="` + testStaticLive + render.AssetPrefix + render.LiveScriptName + `" defer></script><script src="/theme/assets/hm-consent.js`,
-		`<div id="hm-comment-form" data-hm-live-form="` + testStaticLive + commentFormLivePrefix + testEntityID + `">`,
+		`<div data-hm-live-form="` + testStaticLive + commentFormLivePrefix + testEntityID + `">`,
 		`<a href="` + testStaticLive + commentFormLivePrefix + testEntityID + `">Leave a comment</a>`,
 	} {
 		if !strings.Contains(out, want) {
@@ -108,5 +108,23 @@ func TestStaticRewriteDropsUnreadableCommentForm(t *testing.T) {
 	out := string(newTestRewrite(false).page([]byte(`<head></head><form action="/-/comments/not-an-id" data-hm-cform><input value="__hmcf_tok__"></form>`)))
 	if strings.Contains(out, "__hmcf_tok__") || strings.Contains(out, "data-hm-cform") || strings.Contains(out, render.LiveScriptName) {
 		t.Errorf("unreadable form shipped: %s", out)
+	}
+}
+
+// The default theme wraps the form in its own div#hm-comment-form. The loader
+// placeholder must not repeat that id: a duplicate id is invalid HTML, and the
+// "#hm-comment-form" anchors of reply links would be ambiguous.
+func TestStaticRewriteCommentLoaderKeepsIDUnique(t *testing.T) {
+	t.Parallel()
+	doc := strings.Replace(staticRewriteDoc, `<form class="hm-form" method="post" action="/-/comments/`,
+		`<div id="hm-comment-form"><form class="hm-form" method="post" action="/-/comments/`, 1)
+	doc = strings.Replace(doc, `</form></body>`, `</form></div></body>`, 1)
+	out := string(newTestRewrite(false).page([]byte(doc)))
+	if n := strings.Count(out, `id="hm-comment-form"`); n != 1 {
+		t.Errorf("id=\"hm-comment-form\" appears %d times, want 1\n%s", n, out)
+	}
+	want := `<div id="hm-comment-form"><div data-hm-live-form="` + testStaticLive + commentFormLivePrefix + testEntityID + `">`
+	if !strings.Contains(out, want) {
+		t.Errorf("placeholder is not inside the theme wrapper\n%s", out)
 	}
 }

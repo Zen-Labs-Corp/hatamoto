@@ -80,7 +80,9 @@ func (x staticRewrite) commentLoader(body []byte) ([]byte, bool) {
 		repl := ""
 		if id, ok := commentSpanEntityID(out[start:end]); ok {
 			url := x.hs.Live + commentFormLivePrefix + id
-			repl = `<div id="hm-comment-form" data-hm-live-form="` + url + `"><p><a href="` + url + `">Leave a comment</a></p></div>`
+			// The placeholder has no id: the theme's own wrapper around the form already
+			// carries id="hm-comment-form", and a second one would be a duplicate id.
+			repl = `<div data-hm-live-form="` + url + `"><p><a href="` + url + `">Leave a comment</a></p></div>`
 			loader = true
 		}
 		next := make([]byte, 0, len(out)-(end-start)+len(repl))

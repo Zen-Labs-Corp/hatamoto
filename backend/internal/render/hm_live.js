@@ -17,7 +17,9 @@
         if (!html) return;
         var t = document.createElement('template');
         t.innerHTML = html; /* scripts in a template never run */
-        el.replaceWith(t.content);
+        /* The theme wraps the form in #hm-comment-form and the fragment brings its own copy, so swap the
+           wrapper: replacing only the placeholder would nest a second element with that id. */
+        (el.closest('#hm-comment-form') || el).replaceWith(t.content);
       })
       .catch(function () {});
   });

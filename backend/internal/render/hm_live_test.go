@@ -34,7 +34,7 @@ func TestHmLiveScriptServed(t *testing.T) {
 func TestHmLiveScriptShape(t *testing.T) {
 	t.Parallel()
 	js := string(hmLiveSrc)
-	for _, want := range []string{"credentials: 'omit'", "u.origin !== live"} {
+	for _, want := range []string{"credentials: 'omit'", "u.origin !== live", `closest('#hm-comment-form')`} {
 		if !strings.Contains(js, want) {
 			t.Errorf("hm-live.js lacks %q", want)
 		}
