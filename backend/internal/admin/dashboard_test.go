@@ -540,7 +540,7 @@ func TestDashboardPanickingAndSlowCardsDoNotBreakTheRest(t *testing.T) {
 	g := newDashRig(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
-	jobs := g.a.dashJobs("owner")
+	jobs := g.a.dashJobs(roleViewer("owner"))
 	jobs = append(jobs,
 		dashJob{Name: "panics", SecPos: 9, Fallback: dashSection{ID: "p", Title: "Panics", ErrMsg: "It panicked."}, Run: func(context.Context) (dashResult, error) { panic("boom") }},
 		dashJob{Name: "slow", SecPos: 10, Fallback: dashSection{ID: "s", Title: "Slow", ErrMsg: "It was slow."}, Run: func(ctx context.Context) (dashResult, error) { <-ctx.Done(); return dashResult{}, ctx.Err() }})
