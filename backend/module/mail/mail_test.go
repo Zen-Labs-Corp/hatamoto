@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"hatamoto.dev/core/internal/modhost"
 	"hatamoto.dev/core/module/mail"
 )
 
@@ -12,16 +13,16 @@ type fake struct {
 	calls  int
 	module string
 	user   string
-	msg    mail.Message
+	msg    modhost.Message
 }
 
-func (f *fake) ToOwners(_ context.Context, module string, m mail.Message) error {
+func (f *fake) ToOwners(_ context.Context, module string, m modhost.Message) error {
 	f.calls++
 	f.module, f.msg = module, m
 	return nil
 }
 
-func (f *fake) ToUser(_ context.Context, module, userID string, m mail.Message) error {
+func (f *fake) ToUser(_ context.Context, module, userID string, m modhost.Message) error {
 	f.calls++
 	f.module, f.user, f.msg = module, userID, m
 	return nil
@@ -30,13 +31,13 @@ func (f *fake) ToUser(_ context.Context, module, userID string, m mail.Message) 
 func TestCallsReachTheMailer(t *testing.T) {
 	t.Cleanup(mail.ResetForTest)
 	ctx := context.Background()
-	msg := mail.Message{Subject: "Hi", Text: "body"}
+	msg := mail.Message{Subject: "Hi", Text: "body", HTML: "<p>body</p>"}
 	if err := mail.ToOwners(ctx, "example", msg); !errors.Is(err, mail.ErrNoMailer) {
 		t.Fatalf("no mailer: %v", err)
 	}
 	f := &fake{}
 	mail.SetMailerForTest(f)
-	if err := mail.ToOwners(ctx, "example", msg); err != nil || f.calls != 1 || f.module != "example" || f.msg != msg {
+	if err := mail.ToOwners(ctx, "example", msg); err != nil || f.calls != 1 || f.module != "example" || f.msg != (modhost.Message{Subject: msg.Subject, Text: msg.Text, HTML: msg.HTML}) {
 		t.Fatalf("owners: %v %+v", err, f)
 	}
 	if err := mail.ToUser(ctx, "example", "u1", msg); err != nil || f.calls != 2 || f.user != "u1" {
