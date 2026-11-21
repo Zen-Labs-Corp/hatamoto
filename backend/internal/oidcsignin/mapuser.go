@@ -35,6 +35,9 @@ func (p *Provider) MapUser(ctx context.Context, req authstate.MapRequest) (auths
 
 	u, err := req.Users.FindByEmail(ctx, id.Email)
 	switch {
+	case err == nil && s.LinkExisting && u.Role == "owner":
+		// An email asserted by the IdP never grants an owner account.
+		return authstate.User{}, refuse(reasonOwnerAccount, nil)
 	case err == nil && s.LinkExisting:
 		if err := req.Users.LinkIdentity(ctx, u.ID, id.Issuer, id.Subject); err != nil {
 			return authstate.User{}, linkRefusal(err)

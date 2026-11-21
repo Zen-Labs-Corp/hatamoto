@@ -26,6 +26,7 @@ const (
 	reasonEmailUnverified  = "email_unverified"
 	reasonDomainNotAllowed = "domain_not_allowed"
 	reasonAccountExists    = "account_exists"
+	reasonOwnerAccount     = "owner_account"
 	reasonIdentityTaken    = "identity_taken"
 	reasonCreateFailed     = "create_failed"
 	reasonLinkFailed       = "link_failed"

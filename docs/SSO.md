@@ -27,7 +27,7 @@ saving asks for the sudo re-confirmation.
 | Client ID and secret | From the app you register at the identity service. The secret is stored sealed with `HATAMOTO_SECRET`, is never shown again, and a blank field keeps the saved one. If `HATAMOTO_SECRET` changed, the card says the secret is lost and asks for it again. |
 | Allowed domains | The part of the email after the last `@` must match one of these exactly. At least one is required. |
 | Default role | The role of an account created on first sign-in. |
-| Link existing accounts | Off by default. When on, a person whose verified email matches an existing account in an allowed domain is linked to it. When off, such a person is refused. Never turn it on for an identity service that lets people choose any email address. |
+| Link existing accounts | Off by default. When on, a person whose verified email matches an existing account in an allowed domain is linked to it, except an owner account, which is never linked this way. When off, such a person is refused. Never turn it on for an identity service that lets people choose any email address. |
 
 A person is created on first sign-in only when the identity service says the email is verified (the
 `email_verified` claim, or `xms_edov` for Entra ID) and the domain is allowed. After that, the account is found by

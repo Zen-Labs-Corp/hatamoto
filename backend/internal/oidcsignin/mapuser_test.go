@@ -52,9 +52,10 @@ type mapRig struct {
 
 func newMapRig() *mapRig {
 	r := &mapRig{
-		src:   &fakeSource{found: true},
-		users: &memUsers{byEmail: map[string]authstate.User{"bob@acme.com": {ID: "u-bob", Email: "bob@acme.com", Role: "owner"}}},
-		p:     &Provider{},
+		src: &fakeSource{found: true},
+		users: &memUsers{byEmail: map[string]authstate.User{"bob@acme.com": {ID: "u-bob", Email: "bob@acme.com", Role: "editor"},
+			"root@acme.com": {ID: "u-root", Email: "root@acme.com", Role: "owner"}}},
+		p: &Provider{},
 	}
 	sealed, _ := SealSecret(testKey, testSecret)
 	r.src.s = Settings{
@@ -243,5 +244,15 @@ func TestMapUserCreateAndLinkSurviveCancel(t *testing.T) {
 	})
 	if err != nil || len(users.memUsers.linked) != 1 {
 		t.Fatalf("err = %v, linked = %v", err, users.memUsers.linked)
+	}
+}
+
+func TestMapUserNeverLinksOwner(t *testing.T) {
+	r := newMapRig()
+	r.src.s.LinkExisting = true
+	_, err := r.mapUser("root@acme.com", true, nil)
+	wantReason(t, err, reasonOwnerAccount)
+	if len(r.users.linked)+len(r.users.created)+len(r.events) != 0 {
+		t.Fatal("an owner account was linked")
 	}
 }
