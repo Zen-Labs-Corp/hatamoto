@@ -4,6 +4,7 @@ package user
 import (
 	"bytes"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,14 +12,43 @@ import (
 	"hatamoto.dev/core/internal/jsonx"
 )
 
-// Role is a user's role: owner (everything) or editor (content).
+// Role is a user's role. Owners do everything; editors manage content; the
+// other built-in roles are listed by Roles.
 type Role string
 
-// Available user roles.
+// Built-in user roles.
 const (
-	RoleOwner  Role = "owner"
-	RoleEditor Role = "editor"
+	RoleOwner       Role = "owner"
+	RoleEditor      Role = "editor"
+	RoleAuthor      Role = "author"
+	RoleContributor Role = "contributor"
+	RoleReviewer    Role = "reviewer"
+	RoleReadOnly    Role = "read-only"
 )
+
+// Roles lists the built-in roles in the order screens and help text show them.
+func Roles() []Role {
+	return []Role{RoleOwner, RoleEditor, RoleAuthor, RoleContributor, RoleReviewer, RoleReadOnly}
+}
+
+// Label is the role's display name ("Read-only"); an unknown role returns its id.
+func (r Role) Label() string {
+	switch r {
+	case RoleOwner:
+		return "Owner"
+	case RoleEditor:
+		return "Editor"
+	case RoleAuthor:
+		return "Author"
+	case RoleContributor:
+		return "Contributor"
+	case RoleReviewer:
+		return "Reviewer"
+	case RoleReadOnly:
+		return "Read-only"
+	}
+	return string(r)
+}
 
 // Common errors.
 var (
@@ -99,12 +129,7 @@ func (u *User) AccessEnded(now time.Time) bool {
 
 // ValidRole checks if a role is valid.
 func ValidRole(r Role) bool {
-	switch r {
-	case RoleOwner, RoleEditor:
-		return true
-	default:
-		return false
-	}
+	return slices.Contains(Roles(), r)
 }
 
 // ParseRole parses a string into a Role.
