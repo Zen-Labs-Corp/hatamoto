@@ -461,6 +461,7 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	}
 	if cfg.RunMode == runenv.ModeStaging {
 		logger.Warn(runenv.Summary())
+		warnStagingMedia(logger, os.Getenv)
 	}
 	// Missing or invalid object storage settings stop the start; an
 	// unreachable bucket does not (no network call is made here).
@@ -539,4 +540,12 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 func useNeutralCookieNames(secure bool) {
 	auth.UseNeutralCookieNames(secure)
 	middleware.UseNeutralCSRFCookieName(secure)
+}
+
+// warnStagingMedia says that staging mode still uploads media to the
+// configured object storage bucket. Only deletions are suppressed.
+func warnStagingMedia(logger *slog.Logger, getenv func(string) string) {
+	if kind, _ := media.StorageFromEnv(getenv); kind == "s3" {
+		logger.Warn("staging mode: media uploads still go to the configured object storage bucket; give this copy its own bucket")
+	}
 }
