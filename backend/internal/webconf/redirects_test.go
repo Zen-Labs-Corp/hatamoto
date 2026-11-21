@@ -164,6 +164,7 @@ func TestRedirectSkipsTargetsThatCanLeaveTheSite(t *testing.T) {
 		{"/a/:p1", ":p1/x", 301},
 		{"/a/:p1", "//evil.example/:p1", 301},
 		{"/a/*", "//:splat", 301},
+		{"/old/:p1", "/:p1", 301},
 	} {
 		rules, skipped := planRedirects([]Redirect{r})
 		if len(skipped) != 1 || rules[0].skip == "" {

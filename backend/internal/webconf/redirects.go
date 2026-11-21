@@ -162,13 +162,14 @@ func compileRedirect(r Redirect) (rule, bool) {
 }
 
 // buildsOffSite reports a wildcard target a visitor could steer off the site: it
-// starts with a placeholder, with "//", or is "/" followed by the splat (a
-// request for "//host" would redirect to "//host").
+// starts with a placeholder, with "//", or is "/" followed by a placeholder (a
+// request for "//host" or "%5Chost" would redirect to "//host" or "/\\host", which
+// a browser reads as another site).
 func buildsOffSite(to string, parts []part, splat int) bool {
 	if strings.HasPrefix(to, "//") || len(parts) == 0 || parts[0].group > 0 {
 		return true
 	}
-	return parts[0].lit == "/" && len(parts) > 1 && splat > 0 && parts[1].group == splat
+	return parts[0].lit == "/" && len(parts) > 1 && parts[1].group > 0
 }
 
 // targetParts splits a target at its ":pN" and ":splat" placeholders.
