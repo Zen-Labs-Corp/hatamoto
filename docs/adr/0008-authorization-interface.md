@@ -1,4 +1,4 @@
-# ADR 0007: Authorization interface
+# ADR 0008: Authorization interface
 
 Status: accepted (2026-11-21)
 
