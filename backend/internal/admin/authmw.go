@@ -124,23 +124,6 @@ func (a *Admin) toLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, target, http.StatusSeeOther)
 }
 
-// RequireRole allows only the listed roles; others get the 403 page.
-func (a *Admin) RequireRole(roles ...string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			u := userFrom(r.Context())
-			if u == nil || !contains(roles, u.Role) {
-				if a.fetchError(w, r, http.StatusForbidden, "Your role does not have access to this page.") {
-					return
-				}
-				a.Error(w, r, http.StatusForbidden, "Not allowed", "Your role does not have access to this page.")
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
 // RequireCan lets the request through when authz allows the signed-in user to
 // perform act; others get the 403 page.
 func (a *Admin) RequireCan(act authz.Action) func(http.Handler) http.Handler {

@@ -16,6 +16,7 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/jsonx"
 )
@@ -55,7 +56,7 @@ func (a *Admin) mountPluginUIRoot(r *httpx.Group) {
 
 // mountPluginUIScreens registers the old /ui redirect and the bridge endpoint.
 func (a *Admin) mountPluginUIScreens(authed *httpx.Group) {
-	g := authed.Group("", a.RequireRole("owner", "editor"))
+	g := authed.Group("", a.RequireCan(authz.ActionPluginUIAccess))
 	g.HandleFunc("GET /plugins/{name}/ui", a.handlePluginUIRedirect)
 	g.HandleFunc("POST /plugins/{name}/bridge", a.handlePluginBridge)
 }

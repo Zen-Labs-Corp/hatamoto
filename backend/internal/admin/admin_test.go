@@ -242,21 +242,6 @@ func TestHTMXFragmentVsFullPage(t *testing.T) {
 	}
 }
 
-func TestRoleGate(t *testing.T) {
-	t.Parallel()
-
-	g := newRig(t)
-	h := g.a.RequireSession(g.a.RequireRole("owner")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) })))
-	mux := http.NewServeMux()
-	mux.Handle("GET /x", g.a.guardFor(scopeAdmin)(secureHeaders(h)))
-	for tok, want := range map[string]int{"owner-token": 204, "editor-token": 403} {
-		req := httptestReq("GET", "/x", tok)
-		if rec := serve(mux, req, nil); rec.Code != want {
-			t.Errorf("%s: %d want %d", tok, rec.Code, want)
-		}
-	}
-}
-
 func TestRequireCanGate(t *testing.T) {
 	t.Parallel()
 

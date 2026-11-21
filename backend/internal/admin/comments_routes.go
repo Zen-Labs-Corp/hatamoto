@@ -3,6 +3,7 @@ package admin
 import (
 	"net/http"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/httpx"
 )
 
@@ -11,8 +12,8 @@ import (
 // switch, site settings, schema defaults and privacy export/erase are
 // owner-only.
 func (a *Admin) mountComments(authed *httpx.Group) {
-	ed := authed.Group("", a.RequireRole("owner", "editor"))
-	owner := authed.Group("", a.RequireRole("owner"))
+	ed := authed.Group("", a.RequireCan(authz.ActionCommentModerate))
+	owner := authed.Group("", a.RequireCan(authz.ActionCommentSettingsManage))
 	sudo := owner.Group("", a.RequireSudo) // personal data out or gone: confirm the password first
 	ed.HandleFunc("GET /comments", a.handleComments)
 	ed.HandleFunc("POST /comments/bulk", a.handleCommentsBulk)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/httpx"
@@ -48,7 +49,7 @@ type SessionLiveness interface {
 }
 
 func (a *Admin) mountChangesets(authed *httpx.Group, public *httpx.Group) {
-	owner := authed.Group("", a.RequireRole("owner"))
+	owner := authed.Group("", a.RequireCan(authz.ActionPluginChangesetReview))
 	owner.HandleFunc("GET /plugins/{name}/changesets/{id}", a.handleChangeset)
 	owner.HandleFunc("GET /plugins/{name}/changesets/{id}/preview", a.handleChangesetPreview)
 	// The adminguard verifies the one-time frame ticket in the URL (session,

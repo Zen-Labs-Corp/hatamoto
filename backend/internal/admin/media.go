@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/media"
@@ -28,7 +29,7 @@ const (
 func (a *Admin) mountMedia(authed *httpx.Group) {
 	// /media/new, /media/formats and /media/rebuild are literals, so they win
 	// over /media/{id}.
-	owner := authed.Group("", a.RequireRole("owner"))
+	owner := authed.Group("", a.RequireCan(authz.ActionMediaSettingsManage))
 	owner.HandleFunc("POST /media/formats", a.handleMediaFormatsSave)
 	owner.HandleFunc("POST /media/rebuild", a.handleMediaRebuild)
 	authed.HandleFunc("GET /media", a.handleMedia)

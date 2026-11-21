@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/entity"
@@ -30,7 +31,7 @@ type settingsData struct {
 
 func (a *Admin) mountSettings(authed *httpx.Group) {
 	a.mountSettingsFrame(authed)
-	owner := authed.Group("", a.RequireRole("owner"))
+	owner := authed.Group("", a.RequireCan(authz.ActionSettingsManage))
 	a.mountExportSettings(owner)
 	a.mountSearchReplace(owner)
 	a.mountPerformanceSettings(owner)

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
@@ -80,7 +81,7 @@ func (a *Admin) mountPageEditor(authed *httpx.Group, public *httpx.Group) {
 	authed.HandleFunc("GET /builder/stylespec", a.handleStyleSpec)
 	a.mountBuilderReuse(authed)
 	// Editors create presets from the inspector; updating and deleting is the owner's, in Settings.
-	authed.Group("", a.RequireRole("owner", "editor")).HandleFunc("POST /builder/presets", a.handlePresetCreate)
+	authed.Group("", a.RequireCan(authz.ActionBuilderPresetCreate)).HandleFunc("POST /builder/presets", a.handlePresetCreate)
 	a.mountBlogEditor(authed)
 	// The adminguard verifies the one-time frame ticket in the URL (session and
 	// entity bound) before this handler runs; see frameticket.go.

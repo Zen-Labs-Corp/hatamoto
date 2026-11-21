@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
@@ -43,7 +44,7 @@ func (a *Admin) reuseAvailable(r *http.Request) bool {
 }
 
 func (a *Admin) mountBuilderReuse(authed *httpx.Group) {
-	w := authed.Group("", a.RequireRole("owner", "editor"))
+	w := authed.Group("", a.RequireCan(authz.ActionBuilderBlockManage))
 	w.HandleFunc("GET /theme/blocks", a.handleBlocksPage)
 	w.HandleFunc("POST /entities/{id}/builder/block", a.handleMakeBlock)
 	w.HandleFunc("GET /builder/blocks", a.handleBlocksList)

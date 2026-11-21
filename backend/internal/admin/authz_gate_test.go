@@ -57,3 +57,32 @@ func TestAdminAuthzAsksWithSessionSubject(t *testing.T) {
 		t.Errorf("call = %+v", c)
 	}
 }
+
+// The real mounts ask authz with the signed-in user, and the default answer
+// keeps the editor out of owner pages.
+func TestAdminRoutesAskAuthz(t *testing.T) {
+	rc := &authztest.Recorder{}
+	authztest.Use(t, rc)
+	g := newRig(t)
+
+	if rec := g.do("GET", "/admin/settings/general", "owner-token", nil, nil); rec.Code == http.StatusForbidden {
+		t.Fatalf("owner refused by the default: %d", rec.Code)
+	}
+	calls := rc.Calls()
+	if len(calls) == 0 || calls[0].Action != authz.ActionSettingsManage || calls[0].Subject.UserID != g.owner.ID.String() || calls[0].Subject.Role != "owner" {
+		t.Fatalf("calls = %+v", calls)
+	}
+	if rec := g.do("GET", "/admin/settings/general", "editor-token", nil, nil); rec.Code != http.StatusForbidden {
+		t.Errorf("editor: %d, want 403", rec.Code)
+	}
+}
+
+func TestAdminRoutesDenyAll(t *testing.T) {
+	authztest.Use(t, authztest.DenyAll)
+	g := newRig(t)
+	for _, path := range []string{"/admin/settings/general", "/admin/settings/users"} {
+		if rec := g.do("GET", path, "owner-token", nil, nil); rec.Code != http.StatusForbidden {
+			t.Errorf("owner GET %s: %d, want 403", path, rec.Code)
+		}
+	}
+}

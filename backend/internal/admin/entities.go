@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
@@ -46,8 +47,8 @@ func (a *Admin) mountEntities(authed *httpx.Group) {
 	authed.HandleFunc("GET /entities", a.handleEntities)
 	authed.HandleFunc("POST /entities/bulk", a.handleEntitiesBulk)
 	authed.HandleFunc("GET /entities/new", a.handleEntityNew)
-	authed.Group("", a.RequireRole("owner", "editor")).HandleFunc("POST /entities/drafts", a.handleEntityDraft)
-	ord := authed.Group("", a.RequireRole("owner", "editor"))
+	authed.Group("", a.RequireCan(authz.ActionEntityCreate)).HandleFunc("POST /entities/drafts", a.handleEntityDraft)
+	ord := authed.Group("", a.RequireCan(authz.ActionEntityReorder))
 	ord.HandleFunc("GET /entities/order", a.handleEntityOrder)
 	ord.HandleFunc("GET /entities/export", a.handleEntityExportForm)
 	ord.HandleFunc("GET /entities/export.csv", a.handleEntityExport)
@@ -56,11 +57,11 @@ func (a *Admin) mountEntities(authed *httpx.Group) {
 	authed.HandleFunc("POST /entities", a.handleEntityCreate)
 	authed.HandleFunc("GET /entities/{id}", a.handleEntityEdit)
 	authed.HandleFunc("POST /entities/{id}", a.handleEntitySave)
-	authed.Group("", a.RequireRole(handBackRoles...)).HandleFunc("POST /entities/{id}/origin", a.handleEntityHandBack)
+	authed.Group("", a.RequireCan(authz.ActionEntityHandback)).HandleFunc("POST /entities/{id}/origin", a.handleEntityHandBack)
 	authed.HandleFunc("POST /entities/{id}/analyze", a.handleEntityAnalyze)
 	authed.HandleFunc("POST /entities/{id}/seo", a.handleEntitySEOInline)
 	authed.HandleFunc("POST /entities/{id}/status", a.handleEntityStatus)
-	authed.Group("", a.RequireRole("owner", "editor")).HandleFunc("POST /entities/{id}/duplicate", a.handleEntityDuplicate)
+	authed.Group("", a.RequireCan(authz.ActionEntityDuplicate)).HandleFunc("POST /entities/{id}/duplicate", a.handleEntityDuplicate)
 	authed.HandleFunc("GET /entities/{id}/delete", a.handleEntityDeleteConfirm)
 	authed.HandleFunc("POST /entities/{id}/delete", a.handleEntityDelete)
 	authed.HandleFunc("GET /entities/{id}/translations", a.handleTranslations)
@@ -69,11 +70,11 @@ func (a *Admin) mountEntities(authed *httpx.Group) {
 	authed.HandleFunc("GET /entities/{id}/versions/{version}", a.handleVersionView)
 	authed.HandleFunc("GET /entities/{id}/versions/{version}/restore", a.handleVersionRestoreConfirm)
 	authed.HandleFunc("POST /entities/{id}/versions/{version}/restore", a.handleVersionRestore)
-	sh := authed.Group("", a.RequireRole("owner", "editor"))
+	sh := authed.Group("", a.RequireCan(authz.ActionEntityShare))
 	sh.HandleFunc("GET /entities/{id}/share", a.handleShare)
 	sh.HandleFunc("POST /entities/{id}/share", a.handleShareCreate)
 	sh.HandleFunc("POST /entities/{id}/share/{link}/revoke", a.handleShareRevoke)
-	tr := authed.Group("", a.RequireRole("owner", "editor"))
+	tr := authed.Group("", a.RequireCan(authz.ActionEntityTranslate))
 	tr.HandleFunc("GET /entities/{id}/translations/candidates", a.handleTranslationCandidates)
 	tr.HandleFunc("POST /entities/{id}/translations/link", a.handleTranslationLink)
 	tr.HandleFunc("GET /entities/{id}/translations/unlink", a.handleTranslationUnlinkConfirm)
@@ -81,8 +82,8 @@ func (a *Admin) mountEntities(authed *httpx.Group) {
 	tr.HandleFunc("POST /entities/{id}/translations/original", a.handleTranslationOriginal)
 	tr.HandleFunc("GET /entities/{id}/translations/new", a.handleTranslationCopyNew)
 	tr.HandleFunc("POST /entities/{id}/translations/copy", a.handleTranslationCopy)
-	authed.Group("", a.RequireRole("owner", "editor")).HandleFunc("POST /entities/{id}/versions/{version}/nodes/{node}/restore", a.handleVersionRestoreNode)
-	authed.Group("", a.RequireRole("owner", "editor")).HandleFunc("GET /entities/{id}/builder/node-versions", a.handleBuilderNodeVersions)
+	authed.Group("", a.RequireCan(authz.ActionEntityVersionRestore)).HandleFunc("POST /entities/{id}/versions/{version}/nodes/{node}/restore", a.handleVersionRestoreNode)
+	authed.Group("", a.RequireCan(authz.ActionEntityRead)).HandleFunc("GET /entities/{id}/builder/node-versions", a.handleBuilderNodeVersions)
 }
 
 // entitiesData feeds entities/list. The unfiltered list has the Create menu and

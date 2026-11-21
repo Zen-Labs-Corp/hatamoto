@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/seo"
@@ -17,7 +18,7 @@ import (
 )
 
 func (a *Admin) mountTaxonomies(authed *httpx.Group) {
-	owner := authed.Group("", a.RequireRole("owner"))
+	owner := authed.Group("", a.RequireCan(authz.ActionTermManage))
 	owner.HandleFunc("GET /settings/taxonomies", a.handleTaxonomies)
 	owner.HandleFunc("GET /settings/taxonomies/new", a.handleTermNew)
 	owner.HandleFunc("POST /settings/taxonomies/terms", a.handleTermCreate)

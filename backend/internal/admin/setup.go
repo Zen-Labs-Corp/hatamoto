@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/starter"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/auth"
@@ -74,7 +75,7 @@ func (a *Admin) mountSetup(public, authed *httpx.Group) {
 	public.HandleFunc("GET /setup", a.handleSetupStart)
 	public.HandleFunc("POST /setup", a.handleSetupAccount)
 
-	owner := authed.Group("", a.RequireRole("owner"), a.setupOpen)
+	owner := authed.Group("", a.RequireCan(authz.ActionSetupRun), a.setupOpen)
 	// The step needs a recent password confirmation, as the Security page does.
 	// The prompt comes on the GET so it returns here (no Referer is ever sent
 	// from an admin page). The save asks for it only when it changes something.
@@ -91,7 +92,7 @@ func (a *Admin) mountSetup(public, authed *httpx.Group) {
 	owner.HandleFunc("POST /setup/theme", a.handleSetupTheme)
 	owner.HandleFunc("GET /setup/content", a.handleSetupContentForm)
 	owner.HandleFunc("POST /setup/content", a.handleSetupContent)
-	authed.Group("", a.RequireRole("owner")).HandleFunc("GET /setup/done", a.handleSetupDone)
+	authed.Group("", a.RequireCan(authz.ActionSetupRun)).HandleFunc("GET /setup/done", a.handleSetupDone)
 }
 
 // setupCompleted reports a finished wizard (or no site config to ask).

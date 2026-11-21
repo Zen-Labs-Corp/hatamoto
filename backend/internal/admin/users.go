@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/email"
@@ -144,7 +145,7 @@ func sameInstant(a, b *time.Time) bool {
 }
 
 func (a *Admin) mountUsers(authed *httpx.Group) {
-	owner := authed.Group("", a.RequireRole("owner"))
+	owner := authed.Group("", a.RequireCan(authz.ActionUserManage))
 	owner.HandleFunc("GET /settings/users", a.handleUsers)
 	owner.HandleFunc("GET /settings/users/invite", a.handleInviteNew)
 	owner.HandleFunc("POST /settings/users/invite", a.handleInvite)

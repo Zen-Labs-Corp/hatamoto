@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/starter"
 	"hatamoto.dev/core/internal/adminpagestate"
 	"hatamoto.dev/core/internal/auth"
@@ -604,7 +605,7 @@ func (a *Admin) Mount(r *httpx.Group) {
 
 	a.mountScreens(own, authed)
 	if a.deps.Dev {
-		authed.Group("", a.RequireRole("owner")).HandleFunc("GET /_styleguide", a.handleStyleguide)
+		authed.Group("", a.RequireCan(authz.ActionAdminStyleguide)).HandleFunc("GET /_styleguide", a.handleStyleguide)
 	}
 
 	// Lowest precedence: everything else under /admin.
