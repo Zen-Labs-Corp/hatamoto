@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
@@ -60,6 +61,36 @@ func TestListPlugins_ListsTemplatesRefused(t *testing.T) {
 	if _, ok := body.Plugins[1]["templates_refused"]; ok {
 		t.Error("a plugin without refusals lists the field")
 	}
+}
+
+func TestListPlugins_OmitsTemplatesPausedWhenNone(t *testing.T) {
+	s := &Server{pluginStatusFn: func() []pluginhost.Status {
+		return []pluginhost.Status{{Name: "acme-clean", Loaded: true, Manifest: sdk.Manifest{Name: "acme-clean"}}}
+	}}
+	rec := httptest.NewRecorder()
+	s.handleListPlugins(rec, httptest.NewRequest(http.MethodGet, "/plugins", nil))
+
+	testutil.RequireEqual(t, http.StatusOK, rec.Code)
+	var body struct {
+		Plugins []map[string]jsontext.Value `json:"plugins"`
+	}
+	testutil.RequireNoError(t, jsonx.Unmarshal(rec.Body.Bytes(), &body))
+	testutil.RequireLen(t, body.Plugins, 1)
+	if _, ok := body.Plugins[0]["templates_paused"]; ok {
+		t.Error("a plugin without paused templates lists the field")
+	}
+}
+
+func TestPausedViewsMapsKindNameUntilUTC(t *testing.T) {
+	if got := pausedViews(nil); got != nil {
+		t.Errorf("pausedViews(nil) = %v, want nil", got)
+	}
+	zone := time.FixedZone("plus2", 2*60*60)
+	until := time.Date(2026, 11, 21, 16, 32, 0, 0, zone)
+	got := pausedViews([]render.PausedTemplate{{Kind: "section", Name: "gallery_grid", Until: until}})
+	raw, err := jsonx.Marshal(got)
+	testutil.RequireNoError(t, err)
+	testutil.JSONEqual(t, `[{"kind":"section","name":"gallery_grid","until":"2026-11-21T14:32:00Z"}]`, string(raw))
 }
 
 func TestListPlugins_InvalidSettingsSchemaDoesNotBreakList(t *testing.T) {

@@ -3,12 +3,32 @@ package server
 import (
 	"encoding/json/jsontext"
 	"net/http"
+	"time"
 
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/sdk"
 )
+
+// pausedTemplateView is one template the range breaker skips for now.
+type pausedTemplateView struct {
+	Kind  string    `json:"kind"`
+	Name  string    `json:"name"`
+	Until time.Time `json:"until"` // UTC
+}
+
+// pausedViews maps the render snapshot to the API shape (nil stays nil).
+func pausedViews(in []render.PausedTemplate) []pausedTemplateView {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]pausedTemplateView, len(in))
+	for i, p := range in {
+		out[i] = pausedTemplateView{Kind: p.Kind, Name: p.Name, Until: p.Until.UTC()}
+	}
+	return out
+}
 
 // pluginView is one item of GET /api/v1/plugins: the load status plus
 // manifest metadata the admin UI needs.
@@ -41,7 +61,10 @@ type pluginView struct {
 	// TemplatesRefused lists the sections and partials that are not registered,
 	// each with its reason.
 	TemplatesRefused []string `json:"templates_refused,omitempty"`
-	TempFileLimitOff bool     `json:"temp_file_limit_off,omitempty"`
+	// TemplatesPaused lists the templates paused by the range breaker, with
+	// the time each is tried again.
+	TemplatesPaused  []pausedTemplateView `json:"templates_paused,omitempty"`
+	TempFileLimitOff bool                 `json:"temp_file_limit_off,omitempty"`
 }
 
 // routeView is sdk.Route as listed: omitzero keeps "public" absent on a
@@ -75,6 +98,7 @@ func (s *Server) pluginViews() []pluginView {
 			Permissions: m.Asked(), Cron: m.Cron,
 			Cookies: m.Cookies, RedirectPaths: m.RedirectPaths, RequestHeaders: m.RequestHeaders, CSP: m.CSP, Funcs: m.Funcs, DataError: st.DataError, TempFileLimitOff: st.TempFileLimitOff,
 			TemplatesRefused: render.PluginTemplatesRefused(st.Name),
+			TemplatesPaused:  pausedViews(render.PluginTemplatesPaused(st.Name)),
 		}
 		for _, r := range m.Routes {
 			v.Routes = append(v.Routes, routeView(r))
@@ -100,7 +124,7 @@ func (s *Server) pluginViews() []pluginView {
 //	{"public_objects"?: [...], "public_objects_allowed"?: bool,
 //	 "plugins": [{name, loaded, error?, hooks[], version, sdk, description,
 //	  allowed_hosts?, settings_schema?, permissions[], granted[], routes?,
-//	  cron?, cookies?, funcs?, data_error?, templates_refused?}]}
+//	  cron?, cookies?, funcs?, data_error?, templates_refused?, templates_paused?}]}
 //
 // Order: load order (plugin directory names, sorted).
 func (s *Server) handleListPlugins(w http.ResponseWriter, r *http.Request) {
