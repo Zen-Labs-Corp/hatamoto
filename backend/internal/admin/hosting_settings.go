@@ -140,20 +140,50 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 		p.Stays = "Stays on Hatamoto: " + strings.Join(stays, ", ") + "."
 	}
 	p.Log = a.hostingLog(runs, loc)
-	if last, ok := lastFinished(runs); ok {
-		p.Last = hostingSummary(last)
-	}
+	p.Last = hostingLast(runs)
 	return p
 }
 
-// lastFinished is the newest run that is not still running; runs are newest first.
-func lastFinished(runs []HostingRun) (HostingRun, bool) {
-	for _, r := range runs {
-		if r.Result != HostingRunRunning {
-			return r, true
+// hostingLast is the Last export line (without the trailing period). Runs are
+// newest first; running and Test export runs are skipped. A failed newest run
+// never reports its own size.
+func hostingLast(runs []HostingRun) string {
+	var newest *HostingRun
+	for i := range runs {
+		r := &runs[i]
+		if r.Result == HostingRunRunning || r.Trigger == HostingTriggerTest {
+			continue
+		}
+		if newest == nil {
+			if r.Result == HostingRunOK {
+				return hostingSummary(*r)
+			}
+			newest = r
+			continue
+		}
+		if r.Result == HostingRunOK {
+			return hostingFailed(*newest) + " · last good: " + hostingSummary(*r)
 		}
 	}
-	return HostingRun{}, false
+	if newest == nil {
+		return ""
+	}
+	return hostingFailed(*newest)
+}
+
+func hostingFailed(r HostingRun) string {
+	s := "Failed " + agoText(time.Since(r.Started))
+	if e := strings.TrimRight(clip(r.FirstError, 160), ". "); e != "" {
+		s += " · " + e
+	}
+	return s
+}
+
+func hostingTriggerLabel(trigger string) string {
+	if trigger == HostingTriggerTest {
+		return "Test export"
+	}
+	return trigger
 }
 
 // hostingSummary is the Last export line: "214 pages · 38 MB · 9 s · 0 errors · 2 minutes ago".
@@ -188,7 +218,7 @@ func (a *Admin) hostingLog(runs []HostingRun, loc *time.Location) ui.Table {
 		when := fmtDateTime(r.Started.In(loc))
 		t.Rows = append(t.Rows, ui.Row{ID: r.Started.UTC().Format(time.RFC3339Nano), Label: "Export " + when, Cells: []ui.Cell{
 			{Text: when, Nowrap: true},
-			{Text: r.Trigger, Notes: hostingNotes(r.FirstError)},
+			{Text: hostingTriggerLabel(r.Trigger), Notes: hostingNotes(r.FirstError)},
 			{Text: strconv.Itoa(r.Pages), Nowrap: true}, {Text: strconv.Itoa(r.Changed), Nowrap: true},
 			{Badge: &b},
 		}})

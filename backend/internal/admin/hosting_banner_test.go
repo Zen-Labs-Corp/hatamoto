@@ -128,3 +128,15 @@ func TestExportBannerNoPreviousExport(t *testing.T) {
 		t.Errorf("banner wording wrong without an earlier ok run")
 	}
 }
+
+// A successful Test export is not a live export.
+func TestExportBannerTestRunIsNotLive(t *testing.T) {
+	t.Parallel()
+
+	f := failedExportHosting()
+	f.runs[1].Trigger = HostingTriggerTest
+	body := newHostingRig(t, f).do("GET", "/admin", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "Last export failed") || strings.Contains(body, "Your previous export is still live.") {
+		t.Errorf("a test run counted as a live export")
+	}
+}

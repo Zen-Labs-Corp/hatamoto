@@ -44,7 +44,7 @@ func (a *Admin) hasOKExport(ctx context.Context) bool {
 		return false
 	}
 	for _, r := range runs {
-		if r.Result == HostingRunOK {
+		if r.Result == HostingRunOK && r.Trigger != HostingTriggerTest {
 			return true
 		}
 	}
