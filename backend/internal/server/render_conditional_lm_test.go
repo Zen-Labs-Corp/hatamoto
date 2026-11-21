@@ -172,6 +172,33 @@ func TestPageNotModifiedHeaders(t *testing.T) {
 	}
 }
 
+// A cacheable 200 must not lose Last-Modified because the clock moved between
+// two reads: each request reads it exactly once.
+func TestPageLastModifiedOneClockRead(t *testing.T) {
+	f := newRenderFixture(t)
+	f.next = stablePage("About")
+	base := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	calls := 0
+	f.h.validators = newPageValidators(func() time.Time {
+		n := calls
+		calls++
+		return base.Add(time.Duration(n) * time.Second)
+	})
+	for _, step := range []string{"render", "cache hit"} {
+		before := calls
+		w := f.get("/about")
+		if w.Code != 200 {
+			t.Fatalf("%s: status %d", step, w.Code)
+		}
+		if got := calls - before; got != 1 {
+			t.Errorf("%s: %d clock reads, want 1", step, got)
+		}
+		if w.Header().Get("Last-Modified") == "" {
+			t.Errorf("%s: Last-Modified missing", step)
+		}
+	}
+}
+
 func TestPageNotModifiedNoVaryWhenCompressionOff(t *testing.T) {
 	plain := func(t *testing.T) *renderFixture {
 		f := newRenderFixture(t) // encodeCached nil

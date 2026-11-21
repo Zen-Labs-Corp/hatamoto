@@ -667,7 +667,7 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		// Hash exactly the bytes that get cached, so a later hit agrees.
 		sum := fingerprintSum(buf.Bytes())
 		now := pv.clock()
-		since := pv.stamp(key, sum)
+		since := pv.stamp(key, sum, now)
 		setValidators(w.Header(), sum, since, now)
 		if notModified(r, sum, since, now) {
 			h.writeNotModified(w, r, buf.Bytes())
@@ -719,7 +719,7 @@ func (h *renderHandlers) serveCached(w http.ResponseWriter, r *http.Request, pat
 	if pv := h.validators; pv != nil {
 		sum := fingerprintSum(body)
 		now := pv.clock()
-		since := pv.stamp(key, sum)
+		since := pv.stamp(key, sum, now)
 		setValidators(w.Header(), sum, since, now)
 		if notModified(r, sum, since, now) {
 			h.writeNotModified(w, r, body)

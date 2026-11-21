@@ -65,8 +65,10 @@ func (v *pageValidators) pushFront(e *pageEntry) {
 
 // stamp records fp for key and returns its Last-Modified (UTC, whole seconds).
 // The same fp keeps its time; a new fp gets a strictly later second than the
-// previous bytes of that key, even within the same second.
-func (v *pageValidators) stamp(key string, fp uint64) time.Time {
+// previous bytes of that key, even within the same second. now is the request's
+// single clock read (the caller's clock()); stamp never reads the clock itself,
+// so one request sees one time.
+func (v *pageValidators) stamp(key string, fp uint64, now time.Time) time.Time {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	e, ok := v.m[key]
@@ -77,7 +79,7 @@ func (v *pageValidators) stamp(key string, fp uint64) time.Time {
 		}
 		return e.since
 	}
-	now := v.now().UTC().Truncate(time.Second)
+	now = now.UTC().Truncate(time.Second)
 	since := now
 	if ok && e.since.Add(time.Second).After(since) {
 		since = e.since.Add(time.Second)
