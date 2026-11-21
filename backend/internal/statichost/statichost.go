@@ -24,10 +24,32 @@ type StaticHosting struct {
 }
 
 // Active reports whether static-mode island behaviour applies. Both origins
-// must be known and distinct: with L == S there is nothing to split, and a
-// redirect from L to S would loop.
+// must be known and on different hosts: with L == S there is nothing to split,
+// and when only the scheme differs the live 301 (matched by host) would send a
+// request for S back to S, a loop.
 func (h StaticHosting) Active() bool {
-	return h.Static && h.Live != "" && h.Site != "" && h.Live != h.Site
+	return h.Static && h.Live != "" && h.Site != "" && originHost(h.Live) != originHost(h.Site)
+}
+
+// InactiveReason names why a static-mode snapshot is not active, or "" when it
+// is active or the site is served.
+func (h StaticHosting) InactiveReason() string {
+	switch {
+	case !h.Static || h.Active():
+		return ""
+	case h.Live == "":
+		return "the live origin is empty or not a plain origin (scheme://host[:port])"
+	case h.Site == "":
+		return "the Site URL is unset or not a plain origin (no path allowed)"
+	default:
+		return "the live origin and the Site URL share one host (a scheme-only difference counts)"
+	}
+}
+
+// originHost is the host[:port] of a normalised origin.
+func originHost(o string) string {
+	_, host, _ := strings.Cut(o, "://")
+	return host
 }
 
 // AllowsOrigin reports whether an Origin header value is exactly S while the
@@ -43,11 +65,7 @@ func (h StaticHosting) LiveHost() string {
 	if !h.Active() {
 		return ""
 	}
-	u, err := url.Parse(h.Live)
-	if err != nil {
-		return ""
-	}
-	return u.Host
+	return originHost(h.Live)
 }
 
 // NormalizeOrigin returns "scheme://host[:port]". Only http and https are

@@ -57,6 +57,9 @@ func TestActive(t *testing.T) {
 		{"unset live", StaticHosting{true, "", s}, false},
 		{"unset site", StaticHosting{true, l, ""}, false},
 		{"same", StaticHosting{true, s, s}, false},
+		{"scheme only", StaticHosting{true, "http://static.example.net", s}, false},
+		{"scheme only with port", StaticHosting{true, "http://a.example.net:8080", "https://a.example.net:8080"}, false},
+		{"other port", StaticHosting{true, "https://static.example.net:8443", s}, true},
 	}
 	for _, tc := range tests {
 		if got := tc.h.Active(); got != tc.want {
