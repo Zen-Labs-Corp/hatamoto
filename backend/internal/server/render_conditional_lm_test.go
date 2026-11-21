@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -163,11 +164,65 @@ func TestPageNotModifiedHeaders(t *testing.T) {
 	if hd.Get("Cache-Control") != cachePublic || hd.Get("ETag") != etag || hd.Get("Last-Modified") != lm {
 		t.Errorf("Cache-Control=%q ETag=%q Last-Modified=%q", hd.Get("Cache-Control"), hd.Get("ETag"), hd.Get("Last-Modified"))
 	}
-	if !strings.Contains(strings.Join(hd.Values("Vary"), ","), "Accept-Encoding") {
-		t.Errorf("Vary = %v", hd.Values("Vary"))
+	if !slices.Equal(hd.Values("Vary"), warm.Header().Values("Vary")) {
+		t.Errorf("304 Vary = %v, 200 Vary = %v", hd.Values("Vary"), warm.Header().Values("Vary"))
 	}
 	if hd.Get("Content-Security-Policy") == "" && hd.Get("Content-Security-Policy-Report-Only") == "" {
 		t.Error("304 lacks the CSP header")
+	}
+}
+
+// A cacheable 200 must not lose Last-Modified because the clock moved between
+// two reads: each request reads it exactly once.
+func TestPageLastModifiedOneClockRead(t *testing.T) {
+	f := newRenderFixture(t)
+	f.next = stablePage("About")
+	base := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	calls := 0
+	f.h.validators = newPageValidators(func() time.Time {
+		n := calls
+		calls++
+		return base.Add(time.Duration(n) * time.Second)
+	})
+	for _, step := range []string{"render", "cache hit"} {
+		before := calls
+		w := f.get("/about")
+		if w.Code != 200 {
+			t.Fatalf("%s: status %d", step, w.Code)
+		}
+		if got := calls - before; got != 1 {
+			t.Errorf("%s: %d clock reads, want 1", step, got)
+		}
+		if w.Header().Get("Last-Modified") == "" {
+			t.Errorf("%s: Last-Modified missing", step)
+		}
+	}
+}
+
+func TestPageNotModifiedNoVaryWhenCompressionOff(t *testing.T) {
+	plain := func(t *testing.T) *renderFixture {
+		f := newRenderFixture(t) // encodeCached nil
+		f.next = okPage(strings.Repeat("About us and more words. ", 120))
+		return f
+	}
+	off := func(t *testing.T) *renderFixture { f, _ := variantFixture(t, false); return f }
+	for name, mk := range map[string]func(*testing.T) *renderFixture{"nil": plain, "false": off} {
+		t.Run(name, func(t *testing.T) {
+			f := mk(t)
+			f.advance(2 * time.Second)
+			ok := f.get("/about", withAE("gzip"))
+			etag := ok.Header().Get("ETag")
+			if etag == "" {
+				t.Fatal("setup: no ETag")
+			}
+			w := f.conditionalGet(http.MethodGet, "/about", map[string]string{"If-None-Match": etag, "Accept-Encoding": "gzip"})
+			if w.Code != 304 {
+				t.Fatalf("status %d", w.Code)
+			}
+			if len(w.Header().Values("Vary")) != 0 || !slices.Equal(w.Header().Values("Vary"), ok.Header().Values("Vary")) {
+				t.Errorf("304 Vary = %v, 200 Vary = %v", w.Header().Values("Vary"), ok.Header().Values("Vary"))
+			}
+		})
 	}
 }
 

@@ -41,9 +41,9 @@ func newClockedValidators() (*pageValidators, *validatorClock) {
 func TestPageValidatorsStampKeepsSinceForSameBytes(t *testing.T) {
 	v, c := newClockedValidators()
 	c.advance(5 * time.Second)
-	first := v.stamp("k", 1)
+	first := v.stamp("k", 1, c.now())
 	c.advance(time.Hour)
-	if got := v.stamp("k", 1); !got.Equal(first) {
+	if got := v.stamp("k", 1, c.now()); !got.Equal(first) {
 		t.Fatalf("same bytes moved Last-Modified: %v -> %v", first, got)
 	}
 }
@@ -51,13 +51,13 @@ func TestPageValidatorsStampKeepsSinceForSameBytes(t *testing.T) {
 func TestPageValidatorsStampNewBytes(t *testing.T) {
 	v, c := newClockedValidators()
 	c.advance(5 * time.Second)
-	first := v.stamp("k", 1)
-	if second := v.stamp("k", 2); !second.Equal(first.Add(time.Second)) {
+	first := v.stamp("k", 1, c.now())
+	if second := v.stamp("k", 2, c.now()); !second.Equal(first.Add(time.Second)) {
 		t.Fatalf("same-second change = %v, want %v", second, first.Add(time.Second))
 	}
 	c.advance(10 * time.Second)
 	want := c.now().Truncate(time.Second)
-	if third := v.stamp("k", 3); !third.Equal(want) {
+	if third := v.stamp("k", 3, c.now()); !third.Equal(want) {
 		t.Fatalf("later change = %v, want %v", third, want)
 	}
 }
@@ -65,7 +65,7 @@ func TestPageValidatorsStampNewBytes(t *testing.T) {
 func TestPageValidatorsFirstStampIsAfterStart(t *testing.T) {
 	v, c := newClockedValidators()
 	start := c.now()
-	since := v.stamp("k", 1)
+	since := v.stamp("k", 1, c.now())
 	if !since.Equal(start.Add(time.Second)) {
 		t.Fatalf("since = %v, want start+1s", since)
 	}
@@ -81,17 +81,65 @@ func TestPageValidatorsFirstStampIsAfterStart(t *testing.T) {
 	}
 }
 
-func TestPageValidatorsResetNeverRepeatsASecond(t *testing.T) {
+func TestPageValidatorsEvictionNeverRepeatsASecond(t *testing.T) {
 	v, c := newClockedValidators()
 	v.max = 2
 	c.advance(5 * time.Second)
-	latest := v.stamp("a", 1)
-	if s := v.stamp("b", 1); s.After(latest) {
+	latest := v.stamp("a", 1, c.now())
+	if s := v.stamp("b", 1, c.now()); s.After(latest) {
 		latest = s
 	}
-	v.stamp("c", 1) // map full: starts over
-	if got := v.stamp("a", 2); !got.After(latest) {
-		t.Fatalf("after reset %v is not after %v", got, latest)
+	v.stamp("c", 1, c.now()) // map full: a is evicted
+	if got := v.stamp("a", 2, c.now()); !got.After(latest) {
+		t.Fatalf("after eviction %v is not after %v", got, latest)
+	}
+	checkList(t, v)
+}
+
+func TestPageValidatorsEvictsLeastRecent(t *testing.T) {
+	v, c := newClockedValidators()
+	v.max = 2
+	c.advance(5 * time.Second)
+	aSince := v.stamp("a", 1, c.now())
+	c.advance(10 * time.Second)
+	v.stamp("b", 1, c.now())
+	c.advance(10 * time.Second)
+	v.stamp("a", 1, c.now()) // touch a: b is now the least recent
+	cSince := v.stamp("c", 1, c.now())
+	if want := c.now().Truncate(time.Second); !cSince.Equal(want) {
+		t.Fatalf("inserting key since = %v, want %v", cSince, want)
+	}
+	if len(v.m) != 2 || v.m["a"] == nil || v.m["c"] == nil || v.m["b"] != nil {
+		t.Fatalf("map keys after eviction = %v", v.m)
+	}
+	if !v.m["a"].since.Equal(aSince) {
+		t.Fatalf("recent key lost its since: %v -> %v", aSince, v.m["a"].since)
+	}
+	// Changed bytes for a known key at the cap evict nothing.
+	v.stamp("a", 2, c.now())
+	if len(v.m) != 2 || v.m["c"] == nil {
+		t.Fatalf("changed bytes evicted: %v", v.m)
+	}
+	checkList(t, v)
+}
+
+// checkList asserts the recency list holds exactly the mapped keys, within the cap.
+func checkList(t *testing.T, v *pageValidators) {
+	t.Helper()
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	n := 0
+	for e := v.root.next; e != &v.root; e = e.next {
+		n++
+		if v.m[e.key] != e {
+			t.Fatalf("list node %q is not the mapped entry", e.key)
+		}
+		if n > len(v.m) {
+			t.Fatal("list longer than map")
+		}
+	}
+	if n != len(v.m) || n > v.max {
+		t.Fatalf("list %d, map %d, max %d", n, len(v.m), v.max)
 	}
 }
 
@@ -152,26 +200,61 @@ func TestNotModified(t *testing.T) {
 }
 
 func TestPageValidatorsStampKnownKeyAllocatesNothing(t *testing.T) {
-	v, _ := newClockedValidators()
-	v.stamp("k", 7)
-	if n := testing.AllocsPerRun(100, func() { v.stamp("k", 7) }); n != 0 {
+	v, c := newClockedValidators()
+	now := c.now()
+	v.stamp("k", 7, now)
+	if n := testing.AllocsPerRun(100, func() { v.stamp("k", 7, now) }); n != 0 {
 		t.Fatalf("stamp allocates %v per call", n)
 	}
 }
 
+func TestPageValidatorsInsertAtCapAllocatesNothing(t *testing.T) {
+	v, c := newClockedValidators()
+	now := c.now()
+	v.max = 1
+	v.stamp("k1", 1, now)
+	keys := [2]string{"k1", "k2"}
+	i := 0
+	n := testing.AllocsPerRun(100, func() {
+		i++
+		v.stamp(keys[i%2], uint64(i), now)
+	})
+	if n != 0 {
+		t.Fatalf("insert at cap allocates %v per call", n)
+	}
+}
+
+func TestPageValidatorsStampUsesGivenNow(t *testing.T) {
+	reads := 0
+	t0 := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	v := newPageValidators(func() time.Time { reads++; return t0 })
+	before := reads
+	given := t0.Add(3 * time.Second)
+	since := v.stamp("k", 1, given)
+	if since.After(given) {
+		t.Fatalf("since %v is after the given now %v", since, given)
+	}
+	v.stamp("k", 2, given)
+	v.stamp("k", 2, given)
+	if reads != before {
+		t.Fatalf("stamp read the clock %d times", reads-before)
+	}
+}
+
 func TestPageValidatorsConcurrentStamps(t *testing.T) {
-	v, _ := newClockedValidators()
+	v, c := newClockedValidators()
 	var wg sync.WaitGroup
 	for g := 0; g < 8; g++ {
 		wg.Add(1)
 		go func(g int) {
 			defer wg.Done()
 			for i := 0; i < 200; i++ {
-				v.stamp([]string{"a", "b", "c"}[i%3], uint64(i%4+g%2))
+				v.stamp([]string{"a", "b", "c"}[i%3], uint64(i%4+g%2), c.now())
 			}
 		}(g)
 	}
 	wg.Wait()
+	checkList(t, v)
 }
 
 func TestCachedVariantFPUsesGivenFingerprint(t *testing.T) {

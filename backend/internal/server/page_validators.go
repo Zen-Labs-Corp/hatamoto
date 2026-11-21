@@ -7,66 +7,106 @@ import (
 	"time"
 )
 
-// maxPageValidators bounds the validator map; past it the map starts over.
+// maxPageValidators bounds the validator map; past it the least recently
+// stamped key is evicted.
 const maxPageValidators = 10_000
 
 // pageValidators remembers, per rendered-page cache key, the body fingerprint
 // and the time those bytes were first served. It lives outside the TTL cache
 // so a purge or expiry followed by a byte-identical re-render keeps
-// Last-Modified. In memory only: a restart starts over, and floor keeps
-// Last-Modified from ever repeating a second already given out for other bytes.
+// Last-Modified. In memory only: a restart starts over. Past the cap the least
+// recently stamped key is dropped; floor keeps a dropped key from repeating a
+// second already given out for other bytes.
 // A nil *pageValidators means validators are off.
 type pageValidators struct {
 	mu    sync.Mutex
-	m     map[string]pageStamp
+	m     map[string]*pageEntry
+	root  pageEntry // list sentinel: root.next is the most recent, root.prev the least
 	now   func() time.Time
 	floor time.Time // no new entry gets a Last-Modified before this
 	max   int
 }
 
-type pageStamp struct {
-	fp    uint64
-	since time.Time
+// pageEntry is one key's validator state and its place in the recency list.
+type pageEntry struct {
+	key        string
+	fp         uint64
+	since      time.Time
+	prev, next *pageEntry
 }
 
 func newPageValidators(now func() time.Time) *pageValidators {
 	if now == nil {
 		now = time.Now
 	}
-	return &pageValidators{
-		m:     make(map[string]pageStamp),
+	v := &pageValidators{
+		m:     make(map[string]*pageEntry),
 		now:   now,
 		floor: now().UTC().Truncate(time.Second).Add(time.Second),
 		max:   maxPageValidators,
 	}
+	v.root.next, v.root.prev = &v.root, &v.root
+	return v
 }
 
 // clock returns the validators' current time.
 func (v *pageValidators) clock() time.Time { return v.now() }
 
+func (v *pageValidators) unlink(e *pageEntry) {
+	e.prev.next, e.next.prev = e.next, e.prev
+	e.prev, e.next = nil, nil
+}
+
+func (v *pageValidators) pushFront(e *pageEntry) {
+	e.prev, e.next = &v.root, v.root.next
+	v.root.next.prev = e
+	v.root.next = e
+}
+
 // stamp records fp for key and returns its Last-Modified (UTC, whole seconds).
 // The same fp keeps its time; a new fp gets a strictly later second than the
-// previous bytes of that key, even within the same second.
-func (v *pageValidators) stamp(key string, fp uint64) time.Time {
+// previous bytes of that key, even within the same second. now is the request's
+// single clock read (the caller's clock()); stamp never reads the clock itself,
+// so one request sees one time.
+func (v *pageValidators) stamp(key string, fp uint64, now time.Time) time.Time {
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	prev, ok := v.m[key]
-	if ok && prev.fp == fp {
-		return prev.since
+	e, ok := v.m[key]
+	if ok && e.fp == fp {
+		if v.root.next != e {
+			v.unlink(e)
+			v.pushFront(e)
+		}
+		return e.since
 	}
-	now := v.now().UTC().Truncate(time.Second)
-	if !ok && len(v.m) >= v.max {
-		v.m = make(map[string]pageStamp)
-		v.floor = now.Add(time.Second)
-	}
+	now = now.UTC().Truncate(time.Second)
 	since := now
-	if ok && prev.since.Add(time.Second).After(since) {
-		since = prev.since.Add(time.Second)
+	if ok && e.since.Add(time.Second).After(since) {
+		since = e.since.Add(time.Second)
 	}
 	if v.floor.After(since) {
 		since = v.floor
 	}
-	v.m[key] = pageStamp{fp: fp, since: since}
+	switch {
+	case ok:
+		v.unlink(e)
+	case len(v.m) >= v.max:
+		// Evict the least recent key and reuse its node. Raise floor past its
+		// last second so, if it comes back with other bytes, it never repeats one.
+		e = v.root.prev
+		v.unlink(e)
+		delete(v.m, e.key)
+		if f := e.since.Add(time.Second); f.After(v.floor) {
+			v.floor = f
+		}
+		e.key = key
+		v.m[key] = e
+	default:
+		e = &pageEntry{key: key}
+		v.m[key] = e
+	}
+	e.fp, e.since = fp, since
+	v.pushFront(e)
 	return since
 }
 
