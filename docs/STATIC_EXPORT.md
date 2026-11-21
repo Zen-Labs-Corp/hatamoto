@@ -214,6 +214,12 @@ The web server passes these paths to Hatamoto:
 - the public API prefix, when it is set and not already under `/api/`;
 - `/theme/assets/hm-live.js`, the script that loads the comment form.
 
+`/media/`, `/theme/`, `/fonts/` and `/.well-known/` are served from the export
+folder when the file is there and passed to Hatamoto when it is not, so an
+upload newer than the last export still works and a certificate client can
+write its challenge files into the folder. A theme preview (the
+`hm_theme_preview` query or cookie) is always passed to Hatamoto.
+
 Everything else is a file from the export folder. A missing file answers with
 `/404.html`. `/_redirects` and `/.hatamoto-static.json` are answered with 404.
 
