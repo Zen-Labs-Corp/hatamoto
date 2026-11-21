@@ -157,6 +157,7 @@ func newStagedChangeset(ctx context.Context, h changeset.Header, items []changes
 		o.items = append(o.items, se)
 	}
 	o.stageOthers(ctx, src, origin, items)
+	o.warmFlat()
 	return o
 }
 
@@ -277,6 +278,18 @@ func (o *stagedChangeset) livePath(ctx context.Context, src stagedSource, live *
 		return ""
 	}
 	return loc.Path
+}
+
+// warmFlat fills every entity's FlatAttributes memo before the set is shared
+// (it is cached across requests): entityByID copies the entities by value, which
+// must not race with a memo store from another request.
+func (o *stagedChangeset) warmFlat() {
+	for _, se := range o.items {
+		se.Ent.FlatAttributes()
+		if se.Live != nil {
+			se.Live.FlatAttributes()
+		}
+	}
 }
 
 // entityByID is the staged entity with id, a copy the loader may modify.

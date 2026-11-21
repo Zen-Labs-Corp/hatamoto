@@ -114,7 +114,9 @@ type Entity struct {
 
 	// flat memoises FlatAttributes (*flatMemo). atomic.Value, not
 	// atomic.Pointer: Entity is copied by value, and a copy sharing the memo
-	// is still right because the memo is keyed to the Attributes slice.
+	// is still right because the memo is keyed to the Attributes slice. A copy
+	// reads the field, so an entity shared between goroutines must have its memo
+	// filled (call FlatAttributes) before it is shared and then copied.
 	flat atomic.Value
 }
 
