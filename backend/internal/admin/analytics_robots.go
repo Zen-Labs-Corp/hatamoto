@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/agents"
 )
@@ -106,7 +107,7 @@ func (a *Admin) robotsReturn(r *http.Request) string {
 }
 
 func (a *Admin) handleRobotsSave(w http.ResponseWriter, r *http.Request) {
-	if u := userFrom(r.Context()); u == nil || u.Role != "owner" {
+	if !a.can(r.Context(), authz.ActionRobotsPolicyWrite) {
 		a.Error(w, r, http.StatusForbidden, "Not allowed", "Only the site owner can change the robots policy.")
 		return
 	}
@@ -220,11 +221,10 @@ func (a *Admin) robotsJSON(w http.ResponseWriter, r *http.Request) {
 		a.writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "could not load the robots policy"})
 		return
 	}
-	u := userFrom(r.Context())
 	body := struct {
 		Owner    bool                `json:"owner"`
 		Purposes []robotsPurposeJSON `json:"purposes"`
-	}{Owner: u != nil && u.Role == "owner", Purposes: []robotsPurposeJSON{}}
+	}{Owner: a.can(r.Context(), authz.ActionRobotsPolicyWrite), Purposes: []robotsPurposeJSON{}}
 	for _, row := range form.Rows {
 		action := agents.RobotsAllow
 		if row.Deny {

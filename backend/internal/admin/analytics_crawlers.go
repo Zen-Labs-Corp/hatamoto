@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/agents"
 )
@@ -135,10 +136,7 @@ func (a *Admin) buildCrawlers(ctx context.Context, q url.Values, rg agents.Range
 	if err != nil {
 		return nil, err
 	}
-	owner := false
-	if u := userFrom(ctx); u != nil {
-		owner = u.Role == "owner"
-	}
+	owner := a.can(ctx, authz.ActionRobotsPolicyWrite)
 	policies := aiaPolicies(form, owner)
 	denied := map[string]bool{}
 	for _, r := range form.Rows {
