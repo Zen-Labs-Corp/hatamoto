@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/pluginhost"
 )
 
 func headerServer(enforce, production, disabled bool) *Server {
@@ -90,6 +91,35 @@ func TestStaticPageHeaders(t *testing.T) {
 	}
 	if headerServer(false, false, true).staticPageHeaders(context.Background(), live) != nil {
 		t.Error("disabled headers must give none")
+	}
+}
+
+// strictEngine is a page renderer whose theme opted into the strict script policy.
+type strictEngine struct{ pageRenderer }
+
+func (strictEngine) StrictScripts() bool { return true }
+
+// A static page gets the policy a served page would: the strict one for a
+// strict-scripts theme, plus the hosts of the enabled plugins.
+func TestStaticPageHeadersFollowServedPage(t *testing.T) {
+	t.Parallel()
+	s := headerServer(true, false, false)
+	s.renderHandlers = &renderHandlers{
+		engine: strictEngine{},
+		pluginCSP: func() pluginhost.CSPSet {
+			return pluginhost.CSPSet{Script: []string{"https://js.example.com"}, Connect: []string{"https://api.example.com"}}
+		},
+	}
+	csp := headerValue(s.staticPageHeaders(context.Background(), ""), "Content-Security-Policy")
+	if strings.Contains(directive(csp, "script-src"), "unsafe-inline") || !strings.Contains(directive(csp, "script-src"), "https://js.example.com") {
+		t.Errorf("script-src = %q, want the strict policy with the plugin host", directive(csp, "script-src"))
+	}
+	if !strings.Contains(directive(csp, "connect-src"), "https://api.example.com") {
+		t.Errorf("connect-src lacks the plugin host: %q", csp)
+	}
+	want := cspWithExtras(renderCSPStrict, pluginExtras(s.renderHandlers.pluginCSPHosts()))
+	if csp != want {
+		t.Errorf("CSP = %q\nwant %q", csp, want)
 	}
 }
 

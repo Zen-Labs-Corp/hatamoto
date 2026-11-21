@@ -60,11 +60,17 @@ func (s *Server) staticPageHeaders(ctx context.Context, live string) []secHeader
 	for _, x := range hs {
 		h.Set(x.Name, x.Value)
 	}
-	extras := s.cspExtras(ctx)
+	// The same inputs as a served page (setPageHeaders): the theme's CSP choice
+	// and the enabled plugins' hosts, besides the captcha and tag extras.
+	base, plugins := renderCSP, s.pluginCSPHosts()
+	if rh := s.renderHandlers; rh != nil {
+		base, plugins = rh.csp(), rh.pluginCSPHosts()
+	}
+	extras := s.cspExtras(ctx).merge(pluginExtras(plugins))
 	if live != "" {
 		extras = extras.merge(cspExtras{Script: []string{live}, Connect: []string{live}})
 	}
-	applyRenderSecurityHeaders(h, renderCSP, extras)
+	applyRenderSecurityHeaders(h, base, extras)
 	if live != "" {
 		name := s.cspHeaderName()
 		h.Set(name, addToDirective(h.Get(name), "form-action", []string{live}))
