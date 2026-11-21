@@ -20,6 +20,7 @@ type Service struct {
 	changed func(ctx context.Context)
 	// archivePaths resolves a schema's archive path for seeded archive items.
 	archivePaths func(ctx context.Context, schema string) string
+	audit        AuditFunc
 }
 
 // SetChangeObserver installs the callback run after a menu or menu item was
@@ -72,6 +73,7 @@ func (s *Service) CreateMenu(ctx context.Context, input *CreateMenuInput) (*Menu
 	)
 
 	s.notifyChanged(ctx)
+	s.record(ctx, "menu.created", menu.ID.String(), menuDetail(menu.Name, menu.Location))
 	return menu, nil
 }
 
@@ -133,6 +135,7 @@ func (s *Service) UpdateMenu(ctx context.Context, id uuid.UUID, input *UpdateMen
 	)
 
 	s.notifyChanged(ctx)
+	s.record(ctx, "menu.updated", menu.ID.String(), menuDetail(menu.Name, menu.Location))
 	return menu, nil
 }
 
@@ -164,6 +167,19 @@ func (s *Service) ReplaceMenu(ctx context.Context, id uuid.UUID, fields *UpdateM
 		return nil, err
 	}
 	s.notifyChanged(ctx)
+	detail := map[string]any{}
+	if fields != nil {
+		if fields.Name != nil {
+			detail["name"] = *fields.Name
+		}
+		if fields.Location != nil {
+			detail["location"] = *fields.Location
+		}
+	}
+	if items != nil {
+		detail["items"] = len(items)
+	}
+	s.record(ctx, "menu.updated", id.String(), detail)
 	return s.repo.GetMenuWithItems(ctx, id)
 }
 
@@ -182,6 +198,7 @@ func (s *Service) DeleteMenu(ctx context.Context, id uuid.UUID) error {
 	)
 
 	s.notifyChanged(ctx)
+	s.record(ctx, "menu.deleted", id.String(), nil)
 	return nil
 }
 
@@ -246,6 +263,7 @@ func (s *Service) CreateMenuItem(ctx context.Context, menuID uuid.UUID, input *C
 	)
 
 	s.notifyChanged(ctx)
+	s.record(ctx, "menu.item_created", menuID.String(), map[string]any{"name": item.Label})
 	return item, nil
 }
 
@@ -317,6 +335,7 @@ func (s *Service) UpdateMenuItem(ctx context.Context, id uuid.UUID, input *Updat
 	)
 
 	s.notifyChanged(ctx)
+	s.record(ctx, "menu.item_updated", item.MenuID.String(), map[string]any{"name": item.Label})
 	return item, nil
 }
 
@@ -335,6 +354,7 @@ func (s *Service) DeleteMenuItem(ctx context.Context, id uuid.UUID) error {
 	)
 
 	s.notifyChanged(ctx)
+	s.record(ctx, "menu.item_deleted", id.String(), nil)
 	return nil
 }
 
@@ -359,6 +379,7 @@ func (s *Service) ReorderItems(ctx context.Context, menuID uuid.UUID, items []Re
 	)
 
 	s.notifyChanged(ctx)
+	s.record(ctx, "menu.items_reordered", menuID.String(), map[string]any{"items": len(items)})
 	return nil
 }
 
