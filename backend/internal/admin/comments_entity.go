@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 )
 
@@ -150,7 +151,7 @@ func (a *Admin) schemaCommentsPanel(r *http.Request, schemaID string, builtin bo
 // handleSchemaComments saves the comment default of one entity type. It is its
 // own POST: the type form, its built-in lock and its field list are untouched.
 func (a *Admin) handleSchemaComments(w http.ResponseWriter, r *http.Request) {
-	if !a.requireOwner(w, r) {
+	if !a.requireCan(w, r, authz.ActionCommentSettingsManage) {
 		return
 	}
 	svc := a.deps.Comments

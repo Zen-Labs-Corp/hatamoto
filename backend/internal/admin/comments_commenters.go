@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 )
 
@@ -272,7 +273,7 @@ func (a *Admin) handleCommenters(w http.ResponseWriter, r *http.Request) {
 		Query:   q, SearchLabel: "Search commenters",
 		Empty: ui.Empty{Icon: "users", Title: "No commenters", Body: "People who comment on your site show up here."},
 	}
-	privacy := cmtrPrivacy(r, svc)
+	privacy := a.cmtrPrivacy(r, svc)
 	for _, c := range list.Rows {
 		name := c.Name
 		if name == "" {
@@ -412,17 +413,16 @@ func (a *Admin) handleCommenterConfirm(w http.ResponseWriter, r *http.Request) {
 	a.Render(w, r, http.StatusOK, "settings/comments-commenter-confirm", v)
 }
 
-// cmtrPrivacy reports whether the privacy actions (export, erase) apply: an
-// owner on a server whose comment service supports them.
-func cmtrPrivacy(r *http.Request, svc CommentsService) bool {
-	u := userFrom(r.Context())
-	return u != nil && u.Role == "owner" && svc.Supports("privacy")
+// cmtrPrivacy reports whether the privacy actions (export, erase) apply: the
+// user may export commenters and the comment service supports them.
+func (a *Admin) cmtrPrivacy(r *http.Request, svc CommentsService) bool {
+	return a.can(r.Context(), authz.ActionCommentCommenterExport) && svc.Supports("privacy")
 }
 
 // cmtrPrivacyID answers the privacy routes: the commenter id, or false after
-// writing the refusal (not an owner, no service, no privacy support, bad id).
-func (a *Admin) cmtrPrivacyID(w http.ResponseWriter, r *http.Request) (CommentsService, string, bool) {
-	if !a.requireOwner(w, r) {
+// writing the refusal (not allowed to act, no service, no privacy support, bad id).
+func (a *Admin) cmtrPrivacyID(w http.ResponseWriter, r *http.Request, act authz.Action) (CommentsService, string, bool) {
+	if !a.requireCan(w, r, act) {
 		return nil, "", false
 	}
 	svc := a.deps.Comments
@@ -440,7 +440,7 @@ func (a *Admin) cmtrPrivacyID(w http.ResponseWriter, r *http.Request) (CommentsS
 
 // handleCommenterExport downloads everything stored about one commenter.
 func (a *Admin) handleCommenterExport(w http.ResponseWriter, r *http.Request) {
-	svc, id, ok := a.cmtrPrivacyID(w, r)
+	svc, id, ok := a.cmtrPrivacyID(w, r, authz.ActionCommentCommenterExport)
 	if !ok {
 		return
 	}
@@ -493,7 +493,7 @@ func (a *Admin) renderCmtrErase(w http.ResponseWriter, r *http.Request, status i
 }
 
 func (a *Admin) handleCommenterErasePage(w http.ResponseWriter, r *http.Request) {
-	_, id, ok := a.cmtrPrivacyID(w, r)
+	_, id, ok := a.cmtrPrivacyID(w, r, authz.ActionCommentCommenterErase)
 	if !ok {
 		return
 	}
@@ -501,7 +501,7 @@ func (a *Admin) handleCommenterErasePage(w http.ResponseWriter, r *http.Request)
 }
 
 func (a *Admin) handleCommenterErase(w http.ResponseWriter, r *http.Request) {
-	svc, id, ok := a.cmtrPrivacyID(w, r)
+	svc, id, ok := a.cmtrPrivacyID(w, r, authz.ActionCommentCommenterErase)
 	if !ok {
 		return
 	}
