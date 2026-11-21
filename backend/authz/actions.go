@@ -73,16 +73,22 @@ const (
 	ActionEntityUpdate Action = "entity.update"
 	// ActionEntityVersionRestore is the "entity.version.restore" action.
 	ActionEntityVersionRestore Action = "entity.version.restore"
+	// ActionFormManage is the "form.manage" action.
+	ActionFormManage Action = "form.manage"
 	// ActionFormRead is the "form.read" action.
 	ActionFormRead Action = "form.read"
 	// ActionFormSettingsManage is the "form.settings.manage" action.
 	ActionFormSettingsManage Action = "form.settings.manage"
+	// ActionFormSubmissionManage is the "form.submission.manage" action.
+	ActionFormSubmissionManage Action = "form.submission.manage"
 	// ActionFormSubmissionRead is the "form.submission.read" action.
 	ActionFormSubmissionRead Action = "form.submission.read"
 	// ActionImportRun is the "import.run" action.
 	ActionImportRun Action = "import.run"
 	// ActionLinkInsert is the "link.insert" action.
 	ActionLinkInsert Action = "link.insert"
+	// ActionLinkRuleManage is the "link.rule.manage" action.
+	ActionLinkRuleManage Action = "link.rule.manage"
 	// ActionLinkSuggest is the "link.suggest" action.
 	ActionLinkSuggest Action = "link.suggest"
 	// ActionMediaDelete is the "media.delete" action.
@@ -129,6 +135,8 @@ const (
 	ActionSchemaManage Action = "schema.manage"
 	// ActionSchemaRead is the "schema.read" action.
 	ActionSchemaRead Action = "schema.read"
+	// ActionSectionTemplateManage is the "section_template.manage" action.
+	ActionSectionTemplateManage Action = "section_template.manage"
 	// ActionSettingsManage is the "settings.manage" action.
 	ActionSettingsManage Action = "settings.manage"
 	// ActionSettingsSEORead is the "settings.seo.read" action.
