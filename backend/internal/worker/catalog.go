@@ -16,28 +16,32 @@ type JobDef struct {
 	ManualOnly bool
 	// Switch marks an id WORKER_DISABLE_JOBS can turn off.
 	Switch bool
+	// Claim marks a job that runs on one server per interval when several
+	// share the database (see Scheduler.runJob). Jobs with their own claim,
+	// and jobs that must run in every process, leave it false.
+	Claim bool
 }
 
 // Catalog is the one list of core jobs. A job that is not in it is never
 // runnable from the admin; a new entry is not Safe until someone decides so.
 var Catalog = []JobDef{
 	{ID: "publish", Name: "Scheduled publishing", Schedule: "every minute; slower while idle", Safe: true, Switch: true},
-	{ID: "retention_purge", Name: "Session and token purge", Schedule: "daily", Safe: true, Switch: true},
-	{ID: "agent_hits_partition", Name: "Agent hit partitions", Schedule: "daily", Switch: true},
-	{ID: "agent_hits_maintenance", Name: "Agent hit IP truncation", Schedule: "daily", Safe: true, Switch: true},
+	{ID: "retention_purge", Name: "Session and token purge", Schedule: "daily", Safe: true, Switch: true, Claim: true},
+	{ID: "agent_hits_partition", Name: "Agent hit partitions", Schedule: "daily", Switch: true, Claim: true},
+	{ID: "agent_hits_maintenance", Name: "Agent hit IP truncation", Schedule: "daily", Safe: true, Switch: true, Claim: true},
 	{ID: "agent_ranges_refresh", Name: "Agent IP range refresh", Schedule: "daily", Switch: true},
 	{ID: "agent_verify", Name: "Agent verification", Schedule: "every 5 minutes; slower while idle", Switch: true},
 	{ID: "agent_attribution_backfill", Name: "Agent attribution backfill", Schedule: "daily", Switch: true},
-	{ID: "prune", Name: "Table prune", Schedule: "daily", Safe: true, Switch: true},
-	{ID: "entity_versions", Name: "Entity version cleanup", Schedule: "daily", Safe: true, Switch: true},
-	{ID: "changeset_sweep", Name: "Change set sweep", Schedule: "hourly", Safe: true, Switch: true},
-	{ID: "traffic_prune", Name: "Traffic rollup prune", Schedule: "daily", Safe: true, Switch: true},
+	{ID: "prune", Name: "Table prune", Schedule: "daily", Safe: true, Switch: true, Claim: true},
+	{ID: "entity_versions", Name: "Entity version cleanup", Schedule: "daily", Safe: true, Switch: true, Claim: true},
+	{ID: "changeset_sweep", Name: "Change set sweep", Schedule: "hourly", Safe: true, Switch: true, Claim: true},
+	{ID: "traffic_prune", Name: "Traffic rollup prune", Schedule: "daily", Safe: true, Switch: true, Claim: true},
 	{ID: "webhook_deliver", Name: "Webhook delivery", Schedule: "every 10 seconds; slower while idle", Switch: true},
-	{ID: "webhook_prune", Name: "Webhook log prune", Schedule: "hourly", Safe: true, Switch: true},
+	{ID: "webhook_prune", Name: "Webhook log prune", Schedule: "hourly", Safe: true, Switch: true, Claim: true},
 	{ID: "update_check", Name: "Update check", Schedule: "every 6 hours", Safe: true, ManualOnly: true, Switch: true},
 	{ID: "standing_digest", Name: "Standing digest mail", Schedule: "daily", Switch: true},
 	{ID: "user_access", Name: "Expiring user access", Schedule: "hourly", Switch: true},
-	{ID: "comment_drafts_purge", Name: "Unconfirmed comment purge", Schedule: "hourly", Switch: true},
+	{ID: "comment_drafts_purge", Name: "Unconfirmed comment purge", Schedule: "hourly", Switch: true, Claim: true},
 	{ID: "comment_notify", Name: "Comment notification mail", Schedule: "every minute", Switch: true},
 	{ID: "stats_ping", Name: "Install statistics", Schedule: "daily", Switch: true},
 	{ID: "backup_offsite", Name: "Off-site backup", Schedule: "checked every minute; slower while idle", Switch: true},
