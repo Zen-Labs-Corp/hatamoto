@@ -2,6 +2,7 @@ package authz_test
 
 import (
 	"bufio"
+	"context"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -19,7 +20,8 @@ type coverageRow struct {
 	file    string
 	kind    string
 	actions []string
-	n       int // role-check lines the row accounts for (the n= field)
+	roles   string // the roles= field: owner or owner,editor; empty on other rows
+	n       int    // role-check lines the row accounts for (the n= field)
 }
 
 func readCoverage(t *testing.T) []coverageRow {
@@ -37,8 +39,8 @@ func readCoverage(t *testing.T) []coverageRow {
 		if len(fields) == 0 {
 			continue
 		}
-		if len(fields) < 3 || len(fields) > 4 {
-			t.Fatalf("coverage.txt:%d: want <path> group|inline|flag|other <actions> [n=<count>]", n)
+		if len(fields) < 3 || len(fields) > 5 {
+			t.Fatalf("coverage.txt:%d: want <path> group|inline|flag|other <actions> [roles=<roles>] [n=<count>]", n)
 		}
 		switch fields[1] {
 		case "group", "inline", "flag", "other":
@@ -52,8 +54,22 @@ func readCoverage(t *testing.T) []coverageRow {
 			}
 			row.actions = nil
 		}
-		if len(fields) == 4 {
-			v, ok := strings.CutPrefix(fields[3], "n=")
+		rest := fields[3:]
+		if len(rest) > 0 && strings.HasPrefix(rest[0], "roles=") {
+			row.roles = strings.TrimPrefix(rest[0], "roles=")
+			rest = rest[1:]
+		}
+		switch {
+		case row.kind == "other" && row.roles != "":
+			t.Fatalf("coverage.txt:%d: other rows take no roles=", n)
+		case row.kind != "other" && row.roles != "owner" && row.roles != "owner,editor":
+			t.Fatalf("coverage.txt:%d: want roles=owner or roles=owner,editor", n)
+		}
+		if len(rest) > 1 {
+			t.Fatalf("coverage.txt:%d: unexpected field %q", n, rest[1])
+		}
+		if len(rest) == 1 {
+			v, ok := strings.CutPrefix(rest[0], "n=")
 			c, err := strconv.Atoi(v)
 			if !ok || err != nil || c < 1 || row.kind == "group" {
 				t.Fatalf("coverage.txt:%d: want n=<count> on an inline, flag or other row", n)
@@ -143,6 +159,33 @@ func TestCoverageRowsAreValid(t *testing.T) {
 	for a := range known {
 		if !cited[a] {
 			t.Errorf("action %q is not cited by any row in authz/testdata/coverage.txt", a)
+		}
+	}
+}
+
+// TestCoverageRolesMatchDefaults fails when a row's roles= field differs from
+// the default answer of an action it cites, for an owner and for an editor
+// session. It catches a check mapped to an action that answers differently.
+func TestCoverageRolesMatchDefaults(t *testing.T) {
+	ctx := context.Background()
+	owner := authz.Subject{UserID: "u1", Role: "owner"}
+	editor := authz.Subject{UserID: "u2", Role: "editor"}
+	d := authz.Default()
+	for _, r := range readCoverage(t) {
+		for _, a := range r.actions {
+			for _, c := range []struct {
+				who  string
+				subj authz.Subject
+			}{{"owner", owner}, {"editor", editor}} {
+				got, err := d.Can(ctx, c.subj, authz.Action(a), authz.Object{})
+				if err != nil {
+					t.Fatalf("%s: %s: %v", r.file, a, err)
+				}
+				want := c.who == "owner" || r.roles == "owner,editor"
+				if got != want {
+					t.Errorf("%s: row says roles=%s but %s answers %v for an %s; map the check to an action with the same default, or add one", r.file, r.roles, a, got, c.who)
+				}
+			}
 		}
 	}
 }

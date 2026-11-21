@@ -41,6 +41,8 @@ const (
 	ActionCommentSettingsManage Action = "comment.settings.manage"
 	// ActionCommentSettingsRead is the "comment.settings.read" action.
 	ActionCommentSettingsRead Action = "comment.settings.read"
+	// ActionDashboardOwnerRead is the "dashboard.owner.read" action.
+	ActionDashboardOwnerRead Action = "dashboard.owner.read"
 	// ActionDashboardRead is the "dashboard.read" action.
 	ActionDashboardRead Action = "dashboard.read"
 	// ActionEntityCreate is the "entity.create" action.
