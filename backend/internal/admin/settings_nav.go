@@ -279,9 +279,7 @@ func areaOfSectionIn(areas []*adminArea, section string) *adminArea {
 	return nil
 }
 
-// areaOfTab is the area that owns tab, or nil.
-func areaOfTab(tab string) *adminArea { return areaOfTabIn(adminAreas, tab) }
-
+// areaOfTabIn is the area in areas that owns tab, or nil.
 func areaOfTabIn(areas []*adminArea, tab string) *adminArea {
 	for _, ar := range areas {
 		for _, sd := range ar.Registry {
@@ -433,12 +431,8 @@ func areaCrumbsIn(areas []*adminArea, prefix, tab string, tail ...Crumb) []Crumb
 	return append(out, tail...)
 }
 
-// defaultAreaCrumbs gives an area sub-page that set no crumbs of its own the
+// defaultAreaCrumbsIn gives an area sub-page that set no crumbs of its own the
 // chain ending in its title. The tab's own page gets none.
-func defaultAreaCrumbs(prefix, path, section, tab, title string) []Crumb {
-	return defaultAreaCrumbsIn(adminAreas, prefix, path, section, tab, title)
-}
-
 func defaultAreaCrumbsIn(areas []*adminArea, prefix, path, section, tab, title string) []Crumb {
 	ar := areaOfTabIn(areas, tab)
 	if section == "" || ar == nil {
