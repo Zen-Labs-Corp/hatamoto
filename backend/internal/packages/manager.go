@@ -1549,7 +1549,8 @@ func (m *Manager) reconcile(ctx context.Context) {
 // refreshTemplates compiles plugin templates now, so the refused-template list
 // (admin page, GET /api/v1/plugins) is current right after an install, upgrade
 // or enable rather than after the first page render. Refusals never block the
-// install. Engines without Refresh (tests, the CLI) are skipped.
+// install. Engines without Refresh (test fakes) are skipped; in the CLI it compiles the
+// process-local set, which is harmless.
 func (m *Manager) refreshTemplates() {
 	if r, ok := m.Engine.(interface{ Refresh() }); ok {
 		r.Refresh()
