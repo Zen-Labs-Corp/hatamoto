@@ -54,6 +54,10 @@ Under systemd put them in the environment file; under Docker use `environment:` 
 | `HATAMOTO_GEOIP_MMAP` | `false` | With `HATAMOTO_GEOIP_DB` set, `1` or `true` maps the database read-only and shares it instead of keeping a private in-memory copy. Replace the file by writing the new one next to it and renaming it over the old one; never overwrite or truncate it in place with `cp`, which can crash the server. With a single-file Docker bind mount, mount the directory instead, or restart after updating. |
 | `HATAMOTO_GEOIP_DB` | empty | Path to a country `.mmdb` file (DB-IP Lite or MaxMind GeoLite2 Country) that fills the Countries card of Analytics > Traffic. Empty turns countries off. Loaded at boot, up to 256 MB. The file is checked about once a minute and a replaced file is loaded without a restart; a bad replacement keeps the old database. Hatamoto downloads nothing; you supply the file and its licence applies. A bad file logs a warning and the server still starts. |
 | `HATAMOTO_WORKER` | on | The in-process scheduler runs unless this is `off` (case-insensitive). |
+| `HATAMOTO_INSTANCE_ID` | host name | Names this process when it claims a scheduled job in the database. Set it when two processes run on one host name. See [Multiple replicas and health checks](multi-replica-and-health.md#the-worker). |
+| `HATAMOTO_PURGE_URL` | off | An `http` or `https` address that receives a JSON list of changed public pages. `off` or empty leaves it off. See [Cache purge URL](#cache-purge-url). |
+| `HATAMOTO_PURGE_TOKEN` | unset | Sent as `Authorization: Bearer` with each purge request. Needs `HATAMOTO_PURGE_URL`. |
+| `HATAMOTO_PURGE_ALLOW_PRIVATE` | `false` | `true` allows `HATAMOTO_PURGE_URL` to be on a private or loopback address. |
 | `WORKER_DISABLE_JOBS` | empty | Comma-separated scheduler jobs to skip. The job names are listed in [Multiple replicas and health checks](multi-replica-and-health.md); `stats_ping` is the install stats job and `changeset_sweep` the content changeset housekeeping and `standing_digest` the daily mail about automatic runs and `user_access` the hourly job that ends access for users whose end date has passed and `comment_drafts_purge` the hourly purge of unconfirmed comments. |
 | `WORKER_DRAIN` | unset | `1`, `true`, `yes` or `on` (case-insensitive) stops the worker loops from starting. For maintenance windows. |
 | `GOMEMLIMIT` | unset | Go runtime soft memory limit, for example `300MiB`. When it is unset and the process runs under a cgroup memory limit (its own or a parent's, for example systemd `MemoryMax` or a container limit), Hatamoto sets the limit to 88 percent of the smallest one. A value you set always wins. See [Keep memory use low](memory.md). |
@@ -324,6 +328,27 @@ An unknown value stops the boot with `HATAMOTO_TRUSTED_CDN: "..." is not a known
 
 Check it: open **AI analytics > Crawlers**. The verification banner (see [Crawler analytics](../ai-seo/crawler-analytics.md#verification-health)) names the header client IPs are read from, and stays red until fetches judged before the change leave the selected date range. The boot log line `trusted CDN preset on` shows the number of ranges loaded.
 
+## Cache purge URL
+
+`HATAMOTO_PURGE_URL` is for a site behind a CDN or another cache that you can tell which pages changed. It is off by default and nothing is sent. When it is set, the server that handled a change to published content sends one request, about 2 seconds later:
+
+```
+POST <HATAMOTO_PURGE_URL>
+Content-Type: application/json
+Authorization: Bearer <HATAMOTO_PURGE_TOKEN>
+
+{"urls":["https://example.com/a"],"all":false}
+```
+
+- `urls` holds the absolute addresses of the pages that changed: the page itself and its archive page, after a publish, an unpublish, an edit of a published page, a delete, a move (the old address) or an import. A request holds at most 500 addresses; a longer list is sent as several requests.
+- Clear cache in **Settings > Performance** sends `{"urls":[],"all":true}`.
+- Listing pages, feeds and the home page are not in the list, and neither are changes to settings, themes, media or forms. Changes made with the `hatamoto` command line tool send no purge. Use your cache's own lifetime for those.
+- The `Authorization` header is sent only when `HATAMOTO_PURGE_TOKEN` is set.
+- A failed request (network error, status 429 or 5xx) is tried up to 3 times in total. A failure is logged and never blocks or undoes a save. The timeout is 10 seconds and redirects are not followed.
+- A private or loopback address is refused unless `HATAMOTO_PURGE_ALLOW_PRIVATE=true`.
+
+See [Outbound connections](outbound-connections.md).
+
 ## Email delivery
 
 Email settings come from one of two places:
@@ -410,6 +435,9 @@ Roles belong to the Postgres cluster, not to one database, so `pg_dump` of the d
 | `HATAMOTO_SETUP_CODE must be at least 12 characters` | The setup code is too short (counted after case, spaces and dashes are removed). It stops the boot only while the site has no users. A code that is one repeated character or pattern is refused with `HATAMOTO_SETUP_CODE is too guessable`. |
 | `HATAMOTO_TRUSTED_PROXIES: "..." is not a CIDR like 10.0.0.0/8` | An entry in the proxy list is not a CIDR or IP. |
 | `HATAMOTO_TRUSTED_CDN: "..." is not a known preset (cloudflare)` | The preset name is not `cloudflare` (or `off`). |
+| `HATAMOTO_PURGE_URL: "..." is not an absolute http or https URL without credentials (or off)` | The purge address is not an absolute `http` or `https` URL, has no host, or carries credentials or a fragment. |
+| `HATAMOTO_PURGE_TOKEN is set but HATAMOTO_PURGE_URL is not` | A token needs an address to send it to. |
+| `HATAMOTO_PURGE_ALLOW_PRIVATE: "..." is not a boolean` | Use `true` or `false`. |
 | `HATAMOTO_PREVIEW_HOST: "..." is not a bare host ...` | The value has a scheme, path, query, credentials, whitespace or a bad port. Use `preview.example.com` or `preview.example.com:8443`. |
 | `HATAMOTO_PREVIEW_HOST: "..." is the public and admin host; ...` | The preview host equals the host of `PUBLIC_BASE_URL`. It must be a separate host. |
 | `HATAMOTO_TRUSTED_KEYS holds "...", which is not an ed25519 public key` | A trusted key is not 32 bytes of base64. |

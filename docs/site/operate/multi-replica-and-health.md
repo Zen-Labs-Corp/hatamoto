@@ -15,10 +15,12 @@ This page lists how Hatamoto behaves when more than one process, or replica, ser
 | First-boot seeding | Idempotent (`ON CONFLICT DO NOTHING`), so two replicas starting on an empty database do not race. |
 | Installed themes and plugins | Stored in Postgres. A package installed on one replica, or by the CLI, is picked up by the others within about five seconds in production. |
 | Update settings | One row in the database, shared. Each replica still replaces its own binaries. |
-| Uploaded media | Files on disk under `MEDIA_UPLOAD_DIR`. All replicas need to see the same directory (a shared volume), or uploads made on one are missing on the others. |
+| Uploaded media | Object storage shared by all replicas (see [Media in object storage](media-object-storage.md)), or files on disk under `MEDIA_UPLOAD_DIR`. In the second case all replicas need to see the same directory (a shared volume), or uploads made on one are missing on the others. |
 | HTML page cache | Per process. See below. |
 | Rate limiters | Per process (in memory), so effective limits scale with the number of replicas. |
-| Background worker | In process; decide which replica runs it. See below. |
+| Scheduled jobs | Each replica runs the scheduler. Housekeeping jobs are claimed in the database and run once per interval on one replica; jobs that share work out by their own database claims (publishing, webhook delivery, mail, off-site backup) do not repeat work. A few jobs run on every replica by design. See below. |
+| Admin previews | The one-time tickets for draft previews, plugin pages and change set previews are stored in the database for 60 seconds, so any replica can serve the frame. No affinity is needed. |
+| CDN purge | If you set `HATAMOTO_PURGE_URL`, the replica that handled a change to published content sends one purge request. See [Cache purge URL](configuration-reference.md#cache-purge-url). |
 
 ## The page cache
 
@@ -55,7 +57,11 @@ Three switches control it:
 | `WORKER_DISABLE_JOBS` | Comma-separated job names to skip, from the list above (for example `retention_purge,prune`). The names are matched case-insensitively. A log line at startup shows which jobs are disabled. |
 | `WORKER_DRAIN` | `1`, `true`, `yes` or `on` skips starting the worker loops, intended for the duration of a destructive maintenance step. It does not remove jobs permanently. |
 
-The recommended pattern is one replica with the worker on and the rest with `HATAMOTO_WORKER=off`:
+The worker may run on every replica. Housekeeping jobs (`retention_purge`, `agent_hits_partition`, `agent_hits_maintenance`, `prune`, `entity_versions`, `changeset_sweep`, `traffic_prune`, `webhook_prune`, `comment_drafts_purge`) and plugin cron jobs are claimed in the database table `hatamoto_job_claims`: one replica runs each one per interval and the others skip that tick. The lease is just under one interval, and the replica that ran a job last may always run it again. If the claim query fails, the job runs anyway and a warning is logged. The jobs that share out their own work in the database (`publish`, `agent_verify`, `agent_attribution_backfill`, `webhook_deliver`, `standing_digest`, `user_access`, `comment_notify`, `stats_ping`, `backup_offsite`) do not repeat work. `agent_ranges_refresh`, `update_check` and the page cache preload run on every replica, because each keeps per-process state or replaces its own binary. The files of an off-site backup are made on whichever replica ran the slot. Run now is not claimed: it runs on the replica that received the click.
+
+A replica is named by `HATAMOTO_INSTANCE_ID`, or by its host name when that is unset. Set it when two processes share a host name, so that they do not take each other for the same replica.
+
+You can still turn the worker off on some replicas, which then serve requests only:
 
 ```bash
 # replica A (runs scheduled work)
@@ -75,7 +81,7 @@ Every replica must use the same `HATAMOTO_SECRET`. Set it in the environment on 
 
 ## Load balancing
 
-Any HTTP load balancer works; there is no session affinity requirement because sessions are in the database. Forward everything to each replica's port, and list the load balancer's address range in `HATAMOTO_TRUSTED_PROXIES` so client IPs and the HTTPS scheme are read from `X-Forwarded-*` correctly ([Reverse proxy and TLS](reverse-proxy-tls.md)). Use `/ready` as the balancer's health probe and `/health` for liveness.
+Any HTTP load balancer works; there is no session affinity requirement because sessions and admin preview tickets are in the database. Forward everything to each replica's port, and list the load balancer's address range in `HATAMOTO_TRUSTED_PROXIES` so client IPs and the HTTPS scheme are read from `X-Forwarded-*` correctly ([Reverse proxy and TLS](reverse-proxy-tls.md)). Use `/ready` as the balancer's health probe and `/health` for liveness. Two small things stay in one process: the package permission prompt (held for ten minutes on the replica that showed it) and the locale-convert review. If a confirmation lands on another replica, repeat the step, or send `/admin` to one replica.
 
 ## Health endpoints
 
