@@ -75,3 +75,58 @@ func TestFormSubmissionReadsNeedTheReadAction(t *testing.T) {
 		}
 	}
 }
+
+// The screens that only summarise submissions and comments must not carry their
+// personal data to the roles without the read action: the page stays reachable,
+// the section or sample is left out. Owner and editor still see it all.
+func TestPagesWithheldFromRolesWithoutReadAction(t *testing.T) {
+	ff := newFakeForms()
+	roles := []user.Role{user.RoleReadOnly, user.RoleAuthor, user.RoleContributor, user.RoleReviewer}
+	ids := map[user.Role]uuid.UUID{}
+	g := newRig(t, func(d *Deps) {
+		d.Growth.Forms = ff
+		d.Comments = &fakeComments{settings: CommentSettings{Enabled: true}, counts: CommentCounts{Pending: 1},
+			rows: []CommentRow{{ID: "c1", AuthorName: "Grace Hopper", EntityTitle: "Alpha service", BodyRaw: "Pending words nobody may read", CreatedAt: time.Now()}}}
+		fu := d.Users.(fakeUsers)
+		for _, r := range roles {
+			u := &user.User{ID: uuid.New(), Email: string(r) + "@example.com", Role: r}
+			fu[u.ID] = u
+			ids[r] = u.ID
+		}
+	})
+	fm := ff.addForm("Apply", form.FormField{ID: "a", Type: form.FieldTypeText, Label: "Name", Name: "name"},
+		form.FormField{ID: "e", Type: form.FieldTypeEmail, Label: "Email", Name: "email"},
+		form.FormField{ID: "m", Type: form.FieldTypeTextarea, Label: "Message", Name: "message"})
+	ff.addSub(fm, form.SubmissionStatusNew, time.Now(), map[string]any{"name": "Ada Lovelace", "email": "ada@example.com", "message": "Quartz answer text"})
+
+	secrets := []string{"Ada Lovelace", "ada@example.com", "Quartz answer text", "Grace Hopper", "Pending words nobody may read"}
+	paths := map[string][]string{
+		"/admin":       {"ada@example.com", "Grace Hopper", "Pending words nobody may read"},
+		"/admin/forms": {"Ada Lovelace", "ada@example.com", "Quartz answer text"},
+		"/admin/forms/design/" + fm.ID.String() + "/settings": {"Ada Lovelace", "ada@example.com", "Quartz answer text"},
+	}
+	for p, visible := range paths {
+		for _, role := range roles {
+			rec := g.do("GET", p, g.freshToken(ids[role]), nil, nil)
+			if rec.Code != http.StatusOK {
+				t.Errorf("%s GET %s = %d, want 200", role, p, rec.Code)
+			}
+			for _, secret := range secrets {
+				if strings.Contains(rec.Body.String(), secret) {
+					t.Errorf("%s GET %s leaked %q", role, p, secret)
+				}
+			}
+		}
+		for _, token := range []string{"owner-token", "editor-token"} {
+			rec := g.do("GET", p, token, nil, nil)
+			if rec.Code != http.StatusOK {
+				t.Errorf("%s GET %s = %d, want 200", token, p, rec.Code)
+			}
+			for _, want := range visible {
+				if !strings.Contains(rec.Body.String(), want) {
+					t.Errorf("%s GET %s lacks %q", token, p, want)
+				}
+			}
+		}
+	}
+}
