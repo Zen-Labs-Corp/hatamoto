@@ -148,7 +148,7 @@ internal/admin/stats.go flag settings.manage roles=owner  # :162
 
 # --- not access decisions ---
 internal/admin/address_notify.go inline site.receive_owner_mail roles=owner  # recipients of the address-change notice
-internal/admin/adminguard.go inline plugin.changeset.review roles=owner  # owners an approval request is mailed to
+internal/admin/adminguard.go inline plugin.changeset.review roles=owner  # changeset preview ticket: owner-session re-check before consume
 internal/admin/authmw.go other - n=1  # :62 claims derivation (IsSuperadmin)
 internal/server/standing_digest.go inline site.receive_owner_mail roles=owner  # ownerEmails (digest, export failure); also admin/address_notify.go, server/comment_surge.go
 internal/server/comment_surge.go inline site.receive_owner_mail roles=owner  # surge notice recipients
