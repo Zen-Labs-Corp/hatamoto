@@ -2,6 +2,7 @@ package edition_test
 
 import (
 	"context"
+	"crypto/ed25519"
 	"errors"
 	"testing"
 
@@ -85,4 +86,30 @@ func TestRegisterAfterFreezePanics(t *testing.T) {
 		}
 	}()
 	edition.Register("example", fakeGate{})
+}
+
+func TestRegisterPluginKey(t *testing.T) {
+	reset(t)
+	pub, _, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edition.RegisterPluginKey(pub)
+	mustPanic(t, func() { edition.RegisterPluginKey(pub) })
+}
+
+func TestRegisterPluginKeyAfterFreezePanics(t *testing.T) {
+	reset(t)
+	edition.FreezeForTest()
+	mustPanic(t, func() { edition.RegisterPluginKey(make(ed25519.PublicKey, ed25519.PublicKeySize)) })
+}
+
+func mustPanic(t *testing.T, fn func()) {
+	t.Helper()
+	defer func() {
+		if recover() == nil {
+			t.Error("expected panic")
+		}
+	}()
+	fn()
 }

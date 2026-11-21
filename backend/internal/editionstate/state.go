@@ -5,10 +5,12 @@ package editionstate
 
 import (
 	"context"
+	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
+	"slices"
 	"sync"
 	"sync/atomic"
 )
@@ -37,6 +39,7 @@ var (
 	frozen    bool
 	reg       atomic.Pointer[registration]
 	site      atomic.Pointer[siteSource]
+	pluginKey atomic.Pointer[ed25519.PublicKey]
 	validName = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
 )
 
@@ -56,6 +59,33 @@ func Register(name string, g Gate) {
 		panic(fmt.Sprintf("edition: invalid edition name %q", name))
 	}
 	reg.Store(&registration{name: name, gate: g})
+}
+
+// RegisterPluginKey sets the key commercial plugins must be signed with. It
+// panics after Freeze, on a second call, or when pub is not an ed25519 public
+// key (nil included).
+func RegisterPluginKey(pub ed25519.PublicKey) {
+	mu.Lock()
+	defer mu.Unlock()
+	switch {
+	case frozen:
+		panic("edition: RegisterPluginKey called after app.Main started; register from an init function")
+	case pluginKey.Load() != nil:
+		panic("edition: RegisterPluginKey called twice")
+	case len(pub) != ed25519.PublicKeySize:
+		panic("edition: RegisterPluginKey with an invalid key")
+	}
+	k := slices.Clone(pub)
+	pluginKey.Store(&k)
+}
+
+// PluginKey returns a copy of the registered plugin key, false when none.
+func PluginKey() (ed25519.PublicKey, bool) {
+	p := pluginKey.Load()
+	if p == nil {
+		return nil, false
+	}
+	return slices.Clone(*p), true
 }
 
 // isNil reports whether g is nil or an interface holding a nil pointer, map,
@@ -135,4 +165,5 @@ func Reset() {
 	frozen = false
 	reg.Store(nil)
 	site.Store(nil)
+	pluginKey.Store(nil)
 }

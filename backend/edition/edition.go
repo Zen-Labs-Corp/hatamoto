@@ -2,6 +2,7 @@ package edition
 
 import (
 	"context"
+	"crypto/ed25519"
 
 	"hatamoto.dev/core/internal/editionstate"
 )
@@ -24,6 +25,14 @@ var ErrNoSiteID = editionstate.ErrNoSiteID
 // gate, with the reserved name "community", or with a name that does not
 // match ^[a-z][a-z0-9-]{0,31}$.
 func Register(name string, g Gate) { editionstate.Register(name, g) }
+
+// RegisterPluginKey sets the public key that commercial plugins must be signed
+// with. It is independent of Register and is never added to
+// HATAMOTO_TRUSTED_KEYS: a package declaring license "commercial" installs and
+// loads only when signed by this key and PluginEntitled(ctx, name) is true.
+// Call it from an init function. It panics after app.Main started, on a second
+// call, or when pub is not an ed25519 public key.
+func RegisterPluginKey(pub ed25519.PublicKey) { editionstate.RegisterPluginKey(pub) }
 
 // Name returns the registered edition name, or "community".
 func Name() string { return editionstate.Name() }

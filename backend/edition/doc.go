@@ -30,6 +30,13 @@
 // Without the flags a wrapper build takes the version from its hatamoto.dev/core
 // dependency and reports the commit as "unknown".
 //
+// A wrapper that sells commercial plugins also calls
+// edition.RegisterPluginKey(pub) from the same init function, with the ed25519
+// public key those plugins are signed with. The Gate's PluginEntitled is called
+// for each commercial plugin on every reconcile (every few seconds), so it must
+// be cheap: cache the answer. The CLI has no site id, so a gate that needs
+// SiteID denies there.
+//
 // Register must run before app.Main (from an init function); app.Main
 // freezes the registration and a later Register panics. A gate that returns
 // an error denies the feature (fail closed). SiteID returns a stable random
