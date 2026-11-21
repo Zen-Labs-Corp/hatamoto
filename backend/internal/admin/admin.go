@@ -381,8 +381,11 @@ type Deps struct {
 	// AuditLog reads the audit log back; nil leaves the Audit log page
 	// unmounted. Set it only when non-nil.
 	AuditLog AuditReader
-	Owners   OwnerCreator
-	Starter  StarterInstaller
+	// AuditRetention saves how long audit entries are kept; nil hides the
+	// link and the retention page answers unavailable.
+	AuditRetention AuditRetentionService
+	Owners         OwnerCreator
+	Starter        StarterInstaller
 	// SetupCode gates the first owner; nil disables the wizard's first step.
 	SetupCode *SetupCode
 	// NeedsSetup reports a fresh install (no users yet); /admin/login then

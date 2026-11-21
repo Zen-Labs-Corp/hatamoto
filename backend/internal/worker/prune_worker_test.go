@@ -2,10 +2,14 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/auditlog"
 )
 
 func TestRetentionJobs_Cover404Log(t *testing.T) {
@@ -84,6 +88,82 @@ func TestRetention404Where_FixedLiterals(t *testing.T) {
 		m := re.FindStringSubmatch(where)
 		if m == nil || m[1] != strconv.Itoa(days) {
 			t.Errorf("%d: %q is not the fixed literal for that key", days, where)
+		}
+	}
+}
+
+func auditWheres(t *testing.T, w *PruneWorker) (admin, agent string, names []string) {
+	t.Helper()
+	for _, j := range w.jobs(context.Background()) {
+		names = append(names, j.name)
+		switch j.name {
+		case "admin-audit":
+			admin = j.where
+		case "mcp-audit":
+			agent = j.where
+		}
+	}
+	return admin, agent, names
+}
+
+func TestPruneJobs_AuditRetention(t *testing.T) {
+	set := func(a, m int, err error) *PruneWorker {
+		w := &PruneWorker{}
+		w.SetAuditRetention(func(context.Context) (int, int, error) { return a, m, err })
+		return w
+	}
+	const (
+		year = "at < NOW() - INTERVAL '1 year'"
+		d90  = "at < NOW() - INTERVAL '90 days'"
+	)
+	cases := []struct {
+		name         string
+		w            *PruneWorker
+		admin, agent string
+	}{
+		{"unset", &PruneWorker{}, year, d90},
+		{"defaults", set(365, 90, nil), year, d90},
+		{"raised", set(730, 90, nil), "at < NOW() - INTERVAL '2 years'", d90},
+		{"agent raised", set(365, 180, nil), year, "at < NOW() - INTERVAL '180 days'"},
+		{"unknown", set(7, 0, nil), year, d90},
+	}
+	for _, c := range cases {
+		admin, agent, _ := auditWheres(t, c.w)
+		if admin != c.admin || agent != c.agent {
+			t.Errorf("%s: admin %q agent %q, want %q %q", c.name, admin, agent, c.admin, c.agent)
+		}
+	}
+}
+
+func TestPruneJobs_AuditRetentionErrorSkipsAuditJobs(t *testing.T) {
+	w := &PruneWorker{}
+	w.SetAuditRetention(func(context.Context) (int, int, error) { return 0, 0, errors.New("boom") })
+	_, _, names := auditWheres(t, w)
+	if !slices.Equal(names, []string{"404-log", "admin-recovery"}) {
+		t.Errorf("jobs after a failed read = %v", names)
+	}
+}
+
+func TestPruneJobs_AuditRetentionDoesNotMutateJobs(t *testing.T) {
+	w := &PruneWorker{}
+	w.SetAuditRetention(func(context.Context) (int, int, error) { return 1095, 1095, nil })
+	w.jobs(context.Background())
+	for _, j := range retentionJobs {
+		if j.name == "admin-audit" && j.where != "at < NOW() - INTERVAL '1 year'" || j.name == "mcp-audit" && j.where != "at < NOW() - INTERVAL '90 days'" {
+			t.Errorf("retentionJobs mutated: %s %q", j.name, j.where)
+		}
+	}
+}
+
+func TestAuditRetentionMapsMatchOptions(t *testing.T) {
+	for name, m := range map[string]map[int]string{"admin": auditAdminWhere, "agent": auditAgentWhere} {
+		if len(m) != len(auditlog.RetentionDays) {
+			t.Errorf("%s map has %d keys, want %d", name, len(m), len(auditlog.RetentionDays))
+		}
+		for _, d := range auditlog.RetentionDays {
+			if m[d] == "" {
+				t.Errorf("%s map lacks %d days", name, d)
+			}
 		}
 	}
 }

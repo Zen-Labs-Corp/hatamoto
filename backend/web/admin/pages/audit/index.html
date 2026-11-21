@@ -1,4 +1,5 @@
 {{template "layouts/shell" .}}
-{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Audit log" "Description" "Who changed what in the admin, newest first." "CSRF" $.CSRF}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Audit log" "Description" "Who changed what, in the admin and through agents, newest first." "Overflow" .Overflow "CSRF" $.CSRF}}
 {{template "hm/table" .Table}}
+<div id="audit-log-older">{{with .Older}}{{template "hm/button" (dict "Label" "Older" "Href" .)}}{{end}}</div>
 {{end}}{{end}}
