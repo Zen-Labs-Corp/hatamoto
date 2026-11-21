@@ -163,6 +163,11 @@ func sortPatterns(rules []*Redirect) {
 	})
 }
 
+// SortPatterns orders pattern rules the way the runtime tries them: more
+// literal segments first, then longer source, then lexical. Exporters use it
+// to write rules in first-match order.
+func SortPatterns(rules []*Redirect) { sortPatterns(rules) }
+
 // FindPattern returns the first pattern rule matching path, with the target
 // expanded, or nil. A match whose expanded target is not SafeLocation (for
 // example "/xx/%5Cevil.com") is dropped: the lookup answers nil, never an

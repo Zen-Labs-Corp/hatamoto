@@ -70,6 +70,8 @@ type Server struct {
 
 	// failPut and putThenFail are set by FailPut and PutThenFail.
 	failPut, putThenFail func(key string) bool
+	// failDelete is set by FailDelete.
+	failDelete func(key string) bool
 
 	mu      sync.Mutex
 	objects map[string]Object
@@ -120,6 +122,13 @@ func (s *Server) FailPut(fn func(key string) bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.failPut = fn
+}
+
+// FailDelete makes object DELETEs of matching keys answer 500 without deleting.
+func (s *Server) FailDelete(fn func(key string) bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.failDelete = fn
 }
 
 // PutThenFail makes single PUTs of matching keys store the object and then
@@ -223,6 +232,8 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodPut:
 		s.store(key, Object{Data: body, Meta: metaOf(r)})
 		w.Header().Set("ETag", etag(body))
+	case r.Method == http.MethodDelete && s.failDelete != nil && s.failDelete(key):
+		fail(w, http.StatusInternalServerError, "InternalError")
 	case r.Method == http.MethodDelete:
 		delete(s.objects, key)
 		w.WriteHeader(http.StatusNoContent)

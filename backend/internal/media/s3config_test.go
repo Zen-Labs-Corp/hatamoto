@@ -101,3 +101,29 @@ func TestS3TargetSharesWith(t *testing.T) {
 		t.Error("an empty media prefix contains every prefix")
 	}
 }
+
+func TestS3TargetOverlaps(t *testing.T) {
+	for _, tc := range []struct {
+		media, other string
+		want         bool
+	}{
+		{"media/", "", true},
+		{"media/", "media", true},
+		{"media/", "media/x/", true},
+		{"site/media/", "site/", true},
+		{"site/media/", "site", true},
+		{"", "anything/", true},
+		{"media/", "med", false},
+		{"media/", "media-old/", false},
+		{"media/", "backups/", false},
+	} {
+		mt := S3Target{Endpoint: "https://objects.example.com", Bucket: "b", Prefix: tc.media}
+		if got := mt.Overlaps("https://objects.example.com/", "b", tc.other); got != tc.want {
+			t.Errorf("media %q other %q: got %v", tc.media, tc.other, got)
+		}
+	}
+	mt := S3Target{Endpoint: "https://objects.example.com", Bucket: "b"}
+	if mt.Overlaps("https://objects.example.com", "other", "") || mt.Overlaps("https://elsewhere.example.com", "b", "") {
+		t.Error("a different bucket or endpoint never overlaps")
+	}
+}
