@@ -206,7 +206,11 @@ func (r *Runner) Flush(ctx context.Context) {
 	all := false
 	for _, it := range items {
 		all = all || it.All
-		urls = append(urls, r.res.URLs(ctx, it)...)
+		u, ok := r.resolve(ctx, it)
+		if !ok {
+			return // drop the batch
+		}
+		urls = append(urls, u...)
 	}
 	slices.Sort(urls)
 	urls = slices.Compact(urls)
@@ -256,4 +260,15 @@ func (r *Runner) try(ctx context.Context, t Target, req Request) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, r.opt.SendTimeout)
 	defer cancel()
 	return t.Send(ctx, req)
+}
+
+// resolve returns the URLs for it, or false when the resolver panicked.
+func (r *Runner) resolve(ctx context.Context, it Item) (urls []string, ok bool) {
+	defer func() {
+		if p := recover(); p != nil {
+			r.log.Error("cdnpurge: resolver panicked", "kind", it.Kind, "panic", fmt.Sprint(p))
+			urls, ok = nil, false
+		}
+	}()
+	return r.res.URLs(ctx, it), true
 }

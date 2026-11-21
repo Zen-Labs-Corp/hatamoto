@@ -197,3 +197,25 @@ func (blockTarget) Send(ctx context.Context, _ Request) error {
 	<-ctx.Done()
 	return ctx.Err()
 }
+
+type panicRes struct{}
+
+func (panicRes) URLs(context.Context, Item) []string { panic("odd entity") }
+
+func TestResolverPanicDropsBatch(t *testing.T) {
+	tg := &fakeTarget{name: "a"}
+	r := New(panicRes{}, []Target{tg}, slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Options{Backoff: []time.Duration{}})
+	r.Notify(Item{Paths: []string{"/a"}})
+	r.Flush(context.Background())
+	if n := len(tg.calls()); n != 0 {
+		t.Errorf("target got %d calls after a resolver panic", n)
+	}
+	// The runner still works afterwards.
+	r.res = fakeRes{}
+	r.Notify(Item{Paths: []string{"/b"}})
+	r.Flush(context.Background())
+	if n := len(tg.calls()); n != 1 {
+		t.Errorf("got %d calls, want 1", n)
+	}
+}
