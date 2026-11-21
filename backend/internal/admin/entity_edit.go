@@ -883,6 +883,10 @@ func (a *Admin) handleEntityEdit(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if !a.canEntity(r.Context(), authz.ActionEntityUpdate, e) {
+		a.renderEntityReadOnly(w, r, e, sc)
+		return
+	}
 	c := a.deps.Content
 	attrs := attrsMap(e.Attributes)
 	f := &entityForm{ID: e.ID.String(), Name: e.Name, Slug: e.Slug, Status: string(e.Status), Locale: e.Locale, SEO: seoFrom(attrs), Version: e.Version, Tabs: a.entityTabsFor(r.Context(), e, "details")}
