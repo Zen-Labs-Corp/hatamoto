@@ -19,8 +19,8 @@ func TestDecode(t *testing.T) {
 		"dash variant":         {`{` + base + `,"request-headers":["x-a"]}`, func(m sdk.Manifest) any { return len(m.RequestHeaders) }, 0},
 		"exact spelling":       {`{` + base + `,"allowed_hosts":["a.example"]}`, func(m sdk.Manifest) any { return m.AllowedHosts }, []string{"a.example"}},
 		"case duplicate wins":  {`{` + base + `,"allowed_hosts":["a.example"],"ALLOWED_HOSTS":["b.example"]}`, func(m sdk.Manifest) any { return m.AllowedHosts }, []string{"b.example"}},
-		"license":              {`{` + base + `,"license":"commercial"}`, func(m sdk.Manifest) any { return m.License }, "commercial"},
-		"license case variant": {`{` + base + `,"License":"commercial"}`, func(m sdk.Manifest) any { return m.License }, "commercial"},
+		"license":              {`{` + base + `,"license":"commercial"}`, func(m sdk.Manifest) any { return m.License }, sdk.License(sdk.LicenseCommercial)},
+		"license case variant": {`{` + base + `,"License":"commercial"}`, func(m sdk.Manifest) any { return m.License }, sdk.License(sdk.LicenseCommercial)},
 		"invalid utf8":         {"{" + base + ",\"description\":\"caf\xe9\"}", func(m sdk.Manifest) any { return m.Description }, "caf\ufffd"},
 	} {
 		t.Run(name, func(t *testing.T) {
