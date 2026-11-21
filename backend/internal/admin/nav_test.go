@@ -220,7 +220,7 @@ func TestAnalyticsSubNavOrder(t *testing.T) {
 	t.Parallel()
 
 	var got []string
-	for _, s := range analyticsArea.forPrefix("/admin", "owner") {
+	for _, s := range analyticsArea.forPrefix("/admin", roleViewer("owner")) {
 		got = append(got, s.ID)
 	}
 	want := []string{"ai-overview", "ai-traffic", "ai-conversions", "ai-content", "ai-crawlers", "ai-google", "ai-referrals", "ai-health"}

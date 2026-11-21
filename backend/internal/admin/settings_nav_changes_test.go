@@ -3,6 +3,8 @@ package admin
 import (
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/authz"
 )
 
 func TestSettingsNavHasChangesUnderBackupsRecovery(t *testing.T) {
@@ -21,7 +23,7 @@ func TestSettingsNavHasChangesUnderBackupsRecovery(t *testing.T) {
 				continue
 			}
 			found = true
-			if !settingsLive["changes"] || !strings.HasSuffix(tab.Href, "/settings/changes") || len(tab.Roles) != 1 || tab.Roles[0] != "owner" {
+			if !settingsLive["changes"] || !strings.HasSuffix(tab.Href, "/settings/changes") || tab.Cap != authz.ActionSettingsManage {
 				t.Errorf("Changes tab %+v, want a live owner-only tab at /settings/changes", tab)
 			}
 		}

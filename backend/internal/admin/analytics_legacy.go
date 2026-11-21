@@ -99,7 +99,7 @@ func (a *Admin) analyticsSectionSelect(next http.HandlerFunc) http.HandlerFunc {
 			next(w, r)
 			return
 		}
-		href := areaHref(a.adminPath, analyticsArea, userFrom(r.Context()).Role, q.Get("section"))
+		href := areaHref(a.adminPath, analyticsArea, a.viewerOf(r.Context()), q.Get("section"))
 		if href == "" {
 			a.forbidden(w, r)
 			return

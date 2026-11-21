@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -8,6 +9,9 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/authz"
+	"hatamoto.dev/core/internal/authztest"
 )
 
 func sectionTabs(secs []SettingsSection) map[string][]string {
@@ -352,7 +356,7 @@ func TestAreaLocateAnalytics(t *testing.T) {
 func TestAreaNavAppendsTheCarry(t *testing.T) {
 	t.Parallel()
 
-	v := &View{Section: "ai-health", User: &CurrentUser{Role: "editor"}, AreaCarry: url.Values{"from": {"2026-01-01"}, "compare": {"1"}}}
+	v := &View{Section: "ai-health", User: &CurrentUser{ID: "u-editor", Role: "editor"}, AreaCarry: url.Values{"from": {"2026-01-01"}, "compare": {"1"}}}
 	nav := v.AreaNav()
 	if len(nav) != 8 {
 		t.Fatalf("%d sections", len(nav))
@@ -365,7 +369,7 @@ func TestAreaNavAppendsTheCarry(t *testing.T) {
 	if again := analyticsArea.For("editor"); strings.Contains(again[0].Href, "?") {
 		t.Error("the registry must not be changed by a carry")
 	}
-	plain := (&View{Section: "general", User: &CurrentUser{Role: "owner"}}).AreaNav()
+	plain := (&View{Section: "general", User: &CurrentUser{ID: "u-owner", Role: "owner"}}).AreaNav()
 	for _, s := range plain {
 		if strings.Contains(s.Href, "?") {
 			t.Errorf("settings link %s carries a query", s.Href)
@@ -394,7 +398,55 @@ func TestBrandingSectionIsOwnerOnly(t *testing.T) {
 func TestSettingsSectionCount(t *testing.T) {
 	t.Parallel()
 
-	if got := len(settingsFor("/admin", "owner")); got != 19 {
+	if got := len(settingsFor("/admin", roleViewer("owner"))); got != 19 {
 		t.Errorf("owner Settings sections = %d, want 19", got)
+	}
+}
+
+func TestSettingsNavFollowsAuthz(t *testing.T) {
+	tabsOf := func(v viewer) map[string][]string { return sectionTabs(settingsFor("/admin", v)) }
+	has := func(m map[string][]string, tab string) bool {
+		for _, ts := range m {
+			for _, id := range ts {
+				if id == tab {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	except := func(act authz.Action, allow bool) authz.Authorizer {
+		return authztest.Func(func(ctx context.Context, s authz.Subject, a authz.Action, o authz.Object) (bool, error) {
+			if a == act {
+				return allow, nil
+			}
+			return authz.Default().Can(ctx, s, a, o)
+		})
+	}
+
+	authztest.Use(t, except(authz.ActionSettingsManage, false))
+	owner := tabsOf(roleViewer("owner"))
+	if has(owner, "general") || !has(owner, "types") {
+		t.Errorf("owner without settings.manage: %v", owner)
+	}
+
+	authztest.Use(t, except(authz.ActionSettingsManage, true))
+	if !has(tabsOf(roleViewer("editor")), "general") {
+		t.Error("editor granted settings.manage does not see General")
+	}
+
+	authztest.Use(t, authztest.DenyAll)
+	v := roleViewer("owner")
+	for _, s := range settingsFor("/admin", v) {
+		for _, tab := range s.Tabs {
+			if tab.Cap != "" {
+				t.Errorf("DenyAll: tab %s with a Cap is visible", tab.ID)
+			}
+		}
+	}
+	for _, e := range defaultNav("/admin").For(v, "/admin") {
+		if e.Label == "Plugins" {
+			t.Error("DenyAll: Plugins is visible")
+		}
 	}
 }

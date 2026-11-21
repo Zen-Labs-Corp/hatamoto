@@ -218,8 +218,8 @@ func defaultNav(prefix string) *Nav {
 		{ID: "comments", Label: "Comments", Group: "Site", Href: prefix + "/comments", Icon: "quote", Prefixes: []string{prefix + "/comments"}, Visible: func(viewer) bool { return false }},
 		{ID: "analytics", Label: "Analytics", Group: "Site", Href: prefix + "/analytics", Icon: "analytics", Prefixes: []string{prefix + "/analytics"}},
 		{ID: pluginsID, Label: "Plugins", Group: "Customize", Href: prefix + "/plugins", Icon: "puzzle", Cap: authz.ActionPluginManage, Prefixes: []string{prefix + "/plugins"}},
-		{ID: "theme", Label: "Theme", Group: "Customize", Href: prefix + "/theme", Icon: "palette", Visible: func(v viewer) bool { return len(themeFor(prefix, v.Role)) > 0 }, Prefixes: []string{prefix + "/theme"}},
-		{ID: "settings", Label: "Settings", Group: "Customize", Href: prefix + "/settings", Icon: "settings", Visible: func(v viewer) bool { return len(settingsFor(prefix, v.Role)) > 0 }, Prefixes: []string{prefix + "/settings"}},
+		{ID: "theme", Label: "Theme", Group: "Customize", Href: prefix + "/theme", Icon: "palette", Visible: func(v viewer) bool { return len(themeFor(prefix, v)) > 0 }, Prefixes: []string{prefix + "/theme"}},
+		{ID: "settings", Label: "Settings", Group: "Customize", Href: prefix + "/settings", Icon: "settings", Visible: func(v viewer) bool { return len(settingsFor(prefix, v)) > 0 }, Prefixes: []string{prefix + "/settings"}},
 	} {
 		it.Order = i
 		n.Register(it)

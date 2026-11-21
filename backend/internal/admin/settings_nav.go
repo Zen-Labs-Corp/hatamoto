@@ -8,14 +8,15 @@ import (
 	"hatamoto.dev/core/internal/adminpagestate"
 	"hatamoto.dev/core/internal/httpx"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 )
 
-// SettingsTab is one page of a Settings section. Roles empty means every
+// SettingsTab is one page of a Settings section. Cap empty means every
 // signed-in user, exactly as the route behind it is gated.
 type SettingsTab struct {
 	ID, Label, Href string
-	Roles           []string
+	Cap             authz.Action
 }
 
 // SettingsSection is one entry of the Settings secondary sidebar. Href is the
@@ -38,7 +39,7 @@ type SettingsSection struct {
 // to settingsLive.
 type settingsTabDef struct {
 	ID, Label, Final, Legacy string
-	Roles                    []string
+	Cap                      authz.Action
 	// Live marks a tab that answers on Final without a settingsLive entry
 	// (module pages, which exist per Admin).
 	Live bool
@@ -51,8 +52,6 @@ type settingsSectionDef struct {
 	ID, Label, Icon, Desc, Group string
 	Tabs                         []settingsTabDef
 }
-
-var ownerOnly = []string{"owner"}
 
 // settingsLive is the set of tab IDs whose page already answers on Final.
 var settingsLive = map[string]bool{
@@ -80,49 +79,49 @@ type adminArea struct {
 
 var settingsRegistry = []settingsSectionDef{
 	{ID: "general", Label: "General", Icon: "general", Desc: "Site identity and homepage.", Group: "Site", Tabs: []settingsTabDef{
-		{ID: "general", Label: "General", Final: "/settings/general", Roles: ownerOnly},
+		{ID: "general", Label: "General", Final: "/settings/general", Cap: authz.ActionSettingsManage},
 	}},
 	{ID: "branding", Label: "Branding", Icon: "palette", Desc: "Admin name, logo, accent colour and sign-in page.", Group: "Site", Tabs: []settingsTabDef{
-		{ID: "branding", Label: "Branding", Final: "/settings/admin-branding", Roles: ownerOnly},
+		{ID: "branding", Label: "Branding", Final: "/settings/admin-branding", Cap: authz.ActionSettingsManage},
 	}},
 	{ID: "locales", Label: "Locales", Icon: "globe", Desc: "Languages, addresses, search engines and business details.", Group: "Site", Tabs: []settingsTabDef{
-		{ID: "locales", Label: "Locales", Final: "/settings/locales", Roles: ownerOnly},
-		{ID: "locale-addresses", Label: "Addresses and search engines", Final: "/settings/locales/addresses", Roles: ownerOnly},
-		{ID: "locale-business", Label: "Business details", Final: "/settings/locales/business", Roles: ownerOnly},
+		{ID: "locales", Label: "Locales", Final: "/settings/locales", Cap: authz.ActionSettingsManage},
+		{ID: "locale-addresses", Label: "Addresses and search engines", Final: "/settings/locales/addresses", Cap: authz.ActionSettingsManage},
+		{ID: "locale-business", Label: "Business details", Final: "/settings/locales/business", Cap: authz.ActionSettingsManage},
 	}},
 	{ID: "users", Label: "Users", Icon: "users", Desc: "Who can sign in and what they can do.", Group: "Site", Tabs: []settingsTabDef{
-		{ID: "users", Label: "Users", Final: "/settings/users", Roles: ownerOnly},
-		{ID: "user-sign-in", Label: "Sign-in", Final: "/settings/users/sign-in", Roles: ownerOnly},
+		{ID: "users", Label: "Users", Final: "/settings/users", Cap: authz.ActionUserManage},
+		{ID: "user-sign-in", Label: "Sign-in", Final: "/settings/users/sign-in", Cap: authz.ActionUserManage},
 	}},
 	{ID: "access-security", Label: "Access & security", Icon: "lock", Desc: "Coming soon, maintenance and password modes, and where you sign in.", Group: "Site", Tabs: []settingsTabDef{
-		{ID: "site-access", Label: "Site access", Final: "/settings/site-access", Roles: ownerOnly},
-		{ID: "admin-address", Label: "Admin address", Final: "/settings/security/admin-address", Roles: ownerOnly},
+		{ID: "site-access", Label: "Site access", Final: "/settings/site-access", Cap: authz.ActionSettingsManage},
+		{ID: "admin-address", Label: "Admin address", Final: "/settings/security/admin-address", Cap: authz.ActionSettingsManage},
 	}},
 	{ID: "email", Label: "Email", Icon: "mail", Desc: "Password resets, invitations and form notices.", Group: "Site", Tabs: []settingsTabDef{
-		{ID: "email", Label: "Email", Final: "/settings/email", Roles: ownerOnly},
-		{ID: "email-log", Label: "Email log", Final: "/settings/email/log", Roles: ownerOnly},
+		{ID: "email", Label: "Email", Final: "/settings/email", Cap: authz.ActionSettingsManage},
+		{ID: "email-log", Label: "Email log", Final: "/settings/email/log", Cap: authz.ActionSettingsManage},
 	}},
 	{ID: "privacy-tracking", Label: "Privacy & tracking", Icon: "shield", Desc: "Analytics, ad and chat tags, and cookie consent for your visitors.", Group: "Site", Tabs: []settingsTabDef{
-		{ID: "tracking", Label: "Tracking", Final: "/settings/tracking", Roles: ownerOnly},
-		{ID: "privacy", Label: "Cookie consent", Final: "/settings/privacy", Roles: ownerOnly},
+		{ID: "tracking", Label: "Tracking", Final: "/settings/tracking", Cap: authz.ActionSettingsManage},
+		{ID: "privacy", Label: "Cookie consent", Final: "/settings/privacy", Cap: authz.ActionSettingsManage},
 	}},
 	{ID: "entity-models", Label: "Entity models", Icon: "content-model", Desc: "The kinds of content your site holds and how it is grouped.", Group: "Content", Tabs: []settingsTabDef{
-		{ID: "types", Label: "Entity types", Final: "/settings/types", Roles: ownerOnly},
-		{ID: "taxonomies", Label: "Taxonomies", Final: "/settings/taxonomies", Roles: ownerOnly},
+		{ID: "types", Label: "Entity types", Final: "/settings/types", Cap: authz.ActionSchemaManage},
+		{ID: "taxonomies", Label: "Taxonomies", Final: "/settings/taxonomies", Cap: authz.ActionTermManage},
 	}},
 	{ID: "seo", Label: "SEO", Icon: "seo", Desc: "Titles, descriptions and the variables they use.", Group: "Content", Tabs: []settingsTabDef{
-		{ID: "seo-general", Label: "General", Final: "/settings/seo/general", Roles: ownerOnly},
-		{ID: "seo-titles", Label: "Titles & meta", Final: "/settings/seo/titles", Roles: ownerOnly},
-		{ID: "seo-social", Label: "Social", Final: "/settings/seo/social", Roles: ownerOnly},
-		{ID: "seo-schema", Label: "Schema", Final: "/settings/seo/schema", Roles: ownerOnly},
-		{ID: "seo-kg", Label: "Knowledge graph", Final: "/settings/seo/knowledge-graph", Roles: ownerOnly},
-		{ID: "seo-robots", Label: "Robots", Final: "/settings/seo/robots", Roles: ownerOnly},
-		{ID: "seo-ads-txt", Label: "ads.txt", Final: "/settings/seo/ads-txt", Roles: ownerOnly},
-		{ID: "seo-verification", Label: "Verification", Final: "/settings/seo/verification", Roles: ownerOnly},
-		{ID: "seo-sitemap", Label: "Sitemap", Final: "/settings/seo/sitemap", Roles: ownerOnly},
-		{ID: "seo-breadcrumbs", Label: "Breadcrumbs", Final: "/settings/seo/breadcrumbs", Roles: ownerOnly},
-		{ID: "seo-indexnow", Label: "IndexNow", Final: "/settings/seo/indexnow", Roles: ownerOnly},
-		{ID: "seo-404", Label: "404 monitor", Final: "/settings/seo/404-monitor", Roles: ownerOnly},
+		{ID: "seo-general", Label: "General", Final: "/settings/seo/general", Cap: authz.ActionSettingsManage},
+		{ID: "seo-titles", Label: "Titles & meta", Final: "/settings/seo/titles", Cap: authz.ActionSettingsManage},
+		{ID: "seo-social", Label: "Social", Final: "/settings/seo/social", Cap: authz.ActionSettingsManage},
+		{ID: "seo-schema", Label: "Schema", Final: "/settings/seo/schema", Cap: authz.ActionSettingsManage},
+		{ID: "seo-kg", Label: "Knowledge graph", Final: "/settings/seo/knowledge-graph", Cap: authz.ActionSettingsManage},
+		{ID: "seo-robots", Label: "Robots", Final: "/settings/seo/robots", Cap: authz.ActionSettingsManage},
+		{ID: "seo-ads-txt", Label: "ads.txt", Final: "/settings/seo/ads-txt", Cap: authz.ActionSettingsManage},
+		{ID: "seo-verification", Label: "Verification", Final: "/settings/seo/verification", Cap: authz.ActionSettingsManage},
+		{ID: "seo-sitemap", Label: "Sitemap", Final: "/settings/seo/sitemap", Cap: authz.ActionSettingsManage},
+		{ID: "seo-breadcrumbs", Label: "Breadcrumbs", Final: "/settings/seo/breadcrumbs", Cap: authz.ActionSettingsManage},
+		{ID: "seo-indexnow", Label: "IndexNow", Final: "/settings/seo/indexnow", Cap: authz.ActionSettingsManage},
+		{ID: "seo-404", Label: "404 monitor", Final: "/settings/seo/404-monitor", Cap: authz.ActionSettingsManage},
 	}},
 	{ID: "redirects", Label: "Redirects", Icon: "corner-up-right", Desc: "Send old and changed addresses to the right page.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "redirects", Label: "Redirects", Final: "/settings/redirects"},
@@ -131,66 +130,64 @@ var settingsRegistry = []settingsSectionDef{
 		{ID: "linking", Label: "Internal linking", Final: "/settings/linking"},
 	}},
 	{ID: "comments", Label: "Comments", Icon: "quote", Desc: "Turn comments on, set trust levels and limits, and manage blocklists and commenters.", Group: "Content", Tabs: []settingsTabDef{
-		{ID: "comments", Label: "Comments", Final: "/settings/comments", Roles: ownerEditor},
-		{ID: "comment-blocklists", Label: "Blocklists", Final: "/settings/comments/blocklists", Roles: ownerEditor},
-		{ID: "commenters", Label: "Commenters", Final: "/settings/comments/commenters", Roles: ownerEditor},
+		{ID: "comments", Label: "Comments", Final: "/settings/comments", Cap: authz.ActionCommentSettingsRead},
+		{ID: "comment-blocklists", Label: "Blocklists", Final: "/settings/comments/blocklists", Cap: authz.ActionCommentBlocklistManage},
+		{ID: "commenters", Label: "Commenters", Final: "/settings/comments/commenters", Cap: authz.ActionCommentRead},
 	}},
 	{ID: "integrations", Label: "Integrations", Icon: "key", Desc: "API keys for scripts and webhooks that send signed POSTs when content changes.", Group: "System", Tabs: []settingsTabDef{
-		{ID: "api", Label: "API keys", Final: "/settings/api-keys", Roles: ownerOnly},
-		{ID: "subscriptions", Label: "Webhooks", Final: "/settings/webhooks", Roles: ownerOnly},
-		{ID: "deliveries", Label: "Delivery log", Final: "/settings/webhooks/deliveries", Roles: ownerOnly},
+		{ID: "api", Label: "API keys", Final: "/settings/api-keys", Cap: authz.ActionAPIKeyManage},
+		{ID: "subscriptions", Label: "Webhooks", Final: "/settings/webhooks", Cap: authz.ActionWebhookManage},
+		{ID: "deliveries", Label: "Delivery log", Final: "/settings/webhooks/deliveries", Cap: authz.ActionWebhookManage},
 	}},
 	{ID: "performance", Label: "Performance", Icon: "database", Desc: "Page cache, size limit and preload.", Group: "System", Tabs: []settingsTabDef{
-		{ID: "performance", Label: "Performance", Final: "/settings/performance", Roles: ownerOnly},
-		{ID: "memory", Label: "Memory", Final: "/settings/performance/memory", Roles: ownerOnly},
+		{ID: "performance", Label: "Performance", Final: "/settings/performance", Cap: authz.ActionSettingsManage},
+		{ID: "memory", Label: "Memory", Final: "/settings/performance/memory", Cap: authz.ActionSettingsManage},
 	}},
 	{ID: "updates", Label: "Updates", Icon: "refresh", Desc: "Version, channel and automatic updates.", Group: "System", Tabs: []settingsTabDef{
-		{ID: "updates", Label: "Updates", Final: "/settings/updates", Roles: ownerOnly},
+		{ID: "updates", Label: "Updates", Final: "/settings/updates", Cap: authz.ActionSettingsManage},
 	}},
 	{ID: "jobs", Label: "Jobs", Icon: "refresh", Desc: "Scheduled jobs, when they last ran and when they run next.", Group: "System", Tabs: []settingsTabDef{
-		{ID: "jobs", Label: "Jobs", Final: "/settings/jobs", Roles: ownerOnly},
+		{ID: "jobs", Label: "Jobs", Final: "/settings/jobs", Cap: authz.ActionSettingsManage},
 	}},
 	{ID: "hosting", Label: "Hosting", Icon: "layers", Desc: "Serve pages from this server or publish them as static files.", Group: "System", Tabs: []settingsTabDef{
-		{ID: "hosting", Label: "Hosting", Final: "/settings/hosting", Roles: ownerOnly},
+		{ID: "hosting", Label: "Hosting", Final: "/settings/hosting", Cap: authz.ActionSettingsManage},
 	}},
 	{ID: "backups-recovery", Label: "Backups & recovery", Icon: "archive", Desc: "Download a full copy of your site, how many earlier versions are kept, and undo imports.", Group: "System", Tabs: []settingsTabDef{
-		{ID: "backups", Label: "Backups", Final: "/settings/backups", Roles: ownerOnly},
-		{ID: "versions", Label: "Versions", Final: "/settings/versions", Roles: ownerOnly},
-		{ID: "changes", Label: "Changes", Final: "/settings/changes", Roles: ownerOnly},
+		{ID: "backups", Label: "Backups", Final: "/settings/backups", Cap: authz.ActionSettingsManage},
+		{ID: "versions", Label: "Versions", Final: "/settings/versions", Cap: authz.ActionSettingsManage},
+		{ID: "changes", Label: "Changes", Final: "/settings/changes", Cap: authz.ActionSettingsManage},
 	}},
 	{ID: "tools", Label: "Tools", Icon: "search", Desc: "Bring a site in from WordPress, take yours out, and find and replace text across your content.", Group: "System", Tabs: []settingsTabDef{
-		{ID: "import", Label: "WordPress import", Final: "/settings/import", Roles: ownerOnly},
-		{ID: "export", Label: "Export", Final: "/settings/export", Roles: ownerOnly},
-		{ID: "search-replace", Label: "Search and replace", Final: "/settings/search-replace", Roles: ownerOnly},
+		{ID: "import", Label: "WordPress import", Final: "/settings/import", Cap: authz.ActionImportRun},
+		{ID: "export", Label: "Export", Final: "/settings/export", Cap: authz.ActionSettingsManage},
+		{ID: "search-replace", Label: "Search and replace", Final: "/settings/search-replace", Cap: authz.ActionSettingsManage},
 	}},
 }
 
-var ownerEditor = []string{"owner", "editor"}
-
 // themeRegistry is the Theme sidebar: one tab per section, the order of the
-// owner's brief. Roles mirror the routes behind each page.
+// owner's brief. Caps mirror the routes behind each page.
 var themeRegistry = []settingsSectionDef{
 	{ID: "themes", Label: "Themes", Icon: "palette", Desc: "Install, preview and activate the theme of your site.", Tabs: []settingsTabDef{
-		{ID: "themes", Label: "Themes", Final: "/theme/themes", Roles: ownerOnly},
+		{ID: "themes", Label: "Themes", Final: "/theme/themes", Cap: authz.ActionThemeManage},
 	}},
 	{ID: "colours", Label: "Colours and fonts", Icon: "sun", Desc: "Brand colours, fonts and corners, applied by the live theme to every page.", Tabs: []settingsTabDef{
-		{ID: "colours", Label: "Colours and fonts", Final: "/theme/colours", Roles: ownerOnly},
-		{ID: "fonts", Label: "Fonts", Final: "/theme/fonts", Roles: ownerOnly},
+		{ID: "colours", Label: "Colours and fonts", Final: "/theme/colours", Cap: authz.ActionThemeManage},
+		{ID: "fonts", Label: "Fonts", Final: "/theme/fonts", Cap: authz.ActionThemeManage},
 	}},
 	{ID: "additional-css", Label: "Additional CSS", Icon: "code", Desc: "Your own CSS, loaded after the theme's.", Tabs: []settingsTabDef{
-		{ID: "additional-css", Label: "Additional CSS", Final: "/theme/additional-css", Roles: ownerOnly},
+		{ID: "additional-css", Label: "Additional CSS", Final: "/theme/additional-css", Cap: authz.ActionThemeManage},
 	}},
 	{ID: "design-system", Label: "Design system", Icon: "layers", Desc: "Named colours, sizes and spacing that blocks use through their style settings.", Tabs: []settingsTabDef{
-		{ID: "design-system", Label: "Design system", Final: "/theme/design-system", Roles: ownerOnly},
+		{ID: "design-system", Label: "Design system", Final: "/theme/design-system", Cap: authz.ActionThemeManage},
 	}},
 	{ID: "presets", Label: "Style presets", Icon: "sparkles", Desc: "Ready-made looks for the elements of the builder.", Tabs: []settingsTabDef{
-		{ID: "presets", Label: "Style presets", Final: "/theme/presets", Roles: ownerOnly},
+		{ID: "presets", Label: "Style presets", Final: "/theme/presets", Cap: authz.ActionThemeManage},
 	}},
 	{ID: "parts", Label: "Layout parts", Icon: "layout", Desc: "Choose the header, footer and page layouts of your site.", Tabs: []settingsTabDef{
-		{ID: "parts", Label: "Layout parts", Final: "/theme/parts", Roles: ownerOnly},
+		{ID: "parts", Label: "Layout parts", Final: "/theme/parts", Cap: authz.ActionThemeManage},
 	}},
 	{ID: "blocks", Label: "Blocks", Icon: "copy", Desc: "Reusable blocks you can place on many pages.", Tabs: []settingsTabDef{
-		{ID: "blocks", Label: "Blocks", Final: "/theme/blocks", Roles: ownerEditor},
+		{ID: "blocks", Label: "Blocks", Final: "/theme/blocks", Cap: authz.ActionBuilderBlockManage},
 	}},
 	{ID: "templates", Label: "Templates", Icon: "file-text", Desc: "Saved layouts and sections to start a page from.", Tabs: []settingsTabDef{
 		{ID: "templates", Label: "Templates", Final: "/theme/templates"},
@@ -199,16 +196,16 @@ var themeRegistry = []settingsSectionDef{
 		{ID: "menus", Label: "Menus", Final: "/theme/menus"},
 	}},
 	{ID: "theme-strings", Label: "Strings", Icon: "globe", Desc: "Translate the theme's own words for each locale.", Tabs: []settingsTabDef{
-		{ID: "theme-strings", Label: "Strings", Final: "/theme/strings", Roles: ownerOnly},
+		{ID: "theme-strings", Label: "Strings", Final: "/theme/strings", Cap: authz.ActionThemeManage},
 	}},
 	{ID: "contact-button", Label: "Contact button", Icon: "send", Desc: "A floating button that opens WhatsApp, a call, a text or an email.", Tabs: []settingsTabDef{
-		{ID: "contact-button", Label: "Contact button", Final: "/theme/contact-button", Roles: ownerOnly},
+		{ID: "contact-button", Label: "Contact button", Final: "/theme/contact-button", Cap: authz.ActionThemeManage},
 	}},
 }
 
 var themeArea = &adminArea{ID: "theme", Label: "Theme", Entry: "/theme", Registry: themeRegistry}
 
-func themeFor(prefix, role string) []SettingsSection { return themeArea.forPrefix(prefix, role) }
+func themeFor(prefix string, v viewer) []SettingsSection { return themeArea.forPrefix(prefix, v) }
 
 var settingsArea = &adminArea{ID: "settings", Label: "Settings", Entry: "/settings", Registry: settingsRegistry}
 
@@ -259,7 +256,7 @@ func moduleSettingsArea(ps []adminpagestate.Page) *adminArea {
 		}
 		id := "module-" + p.ID
 		reg = append(reg, settingsSectionDef{ID: id, Label: p.Label, Icon: icon, Desc: p.Desc, Group: "System", Tabs: []settingsTabDef{
-			{ID: id, Label: p.Label, Final: "/settings/modules/" + p.ID, Roles: ownerOnly, Live: true},
+			{ID: id, Label: p.Label, Final: "/settings/modules/" + p.ID, Cap: authz.ActionSettingsManage, Live: true},
 		}})
 	}
 	return &adminArea{ID: settingsArea.ID, Label: settingsArea.Label, Entry: settingsArea.Entry, Registry: reg}
@@ -318,9 +315,9 @@ var settingsMovedOut = map[string]string{
 	"forms": "/forms", "media": "/media", "spam": "/forms/spam", "submissions": "/forms/submissions",
 }
 
-// settingsTabHref is the URL of tab for role, or "" when role cannot open it.
-func settingsTabHref(prefix, role, tab string) string {
-	for _, s := range settingsFor(prefix, role) {
+// settingsTabHref is the URL of tab for the viewer, or "" when they cannot open it.
+func settingsTabHref(prefix string, v viewer, tab string) string {
+	for _, s := range settingsFor(prefix, v) {
 		for _, t := range s.Tabs {
 			if t.ID == tab {
 				return t.Href
@@ -330,17 +327,17 @@ func settingsTabHref(prefix, role, tab string) string {
 	return ""
 }
 
-func settingsFor(prefix, role string) []SettingsSection { return settingsArea.forPrefix(prefix, role) }
+func settingsFor(prefix string, v viewer) []SettingsSection { return settingsArea.forPrefix(prefix, v) }
 
-// forPrefix is the area's sidebar for role under prefix: only the tabs the
-// role may open, and only the sections that keep at least one. It builds fresh
+// forPrefix is the area's sidebar for the viewer under prefix: only the tabs the
+// viewer may open, and only the sections that keep at least one. It builds fresh
 // slices, so the shared registry is never touched.
-func (ar *adminArea) forPrefix(prefix, role string) []SettingsSection {
+func (ar *adminArea) forPrefix(prefix string, v viewer) []SettingsSection {
 	var out []SettingsSection
 	for _, sd := range ar.Registry {
 		sec := SettingsSection{ID: sd.ID, Label: sd.Label, Icon: sd.Icon, Desc: sd.Desc, Group: sd.Group}
 		for _, td := range sd.Tabs {
-			if len(td.Roles) > 0 && !contains(td.Roles, role) {
+			if td.Cap != "" && !v.Can(td.Cap) {
 				continue
 			}
 			href := td.Legacy
@@ -350,7 +347,7 @@ func (ar *adminArea) forPrefix(prefix, role string) []SettingsSection {
 			if href == "" {
 				continue
 			}
-			sec.Tabs = append(sec.Tabs, SettingsTab{ID: td.ID, Label: td.Label, Href: href, Roles: td.Roles})
+			sec.Tabs = append(sec.Tabs, SettingsTab{ID: td.ID, Label: td.Label, Href: href, Cap: td.Cap})
 		}
 		if len(sec.Tabs) == 0 {
 			continue
@@ -418,7 +415,7 @@ func areaCrumbsIn(areas []*adminArea, prefix, tab string, tail ...Crumb) []Crumb
 			if sd.Label != td.Label {
 				href := sd.Tabs[0].Final
 				for _, t := range sd.Tabs {
-					if len(t.Roles) == 0 {
+					if t.Cap == "" {
 						href = t.Final
 						break
 					}
@@ -466,7 +463,7 @@ func (v *View) AreaNav() []SettingsSection {
 	if ar == nil {
 		return nil
 	}
-	secs := ar.forPrefix(v.prefix(), v.User.Role)
+	secs := ar.forPrefix(v.prefix(), v.viewer())
 	if v.localeCount > 0 {
 		for i := range secs {
 			if secs[i].ID == "locales" {
@@ -521,10 +518,10 @@ func (v *View) SectionTabs() []ui.Tab {
 // no-JS select of an old page) still lands.
 var themeMoved = map[string]string{"appearance": "themes", "menus": "menus", "menus-forms": "menus", "contact-button": "contact-button"}
 
-// areaHref is the URL of the section of area ar that role opens, or "" when
-// the role has no section in it. first is used when want is not visible.
-func areaHref(prefix string, ar *adminArea, role, want string) string {
-	secs := ar.forPrefix(prefix, role)
+// areaHref is the URL of the section of area ar that the viewer opens, or "" when
+// they have no section in it. first is used when want is not visible.
+func areaHref(prefix string, ar *adminArea, v viewer, want string) string {
+	secs := ar.forPrefix(prefix, v)
 	if len(secs) == 0 {
 		return ""
 	}
@@ -546,11 +543,11 @@ func (a *Admin) forbidden(w http.ResponseWriter, r *http.Request) {
 // Forms moved to the main menu.
 func (a *Admin) areaEntry(ar *adminArea) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		role := userFrom(r.Context()).Role
+		v := a.viewerOf(r.Context())
 		want := r.URL.Query().Get("section")
 		if ar == a.settingsArea() {
 			if to, ok := themeMoved[want]; ok {
-				if href := areaHref(a.adminPath, themeArea, role, to); href != "" {
+				if href := areaHref(a.adminPath, themeArea, v, to); href != "" {
 					http.Redirect(w, r, href, http.StatusSeeOther)
 					return
 				}
@@ -561,7 +558,7 @@ func (a *Admin) areaEntry(ar *adminArea) http.HandlerFunc {
 			return
 		}
 		if tab, ok := settingsOldPages[want]; ok && ar == a.settingsArea() {
-			if href := settingsTabHref(a.adminPath, role, tab); href != "" {
+			if href := settingsTabHref(a.adminPath, v, tab); href != "" {
 				http.Redirect(w, r, href, http.StatusSeeOther)
 				return
 			}
@@ -569,7 +566,7 @@ func (a *Admin) areaEntry(ar *adminArea) http.HandlerFunc {
 		if alias, ok := settingsSectionAliases[want]; ok && ar == a.settingsArea() {
 			want = alias
 		}
-		to := areaHref(a.adminPath, ar, role, want)
+		to := areaHref(a.adminPath, ar, v, want)
 		if to == "" {
 			a.forbidden(w, r)
 			return
@@ -593,14 +590,14 @@ func (a *Admin) mountSettingsFrame(authed *httpx.Group) {
 			target = alias
 		}
 		authed.HandleFunc("GET /settings/"+id, func(w http.ResponseWriter, r *http.Request) {
-			role := userFrom(r.Context()).Role
+			v := a.viewerOf(r.Context())
 			if tab, ok := settingsOldPages[id]; ok {
-				if href := settingsTabHref(a.adminPath, role, tab); href != "" {
+				if href := settingsTabHref(a.adminPath, v, tab); href != "" {
 					http.Redirect(w, r, href, http.StatusFound)
 					return
 				}
 			}
-			for _, s := range settingsFor(a.adminPath, role) {
+			for _, s := range settingsFor(a.adminPath, v) {
 				if s.ID == target {
 					http.Redirect(w, r, s.Href, http.StatusFound)
 					return
