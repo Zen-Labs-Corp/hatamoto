@@ -5,7 +5,10 @@ package changeset
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
+
+	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/internal/reviewstate"
 	"hatamoto.dev/core/review"
@@ -192,5 +195,50 @@ func TestEditTakesNoItemsOnceReviewStarted(t *testing.T) {
 				t.Fatalf("%d entities after publish, want only the first item's", got)
 			}
 		}
+	}
+}
+
+func TestDecideStageRefusesTheRequester(t *testing.T) {
+	f := newFixture(t)
+	for _, decision := range []string{StageApproved, StageRejected} {
+		cs := f.beginEdit(StageSpec{Name: "A", Group: "g"}) // requester "user-1"
+		f.stage(cs, f.entityItem("self-"+decision+"-"+f.tag, "self-"+decision+"-"+f.tag, "v1"))
+		if err := f.decide(cs, 0, "user-1", decision); !errors.Is(err, ErrSelfDecision) {
+			t.Errorf("%s: err = %v, want ErrSelfDecision", decision, err)
+		}
+		if ds, _ := f.eng.StageDecisions(f.ctx, cs); len(ds) != 0 {
+			t.Errorf("%s: a decision was recorded", decision)
+		}
+		if err := f.decide(cs, 0, "someone-else", decision); err != nil {
+			t.Errorf("%s by another: %v", decision, err)
+		}
+	}
+}
+
+func TestDecideStageAuditInTransaction(t *testing.T) {
+	f := newFixture(t)
+	var got []string
+	f.eng.AuditTx = func(_ context.Context, _ pgx.Tx, action, target string, d map[string]any) error {
+		got = append(got, action+" "+fmt.Sprint(d["decision"], " ", d["has_comment"]))
+		return nil
+	}
+	cs := f.beginEdit(StageSpec{Name: "A", Group: "g"})
+	f.stage(cs, f.entityItem("aud-"+f.tag, "aud-"+f.tag, "v1"))
+	if err := f.eng.DecideStage(f.ctx, cs, StageDecision{Reviewer: "r", Decision: StageApproved, Comment: "ok"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != "changeset.stage_decision approved true" {
+		t.Errorf("audit = %v", got)
+	}
+
+	// A refused audit rolls the decision back.
+	cs2 := f.beginEdit(StageSpec{Name: "A", Group: "g"})
+	f.stage(cs2, f.entityItem("aud2-"+f.tag, "aud2-"+f.tag, "v1"))
+	f.eng.AuditTx = func(context.Context, pgx.Tx, string, string, map[string]any) error { return errors.New("veto") }
+	if err := f.decide(cs2, 0, "r", StageApproved); err == nil {
+		t.Fatal("decision went through a refused audit")
+	}
+	if ds, _ := f.eng.StageDecisions(f.ctx, cs2); len(ds) != 0 {
+		t.Error("the decision survived the veto")
 	}
 }
