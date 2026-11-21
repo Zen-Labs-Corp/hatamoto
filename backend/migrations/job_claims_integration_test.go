@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-const jobClaimsVersion = 202611220100
+const jobClaimsVersion = 202611221100
 
 // The table appears with the migration, rejects a second row for the same job
 // and survives a repeated Up.

@@ -7,7 +7,7 @@
 - **Jobs.** Module jobs appear on the Jobs screen as "Module: <module> > <job>" and honour `WORKER_DISABLE_JOBS`.
 - **Mail.** Module mail is written to the email log with the kind `module` and is suppressed in staging mode like other mail.
 - **Docs.** [ADR 0012](adr/0012-module-runtime-hooks.md), the "Go module extension points" section in [Plugin API](PLUGIN_API.md), [Security model](SECURITY_MODEL.md) and [Staging](STAGING.md).
-- **Migration.** New table `hatamoto_job_claims` (`202611220100`), expand-only. Rollback floor: unchanged.
+- **Migration.** New table `hatamoto_job_claims` (`202611221100`), expand-only. Rollback floor: unchanged.
 
 ## Unreleased: module extension points (commands, migrations, secrets, services)
 
