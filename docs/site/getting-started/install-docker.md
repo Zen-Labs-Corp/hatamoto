@@ -7,7 +7,7 @@ next: first-run.md, ../operate/deploy-docker.md
 
 In this guide you create three small files and start Hatamoto and its database together with one Docker command. When you finish, your site answers on port 8090 and the server prints a setup code, which you use in the next guide to create your owner account. This setup is for trying Hatamoto on your own computer, not for a public site.
 
-The Dockerfile below downloads the release binary and builds the container on your computer. A signed multi-arch image, `ghcr.io/zen-labs-corp/hatamoto`, is published for each release, after it is signed and published, starting at the first public release (`ghcr.io/zen-labs-corp/hatamoto:vX.Y.Z`); once it exists you can use it as the `image:` of the `hatamoto` service instead of the `build:` block. Until then, this build is the way.
+The Dockerfile below downloads the release binary and builds the container on your computer. A signed multi-arch image, `ghcr.io/zen-labs-corp/hatamoto:vX.Y.Z`, is also published for each release, built from the `Dockerfile` in the source tree; you can use it as the `image:` of the `hatamoto` service instead of the `build:` block.
 
 ## Before you start
 
@@ -57,7 +57,11 @@ The Dockerfile below downloads the release binary and builds the container on yo
    FROM debian:bookworm-slim
    ARG VERSION
    ARG TARGETARCH
-   RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+   RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+       && curl -fsSL -o /usr/share/keyrings/postgresql-archive-keyring.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+       && echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+       && apt-get update && apt-get install -y --no-install-recommends postgresql-client-16 \
+       && apt-get purge -y --auto-remove curl \
        && rm -rf /var/lib/apt/lists/* \
        && useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app
    ADD --chmod=755 https://github.com/Zen-Labs-Corp/hatamoto/releases/download/${VERSION}/hatamoto-linux-${TARGETARCH} /usr/local/bin/hatamoto
@@ -72,6 +76,8 @@ The Dockerfile below downloads the release binary and builds the container on yo
    ENTRYPOINT ["hatamoto"]
    CMD ["supervise"]
    ```
+
+   Besides Hatamoto, the container gets `pg_dump` 16, the tool that copies the database for a backup. Hatamoto takes a backup before every update and stops the update when it cannot take one, and the tool must have the same version as the database, which is 16 in the next file.
 
 5. Create a file named `docker-compose.yml`. A **compose file** tells Docker which containers to start together: here, the Postgres database (`db`) and Hatamoto (`hatamoto`). **Postgres** is the database Hatamoto stores everything in. The `volumes` lines create **Docker volumes**, storage that survives when a container is replaced, so your data is kept.
 

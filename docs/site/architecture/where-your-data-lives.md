@@ -98,7 +98,7 @@ Everything here only reads. Nothing you run changes the site.
    | `secrets/secrets.env` | the server secret, created on first start when you did not set `HATAMOTO_SECRET` | theme preview links and stored credentials, such as the captcha secret, stop working |
    | `cache/wasm` | compiled plugins | nothing: the server rebuilds it |
    | `releases` | the versions the **supervisor** (the process that starts the server and switches to a new version after an update) can switch between, and its state | the next update downloads again; you cannot roll back without it |
-   | `backups` | one database copy, `pre-<version>.dump`, taken before each update | only that copy |
+   | `backups` | the backups Hatamoto makes: from **Back up now**, `hatamoto backup create`, the off-site schedule, and the one taken before each update | those copies |
    | `private/form-uploads` | files visitors attached to forms with a file field, in one folder per form, under generated names | the files are gone; submissions still open, and downloading the file answers "That file does not exist." Back it up with the database: it is not in the backups Hatamoto makes |
    | `install_id` | a random id, kept on this machine, so that not every site gets an update at the same moment | a new one is made, and your turn for updates may move |
 
