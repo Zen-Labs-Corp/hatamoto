@@ -190,12 +190,20 @@ func TestExportFailedLine(t *testing.T) {
 	if got := exportFailedLine(s3t); !strings.HasSuffix(got, " unchanged") {
 		t.Errorf("s3 before any put: %q", got)
 	}
-	if got := exportFailedLine(modifiedTarget{s3t}); got != "static: export failed, s3://b/p/ partially updated (no deletes)" {
+	if got := exportFailedLine(modifiedTarget{s3t, false}); got != "static: export failed, s3://b/p/ partially updated (no deletes)" {
 		t.Errorf("s3 after a put: %q", got)
+	}
+	if got := exportFailedLine(modifiedTarget{s3t, true}); got != "static: export failed, s3://b/p/ partially updated" {
+		t.Errorf("s3 after a delete: %q", got)
 	}
 }
 
-// modifiedTarget stands in for an S3 target that uploaded something.
-type modifiedTarget struct{ staticexport.Target }
+// modifiedTarget stands in for an S3 target that uploaded (and maybe deleted)
+// something.
+type modifiedTarget struct {
+	staticexport.Target
+	deleted bool
+}
 
-func (modifiedTarget) Modified() bool { return true }
+func (modifiedTarget) Modified() bool  { return true }
+func (m modifiedTarget) Deleted() bool { return m.deleted }

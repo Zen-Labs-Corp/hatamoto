@@ -128,6 +128,38 @@ func TestS3Target_ModifiedAfterPartialPublish(t *testing.T) {
 	}
 }
 
+func TestS3Target_ModifiedAfterDeleteFailure(t *testing.T) {
+	staged, next := stageFiles(t, map[string]string{"a.html": "a"})
+
+	// A delete fails after puts and an earlier delete.
+	tgt, srv := s3Fixture(t, "")
+	srv.Put("g1.html", []byte("x"), nil)
+	srv.Put("g2.html", []byte("x"), nil)
+	srv.FailDelete(func(key string) bool { return key == "g2.html" })
+	d := Diff{Changed: []string{"a.html"}, Removed: []string{"g1.html", "g2.html"}}
+	if err := tgt.Publish(context.Background(), staged, d, next); err == nil {
+		t.Fatal("expected a delete error")
+	}
+	if !tgt.Modified() || !tgt.Deleted() {
+		t.Fatalf("Modified = %v, Deleted = %v", tgt.Modified(), tgt.Deleted())
+	}
+	if _, ok := srv.Objects()["g1.html"]; ok {
+		t.Fatal("g1.html not deleted")
+	}
+
+	// Nothing changed, one delete worked and the manifest write failed.
+	tgt, srv = s3Fixture(t, "")
+	srv.Put("g1.html", []byte("x"), nil)
+	srv.FailPut(func(key string) bool { return key == ManifestFile })
+	d = Diff{Removed: []string{"g1.html"}}
+	if err := tgt.Publish(context.Background(), staged, d, next); err == nil {
+		t.Fatal("expected a manifest error")
+	}
+	if !tgt.Modified() || !tgt.Deleted() {
+		t.Fatalf("Modified = %v, Deleted = %v", tgt.Modified(), tgt.Deleted())
+	}
+}
+
 func TestS3Target_NoPreviousManifestDeletesNothing(t *testing.T) {
 	tgt, srv := s3Fixture(t, "p/")
 	srv.Put("p/stranger.html", []byte("not ours"), nil)

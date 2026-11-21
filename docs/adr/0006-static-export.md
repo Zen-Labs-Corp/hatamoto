@@ -10,8 +10,10 @@ Status: accepted (2026-11-21)
    special headers that change the body.
 3. A failed export to a directory changes nothing that is published: the
    previous output stays as it was. S3 has no atomic swap, so a failed export
-   there can leave some files uploaded. It deletes nothing and writes no
-   manifest, and the CLI says the target is partially updated.
+   there can leave some files uploaded. An upload failure deletes nothing and
+   writes no manifest; a later delete or manifest failure can follow deletes.
+   The CLI says the target is partially updated, with "(no deletes)" when none
+   happened.
 4. An export deletes only files that an earlier export wrote, and only after
    every upload has worked.
 5. A site with the site access gate on (coming soon, maintenance, password) is

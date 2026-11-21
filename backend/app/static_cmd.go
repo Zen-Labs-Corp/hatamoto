@@ -223,10 +223,13 @@ func runStatic(ctx context.Context, args []string, out io.Writer) error {
 
 // exportFailedLine says what a failed export left behind. A directory swap
 // either happens or not, and an S3 failure before the first upload changes
-// nothing; after an upload the bucket is partly updated (nothing is deleted
-// before every upload has finished).
+// nothing; after an upload or a delete the bucket is partly updated (an upload
+// failure deletes nothing, because deletes start after every upload).
 func exportFailedLine(t staticexport.Target) string {
 	if m, ok := t.(interface{ Modified() bool }); ok && m.Modified() {
+		if d, ok := t.(interface{ Deleted() bool }); ok && d.Deleted() {
+			return fmt.Sprintf("static: export failed, %s partially updated", t.Describe())
+		}
 		return fmt.Sprintf("static: export failed, %s partially updated (no deletes)", t.Describe())
 	}
 	return fmt.Sprintf("static: export failed, %s unchanged", t.Describe())

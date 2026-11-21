@@ -32,12 +32,16 @@ type S3Target struct {
 	describe string
 	key      string
 	puts     atomic.Int64
+	dels     atomic.Int64
 }
 
-// Modified reports whether the last Publish uploaded at least one object. An
-// S3 publish is not atomic, so after an error the bucket may be part way to
-// the new export.
-func (t *S3Target) Modified() bool { return t.puts.Load() > 0 }
+// Modified reports whether the last Publish uploaded or deleted at least one
+// object. An S3 publish is not atomic, so after an error the bucket may be
+// part way to the new export.
+func (t *S3Target) Modified() bool { return t.puts.Load() > 0 || t.dels.Load() > 0 }
+
+// Deleted reports whether the last Publish deleted at least one object.
+func (t *S3Target) Deleted() bool { return t.dels.Load() > 0 }
 
 // NewS3Target returns a target for prefix in bucket. endpoint only labels
 // the run record.
@@ -80,6 +84,7 @@ func (t *S3Target) Publish(ctx context.Context, staged string, d Diff, next Mani
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	t.puts.Store(0)
+	t.dels.Store(0)
 
 	var (
 		wg       sync.WaitGroup
@@ -118,6 +123,7 @@ func (t *S3Target) Publish(ctx context.Context, staged string, d Diff, next Mani
 		if err := t.c.Delete(ctx, t.prefix+p); err != nil {
 			return fmt.Errorf("delete %s: %w", p, err)
 		}
+		t.dels.Add(1)
 	}
 
 	body, err := next.Encode()

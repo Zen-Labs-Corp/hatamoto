@@ -206,9 +206,11 @@ static: export failed, /srv/site-static unchanged
 
 A failed export to a directory leaves the published tree as it was. S3 has no
 atomic swap: if an upload fails after others succeeded, the CLI prints
-`static: export failed, s3://bucket/ partially updated (no deletes)`. Nothing
-was deleted and the manifest was not written; run the export again to finish.
-A failure before the first upload still prints `unchanged`.
+`static: export failed, s3://bucket/ partially updated (no deletes)`. An upload
+failure deletes nothing and writes no manifest. If a delete or the manifest
+write fails after objects were deleted, the line is `partially updated`. Run
+the export again to finish. A failure before the first upload or delete still
+prints `unchanged`.
 
 A 404 or 410 on a link inside a page is a warning, not an error: it is a broken
 link on the live site. Up to 50 errors are kept.
