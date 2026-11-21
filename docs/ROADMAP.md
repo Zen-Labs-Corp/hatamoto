@@ -70,7 +70,7 @@ One install = one site. It has one default language and can serve more public lo
 | Themes | packages in Postgres; install, preview, activate, settings in the admin | new | theme-directory env vars |
 | Admin auth | database sessions + CSRF | keep | JWT, Google sign-in |
 | API / MCP / CLI auth | API keys with scopes | keep | JWT bearer |
-| Roles | owner, editor, author, contributor, reviewer, read-only | simplify | content rules of author, contributor and reviewer pending |
+| Roles | owner, editor, author, contributor, reviewer, read-only | simplify | content rules of author, contributor and reviewer done |
 | Language | one site setting `language` (for `<html lang>`, JSON-LD `inLanguage`, feeds) plus an optional ordered locale list with translation groups and core-computed hreflang ([ADR 0003](adr/0003-public-locales.md)) | **simplify** | locales table, locale overrides, locale URL tokens, region picker, GeoIP |
 | Gated content | none | **remove** | gate partial, teasers, lead JWT, remember tokens |
 | AI agent access | official MCP Go SDK at `/mcp` + `hatamoto` CLI | add | — |
@@ -386,7 +386,7 @@ Every phase is additive and N-1 safe, and an install with no locale list stays b
 
 1. Apache-2.0 licence.
 2. No headless mode in 1.0.
-3. Roles: owner, editor, author, contributor, reviewer and read-only. The content rules of author, contributor and reviewer are pending; until they ship those three can read the admin and change nothing.
+3. Roles: owner, editor, author, contributor, reviewer and read-only. The content rules of author, contributor and reviewer are done: authors manage their own entries, contributors their own drafts without publishing, reviewers publish and edit any entry.
 4. Post URLs default to `/blog/{slug}` (WordPress imports keep their own structure).
 5. Autosave: drafts autosave; published posts change only on "Update".
 6. Order: public site before admin; locales killed right after the public cutover.

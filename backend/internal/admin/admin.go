@@ -608,10 +608,13 @@ func (a *Admin) Mount(r *httpx.Group) {
 	// account holds the signed-in user's own-account routes (sign-out, profile, security, sudo); authed adds the
 	// write guard for every other screen.
 	account := own.Group("", a.RequireSession, a.RequireTwoFactor, a.RequireProfile)
+	// content holds the entity, editor and media screens: they ask content.write instead of site.write, and the
+	// entity service and the media handlers decide per object.
+	content := account.Group("", a.contentGuard)
 	authed := account.Group("", a.writeGuard)
 	authed.HandleFunc("GET /", a.handleHome)
 
-	a.mountScreens(own, account, authed)
+	a.mountScreens(own, account, content, authed)
 	if a.deps.Dev {
 		authed.Group("", a.RequireCan(authz.ActionAdminStyleguide)).HandleFunc("GET /_styleguide", a.handleStyleguide)
 	}
@@ -624,7 +627,7 @@ func (a *Admin) Mount(r *httpx.Group) {
 }
 
 // mountScreens is where each admin area registers its routes.
-func (a *Admin) mountScreens(public, account, authed *httpx.Group) {
+func (a *Admin) mountScreens(public, account, content, authed *httpx.Group) {
 	limited := public
 	if a.deps.RateLimit != nil {
 		limited = public.Group("", a.deps.RateLimit)
@@ -639,10 +642,10 @@ func (a *Admin) mountScreens(public, account, authed *httpx.Group) {
 	a.mountPeople(authed)
 	a.mountSettings(authed)
 	a.mountGrowth(authed)
-	a.mountContent(authed)
+	a.mountContent(content, authed)
 	a.mountComments(authed)
 	a.mountImport(authed)
-	a.mountPageEditor(authed, public)
+	a.mountPageEditor(content, public)
 	a.mountChangesets(authed, public)
 }
 

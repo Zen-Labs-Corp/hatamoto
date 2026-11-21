@@ -43,12 +43,19 @@ func (s *Server) mountTrack(r *httpx.Group) {
 // responsible for applying AuthMiddleware once at the group level;
 // individual sub-routers add their own RequireCan gates where needed.
 func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
+	// Entity and media rules check the object against the request's subject.
+	r = r.Group("", middleware.AttachSubject)
+
 	// Auth
 	r.HandleFunc("POST /auth/logout", s.handleLogout)
 
 	// User profile
 	r.HandleFunc("GET /me", s.handleGetMe)
 	r.HandleFunc("PATCH /me", s.handleUpdateMe)
+
+	// Entities and media: a user who may not change content changes nothing;
+	// the object rules live in the entity service and the media handlers.
+	content := r.Group("", middleware.ContentGuard)
 
 	// Every other route: a user who may not change the site changes nothing.
 	r = r.Group("", middleware.WriteGuard)
@@ -114,7 +121,7 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 
 	// Entity management
 	{
-		r := r.Group("/entities", s.auditActorMiddleware)
+		r := content.Group("/entities", s.auditActorMiddleware)
 		r.HandleFunc("GET /", s.handleListEntities)
 		r.HandleFunc("POST /", s.handleCreateEntity)
 		r.HandleFunc("POST /validate", s.handleValidateEntityAttributes)
@@ -132,7 +139,7 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 
 	// Media management
 	{
-		r := r.Group("/media", s.auditActorMiddleware)
+		r := content.Group("/media", s.auditActorMiddleware)
 		r.HandleFunc("POST /upload", s.handleMediaUpload)
 		r.HandleFunc("GET /", s.handleMediaList)
 		r.HandleFunc("GET /{id}", s.handleMediaGet)

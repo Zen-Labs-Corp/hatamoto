@@ -25,7 +25,10 @@ In this guide you invite a colleague to the admin and create a key that lets a p
 
    - **Editor** manages content: pages, posts, media, menus, forms, redirects and analytics.
    - **Owner** can do everything an editor can, plus users, settings, themes, plugins, API keys and content types (the kinds of content, such as pages and posts).
-   - **Author**, **Contributor** and **Reviewer** can currently read the admin and change nothing. Their content permissions arrive in a later release.
+   - **Author** writes and publishes their own content. They can also delete and restore their own entries.
+   - **Contributor** writes drafts and edits their own; an editor or reviewer publishes them. They cannot publish, also not by scheduling.
+   - **Reviewer** edits and publishes anyone's content, but cannot create or delete entries.
+   - Author, Contributor and Reviewer can upload media and change or delete only the media they uploaded. "Their own" means the person who created the entry; entries with no known creator are changed only by owners, editors and reviewers.
    - **Read-only** sees the admin and changes nothing. They keep their own profile, password and two-step sign-in.
 
    People with the newer roles never see plugin pages. An API key made for a user acts with at most that user's role.

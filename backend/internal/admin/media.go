@@ -740,6 +740,10 @@ func (a *Admin) handleMediaUpdate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if !a.canMedia(r.Context(), authz.ActionMediaUpdate, m) {
+		a.forbidden(w, r)
+		return
+	}
 	alt, caption, credit := strings.TrimSpace(r.PostFormValue("alt_text")), strings.TrimSpace(r.PostFormValue("caption")), strings.TrimSpace(r.PostFormValue("credit"))
 	if len([]rune(alt)) > 500 || len([]rune(caption)) > 2000 || len([]rune(credit)) > 500 {
 		a.renderMediaDetail(w, r, http.StatusUnprocessableEntity, m, alt, caption, credit, "Alt text can be up to 500 characters, the caption up to 2000 and the credit up to 500.", "")
@@ -784,6 +788,10 @@ func replaceAccept(m *media.Media) string {
 func (a *Admin) handleMediaReplace(w http.ResponseWriter, r *http.Request) {
 	m, ok := a.loadMedia(w, r)
 	if !ok {
+		return
+	}
+	if !a.canMedia(r.Context(), authz.ActionMediaUpdate, m) {
+		a.forbidden(w, r)
 		return
 	}
 	ms := a.deps.Content.Media
@@ -867,6 +875,10 @@ func (a *Admin) handleMediaDelete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if !a.canMedia(r.Context(), authz.ActionMediaDelete, m) {
+		a.forbidden(w, r)
+		return
+	}
 	if err := a.deps.Content.Media.Delete(r.Context(), m.ID); err != nil {
 		a.serverError(w, r, "The file could not be deleted", err)
 		return
@@ -896,6 +908,21 @@ func (a *Admin) mediaInUse(r *http.Request, ms MediaStore, ids []string) int {
 	return used
 }
 
+// mediaAllowed reports whether the signed-in user may perform act on the file id. A file that cannot be
+// read is left to the caller's own error path.
+func (a *Admin) mediaAllowed(r *http.Request, ms MediaStore, id uuid.UUID, act authz.Action) bool {
+	m, err := ms.Get(r.Context(), id)
+	return err != nil || a.canMedia(r.Context(), act, m)
+}
+
+// skippedMediaNote is the sentence appended to a bulk result when files were left alone.
+func skippedMediaNote(n int) string {
+	if n == 0 {
+		return ""
+	}
+	return fmt.Sprintf(" %d %s skipped: you can change only media you uploaded.", n, plural(n, "item was", "items were"))
+}
+
 // bulkMove puts the ticked files in one folder: the typed new name, else the chosen one.
 func (a *Admin) bulkMove(w http.ResponseWriter, r *http.Request, ms MediaStore, ids []string, back string) {
 	want, ok := chosenFolder(r)
@@ -906,10 +933,14 @@ func (a *Admin) bulkMove(w http.ResponseWriter, r *http.Request, ms MediaStore, 
 	}
 	// The service checks the name; a stored legacy folder is accepted as it is.
 	folder := want
-	done, failed := 0, 0
+	done, failed, skipped := 0, 0, 0
 	for _, raw := range ids {
 		id, err := uuid.Parse(raw)
 		if err == nil {
+			if !a.mediaAllowed(r, ms, id, authz.ActionMediaUpdate) {
+				skipped++
+				continue
+			}
 			var m *media.Media
 			if m, err = ms.Update(r.Context(), id, &media.UpdateMediaInput{Folder: &want}); err == nil && m != nil {
 				folder = m.Folder
@@ -930,8 +961,11 @@ func (a *Admin) bulkMove(w http.ResponseWriter, r *http.Request, ms MediaStore, 
 		a.audit(r, "media.move", "media", map[string]any{"count": done, "folder": folder})
 	}
 	msg := fmt.Sprintf("Moved %d %s to %s.", done, plural(done, "file", "files"), folderLabel(folder))
+	msg += skippedMediaNote(skipped)
 	if failed > 0 {
 		a.SetFlash(w, r, "error", fmt.Sprintf("%s %d could not be moved.", msg, failed))
+	} else if skipped > 0 && done == 0 {
+		a.SetFlash(w, r, "error", msg)
 	} else {
 		a.SetFlash(w, r, "success", msg)
 	}
@@ -981,13 +1015,17 @@ func (a *Admin) handleMediaBulk(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	done, failed := 0, 0
+	done, failed, skipped := 0, 0, 0
 	for _, raw := range ids {
 		id, err := uuid.Parse(raw)
 		var m *media.Media
 		if err == nil {
 			// The name is only for the audit row; a failed read leaves it empty.
 			m, _ = ms.Get(r.Context(), id)
+			if m != nil && !a.canMedia(r.Context(), authz.ActionMediaDelete, m) {
+				skipped++
+				continue
+			}
 			err = ms.Delete(r.Context(), id)
 		}
 		if err != nil {
@@ -998,8 +1036,11 @@ func (a *Admin) handleMediaBulk(w http.ResponseWriter, r *http.Request) {
 		done++
 	}
 	msg := fmt.Sprintf("Deleted %d %s.", done, plural(done, "file", "files"))
+	msg += skippedMediaNote(skipped)
 	if failed > 0 {
 		a.SetFlash(w, r, "error", fmt.Sprintf("%s %d could not be deleted.", msg, failed))
+	} else if skipped > 0 {
+		a.SetFlash(w, r, "error", msg)
 	} else {
 		a.SetFlash(w, r, "success", msg)
 	}

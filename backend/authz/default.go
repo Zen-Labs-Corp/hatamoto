@@ -35,6 +35,7 @@ var table = map[Action]rule{
 	ActionCommentReplyAsStaff:          {editor: true, scope: "write:comments"},
 	ActionCommentSettingsManage:        {editor: false, scope: ""},
 	ActionCommentSettingsRead:          {editor: true, scope: ""},
+	ActionContentWrite:                 {editor: true, scope: ""},
 	ActionDashboardOwnerRead:           {editor: false, scope: ""},
 	ActionDashboardRead:                {editor: true, scope: ""},
 	ActionEntityCreate:                 {editor: true, scope: "write:entities"},
@@ -150,7 +151,7 @@ var readRights = []Action{
 
 // roleRights holds the rights of the built-in roles other than owner and
 // editor. Author, contributor and reviewer start with the read-only rights;
-// their content rules are added separately.
+// their content rules (contentRights) are added on top.
 var roleRights = map[string]map[Action]bool{
 	roleAuthor:      setOf(readRights),
 	roleContributor: setOf(readRights),
@@ -166,22 +167,66 @@ func setOf(as []Action) map[Action]bool {
 	return m
 }
 
-// roleAllows reports whether a user with role may do a under rule r. An
-// unknown role may do nothing.
-func roleAllows(role string, a Action, r rule) bool {
+// objectRule decides an action for a built-in content role from the object.
+type objectRule func(s Subject, o Object) bool
+
+const statusDraft = "draft"
+
+func anyObject(Subject, Object) bool { return true }
+
+// ownObject allows a capability question (empty Object) and objects the subject created.
+func ownObject(s Subject, o Object) bool {
+	return o.ID == "" || (o.CreatedBy != "" && o.CreatedBy == s.UserID)
+}
+
+// ownDraft is ownObject, and a named object must still be a draft.
+func ownDraft(s Subject, o Object) bool {
+	return ownObject(s, o) && (o.ID == "" || o.Status == statusDraft)
+}
+
+// contentRights are the object rules of the content roles, added to their read rights (roleRights).
+var contentRights = map[string]map[Action]objectRule{
+	roleAuthor: {
+		ActionContentWrite: anyObject, ActionEntityCreate: anyObject, ActionEntityUpdate: ownObject,
+		ActionEntityPublish: ownObject, ActionEntityUnpublish: ownObject, ActionEntityDelete: ownObject,
+		ActionEntityVersionRestore: ownObject, ActionMediaUpload: anyObject, ActionMediaUpdate: ownObject,
+		ActionMediaDelete: ownObject,
+	},
+	roleContributor: {
+		ActionContentWrite: anyObject, ActionEntityCreate: anyObject, ActionEntityUpdate: ownDraft,
+		ActionEntityDelete: ownDraft, ActionEntityVersionRestore: ownDraft,
+		ActionMediaUpload: anyObject, ActionMediaUpdate: ownObject, ActionMediaDelete: ownObject,
+	},
+	roleReviewer: {
+		ActionContentWrite: anyObject, ActionEntityUpdate: anyObject, ActionEntityPublish: anyObject,
+		ActionEntityUnpublish: anyObject, ActionEntityVersionRestore: anyObject,
+		ActionMediaUpload: anyObject, ActionMediaUpdate: ownObject, ActionMediaDelete: ownObject,
+	},
+}
+
+// roleAllows reports whether a user with role may do a under rule r on o. Owners and editors ignore the
+// object. An unknown role may do nothing.
+func roleAllows(role string, a Action, r rule, s Subject, o Object) bool {
 	switch role {
 	case "owner":
 		return true
 	case "editor":
 		return r.editor
 	}
-	return roleRights[role][a]
+	if roleRights[role][a] {
+		return true
+	}
+	if f := contentRights[role][a]; f != nil {
+		return f(s, o)
+	}
+	return false
 }
 
 type defaultAuthorizer struct{}
 
-// Can implements Authorizer with the built-in rules; the object is ignored.
-func (defaultAuthorizer) Can(_ context.Context, s Subject, a Action, _ Object) (bool, error) {
+// Can implements Authorizer with the built-in rules. Owners and editors ignore the object; the author,
+// contributor and reviewer roles decide some actions from its CreatedBy and Status.
+func (defaultAuthorizer) Can(_ context.Context, s Subject, a Action, o Object) (bool, error) {
 	r, ok := table[a]
 	if !ok {
 		return false, fmt.Errorf("%w: %q", ErrUnknownAction, a)
@@ -189,11 +234,11 @@ func (defaultAuthorizer) Can(_ context.Context, s Subject, a Action, _ Object) (
 	if s.KeyID != "" {
 		// A valid key always has a creator (all three key entry points reject
 		// one without), so UserID is required here as well.
-		creatorOK := s.UserID != "" && roleAllows(s.CreatorRole, a, r)
+		creatorOK := s.UserID != "" && roleAllows(s.CreatorRole, a, r, s, o)
 		return creatorOK && r.scope != "" && hasScope(s.Scopes, s.CreatorRole, r.scope), nil
 	}
 	if s.UserID == "" {
 		return false, nil
 	}
-	return roleAllows(s.Role, a, r), nil
+	return roleAllows(s.Role, a, r, s, o), nil
 }

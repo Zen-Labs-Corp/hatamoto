@@ -200,7 +200,8 @@ func validScopeList() string {
 // authority and a key without a creator can do nothing, so there must be one.
 func apiKeyCreator(ctx context.Context, db *database.DB, email string) (*uuid.UUID, error) {
 	if strings.TrimSpace(email) != "" {
-		return resolveActor(ctx, db, email)
+		_, id, err := resolveActor(ctx, db, email)
+		return id, err
 	}
 	var id uuid.UUID
 	err := db.Pool().QueryRow(ctx, `SELECT id FROM hatamoto_users WHERE role = 'owner' ORDER BY created_at, id LIMIT 1`).Scan(&id)

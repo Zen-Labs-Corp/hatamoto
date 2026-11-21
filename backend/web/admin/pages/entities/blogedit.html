@@ -11,11 +11,12 @@
 {{template "hm/button" (dict "Label" "Focus" "Variant" "ghost" "Attrs" (attrmap "data-hm-be-focus" "" "aria-pressed" "false"))}}
 {{template "hm/button" (dict "Label" "Toolbar" "Variant" "ghost" "Attrs" (attrmap "data-hm-be-toolbar" "" "aria-pressed" "true" "title" "Show or hide the formatting toolbar (Alt+Shift+T)"))}}
 {{if .CanPreview}}{{template "hm/button" (dict "Label" "Preview" "Variant" "ghost" "Attrs" (attrmap "data-hm-be-preview-toggle" "" "aria-haspopup" "dialog"))}}{{end}}
-{{if not .Published}}{{template "hm/button" (dict "Label" "Schedule" "Variant" "ghost" "Attrs" (attrmap "data-hm-be-schedule" ""))}}{{end}}
+{{if and (not .Published) (not .HidePublish)}}{{template "hm/button" (dict "Label" "Schedule" "Variant" "ghost" "Attrs" (attrmap "data-hm-be-schedule" ""))}}{{end}}
 </span>
 {{if .Published}}{{template "hm/button" (dict "Label" "Update" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "form" "hm-be" "name" "_op" "value" "save"))}}
 {{else}}{{template "hm/button" (dict "Label" "Save draft" "Type" "submit" "Attrs" (attrmap "form" "hm-be" "name" "_op" "value" "save"))}}
-{{template "hm/button" (dict "Label" "Publish" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "form" "hm-be" "name" "_op" "value" "publish"))}}{{end}}
+{{if .HidePublish}}{{template "hm/button" (dict "Label" "Send for review" "Attrs" (attrmap "aria-disabled" "true" "aria-describedby" "be-review-why" "data-hm-review-placeholder" ""))}}<span class="hm-visually-hidden" id="be-review-why">Reviews are not available yet. An editor or reviewer publishes this draft.</span>
+{{else}}{{template "hm/button" (dict "Label" "Publish" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "form" "hm-be" "name" "_op" "value" "publish"))}}{{end}}{{end}}
 {{template "hm/button" (dict "Label" "More actions" "AriaLabel" "More actions" "IconOnly" true "Icon" "more" "Variant" "ghost" "Attrs" (attrmap "aria-haspopup" "menu" "aria-expanded" "false" "popovertarget" "be-more"))}}
 <div class="hm-menu" id="be-more" popover role="menu" aria-label="More actions"><a role="menuitem" href="{{.VersionsHref}}">Versions</a><a role="menuitem" href="{{.DetailsHref}}">Details</a>{{with .ShareHref}}<a role="menuitem" href="{{.}}">Share preview</a>{{end}}{{with .ViewHref}}<a role="menuitem" href="{{.}}">View on site</a>{{end}}
 <button type="button" role="menuitem" class="hm-be__menu-drawer" hidden data-hm-be-settings>Settings</button>
@@ -23,7 +24,7 @@
 <button type="button" role="menuitem" class="hm-be__menu-narrow" hidden data-hm-be-proxy="toolbar">Formatting toolbar</button>
 {{if .CanPreview}}<button type="button" role="menuitem" class="hm-be__menu-narrow" hidden data-hm-be-proxy="preview-toggle">Preview</button>
 <button type="submit" role="menuitem" form="hm-be" formaction="{{adminPath}}/entities/{{.ID}}/edit/preview" formtarget="_blank" formnovalidate name="_op" value="preview">Open preview in a new tab</button>{{end}}
-{{if not .Published}}<button type="button" role="menuitem" class="hm-be__menu-narrow" hidden data-hm-be-proxy="schedule">Schedule</button>{{end}}
+{{if and (not .Published) (not .HidePublish)}}<button type="button" role="menuitem" class="hm-be__menu-narrow" hidden data-hm-be-proxy="schedule">Schedule</button>{{end}}
 {{with .DuplicateHref}}<form method="post" action="{{.}}">{{template "hm/csrf" $}}<button role="menuitem">Duplicate</button></form>{{end}}
 <div role="separator"></div><a role="menuitem" href="{{adminPath}}/entities/{{.ID}}/delete" data-hm-confirm="This entity and its version history will be deleted. This cannot be undone." data-hm-confirm-label="Delete entity" data-hm-post="{{adminPath}}/entities/{{.ID}}/delete" data-tone="danger" data-hm-danger>Delete</a></div>
 {{end}}{{end}}
@@ -63,8 +64,8 @@
 <h2 class="hm-be__panel-h" data-hm-be-panel-h>Post</h2>
 {{template "hm/card-start" dict "ID" "be-publish" "Title" "Publish"}}
 <div class="hm-stack">
-{{template "hm/field" dict "ID" "status" "Name" "status" "Label" "Status" "Control" "select" "Options" .StatusOptions "Error" (index .Errors "status")}}
-<div data-hm-be-sched>
+{{template "hm/field" dict "ID" "status" "Name" "status" "Label" "Status" "Control" "select" "Options" .StatusOptions "Help" .StatusHelp "Error" (index .Errors "status")}}
+{{if not .HidePublish}}<div data-hm-be-sched>
 {{template "hm/field" dict "ID" "schedule" "Name" "schedule" "Label" "Publish at" "Type" "datetime-local" "Value" .Schedule "Help" (printf "Used when the status is Scheduled. Times are in %s." .Zone) "Error" (index .Errors "schedule")}}
 </div>
 <div class="hm-field" data-hm-be-sched-js data-hm-zone="{{.Zone}}" hidden>
@@ -80,7 +81,7 @@
 </fieldset></div>
 <footer>{{template "hm/button" (dict "Label" "Cancel" "Attrs" (attrmap "popovertarget" "be-sched-pop" "popovertargetaction" "hide"))}}{{template "hm/button" (dict "Label" "Apply" "Variant" "primary" "Attrs" (attrmap "data-hm-be-sched-apply" ""))}}</footer>
 </div>
-</div>
+</div>{{end}}
 {{template "hm/unpublishfields" .}}
 {{template "hm/field" dict "ID" "slug" "Name" "slug" "Label" "Slug" "Value" .Slug "Help" (or (and .SlugAuto "Follows the title until you change it.") "The address of this post. Changing it after publishing breaks links.") "Error" (index .Errors "slug") "Attrs" (attrmap "autocomplete" "off" "data-hm-slug-from" "name" "data-hm-slug-auto" (or (and .SlugAuto "1") "0"))}}
 </div>

@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/middleware"
 )
@@ -304,6 +305,9 @@ func (s *Server) handleCreateEntity(w http.ResponseWriter, r *http.Request) {
 
 	ent, err := s.entityService.CreateEntity(r.Context(), &claims.UserID, &input)
 	if err != nil {
+		if writeNotAllowed(w, err) {
+			return
+		}
 		if errors.Is(err, entity.ErrSchemaNotFound) {
 			writeError(w, http.StatusBadRequest, "schema not found")
 			return
@@ -380,6 +384,18 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 	}
 	s.logAPIKeyWrite(r, "update", idStr)
 
+	if body.Position != nil {
+		existing, err := s.entityService.GetEntity(r.Context(), id)
+		if err != nil {
+			s.writeEntityUpdateError(w, err)
+			return
+		}
+		if !middleware.Can(r.Context(), authz.ActionEntityReorder, existing.AuthzObject()) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+	}
+
 	var ent *entity.Entity
 	if moveOnly {
 		res, err := s.entityService.MoveEntity(r.Context(), id, &claims.UserID, entity.MoveInput{
@@ -421,6 +437,7 @@ func isMoveOnly(in entity.UpdateEntityInput) bool {
 // writeEntityUpdateError answers a failed update or move.
 func (s *Server) writeEntityUpdateError(w http.ResponseWriter, err error) {
 	switch {
+	case writeNotAllowed(w, err):
 	case errors.Is(err, entity.ErrEntityNotFound):
 		writeError(w, http.StatusNotFound, "entity not found")
 	case errors.Is(err, entity.ErrValidationFailed):
@@ -455,6 +472,9 @@ func (s *Server) handleUpdateEntityStatus(w http.ResponseWriter, r *http.Request
 
 	ent, err := s.entityService.UpdateEntityStatus(r.Context(), id, &claims.UserID, input.Status)
 	if err != nil {
+		if writeNotAllowed(w, err) {
+			return
+		}
 		if errors.Is(err, entity.ErrEntityNotFound) {
 			writeError(w, http.StatusNotFound, "entity not found")
 			return
@@ -482,6 +502,9 @@ func (s *Server) handleDeleteEntity(w http.ResponseWriter, r *http.Request) {
 
 	err = s.entityService.DeleteEntity(r.Context(), id)
 	if err != nil {
+		if writeNotAllowed(w, err) {
+			return
+		}
 		if errors.Is(err, entity.ErrEntityNotFound) {
 			writeError(w, http.StatusNotFound, "entity not found")
 			return
@@ -586,6 +609,9 @@ func (s *Server) handleRestoreEntityVersion(w http.ResponseWriter, r *http.Reque
 
 	ent, err := s.entityService.RestoreVersion(r.Context(), id, &claims.UserID, version)
 	if err != nil {
+		if writeNotAllowed(w, err) {
+			return
+		}
 		if errors.Is(err, entity.ErrEntityNotFound) {
 			writeError(w, http.StatusNotFound, "entity not found")
 			return
@@ -633,6 +659,16 @@ func (s *Server) handleValidateEntityAttributes(w http.ResponseWriter, r *http.R
 
 	result := s.entityService.ValidateEntityAttributes(r.Context(), input.SchemaID, input.Attributes)
 	writeJSON(w, http.StatusOK, result)
+}
+
+// writeNotAllowed answers 403 with the refusal sentence when err is
+// entity.ErrNotAllowed, and reports whether it did.
+func writeNotAllowed(w http.ResponseWriter, err error) bool {
+	if !errors.Is(err, entity.ErrNotAllowed) {
+		return false
+	}
+	writeError(w, http.StatusForbidden, err.Error())
+	return true
 }
 
 // writeEntityRefError answers the errors of an entity's slug, parent and

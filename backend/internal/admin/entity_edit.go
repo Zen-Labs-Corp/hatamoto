@@ -122,7 +122,12 @@ type entityForm struct {
 	Status         string
 	IsPerson       bool // a person's visibility is its Public switch: no status or schedule
 	StatusOptions  []ui.Option
-	Schedule, Zone string
+	// HidePublish is true when the signed-in user may not publish this entry: no Published or Scheduled option and no
+	// "Publish at" field. HideUnpublish hides the scheduled-unpublish fields likewise. StatusHelp says why. The zero
+	// values are today's form (owners and editors).
+	HidePublish, HideUnpublish bool
+	StatusHelp                 string
+	Schedule, Zone             string
 	// UnpublishAt, UnpublishRedirect are the scheduled unpublish (site time, form layout);
 	// UnpublishPosted is true when the form carried the fields.
 	UnpublishAt, UnpublishRedirect string
@@ -549,9 +554,14 @@ func seoFromForm(r *http.Request) seoForm {
 		MaxSnippet: strings.TrimSpace(r.PostFormValue("seo_max_snippet")), MaxImagePreview: r.PostFormValue("seo_max_image_preview")}
 }
 
-func entityStatusOptions(selected string) []ui.Option {
+// entityStatusOptions lists the statuses an entry can be set to. With hidePublish the Published and Scheduled options
+// are dropped, unless one of them is the current status (a published entry still shows its status).
+func entityStatusOptions(selected string, hidePublish bool) []ui.Option {
 	var out []ui.Option
 	for _, s := range []struct{ v, l string }{{"draft", "Draft"}, {"published", "Published"}, {"scheduled", "Scheduled"}, {"archived", "Archived"}} {
+		if hidePublish && (s.v == "published" || s.v == "scheduled") && s.v != selected {
+			continue
+		}
 		out = append(out, ui.Option{Value: s.v, Label: s.l, Selected: s.v == selected})
 	}
 	return out
@@ -563,7 +573,17 @@ func (a *Admin) fill(r *http.Request, f *entityForm, sc *entity.EntitySchema, se
 	ctx := r.Context()
 	loc := a.siteLocation(ctx)
 	f.Zone = loc.String()
-	f.StatusOptions = entityStatusOptions(f.Status)
+	if self != nil {
+		f.HidePublish = !a.canEntity(ctx, authz.ActionEntityPublish, self)
+		f.HideUnpublish = !a.canEntity(ctx, authz.ActionEntityUnpublish, self)
+	} else {
+		f.HidePublish = !a.canObj(ctx, authz.ActionEntityPublish, authz.Object{Kind: "entity", Schema: sc.Slug})
+		f.HideUnpublish = !a.canObj(ctx, authz.ActionEntityUnpublish, authz.Object{Kind: "entity", Schema: sc.Slug})
+	}
+	if f.HidePublish {
+		f.StatusHelp = "An editor or reviewer publishes drafts."
+	}
+	f.StatusOptions = entityStatusOptions(f.Status, f.HidePublish)
 	f.SchemaSlug, f.SchemaName = sc.Slug, sc.Name
 	f.IsPerson = sc.Slug == person.SchemaSlug
 	f.ShowUnpublish = !f.IsPerson && c.Unpublish != nil
@@ -603,7 +623,7 @@ func (a *Admin) fill(r *http.Request, f *entityForm, sc *entity.EntitySchema, se
 			}
 		}
 	}
-	if c.Terms != nil {
+	if c.Terms != nil && a.can(ctx, authz.ActionEntityTermsUpdate) {
 		if nodes, err := a.termNodes(ctx); err == nil {
 			f.ShowTerms = true
 			kinds := map[string]bool{"tag": true, "category": true}
@@ -861,6 +881,10 @@ func (a *Admin) handleEntityAnalyze(w http.ResponseWriter, r *http.Request) {
 func (a *Admin) handleEntityEdit(w http.ResponseWriter, r *http.Request) {
 	e, sc, ok := a.loadEntity(w, r)
 	if !ok {
+		return
+	}
+	if !a.canEntity(r.Context(), authz.ActionEntityUpdate, e) {
+		a.renderEntityReadOnly(w, r, e, sc)
 		return
 	}
 	c := a.deps.Content
@@ -1155,6 +1179,9 @@ func (a *Admin) handleEntityCreate(w http.ResponseWriter, r *http.Request) {
 			a.renderEntityForm(w, r, http.StatusUnprocessableEntity, p.f, nil, sc, p.attrs, p.errs, p.parentID, p.authorID, p.picked)
 			return
 		}
+		if a.refuseNotAllowed(w, r, err) {
+			return
+		}
 		a.serverError(w, r, "The entity could not be created", err)
 		return
 	}
@@ -1299,7 +1326,7 @@ func (a *Admin) afterSave(r *http.Request, p *posted, e *entity.Entity, sc *enti
 			notes = append(notes, note)
 		}
 	}
-	if c.Terms != nil && p.termsSet {
+	if c.Terms != nil && p.termsSet && a.can(ctx, authz.ActionEntityTermsUpdate) {
 		ids := make([]uuid.UUID, 0, len(p.picked))
 		for raw := range p.picked {
 			if id, err := uuid.Parse(raw); err == nil {
@@ -1404,6 +1431,9 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 		}
 		if a.entityFormError(r, p.f, err) {
 			a.renderEntityForm(w, r, http.StatusUnprocessableEntity, p.f, e, sc, p.attrs, p.errs, p.parentID, p.authorID, p.picked)
+			return
+		}
+		if a.refuseNotAllowed(w, r, err) {
 			return
 		}
 		a.serverError(w, r, "The entity could not be saved", err)

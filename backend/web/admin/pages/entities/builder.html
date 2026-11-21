@@ -27,7 +27,7 @@
 {{if .Shell.SaveLabel}}{{template "hm/button" (dict "Label" .Shell.SaveLabel "Variant" "primary" "Attrs" (attrmap "hidden" "hidden" "data-hm-bs-js" "" "data-hm-bs-save" "save"))}}
 {{else if .Published}}{{template "hm/button" (dict "Label" "Update" "Variant" "primary" "Attrs" (attrmap "hidden" "hidden" "data-hm-bs-js" "" "data-hm-bs-save" "save"))}}
 {{else}}{{template "hm/button" (dict "Label" "Save draft" "Attrs" (attrmap "hidden" "hidden" "data-hm-bs-js" "" "data-hm-bs-save" "save" "data-hm-phone-fold" (printf "%t" .CanPublish)))}}
-{{if .CanPublish}}{{template "hm/button" (dict "Label" "Publish" "Variant" "primary" "Attrs" (attrmap "hidden" "hidden" "data-hm-bs-js" "" "data-hm-bs-save" "publish"))}}{{end}}{{end}}
+{{if .HidePublish}}{{template "hm/button" (dict "Label" "Send for review" "Attrs" (attrmap "hidden" "hidden" "data-hm-bs-js" "" "aria-disabled" "true" "aria-describedby" "bs-review-why" "data-hm-review-placeholder" ""))}}<span class="hm-visually-hidden" id="bs-review-why">Reviews are not available yet. An editor or reviewer publishes this draft.</span>{{else if .CanPublish}}{{template "hm/button" (dict "Label" "Publish" "Variant" "primary" "Attrs" (attrmap "hidden" "hidden" "data-hm-bs-js" "" "data-hm-bs-save" "publish"))}}{{end}}{{end}}
 </span>
 {{else}}<span class="hm-editor-bar__title">{{.Name}}</span>{{end}}{{end}}{{end}}
 {{define "main"}}<h1 class="hm-visually-hidden">Edit {{.Data.Name}}</h1>

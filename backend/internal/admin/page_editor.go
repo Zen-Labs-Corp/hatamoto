@@ -208,6 +208,10 @@ func (a *Admin) handleEntityEditor(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if !a.canEntity(r.Context(), authz.ActionEntityUpdate, e) {
+		a.renderEntityReadOnly(w, r, e, sc)
+		return
+	}
 	if blogEditorFor(sc) {
 		a.handleBlogEditor(w, r, e, sc)
 		return

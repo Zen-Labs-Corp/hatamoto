@@ -175,9 +175,9 @@ To invite someone step by step, follow [Invite people and create API keys](users
 |---|---|
 | Editor | Manage content: entities, media, menus, forms, redirects, linking, blocks, templates, analytics |
 | Owner | Everything an editor can, plus users, settings, themes, plugins, API keys and entity types |
-| Author | Reads the admin and changes nothing for now; content permissions arrive in a later release |
-| Contributor | Reads the admin and changes nothing for now; content permissions arrive in a later release |
-| Reviewer | Reads the admin and changes nothing for now; content permissions arrive in a later release |
+| Author | Creates entries and edits, publishes, unpublishes, deletes and restores their own; uploads media and changes or deletes their own uploads |
+| Contributor | Creates entries and edits, deletes and restores their own drafts; never publishes, also not by scheduling; uploads media and changes or deletes their own uploads |
+| Reviewer | Edits, publishes, unpublishes and restores anyone's entries; cannot create or delete them; uploads media and changes or deletes their own uploads |
 | Read-only | Sees the admin and changes nothing; keeps their own profile, password and two-step sign-in |
 
 The new roles never see plugin pages.
@@ -229,7 +229,7 @@ Submissions come newest first. Each submission has a status (`new`, `read`, `arc
 |---|---|
 | Showing the key | Shown **once**, right after creation, on a page that is not cached. Creating it is a POST, a redirect, then a GET, and the secret waits two minutes in memory for that one GET, so reloading cannot mint a second key. |
 | Sending the key | In the `X-API-Key` header. |
-| Rights | A key acts with at most the current role of the user who created it, limited to its scopes. A key made by a Read-only, Author, Contributor or Reviewer user can read but never write. It stops working when that user is deleted or loses a role that may use keys. |
+| Rights | A key acts with at most the current role of the user who created it, limited to its scopes. A key made by a Read-only user can read but never write. A key made by an Author, Contributor or Reviewer user follows that role's content rules and never changes or deletes media. It stops working when that user is deleted or loses a role that may use keys. |
 | Allowed routes | Only a fixed list of API routes accepts keys. A bad, revoked or expired key gets HTTP 401 `{"error":"invalid api key"}`; a route outside the key's scopes gets HTTP 403 `{"error":"forbidden"}`. |
 | Rate limit | A key over its rate limit gets HTTP 429 with `Retry-After: 60`. |
 | Row actions | **New secret** (replaces the secret; the old one stops working), **Revoke** and **Delete**, each with a confirmation page. |

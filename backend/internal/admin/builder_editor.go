@@ -32,7 +32,7 @@ func builderDoc(e *entity.Entity) (*builder.Doc, docState) { return entity.Build
 // no-JS outline sits inside <noscript>; ?outline=1 shows it as the page itself.
 func (a *Admin) handleBuilderScreen(w http.ResponseWriter, r *http.Request, e *entity.Entity, sc *entity.EntitySchema, doc *builder.Doc) {
 	plain := r.URL.Query().Get("outline") == "1"
-	d, err := a.outlineData(e, doc, newOutlineState(), plain, e.Name)
+	d, err := a.outlineData(r.Context(), e, doc, newOutlineState(), plain, e.Name)
 	if err != nil {
 		a.serverError(w, r, "The page outline could not be built", err)
 		return

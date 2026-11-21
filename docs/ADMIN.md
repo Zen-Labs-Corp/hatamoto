@@ -982,8 +982,15 @@ hatamoto.dev. Update status lives on Settings > Updates and in the update banner
 
 Users and settings are owner-only (editors have `<admin>/profile`). The six built-in roles are
 owner, editor, author, contributor, reviewer and read-only. Author, contributor, reviewer and
-read-only can read the admin, keep their own profile, password and two-step sign-in, and change
-nothing else; the content rules of the first three arrive in a later release. They never see
+read-only can read the admin and keep their own profile, password and two-step sign-in. Read-only
+changes nothing else. The other three change content within their own rules: an author creates
+entries and edits, publishes, unpublishes, deletes and restores their own; a contributor creates
+entries and edits, deletes and restores their own drafts but never publishes, scheduling
+included; a reviewer edits, publishes, unpublishes and restores any entry but cannot create or
+delete. All three upload media and change or delete only the media they uploaded. "Own" means
+the user who created the entry, not the byline; an entry without a known creator (created by
+the CLI without `--as`, imported, or by a user since deleted) is changed only by owners,
+editors and reviewers. They never see
 plugin pages. The per-screen owner and editor columns in this file do not list them; the roles table is in `docs/site/admin/settings-users-email.md`. A key made
 for a user acts with at most that user's role. The last owner
 cannot be deleted or demoted (enforced in the repository, race-safe). Email is

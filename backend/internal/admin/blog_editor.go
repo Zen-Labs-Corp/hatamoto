@@ -634,6 +634,9 @@ func (a *Admin) handleBlogSave(w http.ResponseWriter, r *http.Request, e *entity
 			a.notFound(w, r, "Entity", a.adminPath+"/entities", "Back to entities")
 			return
 		}
+		if a.refuseNotAllowed(w, r, err) {
+			return
+		}
 		if a.entityFormError(r, p.f, err) {
 			render(http.StatusUnprocessableEntity, false)
 			return
@@ -746,6 +749,10 @@ func (a *Admin) handleBlogAutosave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err != nil {
+		if errors.Is(err, entity.ErrNotAllowed) {
+			reply(http.StatusForbidden, autosaveReply{Version: e.Version, Error: sentence(err.Error())})
+			return
+		}
 		if errors.Is(err, entity.ErrValidationFailed) || errors.Is(err, entity.ErrRejectedByPlugin) {
 			reply(http.StatusUnprocessableEntity, autosaveReply{Version: e.Version, Error: sentence(err.Error())})
 			return

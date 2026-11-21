@@ -22,6 +22,7 @@ import (
 	"hatamoto.dev/core/internal/analytics"
 	"hatamoto.dev/core/internal/auditctx"
 	hmauth "hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authzctx"
 	"hatamoto.dev/core/internal/authzsubject"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
@@ -262,9 +263,10 @@ func register[In any](s *Server, spec toolSpec, h func(ctx context.Context, key 
 		case !ok:
 			err = userErr("forbidden: the %s tool is not allowed for this key", spec.name)
 		default:
-			hctx := ctx
+			// The entity service checks the object with the key's creator and scopes.
+			hctx := authzctx.With(ctx, authzsubject.ForKey(key))
 			if spec.write {
-				hctx = auditctx.With(ctx, keyActor(key))
+				hctx = auditctx.With(hctx, keyActor(key))
 			}
 			out, err = h(hctx, key, in)
 		}
@@ -294,6 +296,8 @@ func publicError(l *slog.Logger, tool string, err error) error {
 	switch {
 	case errors.As(err, &ue):
 		return ue
+	case errors.Is(err, entity.ErrNotAllowed):
+		return userErr("forbidden: %s", err.Error())
 	case errors.Is(err, entity.ErrSchemaNotFound), errors.Is(err, entity.ErrEntityNotFound),
 		errors.Is(err, entity.ErrSlugAlreadyExists), errors.Is(err, entity.ErrValidationFailed),
 		errors.Is(err, entity.ErrParentNotFound), errors.Is(err, entity.ErrParentCycle), errors.Is(err, entity.ErrParentTooDeep),

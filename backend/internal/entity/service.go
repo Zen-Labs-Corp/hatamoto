@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/text/unicode/norm"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/jsonx"
 )
 
@@ -313,6 +314,9 @@ func (s *Service) CreateEntity(ctx context.Context, userID *uuid.UUID, input *Cr
 	if err != nil {
 		return nil, err
 	}
+	if err := Authorize(ctx, authz.ActionEntityCreate, authz.Object{Kind: "entity", Schema: schema.Slug, Locale: input.Locale}); err != nil {
+		return nil, err
+	}
 	input.Locale = schema.DefaultLocale(input.Locale, func() bool { return s.siteIsMulti(ctx) })
 
 	// Validate attributes against schema
@@ -360,6 +364,9 @@ func (s *Service) CreateEntity(ctx context.Context, userID *uuid.UUID, input *Cr
 		return nil, err
 	}
 	input.Status = lockedStatus(schema, input.Attributes)
+	if err := authorizeLocked(ctx, StatusDraft, input.Status, authz.Object{Kind: "entity", Schema: schema.Slug, Locale: input.Locale}); err != nil {
+		return nil, err
+	}
 
 	entity, err := s.entityRepo.Create(ctx, userID, input)
 	if err != nil {
@@ -414,6 +421,9 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 	// Get current entity to validate against its schema
 	existing, err := s.entityRepo.GetByID(ctx, id)
 	if err != nil {
+		return nil, err
+	}
+	if err := Authorize(ctx, authz.ActionEntityUpdate, existing.AuthzObject()); err != nil {
 		return nil, err
 	}
 
@@ -515,6 +525,9 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 	}
 	if st := lockedStatus(existing.Schema, attrs); st != nil {
 		input.Status = st
+		if err := authorizeLocked(ctx, existing.Status, st, existing.AuthzObject()); err != nil {
+			return nil, err
+		}
 	}
 
 	entity, err := s.entityRepo.Update(ctx, id, userID, input)
@@ -687,6 +700,14 @@ func (s *Service) UpdateEntityStatus(ctx context.Context, id uuid.UUID, userID *
 	var schemaSlug string
 	var reuse bool
 	prev, prevErr := s.entityRepo.GetByID(ctx, id)
+	if hasSubject(ctx) {
+		if prevErr != nil {
+			return nil, prevErr
+		}
+		if err := Authorize(ctx, statusAction(prev.Status, status), prev.AuthzObject()); err != nil {
+			return nil, err
+		}
+	}
 	if prevErr == nil {
 		prevStatus = prev.Status
 		if prev.Schema != nil {
@@ -749,7 +770,16 @@ func (s *Service) ScheduleEntity(ctx context.Context, id uuid.UUID, userID *uuid
 		return nil, ErrScheduleInPast
 	}
 	var prevStatus EntityStatus
-	if prev, err := s.entityRepo.GetByID(ctx, id); err == nil {
+	prev, prevErr := s.entityRepo.GetByID(ctx, id)
+	if hasSubject(ctx) {
+		if prevErr != nil {
+			return nil, prevErr
+		}
+		if err := Authorize(ctx, authz.ActionEntityPublish, prev.AuthzObject()); err != nil {
+			return nil, err
+		}
+	}
+	if prevErr == nil {
 		prevStatus = prev.Status
 		if prev.Schema != nil {
 			if prev.Schema.Slug == personSchemaSlug {
@@ -774,6 +804,10 @@ func (s *Service) ScheduleEntity(ctx context.Context, id uuid.UUID, userID *uuid
 
 // DeleteEntity removes an entity.
 func (s *Service) DeleteEntity(ctx context.Context, id uuid.UUID) error {
+	// Asked first: a caller who may not delete must not learn whether the entity has children.
+	if err := s.authorizeStored(ctx, id, authz.ActionEntityDelete); err != nil {
+		return err
+	}
 	// Deleting a parent would re-root its children: their URLs change without a
 	// redirect, and siblings of one slug under other parents could collide.
 	if hs, ok := s.entityRepo.(HierarchyStore); ok {
@@ -878,6 +912,9 @@ func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID
 	if err != nil {
 		return nil, err
 	}
+	if err := Authorize(ctx, authz.ActionEntityVersionRestore, existing.AuthzObject()); err != nil {
+		return nil, err
+	}
 
 	// Validate the old attributes still conform to the current schema
 	if err := s.validator.ValidateAttributes(existing.Schema.Schema, ver.Attributes); err != nil {
@@ -899,11 +936,16 @@ func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID
 
 	changeSummary := fmt.Sprintf("Restored from version %d", version)
 
+	locked := lockedStatus(existing.Schema, restoredAttrs)
+	if err := authorizeLocked(ctx, existing.Status, locked, existing.AuthzObject()); err != nil {
+		return nil, err
+	}
+
 	// Update with the old attributes
 	entity, err := s.entityRepo.Update(ctx, entityID, userID, &UpdateEntityInput{
 		Attributes:    &restoredAttrs,
 		ChangeSummary: &changeSummary,
-		Status:        lockedStatus(existing.Schema, restoredAttrs),
+		Status:        locked,
 		TakeOwnership: structuralAttrsChanged(existing.Schema, ver.Attributes, existing.Attributes),
 	})
 	if err != nil {
@@ -1107,6 +1149,9 @@ func (s *Service) SetUnpublish(ctx context.Context, id uuid.UUID, at time.Time, 
 	if s.unpublish == nil {
 		return errors.New("scheduled unpublish is not available")
 	}
+	if err := s.authorizeStored(ctx, id, authz.ActionEntityUnpublish); err != nil {
+		return err
+	}
 	return s.unpublish.Set(ctx, id, at, target)
 }
 
@@ -1114,6 +1159,9 @@ func (s *Service) SetUnpublish(ctx context.Context, id uuid.UUID, at time.Time, 
 func (s *Service) ClearUnpublish(ctx context.Context, id uuid.UUID) error {
 	if s.unpublish == nil {
 		return nil
+	}
+	if err := s.authorizeStored(ctx, id, authz.ActionEntityUnpublish); err != nil {
+		return err
 	}
 	return s.unpublish.Clear(ctx, id)
 }

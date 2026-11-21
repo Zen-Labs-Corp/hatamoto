@@ -423,6 +423,9 @@ func (a *Admin) handleVersionRestoreNode(w http.ResponseWriter, r *http.Request)
 	}
 	summary := fmt.Sprintf("Restored node “%s” from version %d", name, n)
 	if _, err := a.saveBuilderDocAs(r.Context(), actorID(r), e, raw, opSave, nil, summary); err != nil {
+		if a.refuseNotAllowed(w, r, err) {
+			return
+		}
 		var p *saveProblem
 		if errors.As(err, &p) {
 			a.ErrorBack(w, r, p.Status, "The node could not be restored", p.Msg, versions, "Back to versions")

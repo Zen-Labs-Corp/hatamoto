@@ -320,6 +320,9 @@ func (a *Admin) handleVersionRestore(w http.ResponseWriter, r *http.Request) {
 	id := e.ID.String()
 	restored, err := a.deps.Content.Entities.RestoreVersion(r.Context(), e.ID, actorID(r), n)
 	if err != nil {
+		if a.refuseNotAllowed(w, r, err) {
+			return
+		}
 		switch {
 		case errors.Is(err, entity.ErrVersionNotFound):
 			a.ErrorBack(w, r, http.StatusNotFound, "Version not found", "That version no longer exists.", a.adminPath+"/entities/"+id+"/versions", "Back to versions")

@@ -1,0 +1,12 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Name "Description" .SchemaName}}
+{{template "hm/tabs" dict "Label" "Entity sections" "Items" .Tabs}}
+<section class="hm-stack">
+{{template "hm/callout" (dict "Kind" "info" "Title" .BannerTitle "Body" .BannerBody)}}
+{{if .Fields}}{{template "hm/card-start" dict "Title" "Content"}}<div class="hm-table__scroll" role="region" aria-label="Content of this entry" tabindex="0"><table class="hm-table hm-diff"><caption class="hm-visually-hidden">Content of {{.Name}}</caption>
+<thead><tr><th scope="col">Field</th><th scope="col">Value</th></tr></thead>
+<tbody>{{range .Fields}}<tr><th scope="row" class="hm-diff__field"><code>{{.Path}}</code></th><td><pre class="hm-diff__value">{{.Left}}</pre></td></tr>
+{{end}}</tbody></table></div>{{template "hm/card-end"}}
+{{else}}{{template "hm/empty" dict "Icon" "file-text" "Title" "No content" "Body" "Nothing is saved in this entry yet."}}{{end}}
+</section>
+{{end}}{{end}}

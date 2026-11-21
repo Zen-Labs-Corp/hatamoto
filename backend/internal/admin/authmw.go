@@ -8,6 +8,7 @@ import (
 
 	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authzctx"
 	"hatamoto.dev/core/internal/authzsubject"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/middleware"
@@ -61,6 +62,7 @@ func (a *Admin) RequireSession(next http.Handler) http.Handler {
 		ctx := r.Context()
 		claims := &auth.Claims{UserID: u.ID, Email: u.Email, Role: string(u.Role), IsSuperadmin: u.Role == user.RoleOwner}
 		ctx = middleware.ContextWithClaims(ctx, claims)
+		ctx = authzctx.With(ctx, authzsubject.ForSession(u.ID.String(), string(u.Role)))
 		ctx = database.WithUser(ctx, u.ID)
 		if claims.IsSuperadmin {
 			ctx = database.WithSuperadmin(ctx)

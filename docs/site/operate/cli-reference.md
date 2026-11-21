@@ -137,7 +137,7 @@ hatamoto entity publish <id> [--as EMAIL]
 hatamoto entity unpublish <id> [--as EMAIL]
 ```
 
-`entity list` prints one tab-separated row per item (id, status, schema, slug, name), up to `--limit` rows (default 50, at most 100), filtered by schema slug, status (`draft`, `scheduled`, `published` or `archived`) and a name search. `entity create` makes a draft unless `--publish` is given; `--slug` defaults to one made from the name. It checks the attributes against the schema and sanitises rich-text HTML as the API does. `--as EMAIL` attributes the change to an existing user; without it the author columns stay empty. `get`, `create`, `publish` and `unpublish` print the item as JSON.
+`entity list` prints one tab-separated row per item (id, status, schema, slug, name), up to `--limit` rows (default 50, at most 100), filtered by schema slug, status (`draft`, `scheduled`, `published` or `archived`) and a name search. `entity create` makes a draft unless `--publish` is given; `--slug` defaults to one made from the name. It checks the attributes against the schema and sanitises rich-text HTML as the API does. `--as EMAIL` attributes the change to an existing user and applies that user's role (a contributor cannot publish); without it the author columns stay empty and no role limit applies. `get`, `create`, `publish` and `unpublish` print the item as JSON.
 
 ```bash
 hatamoto entity create --schema page --name "About us" --slug about --attributes '{"content":"<p>Hello</p>"}' --publish --as you@example.com
