@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/frameticket"
 )
 
 // A frame ticket is the credential in the URL of an admin document that loads
@@ -40,29 +42,33 @@ const (
 )
 
 const (
-	ticketMax = 256
+	ticketMax      = frameticket.MaxTickets
+	ticketMaxBytes = frameticket.MaxBytes
 	// previewMaxBody is what the render preview accepts for one draft;
 	// ticketMaxBytes bounds every staged body at once.
 	previewMaxBody = 4 << 20
-	ticketMaxBytes = 32 << 20
+
+	// ticketStoreTimeout bounds one backend call; a slow backend refuses.
+	ticketStoreTimeout = 2 * time.Second
 )
 
-type issuedTicket struct {
-	purpose string
-	session uuid.UUID
-	target  string
-	expiry  time.Time
-	payload []byte
+// ticketStore signs and checks tickets; the unspent records live in a
+// frameticket.Backend. The HMAC makes a forged string fail; the backend makes
+// a ticket one-time and carries the staged body of a preview.
+type ticketStore struct {
+	key     []byte
+	now     func() time.Time    // nil: time.Now (tests set it)
+	backend frameticket.Backend // nil: an in-process frameticket.Memory, made on first use
+	once    sync.Once
 }
 
-// ticketStore is the bounded set of tickets that were minted and not yet used.
-// The HMAC makes a forged string fail; the set makes a ticket one-time and
-// carries the staged body of a preview.
-type ticketStore struct {
-	mu  sync.Mutex
-	m   map[string]issuedTicket // key: the nonce, base64url
-	key []byte
-	now func() time.Time // nil: time.Now (tests set it)
+func (s *ticketStore) store() frameticket.Backend {
+	s.once.Do(func() {
+		if s.backend == nil {
+			s.backend = &frameticket.Memory{}
+		}
+	})
+	return s.backend
 }
 
 // deriveTicketKey is the ticket HMAC key, domain separated from the other
@@ -115,31 +121,11 @@ func (s *ticketStore) mint(purpose string, sess uuid.UUID, target string, payloa
 	raw := append(nonce[:nonceLen:nonceLen], s.tag(purpose, sess, target, nonce, expiry.Unix())...)
 	key := base64.RawURLEncoding.EncodeToString(nonce)
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.m == nil {
-		s.m = map[string]issuedTicket{}
+	ctx, cancel := context.WithTimeout(context.Background(), ticketStoreTimeout)
+	defer cancel()
+	if err := s.store().Put(ctx, frameticket.Ticket{Nonce: key, Purpose: purpose, Session: sess, Target: target, Expiry: expiry, Payload: payload}, now); err != nil {
+		return ""
 	}
-	total := len(payload)
-	for k, v := range s.m {
-		if now.After(v.expiry) {
-			delete(s.m, k)
-			continue
-		}
-		total += len(v.payload)
-	}
-	for len(s.m) > 0 && (len(s.m) >= ticketMax || total > ticketMaxBytes) { // evict the oldest
-		var oldest string
-		var at time.Time
-		for k, v := range s.m {
-			if oldest == "" || v.expiry.Before(at) {
-				oldest, at = k, v.expiry
-			}
-		}
-		total -= len(s.m[oldest].payload)
-		delete(s.m, oldest)
-	}
-	s.m[key] = issuedTicket{purpose: purpose, session: sess, target: target, expiry: expiry, payload: payload}
 	return base64.RawURLEncoding.EncodeToString(raw)
 }
 
@@ -157,20 +143,19 @@ func (s *ticketStore) consume(purpose, tok string, sess uuid.UUID, target string
 	nonce, got := raw[:nonceLen], raw[nonceLen:]
 	key := base64.RawURLEncoding.EncodeToString(nonce)
 
-	s.mu.Lock()
-	rec, ok := s.m[key]
-	delete(s.m, key)
-	s.mu.Unlock()
-	if !ok || s.clock().After(rec.expiry) {
+	ctx, cancel := context.WithTimeout(context.Background(), ticketStoreTimeout)
+	defer cancel()
+	rec, ok, err := s.store().Take(ctx, key, s.clock())
+	if err != nil || !ok {
 		return nil, false
 	}
-	if rec.purpose != purpose || rec.session != sess || rec.target != target {
+	if rec.Purpose != purpose || rec.Session != sess || rec.Target != target {
 		return nil, false
 	}
-	if !hmac.Equal(got, s.tag(rec.purpose, rec.session, rec.target, nonce, rec.expiry.Unix())) {
+	if !hmac.Equal(got, s.tag(rec.Purpose, rec.Session, rec.Target, nonce, rec.Expiry.Unix())) {
 		return nil, false
 	}
-	return rec.payload, true
+	return rec.Payload, true
 }
 
 // consumeBound is consume for the preview host, where the frame request
@@ -190,20 +175,19 @@ func (s *ticketStore) consumeBound(purpose, tok, target string) (uuid.UUID, []by
 	nonce, got := raw[:nonceLen], raw[nonceLen:]
 	key := base64.RawURLEncoding.EncodeToString(nonce)
 
-	s.mu.Lock()
-	rec, ok := s.m[key]
-	delete(s.m, key)
-	s.mu.Unlock()
-	if !ok || s.clock().After(rec.expiry) {
+	ctx, cancel := context.WithTimeout(context.Background(), ticketStoreTimeout)
+	defer cancel()
+	rec, ok, err := s.store().Take(ctx, key, s.clock())
+	if err != nil || !ok {
 		return uuid.Nil, nil, false
 	}
-	if rec.purpose != purpose || rec.target != target || rec.session == uuid.Nil {
+	if rec.Purpose != purpose || rec.Target != target || rec.Session == uuid.Nil {
 		return uuid.Nil, nil, false
 	}
-	if !hmac.Equal(got, s.tag(rec.purpose, rec.session, rec.target, nonce, rec.expiry.Unix())) {
+	if !hmac.Equal(got, s.tag(rec.Purpose, rec.Session, rec.Target, nonce, rec.Expiry.Unix())) {
 		return uuid.Nil, nil, false
 	}
-	return rec.session, rec.payload, true
+	return rec.Session, rec.Payload, true
 }
 
 // changesetTarget is the ticket target of one item of a changeset: a ticket
