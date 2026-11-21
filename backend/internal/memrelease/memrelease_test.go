@@ -293,3 +293,26 @@ func TestRunBusyDoesNotPollEveryTick(t *testing.T) {
 		t.Fatalf("%d samples in 120ms while busy, want <= 5", n)
 	}
 }
+
+func TestNextCappedAtPark(t *testing.T) {
+	f := newFixture()
+	f.activity = f.now.Add(time.Hour) // wall clock stepped back after the request
+	if got := f.r.next(f.now, busy); got != 30*time.Second {
+		t.Fatalf("next = %v, want Park", got)
+	}
+}
+
+func TestRunFirstSampleAtTickWhenIdleAtStart(t *testing.T) {
+	start := time.Now()
+	_, frees, stop := runCounting(t, Config{
+		Tick: time.Millisecond, Idle: 40 * time.Millisecond, MinInterval: time.Hour, Park: time.Hour,
+		LastActivity: func() time.Time { return start.Add(-time.Hour) },
+	}, 20*mib)
+	defer stop()
+	for frees.Load() == 0 {
+		if time.Since(start) > time.Second {
+			t.Fatal("idle process not released within 1s of start")
+		}
+		time.Sleep(time.Millisecond)
+	}
+}

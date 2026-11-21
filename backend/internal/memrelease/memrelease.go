@@ -80,7 +80,9 @@ func (c *Config) fill() {
 func Run(ctx context.Context, c Config) {
 	c.fill()
 	r := &releaser{c: c, baseline: c.Sample().InUse}
-	t := time.NewTimer(r.next(c.Now(), busy))
+	// First look after Tick, not next: a process already idle at start would
+	// otherwise wait a whole Park before its first release.
+	t := time.NewTimer(c.Tick)
 	defer t.Stop()
 	for {
 		select {
@@ -125,7 +127,8 @@ func (r *releaser) step(now time.Time) outcome {
 // next is how long Run sleeps after a step with outcome o. A release needs
 // the process idle for Idle, so a busy process is next sampled when that can
 // first be true; an idle one with nothing to do is sampled every Park.
-// Without LastActivity it keeps the plain Tick. Never below Tick.
+// Without LastActivity it keeps the plain Tick. Never below Tick, never above
+// Park (a wall clock stepped back must not stall releases).
 func (r *releaser) next(now time.Time, o outcome) time.Duration {
 	c := r.c
 	if c.LastActivity == nil {
@@ -140,7 +143,7 @@ func (r *releaser) next(now time.Time, o outcome) time.Duration {
 	default:
 		d = c.Park // idle: released, or nothing to reclaim
 	}
-	return max(d, c.Tick)
+	return min(max(d, c.Tick), c.Park)
 }
 
 var metricNames = []string{
