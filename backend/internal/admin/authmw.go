@@ -6,7 +6,9 @@ import (
 	"net/url"
 	"time"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authzsubject"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/session"
@@ -128,6 +130,33 @@ func (a *Admin) RequireRole(roles ...string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			u := userFrom(r.Context())
 			if u == nil || !contains(roles, u.Role) {
+				if a.fetchError(w, r, http.StatusForbidden, "Your role does not have access to this page.") {
+					return
+				}
+				a.Error(w, r, http.StatusForbidden, "Not allowed", "Your role does not have access to this page.")
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// RequireCan lets the request through when authz allows the signed-in user to
+// perform act; others get the 403 page.
+func (a *Admin) RequireCan(act authz.Action) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			u := userFrom(r.Context())
+			ok := false
+			if u != nil {
+				var err error
+				ok, err = authz.Can(r.Context(), authzsubject.ForSession(u.ID, u.Role), act, authz.Object{})
+				if err != nil {
+					a.logger().Warn("authz check failed", "action", act, "err", err)
+					ok = false
+				}
+			}
+			if !ok {
 				if a.fetchError(w, r, http.StatusForbidden, "Your role does not have access to this page.") {
 					return
 				}

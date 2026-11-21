@@ -11,6 +11,7 @@ import (
 	"testing/fstest"
 	"time"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/web"
 )
 
@@ -252,6 +253,29 @@ func TestRoleGate(t *testing.T) {
 		req := httptestReq("GET", "/x", tok)
 		if rec := serve(mux, req, nil); rec.Code != want {
 			t.Errorf("%s: %d want %d", tok, rec.Code, want)
+		}
+	}
+}
+
+func TestRequireCanGate(t *testing.T) {
+	t.Parallel()
+
+	g := newRig(t)
+	for _, c := range []struct {
+		act  authz.Action
+		want map[string]int
+	}{
+		{authz.ActionUserManage, map[string]int{"owner-token": 204, "editor-token": 403}},
+		{authz.ActionPersonManage, map[string]int{"owner-token": 204, "editor-token": 204}},
+	} {
+		h := g.a.RequireSession(g.a.RequireCan(c.act)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) })))
+		mux := http.NewServeMux()
+		mux.Handle("GET /x", g.a.guardFor(scopeAdmin)(secureHeaders(h)))
+		for tok, want := range c.want {
+			req := httptestReq("GET", "/x", tok)
+			if rec := serve(mux, req, nil); rec.Code != want {
+				t.Errorf("%s %s: %d want %d", c.act, tok, rec.Code, want)
+			}
 		}
 	}
 }
