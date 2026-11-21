@@ -75,6 +75,27 @@ func mustDecide(t *testing.T, in Input) Decision {
 	return d
 }
 
+func TestDecideLTSLine(t *testing.T) {
+	w := newWorld()
+	w.add("v1.4.5", open())
+	in := w.input("v1.4.3")
+	in.Settings.Channel = "lts"
+	if d := mustDecide(t, in); d.Action != ActionApply || d.Target != "v1.4.5" {
+		t.Fatalf("same-line patch not applied: %+v", d)
+	}
+	in = w.input("v1.5.0")
+	in.Settings.Channel = "lts"
+	if d := mustDecide(t, in); d.Action != ActionNone || d.Kind != KindUpToDate {
+		t.Fatalf("a newer minor must stay put: %+v", d)
+	}
+	empty := newWorld()
+	in = empty.input("v1.4.3")
+	in.Settings.Channel = "lts"
+	if d := mustDecide(t, in); d.Action != ActionNone || len(empty.calls) != 0 {
+		t.Fatalf("empty lts manifest: %+v calls %v", d, empty.calls)
+	}
+}
+
 func TestDecideRampEdgeUsesRealBucket(t *testing.T) {
 	w := newWorld()
 	w.add("v1.0.1", []release.RampStep{{At: "2026-11-01T00:00:00Z", Pct: 5}})

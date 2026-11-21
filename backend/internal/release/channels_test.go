@@ -7,8 +7,8 @@ import (
 
 // Adding or reordering a channel changes what every site, the admin page and
 // the release tool accept, so it must be a deliberate edit here too.
-func TestChannelsAreStableEdgeCanary(t *testing.T) {
-	if want := []string{"stable", "edge", "canary"}; !slices.Equal(Channels, want) {
+func TestChannelsAreStableEdgeCanaryLTS(t *testing.T) {
+	if want := []string{"stable", "edge", "canary", "lts"}; !slices.Equal(Channels, want) {
 		t.Fatalf("Channels = %v, want %v", Channels, want)
 	}
 }

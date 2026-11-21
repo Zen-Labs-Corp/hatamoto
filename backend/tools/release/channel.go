@@ -25,7 +25,7 @@ const manifestLifetime = 14 * 24 * time.Hour
 // backend/ where the tool is run.
 const defaultChannelDir = "../releases/channels"
 
-var channelNames = []string{"stable", "edge", "canary"}
+var channelNames = []string{"stable", "edge", "canary", "lts"}
 
 // cmdChannel edits the unsigned channel sources and signs them for publishing.
 func cmdChannel(args []string, stdout, stderr io.Writer, e env) error {
@@ -116,7 +116,7 @@ func channelPath(dir, name string) (string, error) {
 			return filepath.Join(dir, name+".json"), nil
 		}
 	}
-	return "", fmt.Errorf("unknown channel %q (use stable, edge or canary)", name)
+	return "", fmt.Errorf("unknown channel %q (use stable, edge, canary or lts)", name)
 }
 
 // loadChannel reads a channel source strictly: unknown fields, trailing data

@@ -20,7 +20,7 @@ func cmdVerify(args []string, stdout, stderr io.Writer, e env) error {
 	fs := newFlags("verify", stderr)
 	fs.StringVar(&manifest, "manifest", "", "check only this signed channel file")
 	fs.StringVar(&channel, "channel", "", "signed channel file")
-	fs.StringVar(&chanName, "chan", "", "channel the file must be for: stable, edge or canary")
+	fs.StringVar(&chanName, "chan", "", "channel the file must be for: stable, edge, canary or lts")
 	fs.StringVar(&record, "record", "", "release record")
 	fs.StringVar(&sigFile, "sig", "", "detached record signature")
 	fs.StringVar(&artifact, "artifact", "", "the binary to check")
@@ -32,7 +32,7 @@ func cmdVerify(args []string, stdout, stderr io.Writer, e env) error {
 		return err
 	}
 	if chanName == "" {
-		return errors.New("verify needs --chan stable|edge|canary")
+		return errors.New("verify needs --chan stable|edge|canary|lts")
 	}
 	if manifest != "" {
 		doc, err := os.ReadFile(manifest)
@@ -56,7 +56,7 @@ func cmdVerify(args []string, stdout, stderr io.Writer, e env) error {
 		return errors.New("--dir and --version belong to record-only mode: verify --chan C --record F --sig F --dir D [--version V]")
 	}
 	if channel == "" || record == "" || sigFile == "" || artifact == "" || platform == "" {
-		return errors.New("usage: verify --chan stable|edge|canary (--manifest F | --channel F --record F --sig F --artifact F --platform P | --record F --sig F --dir D [--version V])")
+		return errors.New("usage: verify --chan stable|edge|canary|lts (--manifest F | --channel F --record F --sig F --artifact F --platform P | --record F --sig F --dir D [--version V])")
 	}
 	doc, err := os.ReadFile(channel)
 	if err != nil {

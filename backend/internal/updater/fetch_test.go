@@ -83,6 +83,17 @@ func TestManifestIsOneAnonymousGet(t *testing.T) {
 	}
 }
 
+func TestManifestLTSPath(t *testing.T) {
+	srv := newRecorder(t, okBody(`{"channel":"lts"}`))
+	f := testFetcher(t, srv.URL)
+	if _, err := f.Manifest(context.Background(), "lts"); err != nil {
+		t.Fatal(err)
+	}
+	if reqs := srv.requests(); len(reqs) != 1 || reqs[0].URL.Path != "/releases/channels/lts.json" {
+		t.Fatalf("requests %v", reqs)
+	}
+}
+
 func TestManifestCanaryPathAndUnknownChannel(t *testing.T) {
 	srv := newRecorder(t, okBody(`{"channel":"canary"}`))
 	f := testFetcher(t, srv.URL)
