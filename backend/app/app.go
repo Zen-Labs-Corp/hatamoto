@@ -388,8 +388,7 @@ func run(ctx context.Context, cmd command, args []string, logger *slog.Logger) e
 		if err := migrateUpDirect(ctx, db, logger); err != nil {
 			return err
 		}
-		migrateModulesDirect(ctx, db, logger)
-		return nil
+		return migrateModulesDirect(ctx, db, logger)
 	case cmdMigrateStatus:
 		if err := migrateStatusDirect(ctx, db, os.Stdout); err != nil {
 			return err
@@ -476,7 +475,9 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	if err := migrateUpDirect(ctx, db, logger); err != nil {
 		return err
 	}
-	migrateModulesDirect(ctx, db, logger)
+	// A failed module migration does not stop the server: the module's
+	// services are skipped and the error is logged.
+	_ = migrateModulesDirect(ctx, db, logger)
 	editionstate.SetSiteIDSource(siteid.New(db.Pool()).Get)
 	if err := checkMediaOffsiteOverlap(ctx, os.Getenv, offsite.NewStore(db.Pool()).Get); err != nil {
 		return err

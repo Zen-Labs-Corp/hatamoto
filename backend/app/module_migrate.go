@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -40,9 +41,12 @@ func withModuleProvider(pool *pgxpool.Pool, m modhost.Migrations, fn func(*goose
 }
 
 // migrateModules applies every module's pending migrations after core. A
-// failure is logged and recorded with modhost.SetMigrationErr; it never
-// stops the caller (an optional module must not take the site down).
-func migrateModules(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
+// failure is logged and recorded with modhost.SetMigrationErr and does not
+// stop the remaining modules. The joined errors are returned: serve ignores
+// them (an optional module must not take the site down), the migrate command
+// exits non-zero on them.
+func migrateModules(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error {
+	var errs []error
 	for _, m := range modhost.AllMigrations() {
 		err := withModuleProvider(pool, m, func(p *goose.Provider) error {
 			res, err := p.Up(ctx)
@@ -54,27 +58,37 @@ func migrateModules(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger
 		if err != nil {
 			err = fmt.Errorf("module %q: migrate up: %w", m.Module, err)
 			logger.Error("module migration failed", "module", m.Module, "err", err)
+			errs = append(errs, err)
 		}
 		modhost.SetMigrationErr(m.Module, err)
 	}
+	return errors.Join(errs...)
 }
 
 // migrateModulesDirect is migrateModules on a direct connection, like
 // migrateUpDirect. Nothing registered: nothing happens, not even a connection.
-func migrateModulesDirect(ctx context.Context, db *database.DB, logger *slog.Logger) {
+func migrateModulesDirect(ctx context.Context, db *database.DB, logger *slog.Logger) error {
+	return migrateModulesOpen(ctx, func(ctx context.Context) (*pgxpool.Pool, func(), error) {
+		return db.Direct().Pool(ctx, 2)
+	}, logger)
+}
+
+// migrateModulesOpen is migrateModulesDirect with the connection opener
+// injected.
+func migrateModulesOpen(ctx context.Context, open func(context.Context) (*pgxpool.Pool, func(), error), logger *slog.Logger) error {
 	if len(modhost.AllMigrations()) == 0 {
-		return
+		return nil
 	}
-	pool, closeFn, err := db.Direct().Pool(ctx, 2)
+	pool, closeFn, err := open(ctx)
 	if err != nil {
 		for _, m := range modhost.AllMigrations() {
 			modhost.SetMigrationErr(m.Module, err)
 		}
 		logger.Error("module migrations skipped: no direct connection", "err", err)
-		return
+		return fmt.Errorf("module migrations: no direct connection: %w", err)
 	}
 	defer closeFn()
-	migrateModules(ctx, pool, logger)
+	return migrateModules(ctx, pool, logger)
 }
 
 // migrateModulesStatusPool prints a "module <name>" heading and the

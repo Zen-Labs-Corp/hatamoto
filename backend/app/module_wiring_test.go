@@ -2,8 +2,14 @@ package app
 
 import (
 	"context"
+	"errors"
+	"io"
+	"log/slog"
 	"strings"
 	"testing"
+	"testing/fstest"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/modhost"
 )
@@ -49,5 +55,26 @@ func TestUsageTextUnchangedWithoutModules(t *testing.T) {
 	}
 	if _, err := parseArgs([]string{"nope"}); err == nil || !strings.Contains(err.Error(), "hello does hello") {
 		t.Fatalf("unknown command usage lacks module commands: %v", err)
+	}
+}
+
+// TestMigrateModulesOpenReportsFailure guards `hatamoto migrate` exiting
+// non-zero when a module migration cannot run; serve ignores the result.
+func TestMigrateModulesOpenReportsFailure(t *testing.T) {
+	t.Cleanup(modhost.Reset)
+	open := func(context.Context) (*pgxpool.Pool, func(), error) {
+		return nil, nil, errors.New("no direct connection")
+	}
+
+	if err := migrateModulesOpen(context.Background(), open, slog.New(slog.NewTextHandler(io.Discard, nil))); err != nil {
+		t.Fatalf("nothing registered: err = %v, want nil", err)
+	}
+	modhost.RegisterMigrations("mod", fstest.MapFS{"001_a.sql": {Data: []byte("-- +goose Up\nSELECT 1;\n")}})
+	err := migrateModulesOpen(context.Background(), open, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err == nil || !strings.Contains(err.Error(), "no direct connection") {
+		t.Fatalf("err = %v, want the connection failure", err)
+	}
+	if modhost.MigrationErr("mod") == nil {
+		t.Error("module migration error not recorded")
 	}
 }
