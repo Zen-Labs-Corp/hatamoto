@@ -62,12 +62,18 @@ because each server replaces its own binary.
 How a claim works:
 
 - The lease is just under one interval of the job. The server that ran the job
-  last may always claim it again, so one server never skips its own tick.
+  last may always claim it again, so a server that keeps the same name does
+  not skip its own tick.
 - The claim is made on the database clock, in one statement.
 - Two processes on one host need different names. A server is named by
   `HATAMOTO_INSTANCE_ID`, and by its host name when that is unset. Set the
   variable when two processes share a host name, for example two containers
   started from one image on the same host.
+- A changed name counts as another server. In containers the host name usually
+  changes on every redeploy, so after a restart the new process can skip one
+  claimed run until the old lease lapses (up to about one interval of that job).
+  Set a stable `HATAMOTO_INSTANCE_ID`, for example one per replica slot, so a
+  restart is not delayed.
 - If the claim query fails, the job runs anyway and a warning is logged. A
   database error never stops scheduled work, at the cost of a possible double
   run for that tick.
