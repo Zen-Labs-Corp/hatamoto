@@ -25,9 +25,14 @@ type fakePolicy struct{}
 
 func (fakePolicy) AllowSignIn(context.Context, auth.SignInAttempt) (bool, error) { return true, nil }
 
+type fakeAvail struct{ fakeProvider }
+
+func (*fakeAvail) Available(context.Context) (string, bool) { return "", true }
+
 var (
-	_ auth.Provider     = (*fakeProvider)(nil)
-	_ auth.SignInPolicy = fakePolicy{}
+	_ auth.ProviderAvailability = (*fakeAvail)(nil)
+	_ auth.Provider             = (*fakeProvider)(nil)
+	_ auth.SignInPolicy         = fakePolicy{}
 )
 
 func reset(t *testing.T) {

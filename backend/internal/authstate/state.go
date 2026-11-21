@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"slices"
+	"strings"
 	"sync"
 	"unicode/utf8"
 )
@@ -102,6 +104,66 @@ func LookupProvider(id string) (Provider, bool) {
 		}
 	}
 	return nil, false
+}
+
+// AvailableProviders lists the registered providers that are available now,
+// with their current label. Providers without ProviderAvailability are always
+// available.
+func AvailableProviders(ctx context.Context) []ProviderInfo {
+	mu.Lock()
+	regs := slices.Clone(providers)
+	mu.Unlock() // never call a provider under mu: Available may read the database
+	out := make([]ProviderInfo, 0, len(regs))
+	for _, r := range regs {
+		if info, ok := availability(ctx, r); ok {
+			out = append(out, info)
+		}
+	}
+	return out
+}
+
+// LookupAvailable is LookupProvider that also requires the provider to be
+// available.
+func LookupAvailable(ctx context.Context, id string) (Provider, bool) {
+	p, ok := LookupProvider(id)
+	if !ok {
+		return nil, false
+	}
+	mu.Lock()
+	var reg registered
+	for _, r := range providers {
+		if r.info.ID == id {
+			reg = r
+			break
+		}
+	}
+	mu.Unlock()
+	if _, ok := availability(ctx, reg); !ok {
+		return nil, false
+	}
+	return p, true
+}
+
+// availability resolves the current label of r; ok is false when the provider
+// reports itself unavailable. A blank or invalid label keeps the registered
+// name and a label over 64 runes is clipped.
+func availability(ctx context.Context, r registered) (ProviderInfo, bool) {
+	a, isAvail := r.p.(ProviderAvailability)
+	if !isAvail {
+		return r.info, true
+	}
+	label, ok := a.Available(ctx)
+	if !ok {
+		return ProviderInfo{}, false
+	}
+	info := r.info
+	if label = strings.TrimSpace(label); label != "" && utf8.ValidString(label) {
+		if utf8.RuneCountInString(label) > 64 {
+			label = string([]rune(label)[:64])
+		}
+		info.Name = label
+	}
+	return info, true
 }
 
 // Allow asks the policy about a sign-in. No policy allows. A refusal or an
