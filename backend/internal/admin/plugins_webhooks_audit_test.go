@@ -13,9 +13,8 @@ const (
 	pluginsWebhooksAuditURL    = "https://hooks.zapier.test/abc"
 )
 
-// "plugin.settings" is the action the CLI already writes; the shared allow-list
-// has no entry for it yet.
-func init() { auditDetailKeys["plugin.settings"] = []string{"changed"} }
+// "plugin.settings" is the action the CLI and REST already write, with "keys".
+func init() { auditDetailKeys["plugin.settings"] = []string{"keys"} }
 
 func pluginsWebhooksAuditLast(t *testing.T, read func() []AuditEvent, n int, action, target string) AuditEvent {
 	t.Helper()
@@ -52,7 +51,7 @@ func TestPluginsWebhooksAuditPluginSettingsAndGrant(t *testing.T) {
 		t.Fatalf("settings: %d", rec.Code)
 	}
 	ev := pluginsWebhooksAuditLast(t, read, 1, "plugin.settings", "plugin:hello")
-	if changed, _ := ev.Detail["changed"].([]string); !slices.Equal(changed, []string{"api_key", "site_id"}) {
+	if keys, _ := ev.Detail["keys"].([]string); !slices.Equal(keys, []string{"api_key", "site_id"}) {
 		t.Fatalf("detail = %v", ev.Detail)
 	}
 

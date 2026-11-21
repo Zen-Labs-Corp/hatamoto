@@ -742,7 +742,7 @@ func (a *Admin) handlePluginSettingsSave(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	a.invalidate(r.Context())
-	a.audit(r, "plugin.settings", "plugin:"+p.Name, map[string]any{"changed": pluginSettingsChanged(p.SettingsSchema, prev, values)})
+	a.audit(r, "plugin.settings", "plugin:"+p.Name, map[string]any{"keys": pluginSettingsChanged(p.SettingsSchema, prev, values)})
 	a.SetFlash(w, r, "success", "Settings saved for "+p.Name+".")
 	http.Redirect(w, r, a.pluginURL(p.Name, "settings"), http.StatusSeeOther)
 }
