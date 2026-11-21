@@ -196,7 +196,13 @@ func (a *Admin) handleProviderCallback(w http.ResponseWriter, r *http.Request) {
 		a.providerFailed(w, r, next, err)
 		return
 	}
-	if !mfa && a.deps.TwoFactor != nil && len(a.deps.PendingKey) != 0 {
+	if !mfa {
+		// Without a way to ask for the second step there is no session: we
+		// cannot tell whether the user has a factor (as the password path).
+		if a.deps.TwoFactor == nil || len(a.deps.PendingKey) == 0 {
+			a.providerFailed(w, r, next, errors.New("the second step is not available"))
+			return
+		}
 		has, err := a.deps.TwoFactor.HasAnyFactor(r.Context(), uid)
 		if err != nil {
 			// Never a session when we cannot tell.

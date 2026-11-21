@@ -379,3 +379,21 @@ func TestTwoStepCompletionRefusalIsNeutral(t *testing.T) {
 		t.Fatalf("refused at completion: %d", done.Code)
 	}
 }
+
+// With the second step unavailable and no MFA asserted, a provider sign-in
+// gets no session (the password path refuses too).
+func TestProviderCallbackFailsClosedWithoutSecondStep(t *testing.T) {
+	t.Parallel()
+
+	for name, mutate := range map[string]func(*Deps){
+		"no pending key": func(d *Deps) { d.PendingKey = nil },
+		"no two-factor":  func(d *Deps) { d.TwoFactor = nil },
+	} {
+		g := newProviderRig(t, mutate)
+		c, state := g.start(t, "/admin/login/provider/example/start")
+		rec := g.nav(cbPath+"?state="+url.QueryEscape(state), c)
+		if rec.Code != 422 || cookieNamed(rec, "hatamoto_session") != nil {
+			t.Errorf("%s: %d", name, rec.Code)
+		}
+	}
+}
