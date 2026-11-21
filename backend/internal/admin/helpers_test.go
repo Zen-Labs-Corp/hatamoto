@@ -349,6 +349,7 @@ type rig struct {
 	sessions *fakeSessions
 	owner    *user.User
 	editor   *user.User
+	routes   []httpx.Route // every route Mount registered
 }
 
 func newRig(t *testing.T, mutate ...func(*Deps)) *rig {
@@ -379,8 +380,20 @@ func newRig(t *testing.T, mutate ...func(*Deps)) *rig {
 	}
 	a.csrfTokenFn = func(_, _ string) string { return csrfValue } // keeps rendered tokens and goldens stable
 	mux := http.NewServeMux()
-	a.Mount(httpx.NewGroup(mux, ""))
-	return &rig{t: t, a: a, h: mux, sessions: sessions, owner: owner, editor: editor}
+	grp := httpx.NewGroup(mux, "")
+	a.Mount(grp)
+	return &rig{t: t, a: a, h: mux, sessions: sessions, owner: owner, editor: editor, routes: grp.Routes()}
+}
+
+// freshToken signs userID in on a new session, so a logout or revoke route
+// cannot change what a later request sees.
+func (g *rig) freshToken(userID uuid.UUID) string {
+	tok := "fresh-" + uuid.NewString()
+	now := time.Now()
+	g.sessions.mu.Lock()
+	defer g.sessions.mu.Unlock()
+	g.sessions.byToken[tok] = &session.Session{ID: uuid.New(), Kind: session.KindAdmin, UserID: &userID, ExpiresAt: now.Add(time.Hour), LastUsedAt: &now}
+	return tok
 }
 
 // tokenFor is the real synchronizer token of the session behind sessionToken.
