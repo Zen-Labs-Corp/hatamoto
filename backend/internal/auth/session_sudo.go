@@ -18,5 +18,6 @@ func (s *Service) ConfirmPassword(ctx context.Context, userID uuid.UUID, email, 
 	if u.ID != userID {
 		return ErrInvalidCredentials
 	}
-	return nil
+	// A password the site policy refuses is no proof here either.
+	return s.allow(ctx, u, viaPassword)
 }
