@@ -564,6 +564,8 @@ func OwnerOnlyScope(s APIKeyScope) bool {
 
 // HasScope checks if an API key has a specific scope. Owner-only scopes are
 // refused (also through "*") unless the creator's current role is owner.
+// It describes the key; a request is decided by authz (the default authorizer
+// applies the same rule), and this method only words a refusal.
 func (k *APIKey) HasScope(scope APIKeyScope) bool {
 	if OwnerOnlyScope(scope) && k.CreatorRole != "owner" {
 		return false

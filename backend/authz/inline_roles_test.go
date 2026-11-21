@@ -28,7 +28,7 @@ var inlineRoleAllow = []allowedInlineRole{
 	{"internal/user/repository.go", "*input.Role != RoleOwner", "domain: last-owner demotion rule"},
 	{"internal/auth/usertokens.go", "role == user.RoleOwner && accessEnds", "domain: invited role"},
 	{"internal/auth/usertokens.go", "role == string(user.RoleOwner) && accessEnds", "domain: invited role"},
-	{"internal/auth/api_keys.go", "OwnerOnlyScope(scope) && k.CreatorRole != \"owner\"", "key scope semantics, mirrored by the authz scope check"},
+	{"internal/auth/api_keys.go", "OwnerOnlyScope(scope) && k.CreatorRole != \"owner\"", "APIKey.HasScope data semantics, mirrored by the default authorizer; no live route asks it for a decision (RequireAPIKeyScope has no caller, MCP calls it only after authz denied, to pick the message)"},
 	{"internal/auth/service.go", "IsSuperadmin: u.Role == user.RoleOwner", "claims derivation (database superadmin context)"},
 	{"internal/admin/authmw.go", "IsSuperadmin: u.Role == user.RoleOwner", "claims derivation (database superadmin context)"},
 	{"internal/admin/users.go", "role == user.RoleOwner && u.Role != user.RoleOwner", "domain: target role against the caller's access end"},
@@ -40,7 +40,7 @@ var inlineRoleAllow = []allowedInlineRole{
 	{"internal/admin/ui/ui.go", "c.Role == \"title\"", "table column role, not a user role"},
 	{"internal/admin/pluginui.go", "return []string{\"owner\"}", "plugin manifest ui.roles default (SDK contract)"},
 	{"internal/pluginhost/routes.go", "roles = []string{\"owner\"}", "plugin manifest route roles default (SDK contract)"},
-	{"internal/mcpserver/server.go", "key.CreatorRole != \"owner\"", "refusal wording after authz already denied"},
+	{"internal/mcpserver/server.go", "key.CreatorRole != \"owner\"", "error wording only: reached after authz denied, it cannot grant"},
 	{"internal/middleware/authz_subject.go", "roles := []string{\"owner\"}", "trace tag of the REST gate, derived from the default authorizer"},
 	{"internal/oidcsignin/mapuser.go", "u.Role == \"owner\"", "domain: an identity-provider email never links to an existing owner account (target user)"},
 }
