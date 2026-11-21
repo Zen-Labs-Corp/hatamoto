@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/pressly/goose/v3"
@@ -124,6 +125,20 @@ func s3StaticTarget(endpoint, region, bucket, prefix, accessKey, secretKey strin
 	return staticexport.NewS3Target(c, endpoint, bucket, prefix), nil
 }
 
+// exportServerSecret puts the secret a server would use into the environment
+// for config.Load: from HATAMOTO_SECRET or JWT_SECRET, else secrets.env in the
+// secrets directory. It reads only; it never generates a secret.
+func exportServerSecret() error {
+	v, err := serverSecret()
+	if err != nil {
+		return fmt.Errorf("read the server secret: %w", err)
+	}
+	if v == "" {
+		return fmt.Errorf("no server secret: set %s or run the server once so it creates %s", secretEnv, filepath.Join(secretsDirFromEnv(), "secrets.env"))
+	}
+	return os.Setenv(secretEnv, v)
+}
+
 // runStatic runs `hatamoto static export`: it renders the site through the
 // router in this process (it never starts a listener) and publishes it.
 func runStatic(ctx context.Context, args []string, out io.Writer) error {
@@ -133,6 +148,9 @@ func runStatic(ctx context.Context, args []string, out io.Writer) error {
 	}
 	// The worker must not start for a one-shot render.
 	if err := os.Setenv("HATAMOTO_WORKER", "off"); err != nil {
+		return err
+	}
+	if err := exportServerSecret(); err != nil {
 		return err
 	}
 	cfg, err := config.Load()

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -150,4 +151,29 @@ func TestResolveStaticTarget(t *testing.T) {
 			t.Fatalf("err = %v", err)
 		}
 	})
+}
+
+func TestExportServerSecret(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HATAMOTO_SECRETS_DIR", dir)
+	t.Setenv(secretEnv, "")
+	t.Setenv(legacySecretEnv, "")
+
+	err := exportServerSecret()
+	if err == nil || !strings.Contains(err.Error(), "no server secret") {
+		t.Fatalf("err = %v", err)
+	}
+	if _, serr := os.Stat(filepath.Join(dir, "secrets.env")); serr == nil {
+		t.Fatal("a secret was generated")
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte(secretEnv+"=stored-secret\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := exportServerSecret(); err != nil {
+		t.Fatal(err)
+	}
+	if got := os.Getenv(secretEnv); got != "stored-secret" {
+		t.Fatalf("%s = %q", secretEnv, got)
+	}
 }
