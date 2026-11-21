@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"os"
 	"sort"
@@ -14,6 +13,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
 )
 
@@ -46,7 +46,7 @@ func matrixCell(code int, body string) string {
 	var e struct {
 		Error string `json:"error"`
 	}
-	if json.Unmarshal([]byte(body), &e) == nil && e.Error != "" {
+	if jsonx.Unmarshal([]byte(body), &e) == nil && e.Error != "" {
 		cell += ":" + strings.ReplaceAll(e.Error, " ", "_")
 	}
 	return cell
