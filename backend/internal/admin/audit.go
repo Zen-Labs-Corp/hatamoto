@@ -42,12 +42,20 @@ type AuditRow struct {
 	At                    time.Time
 	Actor, Action, Target string
 	Detail                map[string]any
+	Src                   string // "a" admin table, "m" agent calls: the row id prefix and the cursor tie-break
+	Source                string // admin|api|agent|cli|system; set by Search only
+	Result                string // ok|denied|error; set by Search only
+	Error                 string // agent call error text; set by Search only
 }
 
 // AuditReader lists stored audit events newest first. Recent also counts the
 // stored events (for pagination); Latest skips that count for callers that
-// only want the newest few.
+// only want the newest few. Search reads admin actions and agent calls
+// together with filters and keyset paging; Facets lists the actors and
+// actions seen in a date window for the filter selects.
 type AuditReader interface {
 	Recent(ctx context.Context, limit, offset int) ([]AuditRow, int, error)
 	Latest(ctx context.Context, limit int) ([]AuditRow, error)
+	Search(ctx context.Context, q AuditQuery) (AuditPage, error)
+	Facets(ctx context.Context, from, to time.Time) (AuditFacets, error)
 }

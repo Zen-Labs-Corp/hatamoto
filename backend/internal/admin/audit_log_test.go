@@ -16,6 +16,72 @@ type fakeAuditLog struct {
 	err           error
 	limit, offset int
 	recentCalls   int // Recent also counts the table; the Activity card must not
+	lastQuery     AuditQuery
+	facets        AuditFacets
+	facetsErr     error
+}
+
+// Search filters rows in Go the way the stored reader filters in SQL and
+// records the query. Rows carry Source and Result when a test sets them.
+func (f *fakeAuditLog) Search(_ context.Context, q AuditQuery) (AuditPage, error) {
+	f.lastQuery = q
+	if f.err != nil {
+		return AuditPage{}, f.err
+	}
+	needle := strings.ToLower(q.Q)
+	var matched []AuditRow
+	for _, r := range f.rows {
+		src := r.Src
+		if src == "" {
+			src = auditSrcAdmin
+		}
+		switch {
+		case q.Source != "" && r.Source != q.Source,
+			q.Action != "" && r.Action != q.Action,
+			q.Actor != "" && !fakeActorMatches(q.Actor, r),
+			!q.From.IsZero() && r.At.Before(q.From),
+			!q.To.IsZero() && !r.At.Before(q.To),
+			q.Before != nil && !fakeOlder(r, src, *q.Before),
+			needle != "" && !strings.Contains(strings.ToLower(fmt.Sprint(r.Actor, " ", r.Action, " ", r.Target, " ", r.Detail, " ", r.Error)), needle):
+			continue
+		}
+		matched = append(matched, r)
+	}
+	limit := q.Limit
+	if limit <= 0 {
+		limit = 25
+	}
+	if len(matched) <= limit {
+		return AuditPage{Rows: matched}, nil
+	}
+	last := matched[limit-1]
+	src := last.Src
+	if src == "" {
+		src = auditSrcAdmin
+	}
+	return AuditPage{Rows: matched[:limit], Next: &AuditCursor{At: last.At, Src: src, ID: last.ID}}, nil
+}
+
+// fakeActorMatches matches by name for "n:" values; the fake has no ids.
+func fakeActorMatches(actor string, r AuditRow) bool {
+	name, ok := strings.CutPrefix(actor, "n:")
+	return ok && r.Actor == name
+}
+
+// fakeOlder reports whether r sorts strictly after the cursor in
+// (at, src, id) descending order.
+func fakeOlder(r AuditRow, src string, c AuditCursor) bool {
+	switch {
+	case !r.At.Equal(c.At):
+		return r.At.Before(c.At)
+	case src != c.Src:
+		return src < c.Src
+	}
+	return r.ID < c.ID
+}
+
+func (f *fakeAuditLog) Facets(_ context.Context, _, _ time.Time) (AuditFacets, error) {
+	return f.facets, f.facetsErr
 }
 
 func (f *fakeAuditLog) Latest(ctx context.Context, limit int) ([]AuditRow, error) {
