@@ -5,7 +5,8 @@ import "hatamoto.dev/core/internal/auditstate"
 // Event is one audit record. Detail never carries secrets.
 type Event = auditstate.Event
 
-// Sink receives every audit event after core has written its own table row.
+// Sink receives the events core writes to hatamoto_admin_audit, after core has
+// attempted its own table row (MCP tool calls are not included).
 // tx is the business transaction when core has one (return an error to roll
 // the change back) and nil otherwise (the change is committed; the error is
 // logged). A sink must not commit or roll back tx.

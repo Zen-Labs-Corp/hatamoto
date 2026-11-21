@@ -4,19 +4,25 @@ Status: accepted (2026-11-21)
 
 ## The rules in plain words
 
-1. Every audit event core writes goes through one recorder. There is one event
-   type and one table, `hatamoto_admin_audit`.
-2. With nothing registered, behaviour is what it was: the same rows with the
-   same actor, action, target and detail, written best-effort.
+1. Every event core writes to `hatamoto_admin_audit` goes through one
+   recorder. There is one event type. MCP tool calls are written to
+   `hatamoto_mcp_audit` and do not reach the sink yet.
+2. With nothing registered, behaviour is what it was: rows with the same
+   actor, action, target and detail, written best-effort. Two things changed on
+   purpose: a changeset publish is one row, not up to three, and its actor is
+   the user's email.
 3. A module can register one sink. It is called in addition to the table, never
-   instead of it, and synchronously.
+   instead of it, synchronously, after core has attempted the table row. It is
+   called even when that row failed.
 4. Where core has a business transaction (a changeset publish, signing everyone
    out), the sink runs inside it. A sink that returns an error rolls that change
    back. Where the change is already committed, the sink's error is logged.
 5. A failed default table row never aborts the business transaction. The row is
    written under a savepoint.
-6. Secrets never reach the log: known secret keys in an event's detail are
-   replaced with `[redacted]` before anything is written.
+6. Known secret keys in an event's detail are replaced with `[redacted]`
+   before the table row is written and before the sink sees the event. The
+   server log line of an admin, package or import event still carries the
+   unredacted detail.
 
 ## Context
 
@@ -75,9 +81,12 @@ allowing several later is additive.
 A changeset publish writes its `changeset.publish` row inside the publish
 transaction, after the items are applied, so a sink that refuses leaves the
 entities and the changeset as they were. Signing everyone out does the same.
-All other writers record after their change committed. A sink error there is
-logged at error level, because a committed write cannot be undone, except where
-the writer already returns errors.
+All other writers (admin saves, packages, imports, the CLI) record after their
+change committed, with `tx` nil. The sink's ctx is then not cancelled by the
+request, as with the table row. A sink error there is logged at error level,
+because a committed write cannot be undone, except where the writer already
+returns errors. The sink runs just before the publish COMMIT, so a sink that
+writes outside `tx` can record an event whose commit then fails.
 
 The publish is audited once, by the changeset engine. The admin handler and the
 review service no longer write a second row for it.
@@ -93,7 +102,14 @@ make an audit insert fail. The user agent is clamped to 512 bytes and the
 request id to 128. Request fields are filled for admin requests only.
 
 The actor kind is derived from the actor strings core already stores. The key id
-column exists but stays empty for now.
+column is reserved and stays empty for now. Rows written before the upgrade
+have an empty `actor_kind`, read as legacy.
+
+### 6. Evolving the sink
+
+`Sink` stays one method. New capabilities arrive as optional interfaces that
+core type-asserts on the registered sink, so a sink written today keeps
+compiling. `Event` gains fields; build it with keyed fields, never positionally.
 
 ## Consequences
 
