@@ -150,7 +150,7 @@ Behind a reverse proxy on the same host, such as Caddy or nginx, nothing else is
 
 ## Audit log
 
-Every tool call, allowed or refused, writes a row to the `hatamoto_mcp_audit` table: time, key id and name, tool, success, error text and the arguments. Strings longer than 200 bytes are shortened, and arguments over 4 KB are replaced by a note with their size, so a base64 upload never lands whole. Each call is also written to the server log as `mcp tool call`. A failed audit insert is logged and never fails the call. The worker deletes audit rows older than 90 days.
+Every tool call, allowed or refused, writes a row to the `hatamoto_mcp_audit` table: time, key id and name, tool, success, error text and the arguments. Strings longer than 200 bytes are shortened, and arguments over 4 KB are replaced by a note with their size, so a base64 upload never lands whole. Each call is also written to the server log as `mcp tool call`. A failed audit insert is logged and never fails the call. The calls also appear on the admin Audit log as source Agent. The worker deletes audit rows older than 90 days unless the owner raises the period under Audit log, Keep entries for.
 
 ```sql
 SELECT at, api_key_name, tool, ok, error
