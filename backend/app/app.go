@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"runtime/debug"
+	"strings"
 
 	"hatamoto.dev/core/internal/adminpath"
 	"hatamoto.dev/core/internal/auth"
@@ -19,6 +20,7 @@ import (
 	"hatamoto.dev/core/internal/editionstate"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/middleware"
+	"hatamoto.dev/core/internal/modhost"
 	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/server"
@@ -38,6 +40,7 @@ const (
 	cmdUserSignOutAll
 	cmdPluginsList
 	cmdSanitizeHTMLSections
+	cmdModule
 	cmdRoutes
 	cmdVersion
 	cmdHealthcheck
@@ -93,11 +96,19 @@ DATABASE_SOCKET_DIRS (colon- or comma-separated) replaces the socket directories
 /var/run/postgresql:/run/postgresql); HATAMOTO_SECRET (or its old name JWT_SECRET) is generated and
 persisted in $HATAMOTO_SECRETS_DIR (default ./data/secrets) when not set.`
 
+// usageText is the help text plus the commands modules registered, if any.
+func usageText() string {
+	if mu := modhost.CommandUsage(); mu != "" {
+		return usage + "\n\nmodule commands:\n" + strings.TrimRight(mu, "\n")
+	}
+	return usage
+}
+
 // parseArgs maps CLI arguments (without argv[0]) to a command.
 func parseArgs(args []string) (command, error) {
-	bad := fmt.Errorf("unknown command %q\n%s", args, usage)
+	bad := fmt.Errorf("unknown command %q\n%s", args, usageText())
 	if len(args) == 0 {
-		return cmdHelp, fmt.Errorf("%s", usage)
+		return cmdHelp, fmt.Errorf("%s", usageText())
 	}
 	if packageCommands[args[0]] {
 		if len(args) < 2 {
@@ -204,6 +215,11 @@ func parseArgs(args []string) (command, error) {
 		if len(args) == 1 || (len(args) == 2 && args[1] == "--dry-run") {
 			return cmdSanitizeHTMLSections, nil
 		}
+	default:
+		// Core words always win; a module command only fills a gap.
+		if moduleCommand(args) {
+			return cmdModule, nil
+		}
 	}
 	return cmdHelp, bad
 }
@@ -257,6 +273,8 @@ func newLogger() *slog.Logger {
 func Main() {
 	// Registration by a wrapper module happens in init; nothing registers after this.
 	editionstate.Freeze()
+	modhost.Freeze()
+	modhost.SetSecretSource(serverSecret)
 	logger := newLogger()
 	slog.SetDefault(logger)
 
@@ -283,7 +301,7 @@ func Main() {
 func run(ctx context.Context, cmd command, args []string, logger *slog.Logger) error {
 	switch cmd {
 	case cmdHelp:
-		fmt.Println(usage)
+		fmt.Println(usageText())
 		return nil
 	case cmdVersion:
 		if len(args) == 2 {
@@ -311,6 +329,8 @@ func run(ctx context.Context, cmd command, args []string, logger *slog.Logger) e
 		return runSupervise(ctx, logger)
 	case cmdUpdate:
 		return runUpdate(ctx, args[1:], os.Stdout)
+	case cmdModule:
+		return runModule(ctx, args, logger)
 	case cmdOps:
 		return runOps(ctx, args, logger, os.Stdout)
 	case cmdPackages:
@@ -365,9 +385,15 @@ func run(ctx context.Context, cmd command, args []string, logger *slog.Logger) e
 	defer db.Close()
 	switch cmd {
 	case cmdMigrate:
-		return migrateUpDirect(ctx, db, logger)
+		if err := migrateUpDirect(ctx, db, logger); err != nil {
+			return err
+		}
+		return migrateModulesDirect(ctx, db, logger)
 	case cmdMigrateStatus:
-		return migrateStatusDirect(ctx, db, os.Stdout)
+		if err := migrateStatusDirect(ctx, db, os.Stdout); err != nil {
+			return err
+		}
+		return migrateModulesStatus(ctx, db, os.Stdout)
 	case cmdAdminURL:
 		base := adminBaseURL(db.Pool(), os.Getenv)
 		site := loadSQLSite(ctx, db.Pool(), base(ctx))
@@ -449,6 +475,9 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	if err := migrateUpDirect(ctx, db, logger); err != nil {
 		return err
 	}
+	// A failed module migration does not stop the server: the module's
+	// services are skipped and the error is logged.
+	_ = migrateModulesDirect(ctx, db, logger)
 	editionstate.SetSiteIDSource(siteid.New(db.Pool()).Get)
 	if err := checkMediaOffsiteOverlap(ctx, os.Getenv, offsite.NewStore(db.Pool()).Get); err != nil {
 		return err
@@ -490,6 +519,9 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	// Boot garbage (parsed templates, migrations) is dead now: hand it back once.
 	debug.FreeOSMemory()
 	startUpdater(srv, db.Pool(), db.Direct(), cfg.Server.MediaUploadDir, cfg.PublicSite.BaseURL, cfg.Demo.Enabled, cfg.Server.EnableWorker, logger)
+	svcCtx, stopServices := context.WithCancel(ctx)
+	waitServices := startModuleServices(svcCtx, logger)
+	defer func() { stopServices(); waitServices(moduleServiceStopTimeout) }()
 	if err := srv.Start(); err != nil {
 		return fmt.Errorf("server error: %w", err)
 	}
