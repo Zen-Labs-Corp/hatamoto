@@ -54,3 +54,7 @@ backend/adminpages/testdata/**                             backend  ./adminpages
 backend/adminpages/testdata/**                             backend  ./internal/admin
 backend/internal/admin/*                                   backend  ./authz
 backend/internal/server/*                                  backend  ./authz
+backend/internal/auth/*                                    backend  ./authz
+backend/internal/middleware/*                              backend  ./authz
+backend/internal/mcpserver/*                               backend  ./authz
+backend/internal/pluginhost/*                              backend  ./authz
