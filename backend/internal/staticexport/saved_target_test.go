@@ -135,3 +135,17 @@ func TestS3TargetChecked_AllowPrivateReachesLoopback(t *testing.T) {
 		t.Fatalf("Previous: found=%v err=%v", found, err)
 	}
 }
+
+func TestS3TargetChecked_DialRefusalNamesOptIn(t *testing.T) {
+	lookup := safefetch.Lookup(func(context.Context, string) ([]netip.Addr, error) {
+		return []netip.Addr{netip.MustParseAddr("10.0.0.7")}, nil
+	})
+	tgt, err := s3TargetChecked(guardTarget("https://s3.internal.test"), func(string) string { return "" }, lookup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = tgt.(*S3Target).Previous(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "endpoint refused: private or link-local address") || !strings.Contains(err.Error(), EnvS3AllowPrivate) {
+		t.Fatalf("err = %v, want the refusal naming %s", err, EnvS3AllowPrivate)
+	}
+}

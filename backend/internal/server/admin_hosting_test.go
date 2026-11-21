@@ -547,7 +547,7 @@ func TestHostingAdmin_SavePrivateEndpoint(t *testing.T) {
 			in.Mode, in.Endpoint = mode, ep
 			errs, err := fx.h.Save(context.Background(), in)
 			if err != nil || len(errs) != 1 || errs[0].ID != "hosting-endpoint" ||
-				errs[0].Message != "This address is on a private network. Use the storage service's public endpoint." {
+				!strings.Contains(errs[0].Message, "This address is on a private network.") || !strings.Contains(errs[0].Message, staticexport.EnvS3AllowPrivate) {
 				t.Fatalf("%s %s: errs %v err %v", mode, ep, errs, err)
 			}
 			if fx.store.saves != 0 || fx.refresh != 0 || strings.Contains(errs[0].Message, secret) {

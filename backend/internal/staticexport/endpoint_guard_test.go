@@ -78,7 +78,7 @@ func TestAllowPrivateS3(t *testing.T) {
 
 func TestS3HTTPClientProxy(t *testing.T) {
 	proxyOf := func(allow bool) func(*http.Request) (*url.URL, error) {
-		return s3HTTPClient(allow, nil).Transport.(*http.Transport).Proxy
+		return s3HTTPClient(allow, nil).Transport.(hintTransport).RoundTripper.(*http.Transport).Proxy
 	}
 	if proxyOf(false) != nil {
 		t.Fatal("the proxy must stay off without the opt-in")

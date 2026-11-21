@@ -3,6 +3,7 @@ package staticexport
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/netip"
 	"net/url"
@@ -88,6 +89,18 @@ func s3HTTPClient(allowPrivate bool, lookup safefetch.Lookup) *http.Client {
 			// The address guard is off already, so a proxy cannot bypass it.
 			tr.Proxy = http.ProxyFromEnvironment
 		}
+		c.Transport = hintTransport{tr}
 	}
 	return c
+}
+
+// hintTransport names the opt-in when the dial guard refuses an address.
+type hintTransport struct{ http.RoundTripper }
+
+func (t hintTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	resp, err := t.RoundTripper.RoundTrip(r)
+	if err != nil && errors.Is(err, safefetch.ErrBlocked) && !errors.Is(err, ErrPrivateEndpoint) {
+		err = fmt.Errorf("%w (set %s=1 to allow): %w", ErrPrivateEndpoint, EnvS3AllowPrivate, err)
+	}
+	return resp, err
 }
