@@ -244,6 +244,9 @@ screens.push(
   { name: "dashboard", path: "/admin", mock: null, roles: OE, expect: ".hm-dash", primary: true },
   // Owner-only, read-only list: no create action, so no UI-D10 primary. Present only when the audit reader is wired (server always wires it with a database).
   { name: "audit-log", path: "/admin/audit", mock: null, roles: O, expect: ".hm-table" },
+  // The filtered page and the owner-only retention form (a separate page: no POST form beside the table, UI-10).
+  { name: "audit-log-filtered", path: "/admin/audit?source=admin&q=a", mock: null, roles: O, expect: ".hm-table" },
+  { name: "audit-log-retention", path: "/admin/audit/retention", mock: null, roles: O, expect: "form" },
 );
 
 import { role } from "./lib.mjs";

@@ -146,6 +146,7 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 		d.PageCache = s.pageCache
 		d.SiteAccess = siteAccessAdmin{site: s.siteConfig, purge: s.purgeRendered}
 		d.VersionRetention = versionRetentionAdmin{site: s.siteConfig}
+		d.AuditRetention = auditRetentionAdmin{site: s.siteConfig}
 	}
 	if s.spamStore != nil {
 		d.Spam = spamAdmin{store: s.spamStore, verifier: s.spamVerifier, key: s.spam.SecretKey}
@@ -438,6 +439,21 @@ func (a versionRetentionAdmin) Keep(ctx context.Context) (int, error) {
 
 func (a versionRetentionAdmin) SetKeep(ctx context.Context, n int) error {
 	return a.site.SetEntityVersionsKeep(ctx, n)
+}
+
+// auditRetentionAdmin is the admin's view of how long audit entries are kept.
+type auditRetentionAdmin struct{ site *siteconfig.Store }
+
+func (a auditRetentionAdmin) Days(ctx context.Context) (admin, agent int, err error) {
+	c, err := a.site.Get(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	return c.AuditRetentionDays, c.AgentAuditRetentionDays, nil
+}
+
+func (a auditRetentionAdmin) SetDays(ctx context.Context, admin, agent int) error {
+	return a.site.SetAuditRetention(ctx, admin, agent)
 }
 
 // siteAccessAdmin is the admin's view of the site access gate. A save clears

@@ -9,6 +9,14 @@
 - **Docs.** [ADR 0012](adr/0012-module-runtime-hooks.md), the "Go module extension points" section in [Plugin API](PLUGIN_API.md), [Security model](SECURITY_MODEL.md) and [Staging](STAGING.md).
 - **Migration.** New table `hatamoto_job_claims` (`202611221100`), expand-only. Rollback floor: unchanged.
 
+## Unreleased: searchable audit log
+
+- **Admin.** The Audit log searches and filters by text, source, actor, action and date range, shows a Source and a Result column, and pages with an Older button that never repeats or skips a row. A search always covers a date range (30 days by default, 366 at most).
+- **Agent calls.** Agent (MCP) tool calls appear in the same list as source Agent, with the key name as who. A refused call shows "Refused". Arguments are searched; only the target taken from them (slug, path, id or name) is shown.
+- **Retention.** Owners choose how long entries are kept on Audit log, Keep entries for: admin entries (1 year by default) and agent calls (90 days by default), from 90 days to 3 years. If the saved period cannot be read, the cleanup skips the audit tables for that run. Saving is recorded as `audit.retention`.
+- **Unchanged.** The Overview Activity card, what is written to either audit table, and the default retention.
+- **Migration.** Two columns on `hatamoto_site_config` with defaults and two indexes on `hatamoto_mcp_audit`. Expand only. Rollback floor: unchanged, an older release ignores them, but it prunes at the old fixed periods (1 year for admin entries, 90 days for agent calls), so entries kept longer than that are removed at its next cleanup.
+
 ## Unreleased: module extension points (commands, migrations, secrets, services)
 
 - **Wrapper modules.** New public Go packages let a module that calls `app.Main` register, from an `init` function: a CLI command (`module/cli`), its own database migrations (`module/migrate`), sealed secrets under its own key domain (`module/secret`) and a background service that runs in `serve` (`module/service`). A standard build registers nothing and behaves as before: same help text, same `migrate status`, same schema.
