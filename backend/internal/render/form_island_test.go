@@ -48,8 +48,8 @@ class FormData {
 const ctx = {
   RadioNodeList, FormData, URL, URLSearchParams, Set, Promise, console,
   CustomEvent: class { constructor(n, o) { this.type = n; this.detail = o && o.detail; } },
-  document: { referrer: sc.referrer || '', querySelectorAll: () => [form], dispatchEvent() {}, createElement: () => ({}) },
-  location: { href: sc.href || 'https://site.test/p', assign(u) { out.assigned = u; } },
+  document: { referrer: sc.referrer || '', querySelector: () => null, querySelectorAll: () => [form], dispatchEvent() {}, createElement: () => ({}) },
+  location: { href: sc.href || 'https://site.test/p', origin: new URL(sc.href || 'https://site.test/p').origin, assign(u) { out.assigned = u; } },
   fetch: async (u, o) => { out.fetch = { u, headers: o.headers, body: String(o.body), multipart: o.body instanceof FormData }; return { ok: true, status: 201, json: async () => sc.reply || {} }; },
 };
 vm.runInNewContext(fs.readFileSync(process.argv[2], 'utf8'), ctx);

@@ -20,6 +20,9 @@
 (function () {
   'use strict';
   var CFG = __HM_CONSENT__;
+  // Static pages carry the live origin in a meta tag; served pages have none, so BASE stays ''.
+  var metaBase = document.querySelector('meta[name="hm-live-origin"]');
+  var BASE = metaBase ? metaBase.getAttribute('content') || '' : '';
   var KEY = 'hm_consent';
   var YEAR_S = 31536000;
   var CATS = ['analytics', 'marketing', 'functional'];
@@ -124,7 +127,7 @@
 
   function count() {
     var body = JSON.stringify({ choice: choiceName() });
-    var url = '/api/v1/public/consent';
+    var url = BASE + '/api/v1/public/consent';
     try {
       if (w.self.origin !== 'null' && navigator.sendBeacon && navigator.sendBeacon(url, body)) return;
     } catch (e) { /* fall through */ }
@@ -371,7 +374,7 @@
     startUI();
   } else if (CFG.region === 'eu_uk') {
     // Outside the region nobody is asked and everything is allowed.
-    var url = '/api/v1/public/consent/region';
+    var url = BASE + '/api/v1/public/consent/region';
     w.fetch(url, { credentials: 'omit', cache: 'no-store' })
       .then(function (r) { return r.json(); })
       .then(function (j) { return !(j && j.show === false); }, function () { return true; })

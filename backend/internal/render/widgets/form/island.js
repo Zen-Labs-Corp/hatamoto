@@ -64,7 +64,9 @@ for (const form of document.querySelectorAll("form[data-hm-form-logic]")) {
     first?.focus();
     return first;
   };
-  const slug = /^\/forms\/([^/]+)\/submit$/.exec(form.getAttribute("action"))?.[1];
+  const base = document.querySelector('meta[name="hm-live-origin"]')?.content || "";
+  const a = (() => { try { return new URL(form.getAttribute("action") || "", location.href); } catch {} })();
+  const slug = [location.origin, base].includes(a?.origin) && /^\/forms\/([^/]+)\/submit$/.exec(a.pathname)?.[1];
   if (slug && !form.querySelector("[data-hm-captcha]")) {
     form.noValidate = true;
     form.addEventListener("submit", async (e) => {
@@ -72,8 +74,9 @@ for (const form of document.querySelectorAll("form[data-hm-form-logic]")) {
       e.preventDefault();
       clear();
       const d = new FormData(form);
-      const res = await fetch("/api/v1/public/forms/" + slug + "/submit", {
+      const res = await fetch(base + "/api/v1/public/forms/" + slug + "/submit", {
         method: "POST",
+        credentials: base ? "omit" : "same-origin",
         headers: { "X-Page-URL": location.href },
         body: form.querySelector("[type=file]") ? d : new URLSearchParams(d),
       }).catch(() => null);
