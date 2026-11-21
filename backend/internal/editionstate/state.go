@@ -8,6 +8,7 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"regexp"
 	"slices"
@@ -128,8 +129,17 @@ func Feature(ctx context.Context, feature string) bool {
 	return err == nil && ok
 }
 
-// Plugin reports whether the gate entitles pluginID, failing closed like Feature.
-func Plugin(ctx context.Context, pluginID string) bool {
+// Plugin reports whether the gate entitles pluginID, failing closed like
+// Feature. Unlike Feature it also recovers a gate panic (logged, not entitled):
+// it runs from the package manager's background reconcile, where a panic would
+// crash the process and take every community plugin down with it.
+func Plugin(ctx context.Context, pluginID string) (entitled bool) {
+	defer func() {
+		if v := recover(); v != nil {
+			slog.Error("edition: plugin gate panicked, plugin not entitled", "plugin", pluginID, "panic", v)
+			entitled = false
+		}
+	}()
 	r := reg.Load()
 	if r == nil {
 		return false

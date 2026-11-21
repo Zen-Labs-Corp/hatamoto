@@ -155,3 +155,15 @@ func TestPluginKeyCopyAndReset(t *testing.T) {
 		t.Error("Reset did not clear the key")
 	}
 }
+
+type panicGate struct{ fakeGate }
+
+func (panicGate) PluginEntitled(context.Context, string) (bool, error) { panic("gate bug") }
+
+func TestPluginGatePanicFailsClosed(t *testing.T) {
+	fresh(t)
+	Register("example", panicGate{})
+	if Plugin(context.Background(), "p") {
+		t.Error("a panicking gate must yield not entitled")
+	}
+}
