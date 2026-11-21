@@ -13,6 +13,7 @@ import (
 	"runtime/debug"
 	"strings"
 
+	"hatamoto.dev/core/internal/adminpagestate"
 	"hatamoto.dev/core/internal/adminpath"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
@@ -275,6 +276,7 @@ func Main() {
 	editionstate.Freeze()
 	modhost.Freeze()
 	modhost.SetSecretSource(serverSecret)
+	adminpagestate.Freeze()
 	logger := newLogger()
 	slog.SetDefault(logger)
 
