@@ -89,7 +89,7 @@ commands:
 environment: DATABASE_URL (required); DATABASE_DIRECT_URL (optional, bypasses a connection pooler for migrations,
 backups and locks);
 DATABASE_UNIX_SOCKET=off stops a loopback DATABASE_URL from being tried over the local unix socket first;
-DATABASE_SOCKET_DIRS (colon-separated) replaces the socket directories searched (default
+DATABASE_SOCKET_DIRS (colon- or comma-separated) replaces the socket directories searched (default
 /var/run/postgresql:/run/postgresql); HATAMOTO_SECRET (or its old name JWT_SECRET) is generated and
 persisted in $HATAMOTO_SECRETS_DIR (default ./data/secrets) when not set.`
 
