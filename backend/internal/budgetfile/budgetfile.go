@@ -109,7 +109,17 @@ func check(t testing.TB, path, file, key string, got int64, def Metric, update b
 	case got < m.Value-tolerance(m):
 		status = "under"
 	}
+	// A query count is deterministic, so it is an exact pin: a drop must be baselined too,
+	// or the headroom hides a later regression.
+	pinLow := m.Unit == "queries" && got < m.Value
+	if pinLow {
+		status = "FAIL"
+	}
 	line := fmt.Sprintf("BUDGET %s/%s got=%d baseline=%d limit=%d unit=%s status=%s", file, key, got, m.Value, lim, m.Unit, status)
+	if pinLow {
+		t.Errorf("%s: fewer queries than the baseline; lower the baseline: make budgets-update REASON=\"...\"", line)
+		return
+	}
 	if status == "FAIL" {
 		t.Errorf("%s (cap=%d); if the growth is intended run make budgets-update REASON=\"...\"", line, m.Cap)
 		return

@@ -232,6 +232,8 @@ jobs:
           # grant, and its section and partial templates need the grant too.
           must_run ./internal/packages TestHostilePluginJS_NotLinkedWithoutGrant TestHostilePluginJS_SectionsAndPartialsNeedTheGrant
           must_run ./internal/wasmhost TestHostileGuests
+          # The render query-count budget needs Postgres and skips without it; a skip must fail here.
+          must_run ./internal/server TestBudgetRenderQueries
           # D8: backup, restore and the role-admin bootstrap as a non-superuser admin. They skip
           # without psql/pg_dump of the server's major, so a skip (also of a subtest) fails here.
           must_run ./internal/backup TestBackupRestoreAsSuperuserAndCreateRoleAdmin TestBootstrapNeedsGrantOptionOnDatabaseCreate TestBootstrapRefusesSchemaOfAnotherOwner TestBootstrapWorksForAdminWithoutInheritance TestBootstrapRefusesAdminWithoutSetOnAppRole
@@ -239,6 +241,14 @@ jobs:
           must_run ./internal/comment/identity TestIdentityIntegration_FourthRequestSendsNothing TestIdentityIntegration_LostCookieReconfirmKeepsTrust TestIdentityIntegration_RevokeInvalidatesCookies TestIdentityIntegration_PurgesDraftsOlderThan24h TestIdentityIntegration_DisposableDomainRejectedNeutrally
           # E3: the SDK builds from outside the repo (local mode: replace to backend/pkg/sdk).
           bash ../scripts/test-sdk-external.sh
+      # The render query-count budget runs on every PR (one PostgreSQL leg, a scratch database,
+      # a few seconds). It skips without a database and a skip passes silently, so the PASS
+      # line is required.
+      - name: Render query budget really runs
+        if: matrix.pg == '18'
+        run: |
+          go test -count=1 -v -tags=integration -run '^TestBudgetRenderQueries$' ./internal/server | tee /tmp/rq.log
+          bash ../scripts/must-run-check.sh /tmp/rq.log TestBudgetRenderQueries
       # The idle memory budget boots the real binary against a scratch database and measures
       # the Pss of the supervisor and its serve child (about 3 minutes). It skips without the
       # binary, a database or Linux, and a skip passes silently, so the PASS line is required.

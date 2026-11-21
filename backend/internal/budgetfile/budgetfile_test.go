@@ -147,3 +147,39 @@ func TestHistoryKeepsLast20(t *testing.T) {
 		t.Fatalf("history = %+v", fd.History)
 	}
 }
+
+// A query-count metric is an exact pin: one extra or one fewer query fails and the
+// message names the key and both numbers.
+func TestCheckQueriesZeroTolerance(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "q.json")
+	const body = "{\n  \"metrics\": {\n    \"render_queries_entity\": {\n      \"value\": 9,\n      \"unit\": \"queries\"\n    }\n  },\n  \"history\": []\n}\n"
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		got    int64
+		fail   bool
+		status string
+	}{
+		{9, false, "ok"},
+		{8, true, "FAIL"},
+		{10, true, "FAIL"},
+	} {
+		f := &fakeT{}
+		check(f, p, "server", "render_queries_entity", c.got, Metric{Unit: "queries"}, false, "")
+		out := strings.Join(append(f.errs, f.logs...), "\n")
+		if (len(f.errs) > 0) != c.fail {
+			t.Errorf("got=%d: errs=%v, want fail=%v", c.got, f.errs, c.fail)
+		}
+		if !strings.Contains(out, "status="+c.status) {
+			t.Errorf("got=%d: output %q lacks status=%s", c.got, out, c.status)
+		}
+		if c.fail {
+			for _, want := range []string{fmt.Sprintf("BUDGET server/render_queries_entity got=%d baseline=9 limit=9 unit=queries", c.got), "make budgets-update"} {
+				if !strings.Contains(out, want) {
+					t.Errorf("got=%d: output %q lacks %q", c.got, out, want)
+				}
+			}
+		}
+	}
+}
