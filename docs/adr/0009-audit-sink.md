@@ -1,4 +1,4 @@
-# ADR 0008: Audit sink
+# ADR 0009: Audit sink
 
 Status: accepted (2026-11-21)
 

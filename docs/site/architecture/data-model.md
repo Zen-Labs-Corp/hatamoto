@@ -114,7 +114,7 @@ Bylines point at **people**, not at user accounts. A person is an entity of the 
 | `hatamoto_sessions` | admin sessions, stored as a SHA-256 hash of the cookie value, never the cookie itself |
 | `hatamoto_user_tokens` | one-time password reset and invitation tokens, stored as hashes |
 | `hatamoto_api_keys` | API keys (hash and prefix only), scopes, per-key rate limit (default 1000 requests per hour), expiry, last use and revocation |
-| `hatamoto_admin_audit` | an audit log of admin, CLI and plugin actions, pruned after one year. Each row has the actor (id, name, kind; the API key id column is reserved and empty for now), action, target, detail, the request address, user agent and request id (admin requests), and a result. See `docs/adr/0008-audit-sink.md` |
+| `hatamoto_admin_audit` | an audit log of admin, CLI and plugin actions, pruned after one year. Each row has the actor (id, name, kind; the API key id column is reserved and empty for now), action, target, detail, the request address, user agent and request id (admin requests), and a result. See `docs/adr/0009-audit-sink.md` |
 | `hatamoto_mcp_audit` | an audit log of MCP tool calls, pruned after 90 days |
 
 ## Plugins, themes and imports
