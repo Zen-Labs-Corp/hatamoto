@@ -43,7 +43,7 @@ var (
 // wrong dot, a missing field, a bad pipeline. The embedded default theme is
 // covered by the tests, so only chains with a theme layer are checked.
 func (e *Engine) smokeRender(chain Chain) error {
-	c, err := e.compileChain(chain, smokeData{})
+	c, err := e.compileChain(chain, smokeData{}, false)
 	if err != nil {
 		return err
 	}

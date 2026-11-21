@@ -49,6 +49,9 @@ type Options struct {
 	ExtSources ExtSourceFunc
 	// Logger receives rebuild and plugin partial diagnostics (default slog.Default()).
 	Logger *slog.Logger
+	// Preview marks an engine that previews a theme: its compiles never write
+	// the shared record of refused plugin templates the admin lists.
+	Preview bool
 }
 
 // requiredTemplates must be defined by the theme's partials.
@@ -291,10 +294,11 @@ func (e *Engine) SetTheme(layers ...fs.FS) error {
 
 // CheckTheme reports why layers could not serve pages: a template that does
 // not parse, a missing required template, or one that fails against a fixture
-// page of every layout kind. It changes nothing.
+// page of every layout kind. It changes nothing, the refused-template list
+// included.
 func (e *Engine) CheckTheme(layers ...fs.FS) error {
 	chain := layered(layers)
-	if _, err := e.compileChain(chain, e.opts.Data); err != nil {
+	if _, err := e.compileChain(chain, e.opts.Data, false); err != nil {
 		return err
 	}
 	if len(layers) > 0 {
@@ -371,7 +375,7 @@ func (e *Engine) current() *compiled {
 // embedded default templates, so a broken override never turns into a 500 on
 // every page. The compiled version stays the chain's hash.
 func (e *Engine) compile(chain Chain) (*compiled, error) {
-	c, err := e.compileChain(chain, e.opts.Data)
+	c, err := e.compileChain(chain, e.opts.Data, !e.opts.Preview)
 	if err != nil { // structural errors (parse, missing templates) reject the theme
 		return nil, err
 	}
@@ -379,7 +383,7 @@ func (e *Engine) compile(chain Chain) (*compiled, error) {
 		if err := e.smokeRender(chain); err != nil {
 			e.log.Error("render: theme templates failed validation, falling back to the default theme", "error", err)
 			NoteBootFault("theme-fallback:" + e.faultTheme())
-			d, derr := e.compileChain(Chain{DefaultFS()}, e.opts.Data)
+			d, derr := e.compileChain(Chain{DefaultFS()}, e.opts.Data, !e.opts.Preview)
 			if derr != nil {
 				return nil, derr
 			}
@@ -390,7 +394,10 @@ func (e *Engine) compile(chain Chain) (*compiled, error) {
 	return c, nil
 }
 
-func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
+// compileChain builds the template set for chain. Only the serving compile
+// passes record: smoke, theme-check and preview compiles leave the shared
+// refused-template list alone.
+func (e *Engine) compileChain(chain Chain, ds DataSource, record bool) (*compiled, error) {
 	th, err := LoadTheme(chain)
 	if err != nil {
 		return nil, err
@@ -507,7 +514,9 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 		dispatch.WriteString(`{{end}}`)
 	}
 	dispatch.WriteString(`{{end}}`)
-	e.plugins.noteCompileRefused(slices.Compact(slices.Sorted(maps.Values(snap.owner))), refused)
+	if record {
+		e.plugins.noteCompileRefused(slices.Compact(slices.Sorted(maps.Values(snap.owner))), refused)
+	}
 	if _, err := root.New("section-dispatch").Parse(dispatch.String()); err != nil {
 		return nil, fmt.Errorf("section dispatch: %w", err)
 	}
