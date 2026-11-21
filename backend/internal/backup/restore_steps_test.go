@@ -267,6 +267,23 @@ func TestRestoreStepsPauseOffsiteRunsAsAppRoleAfterBootstrap(t *testing.T) {
 	}
 }
 
+// A restored copy shares the original's static target: it must not export until
+// the owner switches static hosting on again.
+func TestPauseSQLServesStaticHosting(t *testing.T) {
+	for _, want := range []string{
+		"to_regclass('public.hatamoto_static_hosting_settings')",
+		"UPDATE public.hatamoto_static_hosting_settings SET mode = 'served'",
+		"UPDATE public.hatamoto_offsite_settings SET enabled = false",
+	} {
+		if !strings.Contains(pauseOffsiteSQL, want) {
+			t.Errorf("pause SQL lacks %q", want)
+		}
+	}
+	if strings.Contains(strings.ToLower(pauseOffsiteSQL), "delete") {
+		t.Error("the pause must keep the target for the owner to re-check")
+	}
+}
+
 func TestRestoreStepsPauseOffsiteFailureAborts(t *testing.T) {
 	r := newStepsRig(t, nil)
 	r.fail["pause offsite"] = errors.New("permission denied")

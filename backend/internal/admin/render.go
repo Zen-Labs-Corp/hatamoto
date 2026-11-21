@@ -196,6 +196,10 @@ type View struct {
 	// AccessBanner tells owners and editors the public site is not open to
 	// visitors (nil while it is open); NewView fills it on GET requests.
 	AccessBanner *AccessBanner
+	// ExportBanner tells the owner the last static export failed (nil
+	// otherwise); NewView fills it for owner GET requests on the dashboard and
+	// the Hosting page.
+	ExportBanner *ExportBanner
 	// DemoBanner is the public demo notice ("" outside demo mode).
 	DemoBanner string
 	// DemoPitch is the demo's note for this section (HATAMOTO_DEMO_PITCH_FILE),
@@ -586,6 +590,7 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 		v.AddressBanner = a.addressBanner(r, v.User)
 		v.StatsBanner = a.statsBanner(r, v.User, v.SetupPending)
 		v.AccessBanner = a.accessBanner(r, v.User)
+		v.ExportBanner = a.exportBanner(r, v.User)
 	}
 	return v
 }

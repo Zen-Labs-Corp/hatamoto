@@ -84,6 +84,9 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	if s.authService != nil {
 		d.Auth = s.authService
 	}
+	if s.hostingSvc != nil {
+		d.Hosting = s.hostingSvc
+	}
 	s.wireTwoFactor(&d)
 	if s.userTokens != nil {
 		d.Tokens = s.userTokens
@@ -190,6 +193,8 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	if s.apiKeyService != nil {
 		d.APIKeys = s.apiKeyService
 	}
+	ai := s.cfg.AgentAnalytics
+	d.AgentLogIngest = ai.LogIngestActive() || (ai.LogIngestEnabled && ai.CaddyLogPath != "")
 	if s.webhooks != nil {
 		d.Webhooks = adminWebhooks{Service: s.webhooks, deliverer: s.webhookDeliverer}
 		d.WebhookDeliveryOn = s.webhookDeliveryOn
@@ -302,6 +307,16 @@ func (h *adminHolder) SetOffsite(svc admin.OffsiteService) {
 	h.s.adminDeps.Offsite = svc
 	if b := h.s.adminBundle.Load(); b != nil {
 		b.a.SetOffsite(svc)
+	}
+}
+
+// SetHosting sets the static hosting service.
+func (h *adminHolder) SetHosting(svc admin.HostingService) {
+	h.s.adminMu.Lock()
+	defer h.s.adminMu.Unlock()
+	h.s.adminDeps.Hosting = svc
+	if b := h.s.adminBundle.Load(); b != nil {
+		b.a.SetHosting(svc)
 	}
 }
 

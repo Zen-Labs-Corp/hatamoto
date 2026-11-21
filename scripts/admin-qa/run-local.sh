@@ -5,7 +5,7 @@
 # service; DATABASE_URL alone is refused because seeding adds a known-password owner;
 # else a throwaway Postgres cluster is created under /tmp), PG_BIN (dir with initdb,
 # pg_ctl, createdb; default: see qa-env.sh), API_PORT, CHROME, PW, QA_OUT, QA_STRICT, QA_JOBS (sessions at once, default 4)
-# (default 1), QA_SEED_ANALYTICS=1 (seed analytics rows so charts are populated), QA_SEED_COMMENTS=1 (seed comments and commenters; comments stay off), QA_VERSION (build with this release version, see below). Runs the `consistency.mjs` and `crawl.mjs` `--self-test`s first. Exits with the first failing
+# (default 1), QA_SEED_ANALYTICS=1 (seed analytics rows so charts are populated), QA_SEED_COMMENTS=1 (seed comments and commenters; comments stay off), QA_SEED_HOSTING=1 (static hosting mode and export runs, the newest failed), QA_VERSION (build with this release version, see below). Runs the `consistency.mjs` and `crawl.mjs` `--self-test`s first. Exits with the first failing
 # script's code.
 set -Eeuo pipefail
 ROOT=$(git rev-parse --show-toplevel)
@@ -115,6 +115,8 @@ bash "$QA/backups-seed.sh"
 [ "${QA_SEED_ANALYTICS:-}" != 1 ] || bash "$QA/analytics-seed.sh"
 # QA_SEED_COMMENTS=1: commenters and comments in every status (comments themselves stay switched off).
 [ "${QA_SEED_COMMENTS:-}" != 1 ] || bash "$QA/comments-seed.sh"
+# QA_SEED_HOSTING=1: static mode (directory target) and three export runs, the newest failed (banner + Failed badge).
+[ "${QA_SEED_HOSTING:-}" != 1 ] || bash "$QA/hosting-seed.sh"
 
 rc=0
 for s in "$@"; do

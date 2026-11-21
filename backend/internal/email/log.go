@@ -28,6 +28,7 @@ const (
 	KindCommentReply        Kind = "comment_reply"        // a reply, to an opted-in commenter
 	KindCommentReplyDigest  Kind = "comment_reply_digest" // several replies, to an opted-in commenter
 	KindCommentSurge        Kind = "comment_surge"        // surge mode started, to the owners
+	KindStaticExportFailed  Kind = "static_export_failed" // a static export failed, to the owners
 	KindPlugin              Kind = "plugin"
 	KindOther               Kind = "other"
 )
@@ -62,11 +63,12 @@ type Recorder interface {
 // StoresBody reports whether the log may keep the bodies of a mail of this
 // kind. The kinds that carry a one-time link or the secret admin address
 // never do, nor do the comment notifications (an unsubscribe bearer link and
-// commenter-written names).
+// commenter-written names) or the export failure notice (an engine error text).
 func (k Kind) StoresBody() bool {
 	switch k {
 	case KindPasswordReset, KindInvite, KindAdminAddressChanged, KindAdminAddressSetup, KindCommentConfirmation,
-		KindCommentModeration, KindCommentDigest, KindCommentReply, KindCommentReplyDigest, KindCommentSurge:
+		KindCommentModeration, KindCommentDigest, KindCommentReply, KindCommentReplyDigest, KindCommentSurge,
+		KindStaticExportFailed:
 		return false
 	}
 	return true

@@ -29,10 +29,21 @@ func (o commentCacheObserver) changed(ctx context.Context, c comment.Comment) {
 // OnApproved fires for an approved store, a confirm and a moderator approval.
 func (o commentCacheObserver) OnApproved(ctx context.Context, c comment.Comment) { o.changed(ctx, c) }
 
-// OnSpam and OnDeleted always drop: the event does not say whether the comment
-// was public before, and a spurious drop is cheap.
-func (o commentCacheObserver) OnSpam(ctx context.Context, c comment.Comment)    { o.changed(ctx, c) }
-func (o commentCacheObserver) OnDeleted(ctx context.Context, c comment.Comment) { o.changed(ctx, c) }
+// OnSpam and OnDeleted drop only for a comment that was public: the event does
+// not carry the old status, but approved_at is kept when an approved comment is
+// moved away, and never set for one that was not public. Dropping for spam that
+// never showed would let a bot drive static exports.
+func (o commentCacheObserver) OnSpam(ctx context.Context, c comment.Comment) {
+	if c.ApprovedAt != nil {
+		o.changed(ctx, c)
+	}
+}
+
+func (o commentCacheObserver) OnDeleted(ctx context.Context, c comment.Comment) {
+	if c.ApprovedAt != nil {
+		o.changed(ctx, c)
+	}
+}
 
 // OnUpdated drops when the comment was or is public: an edit of an approved
 // comment, or an unapproval. OnCreated and OnConfirmed do nothing: an approved
@@ -60,8 +71,9 @@ func (o commentCacheObserver) OnModeChanged(ctx context.Context, entityID uuid.U
 }
 
 // dropRenderedEntity is the observer's drop: that entity's pages, then a
-// debounced preload. Nil-safe without a cache (tests).
+// debounced preload, and a static export is noted. Nil-safe without a cache (tests).
 func (s *Server) dropRenderedEntity(ctx context.Context, id uuid.UUID) {
+	s.staticTrigger.Notify("comment", false)
 	if s.infra == nil || s.infra.CacheInvalidator == nil {
 		return
 	}

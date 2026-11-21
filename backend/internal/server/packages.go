@@ -40,7 +40,7 @@ func (s *Server) setupPackages() {
 		Idle:     s.idle,
 		Trust:    trust,
 		AllowDev: s.cfg.Environment != "production",
-		OnChange: s.invalidateRendered,
+		OnChange: s.onThemeChange,
 		Logger:   s.logger,
 	}
 	if s.tagsStore != nil {
@@ -113,4 +113,20 @@ func (s *Server) setupPackages() {
 		s.logger.Warn("packages: HATAMOTO_PLUGIN_DIR is a development override; do not use it in production", slog.String("dir", s.cfg.Plugins.Dir))
 		s.packages.LoadDevDir(ctx, s.cfg.Plugins.Dir)
 	}
+	s.packagesBooted.Store(true)
+}
+
+// onThemeChange runs when an installed package (the theme) changed: pages and
+// sitemaps go, and (once the boot reconcile is done) a static export rebuilds everything, since every page
+// carries the theme.
+func (s *Server) onThemeChange(ctx context.Context) {
+	if !s.packagesBooted.Load() {
+		// The boot reconcile reports the installed theme as a change; that is
+		// not an edit, so it must not queue a rebuild on every restart.
+		s.purgeRendered(ctx)
+		s.pageCache.notifyContentChanged()
+		return
+	}
+	s.invalidateRendered(ctx)
+	s.staticTrigger.Notify("theme", true)
 }

@@ -16,8 +16,6 @@ import (
 	"hatamoto.dev/core/internal/adminpath"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
-	"hatamoto.dev/core/internal/media"
-	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/server"
 	"hatamoto.dev/core/internal/staticexport"
 )
@@ -73,7 +71,7 @@ func resolveStaticTarget(ctx context.Context, a staticArgs, d staticTargetDeps) 
 		if t, ok, err := staticexport.S3TargetFromEnv(d.getenv); err != nil {
 			return nil, err
 		} else if ok {
-			return s3StaticTarget(t.Endpoint, t.Region, t.Bucket, t.Prefix, t.AccessKey, t.SecretKey, d.getenv)
+			return staticexport.S3TargetChecked(t, d.getenv)
 		}
 	}
 	set, found, err := d.settings(ctx)
@@ -104,25 +102,7 @@ func resolveStaticTarget(ctx context.Context, a staticArgs, d staticTargetDeps) 
 	if err != nil {
 		return nil, err
 	}
-	return s3StaticTarget(t.Endpoint, t.Region, t.Bucket, t.Prefix, t.AccessKey, t.SecretKey, d.getenv)
-}
-
-// s3StaticTarget builds the S3 target and refuses one that overlaps the media
-// object storage (/media serves everything under the media prefix).
-func s3StaticTarget(endpoint, region, bucket, prefix, accessKey, secretKey string, getenv func(string) string) (staticexport.Target, error) {
-	if kind, _ := media.StorageFromEnv(getenv); kind == "s3" {
-		if mt, err := media.S3TargetFromEnv(getenv); err == nil && mt.Overlaps(endpoint, bucket, prefix) {
-			return nil, errors.New("the static export target and the media object storage share a bucket and overlapping prefixes; use a separate bucket or distinct prefixes")
-		}
-	}
-	if prefix != "" && !strings.HasSuffix(prefix, "/") {
-		prefix += "/"
-	}
-	c, err := offsite.Target{Endpoint: endpoint, Region: region, Bucket: bucket, AccessKey: accessKey, SecretKey: secretKey}.Client(nil)
-	if err != nil {
-		return nil, err
-	}
-	return staticexport.NewS3Target(c, endpoint, bucket, prefix), nil
+	return staticexport.S3TargetChecked(t, d.getenv)
 }
 
 // exportServerSecret puts the secret a server would use into the environment

@@ -66,6 +66,7 @@ import (
 	"hatamoto.dev/core/internal/spam"
 	"hatamoto.dev/core/internal/standing"
 	"hatamoto.dev/core/internal/statichost"
+	"hatamoto.dev/core/internal/statictrigger"
 	"hatamoto.dev/core/internal/tags"
 	"hatamoto.dev/core/internal/taxonomy"
 	"hatamoto.dev/core/internal/twofactor"
@@ -293,6 +294,19 @@ type Server struct {
 	pageRuntime    *pageCacheRuntime
 	renderHandlers *renderHandlers
 	pageCache      *pageCacheService
+
+	// staticTrigger turns content changes into debounced static exports. Nil
+	// unless static export is wired (worker process); every call is nil-safe.
+	staticTrigger *statictrigger.Trigger
+	// exportNotify mails the owners when an export starts failing. Nil
+	// without a mail service.
+	exportNotify *exportFailNotifier
+	// packagesBooted is set once setupPackages applied what is installed; a
+	// package change before that is the boot reconcile, not an edit.
+	packagesBooted atomic.Bool
+	// hostingSvc is the Hosting page's service. setupStaticExport runs before
+	// the admin exists, so buildAdminDeps copies it into the admin's deps.
+	hostingSvc admin.HostingService
 
 	// compressOn is the live "Compress responses" switch read by the
 	// compression middleware. New turns it on; the stored setting overrides it
@@ -576,6 +590,7 @@ func (s *Server) setupDependencies() {
 	s.redirectService = redirect.NewService(s.db, s.logger)
 	s.redirectService.SameHostOnly = s.demoOn()
 	s.redirectService.SetLogPolicy(s.log404Policy)
+	s.redirectService.SetOnChange(s.notifyRedirectsChanged)
 
 	// Agent (AI crawler) hit capture. Page paths are resolved to entities in the
 	// writer goroutine, off the request path.
@@ -740,6 +755,7 @@ func (s *Server) setupDependencies() {
 	s.scheduleCommentDraftsPurge()
 	s.setupCommentNotify()
 	s.warnCommentsWithoutAddressAtBoot()
+	s.setupStaticExport()
 }
 
 // buildHandler wraps the finished mux in the global middleware. It runs after
@@ -1103,6 +1119,8 @@ func (s *Server) Shutdown() error {
 	if s.lifecycleCancel != nil {
 		s.lifecycleCancel()
 	}
+	// No new export may start once the database is going away.
+	s.staticTrigger.Close()
 	// The IndexNow runner flushes what is queued once the context ends.
 	if s.indexNow != nil {
 		s.indexNow.Wait(ctx)

@@ -62,8 +62,15 @@ func TestCommentObserverDropsOnlyThePublicThreadChanges(t *testing.T) {
 	}
 
 	r.drops = nil
+	// Never public (pending or spam from the start): nothing visible changed.
 	r.o.OnSpam(ctx, comment.Comment{EntityID: b})
 	r.o.OnDeleted(ctx, comment.Comment{EntityID: b})
+	if len(r.drops) != 0 {
+		t.Fatalf("a never-public comment dropped pages: %v", r.drops)
+	}
+	was := time.Now()
+	r.o.OnSpam(ctx, comment.Comment{EntityID: b, ApprovedAt: &was})
+	r.o.OnDeleted(ctx, comment.Comment{EntityID: b, ApprovedAt: &was})
 	if len(r.drops) != 2 || r.drops[0] != b || r.alls != 0 {
 		t.Fatalf("OnSpam/OnDeleted: drops %v, all %d", r.drops, r.alls)
 	}

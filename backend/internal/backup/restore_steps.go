@@ -341,12 +341,19 @@ func filterDefaultACL(listing string) string {
 // It switches scheduled off-site backups off on the restored
 // database. A restored copy shares the original's bucket prefix, and its first
 // upload would prune the original's copies; the owner turns the card on again
-// after checking the prefix. Backups made before the feature have no table.
+// after checking the prefix. It also switches static hosting to served: a
+// restored copy shares the original's static target, and its first export
+// would overwrite the original's published site. The owner switches static on
+// again (Settings > Hosting, password confirm) after checking the target.
+// Backups made before either feature have no table.
 // It runs as the app role, which owns the table: an admin role that is not a
 // superuser has no privilege on it.
 const pauseOffsiteSQL = `DO $$ BEGIN
 IF to_regclass('public.hatamoto_offsite_settings') IS NOT NULL THEN
 UPDATE public.hatamoto_offsite_settings SET enabled = false;
+END IF;
+IF to_regclass('public.hatamoto_static_hosting_settings') IS NOT NULL THEN
+UPDATE public.hatamoto_static_hosting_settings SET mode = 'served';
 END IF;
 END $$;
 ALTER DEFAULT PRIVILEGES REVOKE ALL ON TABLES FROM PUBLIC;
