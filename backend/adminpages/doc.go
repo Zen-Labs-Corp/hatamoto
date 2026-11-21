@@ -32,6 +32,10 @@
 // an invalid banner or a slow provider shows nothing from that provider and
 // never blocks the page.
 //
+// Context's method set is frozen: modules may fake it in their own tests, so
+// new capabilities arrive as new optional interfaces or functions, never as new
+// methods on Context in a minor release.
+//
 // The types here are aliases of core's internal types. The package is part of
 // core's public API: see docs/PLUGIN_API.md for the compatibility rules.
 package adminpages

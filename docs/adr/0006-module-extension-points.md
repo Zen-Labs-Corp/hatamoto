@@ -17,7 +17,9 @@ release. The public package is a thin facade over an `internal/...state`
 package that holds the registry; core's own code reads the registry, and
 modules can only write to it through the facade. A module never gets a handle
 on core internals: it gets an interface (for example `Context`) that only core
-implements, so methods can be added later without breaking a module.
+implements. Modules still write their own fakes of it in unit tests, so the
+method set of `Context` is frozen: new capabilities arrive as new optional
+interfaces or functions, never as new methods on `Context` in a minor release.
 
 A module also fails closed. Whatever a module does wrong at run time (an error,
 a panic, a broken template, a slow provider) must end in core's own error page
@@ -92,6 +94,7 @@ pages to the Settings area of the admin and show banners in the admin shell.
 
 - The public API in `hatamoto.dev/core/adminpages` is frozen at the next major
   release after it ships. Fields can be added to `Page`, `Route` and `Banner`
-  and methods to `Context`, so non-owner pages, assets or a placement choice can
-  come later without a break.
+  so non-owner pages, assets or a placement choice can come later without a
+  break. The method set of `Context` is frozen; new capabilities are new
+  optional interfaces or functions.
 - A module's templates are checked in the module's own tests, not at runtime.
