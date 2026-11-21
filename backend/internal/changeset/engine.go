@@ -174,7 +174,15 @@ func (e *Engine) Stage(ctx context.Context, csID int64, it Item) error {
 			}
 		}
 		// A person may edit an object of any origin.
-		if cs.Kind != ChangesetEdit {
+		if cs.Kind == ChangesetEdit {
+			var decided bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_changeset_stage_decisions WHERE changeset_id = $1)`, csID).Scan(&decided); err != nil {
+				return fmt.Errorf("failed to check the stage decisions: %w", err)
+			}
+			if decided {
+				return ErrReviewStarted
+			}
+		} else {
 			if err := e.checkOwnership(ctx, tx, ownerPlugin(cs.Plugin, it), it.Kind, target); err != nil {
 				return err
 			}

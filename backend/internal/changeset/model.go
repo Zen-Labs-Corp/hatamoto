@@ -93,7 +93,10 @@ var (
 	ErrUnknownKind  = errors.New("unknown changeset item kind")
 	ErrInvalidItem  = errors.New("invalid changeset item")
 	// ErrInvalidEdit means an edit changeset was asked for without a requester or with an unnamed stage.
-	ErrInvalidEdit   = errors.New("invalid edit changeset")
+	ErrInvalidEdit = errors.New("invalid edit changeset")
+	// ErrReviewStarted means an edit already has a stage decision, so it takes no more items: an
+	// approval covers the items that were staged when it was given.
+	ErrReviewStarted = errors.New("edit review has started")
 	ErrNoWriter      = errors.New("no writer for this kind")
 	ErrUnsupportedOp = errors.New("operation not supported for this kind")
 	// ErrQuotaExceeded means the changeset holds as many items or bytes as it may.

@@ -166,3 +166,31 @@ func TestDecideStageNeedsAnEdit(t *testing.T) {
 	_ = f.eng.Discard(f.ctx, run)
 	_ = f.eng.Discard(f.ctx, edit)
 }
+
+func TestEditTakesNoItemsOnceReviewStarted(t *testing.T) {
+	for _, approved := range []int{1, 3} {
+		f := newFixture(t)
+		registerPolicy(t, fakePolicy{stages: threeStages})
+		cs := f.beginPolicyEdit("late")
+		for i := 0; i < approved; i++ {
+			if err := f.decide(cs, i, "r", StageApproved); err != nil {
+				t.Fatal(err)
+			}
+		}
+		late := f.entityItem("late-b-"+f.tag, "late-b-"+f.tag, "v2")
+		if err := f.eng.Stage(f.ctx, cs, late); !errors.Is(err, ErrReviewStarted) {
+			t.Fatalf("%d approved: stage err = %v, want ErrReviewStarted", approved, err)
+		}
+		if got := f.count(`SELECT count(*) FROM hatamoto_changeset_items WHERE changeset_id = $1`, cs); got != 1 {
+			t.Fatalf("%d approved: %d items, want 1", approved, got)
+		}
+		if approved == 3 {
+			if _, err := f.eng.Publish(f.ctx, cs); err != nil {
+				t.Fatal(err)
+			}
+			if got := f.entities(); got != 1 {
+				t.Fatalf("%d entities after publish, want only the first item's", got)
+			}
+		}
+	}
+}
