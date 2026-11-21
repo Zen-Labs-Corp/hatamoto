@@ -1,0 +1,163 @@
+# Every authorization gate in core and the catalogue action(s) it maps to.
+# Checked by coverage_test.go: every action exists, every catalogue action is
+# cited, every file exists, and each file has one "group" row per
+# RequireRole( / RequireOwnerOrKeyScope( line in internal/admin and
+# internal/server (a new gate needs a row, and an action if none fits).
+#
+# <backend-relative path> group|inline|flag|other <action>[,<action>...] [roles=<owner|owner,editor>] [n=<count>]   # <note, with line numbers as hints>
+#
+# roles  = who the check lets through today, for a signed-in session; required
+#          on every row but other. authz.Default() must answer the same for
+#          an owner and an editor for every cited action (checked by
+#          coverage_test.go). Where a plugin's own role list narrows editors,
+#          roles is the widest answer and the note says so.
+#
+# group  = a RequireRole / RequireOwnerOrKeyScope line (counted by the test)
+# inline = any other gate: an owner/editor check in a handler, a key scope
+#          check, or a route open to every signed-in user
+# flag   = an owner/editor check that only changes what a screen shows
+#          (capability flag, banner, nav); no 403 of its own
+# other  = an owner/editor check that is not an access decision (recipient
+#          selection, claims derivation); the action column is "-"
+#
+# Role checks in internal/admin and internal/server are counted per file: the
+# optional n=<count> field on inline, flag and other rows is the number of
+# lines in that file that compare a role with owner/editor or call requireOwner
+# (RequireRole lines are counted by the group rows). The n values of a file
+# must add up to the count in the source, so a new check needs a row. Line
+# numbers in the notes are hints only.
+
+# --- admin: RequireRole groups ---
+internal/admin/admin.go group admin.styleguide roles=owner  # :563 GET /_styleguide
+internal/admin/builder_reuse.go group builder.block.manage roles=owner,editor  # :46 blocks, make-block, templates
+internal/admin/entities.go group entity.create roles=owner,editor  # :49 POST /entities/drafts
+internal/admin/entities.go group entity.reorder,entity.export roles=owner,editor  # :50 order, export, move
+internal/admin/entities.go group entity.handback roles=owner,editor  # :59 hand back from a plugin
+internal/admin/entities.go group entity.duplicate roles=owner,editor  # :63
+internal/admin/entities.go group entity.share roles=owner,editor  # :72 share links
+internal/admin/entities.go group entity.translate roles=owner,editor  # :76 translation links
+internal/admin/entities.go group entity.version.restore roles=owner,editor  # :84 restore a builder node version
+internal/admin/entities.go group entity.read roles=owner,editor  # :85 node versions JSON
+internal/admin/comments_routes.go group comment.moderate,comment.read,comment.settings.read,comment.blocklist.manage roles=owner,editor  # :14 owner or editor
+internal/admin/comments_routes.go group comment.settings.manage roles=owner  # :15 owner
+internal/admin/import.go group import.run roles=owner  # :94
+internal/admin/media.go group media.settings.manage roles=owner  # :31 formats, rebuild
+internal/admin/page_editor.go group builder.preset.create roles=owner,editor  # :83
+internal/admin/people.go group person.manage roles=owner,editor  # :25
+internal/admin/plugins.go group plugin.manage,plugin.grant roles=owner  # :32 owner
+internal/admin/plugins.go group plugin.view roles=owner,editor  # :33 owner or editor
+internal/admin/plugins_changeset.go group plugin.changeset.review roles=owner  # :51
+internal/admin/pluginui.go group plugin.ui.access roles=owner,editor  # :58
+internal/admin/schemas.go group schema.manage roles=owner  # :26
+internal/admin/settings.go group settings.manage,audit.read,apikey.manage,webhook.manage roles=owner  # :33 every settings sub-page
+internal/admin/setup.go group setup.run roles=owner  # :77 wizard
+internal/admin/setup.go group setup.run roles=owner  # :94 done page
+internal/admin/taxonomies.go group term.manage roles=owner  # :20
+internal/admin/themes.go group theme.manage roles=owner  # :23
+internal/admin/themes.go group theme.preview roles=owner,editor  # :48
+internal/admin/users.go group user.manage,user.delete roles=owner  # :145
+
+# --- server (REST /api/v1): RequireRole and RequireOwnerOrKeyScope groups ---
+internal/server/render_hooks.go group render.preview roles=owner,editor  # :307
+internal/server/seo_settings_handlers.go group settings.seo.read,settings.seo.write roles=owner  # :24 owner, or key scope
+internal/server/server_core.go group cache.flush roles=owner  # :55
+internal/server/server_core.go group user.manage roles=owner  # :72
+internal/server/server_core.go group plugin.manage,plugin.grant roles=owner  # :83
+internal/server/server_core.go group schema.manage roles=owner  # :102
+internal/server/server_core.go group apikey.manage roles=owner  # :181
+internal/server/server_core.go group robots.policy.write roles=owner  # :248
+internal/server/server_core.go group author.manage roles=owner,editor  # :253
+internal/server/server_core.go group term.manage roles=owner  # :267
+internal/server/server_core.go group entity.terms.update roles=owner,editor  # :278
+internal/server/site_settings_handlers.go group settings.manage,theme.manage roles=owner  # :140
+
+# --- inline gates in admin handlers ---
+internal/admin/analytics_traffic_settings.go inline analytics.settings.manage roles=owner n=1  # :11
+internal/admin/analytics.go inline analytics.read roles=owner,editor  # analytics pages, any signed-in user
+internal/admin/comments_commenters.go inline comment.commenter.export,comment.commenter.erase roles=owner n=2  # :419,:425 owner (+ password recheck)
+internal/admin/dashboard.go inline dashboard.read roles=owner,editor n=1  # :584
+internal/admin/builder_editor.go inline builder.style roles=owner n=1  # :164 canStyle is owner only
+internal/admin/entity_edit.go inline entity.update,entity.publish,entity.unpublish,entity.delete roles=owner,editor  # any signed-in user
+internal/admin/media.go inline media.read,media.upload,media.update,media.delete roles=owner,editor  # /media/* open to any signed-in user
+internal/admin/forms.go inline form.settings.manage roles=owner n=2  # :68,:150 owner controls
+internal/admin/analytics_conversions.go inline form.submission.read roles=owner,editor n=1  # :35 canViewSubmissions
+internal/admin/menus.go inline menu.manage,menu.read roles=owner,editor  # /theme/menus, any signed-in user
+internal/admin/translations.go inline entity.translate roles=owner,editor n=1  # :92 canEditTranslations
+internal/admin/entity_ownership_panel.go inline entity.handback roles=owner,editor  # :31,:69 handBackRoles card gate
+internal/admin/entities.go inline entity.read roles=owner,editor  # any signed-in user: view, edit
+
+# --- inline gates in REST handlers ---
+internal/server/comment_post.go inline comment.reply_as_staff roles=owner,editor n=1  # :195
+internal/server/handlers.go inline user.owner.grant,user.delete,user.manage roles=owner n=7  # :290,:307,:399,:408,:429,:439,:539 owner only, 403
+internal/auth/usertokens.go inline user.owner.grant roles=owner  # :208,:275
+internal/server/server_core.go inline profile.update,link.insert,link.suggest,redirect.read,redirect.manage,analytics.read roles=owner,editor  # routes open to any signed-in user or a key
+internal/pluginhost/routes.go inline plugin.route.invoke roles=owner,editor  # :166-176 route roles stay at the call site
+internal/admin/pluginui.go inline plugin.ui.host roles=owner n=1  # :284 host functions are owner only, 403
+
+# --- inline gates added by the inventory review ---
+internal/admin/comments_routes.go inline comment.settings.manage roles=owner n=1  # :47 requireOwner, 403
+internal/admin/comments_settings.go inline comment.settings.manage roles=owner n=4  # :259,:312,:360,:384 requireOwner
+internal/admin/comments_entity.go inline comment.settings.manage roles=owner n=1  # :153 requireOwner
+internal/admin/analytics_robots.go inline robots.policy.write roles=owner n=1  # :109 owner only, 403
+internal/admin/settings_locale_convert.go inline settings.manage roles=owner n=1  # :706 owner only, 403
+internal/admin/entity_edit.go inline term.manage roles=owner n=1  # :1319 "Only owners can create terms"
+internal/admin/plugins_changeset.go inline plugin.changeset.review roles=owner n=1  # :325 re-check of the approving owner
+internal/admin/users.go inline user.owner.grant roles=owner n=2  # :764,:774 MayGrant, last owner
+internal/admin/versions_nodes.go inline entity.version.restore roles=owner,editor n=1  # :84 mayRestoreNodes, owner or editor
+
+# --- editor-allowed routes with no role gate (default: any signed-in user) ---
+internal/admin/forms.go inline form.manage,form.submission.manage roles=owner,editor  # POST /forms, PUT definition, delete; submission status, email, bulk, delete, export
+internal/admin/forms_tabs.go inline form.manage roles=owner,editor  # :36 duplicate
+internal/server/server_core.go inline form.manage,form.submission.manage,section_template.manage,link.rule.manage,redirect.manage roles=owner,editor  # /forms, /section-templates, /linking/rules, /404-log writes
+
+# --- capability flags (what a screen shows; no 403) ---
+internal/admin/analytics_agent.go flag robots.policy.write roles=owner n=1  # :132
+internal/admin/analytics_crawlers.go flag robots.policy.write roles=owner n=1  # :140
+internal/admin/analytics_robots.go flag robots.policy.write roles=owner n=1  # :212
+internal/admin/seo_robots.go flag robots.policy.write roles=owner n=1  # :180
+internal/admin/analytics_traffic.go flag analytics.settings.manage roles=owner n=1  # :390
+internal/admin/comments_settings.go flag comment.settings.manage roles=owner n=1  # :303 csetIsOwner
+internal/admin/dashboard.go flag dashboard.owner.read roles=owner n=2  # :567,:568 owner-only cards and stores
+internal/admin/modulebanners.go flag dashboard.owner.read roles=owner n=1  # :33 module banners shown to owners only
+internal/admin/entities.go flag schema.manage roles=owner n=1  # :550 "manage types" link, owner only
+internal/admin/entities.go flag entity.export roles=owner,editor n=1  # :565 owner or editor
+internal/admin/entity_edit.go flag term.manage,schema.manage roles=owner n=2  # :620,:952
+internal/admin/entity_ownership_panel.go flag plugin.changeset.review roles=owner n=1  # :79
+internal/admin/forms_design.go flag form.settings.manage roles=owner n=1  # :96
+internal/admin/forms_tabs.go flag form.settings.manage roles=owner n=2  # :61,:246
+internal/admin/media.go flag media.settings.manage roles=owner n=1  # :398
+internal/admin/people.go flag user.manage roles=owner n=1  # :193 account emails, owner only
+internal/admin/people.go flag schema.manage roles=owner n=1  # :344 "manage types" link, owner only
+internal/admin/pluginui.go flag plugin.ui.host roles=owner n=1  # :145
+internal/admin/plugins.go flag plugin.manage roles=owner n=4  # :463,:510,:656,:664 owner only (:664 loads settings values)
+internal/admin/plugins.go flag plugin.ui.access roles=owner,editor n=1  # :514 owner, or an editor if the plugin's uiAllows(role) says so
+internal/admin/plugins.go inline plugin.ui.access roles=owner,editor n=1  # :655 404 unless owner or uiAllows(role); roles=editor is the plugin-allows case
+internal/admin/plugins_nav.go flag plugin.manage roles=owner n=1  # :28 "All plugins" entry, owner only
+internal/admin/plugins_nav.go flag plugin.ui.access roles=owner,editor n=1  # :38 owner, or an editor if uiAllows(role)
+internal/admin/nav_counts.go flag plugin.manage roles=owner n=1  # :99 badge, owner only
+internal/admin/admin.go flag plugin.ui.access roles=owner,editor n=1  # :510 owner, or an editor with a plugin UI
+internal/admin/admin.go flag plugin.manage roles=owner n=1  # :512 plugins link target, owner only
+internal/admin/versions.go flag settings.manage roles=owner n=1  # :78
+internal/admin/site_access_banner.go flag dashboard.read roles=owner,editor n=1  # :20 owner or editor sees the banner
+internal/admin/site_access_banner.go flag settings.manage roles=owner n=1  # :36 banner links to the settings page, owner only
+internal/admin/hosting_banner.go flag settings.manage roles=owner n=1  # :16
+internal/admin/security_keep.go flag settings.manage roles=owner n=1  # :39
+internal/admin/updates.go flag settings.manage roles=owner n=1  # :1138
+internal/admin/stats.go flag settings.manage roles=owner n=1  # :162
+
+# --- not access decisions ---
+internal/admin/address_notify.go other - n=1  # :22 recipient selection
+internal/admin/adminguard.go other - n=1  # :136 recipient selection
+internal/admin/authmw.go other - n=1  # :60 claims derivation
+internal/server/standing_digest.go other - n=1  # :124 recipient selection
+internal/server/comment_surge.go other - n=1  # :103 recipient selection
+internal/server/comment_notify_setup.go other - n=1  # :59 recipient selection
+internal/server/form_handlers.go other - n=1  # :1062 recipient lookup for the admin link in form emails
+
+# --- API key scopes ---
+internal/mcpserver/tools_content.go inline term.manage roles=owner  # MCP term write, owner-created keys only
+internal/middleware/apikey_route_auth.go inline entity.read,entity.update,entity.create,entity.publish,entity.unpublish,entity.version.restore,media.read,media.upload,form.read,form.submission.read roles=owner,editor  # :36-70 REST allowlist
+internal/mcpserver/tools_content.go inline entity.takeover,entity.duplicate,entity.reorder,menu.read,menu.manage,redirect.read,redirect.manage,schema.read,term.read,media.upload roles=owner,editor  # MCP tools
+internal/mcpserver/tools_comments.go inline comment.read,comment.moderate,comment.reply_as_staff roles=owner,editor  # :79-152
+internal/mcpserver/tools_insight.go inline analytics.read roles=owner,editor  # :75-181
+internal/mcpserver/tools_seo.go inline settings.seo.read,settings.seo.write roles=owner  # :59-140
