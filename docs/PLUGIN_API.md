@@ -937,6 +937,28 @@ Plugin directories may be symlinks. A Go guest's `init()` runs on the first hook
 
 **Settings** (`settings_schema`) drive the admin settings form and are read by the guest with `settings.get` (permission `settings`). Use `config` in the manifest for fixed values.
 
+## Go module extension points
+
+For wrapper modules, not wasm plugins: a Go program with its own `main` that
+imports `hatamoto.dev/core/app` and calls `app.Main` (see the `edition`
+package). The packages below are public API. Names and behaviour are frozen
+until the next major release, like the rest of this document. Register from an
+`init` function: `app.Main` freezes every registry, and a later call panics, as
+do a nil value, an invalid name and (where only one is allowed) a second call.
+Nothing registered means no change. Module code that errors or panics fails
+closed. Design record: [ADR 0007](adr/0007-module-extension-points.md).
+
+| Package | Use |
+|---|---|
+| `module/cli` | `Register(Command{Name, Usage, Run})` adds a `hatamoto <name>` command; `Run` gets `*Env{DB, Logger, DataDir, Out, Err}`; `Exit(code, err)` sets the exit code. A core command name always wins, including one core adds in a later release, which then shadows a module command of the same name. |
+| `module/migrate` | `Register(module, fsys)` adds goose SQL migrations that run after core's, in `serve` and `hatamoto migrate`, recorded in `module_<name>_goose_db_version` (never `goose_db_version`). `Err(module)` is the last run's result. A failed module migration does not stop `serve` (that module's services are not started) but makes `hatamoto migrate` exit non-zero. Name every table, index and function `module_<name>_...` or use your own schema; never alter core objects. `Err` is always nil inside a CLI command. |
+| `module/secret` | `Seal`/`Open(module, purpose, aad, ...)` with a key derived under `module/<module>/<purpose>`; `ErrNoSecret` when the process has no server secret. |
+| `module/service` | `Register(module, run)` starts `run(ctx)` in `serve` only, before the listener; `ctx` is cancelled at shutdown and shutdown waits up to 10 s; panics are recovered; no restart. |
+
+**Trust.** A wrapper module is fully trusted, compiled-in code: it runs with the core database role and the same process environment (including the server secret). The secret key domain and the separate migrations table prevent accidental clashes, not a malicious module. `cli.Env.DB` is a `*pgxpool.Pool` from `github.com/jackc/pgx/v5`, which is part of the contract.
+
+Module names match `^[a-z][a-z0-9_]{0,30}$`; command names `^[a-z][a-z0-9-]{0,31}$`.
+
 ## Writing a plugin in Go
 
 Outside this repository (your own module, no `replace`) see [PLUGINS_WRITE_AND_SUBMIT.md](PLUGINS_WRITE_AND_SUBMIT.md) to write and publish a plugin.
