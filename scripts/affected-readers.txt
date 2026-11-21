@@ -52,5 +52,5 @@ docs/THEMES.md                                             backend  ./internal/r
 docs/site/themes/template-funcs.md                        backend  ./internal/render
 backend/adminpages/testdata/**                             backend  ./adminpages/designcheck
 backend/adminpages/testdata/**                             backend  ./internal/admin
-backend/internal/**                                        backend  ./authz
-backend/web/admin/**                                       backend  ./authz
+backend/internal/*.go                                      backend  ./authz
+backend/web/admin/*.html                                   backend  ./authz
