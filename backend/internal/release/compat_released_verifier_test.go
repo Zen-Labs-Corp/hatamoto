@@ -1,25 +1,36 @@
 package release
 
 import (
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"testing"
-
-	"hatamoto.dev/core/internal/jsonx"
 )
+
+// releasedArtifact is a copy of Artifact as of v1.4.1; never update it.
+type releasedArtifact struct {
+	SHA256 string `json:"sha256"`
+	Size   int64  `json:"size"`
+}
+
+// releasedDecode spells out the v1.4.1 decode options (jsonx.StoredLoose then:
+// v2 defaults, case-insensitive names, duplicate names allowed), so a change
+// to jsonx or to today's types shows up here instead of moving both sides.
+var releasedDecode = jsonv2.JoinOptions(jsonv2.DefaultOptionsV2(), jsonv2.MatchCaseInsensitiveNames(true), jsontext.AllowDuplicateNames(true))
 
 // releasedRecord is a copy of the Record struct in the last release without
 // editions; never update it.
 type releasedRecord struct {
-	Version            string              `json:"version"`
-	Kind               string              `json:"kind"`
-	Security           bool                `json:"security"`
-	SDK                string              `json:"sdk"`
-	SDKCompatibleWith  []string            `json:"sdk_compatible_with,omitempty"`
-	RemovedPermissions []string            `json:"removed_permissions,omitempty"`
-	SchemaHead         int64               `json:"schema_head"`
-	RollbackFloor      string              `json:"rollback_floor"`
-	MinFrom            string              `json:"min_from"`
-	NotesURL           string              `json:"notes_url"`
-	Artifacts          map[string]Artifact `json:"artifacts"`
+	Version            string                      `json:"version"`
+	Kind               string                      `json:"kind"`
+	Security           bool                        `json:"security"`
+	SDK                string                      `json:"sdk"`
+	SDKCompatibleWith  []string                    `json:"sdk_compatible_with,omitempty"`
+	RemovedPermissions []string                    `json:"removed_permissions,omitempty"`
+	SchemaHead         int64                       `json:"schema_head"`
+	RollbackFloor      string                      `json:"rollback_floor"`
+	MinFrom            string                      `json:"min_from"`
+	NotesURL           string                      `json:"notes_url"`
+	Artifacts          map[string]releasedArtifact `json:"artifacts"`
 }
 
 // editionRecord is the fixture's record plus one edition build, marshalled.
@@ -51,11 +62,11 @@ func TestReleasedVerifierAcceptsEditions(t *testing.T) {
 		t.Fatal(err)
 	}
 	var old releasedRecord
-	if err := jsonx.Unmarshal(b, &old, jsonx.StoredLoose); err != nil {
+	if err := jsonv2.Unmarshal(b, &old, releasedDecode); err != nil {
 		t.Fatalf("released decode refused editions: %v", err)
 	}
-	if old.Artifacts[f.platform] != rec.Artifacts[f.platform] {
-		t.Fatalf("artifact = %+v, want %+v", old.Artifacts[f.platform], rec.Artifacts[f.platform])
+	if want := (releasedArtifact(rec.Artifacts[f.platform])); old.Artifacts[f.platform] != want {
+		t.Fatalf("artifact = %+v, want %+v", old.Artifacts[f.platform], want)
 	}
 	if old.Version != rec.Version || old.RollbackFloor != rec.RollbackFloor || old.MinFrom != rec.MinFrom || old.SchemaHead != rec.SchemaHead {
 		t.Fatalf("released decode differs: %+v", old)
