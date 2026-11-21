@@ -53,9 +53,9 @@ type hostingAdmin struct {
 	background func() context.Context // the server lifecycle context
 	spawn      func(func())           // nil = go f(); tests run inline
 	log        *slog.Logger
-	testing    atomic.Bool // a Test export is running in this process
-	getenv   func(string) string // nil: no private-endpoint opt-in
-	lookup   safefetch.Lookup    // nil: no save-time DNS lookup
+	testing    atomic.Bool         // a Test export is running in this process
+	getenv     func(string) string // nil: no private-endpoint opt-in
+	lookup     safefetch.Lookup    // nil: no save-time DNS lookup
 }
 
 func (h *hostingAdmin) load(ctx context.Context) (staticexport.Settings, error) {
