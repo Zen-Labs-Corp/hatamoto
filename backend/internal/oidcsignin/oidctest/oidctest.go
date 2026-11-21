@@ -34,6 +34,8 @@ type Server struct {
 	Claims func(base map[string]any) map[string]any
 	// Sign signs header.payload (both base64url); nil signs RS256 with Key.
 	Sign func(signingInput []byte) []byte
+	// Discovery edits the discovery document before it is served. Nil keeps it.
+	Discovery func(doc map[string]any) map[string]any
 	// OmitIDToken makes the token endpoint answer without an id_token.
 	OmitIDToken bool
 	// Now is the clock for iat/exp; nil is time.Now.
@@ -95,7 +97,7 @@ func writeJSON(w http.ResponseWriter, v any) {
 }
 
 func (s *Server) discovery(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, map[string]any{
+	doc := map[string]any{
 		"issuer":                                s.URL,
 		"authorization_endpoint":                s.URL + "/authorize",
 		"token_endpoint":                        s.URL + "/token",
@@ -104,7 +106,11 @@ func (s *Server) discovery(w http.ResponseWriter, _ *http.Request) {
 		"subject_types_supported":               []string{"public"},
 		"id_token_signing_alg_values_supported": []string{"RS256"},
 		"code_challenge_methods_supported":      []string{"S256"},
-	})
+	}
+	if s.Discovery != nil {
+		doc = s.Discovery(doc)
+	}
+	writeJSON(w, doc)
 }
 
 func (s *Server) jwks(w http.ResponseWriter, _ *http.Request) {

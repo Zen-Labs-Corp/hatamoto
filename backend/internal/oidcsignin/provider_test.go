@@ -294,3 +294,21 @@ func TestGoogleHostedDomain(t *testing.T) {
 		}
 	}
 }
+
+func TestDiscoveryRefusesPlainHTTPEndpoints(t *testing.T) {
+	for _, key := range []string{"authorization_endpoint", "token_endpoint", "jwks_uri"} {
+		t.Run(key, func(t *testing.T) {
+			r := newRig(t)
+			r.idp.Discovery = func(d map[string]any) map[string]any {
+				d[key] = strings.Replace(d[key].(string), "https://", "http://", 1)
+				return d
+			}
+			if _, err := r.p.Start(context.Background(), authstate.StartRequest{CallbackURL: testCallback, State: testState}); ReasonOf(err) != reasonDiscoveryFailed {
+				t.Fatalf("Start = %v, want discovery_failed", err)
+			}
+			if err := r.p.Check(context.Background(), r.src.s); err == nil {
+				t.Fatal("Check accepted a plain http endpoint")
+			}
+		})
+	}
+}

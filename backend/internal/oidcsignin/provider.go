@@ -328,12 +328,33 @@ func fetchProvider(ctx context.Context, rt *Runtime, issuer string) (*oidc.Provi
 	defer t.Stop()
 	select {
 	case r := <-ch:
-		return r.p, r.err
+		if r.err != nil {
+			return nil, r.err
+		}
+		return r.p, secureEndpoints(r.p)
 	case <-t.C:
 		return nil, errors.New("discovery timed out")
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+}
+
+// secureEndpoints refuses a discovery document whose authorization, token or
+// key-set address is not https: the token call carries the client secret.
+func secureEndpoints(op *oidc.Provider) error {
+	var meta struct {
+		JWKSURI string `json:"jwks_uri"`
+	}
+	if err := op.Claims(&meta); err != nil {
+		return err
+	}
+	ep := op.Endpoint()
+	for _, u := range []string{ep.AuthURL, ep.TokenURL, meta.JWKSURI} {
+		if u != "" && !strings.HasPrefix(strings.ToLower(u), "https://") {
+			return errors.New("discovery advertises an endpoint that is not https")
+		}
+	}
+	return nil
 }
 
 // Check runs discovery and fetches the key set for s.Issuer. It is the
