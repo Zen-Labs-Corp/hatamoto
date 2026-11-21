@@ -28,8 +28,10 @@ type Subject struct {
 	CreatorRole string
 }
 
-// Object is what the action applies to. Every field is optional; the default
-// authorizer ignores the object.
+// Object is what an action is about. The zero Object asks whether the subject
+// may perform the action on some object at all (route gates, showing a
+// button); a check about one entity or media item passes it. Every field is
+// optional.
 type Object struct {
 	// Kind names the type of object, for example "entity" or "media".
 	Kind string
@@ -41,6 +43,12 @@ type Object struct {
 	Locale string
 	// Section names the area of a settings page.
 	Section string
+	// CreatedBy is the user who created the entity or uploaded the media
+	// item, not the byline; "" when unknown.
+	CreatedBy string
+	// Status is the entity status: "draft", "scheduled", "published" or
+	// "archived"; "" for other kinds.
+	Status string
 }
 
 // Action names an operation, such as ActionEntityPublish. The catalogue

@@ -62,6 +62,15 @@
 // user's own account. A policy that does not delegate to Default must answer
 // it, or every such request is refused, owners included.
 //
+// # Objects
+//
+// The zero Object (empty ID) asks a capability question: may this subject
+// perform the action on some object at all. It is what route gates and menus
+// ask. A call about one entity or media item passes that item's Object, with
+// CreatedBy set to the user who created it (the creator, not the byline) and,
+// for entities, Status. A registered authorizer receives the same Object
+// unchanged.
+//
 // Some checks stay outside this package: the password recheck before a
 // dangerous action, the plugin manifest role lists, the route allowlist that
 // decides which REST routes an API key can reach at all, and invariants such
