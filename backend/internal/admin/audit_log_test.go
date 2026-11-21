@@ -239,6 +239,21 @@ func TestAuditLogFacetWindowFollowsTheEndDate(t *testing.T) {
 	}
 }
 
+func TestAuditLogClampsExtremeDates(t *testing.T) {
+	t.Parallel()
+
+	f := &fakeAuditLog{rows: auditRows(2)}
+	g := newRig(t, func(d *Deps) { d.AuditLog = f })
+	rec := g.do("GET", "/admin/audit?from=0001-01-01&to=9999-12-31", "owner-token", nil, nil)
+	q := f.lastQuery
+	if rec.Code != 200 || q.From.Year() != 2000 || q.To.After(time.Now().AddDate(0, 0, 3)) {
+		t.Errorf("extreme dates: %d from=%v to=%v", rec.Code, q.From, q.To)
+	}
+	if strings.Contains(rec.Body.String(), "9999") || strings.Contains(rec.Body.String(), "0001-01-01") {
+		t.Error("page still shows the unclamped dates")
+	}
+}
+
 func TestAuditLogToleratesBadInput(t *testing.T) {
 	t.Parallel()
 
