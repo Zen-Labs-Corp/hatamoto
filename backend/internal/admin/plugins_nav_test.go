@@ -475,7 +475,7 @@ func TestPluginWithoutSiteScriptsGrantShowsBanner(t *testing.T) {
 
 // Sections and partials that are not registered are listed on the plugin's page
 // with their reason, and the list row links to the callout. The scripts
-// paragraph stays out: the refusal has nothing to do with site.scripts.
+// "blocked" sentences stay out: the refusal is not a stopped script.
 func TestPluginRefusedTemplatesShowInBanner(t *testing.T) {
 	t.Parallel()
 
@@ -491,7 +491,7 @@ func TestPluginRefusedTemplatesShowInBanner(t *testing.T) {
 			t.Errorf("plugin page lacks %q", want)
 		}
 	}
-	for _, raw := range []string{"bad type", "output limit: sample render", "site.scripts"} {
+	for _, raw := range []string{"bad type", "output limit: sample render"} {
 		if strings.Contains(page, raw) {
 			t.Errorf("plugin page shows %q", raw)
 		}
@@ -516,6 +516,26 @@ func TestPluginRefusedTemplatesNoCountAndDeduped(t *testing.T) {
 	}
 	if !strings.Contains(page, "<code>all templates</code>") {
 		t.Error("the all-templates entry is missing")
+	}
+}
+
+// A plugin whose only problem is the output limit still gets the site.scripts
+// remedy: the grant lifts the cap.
+func TestPluginOutputCapOffersScriptsGrant(t *testing.T) {
+	t.Parallel()
+
+	capped := []string{"section big: output limit: sample render of section-big: plugin template output is over the 256 KiB output limit"}
+	g, _, fp := newPackageRig(t)
+	fp.list = append(fp.list,
+		PluginInfo{Name: "asks", Package: &PackageMeta{Enabled: true, AsksScripts: true, TemplatesRefused: capped}},
+		PluginInfo{Name: "plain", Package: &PackageMeta{Enabled: true, TemplatesRefused: capped}})
+	page := g.do("GET", "/admin/plugins/asks/permissions", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(page, `href="/admin/plugins/asks/permissions">Review its permissions`) {
+		t.Errorf("no permissions link for a plugin that asks for site.scripts: %.300s", page)
+	}
+	page = g.do("GET", "/admin/plugins/plain/permissions", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(page, "asks for <code>site.scripts</code>") {
+		t.Error("no update hint for a plugin that does not ask for site.scripts")
 	}
 }
 
