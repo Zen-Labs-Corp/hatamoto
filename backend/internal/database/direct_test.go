@@ -11,7 +11,7 @@ import (
 func TestNewDirectFallsBackWhenUnsetOrEqual(t *testing.T) {
 	const main = "postgres://u:p@pooler:6432/db"
 	for _, url := range []string{"", main} {
-		d, err := newDirect(url, main, nil)
+		d, _, err := newDirect(context.Background(), url, main, nil, SocketOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -22,7 +22,7 @@ func TestNewDirectFallsBackWhenUnsetOrEqual(t *testing.T) {
 }
 
 func TestNewDirectStripsPoolKeys(t *testing.T) {
-	d, err := newDirect("postgres://u:p@pg:5432/db?pool_max_conns=9&application_name=x", "postgres://u:p@pooler:6432/db", nil)
+	d, _, err := newDirect(context.Background(), "postgres://u:p@pg:5432/db?pool_max_conns=9&application_name=x", "postgres://u:p@pooler:6432/db", nil, SocketOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func TestNewDirectStripsPoolKeys(t *testing.T) {
 }
 
 func TestNewDirectRejectsBadURL(t *testing.T) {
-	if _, err := newDirect("postgres://u:p@h:notaport/db", "x", nil); err == nil {
+	if _, _, err := newDirect(context.Background(), "postgres://u:p@h:notaport/db", "x", nil, SocketOptions{}); err == nil {
 		t.Fatal("expected an error")
 	}
 }
@@ -62,7 +62,7 @@ func TestDirectPoolFallbackIsMainPool(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	d, _ := newDirect("", "", pool)
+	d, _, _ := newDirect(context.Background(), "", "", pool, SocketOptions{})
 	got, closeFn, err := d.Pool(context.Background(), 2)
 	if err != nil {
 		t.Fatal(err)
@@ -77,7 +77,7 @@ func TestDirectPoolFallbackIsMainPool(t *testing.T) {
 }
 
 func TestDirectPoolSeparateWhenSet(t *testing.T) {
-	d, err := newDirect("postgres://u:p@127.0.0.1:1/db?pool_max_conns=9", "postgres://u:p@127.0.0.1:2/db", nil)
+	d, _, err := newDirect(context.Background(), "postgres://u:p@127.0.0.1:1/db?pool_max_conns=9", "postgres://u:p@127.0.0.1:2/db", nil, SocketOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestNewDirectRejectsOtherUserOrDatabase(t *testing.T) {
 		"postgres://admin:secret@pg:5432/site",
 		"postgres://app:secret@pg:5432/site_alias",
 	} {
-		_, err := newDirect(direct, main, nil)
+		_, _, err := newDirect(context.Background(), direct, main, nil, SocketOptions{})
 		if err == nil {
 			t.Fatalf("%q accepted", direct)
 		}
@@ -105,7 +105,27 @@ func TestNewDirectRejectsOtherUserOrDatabase(t *testing.T) {
 			t.Fatalf("error leaks the password: %v", err)
 		}
 	}
-	if _, err := newDirect("postgres://app:q@pg:5432/site", main, nil); err != nil {
+	if _, _, err := newDirect(context.Background(), "postgres://app:q@pg:5432/site", main, nil, SocketOptions{}); err != nil {
 		t.Fatalf("other host and password must be accepted: %v", err)
+	}
+}
+
+func TestDirectPoolUsesProbedConfig(t *testing.T) {
+	d, _, err := newDirect(context.Background(), "postgres://u:p@127.0.0.1:1/db?pool_max_conns=9", "postgres://u:p@127.0.0.1:2/db", nil, SocketOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Stands in for a probed socket directory: Pool must use d.cfg, not re-parse the URL.
+	d.cfg.Host = "/x"
+	pool, closeFn, err := d.Pool(context.Background(), 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeFn()
+	if got := pool.Config().ConnConfig.Host; got != "/x" {
+		t.Fatalf("Host = %q, want the probed config's", got)
+	}
+	if pool.Config().MaxConns != 2 {
+		t.Fatalf("MaxConns = %d, want 2", pool.Config().MaxConns)
 	}
 }

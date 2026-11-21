@@ -87,6 +87,8 @@ Under systemd put them in the environment file; under Docker use `environment:` 
 | `DATABASE_MAX_CONN_LIFETIME` | `1h` | Longest age of a connection before it is recycled (duration). |
 | `DATABASE_MAX_CONN_IDLE_TIME` | `30m` | How long an idle connection may stay open (duration). With `DATABASE_MIN_CONNECTIONS=0` it is also how long the site may go without a request before the background checks back off to a 5 to 15 minute beat (twice this value); see [Worker and background](../architecture/worker-and-background.md#idle-back-off). |
 | `DATABASE_PUBLIC_ACQUIRE_TIMEOUT` | `3s` | How long a public page request may wait for a pool connection before it answers 503 with `Retry-After: 2` (duration). `0` disables the bound. Admin, API and background work are not affected. Useful with a small `DATABASE_MAX_CONNECTIONS`. |
+| `DATABASE_UNIX_SOCKET` | `on` | When the database host is `127.0.0.1`, `::1` or `localhost`, Hatamoto tries the server's local unix socket for the same port with the same user and password, once at start, and uses it when that works. Any failure keeps TCP. Remote hosts and `sslmode=require` or `verify-*` are never switched. `off` disables the attempt. |
+| `DATABASE_SOCKET_DIRS` | `/var/run/postgresql:/run/postgresql` | Absolute directories searched for the socket, separated by colons or commas. `/tmp` is not searched by default because any local user can create a socket there. |
 
 With several processes, multiply the maximum by the number of processes and check it against Postgres's `max_connections`. Every plugin that uses `db` adds a pool of up to 2 connections. To size the pools for many sites on one cluster, see [Run on managed PostgreSQL](managed-postgresql.md).
 

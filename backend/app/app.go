@@ -87,7 +87,10 @@ commands:
   version [--json]                 print version and commit (--json adds sdk and schema head)
 
 environment: DATABASE_URL (required); DATABASE_DIRECT_URL (optional, bypasses a connection pooler for migrations,
-backups and locks); HATAMOTO_SECRET (or its old name JWT_SECRET) is generated and
+backups and locks);
+DATABASE_UNIX_SOCKET=off stops a loopback DATABASE_URL from being tried over the local unix socket first;
+DATABASE_SOCKET_DIRS (colon-separated) replaces the socket directories searched (default
+/var/run/postgresql:/run/postgresql); HATAMOTO_SECRET (or its old name JWT_SECRET) is generated and
 persisted in $HATAMOTO_SECRETS_DIR (default ./data/secrets) when not set.`
 
 // parseArgs maps CLI arguments (without argv[0]) to a command.
@@ -439,6 +442,9 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	}
 	defer db.Close()
 	logger.Info("connected to database")
+	for _, note := range db.TransportNotes() {
+		logger.Info(note)
+	}
 
 	if err := migrateUpDirect(ctx, db, logger); err != nil {
 		return err
