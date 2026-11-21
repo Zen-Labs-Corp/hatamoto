@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/author"
+	"hatamoto.dev/core/internal/authzctx"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
 )
@@ -196,6 +197,9 @@ func (p *Profiles) Save(ctx context.Context, userID uuid.UUID, in ProfileInput) 
 	if verr := in.Validate(); verr != nil {
 		return nil, verr
 	}
+	// The route authorized profile.update and the person is the user's own: the entity rules for content
+	// (creator, status) do not apply, so write as the system.
+	ctx = authzctx.Without(ctx)
 	cur, err := p.ensureForUser(ctx, userID, in.Name)
 	if err != nil {
 		return nil, err

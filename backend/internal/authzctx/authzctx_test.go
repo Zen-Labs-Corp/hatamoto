@@ -24,3 +24,10 @@ func TestWithFromRoundTrip(t *testing.T) {
 		t.Fatalf("got %+v, want %+v", got, want)
 	}
 }
+
+func TestWithoutDropsTheSubject(t *testing.T) {
+	ctx := authzctx.With(context.Background(), authzsubject.ForSession("u1", "author"))
+	if _, ok := authzctx.From(authzctx.Without(ctx)); ok {
+		t.Fatal("Without must leave a system caller")
+	}
+}

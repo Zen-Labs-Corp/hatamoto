@@ -20,3 +20,9 @@ func From(ctx context.Context) (authz.Subject, bool) {
 	s, ok := ctx.Value(key{}).(authz.Subject)
 	return s, ok
 }
+
+// Without returns ctx as a system caller: no subject. Use it only where the caller has already authorized
+// the request itself (for example a user saving their own profile).
+func Without(ctx context.Context) context.Context {
+	return context.WithValue(ctx, key{}, nil)
+}
