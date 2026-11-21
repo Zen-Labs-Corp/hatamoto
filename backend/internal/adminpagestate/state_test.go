@@ -53,7 +53,11 @@ func TestRegisterRejectsInvalidPages(t *testing.T) {
 		"nil handler":                  mut(func(p *Page) { p.Routes = append(p.Routes, Route{Method: "POST", Path: "/x"}) }),
 		"invalid route path \"x\"":     mut(func(p *Page) { p.Routes = append(p.Routes, Route{Method: "POST", Path: "x", Handle: ok}) }),
 		"invalid route path \"/../x\"": mut(func(p *Page) { p.Routes = append(p.Routes, Route{Method: "POST", Path: "/../x", Handle: ok}) }),
-		"bad route pattern":            mut(func(p *Page) { p.Routes = append(p.Routes, Route{Method: "POST", Path: "/{", Handle: ok}) }),
+		"conflicts with pattern": mut(func(p *Page) {
+			p.Routes = append(p.Routes, Route{Method: "GET", Path: "/{id}", Handle: ok}, Route{Method: "GET", Path: "/{name}", Handle: ok})
+		}),
+		"matches the same requests": mut(func(p *Page) { p.Routes = append(p.Routes, Route{Method: "GET", Handle: ok}) }),
+		"bad route pattern":         mut(func(p *Page) { p.Routes = append(p.Routes, Route{Method: "POST", Path: "/{", Handle: ok}) }),
 	}
 	for want, p := range cases {
 		mustPanic(t, want, func() { Register(p) })

@@ -101,6 +101,7 @@ func validate(p Page) error {
 		return fmt.Errorf("page %q has no templates", p.ID)
 	}
 	hasIndex := false
+	trial := http.NewServeMux() // one mux, so routes of the page that conflict are caught here
 	for _, rt := range p.Routes {
 		if rt.Method != http.MethodGet && rt.Method != http.MethodPost {
 			return fmt.Errorf("page %q: method %q is not GET or POST", p.ID, rt.Method)
@@ -111,7 +112,7 @@ func validate(p Page) error {
 		if rt.Path != "" && !strings.HasPrefix(rt.Path, "/") || strings.Contains(rt.Path, "..") {
 			return fmt.Errorf("page %q: invalid route path %q", p.ID, rt.Path)
 		}
-		if err := trialPattern(rt.Method + " /settings/modules/" + p.ID + rt.Path); err != nil {
+		if err := trialPattern(trial, rt.Method+" /settings/modules/"+p.ID+rt.Path); err != nil {
 			return fmt.Errorf("page %q: bad route pattern %q: %v", p.ID, rt.Path, err)
 		}
 		hasIndex = hasIndex || rt.Method == http.MethodGet && rt.Path == ""
@@ -122,13 +123,13 @@ func validate(p Page) error {
 	return nil
 }
 
-func trialPattern(pattern string) (err error) {
+func trialPattern(mux *http.ServeMux, pattern string) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%v", r)
 		}
 	}()
-	http.NewServeMux().HandleFunc(pattern, func(http.ResponseWriter, *http.Request) {})
+	mux.HandleFunc(pattern, func(http.ResponseWriter, *http.Request) {})
 	return nil
 }
 
