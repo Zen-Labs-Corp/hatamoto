@@ -147,9 +147,34 @@ func (p auditParams) href(prefix string, drop ...string) string {
 // the half-open window of the query. A bad date is ignored. With a text search
 // the window is always set: from defaults to 30 days before the end and is
 // never wider than 366 days. The returned from value is the day to show.
+// parseAuditDay is parseDay with the day clamped to the range the audit log
+// can hold: from 2000-01-01 to tomorrow, like the cursor.
+func parseAuditDay(s string, loc *time.Location, now time.Time) (time.Time, bool) {
+	t, ok := parseDay(s, loc)
+	if !ok {
+		return t, false
+	}
+	if oldest := time.Date(2000, 1, 1, 0, 0, 0, 0, loc); t.Before(oldest) {
+		return oldest, true
+	}
+	y, m, d := now.In(loc).Date()
+	if newest := time.Date(y, m, d, 0, 0, 0, 0, loc).AddDate(0, 0, 1); t.After(newest) {
+		return newest, true
+	}
+	return t, true
+}
+
+// auditDayValue is the clamped day as a form value, or "" for a bad date.
+func auditDayValue(s string, loc *time.Location, now time.Time) string {
+	if t, ok := parseAuditDay(s, loc, now); ok {
+		return t.Format("2006-01-02")
+	}
+	return ""
+}
+
 func auditRange(p auditParams, loc *time.Location, now time.Time) (from, to time.Time, fromShown string) {
-	from, fromOK := parseDay(p.from, loc)
-	toDay, toOK := parseDay(p.to, loc)
+	from, fromOK := parseAuditDay(p.from, loc, now)
+	toDay, toOK := parseAuditDay(p.to, loc, now)
 	if fromOK && toOK && from.After(toDay) {
 		from, toDay = toDay, from
 	}
@@ -186,12 +211,8 @@ func (a *Admin) handleAuditLog(w http.ResponseWriter, r *http.Request) {
 	loc := a.siteLocation(ctx)
 	now := time.Now()
 	from, to, fromShown := auditRange(p, loc, now)
-	if _, ok := parseDay(p.from, loc); !ok {
-		p.from = ""
-	}
-	if _, ok := parseDay(p.to, loc); !ok {
-		p.to = ""
-	}
+	p.from = auditDayValue(p.from, loc, now)
+	p.to = auditDayValue(p.to, loc, now)
 	q.From, q.To, q.Limit = from, to, auditLogPer
 	q.Before = decodeAuditCursor(qv.Get("before"))
 	page, err := a.deps.AuditLog.Search(ctx, q)
@@ -237,10 +258,10 @@ func (a *Admin) handleAuditLog(w http.ResponseWriter, r *http.Request) {
 		actionOpts = append(actionOpts, ui.Option{Value: p.action, Label: auditLabel(p.action), Selected: true})
 	}
 	var chips []ui.Chip
-	if t, ok := parseDay(p.from, loc); ok {
+	if t, ok := parseAuditDay(p.from, loc, now); ok {
 		chips = append(chips, ui.Chip{Label: "From " + fmtDate(t), RemoveHref: p.href(base, "from")})
 	}
-	if t, ok := parseDay(p.to, loc); ok {
+	if t, ok := parseAuditDay(p.to, loc, now); ok {
 		chips = append(chips, ui.Chip{Label: "To " + fmtDate(t), RemoveHref: p.href(base, "to")})
 	}
 	empty := ui.Empty{Icon: "clock", Title: "Nothing recorded yet", Body: "Changes made in the admin appear here."}
