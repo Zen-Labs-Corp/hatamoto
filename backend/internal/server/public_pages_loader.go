@@ -103,7 +103,8 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 	applyStagedEntity(ctx, ent)
 	applyPreviewAttributes(ctx, ent.ID, &ent.Attributes)
 	ent.Attributes = entity.DerivedAttributes(ent.Attributes)
-	s.applyAuthorName(ctx, ent)
+	bl := s.bylinesOf(ctx, ent.ID) // once: the JSON-LD and the HTML view share it
+	s.applyAuthorNameFrom(ctx, ent, bl)
 
 	// Determine base URL
 	baseURL := s.publicBaseURL(r)
@@ -121,7 +122,7 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 	// Content negotiation: if Accept: application/ld+json, return pure JSON-LD
 	acceptHeader := r.Header.Get("Accept")
 	if strings.Contains(acceptHeader, "application/ld+json") {
-		jsonLD, _, err := buildPageJSONLD(ctx, ent, baseURL, loc.Path, faqItems, s.bylinesOf(ctx, ent.ID))
+		jsonLD, _, err := buildPageJSONLD(ctx, ent, baseURL, loc.Path, faqItems, bl)
 		if err != nil {
 			return nil, pageOutcome{Status: http.StatusInternalServerError},
 				&pageError{http.StatusInternalServerError, "failed to generate JSON-LD"}
@@ -132,7 +133,7 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 	}
 
 	// Generate JSON-LD with FAQ enrichment
-	jsonLD, noBreadcrumbLD, _ := buildPageJSONLD(ctx, ent, baseURL, loc.Path, faqItems, s.bylinesOf(ctx, ent.ID))
+	jsonLD, noBreadcrumbLD, _ := buildPageJSONLD(ctx, ent, baseURL, loc.Path, faqItems, bl)
 	jsonLD = s.withCommentCount(ctx, ent, jsonLD)
 
 	// Parse attributes for meta
@@ -192,6 +193,7 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 		// The entry's own JSON-LD block: extra scripts for the HTML page,
 		// never merged into the generated document.
 		ExtraJSONLD: entity.CustomJSONLDDocs(ent.Attributes),
+		bylines:     bl,
 	}
 
 	// Include editorial provenance if present
@@ -231,11 +233,12 @@ func (s *Server) loadHomepage(r *http.Request) (*PublicPageResponse, pageOutcome
 	applyStagedEntity(ctx, ent)
 	applyPreviewAttributes(ctx, ent.ID, &ent.Attributes)
 	ent.Attributes = entity.DerivedAttributes(ent.Attributes)
-	s.applyAuthorName(ctx, ent)
+	bl := s.bylinesOf(ctx, ent.ID) // once: the JSON-LD and the HTML view share it
+	s.applyAuthorNameFrom(ctx, ent, bl)
 
 	baseURL := s.publicBaseURL(r)
 	home := s.urlSnapshot(ctx).WithLocale(ent.Locale, "/")
-	jsonLD, noBreadcrumbLD, _ := buildPageJSONLD(ctx, ent, baseURL, home, nil, s.bylinesOf(ctx, ent.ID))
+	jsonLD, noBreadcrumbLD, _ := buildPageJSONLD(ctx, ent, baseURL, home, nil, bl)
 
 	// Parse attributes for meta
 	var attrs map[string]interface{}
@@ -259,6 +262,7 @@ func (s *Server) loadHomepage(r *http.Request) (*PublicPageResponse, pageOutcome
 		JSONLD:         jsonLD,
 		Meta:           meta,
 		NoBreadcrumbLD: noBreadcrumbLD,
+		bylines:        bl,
 	}
 
 	response.AICrawlerComment = entity.GenerateAICrawlerComment(
