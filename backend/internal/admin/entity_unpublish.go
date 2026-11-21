@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -114,6 +115,9 @@ func (a *Admin) saveUnpublish(r *http.Request, p *posted, e *entity.Entity, sche
 			return ""
 		}
 		if err := st.ClearUnpublish(ctx, e.ID); err != nil {
+			if errors.Is(err, entity.ErrNotAllowed) {
+				return sentence(err.Error())
+			}
 			a.logger().Error("clear scheduled unpublish failed", "err", err)
 			return "The scheduled unpublish could not be removed."
 		}
@@ -128,6 +132,9 @@ func (a *Admin) saveUnpublish(r *http.Request, p *posted, e *entity.Entity, sche
 		return ""
 	}
 	if err := st.SetUnpublish(ctx, e.ID, at, f.UnpublishRedirect); err != nil {
+		if errors.Is(err, entity.ErrNotAllowed) {
+			return sentence(err.Error())
+		}
 		a.logger().Error("schedule unpublish failed", "err", err)
 		return "The scheduled unpublish could not be saved."
 	}

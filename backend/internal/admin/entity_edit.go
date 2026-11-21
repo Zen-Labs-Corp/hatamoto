@@ -1179,6 +1179,9 @@ func (a *Admin) handleEntityCreate(w http.ResponseWriter, r *http.Request) {
 			a.renderEntityForm(w, r, http.StatusUnprocessableEntity, p.f, nil, sc, p.attrs, p.errs, p.parentID, p.authorID, p.picked)
 			return
 		}
+		if a.refuseNotAllowed(w, r, err) {
+			return
+		}
 		a.serverError(w, r, "The entity could not be created", err)
 		return
 	}
@@ -1428,6 +1431,9 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 		}
 		if a.entityFormError(r, p.f, err) {
 			a.renderEntityForm(w, r, http.StatusUnprocessableEntity, p.f, e, sc, p.attrs, p.errs, p.parentID, p.authorID, p.picked)
+			return
+		}
+		if a.refuseNotAllowed(w, r, err) {
 			return
 		}
 		a.serverError(w, r, "The entity could not be saved", err)
