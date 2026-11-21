@@ -24,8 +24,9 @@ type Route = adminpagestate.Route
 // error page with status 500.
 type HandlerFunc = adminpagestate.HandlerFunc
 
-// Context is passed to a HandlerFunc. Only core implements it, so methods may
-// be added in a minor release.
+// Context is passed to a HandlerFunc. Only core implements it, but modules may fake
+// it in their tests, so its method set is frozen: new capabilities arrive as
+// new optional interfaces or functions, never as new methods.
 type Context = adminpagestate.Context
 
 // User is the signed-in admin user.
