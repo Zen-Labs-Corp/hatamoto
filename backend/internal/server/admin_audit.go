@@ -24,13 +24,22 @@ func (s *Server) adminAudit(ctx context.Context, e admin.AuditEvent) {
 			s.logger.Error("admin audit write failed", "action", e.Action, "error", err)
 		}
 	}
-	s.logger.Info("admin audit", "action", e.Action, "actor", e.Actor, "target", e.Target, "detail", string(raw))
+	attrs := []any{"action", e.Action, "actor", e.Actor, "target", e.Target, "detail", string(raw)}
+	if e.Result != "" {
+		attrs = append(attrs, "result", e.Result)
+	}
+	s.logger.Info("admin audit", attrs...)
 }
 
-// auditEventFor maps an admin event to the stored shape.
+// auditEventFor maps an admin event to the stored event. Unset ActorKind and
+// Result keep the kind derived from the actor and the default result.
 func auditEventFor(e admin.AuditEvent) audit.Event {
+	kind := e.ActorKind
+	if kind == "" {
+		kind = auditlog.KindFor(e.ActorID, e.Actor)
+	}
 	return audit.Event{
-		ActorID: e.ActorID, Actor: e.Actor, ActorKind: auditlog.KindFor(e.ActorID, e.Actor),
+		ActorID: e.ActorID, Actor: e.Actor, ActorKind: kind, KeyID: e.KeyID,
 		Action: e.Action, Target: e.Target, Detail: e.Detail, Result: e.Result,
 		IP: e.IP, UserAgent: e.UserAgent, RequestID: e.RequestID,
 	}

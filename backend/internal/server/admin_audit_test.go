@@ -6,7 +6,9 @@ import (
 	"log/slog"
 	"testing"
 
+	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/auditlog"
 )
 
 func TestAdminAuditWithoutDBIsNoop(t *testing.T) {
@@ -21,5 +23,22 @@ func TestAuditEventForKeepsResult(t *testing.T) {
 		if got := auditEventFor(admin.AuditEvent{Action: "session.sign_in_failed", Result: res}).Result; got != res {
 			t.Errorf("Result %q became %q", res, got)
 		}
+	}
+}
+
+func TestAdminAuditEventForKeepsTodaysRow(t *testing.T) {
+	t.Parallel()
+
+	plain := auditEventFor(admin.AuditEvent{ActorID: "u1", Actor: "a@b.c", Action: "cache.clear"})
+	if plain.ActorKind != auditlog.KindFor("u1", "a@b.c") || plain.Result != "" || plain.KeyID != "" {
+		t.Fatalf("zero values changed the row: %+v", plain)
+	}
+
+	signIn := auditEventFor(admin.AuditEvent{
+		Actor: "email-hash:x", Action: "session.sign_in_failed",
+		ActorKind: audit.KindUser, Result: audit.ResultDenied, KeyID: "k1",
+	})
+	if signIn.ActorKind != audit.KindUser || signIn.Result != audit.ResultDenied || signIn.KeyID != "k1" {
+		t.Fatalf("explicit fields lost: %+v", signIn)
 	}
 }

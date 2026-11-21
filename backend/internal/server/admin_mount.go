@@ -13,6 +13,7 @@ import (
 	"hatamoto.dev/core/internal/admin/starter"
 	"hatamoto.dev/core/internal/adminpagestate"
 	"hatamoto.dev/core/internal/adminpath"
+	"hatamoto.dev/core/internal/auditlog"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/authbridge"
 	"hatamoto.dev/core/internal/authstate"
@@ -137,6 +138,7 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 		return s.renderEngine.BuilderParts()
 	}
 	d.Audit = s.adminAudit
+	d.HashEmail = auditlog.NewEmailHasher(s.cfg.Secret)
 	if s.db != nil {
 		d.AuditLog = adminAuditLog{pool: s.db.Pool()}
 		d.LocaleConvert = localeconv.NewService(s.db.Pool(), s.logger)

@@ -79,8 +79,6 @@ var auditLabels = map[string]string{
 	"package.allow_unsigned":       "Changed the unsigned packages setting",
 	"package.allow_developer":      "Changed the developer packages setting",
 	"package.revoke_disable":       "Disabled a package revoked by the registry",
-	"session.sign_in":              "Signed in",
-	"session.sign_in_failed":       "Sign-in failed",
 	"session.sign_out":             "Signed out",
 	"entity.create":                "Created",
 	"entity.publish_scheduled":     "Published on schedule",

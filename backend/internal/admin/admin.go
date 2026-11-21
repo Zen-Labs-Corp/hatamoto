@@ -231,6 +231,9 @@ type Deps struct {
 	ProviderSignIn ProviderSignIn
 	// ProviderKey seals the provider sign-in state cookie.
 	ProviderKey []byte
+	// HashEmail maps a typed sign-in email to the audit actor of a failed
+	// sign-in, so the log never holds the address.
+	HashEmail func(email string) string
 	// SignInSettings is the OIDC sign-in configuration on Settings > Sign-in;
 	// nil hides its card.
 	SignInSettings SignInSettingsService
