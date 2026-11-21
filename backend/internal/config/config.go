@@ -83,6 +83,9 @@ type Config struct {
 	// Admin controls the Go admin UI.
 	Admin AdminConfig
 
+	// Purge is the optional cache purge webhook (HATAMOTO_PURGE_*).
+	Purge PurgeConfig
+
 	// Demo is the public demo mode (HATAMOTO_DEMO=1); see demo.go.
 	Demo DemoConfig
 
@@ -389,6 +392,7 @@ func Load() (*Config, error) {
 	cfg.Packages = LoadPackageConfig()
 	cfg.Plugins = LoadPluginConfig()
 	cfg.Admin = loadAdminConfig()
+	cfg.Purge = loadPurgeConfig()
 	if cfg.Demo, err = LoadDemoConfig(); err != nil {
 		return nil, err
 	}
@@ -590,6 +594,9 @@ func (c *Config) Validate() error {
 		return err
 	}
 	if err := c.Admin.Validate(); err != nil {
+		return err
+	}
+	if err := c.Purge.Validate(); err != nil {
 		return err
 	}
 	if err := c.Packages.Validate(); err != nil {
