@@ -150,8 +150,11 @@ internal/admin/address_notify.go other - n=1  # :22 recipient selection
 internal/admin/adminguard.go other - n=1  # :136 recipient selection
 internal/admin/authmw.go other - n=1  # :60 claims derivation
 internal/server/standing_digest.go other - n=1  # :124 recipient selection
+internal/server/standing_digest.go inline site.receive_owner_mail roles=owner  # ownerEmails (digest, export failure); also admin/address_notify.go, server/comment_surge.go
 internal/server/comment_surge.go other - n=1  # :103 recipient selection
 internal/server/comment_notify_setup.go other - n=1  # :59 recipient selection
+internal/server/comment_notify_setup.go inline comment.receive_moderation_mail roles=owner,editor  # commentModerators
+internal/auth/api_keys.go inline apikey.creator.act roles=owner,editor  # key entry points via authzsubject.CreatorCanAct
 internal/server/form_handlers.go other - n=1  # :1062 recipient lookup for the admin link in form emails
 
 # --- API key scopes ---
