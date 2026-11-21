@@ -6,11 +6,13 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
@@ -54,6 +56,7 @@ type mediaSweepPlan struct {
 	bucket   string // printed: the resolved bucket/prefix
 	loadKeys func(ctx context.Context) (map[string]struct{}, error)
 	now      time.Time
+	audit    func(ctx context.Context, action, target string, detail map[string]any) // nil: none
 }
 
 type mediaMigrateFlags struct {
@@ -171,7 +174,7 @@ func runMediaSweep(ctx context.Context, databaseURL string, args []string, out i
 	defer db.Close()
 	repo := media.NewPostgresRepository(db)
 	p := mediaSweepPlan{mediaSweepFlags: f, store: store, bucket: target.Bucket + "/" + target.Prefix,
-		loadKeys: repo.ReferencedKeys}
+		loadKeys: repo.ReferencedKeys, audit: mediaAuditCLI(db.Pool())}
 	return mediaSweep(ctx, p, out)
 }
 
@@ -265,6 +268,13 @@ func sweepAge(d time.Duration) string {
 	return d.String()
 }
 
+// mediaAuditCLI writes a CLI audit row on pool.
+func mediaAuditCLI(pool *pgxpool.Pool) func(ctx context.Context, action, target string, detail map[string]any) {
+	return func(ctx context.Context, action, target string, detail map[string]any) {
+		auditCLI(ctx, pool, slog.Default(), action, target, detail)
+	}
+}
+
 func mediaSweep(ctx context.Context, p mediaSweepPlan, out io.Writer) error {
 	res, err := media.Sweep(ctx, p.store, p.loadKeys, media.SweepOptions{OlderThan: p.olderThan, Apply: p.apply, Now: p.now})
 	if err != nil {
@@ -286,6 +296,9 @@ func mediaSweep(ctx context.Context, p mediaSweepPlan, out io.Writer) error {
 		}
 		fmt.Fprintln(out, "run with --apply to delete them")
 		return nil
+	}
+	if p.audit != nil && res.Deleted > 0 {
+		p.audit(ctx, "media.swept", "media", map[string]any{"count": res.Deleted, "bytes": res.Bytes})
 	}
 	for _, e := range res.Failed {
 		fmt.Fprintf(out, "failed: %v\n", e)
@@ -330,6 +343,7 @@ type mediaAdoptPlan struct {
 	lister   media.Lister
 	provider string // storage_provider of the active store: local or s3
 	url      func(key string) string
+	audit    func(ctx context.Context, action, target string, detail map[string]any) // nil: none
 }
 
 // runMediaAdopt runs `hatamoto media adopt`.
@@ -359,7 +373,7 @@ func runMediaAdopt(ctx context.Context, databaseURL string, args []string, out i
 		return fmt.Errorf("connect to database: %w", err)
 	}
 	defer db.Close()
-	return mediaAdopt(ctx, mediaAdoptPlan{mediaAdoptFlags: f, repo: media.NewPostgresRepository(db), lister: lister, provider: provider, url: store.URL}, out)
+	return mediaAdopt(ctx, mediaAdoptPlan{mediaAdoptFlags: f, repo: media.NewPostgresRepository(db), lister: lister, provider: provider, url: store.URL, audit: mediaAuditCLI(db.Pool())}, out)
 }
 
 // openAdoptStore opens the active media store with the public base URL the
@@ -398,6 +412,9 @@ func mediaAdopt(ctx context.Context, p mediaAdoptPlan, out io.Writer) error {
 			fmt.Fprintf(out, "  and %s more\n", thousands(n-maxSweepListed))
 		}
 	} else {
+		if p.audit != nil && res.Adopted > 0 {
+			p.audit(ctx, "media.adopted", "media", map[string]any{"count": res.Adopted})
+		}
 		fmt.Fprintf(out, "adopted %s files (rows created, no variants)\n", thousands(res.Adopted))
 	}
 	if res.AlreadyHaveRow > 0 {
