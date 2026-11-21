@@ -702,6 +702,7 @@ func (s *Server) setupDependencies() {
 		if workerJobEnabled("prune") {
 			pw := worker.NewPruneWorker(s.db, 5000, s.logger)
 			pw.SetRetention404(s.retention404Days)
+			pw.SetAuditRetention(s.auditRetentionDays)
 			s.scheduler.SetPruneWorker(pw)
 		}
 
@@ -866,6 +867,23 @@ func (s *Server) retention404Days(ctx context.Context) int {
 		return m.Monitor404.Days()
 	}
 	return seo.DefaultRetention404
+}
+
+// auditRetentionDays is the admin audit and agent call retention in days for
+// the prune worker. Any failure is an error: the worker then skips the audit
+// prunes, so an unreadable setting never shortens retention.
+func (s *Server) auditRetentionDays(ctx context.Context) (admin, agent int, err error) {
+	if s.siteConfig == nil {
+		return 0, 0, errors.New("site config unavailable")
+	}
+	c, err := s.siteConfig.Get(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	if c == nil {
+		return 0, 0, errors.New("site config empty")
+	}
+	return c.AuditRetentionDays, c.AgentAuditRetentionDays, nil
 }
 
 // setupRoutes configures all API routes.
