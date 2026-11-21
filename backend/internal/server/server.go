@@ -66,6 +66,7 @@ import (
 	"hatamoto.dev/core/internal/spam"
 	"hatamoto.dev/core/internal/standing"
 	"hatamoto.dev/core/internal/statichost"
+	"hatamoto.dev/core/internal/statictrigger"
 	"hatamoto.dev/core/internal/tags"
 	"hatamoto.dev/core/internal/taxonomy"
 	"hatamoto.dev/core/internal/twofactor"
@@ -293,6 +294,10 @@ type Server struct {
 	pageRuntime    *pageCacheRuntime
 	renderHandlers *renderHandlers
 	pageCache      *pageCacheService
+
+	// staticTrigger turns content changes into debounced static exports. Nil
+	// unless static export is wired (worker process); every call is nil-safe.
+	staticTrigger *statictrigger.Trigger
 
 	// compressOn is the live "Compress responses" switch read by the
 	// compression middleware. New turns it on; the stored setting overrides it
@@ -576,6 +581,7 @@ func (s *Server) setupDependencies() {
 	s.redirectService = redirect.NewService(s.db, s.logger)
 	s.redirectService.SameHostOnly = s.demoOn()
 	s.redirectService.SetLogPolicy(s.log404Policy)
+	s.redirectService.SetOnChange(s.notifyRedirectsChanged)
 
 	// Agent (AI crawler) hit capture. Page paths are resolved to entities in the
 	// writer goroutine, off the request path.

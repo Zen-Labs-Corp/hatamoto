@@ -316,6 +316,13 @@ func mountRenderAdmin(r *httpx.Group, h *renderAdminHandlers) {
 func (s *Server) invalidateRendered(ctx context.Context) {
 	s.purgeRendered(ctx)
 	s.pageCache.notifyContentChanged()
+	s.staticTrigger.Notify("change", false)
+}
+
+// notifyRedirectsChanged runs after the redirect rules changed: redirects have
+// no rendered-page cache to drop, but a static export carries them.
+func (s *Server) notifyRedirectsChanged() {
+	s.staticTrigger.Notify("redirects", false)
 }
 
 // onMediaChange runs when stored media changes: the cached logo sizes and
@@ -350,6 +357,7 @@ func (s *Server) purgeRendered(ctx context.Context) {
 // the sitemaps, without moving the global generation: an in-flight render of a
 // page that depends on no entity is still stored.
 func (s *Server) invalidateEntityRendered(ctx context.Context, id uuid.UUID) {
+	s.staticTrigger.Notify("entity", false)
 	if s.infra == nil || s.infra.CacheInvalidator == nil {
 		return
 	}

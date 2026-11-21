@@ -171,6 +171,7 @@ func (s *Server) invalidateSiteSettings(ctx context.Context) {
 	// The static origin S derives from the Site URL, so it is read fresh.
 	s.refreshStaticHosting(ctx)
 	s.invalidateRendered(ctx)
+	s.staticTrigger.Notify("settings", true)
 }
 
 func (h *siteSettingsHandlers) responseFrom(cfg *siteconfig.Config) siteSettingsResponse {

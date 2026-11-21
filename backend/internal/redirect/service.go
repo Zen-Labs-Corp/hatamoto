@@ -75,6 +75,9 @@ type Service struct {
 	// Optional 404 logging policy; nil logs everything.
 	logPolicy atomic.Pointer[func() Log404Policy]
 
+	// Optional: called after every change to the redirect rules.
+	onChange atomic.Pointer[func()]
+
 	// Async hit counter: hits are queued (dropped when full), summed per rule
 	// and written in batches by one goroutine.
 	hitCh   chan uuid.UUID
@@ -447,11 +450,18 @@ func (s *Service) warnInvalidOnce(id uuid.UUID, err error) {
 	}
 }
 
-// invalidateCache clears the cached redirects.
+// SetOnChange registers f to run after the redirect rules changed, whoever
+// wrote them (admin, API, import, entity moves). Set it before serving starts.
+func (s *Service) SetOnChange(f func()) { s.onChange.Store(&f) }
+
+// invalidateCache clears the cached redirects and tells the change listener.
 func (s *Service) invalidateCache() {
 	s.mu.Lock()
 	s.cache = nil
 	s.mu.Unlock()
+	if f := s.onChange.Load(); f != nil && *f != nil {
+		(*f)()
+	}
 }
 
 // InvalidateCache makes the next lookup reload the redirects, for writers that

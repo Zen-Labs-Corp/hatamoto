@@ -60,8 +60,9 @@ func (o commentCacheObserver) OnModeChanged(ctx context.Context, entityID uuid.U
 }
 
 // dropRenderedEntity is the observer's drop: that entity's pages, then a
-// debounced preload. Nil-safe without a cache (tests).
+// debounced preload, and a static export is noted. Nil-safe without a cache (tests).
 func (s *Server) dropRenderedEntity(ctx context.Context, id uuid.UUID) {
+	s.staticTrigger.Notify("comment", false)
 	if s.infra == nil || s.infra.CacheInvalidator == nil {
 		return
 	}

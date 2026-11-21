@@ -40,7 +40,7 @@ func (s *Server) setupPackages() {
 		Idle:     s.idle,
 		Trust:    trust,
 		AllowDev: s.cfg.Environment != "production",
-		OnChange: s.invalidateRendered,
+		OnChange: s.onThemeChange,
 		Logger:   s.logger,
 	}
 	if s.tagsStore != nil {
@@ -113,4 +113,12 @@ func (s *Server) setupPackages() {
 		s.logger.Warn("packages: HATAMOTO_PLUGIN_DIR is a development override; do not use it in production", slog.String("dir", s.cfg.Plugins.Dir))
 		s.packages.LoadDevDir(ctx, s.cfg.Plugins.Dir)
 	}
+}
+
+// onThemeChange runs when an installed package (the theme) changed: pages and
+// sitemaps go, and a static export rebuilds everything, since every page
+// carries the theme.
+func (s *Server) onThemeChange(ctx context.Context) {
+	s.invalidateRendered(ctx)
+	s.staticTrigger.Notify("theme", true)
 }

@@ -80,6 +80,15 @@ func New(base func() context.Context, run Run, active func(context.Context) (boo
 	}
 }
 
+// SetClock replaces the timer and the clock. It is a seam for tests in other
+// packages (nothing fires unless the test fires it); call it before the first
+// Notify.
+func (t *Trigger) SetClock(afterFunc func(time.Duration, func()) Timer, now func() time.Time) {
+	t.mu.Lock()
+	t.afterFunc, t.now = afterFunc, now
+	t.mu.Unlock()
+}
+
 func (t *Trigger) ctx() context.Context {
 	if t.base != nil {
 		if c := t.base(); c != nil {
