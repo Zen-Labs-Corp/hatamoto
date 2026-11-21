@@ -1,12 +1,16 @@
 package admin
 
 import (
+	"context"
+	"errors"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/frameticket"
 )
 
 func newTestTickets() (*ticketStore, *fakeClock) {
@@ -112,8 +116,8 @@ func TestTicketStoreIsBounded(t *testing.T) {
 		clock.t = clock.t.Add(time.Millisecond) // eviction order follows expiry
 		s.mint(ticketPreview, sess, "e", nil)
 	}
-	if len(s.m) > ticketMax {
-		t.Fatalf("%d entries, cap %d", len(s.m), ticketMax)
+	if s.store().(*frameticket.Memory).Len() > ticketMax {
+		t.Fatalf("%d entries, cap %d", s.store().(*frameticket.Memory).Len(), ticketMax)
 	}
 	if _, ok := s.consume(ticketPreview, first, sess, "e"); ok {
 		t.Error("the oldest ticket survived eviction")
@@ -238,5 +242,31 @@ func TestParseChangesetFrame(t *testing.T) {
 		if _, ok := parseChangesetFrame(bad); ok {
 			t.Errorf("%q parsed", bad)
 		}
+	}
+}
+
+type failingBackend struct{}
+
+func (failingBackend) Put(context.Context, frameticket.Ticket, time.Time) error {
+	return errors.New("down")
+}
+
+func (failingBackend) Take(context.Context, string, time.Time) (frameticket.Ticket, bool, error) {
+	return frameticket.Ticket{}, false, errors.New("down")
+}
+
+func TestTicketBackendErrorRefuses(t *testing.T) {
+	s, _ := newTestTickets()
+	sess := uuid.New()
+	good := s.mint(ticketPreview, sess, "e", nil) // minted while the backend works
+	s.backend = failingBackend{}
+	if tok := s.mint(ticketPreview, sess, "e", nil); tok != "" {
+		t.Errorf("mint on a failing backend returned %q", tok)
+	}
+	if _, ok := s.consume(ticketPreview, good, sess, "e"); ok {
+		t.Error("consume succeeded on a failing backend")
+	}
+	if _, _, ok := s.consumeBound(ticketPreview, good, "e"); ok {
+		t.Error("consumeBound succeeded on a failing backend")
 	}
 }
