@@ -335,6 +335,8 @@ Residual risks, stated plainly:
 | The JSON API's optional cookie (`ENABLE_COOKIE_AUTH=true`) needs a CSRF token on unsafe methods; API-key calls are exempt and cookie calls are not | `internal/middleware` | `TestCSRF`, `TestCSRFEmptyKeyNeverMatches`, `TestCSRFSkippedForAPIKeyAuthType` |
 | A CSRF token is never read from a URL, including multipart forms, in the `X-CSRF-Token` header or as the first multipart field | `internal/admin`, `internal/admin/designcheck` | `TestMultipartCSRFNeverFromQuery`, `TestImportWizardCSRFNeverFromQuery`, `TestUILintMultipartFormsPutCSRFFirst` |
 
+**Module routes.** A `module/route` mount is anonymous at the core level. The session cookie reaches its handler and core adds no CSRF protection there, so the module must authenticate its own callers and must not trust the core session cookie for state-changing requests. All module mounts share one auth rate limiter (per client address), so one busy mount can exhaust the budget of the others for that client.
+
 **Docker note.** Behind a proxy container, the server sees the proxy's bridge
 address, not loopback. Set `HATAMOTO_TRUSTED_PROXIES` to that address, or the
 server uses the proxy's address as the client address (and the rate limits,

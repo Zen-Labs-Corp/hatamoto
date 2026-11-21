@@ -16,6 +16,13 @@
 // past the cap fails with *http.MaxBytesError). Methods are GET, HEAD, POST,
 // PUT, PATCH and DELETE.
 //
+// The browser's session cookie reaches a module handler like any request to the
+// site, and core adds no CSRF protection to module routes. A handler must not
+// trust the core session cookie for a state-changing request: authenticate the
+// caller yourself (a signed payload, a token) and add your own CSRF defence if
+// you accept browser requests. All module mounts share one auth rate limiter,
+// so heavy traffic on one mount counts against the others for the same client.
+//
 // A prefix is lowercase, starts and ends with "/" and must not overlap another
 // module's. Reserved first segments (the admin, the API, plugin, media, form,
 // health and similar core paths) are refused at init. Under /auth/ only the
