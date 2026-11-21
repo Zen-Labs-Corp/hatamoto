@@ -281,4 +281,4 @@ Save the final tweak and publish in one call:
 
 ## Audit log
 
-Every call (allowed or refused) writes a row to `hatamoto_mcp_audit`: time, key id and name, tool, success, error and the arguments (long strings shortened, capped at 4 KB). Rows older than 90 days are pruned by the worker.
+Every call (allowed or refused) writes a row to `hatamoto_mcp_audit`: time, key id and name, tool, success, error and the arguments (long strings shortened, capped at 4 KB). The rows also appear on the admin Audit log as source Agent. The worker prunes rows older than 90 days unless the owner raises the period under Audit log, Keep entries for.

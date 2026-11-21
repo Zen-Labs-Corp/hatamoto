@@ -917,15 +917,31 @@ crawlers, missing pages and recent submissions cards, and an Activity card (layo
 history (installs, rollbacks), newest first, and links to the Audit log. If one source
 fails the card shows the other; it only errors when both do. Editors see content cards only.
 
-**Audit log** (`GET <admin>/audit`, owner only, read-only, 25 rows a page) lists the
-`hatamoto_admin_audit` table: when, who, what and the target. It exists only when the host
-wires `Deps.AuditLog`; without it the route is a 404. There is no sidebar link: the way in is the
-Activity card's "Audit log" link. Actions are
-named by `auditLabel`, falling back to the raw action. Recorded: `entity.publish`,
+**Audit log** (`GET <admin>/audit`, owner only, read-only, 25 rows a page) lists admin actions
+(`hatamoto_admin_audit`) and agent tool calls (`hatamoto_mcp_audit`) together, newest first:
+when, who, source, action, target and result. Source is Admin, API, Agent, CLI or System; an
+agent call shows the key name as who, the tool as the action and "Refused" when the call was
+turned down (an error starting `forbidden:`), "Failed" for any other error. The page searches
+the actor, action, target and details (`q`, case-insensitive, `%` and `_` match literally) and
+filters by source, actor, action and a From/To date range (site time zone, To included).
+A search always has a date range: without From it covers the 30 days before To (or today), and
+a range wider than 366 days is narrowed to 366. Filters without a search need no range. Paging is
+keyset: the **Older** button follows an opaque cursor, so rows never repeat or skip while new
+ones arrive; a cursor that does not parse shows the first page. Agent arguments are searched but
+never shown. The page exists only when the host wires `Deps.AuditLog`; without it the route is a
+404. There is no sidebar link: the way in is the Activity card's "Audit log" link.
+
+**Retention** (`GET`/`POST <admin>/audit/retention`, owner only, linked from the page's more
+menu as "Keep entries for"): how long the daily cleanup keeps admin entries (default 1 year) and
+agent calls (default 90 days), each 90 days, 180 days, 1 year, 2 years or 3 years. A shorter
+period deletes older entries at the next run. If the saved period cannot be read, the cleanup
+skips the audit tables for that run. Saving is recorded as `audit.retention`.
+
+Actions are named by `auditLabel`, falling back to the raw action. Recorded: `entity.publish`,
 `entity.unpublish`, `entity.archive`, `entity.update`, `entity.schedule`, `entity.delete`,
 `entity.restore_version` (explicit saves and status changes, never autosaves or builder
-saves), plus backups, email, cache, spam and update settings actions. Automatic updates
-and CLI actions appear under their own actor ("Auto update").
+saves), plus backups, email, cache, spam, update and audit retention settings actions. Automatic
+updates and CLI actions appear under their own actor ("Auto update").
 
 Every shell page ends with a colophon at the bottom right of the content area: the running
 version ("Hatamoto v1.4.2", or "dev build" for an unstamped or between-tags build) linking to
