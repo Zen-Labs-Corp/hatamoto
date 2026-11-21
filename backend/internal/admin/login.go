@@ -67,6 +67,8 @@ func (a *Admin) mountLogin(public, authed *httpx.Group) {
 	public.HandleFunc("POST /login/2fa", a.handleTwoStep)
 	public.HandleFunc("POST /login/passkey/begin", a.handlePasskeyBegin)
 	public.HandleFunc("POST /login/passkey/finish", a.handlePasskeyFinish)
+	public.HandleFunc("GET /login/provider/{id}/start", a.handleProviderStart)
+	public.HandleFunc("GET /login/provider/{id}/callback", a.handleProviderCallback)
 	authed.HandleFunc("POST /logout", a.handleLogout)
 }
 

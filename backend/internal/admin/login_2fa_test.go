@@ -173,7 +173,9 @@ type twoStepRig struct {
 	tf *fakeTwoFactor
 }
 
-func newTwoStepRig(t *testing.T) *twoStepRig {
+func newTwoStepRig(t *testing.T) *twoStepRig { return newTwoStepRigWith(t) }
+
+func newTwoStepRigWith(t *testing.T, mutate ...func(*Deps)) *twoStepRig {
 	t.Helper()
 	u := &user.User{ID: uuid.New(), Email: "olga@example.com", Role: user.RoleOwner}
 	tf := &fakeTwoFactor{uid: u.ID, totp: "123456", recovery: "ABCDEFGHJKMN"}
@@ -183,6 +185,9 @@ func newTwoStepRig(t *testing.T) *twoStepRig {
 		d.Auth, d.Tokens, d.Finder = stepAuth{fa, tf}, ft, fakeFinder{u}
 		d.TwoFactor = tf
 		d.PendingKey = twofactor.PendingKeyFor("test-secret")
+		for _, m := range mutate {
+			m(d)
+		}
 	})
 	return &twoStepRig{authRig: &authRig{rig: g, auth: fa, tokens: ft}, tf: tf}
 }
