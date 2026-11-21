@@ -218,7 +218,6 @@ func TestMapUserErrors(t *testing.T) {
 type cancelUsers struct {
 	memUsers
 	cancel context.CancelFunc
-	ctx    context.Context
 }
 
 func (c *cancelUsers) Create(ctx context.Context, n authstate.NewUser) (authstate.User, error) {
