@@ -183,9 +183,12 @@ func TestPrintVersionJSON(t *testing.T) {
 	if info.SDK != sdk.Version || info.SchemaHead != head || info.Version == "" || info.Commit == "" {
 		t.Fatalf("got %+v", info)
 	}
+	if info.Edition != editionstate.Name() {
+		t.Fatalf("edition = %q, want %q", info.Edition, editionstate.Name())
+	}
 	var loose map[string]any
-	if err := jsonx.Unmarshal(b.Bytes(), &loose); err != nil || len(loose) != 6 {
-		t.Fatalf("want exactly 6 fields, got %v (%v)", loose, err)
+	if err := jsonx.Unmarshal(b.Bytes(), &loose); err != nil || len(loose) != 7 {
+		t.Fatalf("want exactly 7 fields, got %v (%v)", loose, err)
 	}
 	if len(info.SDKCompatibleWith) != len(sdk.CompatibleWith) {
 		t.Fatalf("sdk_compatible_with = %v, want %v", info.SDKCompatibleWith, sdk.CompatibleWith)
