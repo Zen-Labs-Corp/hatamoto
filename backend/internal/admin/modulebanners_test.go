@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -85,5 +86,45 @@ func TestModuleBannersNilWithoutProviders(t *testing.T) {
 	req := httptest.NewRequest("GET", "/admin", nil)
 	if got := g.a.moduleBanners(req, &CurrentUser{Role: "owner"}); got != nil {
 		t.Fatalf("got %v", got)
+	}
+}
+
+func countingBanner(n *atomic.Int32) adminpagestate.BannerFunc {
+	return func(ctx context.Context) ([]adminpagestate.Banner, error) {
+		n.Add(1)
+		return dangerBanner(ctx)
+	}
+}
+
+func TestModuleBannerSkippedOnFragment(t *testing.T) {
+	t.Parallel()
+	var n atomic.Int32
+	g := bannerRig(t, "example", countingBanner(&n))
+	hdr := map[string]string{"HX-Request": "true", "HX-Target": "main"}
+	if rec := g.do("GET", "/admin", "owner-token", nil, hdr); rec.Code != http.StatusOK {
+		t.Fatalf("status %d", rec.Code)
+	}
+	if n.Load() != 0 {
+		t.Fatalf("provider ran %d times on a fragment request", n.Load())
+	}
+	g.do("GET", "/admin", "owner-token", nil, nil)
+	if n.Load() != 1 {
+		t.Fatalf("provider ran %d times on a full page, want 1", n.Load())
+	}
+}
+
+func TestModuleBannerRunsOnceOnRenderFailure(t *testing.T) {
+	t.Parallel()
+	var n atomic.Int32
+	g := newSudoRig(t, func(d *Deps) {
+		d.ModulePages = []adminpagestate.Page{failingPage()}
+		d.ModuleBanners = []adminpagestate.NamedBanner{{Name: "example", Fn: countingBanner(&n)}}
+	})
+	rec := g.do("GET", "/admin/settings/modules/failing/parse", "owner-token", nil, nil)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status %d", rec.Code)
+	}
+	if n.Load() != 1 {
+		t.Fatalf("provider ran %d times, want 1", n.Load())
 	}
 }

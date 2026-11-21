@@ -13,15 +13,24 @@ type ModuleBanner struct {
 	Module, Kind, Message, Href, Label string
 }
 
+type bannersDoneKey struct{}
+
+// withBannersDone marks r so the providers are not asked again, for example by
+// the error page that follows a view whose providers already ran.
+func withBannersDone(r *http.Request) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), bannersDoneKey{}, true))
+}
+
 // moduleBannerTimeout bounds every provider together, so a slow module cannot
 // stall the page.
 const moduleBannerTimeout = 300 * time.Millisecond
 
 // moduleBanners asks every provider for banners. Only owners see them. A
 // provider that fails, panics, times out or returns an invalid banner shows
-// nothing; the page renders regardless.
+// nothing; the page renders regardless. Fragment requests render no shell, so
+// they skip the providers.
 func (a *Admin) moduleBanners(r *http.Request, u *CurrentUser) []ModuleBanner {
-	if u == nil || u.Role != "owner" || len(a.deps.ModuleBanners) == 0 {
+	if u == nil || u.Role != "owner" || len(a.deps.ModuleBanners) == 0 || isFragment(r) || r.Context().Value(bannersDoneKey{}) != nil {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), moduleBannerTimeout)

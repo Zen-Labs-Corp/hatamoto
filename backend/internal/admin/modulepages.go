@@ -118,6 +118,7 @@ func (c *moduleCtx) Render(status int, page, title string, data any) error {
 	v := c.a.NewView(c.w, c.r, title)
 	v.Data = data
 	if err := c.a.render(c.w, c.r, status, "module/"+c.p.ID+"/"+page, v); err != nil {
+		c.r = withBannersDone(c.r) // NewView above already asked the providers
 		c.fail()
 		return err
 	}
