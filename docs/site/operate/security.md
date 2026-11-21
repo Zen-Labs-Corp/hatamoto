@@ -59,7 +59,7 @@ If the problem is already exploited, or a fix cannot wait for these steps, the a
 | The latest stable release (`stable` channel) | Yes |
 | The current `edge` release | Yes |
 | `canary` builds | Fixes land here first; no separate support |
-| An LTS line (`lts` update channel, branch `lts/vX.Y`) | For 18 months from the branch cut |
+| An LTS line (`lts` update channel, branch `lts/vX.Y`) | For 18 months from the branch cut, until a newer LTS line of the same major replaces it on the `lts` channel |
 | The previous major (after 1.0) | For six months after the next major is released |
 | Older releases | No: update to the latest stable |
 

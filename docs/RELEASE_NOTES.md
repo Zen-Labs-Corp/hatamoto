@@ -2,7 +2,7 @@
 
 ## Unreleased: LTS update channel
 
-- **Updates.** A fourth update channel, `lts`, for long-term support lines: security fixes only, for 18 months. Choose it in Settings > Updates or with `HATAMOTO_UPDATE_CHANNEL=lts`. Older binaries ignore `lts` with a warning.
+- **Updates.** A fourth update channel, `lts`, for long-term support lines: security fixes only, for 18 months, on one long-term support line per major version. Choose it only while the server runs an LTS version: on any other version, or while no LTS line exists, it gets no updates at all, not even security fixes. Choose it in Settings > Updates or with `HATAMOTO_UPDATE_CHANNEL=lts`. Older binaries ignore `lts` with a warning.
 - **Release process.** LTS branches `lts/vX.Y` are cut from a minor on stable; fixes are cherry-picked and built and signed like any release.
 - **Docs.** [Release process](site/migrate-contribute/release-process.md), [Upgrades](UPGRADES.md).
 - **Migration.** None. Rollback floor: unchanged.

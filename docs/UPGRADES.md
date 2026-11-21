@@ -485,7 +485,7 @@ you. The details are in [The update agent](#the-update-agent).
 | Stay on one minor | `hatamoto update pin v1.4` and `hatamoto update unpin` (security releases inside the same major still apply) |
 | Pick a time | Settings > Updates > Maintenance window |
 | Early releases | `HATAMOTO_UPDATE_CHANNEL=edge` or `canary` (default `stable`). Default schedule: canary (bleeding edge, for testing, may break) gets each release first, edge 2 days later, stable from day 7 (5%, then 25% on day 9, 100% on day 11). The schedule is the operator's convention, and you can also choose the channel in Settings > Updates. |
-| Long-term support | `HATAMOTO_UPDATE_CHANNEL=lts`: security fixes only, for 18 months, on one minor line |
+| Long-term support | `HATAMOTO_UPDATE_CHANNEL=lts`: security fixes only, for 18 months, on one long-term support line per major version. Choose it only while the server runs an LTS version: on any other version, or while no LTS line exists, it gets no updates at all, not even security fixes |
 | Go back | `hatamoto update rollback` (to the previous release, when the schema allows it) |
 | No internet | download the binary plus `release.json` and its `.sig`, then `hatamoto update apply --file F --record R --sig S` |
 
@@ -526,7 +526,7 @@ schema are untouched: an automatic release only ever adds to the schema (see
 
 - The latest minor of the current major gets every fix.
 - The previous major gets security fixes for six months after the new major is released.
-- An LTS line (the `lts` update channel) gets security fixes for 18 months from its branch cut.
+- An LTS line (the `lts` update channel) gets security fixes for 18 months from its branch cut, until a newer LTS line of the same major replaces it on the `lts` channel.
 - An install that is too old to update directly (below the release's `min_from`) steps through the
   intermediate releases automatically, one hop per check.
 

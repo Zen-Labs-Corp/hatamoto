@@ -63,7 +63,7 @@ Each install has a random 32-byte id in `$HATAMOTO_DATA/install_id` (mode 0600).
 | Setting | Values | Default | Notes |
 |---|---|---|---|
 | Mode | `auto`, `notify`, `off` | `auto` | Shown in the admin as **Automatic**, **Notify only** and **Off**. |
-| Channel | `stable`, `edge`, `canary`, `lts` | `stable` | Stable is for live sites (day 7+). Edge gets each release on day 2. Canary is bleeding edge for testing and may break: it gets each release first. LTS gets only security fixes on one long-term support line, for 18 months. |
+| Channel | `stable`, `edge`, `canary`, `lts` | `stable` | Stable is for live sites (day 7+). Edge gets each release on day 2. Canary is bleeding edge for testing and may break: it gets each release first. LTS follows one long-term support line per major version and gets only its security fixes, for 18 months. Choose it only while the server runs an LTS version: on any other version, or while no LTS line exists, it gets no updates at all, not even security fixes. |
 | Pin | `vMAJOR.MINOR` | none | Only releases on that minor line, plus security releases inside the same major. Set with `hatamoto update pin`; removed with `unpin` or the admin's **Unpin**. |
 | Defer days | 0 to 14 | 0 | Hold back non-security releases after first seeing them. Values outside the range are clamped. |
 | Maintenance window | start hour and end hour, 0 to 23 | any time | Evaluated in the site time zone (UTC when unset). The window is `[start, end)`, wraps midnight when start is greater than end, and means any time when either bound is empty or both are equal. |

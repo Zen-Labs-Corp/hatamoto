@@ -65,7 +65,7 @@ above, we say so in the advisory and ship the fix first.
 | The latest stable release (`stable` update channel) | Yes |
 | The current `edge` release | Yes |
 | `canary` builds | Fixes land here first; no separate support |
-| An LTS line (`lts` update channel, branch `lts/vX.Y`) | Security fixes for 18 months from the branch cut |
+| An LTS line (`lts` update channel, branch `lts/vX.Y`) | Security fixes for 18 months from the branch cut, until a newer LTS line of the same major replaces it on the `lts` channel |
 | The previous major (after 1.0) | Security fixes for six months after the next major is released |
 | Older releases | No: update to the latest stable (self-hosted installs update themselves unless updates are turned off) |
 

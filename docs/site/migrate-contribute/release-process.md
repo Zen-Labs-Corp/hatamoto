@@ -183,9 +183,9 @@ scripts/check-channel-freshness.sh --min-days 12   # stricter, e.g. right after 
 
 An LTS line is one minor version that keeps getting security fixes for 18 months. It is followed through the `lts` channel, which lists only releases of LTS lines.
 
-- **Cut.** `lts/vX.Y` is cut from the `vX.Y.Z` tag of a minor that is on `stable`, and announced with its end date. The 18 months count from the cut. From then on every `vX.Y.*` tag comes from that branch, and the next release on `main` is `vX.(Y+1).0` or later.
+- **Cut.** `lts/vX.Y` is cut from the `vX.Y.Z` tag of a minor that is on `stable`, and announced with its end date. Cut only from a minor that already contains `lts` channel support: a binary without it ignores `HATAMOTO_UPDATE_CHANNEL=lts`, so cherry-pick that change into the line first if it predates it. The 18 months count from the cut. From then on every `vX.Y.*` tag comes from that branch, and the next release on `main` is `vX.(Y+1).0` or later.
 - **Fixes.** Only security fixes, and critical regressions they need. A fix is merged to `main` first, then cherry-picked with `git cherry-pick -x`. No migrations. `min_from` and `rollback_floor` are never above `vX.Y.0`. The record kind is patch, with `security: true` for a security fix.
-- **Build and signing.** The same path as any release: the tag runs `release.yml`, the record is signed offline and `scripts/publish-release.sh` publishes it. Every edition build the release format lists is built and verified, as for main-line releases.
+- **Build and signing.** The same path as any release: the tag runs `release.yml`, the record is signed offline and `scripts/publish-release.sh` publishes it. Every edition build the release format lists is built and verified, as for main-line releases. Publish LTS GitHub releases with `--latest=false`, so an older line never shows as the repository's Latest.
 - **Tagging.** `scripts/tag-release.sh` refuses a commit that is not on `main` today. Support for `lts/vX.Y` branches is added when the first LTS branch is cut.
 - **Channel.** Add the release to `lts` only, with the ramp you want (a slower ramp is fine):
 
@@ -194,7 +194,7 @@ An LTS line is one minor version that keeps getting security fixes for 18 months
   go run ./tools/release channel add lts vX.Y.Z --record release.json --sig release.json.sig --ramp now:100 --dir DIR
   ```
 
-- **What installs see.** The decision is the one in `backend/internal/updater/decide.go`. A server running `vX.Y.*` on `lts` is offered later `vX.Y.*` releases. A server already on a newer minor that switches to `lts` is offered nothing and stays where it is: updates never downgrade. The channel carries one LTS line per major. If you add a newer line of the same major, the followers of the older line are offered it like any minor update, so ramp it, and a pin does not hold back security releases. A line of another major is only shown as available and is never applied automatically.
+- **What installs see.** The decision is the one in `backend/internal/updater/decide.go`. A server running `vX.Y.*` on `lts` is offered later `vX.Y.*` releases. A server already on a newer minor that switches to `lts` is offered nothing and stays where it is: updates never downgrade. The channel carries one LTS line per major. If you add a newer line of the same major, the followers of the older line are offered it like any minor update, so ramp it, and a pin does not hold back security releases. Entries of the newer line must keep `min_from` at or below the older line's `vX.Y.0`, or its followers are blocked. A server on the older line with a pin to it and a security release of the newer line listed is moved to the newer line. A line of another major is only shown as available and is never applied automatically.
 - **End of life.** Stop adding releases. The last entry stays listed. Followers move on by switching channel.
 
 ## Checklist for a maintainer
