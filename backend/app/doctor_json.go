@@ -64,6 +64,7 @@ var doctorRegistry = map[string]colCheck{
 	"hatamoto_comments.spam_reasons":               {decode: decodeAs[[]string]()},
 	"hatamoto_api_keys.scopes":                     {decode: decodeAs[[]string]()},
 	"hatamoto_webhooks.events":                     {decode: decodeAs[[]string]()},
+	"hatamoto_static_export_runs.errors":           {decode: decodeAs[[]string]()},
 	"hatamoto_webhooks.headers":                    {decode: decodeAs[map[string]string]()},
 	"hatamoto_admin_audit.detail":                  opaque,
 	"hatamoto_changeset_items.before":              opaque,
