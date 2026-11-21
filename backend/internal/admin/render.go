@@ -120,6 +120,8 @@ type Crumb = ui.Crumb
 // View is the root template data of every page. Partials never read it
 // implicitly: they take explicit dict arguments.
 type View struct {
+	// areas is the area set of the Admin that built the view; nil means the shared one.
+	areas    []*adminArea
 	Title    string
 	Crumbs   []Crumb
 	SiteName string
@@ -577,7 +579,8 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 	if addr := a.siteAddress(r); addr != "" {
 		v.SiteURL = addr + "/"
 	}
-	v.Section, v.Tab = areaLocateIn(a.adminPath, r.URL.Path)
+	v.areas = a.areas
+	v.Section, v.Tab = areaLocateAmong(a.areaSet(), a.adminPath, r.URL.Path)
 	if v.User != nil {
 		v.Nav = a.nav.For(v.User.Role, r.URL.Path)
 		if v.Section == "" && isPluginsPath(a.adminPath, r.URL.Path) {
@@ -607,7 +610,7 @@ func (a *Admin) Render(w http.ResponseWriter, r *http.Request, status int, page 
 		return
 	}
 	if len(v.Crumbs) == 0 {
-		v.Crumbs = defaultAreaCrumbs(a.adminPath, v.Path, v.Section, v.Tab, v.Title)
+		v.Crumbs = defaultAreaCrumbsIn(a.areaSet(), a.adminPath, v.Path, v.Section, v.Tab, v.Title)
 	}
 	name := "page"
 	if isFragment(r) {
