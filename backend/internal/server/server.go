@@ -95,6 +95,8 @@ type Server struct {
 	routes *httpx.Group
 	router http.Handler
 	logger *slog.Logger
+	// modulePrefixes are the mounted module/route prefixes (module_routes.go).
+	modulePrefixes []string
 	// storeFullWarnAt is the unix time of the last upload store full warning.
 	storeFullWarnAt atomic.Int64
 	// mediaFormats stores the modern-format switches and the rebuild state.
@@ -950,6 +952,9 @@ func (s *Server) setupRoutes() {
 
 	// Public plugin routes (/p/<plugin>/...): fixed catch-all, rate limited.
 	s.mountPluginPublicRoutes(s.routes)
+
+	// Prefixes compiled-in modules mounted through module/route.
+	s.mountModuleRoutes(s.routes)
 
 	// Go admin UI (/admin/*, incl. a fallback for screens still on Next).
 	s.mountAdminRoutes(s.routes)
