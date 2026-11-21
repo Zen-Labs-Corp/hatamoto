@@ -1,4 +1,4 @@
-# ADR 0010: Plugin license and the edition plugin key
+# ADR 0015: Plugin license and the edition plugin key
 
 Status: accepted (2026-11-21).
 
