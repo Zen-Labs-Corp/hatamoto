@@ -477,7 +477,8 @@ func (b *builder) redirected(urlPath string, resp Response) {
 	b.mu.Unlock()
 
 	full := filepath.Join(b.dir, filepath.FromSlash(out))
-	if err := os.MkdirAll(filepath.Dir(full), 0o755); err == nil {
+	err = os.MkdirAll(filepath.Dir(full), 0o755)
+	if err == nil {
 		err = os.WriteFile(full, body, 0o644)
 	}
 	if err != nil {
