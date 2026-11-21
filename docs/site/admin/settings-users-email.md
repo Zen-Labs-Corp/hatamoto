@@ -169,7 +169,7 @@ Inserting a link or changing a slug rewrites the affected links and clears the p
 
 To invite someone step by step, follow [Invite people and create API keys](users-and-api-keys.md).
 
-`<admin>/settings/users` lists users with search, a role filter, sorting and the last sign-in date.
+`<admin>/settings/users` lists users with search, a role filter that lists the six roles (owner, editor, author, contributor, reviewer, read-only), sorting and the last sign-in date.
 
 | Role | Can do |
 |---|---|
