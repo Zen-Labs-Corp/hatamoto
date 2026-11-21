@@ -70,6 +70,35 @@ func TestCaddyGolden(t *testing.T) {
 	}
 }
 
+func TestNginxGolden(t *testing.T) {
+	t.Parallel()
+	for name, in := range map[string]Input{"nginx-samehost.golden": sameHostInput(), "nginx-liveorigin.golden": liveOriginInput()} {
+		out, err := Generate(in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		compareGolden(t, name, out.Nginx)
+	}
+}
+
+func TestNginxLiveOriginSplitsServers(t *testing.T) {
+	t.Parallel()
+	same, _ := Generate(sameHostInput())
+	live, _ := Generate(liveOriginInput())
+	if !strings.Contains(same.Nginx, "location ^~ /forms/ {") || strings.Count(same.Nginx, "server {") != 1 {
+		t.Errorf("same host must be one server with proxy locations:\n%s", same.Nginx)
+	}
+	site, liveServer, ok := strings.Cut(live.Nginx, "\n\nserver {")
+	if !ok || strings.Contains(site, "proxy_pass") || !strings.Contains(liveServer, "server_name live.example.com;") ||
+		!strings.Contains(liveServer, "proxy_pass http://127.0.0.1:8090;") {
+		t.Errorf("live origin must split the proxy from the files:\n%s", live.Nginx)
+	}
+	// Headers sit only in the static locations: add_header in a proxied location would drop inherited ones.
+	if strings.Count(same.Nginx, "add_header X-Frame-Options") != 2 {
+		t.Errorf("headers must be set in / and /404.html only:\n%s", same.Nginx)
+	}
+}
+
 func TestGenerateRejectsUnsafeValues(t *testing.T) {
 	t.Parallel()
 	for name, mut := range map[string]func(*Input){
