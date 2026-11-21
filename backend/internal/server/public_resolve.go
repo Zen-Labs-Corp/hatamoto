@@ -19,6 +19,9 @@ type publicScope struct {
 	// EntityID, when set, is the row the resolver matched: the page loader
 	// loads it by id, because slugs are only unique among siblings.
 	EntityID uuid.UUID
+	// Entity is the row the resolver loaded for EntityID (live render only), so
+	// the page loader need not read it again. nil means load by EntityID.
+	Entity *entity.Entity
 	// SkipRedirects is set because the resolver already checked the full path.
 	SkipRedirects bool
 }

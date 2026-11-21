@@ -104,11 +104,12 @@ func (b *bylines) view(ctx context.Context, id uuid.UUID, attrs map[string]any, 
 	return &render.AuthorView{Name: name}
 }
 
-// applyAuthorName gives an entity that is credited to a person or the
+// applyAuthorNameFrom gives an entity that is credited to a person or the
 // organisation but has no plain-text byline the credited name, so JSON-LD
 // names the author. A byline already in attributes is left alone: it is what
-// the page always showed, and what a rename of the person rewrites.
-func (s *Server) applyAuthorName(ctx context.Context, ent *entity.Entity) {
+// the page always showed, and what a rename of the person rewrites. b holds
+// the bylines already read (nil: read them).
+func (s *Server) applyAuthorNameFrom(ctx context.Context, ent *entity.Entity, b *bylines) {
 	if ent == nil || s.db == nil {
 		return
 	}
@@ -121,7 +122,10 @@ func (s *Server) applyAuthorName(ctx context.Context, ent *entity.Entity) {
 			return
 		}
 	}
-	v := s.bylinesOf(ctx, ent.ID).view(ctx, ent.ID, nil, "", nil)
+	if b == nil {
+		b = s.bylinesOf(ctx, ent.ID)
+	}
+	v := b.view(ctx, ent.ID, nil, "", nil)
 	if v == nil {
 		return
 	}

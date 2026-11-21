@@ -222,7 +222,7 @@ func (s *Server) fillView(ctx context.Context, r *http.Request, rr *routeResult,
 	}
 	switch {
 	case rr.Page != nil && rr.Page.Entity != nil:
-		s.fillEntity(ctx, v, rr.Page.Entity, rr.Kind)
+		s.fillEntity(ctx, v, rr.Page.Entity, rr.Kind, rr.Page.bylines)
 		if v.SchemaSlug == person.SchemaSlug {
 			return s.fillPersonPage(ctx, r, rr.Page.Entity, v)
 		}
@@ -236,8 +236,9 @@ func (s *Server) fillView(ctx context.Context, r *http.Request, rr *routeResult,
 	return nil
 }
 
-// fillEntity sets v.Entity and the template kind of an entity page.
-func (s *Server) fillEntity(ctx context.Context, v *render.PageView, e *entity.Entity, kind string) {
+// fillEntity sets v.Entity and the template kind of an entity page; b are the
+// entity's bylines when the loader already read them (nil: read them).
+func (s *Server) fillEntity(ctx context.Context, v *render.PageView, e *entity.Entity, kind string, b *bylines) {
 	v.Kind = render.KindSingle
 	if kind == resolveKindHome {
 		v.Kind = render.KindHome
@@ -251,7 +252,10 @@ func (s *Server) fillEntity(ctx context.Context, v *render.PageView, e *entity.E
 		URL: locateEntity(ctx, links.snap, repo, e).Path,
 	}
 	ev.Terms = s.entityTermViews(ctx, e.ID)
-	ev.Author = s.bylinesOf(ctx, e.ID).view(ctx, e.ID, v.Attrs, v.SchemaSlug, s.authorSchemas(ctx))
+	if b == nil {
+		b = s.bylinesOf(ctx, e.ID)
+	}
+	ev.Author = b.view(ctx, e.ID, v.Attrs, v.SchemaSlug, s.authorSchemas(ctx))
 	v.Entity = ev
 }
 

@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -486,14 +487,17 @@ func (s *Server) buildSiteView(ctx context.Context) (render.SiteView, error) {
 	d := s.siteDerivedFor(cfg)
 	theme := d.themeCopy()
 	links := s.newNavLinks(ctx)
+	menus := s.menusAt(ctx, "header", "footer")
+	headerNav, _ := s.navOf(ctx, menus["header"], links)
+	footerNav, _ := s.navOf(ctx, menus["footer"], links)
 	site := render.SiteView{
 		Name:       cfg.CompanyName,
 		Tagline:    cfg.Tagline,
 		LogoURL:    cfg.LogoURL,
 		FaviconURL: cfg.FaviconURL,
 		Tokens:     themeTokens(theme),
-		Nav:        s.headerNav(ctx, links),
-		FooterNav:  s.menuNav(ctx, "footer", links),
+		Nav:        headerNav,
+		FooterNav:  footerNav,
 		Language:   siteLanguage(cfg),
 		Phone:      cfg.Phone,
 		Hours:      cfg.BusinessHours,
@@ -572,14 +576,6 @@ func socialLinks(raw jsontext.Value) []render.Link {
 	return out
 }
 
-// headerNav is the header menu: exactly its items, none when it is empty or
-// when no header menu exists. Entity links are built through the URL registry
-// (see navLinks).
-func (s *Server) headerNav(ctx context.Context, links *navLinks) []render.NavItem {
-	nav, _ := s.menuNavFound(ctx, "header", links)
-	return nav
-}
-
 // menuNav returns the menu at location as render nav items; a missing menu or
 // a lookup error yields no items (the page still renders).
 func (s *Server) menuNav(ctx context.Context, location string, links *navLinks) []render.NavItem {
@@ -590,15 +586,38 @@ func (s *Server) menuNav(ctx context.Context, location string, links *navLinks) 
 // menuNavFound is menuNav that also reports whether a menu sits at location,
 // so an existing menu with no items stays distinguishable from none.
 func (s *Server) menuNavFound(ctx context.Context, location string, links *navLinks) ([]render.NavItem, bool) {
+	return s.navOf(ctx, s.menusAt(ctx, location)[location], links)
+}
+
+// menusAt loads the menus at locations (with their items) in one round trip.
+// If the batch fails each location is loaded on its own, so one bad lookup
+// cannot blank the others; a location that still fails is left out and the
+// page renders without it.
+func (s *Server) menusAt(ctx context.Context, locations ...string) map[string]*menu.Menu {
 	if s.menuService == nil {
-		return nil, false
+		return nil
 	}
-	m, err := s.menuService.GetMenuByLocation(ctx, location)
-	if err != nil || m == nil {
-		return nil, false
+	ms, err := s.menuService.GetMenusWithItemsByLocations(ctx, locations)
+	if err == nil {
+		return ms
 	}
-	full, err := s.menuService.GetMenuWithItems(ctx, m.ID)
-	if err != nil || full == nil {
+	ms = make(map[string]*menu.Menu, len(locations))
+	for _, loc := range locations {
+		m, err := s.menuService.GetMenuByLocation(ctx, loc)
+		if err != nil || m == nil {
+			continue
+		}
+		if full, err := s.menuService.GetMenuWithItems(ctx, m.ID); err == nil && full != nil {
+			ms[loc] = full
+		}
+	}
+	return ms
+}
+
+// navOf maps a loaded menu (nil: none at that location) to nav items and
+// reports whether a menu exists.
+func (s *Server) navOf(ctx context.Context, m *menu.Menu, links *navLinks) ([]render.NavItem, bool) {
+	if m == nil {
 		return nil, false
 	}
 	if o := stagedFrom(ctx); o != nil { // changeset preview only
@@ -606,7 +625,7 @@ func (s *Server) menuNavFound(ctx context.Context, location string, links *navLi
 			return links.items(items), true
 		}
 	}
-	return links.items(full.Items), true
+	return links.items(m.Items), true
 }
 
 // formsForSections loads the active form definition behind every
@@ -729,8 +748,13 @@ func formView(f *form.Form) render.FormView {
 // navLinks builds nav hrefs through the URL registry. The homepage entity
 // links to "/".
 type navLinks struct {
-	snap   *entity.URLSnapshot
-	homeID uuid.UUID
+	snap *entity.URLSnapshot
+	// homeID is the homepage id. When loadHome is set it is read on first use
+	// through home(), so a render whose menus never link an entity pays no
+	// homepage lookup.
+	homeID   uuid.UUID
+	loadHome func() uuid.UUID
+	homeOnce sync.Once
 	// ctx and repo load the target of a menu item whose pattern needs more
 	// than the slug (ancestors, publication date). repo may be nil.
 	ctx  context.Context
@@ -757,15 +781,28 @@ func (s *Server) newNavLinksWith(ctx context.Context, snap *entity.URLSnapshot) 
 	if s.renderEngine != nil {
 		l.decl = s.renderEngine.MenuDecl()
 	}
-	if home, err := repo.GetHomepage(ctx); err == nil && home != nil {
-		l.homeID = home.ID
+	l.loadHome = func() uuid.UUID {
+		if home, err := repo.GetHomepage(ctx); err == nil && home != nil {
+			return home.ID
+		}
+		return uuid.Nil
 	}
 	return l
 }
 
+// home is the homepage id, loaded on first use.
+func (l *navLinks) home() uuid.UUID {
+	l.homeOnce.Do(func() {
+		if l.loadHome != nil {
+			l.homeID = l.loadHome()
+		}
+	})
+	return l.homeID
+}
+
 // page is the link for a published "page" entity; false leaves it out.
 func (l *navLinks) page(p *entity.Entity) (string, bool) {
-	return pageNavHref(l.ctx, l.snap, l.repo, l.homeID, p)
+	return pageNavHref(l.ctx, l.snap, l.repo, l.home(), p)
 }
 
 // items maps menu items; entity links resolve through the registry.
@@ -837,7 +874,7 @@ func (l *navLinks) menuHref(it *menu.MenuItem) string {
 	if it.URL != nil && *it.URL != "" || it.EntitySlug == nil || *it.EntitySlug == "" {
 		return getMenuItemHref(it)
 	}
-	if it.EntityID != nil && *it.EntityID == l.homeID {
+	if it.EntityID != nil && *it.EntityID == l.home() {
 		return "/"
 	}
 	schema := "page"

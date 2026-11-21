@@ -45,6 +45,9 @@ type PublicPageResponse struct {
 	// AI/LLM crawlers. Empty when the entity has been opted out via the
 	// SEO tab's "Include in /llms.txt" toggle.
 	AICrawlerComment string `json:"ai_crawler_comment,omitempty"`
+	// bylines are the entity's resolved credits, read once by the loader and
+	// reused by the HTML view; nil means read them again.
+	bylines *bylines
 }
 
 // PageMeta represents SEO metadata for a page.
