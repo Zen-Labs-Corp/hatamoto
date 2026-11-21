@@ -81,19 +81,20 @@ func (a *Admin) handleAccept(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "We could not create your account. Try again.")
 		return
 	}
-	a.auditInviteAccepted(r, u)
-	a.signInAfter(w, r, u, "Welcome. Your account is ready.")
+	a.auditUserEvent(r, u, AuditUserInviteAccepted, map[string]any{"role": string(u.Role)})
+	a.signInAfter(w, r, u, SignInInvite, "Welcome. Your account is ready.")
 }
 
-// auditInviteAccepted records the new account. The page is public, so the
-// actor is the user who just accepted, not a signed-in session.
-func (a *Admin) auditInviteAccepted(r *http.Request, u *user.User) {
+// auditUserEvent records an action on the user's own account from a public
+// page (invite acceptance, reset link), so the actor is that user and not a
+// signed-in session.
+func (a *Admin) auditUserEvent(r *http.Request, u *user.User, action string, detail map[string]any) {
 	if a.deps.Audit == nil {
 		return
 	}
 	a.deps.Audit(r.Context(), AuditEvent{
 		ActorID: u.ID.String(), Actor: u.Email, ActorKind: audit.KindUser,
-		Action: AuditUserInviteAccepted, Target: u.Email, Detail: map[string]any{"role": string(u.Role)},
+		Action: action, Target: u.Email, Detail: detail,
 		IP: middleware.GetClientIP(r), UserAgent: r.UserAgent(), RequestID: r.Header.Get("X-Request-ID"),
 	})
 }

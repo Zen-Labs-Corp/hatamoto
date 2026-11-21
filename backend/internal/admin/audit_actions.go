@@ -21,6 +21,7 @@ const (
 	AuditUserInviteAccepted  = "user.invite_accepted"
 	AuditUserResetLinkSent   = "user.reset_link_sent"
 	AuditUserPasswordReset   = "user.password_reset"
+	AuditUserPasswordChanged = "user.password_changed"
 	AuditUserIdentityLinked  = "user.identity_linked"
 	AuditUserIdentityUnlink  = "user.identity_unlinked"
 	AuditUserSessionsRevoked = "user.sessions_revoked"

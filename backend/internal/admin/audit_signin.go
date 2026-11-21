@@ -18,6 +18,8 @@ const (
 	SignInRecovery = "recovery"
 	SignInPasskey  = "passkey"
 	SignInProvider = "provider"
+	SignInReset    = "reset"
+	SignInInvite   = "invite"
 
 	ReasonCredentials  = "credentials"
 	ReasonLocked       = "locked"

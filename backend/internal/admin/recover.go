@@ -182,12 +182,13 @@ func (a *Admin) handleReset(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "We could not change the password. Try again.")
 		return
 	}
-	a.signInAfter(w, r, u, "Password updated. You are signed in.")
+	a.auditUserEvent(r, u, AuditUserPasswordReset, map[string]any{"via": "admin"})
+	a.signInAfter(w, r, u, SignInReset, "Password updated. You are signed in.")
 }
 
 // signInAfter starts a session for u (after reset or invite acceptance) and
 // lands on the admin home with a flash message.
-func (a *Admin) signInAfter(w http.ResponseWriter, r *http.Request, u *user.User, message string) {
+func (a *Admin) signInAfter(w http.ResponseWriter, r *http.Request, u *user.User, method, message string) {
 	token, err := a.deps.Auth.IssueSession(r.Context(), u.ID, r.UserAgent(), middleware.GetClientIP(r))
 	if errors.Is(err, auth.ErrSecondFactorRequired) {
 		// The password is saved; this user still owes the second step.
@@ -200,6 +201,7 @@ func (a *Admin) signInAfter(w http.ResponseWriter, r *http.Request, u *user.User
 		http.Redirect(w, r, a.adminPath+"/login", http.StatusSeeOther)
 		return
 	}
+	a.auditSignIn(r, u.ID.String(), u.Email, method, nil)
 	a.setSession(w, r, token)
 	a.SetFlash(w, r, "success", message)
 	http.Redirect(w, r, a.landing(), http.StatusSeeOther)

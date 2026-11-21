@@ -94,6 +94,7 @@ var auditLabels = map[string]string{
 	"user.invite_accepted":         "Invite accepted",
 	"user.reset_link_sent":         "Password link sent",
 	"user.password_reset":          "Password reset",
+	"user.password_changed":        "Password changed",
 	"user.identity_linked":         "Sign-in identity linked",
 	"user.identity_unlinked":       "Sign-in identity unlinked",
 	"user.sessions_revoked":        "Signed out everywhere",
