@@ -1,4 +1,4 @@
-# ADR 0008: Cache purge hook
+# ADR 0009: Cache purge hook
 
 Status: accepted (2026-11-21)
 
