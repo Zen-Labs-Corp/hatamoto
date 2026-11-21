@@ -127,9 +127,20 @@ func (a *Admin) handleProviderStart(w http.ResponseWriter, r *http.Request) {
 		a.providerFailed(w, r, next, err)
 		return
 	}
-	http.SetCookie(w, a.providerCookie(r, id, base64.RawURLEncoding.EncodeToString(sealed), int(providerStateTTL/time.Second)))
+	value := base64.RawURLEncoding.EncodeToString(sealed)
+	// What counts is the stored size: JSON escaping, sealing and base64 grow
+	// the data, and a browser drops a cookie over its limit without a word.
+	if len(value) > maxProviderCookieValue {
+		a.providerFailed(w, r, next, errors.New("provider state does not fit in a cookie"))
+		return
+	}
+	http.SetCookie(w, a.providerCookie(r, id, value, int(providerStateTTL/time.Second)))
 	http.Redirect(w, r, redirect, http.StatusFound)
 }
+
+// maxProviderCookieValue keeps the state cookie (name, path and attributes
+// included) under the 4096 bytes browsers keep.
+const maxProviderCookieValue = 3800
 
 // openProviderState reads the valid, unspent state of this sign-in.
 func (a *Admin) openProviderState(r *http.Request, id string) (providerState, bool) {

@@ -323,6 +323,21 @@ func TestProviderStartRefusesBadProviderOutput(t *testing.T) {
 	}
 }
 
+// The limit is on the stored cookie: data within MaxDataLen can still grow
+// past what browsers keep once escaped, sealed and encoded.
+func TestProviderStartRefusesOversizedCookie(t *testing.T) {
+	t.Parallel()
+
+	g := newProviderRig(t)
+	g.fp.start = func(_, _, _ string) (string, string, error) {
+		return "https://idp.example/", strings.Repeat("\x01", authstate.MaxDataLen), nil
+	}
+	rec := g.nav("/admin/login/provider/example/start")
+	if rec.Code != 422 || cookieNamed(rec, "hm_prov") != nil {
+		t.Fatalf("escape-heavy data: %d", rec.Code)
+	}
+}
+
 // Both routes sit in the rate-limited group.
 func TestProviderRoutesAreRateLimited(t *testing.T) {
 	t.Parallel()
