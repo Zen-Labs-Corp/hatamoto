@@ -47,7 +47,6 @@ server {
 	client_max_body_size 15m;
 	location ^~ /admin/ {
 		client_max_body_size 300m;
-		proxy_request_buffering off;
 		proxy_pass http://127.0.0.1:8090;
 		proxy_http_version 1.1;
 		proxy_set_header Connection "";

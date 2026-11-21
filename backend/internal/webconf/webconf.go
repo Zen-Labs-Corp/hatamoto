@@ -38,8 +38,7 @@ type Input struct {
 	// path (public uploads); 0 leaves nginx's 1 MB default.
 	MaxBodyMB int
 	// AdminPath and AdminBodyMB raise that limit under the admin path only,
-	// where the signed-in uploads and imports live (0 = no extra limit). nginx
-	// then also streams those bodies instead of spooling them to disk first.
+	// where the signed-in uploads and imports live (0 = no extra limit).
 	AdminPath   string
 	AdminBodyMB int
 	Proxy       []statichost.ProxyPath

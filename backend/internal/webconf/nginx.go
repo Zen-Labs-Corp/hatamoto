@@ -42,7 +42,6 @@ func nginx(in Input, rules []rule) string {
 	adminLimit := func(path string) {
 		if in.AdminBodyMB > 0 && strings.TrimRight(in.AdminPath, "/")+"/" == path {
 			w("		client_max_body_size %dm;", in.AdminBodyMB)
-			w("		proxy_request_buffering off;")
 		}
 	}
 

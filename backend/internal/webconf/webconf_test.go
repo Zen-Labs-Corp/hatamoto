@@ -213,13 +213,19 @@ func TestNginxUploadLimitAndStreaming(t *testing.T) {
 	}
 	// The large admin limit is inside the admin location only; the server keeps the public one.
 	for name, conf := range map[string]string{"same host": same.Nginx, "live origin": live.Nginx} {
-		if n := strings.Count(conf, "client_max_body_size 300m;"); n != 1 || strings.Count(conf, "proxy_request_buffering off;") != 1 {
+		if n := strings.Count(conf, "client_max_body_size 300m;"); n != 1 {
 			t.Errorf("%s: the admin limit must appear once:\n%s", name, conf)
 		}
 		_, rest, _ := strings.Cut(conf, "location ^~ /admin/ {")
 		block, _, _ := strings.Cut(rest, "}")
-		if !strings.Contains(block, "client_max_body_size 300m;") || !strings.Contains(block, "proxy_request_buffering off;") {
+		if !strings.Contains(block, "client_max_body_size 300m;") {
 			t.Errorf("%s: the admin location lacks the upload limit:\n%s", name, block)
+		}
+	}
+	// Streaming an admin upload would put it under Hatamoto's read timeout.
+	for name, conf := range map[string]string{"same host": same.Nginx, "live origin": live.Nginx} {
+		if strings.Contains(conf, "proxy_request_buffering") {
+			t.Errorf("%s: the admin location must keep nginx's request buffering", name)
 		}
 	}
 	for _, loc := range []string{"location = /mcp {", "location ^~ /mcp/ {"} {
