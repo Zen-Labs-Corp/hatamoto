@@ -47,6 +47,33 @@ func FlattenAttributes(raw jsontext.Value) map[string]string {
 	return out
 }
 
+// flatMemo is FlattenAttributes of one Attributes value.
+type flatMemo struct {
+	src jsontext.Value
+	m   map[string]string
+}
+
+// FlatAttributes is FlattenAttributes(e.Attributes), decoded once per
+// Attributes value: replacing e.Attributes (never edited in place) makes the
+// next call decode the new bytes. The map is shared: callers must not modify
+// it. Safe for concurrent callers.
+func (e *Entity) FlatAttributes() map[string]string {
+	if len(e.Attributes) == 0 {
+		return nil
+	}
+	if fm, _ := e.flat.Load().(*flatMemo); fm != nil && sameSlice(fm.src, e.Attributes) {
+		return fm.m
+	}
+	m := FlattenAttributes(e.Attributes)
+	e.flat.Store(&flatMemo{src: e.Attributes, m: m})
+	return m
+}
+
+// sameSlice reports whether a and b are the same bytes in memory.
+func sameSlice(a, b []byte) bool {
+	return len(a) == len(b) && (len(a) == 0 || &a[0] == &b[0])
+}
+
 // NeedsAncestors reports whether the pattern serving an entity of schemaSlug
 // with attrs uses {parent} or {path}, i.e. whether the caller should load the
 // entity's ancestor slugs.
@@ -179,7 +206,7 @@ func (s *URLSnapshot) EntityPath(ent *Entity, ancestors []string) string {
 	if ent.Schema == nil {
 		return "/" + ent.Slug
 	}
-	loc, found, err := s.Locate(ent.Schema.Slug, FlattenAttributes(ent.Attributes), s.VarsFor(ent, ancestors))
+	loc, found, err := s.Locate(ent.Schema.Slug, ent.FlatAttributes(), s.VarsFor(ent, ancestors))
 	if err != nil || !found {
 		return "/" + ent.Slug
 	}
