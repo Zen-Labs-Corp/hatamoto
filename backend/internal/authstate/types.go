@@ -162,6 +162,7 @@ var (
 	ErrEmailTaken    = errors.New("auth: email is already in use")
 	ErrIdentityTaken = errors.New("auth: identity is linked to another user")
 	ErrInvalidRole   = errors.New("auth: invalid role")
+	ErrInvalidEmail  = errors.New("auth: email is empty")
 	ErrLastOwner     = errors.New("auth: this would leave no open owner")
 	ErrThrottled     = errors.New("auth: too many requests, try again later")
 	ErrRefused       = errors.New("auth: sign-in refused")

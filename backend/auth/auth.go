@@ -53,6 +53,7 @@ var (
 	ErrEmailTaken    = authstate.ErrEmailTaken
 	ErrIdentityTaken = authstate.ErrIdentityTaken
 	ErrInvalidRole   = authstate.ErrInvalidRole
+	ErrInvalidEmail  = authstate.ErrInvalidEmail
 	ErrLastOwner     = authstate.ErrLastOwner
 	ErrThrottled     = authstate.ErrThrottled
 	ErrRefused       = authstate.ErrRefused

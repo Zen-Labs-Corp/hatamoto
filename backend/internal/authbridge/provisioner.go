@@ -133,7 +133,7 @@ func (p *Provisioner) Create(ctx context.Context, in authstate.NewUser) (authsta
 	}
 	email := strings.ToLower(strings.TrimSpace(in.Email))
 	if email == "" {
-		return authstate.User{}, authstate.ErrNotFound
+		return authstate.User{}, authstate.ErrInvalidEmail
 	}
 	if _, err := p.d.Users.GetByEmailFold(ctx, email); err == nil || errors.Is(err, user.ErrEmailAmbiguous) {
 		return authstate.User{}, authstate.ErrEmailTaken
