@@ -178,15 +178,28 @@
 <p class="hm-field__help">From <a href="/admin/settings/general#identity">Site settings</a>. Visitors open the exported site here.</p></div>
 <div class="hm-setrow__control"><code>https://example.com</code></div>
 </div></div>
-<div class="hm-field">
-<label class="hm-field__label" for="hosting-live-origin">Live origin</label>
-<input class="hm-field__control" type="text" id="hosting-live-origin" name="live_origin" placeholder="https://live.example.com" aria-describedby="hosting-live-origin-help" autocomplete="off">
-<p class="hm-field__help" id="hosting-live-origin-help">Where the live islands answer. It must be a different address from the static site URL.</p>
-</div>
 </div></section>
 <section class="hm-card" id="hosting-islands-card" aria-labelledby="hosting-islands-card-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="hosting-islands-card-title">Live islands</h2><p class="hm-muted">These apply once the site is in static mode.</p></div>
 <div class="hm-card__body">
+<div class="hm-field">
+<fieldset id="hosting-live-same" class="hm-field__group" aria-describedby="hosting-live-same-help"><legend class="hm-field__label">Where the islands answer</legend>
+<label class="hm-field__check" for="hosting-live-same-0"><input class="hm-field__box" type="radio" id="hosting-live-same-0" name="live_mode" value="same" checked><span>Same host</span></label>
+</fieldset>
+<p class="hm-field__help" id="hosting-live-same-help">Your web server serves the files and passes islands and the admin to this server.</p>
+</div>
+<details class="hm-disclosure"><summary>Advanced: separate live origin</summary><div class="hm-disclosure__body">
+<div class="hm-field">
+<fieldset id="hosting-live-separate" class="hm-field__group"><legend class="hm-field__label">Separate live origin</legend>
+<label class="hm-field__check" for="hosting-live-separate-0"><input class="hm-field__box" type="radio" id="hosting-live-separate-0" name="live_mode" value="separate"><span>Use a separate live origin</span></label>
+</fieldset>
+</div>
+<div data-hosting-only="live"><div class="hm-field">
+<label class="hm-field__label" for="hosting-live-origin">Live origin</label>
+<input class="hm-field__control" type="text" id="hosting-live-origin" name="live_origin" placeholder="https://live.example.com" aria-describedby="hosting-live-origin-help" autocomplete="off">
+<p class="hm-field__help" id="hosting-live-origin-help">Where the live islands answer, on a different host from the static site URL. The admin moves there too.</p>
+</div></div>
+</div></details>
 <div class="hm-card hm-tablecard" id="hosting-islands">
 <div class="hm-table__scroll" role="region" aria-label="Live islands" tabindex="0"><table class="hm-table hm-table--cards"><caption class="hm-visually-hidden">Live islands</caption>
 <thead><tr><th scope="col" class="hm-col-title">Island</th><th scope="col">Route</th></tr></thead>
@@ -212,6 +225,7 @@
 <button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button>
 </footer></section>
 </form>
+<form id="hosting-setup-form" hidden></form>
 <form id="test-form" method="post" action="/admin/settings/hosting/test"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
 <form id="export-form" method="post" action="/admin/settings/hosting/export"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
 <form id="rebuild-form" method="post" action="/admin/settings/hosting/rebuild"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>

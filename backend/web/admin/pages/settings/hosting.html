@@ -55,8 +55,7 @@
 <div>{{template "hm/button" dict "Label" "Copy config" "Attrs" (attrmap "data-hm-copy-field" "hosting-setup-config")}}</div>
 </div>
 {{end}}{{end}}{{template "hm/card-end"}}
-{{end}}{{end}}
-{{template "hm/card-start" dict "ID" "hosting-exports" "Title" "Exports" "Heading" "h2"}}
+{{end}}{{end}}{{template "hm/card-start" dict "ID" "hosting-exports" "Title" "Exports" "Heading" "h2"}}
 {{with .Last}}<p role="status">Last export: {{.}}.</p>{{end}}
 {{if .Log.Rows}}{{template "hm/table" .Log}}{{else}}{{template "hm/empty" .Log.Empty}}{{end}}
 {{with .TestWhy}}<p class="hm-field__help" id="hosting-test-why">{{.}}</p>{{end}}
