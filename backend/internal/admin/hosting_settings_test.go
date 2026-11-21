@@ -359,6 +359,15 @@ func TestHostingPageSetupCard(t *testing.T) {
 	if !strings.Contains(s3, "A bucket cannot pass islands to this server") || !strings.Contains(s3, "<code>X-Frame-Options</code>") || strings.Contains(s3, `id="hosting-setup-config"`) {
 		t.Error("the S3 + CDN tab lacks its guidance")
 	}
+	// A directory target on the S3 tab has no folder row and no config to point at.
+	for _, bad := range []string{"The folder exists", "included in the config below"} {
+		if strings.Contains(s3, bad) {
+			t.Errorf("the S3 + CDN tab shows %q", bad)
+		}
+	}
+	if !strings.Contains(s3, "Add them at your CDN") {
+		t.Error("the S3 + CDN tab does not send the headers to the CDN")
+	}
 	if evil := get("?setup=evil%22%3E"); !strings.Contains(evil, `aria-current="page">Caddy`) || strings.Contains(evil, "evil") {
 		t.Error("an unknown tab does not fall back to the default")
 	}

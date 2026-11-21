@@ -55,7 +55,7 @@ func hostingSetupFrom(s HostingSetup, tab, adminPath string, loc *time.Location)
 	for _, t := range []struct{ id, label string }{{hostingSetupCaddy, "Caddy"}, {hostingSetupNginx, "nginx"}, {hostingSetupS3, "S3 + CDN"}} {
 		v.Tabs = append(v.Tabs, ui.Tab{Label: t.label, Href: adminPath + hostingPath + "?setup=" + t.id + "#hosting-setup", Active: t.id == v.Kind})
 	}
-	v.Checks = hostingChecks(s, loc)
+	v.Checks = hostingChecks(s, v.Kind == hostingSetupS3, loc)
 	switch {
 	case v.Kind == hostingSetupS3:
 	case s.Target == HostingTargetS3:
@@ -73,7 +73,9 @@ func hostingSetupFrom(s HostingSetup, tab, adminPath string, loc *time.Location)
 	return v
 }
 
-func hostingChecks(s HostingSetup, loc *time.Location) []hostingCheck {
+// hostingChecks lists the rows of the card. onS3Tab is true for the S3 + CDN
+// tab, which has no folder and no config to point at.
+func hostingChecks(s HostingSetup, onS3Tab bool, loc *time.Location) []hostingCheck {
 	var out []hostingCheck
 	site := s.Site
 	if site == "" {
@@ -87,7 +89,7 @@ func hostingChecks(s HostingSetup, loc *time.Location) []hostingCheck {
 	default:
 		out = append(out, hostingCheck{"Site address", "Not checked yet. It runs after the next export on this server.", setupBadge("info", "Not checked")})
 	}
-	if s.Target != HostingTargetS3 {
+	if s.Target != HostingTargetS3 && !onS3Tab {
 		switch s.Folder {
 		case HostingCheckOK:
 			out = append(out, hostingCheck{"Folder", "The folder exists and the service user can write to it and to its parent.", setupBadge("success", "OK")})
@@ -100,7 +102,7 @@ func hostingChecks(s HostingSetup, loc *time.Location) []hostingCheck {
 		}
 	}
 	headers := "Static files need the security headers Hatamoto normally sends."
-	if s.Target == HostingTargetS3 {
+	if s.Target == HostingTargetS3 || onS3Tab {
 		headers += " Add them at your CDN (see S3 + CDN)."
 	} else {
 		headers += " They are included in the config below."
