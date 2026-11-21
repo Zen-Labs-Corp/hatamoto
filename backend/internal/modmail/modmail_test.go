@@ -126,6 +126,18 @@ func TestUnknownUserFromLookup(t *testing.T) {
 	}
 }
 
+func TestUserWithoutEmail(t *testing.T) {
+	svc, _, srv := newSink(t)
+	a := adapter(svc)
+	a.UserEmail = func(context.Context, uuid.UUID) (string, error) { return "", nil }
+	if err := a.ToUser(context.Background(), "example", uuid.NewString(), msg); !errors.Is(err, errNoAddress) {
+		t.Fatalf("err = %v", err)
+	}
+	if len(srv.Messages()) != 0 {
+		t.Fatal("mail sent without an address")
+	}
+}
+
 type flaky struct {
 	failFor string
 	sent    []string

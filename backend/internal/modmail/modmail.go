@@ -12,6 +12,9 @@ import (
 	"hatamoto.dev/core/internal/modhost"
 )
 
+// errNoAddress is returned when the user has no stored email address.
+var errNoAddress = errors.New("module: user has no email address")
+
 // Sender is the part of the email service the adapter needs.
 type Sender interface {
 	SendTrackedWith(ctx context.Context, o email.SendOptions, to []string, subject, html, text string) (string, error)
@@ -82,6 +85,9 @@ func (a *Adapter) ToUser(ctx context.Context, module, userID string, m modhost.M
 	to, err := a.UserEmail(ctx, id)
 	if err != nil {
 		return err
+	}
+	if to == "" {
+		return errNoAddress
 	}
 	return send(ctx, snd, module, to, m)
 }

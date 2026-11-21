@@ -17,6 +17,9 @@
 // per-recipient failures. Outside the serve process the calls return
 // ErrNoMailer.
 //
+// A user with no stored email address makes ToUser return an error; nothing is
+// sent or logged.
+//
 // Core writes no audit row for module mail; call audit.Record yourself when
 // the send should be audited.
 package mail
