@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
@@ -165,4 +166,111 @@ func roleValues() []string {
 		out[i] = o.Value
 	}
 	return out
+}
+
+// oidcCard is the single sign-on card of Settings > Sign-in.
+type oidcCard struct {
+	Form    oidcEcho
+	Errs    map[string]string
+	Summary []ui.FieldError
+	// SecretSaved: a client secret is stored and readable. SecretLost: it is
+	// stored but unreadable.
+	SecretSaved, SecretLost bool
+	// RedirectURL is the address to register at the provider; empty when no
+	// site address is configured.
+	RedirectURL string
+	RoleOptions []ui.Option
+}
+
+const signInPath = "/settings/users/sign-in"
+
+// oidcRedirectURL is the callback the provider must allow. It comes from the
+// configured site address only, the same value core sends to the provider.
+func (a *Admin) oidcRedirectURL(r *http.Request) string { return a.providerCallbackURL(r, "oidc") }
+
+// newOIDCCard builds the card from the saved view; echo (a refused post)
+// replaces the saved values.
+func (a *Admin) newOIDCCard(r *http.Request, view SignInOIDCView, echo *oidcEcho, errs []ui.FieldError) *oidcCard {
+	form := oidcEcho{SignInOIDCInput: view.SignInOIDCInput, DomainsRaw: strings.Join(view.Domains, ", ")}
+	form.Secret = ""
+	if echo != nil {
+		form = *echo
+	}
+	c := &oidcCard{
+		Form: form, Summary: errs, Errs: map[string]string{},
+		SecretSaved: view.SecretSaved, SecretLost: view.SecretLost,
+		RedirectURL: a.oidcRedirectURL(r), RoleOptions: roleOptions(form.DefaultRole),
+	}
+	for _, e := range errs {
+		c.Errs[e.ID] = e.Message
+	}
+	return c
+}
+
+// signInSettings returns the single sign-on service and the saved view, or
+// answers the request itself and reports false.
+func (a *Admin) signInSettings(w http.ResponseWriter, r *http.Request) (SignInSettingsService, SignInOIDCView, bool) {
+	svc := a.deps.SignInSettings
+	if svc == nil {
+		a.unavailable(w, r, "Single sign-on")
+		return nil, SignInOIDCView{}, false
+	}
+	view, err := svc.Get(r.Context())
+	if err != nil {
+		a.logger().Error("read single sign-on settings failed", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The sign-in settings could not be read.")
+		return nil, SignInOIDCView{}, false
+	}
+	return svc, view, true
+}
+
+// handleSignInOIDCSave saves the single sign-on settings. It sits behind sudo.
+func (a *Admin) handleSignInOIDCSave(w http.ResponseWriter, r *http.Request) {
+	svc, stored, ok := a.signInSettings(w, r)
+	if !ok {
+		return
+	}
+	_ = r.ParseForm() // a malformed body leaves the form empty and fails validation
+	in, echo, errs := validateSignInOIDC(r.PostForm, stored, a.oidcRedirectURL(r))
+	if len(errs) > 0 {
+		a.renderSignIn(w, r, http.StatusUnprocessableEntity, "", a.newOIDCCard(r, stored, &echo, errs))
+		return
+	}
+	if err := svc.Save(r.Context(), in, echo.KeepSecret); err != nil {
+		a.logger().Error("save single sign-on settings failed", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The single sign-on settings could not be saved.")
+		return
+	}
+	a.audit(r, "signin.oidc.settings", "sign-in", map[string]any{
+		"enabled": in.Enabled, "issuer": in.Issuer, "client_id": in.ClientID, "domains": in.Domains,
+		"default_role": in.DefaultRole, "link_existing": in.LinkExisting, "secret_changed": in.Secret != "",
+	})
+	a.SetFlash(w, r, "success", "Single sign-on settings saved.")
+	http.Redirect(w, r, a.adminPath+signInPath, http.StatusSeeOther)
+}
+
+// handleSignInOIDCTest checks that the saved issuer answers with a discovery
+// document and signing keys. It signs nobody in and sends no secret.
+func (a *Admin) handleSignInOIDCTest(w http.ResponseWriter, r *http.Request) {
+	svc, stored, ok := a.signInSettings(w, r)
+	if !ok {
+		return
+	}
+	to := a.adminPath + signInPath
+	if stored.Issuer == "" {
+		a.SetFlash(w, r, "error", "Save the issuer URL first, then test it.")
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return
+	}
+	if err := svc.Check(r.Context(), stored.Issuer); err != nil {
+		a.logger().Info("single sign-on check failed", "err", err)
+		a.SetFlash(w, r, "error", "Could not reach the provider's discovery document at "+stored.Issuer+". Check the issuer URL.")
+	} else {
+		label := stored.Label
+		if label == "" {
+			label = "Single sign-on"
+		}
+		a.SetFlash(w, r, "success", "The provider answered and its signing keys loaded. Sign out and use Continue with "+label+" to try a full sign-in.")
+	}
+	http.Redirect(w, r, to, http.StatusSeeOther)
 }

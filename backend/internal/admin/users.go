@@ -40,6 +40,8 @@ type usersData struct {
 	Policy *ui.RadioCard
 	// PolicyErr is the message of a refused policy save.
 	PolicyErr string
+	// OIDC is the single sign-on card of the Sign-in page; nil hides it.
+	OIDC *oidcCard
 }
 
 // linkData is a one-time link shown to the owner (invite, password reset).
@@ -155,6 +157,8 @@ func (a *Admin) mountUsers(authed *httpx.Group) {
 	owner.HandleFunc("POST /settings/users/{id}", a.handleUserUpdate)
 	owner.HandleFunc("GET /settings/users/sign-in", a.handleSignIn)
 	owner.Group("", a.RequireSudo).HandleFunc("POST /settings/users/two-factor", a.handleTwoFactorPolicy)
+	owner.Group("", a.RequireSudo).HandleFunc("POST /settings/users/sign-in/oidc", a.handleSignInOIDCSave)
+	owner.HandleFunc("POST /settings/users/sign-in/oidc/test", a.handleSignInOIDCTest)
 	owner.HandleFunc("POST /settings/users/{id}/reset", a.handleUserReset)
 	owner.HandleFunc("GET /settings/users/{id}/delete", a.handleUserDeleteForm)
 	owner.HandleFunc("POST /settings/users/{id}/delete", a.handleUserDelete)
@@ -887,14 +891,26 @@ func (a *Admin) handleSignIn(w http.ResponseWriter, r *http.Request) {
 		a.unavailable(w, r, "Two-step sign-in")
 		return
 	}
-	a.renderSignIn(w, r, http.StatusOK, "")
+	a.renderSignIn(w, r, http.StatusOK, "", nil)
 }
 
-func (a *Admin) renderSignIn(w http.ResponseWriter, r *http.Request, status int, policyErr string) {
+// renderSignIn shows the policy card and, when single sign-on settings are
+// wired, its card: oidc is a refused save to redisplay, nil reads the saved
+// settings.
+func (a *Admin) renderSignIn(w http.ResponseWriter, r *http.Request, status int, policyErr string, oidc *oidcCard) {
+	if oidc == nil && a.deps.SignInSettings != nil {
+		view, err := a.deps.SignInSettings.Get(r.Context())
+		if err != nil {
+			a.logger().Error("read single sign-on settings failed", "err", err)
+			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The sign-in settings could not be read.")
+			return
+		}
+		oidc = a.newOIDCCard(r, view, nil, nil)
+	}
 	v := a.NewView(w, r, "Sign-in")
 	v.Section, v.Tab = "users", "user-sign-in"
 	v.Width = "narrow"
-	v.Data = usersData{Policy: a.policyControl(r.Context()), PolicyErr: policyErr}
+	v.Data = usersData{Policy: a.policyControl(r.Context()), PolicyErr: policyErr, OIDC: oidc}
 	a.Render(w, r, status, "users/sign-in", v)
 }
 
@@ -922,7 +938,7 @@ func (a *Admin) handleTwoFactorPolicy(w http.ResponseWriter, r *http.Request) {
 	switch to {
 	case siteconfig.TwoFactorOptional, siteconfig.TwoFactorOwners, siteconfig.TwoFactorEveryone:
 	default:
-		a.renderSignIn(w, r, http.StatusUnprocessableEntity, "Choose one of the options.")
+		a.renderSignIn(w, r, http.StatusUnprocessableEntity, "Choose one of the options.", nil)
 		return
 	}
 	from, err := a.twoFactorPolicy(r.Context())
