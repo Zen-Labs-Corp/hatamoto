@@ -348,8 +348,14 @@ func (a *Admin) handleTermCreate(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, r, "The term could not be created", err)
 		return
 	}
+	a.audit(r, AuditTermCreated, t.ID.String(), termAuditDetail(t))
 	a.SetFlash(w, r, "success", "Added “"+t.Name+"”.")
 	Redirect(w, r, createdRedirect(a.taxBase(t.Kind), t.ID.String()))
+}
+
+// termAuditDetail is the audit detail of a term write.
+func termAuditDetail(t *taxonomy.Term) map[string]any {
+	return map[string]any{"name": t.Name, "slug": t.Slug, "kind": t.Kind}
 }
 
 func (a *Admin) loadTerm(w http.ResponseWriter, r *http.Request) (*taxonomy.Term, bool) {
@@ -461,7 +467,8 @@ func (a *Admin) handleTermSave(w http.ResponseWriter, r *http.Request) {
 	if f.Slug == "" {
 		in.Slug = taxonomy.Slugify(f.Name)
 	}
-	if _, err := a.deps.Content.Terms.UpdateTerm(r.Context(), in); err != nil {
+	saved, err := a.deps.Content.Terms.UpdateTerm(r.Context(), in)
+	if err != nil {
 		if termFieldError(&f, err) {
 			a.renderTermEdit(w, r, http.StatusUnprocessableEntity, t, f)
 			return
@@ -473,6 +480,7 @@ func (a *Admin) handleTermSave(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, r, "The term could not be saved", err)
 		return
 	}
+	a.audit(r, AuditTermUpdated, t.ID.String(), termAuditDetail(saved))
 	a.SetFlash(w, r, "success", "Term saved.")
 	Redirect(w, r, a.taxBase(t.Kind))
 }
@@ -546,6 +554,7 @@ func (a *Admin) handleTermMerge(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, r, "The terms could not be merged", err)
 		return
 	}
+	a.audit(r, AuditTermMerged, t.ID.String(), map[string]any{"into": into.String()})
 	a.SetFlash(w, r, "success", "Merged “"+t.Name+"” into “"+target.Name+"”.")
 	Redirect(w, r, a.taxBase(t.Kind))
 }
@@ -568,6 +577,7 @@ func (a *Admin) handleTermDelete(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, r, "The term could not be deleted", err)
 		return
 	}
+	a.audit(r, AuditTermDeleted, t.ID.String(), termAuditDetail(t))
 	a.SetFlash(w, r, "success", "Deleted “"+t.Name+"”.")
 	Redirect(w, r, a.taxBase(t.Kind))
 }
