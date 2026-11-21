@@ -87,6 +87,7 @@ func TestRangeWarnLimiter(t *testing.T) {
 }
 
 func TestRangeBudgetNotesDegradedOnce(t *testing.T) { //nolint:paralleltest // reads the process-wide degraded counter
+	swapRangeBreaker(t)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	b := &rangeBudget{}
 	h1 := &rangeHandle{b: b, log: log, plugin: "acme", tmpl: "once-1"}
