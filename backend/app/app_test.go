@@ -91,6 +91,12 @@ func TestParseArgs(t *testing.T) {
 		{[]string{"doctor"}, cmdHelp, true},
 		{[]string{"doctor", "x"}, cmdHelp, true},
 		{[]string{"doctor", "json", "--x"}, cmdHelp, true},
+		{[]string{"static", "export", "--out", "/srv/x"}, cmdStatic, false},
+		{[]string{"static", "export", "--target", "s3"}, cmdStatic, false},
+		{[]string{"static", "export"}, cmdStatic, false},
+		{[]string{"static"}, cmdHelp, true},
+		{[]string{"static", "export", "--bogus"}, cmdHelp, true},
+		{[]string{"static", "frob"}, cmdHelp, true},
 		{[]string{"bogus"}, cmdHelp, true},
 	}
 	for _, c := range cases {

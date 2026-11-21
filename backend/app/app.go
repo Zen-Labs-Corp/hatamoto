@@ -50,6 +50,7 @@ const (
 	cmdAdminURL // admin-url, admin-url set|random (admin_url.go)
 	cmdDoctor   // doctor json (doctor_json.go)
 	cmdMedia    // media migrate, sweep, adopt (media_cmd.go)
+	cmdStatic   // static export (static_cmd.go)
 	cmdHelp
 )
 
@@ -71,7 +72,7 @@ commands:
   admin-url random                 store a new random admin address (applies after a restart)
   routes                           list the core HTTP routes
   plugins list                     list the plugins in HATAMOTO_PLUGIN_DIR (the development override)
-` + mediaUsage + `
+` + mediaUsage + "\n" + staticUsage + `
   sanitize-html-sections [--dry-run]
 ` + opsUsage + "\n" + packagesUsage + "\n" + builderUsage + "\n" + localesUsage + "\n" + doctorUsage + `
   supervise                        run serve as a child, switch to verified releases in $HATAMOTO_DATA/releases and roll back when one fails its health gate
@@ -170,6 +171,12 @@ func parseArgs(args []string) (command, error) {
 		if len(args) >= 2 && args[1] == "adopt" {
 			if _, err := parseMediaAdoptArgs(args[2:]); err == nil {
 				return cmdMedia, nil
+			}
+		}
+	case "static":
+		if len(args) >= 2 && args[1] == "export" {
+			if _, err := parseStaticArgs(args[2:]); err == nil {
+				return cmdStatic, nil
 			}
 		}
 	case "routes":
@@ -311,6 +318,8 @@ func run(ctx context.Context, cmd command, args []string, logger *slog.Logger) e
 		return runDoctorJSON(ctx, os.Getenv("DATABASE_URL"), os.Stdout)
 	case cmdMedia:
 		return runMedia(ctx, os.Getenv("DATABASE_URL"), args, os.Stdout)
+	case cmdStatic:
+		return runStatic(ctx, args[2:], os.Stdout)
 	case cmdLocales:
 		return runLocalesConvert(ctx, os.Getenv("DATABASE_URL"), args[2:], os.Stdout, os.Stderr)
 	}
