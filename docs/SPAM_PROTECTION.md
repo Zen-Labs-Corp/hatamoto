@@ -91,3 +91,14 @@ is deliberate: a misconfigured site keeps taking enquiries instead of silently d
 This feature stops spam at the application. It does not replace edge protection. If you run behind
 Cloudflare or another WAF, also turn on its bot and rate limiting rules for `POST /forms/*` and
 `POST /api/v1/public/forms/*`. These settings are not managed by Hatamoto.
+
+## Static mode
+
+With static hosting on (see [STATIC_EXPORT.md](STATIC_EXPORT.md)), the forms on the static site post to the live origin, for example a site at `https://static.example.net` whose forms post to `https://live.example.net`.
+
+- A post whose `Origin` is the static origin must carry a valid timing token. This is the same rule as for sandboxed pages that send `Origin: null`.
+- A visitor without JavaScript on the static site therefore cannot submit a form, because no token is fetched. Link them to the standalone `/f/<slug>` form page on the live origin.
+- A post from any other site is refused: `403` for the JavaScript route, a `303` redirect with `?form_error=1` for the no-JavaScript route. Nothing is stored.
+- Rate limits are per client address and apply unchanged.
+- The timing token lives 24 hours, so a tab left open longer has its token refused and the visitor has to reload the page.
+- Behind a CDN or proxy, set the trusted proxies so that the limits and the comment tokens see the real client address, not the proxy's.

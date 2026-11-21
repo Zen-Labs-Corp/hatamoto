@@ -51,6 +51,16 @@ A visitor who has posted sees their own comments that are not public yet, marked
 
 Pages with an open form are not cached by browsers or CDNs (see [Page cache](THEMES.md#page-cache)): the form carries a token that works once.
 
+## Static mode
+
+With static hosting on (see [STATIC_EXPORT.md](STATIC_EXPORT.md)), the thread is static HTML. The form is not: it loads live from `GET /-/comments/form/{entityID}` on the live origin (for example `https://live.example.net`). That route answers CORS for the static origin (`https://static.example.net`) only, sets no cookies, and is `private, no-store`. Each load carries a fresh token that is bound to the visitor's network and works once.
+
+- The core loader `hm-live.js` swaps the placeholder on the static page for that form. Without JavaScript, or if the load fails, a link in the placeholder opens the form on the live origin.
+- After posting, the visitor returns to the static page. A new comment shows there after the next export; approving a comment triggers one.
+- Editing and deleting one's own comment stay on the live origin.
+- Forms with a captcha need the provider's script on the static page. This is a known gap.
+- Themes keep the `data-hm-cform` contract; nothing changes for theme authors.
+
 ## Privacy and retention
 
 No raw IP address is stored, only keyed hashes (`ip_hash` and `net_hash`), which are pseudonymous personal data. A truncated user agent is stored with each comment. There is no website field.
