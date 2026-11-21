@@ -75,6 +75,9 @@ type Config struct {
 	// EntityVersionsKeep is how many earlier versions of each item the daily
 	// prune keeps (10 to 500).
 	EntityVersionsKeep int
+	// AuditRetentionDays is how long admin audit entries are kept;
+	// AgentAuditRetentionDays is the same for agent (MCP) calls.
+	AuditRetentionDays, AgentAuditRetentionDays int
 	// AdminBrand is the admin name, logo, accent and managed-by line.
 	AdminBrand  AdminBrand
 	CompanyName string
@@ -754,6 +757,25 @@ func (s *Store) SetEntityVersionsKeep(ctx context.Context, n int) error {
 	return nil
 }
 
+// SetAuditRetention stores how many days the daily prune keeps admin audit
+// entries and agent (MCP) calls.
+func (s *Store) SetAuditRetention(ctx context.Context, admin, agent int) error {
+	conn, err := s.db.GetConn(database.WithSuperadmin(ctx))
+	if err != nil {
+		return fmt.Errorf("acquire db conn: %w", err)
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, `
+		UPDATE hatamoto_site_config
+		SET audit_retention_days = $1, agent_audit_retention_days = $2, updated_at = NOW()
+		WHERE id = TRUE`, admin, agent); err != nil {
+		return fmt.Errorf("set audit retention: %w", err)
+	}
+	s.Invalidate()
+	return nil
+}
+
 // PatchThemeExtra sets one top-level key of theme_extra to raw (a JSON value)
 // and leaves every other key as it is. The merge happens in SQL, so a job that
 // saves its progress cannot overwrite a design save made meanwhile.
@@ -838,7 +860,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		       compress_responses, two_factor_policy,
 		       site_access_mode, site_access_retry_after, site_access_password_hash,
 		       site_access_epoch, site_access_heading, site_access_message,
-		       entity_versions_keep,
+		       entity_versions_keep, audit_retention_days, agent_audit_retention_days,
 		       admin_brand_name, admin_logo_url, admin_accent,
 		       admin_managed_by_text, admin_managed_by_url,
 		       visitor_entry, favicon_url
@@ -858,7 +880,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		&cfg.CompressResponses, &cfg.TwoFactorPolicy,
 		&cfg.SiteAccess.Mode, &cfg.SiteAccess.RetryAfter, &cfg.SiteAccess.PasswordHash,
 		&cfg.SiteAccess.Epoch, &cfg.SiteAccess.Heading, &cfg.SiteAccess.Message,
-		&cfg.EntityVersionsKeep,
+		&cfg.EntityVersionsKeep, &cfg.AuditRetentionDays, &cfg.AgentAuditRetentionDays,
 		&cfg.AdminBrand.Name, &cfg.AdminBrand.LogoURL, &cfg.AdminBrand.Accent,
 		&cfg.AdminBrand.ManagedText, &cfg.AdminBrand.ManagedURL,
 		&visitorEntry, &cfg.FaviconURL,
