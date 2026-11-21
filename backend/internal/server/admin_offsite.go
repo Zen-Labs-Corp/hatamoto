@@ -12,6 +12,7 @@ import (
 	"hatamoto.dev/core/internal/backup"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/offsite"
+	"hatamoto.dev/core/internal/runenv"
 )
 
 // offsiteTestTimeout bounds one connection test.
@@ -151,6 +152,9 @@ func (o *offsiteAdmin) Test(ctx context.Context, in admin.OffsiteInput) error {
 		Prefix: set.Prefix, AccessKey: set.AccessKey, SecretKey: secret}
 	if err := t.Validate(); err != nil {
 		return err
+	}
+	if runenv.Suppress(ctx, nil, runenv.OffsiteBackup, "action", "test connection") {
+		return runenv.ErrSuppressed
 	}
 	c, err := t.Client(nil)
 	if err != nil {

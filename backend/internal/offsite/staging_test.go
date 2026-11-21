@@ -1,0 +1,25 @@
+package offsite
+
+import (
+	"errors"
+	"testing"
+
+	"hatamoto.dev/core/internal/runenv"
+	"hatamoto.dev/core/internal/s3/s3test"
+)
+
+func TestUploadIsSuppressedInStaging(t *testing.T) {
+	t.Setenv(runenv.EnvVar, "staging")
+	srv := s3test.NewServer(t)
+	c := testClient(t, srv, "site/")
+	srv.Put("site/"+idN(1)+".tar", []byte("old"), nil)
+	srv.Put("site/"+idN(2)+".tar", []byte("old"), nil)
+	path, _ := writeArchive(t, 1024)
+	res, err := Upload(t.Context(), c, "site/", idN(9), path, 1)
+	if !errors.Is(err, runenv.ErrSuppressed) || res.OK {
+		t.Fatalf("res = %+v, err = %v", res, err)
+	}
+	if got := srv.Objects(); len(got) != 2 {
+		t.Fatalf("bucket changed: %d objects (no upload, no prune expected)", len(got))
+	}
+}
