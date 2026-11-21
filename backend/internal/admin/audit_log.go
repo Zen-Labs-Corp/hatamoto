@@ -1,12 +1,14 @@
 package admin
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"hatamoto.dev/core/internal/auditlog"
 	"hatamoto.dev/core/internal/httpx"
 
 	"hatamoto.dev/core/internal/admin/ui"
@@ -43,6 +45,7 @@ var auditLabels = map[string]string{
 	"backups.download":             "Downloaded a backup",
 	"backups.delete":               "Deleted a backup",
 	"backups.retention":            "Changed backup retention",
+	"audit.retention":              "Changed audit log retention",
 	"email.settings":               "Changed email settings",
 	"email.settings.reset":         "Reset email settings",
 	"cache.settings":               "Changed cache settings",
@@ -175,6 +178,8 @@ func (a *Admin) mountAuditLog(owner *httpx.Group) {
 		return
 	}
 	owner.HandleFunc("GET "+auditRel, a.handleAuditLog)
+	owner.HandleFunc("GET "+auditRetentionRel, a.handleAuditRetention)
+	owner.HandleFunc("POST "+auditRetentionRel, a.handleAuditRetentionSave)
 }
 
 // Search window rules: a text search always carries a date range so the scan
@@ -355,7 +360,7 @@ func (a *Admin) handleAuditLog(w http.ResponseWriter, r *http.Request) {
 		Table    ui.Table
 		Older    string
 		Overflow []ui.Action
-	}{t, older, nil}
+	}{t, older, a.auditOverflow(ctx)}
 	a.Render(w, r, http.StatusOK, auditLogPage, v)
 }
 
@@ -378,4 +383,20 @@ func auditResultLabel(s string) string {
 		return "Failed"
 	}
 	return ""
+}
+
+// auditOverflow is the header's more menu: the retention link, only when the
+// retention can be changed. The hint shows the saved periods when they load.
+func (a *Admin) auditOverflow(ctx context.Context) []ui.Action {
+	svc := a.deps.AuditRetention
+	if svc == nil {
+		return nil
+	}
+	item := ui.Action{Label: "Keep entries for", Href: a.adminPath + auditRetentionRel}
+	if admin, agent, err := svc.Days(ctx); err != nil {
+		a.logger().Error("audit retention settings", "err", err)
+	} else {
+		item.Hint = auditlog.RetentionLabel(admin) + " · agent calls " + auditlog.RetentionLabel(agent)
+	}
+	return []ui.Action{item}
 }
