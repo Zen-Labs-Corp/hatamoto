@@ -16,6 +16,7 @@ import (
 // embedded trust sets.
 func cmdVerify(args []string, stdout, stderr io.Writer, e env) error {
 	var manifest, channel, chanName, record, sigFile, artifact, platform, dir, version string
+	var listFiles bool
 	fs := newFlags("verify", stderr)
 	fs.StringVar(&manifest, "manifest", "", "check only this signed channel file")
 	fs.StringVar(&channel, "channel", "", "signed channel file")
@@ -26,6 +27,7 @@ func cmdVerify(args []string, stdout, stderr io.Writer, e env) error {
 	fs.StringVar(&platform, "platform", "", "platform of the artifact, e.g. linux-amd64")
 	fs.StringVar(&dir, "dir", "", "record-only mode: directory holding hatamoto-<platform> for every platform")
 	fs.StringVar(&version, "version", "", "record-only mode: the version the record must be for")
+	fs.BoolVar(&listFiles, "list-files", false, "record-only mode: after verifying, print only the artifact file names the record names, one per line")
 	if _, err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -45,7 +47,10 @@ func cmdVerify(args []string, stdout, stderr io.Writer, e env) error {
 		return nil
 	}
 	if channel == "" && dir != "" && record != "" && sigFile != "" && artifact == "" && platform == "" {
-		return verifyRecordDir(stdout, e.options(chanName), record, sigFile, dir, version)
+		return verifyRecordDir(stdout, e.options(chanName), record, sigFile, dir, version, listFiles)
+	}
+	if listFiles {
+		return errors.New("--list-files belongs to record-only mode: verify --chan C --record F --sig F --dir D [--version V] --list-files")
 	}
 	if dir != "" || version != "" {
 		return errors.New("--dir and --version belong to record-only mode: verify --chan C --record F --sig F --dir D [--version V]")
@@ -94,8 +99,9 @@ func cmdVerify(args []string, stdout, stderr io.Writer, e env) error {
 
 // verifyRecordDir checks a record, its signature and every platform file in
 // dir without a channel manifest, so a release can be verified before it is
-// offered on a channel.
-func verifyRecordDir(stdout io.Writer, opts release.Options, record, sigFile, dir, version string) error {
+// offered on a channel. With list it prints only the artifact file names the
+// record names (default platforms first, then each listed edition).
+func verifyRecordDir(stdout io.Writer, opts release.Options, record, sigFile, dir, version string, list bool) error {
 	recordBytes, err := os.ReadFile(record)
 	if err != nil {
 		return err
@@ -119,21 +125,70 @@ func verifyRecordDir(stdout io.Writer, opts release.Options, record, sigFile, di
 	if len(rec.Artifacts) != len(release.Platforms) {
 		return fmt.Errorf("record names %d artifacts, expected %d", len(rec.Artifacts), len(release.Platforms))
 	}
-	for _, platform := range release.Platforms {
-		name := filepath.Join(dir, "hatamoto-"+platform)
-		if err := verifyArtifactFile(rec, platform, name, opts); err != nil {
-			return fmt.Errorf("%s: %w", name, err)
+	for ed, arts := range rec.Editions {
+		if !contains(release.Editions, ed) {
+			return fmt.Errorf("record names unknown edition %q", ed)
+		}
+		if len(arts) != len(release.Platforms) {
+			return fmt.Errorf("record names %d %s artifacts, expected %d", len(arts), ed, len(release.Platforms))
+		}
+		for _, platform := range release.Platforms {
+			if _, ok := arts[platform]; !ok {
+				return fmt.Errorf("record has no %s artifact for %s", ed, platform)
+			}
 		}
 	}
-	fmt.Fprintf(stdout, "record ok: %s (%d artifacts)\n", rec.Version, len(rec.Artifacts))
+	// Exact probes only: dir also holds bundles, SBOMs and checksums.
+	for _, ed := range release.Editions {
+		if _, ok := rec.Editions[ed]; ok {
+			continue
+		}
+		for _, platform := range release.Platforms {
+			if name := release.ArtifactName(ed, platform); fileExists(filepath.Join(dir, name)) {
+				return fmt.Errorf("%s is in %s but the record names no %s builds", name, dir, ed)
+			}
+		}
+	}
+	var names []string
+	for _, platform := range release.Platforms {
+		name := release.ArtifactName("", platform)
+		if err := verifyArtifactFile(rec, "", platform, filepath.Join(dir, name), opts); err != nil {
+			return fmt.Errorf("%s: %w", filepath.Join(dir, name), err)
+		}
+		names = append(names, name)
+	}
+	edArtifacts := 0
+	for _, ed := range release.Editions {
+		if _, ok := rec.Editions[ed]; !ok {
+			continue
+		}
+		for _, platform := range release.Platforms {
+			name := release.ArtifactName(ed, platform)
+			if err := verifyArtifactFile(rec, ed, platform, filepath.Join(dir, name), opts); err != nil {
+				return fmt.Errorf("%s: %w", filepath.Join(dir, name), err)
+			}
+			names = append(names, name)
+			edArtifacts++
+		}
+	}
+	switch {
+	case list:
+		for _, name := range names {
+			fmt.Fprintln(stdout, name)
+		}
+	case edArtifacts == 0:
+		fmt.Fprintf(stdout, "record ok: %s (%d artifacts)\n", rec.Version, len(rec.Artifacts))
+	default:
+		fmt.Fprintf(stdout, "record ok: %s (%d artifacts, %d edition artifacts)\n", rec.Version, len(rec.Artifacts), edArtifacts)
+	}
 	return nil
 }
 
-func verifyArtifactFile(rec *release.Record, platform, name string, opts release.Options) error {
+func verifyArtifactFile(rec *release.Record, edition, platform, name string, opts release.Options) error {
 	f, err := os.Open(name)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	return release.VerifyArtifact(rec, platform, f, opts)
+	return release.VerifyArtifactFor(rec, edition, platform, f, opts)
 }
