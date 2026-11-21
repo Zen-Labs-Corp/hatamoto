@@ -138,7 +138,9 @@ func (defaultAuthorizer) Can(_ context.Context, s Subject, a Action, _ Object) (
 		return false, fmt.Errorf("%w: %q", ErrUnknownAction, a)
 	}
 	if s.KeyID != "" {
-		creatorOK := s.CreatorRole == "owner" || s.CreatorRole == "editor"
+		// A valid key always has a creator (both key entry points reject one
+		// without), so UserID is required here as well.
+		creatorOK := s.UserID != "" && (s.CreatorRole == "owner" || s.CreatorRole == "editor")
 		return creatorOK && r.scope != "" && hasScope(s.Scopes, s.CreatorRole, r.scope), nil
 	}
 	if s.UserID == "" {

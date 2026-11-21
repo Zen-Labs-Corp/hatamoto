@@ -177,6 +177,13 @@ func TestDefaultKeyIgnoresSessionRole(t *testing.T) {
 	}
 }
 
+func TestDefaultKeyNeedsCreatorID(t *testing.T) {
+	s := authz.Subject{KeyID: "k", Scopes: []string{"*"}, CreatorRole: "owner"}
+	if ok, _ := authz.Default().Can(context.Background(), s, authz.ActionEntityUpdate, authz.Object{}); ok {
+		t.Error("a key subject without a creator id must be denied")
+	}
+}
+
 func TestDefaultKeyRoleDoesNotNarrow(t *testing.T) {
 	s := authz.Subject{UserID: "u", Role: "editor", KeyID: "k", Scopes: []string{"write:seo"}, CreatorRole: "owner"}
 	if ok, _ := authz.Default().Can(context.Background(), s, authz.ActionSettingsSEOWrite, authz.Object{}); !ok {
