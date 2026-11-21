@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 
+	"hatamoto.dev/core/internal/editionstate"
 	"hatamoto.dev/core/internal/release"
 )
 
@@ -21,6 +22,11 @@ const maxRecordFile = 1 << 20
 // is opened without following symlinks and read once, with a size bound.
 // Anything that can write the data volume could otherwise plant a binary here.
 func VerifyStored(l Layout, version string, o release.Options) error {
+	return verifyStored(l, version, editionstate.Name(), o)
+}
+
+// verifyStored is VerifyStored for an explicit edition.
+func verifyStored(l Layout, version, edition string, o release.Options) error {
 	if !validName(version) {
 		return fmt.Errorf("invalid release name %q", version)
 	}
@@ -45,7 +51,7 @@ func VerifyStored(l Layout, version string, o release.Options) error {
 		return fmt.Errorf("binary: %w", err)
 	}
 	defer f.Close()
-	if err := release.VerifyArtifact(rec, runtime.GOOS+"-"+runtime.GOARCH, f, o); err != nil {
+	if err := release.VerifyArtifactFor(rec, edition, runtime.GOOS+"-"+runtime.GOARCH, f, o); err != nil {
 		return fmt.Errorf("stored binary check failed: %w", err)
 	}
 	return nil
@@ -72,5 +78,5 @@ func (s *sup) verifyRelease(version string) error {
 	if s.cfg.verify != nil {
 		return s.cfg.verify(version)
 	}
-	return VerifyStored(s.layout, version, s.cfg.Release)
+	return verifyStored(s.layout, version, s.cfg.edition(), s.cfg.Release)
 }

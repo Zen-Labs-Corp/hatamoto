@@ -26,6 +26,8 @@ type ApplyOpts struct {
 	Release release.Options
 	// Platform overrides runtime.GOOS-runtime.GOARCH (tests).
 	Platform string
+	// Edition overrides the config's edition (tests, the updater).
+	Edition string
 	// Retry says the version is on the bad list on purpose: the bad-list
 	// refusal is skipped, and the entry is removed together with the pending
 	// switch, so a failure before that point leaves the list untouched.
@@ -115,9 +117,13 @@ func verifyAndStage(c Config, o ApplyOpts) (Layout, *release.Record, error) {
 		return Layout{}, nil, err
 	}
 	defer f.Close()
-	art, ok := rec.Artifacts[platform]
-	if !ok {
-		return Layout{}, nil, fmt.Errorf("artifact check failed: %w: no artifact for %s", release.ErrRecordMismatch, platform)
+	edition := o.Edition
+	if edition == "" {
+		edition = c.edition()
+	}
+	art, err := rec.ArtifactFor(edition, platform)
+	if err != nil {
+		return Layout{}, nil, fmt.Errorf("artifact check failed: %w", err)
 	}
 	l := NewLayout(c.Data)
 	if err := os.MkdirAll(l.Releases, 0o755); err != nil {
