@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -146,5 +147,30 @@ func TestRunStore_FinishCapsErrors(t *testing.T) {
 	}
 	if runs[0].Status != "failed" || len(runs[0].Errors) != 50 || len(runs[0].Errors[0]) != 500 {
 		t.Fatalf("status=%s errors=%d len=%d", runs[0].Status, len(runs[0].Errors), len(runs[0].Errors[0]))
+	}
+}
+
+func TestRunStore_PruneRuns(t *testing.T) {
+	pool := newIntegrationPool(t)
+	ctx := context.Background()
+	rs := NewRunStore(pool)
+	insert := func(status string, age string) {
+		t.Helper()
+		if _, err := pool.Exec(ctx, `INSERT INTO hatamoto_static_export_runs (trigger, target, status, started_at, heartbeat_at)
+			VALUES ('cli', 'dir:/x', $1, now() - $2::interval, now() - $2::interval)`, status, age); err != nil {
+			t.Fatal(err)
+		}
+	}
+	insert("ok", "100 days")
+	insert("failed", "95 days")
+	insert("ok", "1 day")
+	insert("running", "100 days")
+	n, err := rs.PruneRuns(ctx, time.Now().Add(-90*24*time.Hour))
+	if err != nil || n != 2 {
+		t.Fatalf("pruned %d, err %v; want 2", n, err)
+	}
+	runs, err := rs.List(ctx, 10)
+	if err != nil || len(runs) != 2 {
+		t.Fatalf("left %d runs, err %v", len(runs), err)
 	}
 }

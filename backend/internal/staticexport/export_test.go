@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -47,6 +48,9 @@ type fakeTarget struct {
 	published  bool
 	discarded  bool
 	pubErr     error
+	prev       *Manifest // returned by Previous when set
+	gotDiff    Diff
+	gotMan     Manifest
 }
 
 func (f *fakeTarget) Key() string      { return "fake:out" }
@@ -55,9 +59,15 @@ func (f *fakeTarget) Stage(context.Context) (string, error) {
 	f.stageCalls++
 	return f.t.TempDir(), nil
 }
-func (f *fakeTarget) Previous(context.Context) (Manifest, bool, error) { return Manifest{}, false, nil }
-func (f *fakeTarget) Publish(context.Context, string, Diff, Manifest) error {
+func (f *fakeTarget) Previous(context.Context) (Manifest, bool, error) {
+	if f.prev != nil {
+		return *f.prev, true, nil
+	}
+	return Manifest{}, false, nil
+}
+func (f *fakeTarget) Publish(_ context.Context, _ string, d Diff, m Manifest) error {
 	f.published = true
+	f.gotDiff, f.gotMan = d, m
 	return f.pubErr
 }
 func (f *fakeTarget) Discard(string) { f.discarded = true }
@@ -199,5 +209,45 @@ func TestExport_NoSecretInOutput(t *testing.T) {
 		if r.Method == "DELETE" {
 			t.Fatal("unexpected DELETE after a failed upload")
 		}
+	}
+}
+
+func TestExport_FullRepublishesEverything(t *testing.T) {
+	first := &fakeTarget{t: t}
+	if _, err := Export(context.Background(), okSource(), &fakeRuns{}, first, Options{}); err != nil {
+		t.Fatal(err)
+	}
+	prev := first.gotMan
+	prev.Files = map[string]Entry{}
+	for p, e := range first.gotMan.Files {
+		prev.Files[p] = e
+	}
+	prev.Files["gone.html"] = Entry{SHA256: "x", Size: 1}
+
+	incr := &fakeTarget{t: t, prev: &prev}
+	if _, err := Export(context.Background(), okSource(), &fakeRuns{}, incr, Options{}); err != nil {
+		t.Fatal(err)
+	}
+	if len(incr.gotDiff.Changed) != 0 || len(incr.gotDiff.Unchanged) == 0 {
+		t.Fatalf("incremental diff = %+v", incr.gotDiff)
+	}
+
+	full := &fakeTarget{t: t, prev: &prev}
+	var out bytes.Buffer
+	if _, err := Export(context.Background(), okSource(), &fakeRuns{}, full, Options{Full: true, Out: &out}); err != nil {
+		t.Fatal(err)
+	}
+	d := full.gotDiff
+	if len(d.Unchanged) != 0 || len(d.Changed) != len(first.gotMan.Files) {
+		t.Fatalf("full diff = %+v, want %d changed", d, len(first.gotMan.Files))
+	}
+	if !sort.StringsAreSorted(d.Changed) {
+		t.Fatalf("changed not sorted: %v", d.Changed)
+	}
+	if len(d.Removed) != 1 || d.Removed[0] != "gone.html" {
+		t.Fatalf("removed = %v", d.Removed)
+	}
+	if !strings.Contains(out.String(), "full rebuild") {
+		t.Fatalf("output = %s", out.String())
 	}
 }

@@ -188,6 +188,16 @@ func (s *RunStore) Finish(ctx context.Context, id uuid.UUID, r RunResult) error 
 	return nil
 }
 
+// PruneRuns deletes finished runs started before the given time. A running
+// row is never deleted. It returns the number of rows removed.
+func (s *RunStore) PruneRuns(ctx context.Context, before time.Time) (int64, error) {
+	tag, err := s.db.Exec(ctx, `DELETE FROM hatamoto_static_export_runs WHERE status <> 'running' AND started_at < $1`, before)
+	if err != nil {
+		return 0, fmt.Errorf("prune static export runs: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
 // List returns the latest runs, newest first.
 func (s *RunStore) List(ctx context.Context, limit int) ([]Run, error) {
 	rows, err := s.db.Query(ctx, `

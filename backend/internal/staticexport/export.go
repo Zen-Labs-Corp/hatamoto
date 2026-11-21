@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,6 +28,10 @@ type Options struct {
 	Out io.Writer
 	// HeartbeatEvery defaults to 30 seconds.
 	HeartbeatEvery time.Duration
+	// Full re-publishes every file, ignoring what the previous export already
+	// holds (Rebuild all). Removed files are still deleted. Every export
+	// renders the whole site either way.
+	Full bool
 }
 
 // Result describes a finished export.
@@ -109,6 +114,12 @@ func Export(ctx context.Context, src Source, runs RunRecorder, t Target, o Optio
 		say("static: no previous export found, publishing everything and deleting nothing")
 	}
 	diff := DiffManifests(prev, manifest)
+	if o.Full {
+		diff.Changed = append(diff.Changed, diff.Unchanged...)
+		diff.Unchanged = nil
+		sort.Strings(diff.Changed)
+		say("static: full rebuild, re-publishing every file")
+	}
 	res.Diff = diff
 	say("static: changed %d, unchanged %d, removed %d", len(diff.Changed), len(diff.Unchanged), len(diff.Removed))
 	say("static: wrote %s (%d rules) + %d redirect stubs, 404.html", RedirectsFile, rep.Redirects, rep.Stubs)
