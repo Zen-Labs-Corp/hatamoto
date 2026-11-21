@@ -13,6 +13,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/form"
+	"hatamoto.dev/core/internal/importjob"
 	"hatamoto.dev/core/internal/staticexport"
 	"hatamoto.dev/core/internal/statichost"
 	"hatamoto.dev/core/internal/webconf"
@@ -34,10 +35,12 @@ type hostingSetupDeps struct {
 }
 
 // uploadLimitMB is the request body limit for a web server in front of
-// Hatamoto: the larger of the media and the form file ceilings, plus room for
-// the multipart framing and the other fields.
+// Hatamoto: the largest body Hatamoto accepts (a media or form file, or the
+// WordPress export, which is larger than the plugin, theme and CSV uploads),
+// plus room for the multipart framing and the other fields. Hatamoto enforces
+// each endpoint's own limit; the web server must only not refuse first.
 func uploadLimitMB(mediaMaxMB int) int {
-	return max(mediaMaxMB, form.MaxFileUploadMB) + 5
+	return max(mediaMaxMB, form.MaxFileUploadMB, importjob.MaxWXRBytes>>20) + 5
 }
 
 // upstreamAddr is the address a web server on the same box dials to reach

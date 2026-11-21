@@ -10,6 +10,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/form"
+	"hatamoto.dev/core/internal/importjob"
 	"hatamoto.dev/core/internal/staticexport"
 )
 
@@ -186,19 +187,19 @@ func TestHostingSetupNothingSaved(t *testing.T) {
 // and the form file limits, with room for the multipart framing.
 func TestHostingSetupPassesUploadLimit(t *testing.T) {
 	t.Parallel()
-	if got := uploadLimitMB(10); got != form.MaxFileUploadMB+5 {
-		t.Errorf("limit for the default media size = %d", got)
+	if got, floor := uploadLimitMB(10), int(importjob.MaxWXRBytes>>20); got <= floor || got <= form.MaxFileUploadMB {
+		t.Errorf("limit for the default media size = %d, must exceed the export limit %d MB", got, floor)
 	}
-	if got := uploadLimitMB(100); got != 105 {
-		t.Errorf("limit for 100 MB media = %d", got)
+	if got := uploadLimitMB(1000); got != 1005 {
+		t.Errorf("limit for 1000 MB media = %d", got)
 	}
 	fx := setupFixture(t, t.TempDir())
-	fx.h.setup.maxBodyMB = uploadLimitMB(100)
+	fx.h.setup.maxBodyMB = uploadLimitMB(1000)
 	got, err := fx.h.Setup(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(got.Nginx, "client_max_body_size 105m;") {
+	if !strings.Contains(got.Nginx, "client_max_body_size 1005m;") {
 		t.Errorf("nginx config lacks the upload limit:\n%s", got.Nginx)
 	}
 }
