@@ -69,6 +69,13 @@ const (
 	ActionEntityRead Action = "entity.read"
 	// ActionEntityReorder is the "entity.reorder" action.
 	ActionEntityReorder Action = "entity.reorder"
+	// ActionEntityReviewBypass is the "entity.review.bypass" action: publish or change published content
+	// without review.
+	ActionEntityReviewBypass Action = "entity.review.bypass"
+	// ActionEntityReviewDecide is the "entity.review.decide" action: decide a stage of the reviewers group.
+	ActionEntityReviewDecide Action = "entity.review.decide"
+	// ActionEntityReviewRequest is the "entity.review.request" action: send a change for review.
+	ActionEntityReviewRequest Action = "entity.review.request"
 	// ActionEntityShare is the "entity.share" action.
 	ActionEntityShare Action = "entity.share"
 	// ActionEntityTakeover is the "entity.takeover" action.

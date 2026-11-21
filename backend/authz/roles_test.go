@@ -20,14 +20,15 @@ var otherRoles = []string{"author", "contributor", "reviewer", "read-only"}
 var wantContent = map[string][]string{
 	"author": {
 		"content.write", "entity.create", "entity.update", "entity.publish", "entity.unpublish", "entity.delete",
-		"entity.version.restore", "media.upload", "media.update", "media.delete",
+		"entity.version.restore", "entity.review.request", "media.upload", "media.update", "media.delete",
 	},
 	"contributor": {
 		"content.write", "entity.create", "entity.update", "entity.delete", "entity.version.restore",
-		"media.upload", "media.update", "media.delete",
+		"entity.review.request", "media.upload", "media.update", "media.delete",
 	},
 	"reviewer": {
 		"content.write", "entity.update", "entity.publish", "entity.unpublish", "entity.version.restore",
+		"entity.review.bypass", "entity.review.decide", "entity.review.request",
 		"media.upload", "media.update", "media.delete",
 	},
 	"read-only": nil,
@@ -36,9 +37,9 @@ var wantContent = map[string][]string{
 // wantContentKey is what a key made by each content role may do with a "*" scope: the actions above that
 // have a key scope (entity.delete, media.update, media.delete and content.write have none).
 var wantContentKey = map[string][]string{
-	"author":      {"entity.create", "entity.update", "entity.publish", "entity.unpublish", "entity.version.restore", "media.upload"},
-	"contributor": {"entity.create", "entity.update", "entity.version.restore", "media.upload"},
-	"reviewer":    {"entity.update", "entity.publish", "entity.unpublish", "entity.version.restore", "media.upload"},
+	"author":      {"entity.create", "entity.update", "entity.publish", "entity.unpublish", "entity.version.restore", "entity.review.request", "media.upload"},
+	"contributor": {"entity.create", "entity.update", "entity.version.restore", "entity.review.request", "media.upload"},
+	"reviewer":    {"entity.update", "entity.publish", "entity.unpublish", "entity.version.restore", "entity.review.bypass", "entity.review.request", "media.upload"},
 	"read-only":   nil,
 }
 
@@ -84,7 +85,8 @@ func TestBuiltinRoleRights(t *testing.T) {
 // oldKey is the key predicate before the built-in roles: only owner and editor creators.
 func oldKey(s Subject, a Action) bool {
 	r := table[a]
-	creatorOK := s.UserID != "" && (s.CreatorRole == "owner" || s.CreatorRole == "editor")
+	// An editor-made key needs the editor right (entity.review.bypass has a scope but is not an editor right).
+	creatorOK := s.UserID != "" && (s.CreatorRole == "owner" || s.CreatorRole == "editor" && r.editor)
 	return creatorOK && r.scope != "" && hasScope(s.Scopes, s.CreatorRole, r.scope)
 }
 

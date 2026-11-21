@@ -46,6 +46,9 @@ var table = map[Action]rule{
 	ActionEntityPublish:                {editor: true, scope: "write:entities"},
 	ActionEntityRead:                   {editor: true, scope: "read:entities"},
 	ActionEntityReorder:                {editor: true, scope: "write:entities"},
+	ActionEntityReviewBypass:           {editor: false, scope: "write:entities"},
+	ActionEntityReviewDecide:           {editor: true, scope: ""}, // keys never decide
+	ActionEntityReviewRequest:          {editor: true, scope: "write:entities"},
 	ActionEntityShare:                  {editor: true, scope: ""},
 	ActionEntityTakeover:               {editor: true, scope: "write:entities"},
 	ActionEntityTermsUpdate:            {editor: true, scope: ""},
@@ -189,17 +192,19 @@ var contentRights = map[string]map[Action]objectRule{
 	roleAuthor: {
 		ActionContentWrite: anyObject, ActionEntityCreate: anyObject, ActionEntityUpdate: ownObject,
 		ActionEntityPublish: ownObject, ActionEntityUnpublish: ownObject, ActionEntityDelete: ownObject,
-		ActionEntityVersionRestore: ownObject, ActionMediaUpload: anyObject, ActionMediaUpdate: ownObject,
-		ActionMediaDelete: ownObject,
+		ActionEntityVersionRestore: ownObject, ActionEntityReviewRequest: ownObject,
+		ActionMediaUpload: anyObject, ActionMediaUpdate: ownObject, ActionMediaDelete: ownObject,
 	},
 	roleContributor: {
 		ActionContentWrite: anyObject, ActionEntityCreate: anyObject, ActionEntityUpdate: ownDraft,
 		ActionEntityDelete: ownDraft, ActionEntityVersionRestore: ownDraft,
-		ActionMediaUpload: anyObject, ActionMediaUpdate: ownObject, ActionMediaDelete: ownObject,
+		ActionEntityReviewRequest: ownObject, // any status: their own published entry may be sent
+		ActionMediaUpload:         anyObject, ActionMediaUpdate: ownObject, ActionMediaDelete: ownObject,
 	},
 	roleReviewer: {
 		ActionContentWrite: anyObject, ActionEntityUpdate: anyObject, ActionEntityPublish: anyObject,
 		ActionEntityUnpublish: anyObject, ActionEntityVersionRestore: anyObject,
+		ActionEntityReviewBypass: anyObject, ActionEntityReviewDecide: anyObject, ActionEntityReviewRequest: anyObject,
 		ActionMediaUpload: anyObject, ActionMediaUpdate: ownObject, ActionMediaDelete: ownObject,
 	},
 }
