@@ -1,8 +1,11 @@
 package server
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
 
+	"hatamoto.dev/core/internal/staticexport"
 	"hatamoto.dev/core/internal/statichost"
 )
 
@@ -44,4 +47,40 @@ func staticPreflight(hd http.Header, hs statichost.StaticHosting, origin, method
 	hd.Set("Access-Control-Allow-Headers", "Content-Type, X-Page-URL")
 	hd.Set("Access-Control-Max-Age", "600")
 	return true
+}
+
+// hostingSettingsFunc reads the saved hosting settings; staticexport.SettingsStore.Get fits.
+type hostingSettingsFunc func(ctx context.Context) (staticexport.Settings, bool, error)
+
+// hostingSnapshot maps the saved settings and the Site URL to the island
+// snapshot. No saved row is served mode, so a default install never turns
+// islands on. An invalid origin is dropped by the holder, which leaves the
+// snapshot inactive.
+func hostingSnapshot(set staticexport.Settings, found bool, site string) statichost.StaticHosting {
+	if !found {
+		return statichost.StaticHosting{}
+	}
+	return statichost.StaticHosting{Static: set.Mode == staticexport.ModeStatic, Live: set.LiveOrigin, Site: site}
+}
+
+// refreshStaticHosting reads the hosting settings once, never per request, and
+// stores the snapshot. It runs at boot, before every static export (the CLI
+// never calls Start) and after every Site settings save (S derives from the
+// Site URL).
+func (s *Server) refreshStaticHosting(ctx context.Context) {
+	if s.db == nil {
+		return
+	}
+	s.refreshStaticHostingFrom(ctx, staticexport.NewSettingsStore(s.db.Pool()).Get)
+}
+
+// refreshStaticHostingFrom keeps the previous snapshot when the read fails, so
+// a database hiccup never flips a live site between modes.
+func (s *Server) refreshStaticHostingFrom(ctx context.Context, get hostingSettingsFunc) {
+	set, found, err := get(ctx)
+	if err != nil {
+		s.logger.Warn("static hosting: settings read failed, keeping the previous mode", slog.String("error", err.Error()))
+		return
+	}
+	s.setStaticHosting(hostingSnapshot(set, found, pluginEntityPaths{s}.BaseURL(ctx)))
 }

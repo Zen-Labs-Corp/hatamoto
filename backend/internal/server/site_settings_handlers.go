@@ -168,6 +168,8 @@ func (s *Server) invalidateSiteSettings(ctx context.Context) {
 	if s.entityService != nil {
 		s.entityService.URLRegistry().Invalidate()
 	}
+	// The static origin S derives from the Site URL, so it is read fresh.
+	s.refreshStaticHosting(ctx)
 	s.invalidateRendered(ctx)
 }
 

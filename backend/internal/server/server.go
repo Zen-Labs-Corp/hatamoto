@@ -1025,6 +1025,7 @@ func (s *Server) Start() error {
 		s.logger.Warn("upgrade header menu seed failed", slog.String("error", err.Error()))
 	}
 	seedCancel()
+	s.refreshStaticHosting(s.lifecycleCtx) // before the first request, so it already sees the mode
 	s.loadPageCache(s.lifecycleCtx)
 	if s.mediaRebuilder != nil {
 		s.mediaRebuilder.Resume(s.lifecycleCtx)

@@ -1,9 +1,16 @@
 package server
 
 import (
+	"context"
+	"errors"
+	"io"
+	"log/slog"
 	"net/http"
+	"net/url"
 	"testing"
 
+	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/staticexport"
 	"hatamoto.dev/core/internal/statichost"
 )
 
@@ -88,5 +95,73 @@ func TestSetStaticHostingRoundTrip(t *testing.T) {
 	s.setStaticHosting(activeHosting())
 	if !s.staticHosting().Active() {
 		t.Fatal("holder must be active after set")
+	}
+}
+
+func TestHostingSnapshot(t *testing.T) {
+	t.Parallel()
+	static := staticexport.Settings{Mode: staticexport.ModeStatic, LiveOrigin: testLiveOrigin}
+	for _, tc := range []struct {
+		name   string
+		set    staticexport.Settings
+		found  bool
+		site   string
+		active bool
+		zero   bool
+	}{
+		{"no row", static, false, testSiteOrigin, false, true},
+		{"served", staticexport.Settings{Mode: staticexport.ModeServed, LiveOrigin: testLiveOrigin}, true, testSiteOrigin, false, false},
+		{"static", static, true, testSiteOrigin, true, false},
+		{"invalid live origin", staticexport.Settings{Mode: staticexport.ModeStatic, LiveOrigin: "ftp://x"}, true, testSiteOrigin, false, false},
+	} {
+		var h statichost.Holder
+		h.Store(hostingSnapshot(tc.set, tc.found, tc.site)) // the holder normalises and drops invalid origins
+		got := h.Load()
+		if got.Active() != tc.active || (tc.zero && got != statichost.StaticHosting{}) {
+			t.Errorf("%s: snapshot %+v, active %v want %v", tc.name, got, got.Active(), tc.active)
+		}
+	}
+}
+
+func TestRefreshStaticHostingFrom(t *testing.T) {
+	t.Parallel()
+	s := &Server{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	s.cfg = &config.Config{}
+	s.cfg.PublicSite.BaseURL = testSiteOrigin
+	s.refreshStaticHostingFrom(context.Background(), func(context.Context) (staticexport.Settings, bool, error) {
+		return staticexport.Settings{Mode: staticexport.ModeStatic, LiveOrigin: testLiveOrigin}, true, nil
+	})
+	if got := s.staticHosting(); !got.Active() || got.Site != testSiteOrigin || got.Live != testLiveOrigin {
+		t.Fatalf("snapshot = %+v, want active", got)
+	}
+	s.refreshStaticHostingFrom(context.Background(), func(context.Context) (staticexport.Settings, bool, error) {
+		return staticexport.Settings{}, false, errors.New("db down")
+	})
+	if !s.staticHosting().Active() {
+		t.Error("a read error dropped the previous snapshot")
+	}
+}
+
+func TestRefreshStaticHostingNoDB(t *testing.T) {
+	t.Parallel()
+	s := &Server{}
+	s.refreshStaticHosting(context.Background())
+	if got := s.staticHosting(); got != (statichost.StaticHosting{}) {
+		t.Errorf("snapshot = %+v, want zero", got)
+	}
+}
+
+func TestStaticFetch_MarksExport(t *testing.T) {
+	t.Parallel()
+	var marked bool
+	s := &Server{router: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		marked = statichost.IsExport(r.Context())
+	})}
+	base, _ := url.Parse(testSiteOrigin)
+	if _, err := (&staticSource{s: s, base: base}).Fetch(context.Background(), "/about", io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if !marked {
+		t.Error("the export request is not marked with statichost.WithExport")
 	}
 }

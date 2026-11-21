@@ -15,6 +15,7 @@ import (
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/staticexport"
+	"hatamoto.dev/core/internal/statichost"
 )
 
 // staticSource lets the static exporter render this server's public site. It
@@ -109,7 +110,8 @@ func (src *staticSource) Fetch(ctx context.Context, path string, body io.Writer)
 	if src.base == nil {
 		return staticexport.Response{}, errors.New("static export: Site was not called")
 	}
-	ctx = middleware.WithoutRequestLog(redirect.WithoutCounting(ctx))
+	// Export requests keep S-relative links and never get the live 301.
+	ctx = statichost.WithExport(middleware.WithoutRequestLog(redirect.WithoutCounting(ctx)))
 	w := &streamWriter{h: http.Header{}, body: body, status: http.StatusOK}
 	defer func() {
 		if r := recover(); r != nil {
