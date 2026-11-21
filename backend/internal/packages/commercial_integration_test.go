@@ -5,6 +5,8 @@ package packages
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -137,6 +139,37 @@ func TestStoredPluginWithOtherLicenseValueStillLoads(t *testing.T) {
 			c.mgr.Reconcile(ctx)
 			if !c.loaded("capa") || c.mgr.Blocked(KindPlugin, "capa") != "" {
 				t.Fatalf("loaded=%v blocked=%q err=%v", c.loaded("capa"), c.mgr.Blocked(KindPlugin, "capa"), c.mgr.LoadError("capa"))
+			}
+		})
+	}
+}
+
+// HATAMOTO_PLUGIN_DIR plugins never reach usable, so LoadDevDir is the only
+// place that keeps a commercial plugin out of it.
+func TestCommercialPluginInPluginDirIsSkipped(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		commercial bool
+	}{{"normal plugin loads", false}, {"commercial plugin is skipped", true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newCommercialRig(t)
+			files := withManifest(t, c.devRig.plugin("1.0.0"), func(m *sdk.Manifest) {
+				if tc.commercial {
+					m.License, m.SDK = sdk.LicenseCommercial, "^0.26"
+				}
+			})
+			dir := filepath.Join(t.TempDir(), "capa")
+			for name, b := range files {
+				if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, name)), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, name), b, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			c.mgr.LoadDevDir(context.Background(), filepath.Dir(dir))
+			if got := c.loaded("capa"); got == tc.commercial {
+				t.Fatalf("loaded = %v with commercial=%v", got, tc.commercial)
 			}
 		})
 	}
