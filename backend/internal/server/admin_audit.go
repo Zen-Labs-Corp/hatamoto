@@ -116,7 +116,13 @@ func (a *auditArgs) ph(v any) string {
 // table is its own branch so it can use its own index; a branch the filters
 // exclude is not queried. A page holds Limit rows; Next is set when older
 // rows exist. Every filter value is a bind argument.
+// auditQueryTimeout bounds one Search or Facets call: a text search cannot use
+// an index, so a wide range must fail rather than hold a connection.
+var auditQueryTimeout = 10 * time.Second
+
 func (l adminAuditLog) Search(ctx context.Context, q admin.AuditQuery) (admin.AuditPage, error) {
+	ctx, cancel := context.WithTimeout(ctx, auditQueryTimeout)
+	defer cancel()
 	limit := q.Limit
 	if limit <= 0 {
 		limit = auditSearchDefaultLimit
@@ -237,6 +243,8 @@ func (l adminAuditLog) Search(ctx context.Context, q admin.AuditQuery) (admin.Au
 // Facets lists the actors and actions seen in [from, to) for the filter
 // selects. A zero from or to leaves that end open.
 func (l adminAuditLog) Facets(ctx context.Context, from, to time.Time) (admin.AuditFacets, error) {
+	ctx, cancel := context.WithTimeout(ctx, auditQueryTimeout)
+	defer cancel()
 	var args auditArgs
 	var w []string
 	if !from.IsZero() {
