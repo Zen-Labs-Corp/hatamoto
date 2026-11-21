@@ -667,3 +667,53 @@ func TestFlushResolverBudget(t *testing.T) {
 	}
 	w.Close()
 }
+
+func TestWriterNoTimerWhileIdle(t *testing.T) {
+	st := newFakeStore()
+	w := NewWriter(st, Default(), nil, discard)
+	t.Cleanup(w.Close)
+	w.flushEvery = 5 * time.Millisecond
+	time.Sleep(50 * time.Millisecond)
+	if n := w.fires.Load(); n != 0 {
+		t.Fatalf("timer fired %d times while idle", n)
+	}
+	w.Record(RawHit{UA: gptUA, Path: "/x", Source: SourceBackend})
+	waitBatch(t, st)
+	if n := w.fires.Load(); n != 1 {
+		t.Fatalf("fires = %d after one hit, want 1", n)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if n := w.fires.Load(); n != 1 {
+		t.Fatalf("timer kept firing while idle: fires = %d", n)
+	}
+}
+
+func TestWriterFlushesWithinInterval(t *testing.T) {
+	st := newFakeStore()
+	w := NewWriter(st, Default(), nil, discard)
+	t.Cleanup(w.Close)
+	w.flushEvery = 20 * time.Millisecond
+	t0 := time.Now()
+	w.Record(RawHit{UA: gptUA, Path: "/x", Source: SourceBackend})
+	waitBatch(t, st)
+	if d := time.Since(t0); d < 20*time.Millisecond || d >= time.Second {
+		t.Fatalf("flushed after %v, want [20ms, 1s)", d)
+	}
+}
+
+func TestWriterFullBatchDisarmsTimer(t *testing.T) {
+	st := newFakeStore()
+	w := NewWriter(st, Default(), nil, discard)
+	t.Cleanup(w.Close)
+	w.flushEvery = time.Hour
+	for range flushBatch {
+		w.Record(RawHit{UA: gptUA, Path: "/p", Source: SourceBackend})
+	}
+	if b := waitBatch(t, st); len(b) != flushBatch {
+		t.Fatalf("batch = %d, want %d", len(b), flushBatch)
+	}
+	time.Sleep(30 * time.Millisecond)
+	if n := w.fires.Load(); n != 0 {
+		t.Fatalf("fires = %d, want 0", n)
+	}
+}
