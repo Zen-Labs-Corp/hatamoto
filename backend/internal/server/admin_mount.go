@@ -307,6 +307,16 @@ func (h *adminHolder) SetOffsite(svc admin.OffsiteService) {
 	}
 }
 
+// SetHosting sets the static hosting service.
+func (h *adminHolder) SetHosting(svc admin.HostingService) {
+	h.s.adminMu.Lock()
+	defer h.s.adminMu.Unlock()
+	h.s.adminDeps.Hosting = svc
+	if b := h.s.adminBundle.Load(); b != nil {
+		b.a.SetHosting(svc)
+	}
+}
+
 // adminFlashKey derives the flash-cookie signing key from the server secret, so
 // the two never share a MAC domain.
 func (s *Server) adminFlashKey() []byte {

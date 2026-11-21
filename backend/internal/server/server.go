@@ -298,6 +298,9 @@ type Server struct {
 	// staticTrigger turns content changes into debounced static exports. Nil
 	// unless static export is wired (worker process); every call is nil-safe.
 	staticTrigger *statictrigger.Trigger
+	// exportNotify mails the owners when an export starts failing. Nil
+	// without a mail service.
+	exportNotify *exportFailNotifier
 
 	// compressOn is the live "Compress responses" switch read by the
 	// compression middleware. New turns it on; the stored setting overrides it
@@ -746,6 +749,7 @@ func (s *Server) setupDependencies() {
 	s.scheduleCommentDraftsPurge()
 	s.setupCommentNotify()
 	s.warnCommentsWithoutAddressAtBoot()
+	s.setupStaticExport()
 }
 
 // buildHandler wraps the finished mux in the global middleware. It runs after
@@ -1109,6 +1113,8 @@ func (s *Server) Shutdown() error {
 	if s.lifecycleCancel != nil {
 		s.lifecycleCancel()
 	}
+	// No new export may start once the database is going away.
+	s.staticTrigger.Close()
 	// The IndexNow runner flushes what is queued once the context ends.
 	if s.indexNow != nil {
 		s.indexNow.Wait(ctx)
