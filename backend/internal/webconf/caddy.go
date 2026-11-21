@@ -30,27 +30,36 @@ func caddy(in Input, rules []rule) string {
 	if in.Live == "" {
 		caddyProxyHandles(w, in)
 	}
+	headers := func(indent string) {
+		if len(in.Headers) > 0 {
+			w(indent + "header {")
+			for _, h := range in.Headers {
+				w(indent+"\t%s %q", h.Name, h.Value)
+			}
+			w(indent + "}")
+		}
+	}
 	w("\thandle {")
 	w("\t\troot * %s", in.Root)
 	w("\t\t@hidden path %s", strings.Join(hiddenFiles, " "))
 	w("\t\trespond @hidden 404")
-	if len(in.Headers) > 0 {
-		w("\t\theader {")
-		for _, h := range in.Headers {
-			w("\t\t\t%s %q", h.Name, h.Value)
-		}
-		w("\t\t}")
-	}
+	headers("\t\t")
 	for _, l := range caddyRedirects(rules) {
 		w("\t\t%s", l)
 	}
 	w("\t\ttry_files {path} {path}/index.html")
 	w("\t\tfile_server")
 	w("\t}")
+	// Only a missing page becomes the 404 page: a proxy failure (Hatamoto
+	// restarting) keeps its own status.
 	w("\thandle_errors {")
-	w("\t\troot * %s", in.Root)
-	w("\t\trewrite * /404.html")
-	w("\t\tfile_server")
+	w("\t\t@notfound expression {err.status_code} == 404")
+	w("\t\thandle @notfound {")
+	w("\t\t\troot * %s", in.Root)
+	w("\t\t\trewrite * /404.html")
+	headers("\t\t\t")
+	w("\t\t\tfile_server")
+	w("\t\t}")
 	w("\t}")
 	w("}")
 

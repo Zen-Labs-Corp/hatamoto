@@ -22,9 +22,18 @@ example.com {
 		file_server
 	}
 	handle_errors {
-		root * /srv/site/public
-		rewrite * /404.html
-		file_server
+		@notfound expression {err.status_code} == 404
+		handle @notfound {
+			root * /srv/site/public
+			rewrite * /404.html
+			header {
+				X-Content-Type-Options "nosniff"
+				X-Frame-Options "SAMEORIGIN"
+				Referrer-Policy "strict-origin-when-cross-origin"
+				Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; form-action 'self'"
+			}
+			file_server
+		}
 	}
 }
 

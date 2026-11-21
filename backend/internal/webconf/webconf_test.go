@@ -226,3 +226,24 @@ func TestNginxUploadLimitAndStreaming(t *testing.T) {
 		t.Errorf("negative limit: %v", err)
 	}
 }
+
+// Caddy's error route runs for every failed request, proxy failures included.
+func TestCaddyErrorRouteIsFor404Only(t *testing.T) {
+	t.Parallel()
+	for name, in := range map[string]Input{"same host": sameHostInput(), "live origin": liveOriginInput()} {
+		out, _ := Generate(in)
+		_, errs, ok := strings.Cut(out.Caddy, "handle_errors {")
+		errs, _, _ = strings.Cut(errs, "\n\t}\n")
+		if !ok || !strings.Contains(errs, "@notfound expression {err.status_code} == 404") || !strings.Contains(errs, "handle @notfound {") {
+			t.Fatalf("%s: the error route is not limited to 404:\n%s", name, out.Caddy)
+		}
+		for _, h := range testHeaders() {
+			if !strings.Contains(errs, h.Name+" ") {
+				t.Errorf("%s: the 404 page lacks %s", name, h.Name)
+			}
+		}
+		if strings.Count(errs, "rewrite * /404.html") != 1 || strings.Contains(strings.Split(errs, "handle @notfound")[0], "rewrite") {
+			t.Errorf("%s: the rewrite must sit inside the 404 handle", name)
+		}
+	}
+}
