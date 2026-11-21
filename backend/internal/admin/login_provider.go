@@ -239,7 +239,7 @@ func (a *Admin) handleProviderCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	token, err := step.IssueVerifiedSession(r.Context(), uid, via, r.UserAgent(), middleware.GetClientIP(r))
+	token, _, err := step.IssueVerifiedSession(r.Context(), uid, via, r.UserAgent(), middleware.GetClientIP(r))
 	if err != nil {
 		a.callbackFailed(w, r, id, next, "session", audit.ResultError, err)
 		return

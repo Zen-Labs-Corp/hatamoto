@@ -462,7 +462,7 @@ func (s *Service) LoginAPISession(ctx context.Context, email, password, code, us
 	if s.sessions == nil {
 		return nil, "", errors.New("sessions are not configured")
 	}
-	if err := s.admit(ctx, u.ID, viaPassword); err != nil {
+	if _, err := s.admit(ctx, u.ID, viaPassword); err != nil {
 		return nil, "", err
 	}
 	token, _, err := s.sessions.IssueAPI(database.WithSuperadmin(ctx), u.ID, adminSessionTTL, userAgent, ip)
@@ -489,7 +489,8 @@ func (s *Service) IssueSession(ctx context.Context, userID uuid.UUID, userAgent,
 	if hasFactor {
 		return "", ErrSecondFactorRequired
 	}
-	return s.issueAdmin(ctx, userID, viaPassword, userAgent, ip)
+	token, _, err := s.issueAdmin(ctx, userID, viaPassword, userAgent, ip)
+	return token, err
 }
 
 // IssueVerifiedSession starts an admin session for a user who has just passed
@@ -499,11 +500,12 @@ func (s *Service) IssueSession(ctx context.Context, userID uuid.UUID, userAgent,
 // authenticate (passkey and provider sign-in have no password step), so any
 // account-state rule added to authenticate must be added here too (admit).
 // via names the method: access end and the registered sign-in policy apply to
-// every method, the persisted lockout also to a provider sign-in.
-func (s *Service) IssueVerifiedSession(ctx context.Context, userID uuid.UUID, via authstate.Via, userAgent, ip string) (string, error) {
-	token, err := s.issueAdmin(ctx, userID, via, userAgent, ip)
+// every method, the persisted lockout also to a provider sign-in. It returns
+// the user admit loaded, so the caller needs no second read for the audit row.
+func (s *Service) IssueVerifiedSession(ctx context.Context, userID uuid.UUID, via authstate.Via, userAgent, ip string) (string, *user.User, error) {
+	token, u, err := s.issueAdmin(ctx, userID, via, userAgent, ip)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if err := s.userRepo.UpdateLastLogin(ctx, userID); err != nil {
 		fmt.Printf("failed to update last login: %v\n", err)
@@ -511,25 +513,27 @@ func (s *Service) IssueVerifiedSession(ctx context.Context, userID uuid.UUID, vi
 	if err := s.userRepo.ResetFailedLogins(database.WithSuperadmin(ctx), userID); err != nil {
 		fmt.Printf("failed to reset failed logins (non-fatal): %v\n", err)
 	}
-	return token, nil
+	return token, u, nil
 }
 
-func (s *Service) issueAdmin(ctx context.Context, userID uuid.UUID, via authstate.Via, userAgent, ip string) (string, error) {
+func (s *Service) issueAdmin(ctx context.Context, userID uuid.UUID, via authstate.Via, userAgent, ip string) (string, *user.User, error) {
 	if s.sessions == nil {
-		return "", errors.New("sessions are not configured")
+		return "", nil, errors.New("sessions are not configured")
 	}
-	if err := s.admit(ctx, userID, via); err != nil {
-		return "", err
+	u, err := s.admit(ctx, userID, via)
+	if err != nil {
+		return "", nil, err
 	}
 	token, _, err := s.sessions.IssueAdmin(database.WithSuperadmin(ctx), userID, adminSessionTTL, userAgent, ip)
-	return token, err
+	return token, u, err
 }
 
 // Admit reports whether a session could be issued to the user now through via,
 // without issuing one: the same refusals as IssueVerifiedSession (ended access,
 // lock, policy). A caller asks it before it shows a second-step prompt.
 func (s *Service) Admit(ctx context.Context, userID uuid.UUID, via authstate.Via) error {
-	return s.admit(ctx, userID, via)
+	_, err := s.admit(ctx, userID, via)
+	return err
 }
 
 var viaPassword = authstate.Via{Method: authstate.MethodPassword}
@@ -541,15 +545,18 @@ var viaPassword = authstate.Via{Method: authstate.MethodPassword}
 // it, including the paths that skip authenticate (reset, invite acceptance,
 // passkey, provider, second-factor completion). Password and passkey keep
 // their own lockout handling.
-func (s *Service) admit(ctx context.Context, id uuid.UUID, via authstate.Via) error {
+func (s *Service) admit(ctx context.Context, id uuid.UUID, via authstate.Via) (*user.User, error) {
 	u, err := s.userRepo.GetByID(database.WithSuperadmin(ctx), id)
 	if err != nil || u.AccessEnded(time.Now()) {
-		return ErrInvalidCredentials
+		return nil, ErrInvalidCredentials
 	}
 	if via.Method == authstate.MethodProvider && u.LockedUntil != nil && u.LockedUntil.After(time.Now()) && !s.neverLocked(u.Email) {
-		return ErrAccountLocked
+		return nil, ErrAccountLocked
 	}
-	return s.allow(ctx, u, via)
+	if err := s.allow(ctx, u, via); err != nil {
+		return nil, err
+	}
+	return u, nil
 }
 
 // allow asks the registered sign-in policy (none = allow). A refusal or an

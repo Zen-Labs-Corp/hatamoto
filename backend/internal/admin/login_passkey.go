@@ -106,7 +106,7 @@ func (a *Admin) handlePasskeyFinish(w http.ResponseWriter, r *http.Request) {
 		a.passkeyError(w, r, twofactor.ErrPasskeyFailed)
 		return
 	}
-	token, err := ps.IssueVerifiedSession(r.Context(), got, via, r.UserAgent(), middleware.GetClientIP(r))
+	token, u, err := ps.IssueVerifiedSession(r.Context(), got, via, r.UserAgent(), middleware.GetClientIP(r))
 	if err != nil {
 		a.auditPasskeyRefused(r, got.String(), err)
 		a.passkeyError(w, r, err)
@@ -116,7 +116,7 @@ func (a *Admin) handlePasskeyFinish(w http.ResponseWriter, r *http.Request) {
 	if uid != nil {
 		step = "second_factor"
 	}
-	a.auditSignIn(r, got.String(), a.signInActor(r, got), SignInPasskey, map[string]any{"step": step})
+	a.auditSignIn(r, got.String(), u.Email, SignInPasskey, map[string]any{"step": step})
 	a.clearPending(w, r)
 	a.setSession(w, r, token)
 	if next = SafeNextFor(a.adminPath, next); next == "" {

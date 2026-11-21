@@ -135,7 +135,7 @@ func (a *Admin) handleLoginTwoStep(w http.ResponseWriter, r *http.Request, ps Pa
 		return
 	}
 	if !has {
-		token, err := ps.IssueVerifiedSession(ctx, u.ID, authstate.Via{Method: authstate.MethodPassword}, r.UserAgent(), ip)
+		token, _, err := ps.IssueVerifiedSession(ctx, u.ID, authstate.Via{Method: authstate.MethodPassword}, r.UserAgent(), ip)
 		if err != nil {
 			a.loginFailed(w, r, err, email, next)
 			return
@@ -218,7 +218,7 @@ func (a *Admin) handleTwoStep(w http.ResponseWriter, r *http.Request) {
 // first step the user passed (a password unless the pending sign-in says
 // otherwise), so the sign-in policy judges the real method.
 func (a *Admin) completeSignIn(w http.ResponseWriter, r *http.Request, ps PasswordStep, uid uuid.UUID, next string, via authstate.Via, method string) {
-	token, err := ps.IssueVerifiedSession(r.Context(), uid, via, r.UserAgent(), middleware.GetClientIP(r))
+	token, u, err := ps.IssueVerifiedSession(r.Context(), uid, via, r.UserAgent(), middleware.GetClientIP(r))
 	if err != nil {
 		// A user ended, locked or refused by the policy since the first step is
 		// answered like a wrong password; loginFailed logs and 500s the rest.
@@ -229,7 +229,7 @@ func (a *Admin) completeSignIn(w http.ResponseWriter, r *http.Request, ps Passwo
 		a.loginFailed(w, r, err, "", SafeNextFor(a.adminPath, next))
 		return
 	}
-	a.auditSignIn(r, uid.String(), a.signInActor(r, uid), method, nil)
+	a.auditSignIn(r, uid.String(), u.Email, method, nil)
 	a.clearPending(w, r)
 	a.finishSignIn(w, r, token, SafeNextFor(a.adminPath, next))
 }

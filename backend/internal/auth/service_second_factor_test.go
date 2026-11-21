@@ -187,7 +187,7 @@ func TestCheckPasswordKeepsLockoutAndRefusesBadPassword(t *testing.T) {
 
 func TestIssueVerifiedSessionNeedsSessionsAndResets(t *testing.T) {
 	svc, repo, u := factorRig(t, fakeGate{has: true}, nil)
-	if _, err := svc.IssueVerifiedSession(context.Background(), u.ID, viaPassword, "ua", "ip"); !passed(err) {
+	if _, _, err := svc.IssueVerifiedSession(context.Background(), u.ID, viaPassword, "ua", "ip"); !passed(err) {
 		t.Fatalf("err = %v", err)
 	}
 	// Nothing was issued, so nothing was reset or recorded as a login.

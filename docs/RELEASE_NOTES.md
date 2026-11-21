@@ -24,7 +24,7 @@
 - **MCP.** Write tools add the same rows (kind `api_key`, the key id). `hatamoto_mcp_audit` is unchanged.
 - **CLI.** `entity create|publish|unpublish`, `redirect create|delete`, `user create`, `user reset-password` and applied `media sweep` / `media adopt` are recorded as `cli` or the `--as` user.
 - **Scheduler.** A scheduled publish is recorded as `entity.publish_scheduled` by "system (scheduler)", in the same transaction as the promotion.
-- **Changed.** Admin entity saves are now recorded in the same transaction (rows keep their shape). A registered audit sink can refuse a row, which fails that write; a save followed by a publish is two writes, so a refused publish leaves the saved content in place.
+- **Changed.** Admin entity saves are now recorded in the same transaction (rows keep their shape). A registered audit sink can refuse a row, which fails that write; a save followed by a publish is two writes, so a refused publish leaves the saved content in place. CLI key creation is now recorded as `api_key.created` on `api_key:<id>` (was `apikey.create` on `apikey:<id>`); older rows keep their name.
 - **Migration.** None. Rollback floor: unchanged.
 
 ## Unreleased: module extension points (commands, migrations, secrets, services)
