@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/statichost"
 )
 
@@ -151,5 +152,54 @@ func TestStaticIslandDispatcherChain(t *testing.T) {
 	}
 	if rec.Header().Get("Access-Control-Allow-Credentials") != "" {
 		t.Error("credentials must never be allowed")
+	}
+}
+
+// ProxyPaths is what a same-host web server passes to Hatamoto: every
+// inventory island, live or staying, must be covered, or that route would
+// answer from the static folder (404) instead.
+func TestProxyPathsCoverInventory(t *testing.T) {
+	t.Parallel()
+	proxied := statichost.ProxyPaths("/admin", "")
+	covers := func(p string) bool {
+		for _, pp := range proxied {
+			if (pp.Prefix && strings.HasPrefix(p, pp.Path)) || (!pp.Prefix && !pp.Locale && p == pp.Path) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, it := range statichost.Inventory() {
+		paths := []string{}
+		for _, r := range it.Routes {
+			_, p, _ := strings.Cut(r, " ")
+			paths = append(paths, p)
+		}
+		if it.Path != "" {
+			paths = append(paths, it.Path)
+		}
+		for _, p := range paths {
+			if i := strings.Index(p, "{"); i >= 0 {
+				p = p[:i]
+			}
+			if !covers(p) {
+				t.Errorf("island %q path %q is not covered by statichost.ProxyPaths", it.Key, p)
+			}
+		}
+	}
+	if want := render.AssetPrefix + render.LiveScriptName; !covers(want) {
+		t.Errorf("ProxyPaths misses the comment loader %q", want)
+	}
+}
+
+func TestStaticLivePathUsesLiveSegments(t *testing.T) {
+	t.Parallel()
+	for _, p := range []string{"/forms/x", "/-/comments/form/x", "/p/plug/x", "/preview/t", "/mcp", "/search", "/fr/search"} {
+		if !staticLivePath(p, "") {
+			t.Errorf("%q must be a live path", p)
+		}
+	}
+	if staticLivePath("/about", "") || !staticLivePath("/hm-api/x", "/hm-api") {
+		t.Error("static page or API prefix misclassified")
 	}
 }
