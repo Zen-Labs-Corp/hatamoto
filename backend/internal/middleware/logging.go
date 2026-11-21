@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"time"
@@ -41,12 +42,24 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 	return size, err
 }
 
+type quietLogKey struct{}
+
+// WithoutRequestLog marks ctx so RequestLogger does not log the request (an
+// in-process static export renders thousands of pages; they are not traffic).
+func WithoutRequestLog(ctx context.Context) context.Context {
+	return context.WithValue(ctx, quietLogKey{}, true)
+}
+
 // RequestLogger logs HTTP requests with structured logging. redact maps the
 // request path to the string that is logged (nil logs it unchanged); it runs
 // before the handler so a prefix swapped mid-request is still the one redacted.
 func RequestLogger(logger *slog.Logger, redact func(path string) string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Context().Value(quietLogKey{}) != nil {
+				next.ServeHTTP(w, r)
+				return
+			}
 			start := time.Now()
 			path := redactPath(redact, r.URL.Path)
 
