@@ -6,12 +6,16 @@ import (
 	"encoding/json/jsontext"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
 	"reflect"
+	"slices"
+	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
@@ -40,6 +44,8 @@ type siteSettingsHandlers struct {
 	checkLocales func(context.Context, []string) error
 	// apiPrefix is the public API prefix ("" = none); entry paths may not sit under it.
 	apiPrefix string
+	// audit records a successful save as the signed-in caller; nil writes nothing.
+	audit func(r *http.Request, action, target string, detail map[string]any)
 }
 
 // siteSettingsResponse is the wire shape of GET/PATCH /settings/site.
@@ -153,6 +159,7 @@ func (s *Server) mountSiteSettingsRoutes(r *httpx.Group) {
 
 		checkLocales: s.checkLocaleSegments,
 		apiPrefix:    s.publicAPIPrefix(),
+		audit:        s.restSettingsAudit,
 	})
 }
 
@@ -359,7 +366,16 @@ func (h *siteSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Reques
 		}
 	}
 	h.invalidate(r.Context())
+	h.auditSaved(r, admin.AuditSettingsUpdated, "site", restSettingsAuditPatchKeys(&in))
 	writeJSON(w, http.StatusOK, h.responseFrom(cfg))
+}
+
+// auditSaved records a save by the names of the fields it set. Values stay out
+// of the log.
+func (h *siteSettingsHandlers) auditSaved(r *http.Request, action, target string, changed []string) {
+	if h.audit != nil {
+		h.audit(r, action, target, map[string]any{"changed": changed})
+	}
 }
 
 // localesAfter returns the default locale and the locale list the site will
@@ -439,6 +455,7 @@ func (h *siteSettingsHandlers) handlePutTheme(w http.ResponseWriter, r *http.Req
 		return
 	}
 	h.invalidate(r.Context())
+	h.auditSaved(r, admin.AuditSettingsUpdated, "site-theme", slices.Sorted(maps.Keys(sent)))
 	writeJSON(w, http.StatusOK, effectiveTheme(updated))
 }
 
@@ -467,4 +484,38 @@ func extractPrimary(merged map[string]jsontext.Value) *string {
 		merged["colors"] = b
 	}
 	return primary
+}
+
+// restSettingsAudit records a settings save made over the JSON API as the
+// signed-in caller (the settings routes are owner only).
+func (s *Server) restSettingsAudit(r *http.Request, action, target string, detail map[string]any) {
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok {
+		return
+	}
+	detail["via"] = "api"
+	s.adminAudit(r.Context(), admin.AuditEvent{
+		ActorID: claims.UserID.String(), Actor: claims.Email,
+		Action: action, Target: target, Detail: detail,
+		IP: middleware.GetClientIP(r), UserAgent: r.UserAgent(), RequestID: r.Header.Get("X-Request-ID"),
+	})
+}
+
+// restSettingsAuditPatchKeys lists, sorted, the JSON names of the fields a
+// patch sets (a pointer, map or raw value that is present).
+func restSettingsAuditPatchKeys(in *siteSettingsPatch) []string {
+	var out []string
+	v := reflect.ValueOf(in).Elem()
+	t := v.Type()
+	for i := range t.NumField() {
+		f := v.Field(i)
+		if f.IsNil() {
+			continue
+		}
+		if name, _, _ := strings.Cut(t.Field(i).Tag.Get("json"), ","); name != "" {
+			out = append(out, name)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
