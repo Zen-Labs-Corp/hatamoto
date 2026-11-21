@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/middleware"
 )
@@ -146,6 +147,27 @@ func (s *Server) handleMediaGet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, m)
 }
 
+// canChangeMedia loads the item and checks act on it for the request's subject
+// (an author changes only their own uploads). When it answers false it has
+// already written the 404, 403 or 500.
+func (s *Server) canChangeMedia(w http.ResponseWriter, r *http.Request, id uuid.UUID, act authz.Action) bool {
+	m, err := s.mediaService.Get(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, media.ErrMediaNotFound) {
+			writeError(w, http.StatusNotFound, "media not found")
+			return false
+		}
+		s.logger.Error("failed to get media", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to get media")
+		return false
+	}
+	if !middleware.Can(r.Context(), act, m.AuthzObject()) {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return false
+	}
+	return true
+}
+
 // handleMediaUpdate handles PUT /api/v1/media/{id}
 func (s *Server) handleMediaUpdate(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
@@ -158,6 +180,10 @@ func (s *Server) handleMediaUpdate(w http.ResponseWriter, r *http.Request) {
 	var input media.UpdateMediaInput
 	if err := parseJSON(r, &input); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if !s.canChangeMedia(w, r, id, authz.ActionMediaUpdate) {
 		return
 	}
 
@@ -185,6 +211,10 @@ func (s *Server) handleMediaDelete(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid media ID")
+		return
+	}
+
+	if !s.canChangeMedia(w, r, id, authz.ActionMediaDelete) {
 		return
 	}
 
