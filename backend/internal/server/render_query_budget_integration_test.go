@@ -68,8 +68,14 @@ func TestBudgetRenderQueries(t *testing.T) {
 	// Seed before New(): the URL registry snapshot is built at construction.
 	// Fixed slugs and timestamps, so the data is the same on every run.
 	exec(`INSERT INTO hatamoto_site_config (company_name) VALUES ('RQ IT') ON CONFLICT (id) DO NOTHING`)
-	exec(`INSERT INTO hatamoto_entities (id,schema_id,name,slug,status,published_at,attributes,origin)
+	tag, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_entities (id,schema_id,name,slug,status,published_at,attributes,origin)
 		SELECT $1,id,'Home','home','published','2026-01-01T00:00:00Z','{}'::jsonb,'test' FROM hatamoto_entity_schemas WHERE slug='page'`, uuid.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tag.RowsAffected() != 1 {
+		t.Fatalf("seeding the home page inserted %d rows (is the page schema seeded?)", tag.RowsAffected())
+	}
 	schemaID := uuid.New()
 	exec(`INSERT INTO hatamoto_entity_schemas (id,name,slug,schema,settings) VALUES ($1,'blog','blog','{"type":"object"}','{}')`, schemaID)
 	for i := 1; i <= 5; i++ {
@@ -119,11 +125,9 @@ func TestBudgetRenderQueries(t *testing.T) {
 		{"archive", "/blog", 200},
 		{"404", "/does-not-exist", 404},
 	}
-	counts := map[string]int{}
 	for _, p := range pages {
 		t.Run(p.key, func(t *testing.T) {
 			n := measure(t, s.Handler(), p.path, p.want)
-			counts[p.key] = n
 			budgetfile.Check(t, "server", "render_queries_"+p.key, int64(n), budgetfile.Metric{Unit: "queries"})
 		})
 	}
@@ -137,7 +141,8 @@ func TestBudgetRenderQueries(t *testing.T) {
 			}
 			inner.ServeHTTP(w, r)
 		})
-		if n, want := measure(t, h, "/blog/post-1", 200), counts["entity"]+1; n != want {
+		want := measure(t, inner, "/blog/post-1", 200) + 1
+		if n := measure(t, h, "/blog/post-1", 200); n != want {
 			t.Fatalf("with one injected query: %d, want %d", n, want)
 		}
 	})
