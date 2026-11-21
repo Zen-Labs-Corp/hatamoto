@@ -92,6 +92,15 @@ func rewriteRangeTree(t *parse.Tree, plugin, name string) {
 		s := args[i+1].(*parse.StringNode)
 		s.Text, s.Quoted = text, strconv.Quote(text)
 	}
+	// The {{if}} wrap joins the contexts the escaper sees at the end of the body
+	// and of the empty else branch, so it is only safe for a tree that starts and
+	// ends every branch in text. Any other tree (a site.scripts template that
+	// opens a <script> a theme partial closes, say) keeps its escaping as is and
+	// is not wrapped: when paused it stops its ranges at once (see Spend).
+	if checkPluginActions(name, t) != nil {
+		t.Root.Nodes = append([]parse.Node{decl}, t.Root.Nodes...)
+		return
+	}
 	run := rangeRun.Copy().(*parse.IfNode)
 	run.List.Nodes = t.Root.Nodes
 	t.Root.Nodes = []parse.Node{decl, run}

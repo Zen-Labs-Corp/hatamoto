@@ -215,6 +215,10 @@ func standaloneRangeHandle(plugin, tmpl string) *rangeHandle {
 // Spend takes one iteration from the budget and reports whether it is spent:
 // true means the range body must stop. It runs once per plugin iteration.
 func (h *rangeHandle) Spend() bool {
+	if h.skip {
+		h.Run() // a paused template the {{if}} wrap could not cover: no loop runs
+		return true
+	}
 	if h.b.left <= 0 {
 		h.exhausted()
 		return true
