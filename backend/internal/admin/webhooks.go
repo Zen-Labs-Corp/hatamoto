@@ -11,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/webhook"
 )
 
@@ -429,6 +430,11 @@ func (a *Admin) handleWebhookTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	row, err := a.deps.Webhooks.SendTest(r.Context(), r.PathValue("id"))
+	if errors.Is(err, runenv.ErrSuppressed) {
+		a.SetFlash(w, r, "warning", "Staging mode: the test was not sent. Webhooks are switched off on this copy.")
+		http.Redirect(w, r, a.adminPath+webhooksList, http.StatusSeeOther)
+		return
+	}
 	if a.webhookFailed(w, r, err, "send webhook test") {
 		return
 	}

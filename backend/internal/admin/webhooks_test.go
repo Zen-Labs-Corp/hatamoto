@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/admin/a11y"
+	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/webhook"
 )
 
@@ -20,6 +21,7 @@ type fakeWebhooks struct {
 	updated map[string]webhook.SubscriptionPatch
 	// test is what SendTest answers; tested counts the calls.
 	test       webhook.DeliveryRow
+	testErr    error
 	deliveries []webhook.DeliveryRow
 	retried    []string
 	gotSub     string
@@ -97,6 +99,9 @@ func (f *fakeWebhooks) SendTest(_ context.Context, id string) (*webhook.Delivery
 		return nil, webhook.ErrNotFound
 	}
 	f.tested++
+	if f.testErr != nil {
+		return nil, f.testErr
+	}
 	row := f.test
 	return &row, nil
 }
@@ -509,6 +514,21 @@ func TestWebhookSendTestReportsTheAnswer(t *testing.T) {
 	}
 	if rec := g.do("GET", "/admin/settings/webhooks/"+zapierID+"/test", "owner-token", nil, nil); rec.Code != 404 || f.tested != 3 {
 		t.Errorf("GET test: %d tested=%d (a GET must not call a receiver)", rec.Code, f.tested)
+	}
+}
+
+// In staging the test button is a warning and a redirect to the list, not an
+// error page.
+func TestWebhookSendTestInStagingWarns(t *testing.T) {
+	t.Setenv(runenv.EnvVar, "staging")
+	g, f := newWebhookRig(t)
+	f.testErr = runenv.ErrSuppressed
+	rec := g.do("POST", "/admin/settings/webhooks/"+zapierID+"/test", "owner-token", nil, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/webhooks" {
+		t.Fatalf("test: %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if got := flashText(t, rec); !strings.Contains(got, "Staging mode") {
+		t.Errorf("flash = %q", got)
 	}
 }
 
