@@ -32,6 +32,7 @@ var want = map[authz.Action]struct {
 	"comment.reply_as_staff":    {true, "write:comments"},
 	"comment.settings.manage":   {false, ""},
 	"comment.settings.read":     {true, ""},
+	"dashboard.owner.read":      {false, ""},
 	"dashboard.read":            {true, ""},
 	"entity.create":             {true, "write:entities"},
 	"entity.delete":             {true, ""},

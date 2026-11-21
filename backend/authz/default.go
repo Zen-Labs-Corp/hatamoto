@@ -33,6 +33,7 @@ var table = map[Action]rule{
 	ActionCommentReplyAsStaff:     {editor: true, scope: "write:comments"},
 	ActionCommentSettingsManage:   {editor: false, scope: ""},
 	ActionCommentSettingsRead:     {editor: true, scope: ""},
+	ActionDashboardOwnerRead:      {editor: false, scope: ""},
 	ActionDashboardRead:           {editor: true, scope: ""},
 	ActionEntityCreate:            {editor: true, scope: "write:entities"},
 	ActionEntityDelete:            {editor: true, scope: ""},
@@ -138,8 +139,8 @@ func (defaultAuthorizer) Can(_ context.Context, s Subject, a Action, _ Object) (
 		return false, fmt.Errorf("%w: %q", ErrUnknownAction, a)
 	}
 	if s.KeyID != "" {
-		// A valid key always has a creator (both key entry points reject one
-		// without), so UserID is required here as well.
+		// A valid key always has a creator (all three key entry points reject
+		// one without), so UserID is required here as well.
 		creatorOK := s.UserID != "" && (s.CreatorRole == "owner" || s.CreatorRole == "editor")
 		return creatorOK && r.scope != "" && hasScope(s.Scopes, s.CreatorRole, r.scope), nil
 	}
