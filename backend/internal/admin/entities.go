@@ -449,6 +449,9 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 		Empty:   ui.Empty{Icon: "file-text", Title: "No entities match", Body: "Try other filters, or create the first one.", Actions: []ui.Button{{Label: "Create entity", Variant: "primary", Href: a.adminPath + "/entities/new"}}},
 	}
 	t.Bulk = append(t.Bulk[:3:3], append(a.bulkCopyActions(r), t.Bulk[3:]...)...)
+	if !a.can(ctx, authz.ActionEntityPublish) {
+		t.Bulk = t.Bulk[1:] // "Publish" is the first item
+	}
 
 	for _, e := range res.Items {
 		sc := byID[e.SchemaID]
@@ -507,8 +510,10 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 			row.Actions = append(row.Actions, ui.Action{Label: "Duplicate", Post: a.adminPath + "/entities/" + id + "/duplicate", Fields: map[string]string{"back": back}})
 		}
 		if e.Status == entity.StatusPublished {
-			row.Actions = append(row.Actions, ui.Action{Label: "Unpublish", Post: a.adminPath + "/entities/" + id + "/status", Fields: map[string]string{"status": "draft", "back": back}})
-		} else if e.Status != entity.StatusScheduled {
+			if a.canEntity(ctx, authz.ActionEntityUnpublish, e) {
+				row.Actions = append(row.Actions, ui.Action{Label: "Unpublish", Post: a.adminPath + "/entities/" + id + "/status", Fields: map[string]string{"status": "draft", "back": back}})
+			}
+		} else if e.Status != entity.StatusScheduled && a.canEntity(ctx, authz.ActionEntityPublish, e) {
 			row.Actions = append(row.Actions, ui.Action{Label: "Publish", Post: a.adminPath + "/entities/" + id + "/status", Fields: map[string]string{"status": "published", "back": back}})
 		}
 		row.Actions = append(row.Actions, ui.Action{Label: "Delete", Href: a.adminPath + "/entities/" + id + "/delete?back=" + url.QueryEscape(back), Post: a.adminPath + "/entities/" + id + "/delete", Danger: true,
@@ -557,7 +562,9 @@ func (a *Admin) renderEntities(w http.ResponseWriter, r *http.Request, p listPar
 		}
 		act := a.newTypeAction("New "+strings.ToLower(resolved.Name), resolved.Slug, draftType(resolved))
 		act.Icon = "plus"
-		d.Primary = &act
+		if a.can(r.Context(), authz.ActionEntityCreate) {
+			d.Primary = &act
+		}
 		if !entity.IsReuseSchema(resolved) {
 			d.Actions = []ui.Button{{Label: "Reorder", Href: a.adminPath + "/entities/order?type=" + url.QueryEscape(resolved.Slug), Icon: "arrow-up"}}
 			if a.can(r.Context(), authz.ActionEntityExport) {
@@ -574,7 +581,9 @@ func (a *Admin) renderEntities(w http.ResponseWriter, r *http.Request, p listPar
 		if len(create.Items) == 0 {
 			create.Items = []ui.Action{{Label: "Choose a type", Href: a.adminPath + "/entities/new"}}
 		}
-		d.Menu = &create
+		if a.can(r.Context(), authz.ActionEntityCreate) {
+			d.Menu = &create
+		}
 	}
 	d.Results = d.Table
 	d.Results.ViewTabs = p.viewTabs(a.adminPath) // the Columns toggle sits in the table header
@@ -743,7 +752,7 @@ func (a *Admin) handleEntitiesBulk(w http.ResponseWriter, r *http.Request) {
 		Redirect(w, r, back)
 		return
 	}
-	done, failed := 0, 0
+	done, failed, skipped := 0, 0, 0
 	var firstErr string
 	for _, raw := range ids {
 		id, err := uuid.Parse(raw)
@@ -758,6 +767,10 @@ func (a *Admin) handleEntitiesBulk(w http.ResponseWriter, r *http.Request) {
 		} else {
 			err = c.Entities.DeleteEntity(a.entityAuditCtx(r, a.entityDeleteDetail(r, id, map[string]any{"bulk": true})), id)
 		}
+		if errors.Is(err, entity.ErrNotAllowed) {
+			skipped++
+			continue
+		}
 		if err != nil {
 			failed++
 			if firstErr == "" {
@@ -771,8 +784,13 @@ func (a *Admin) handleEntitiesBulk(w http.ResponseWriter, r *http.Request) {
 		done++
 	}
 	msg := fmt.Sprintf("%d %s.", done, bulkVerb(action, done))
+	if skipped > 0 {
+		msg += fmt.Sprintf(" %d %s skipped: you cannot change them.", skipped, plural(skipped, "entry was", "entries were"))
+	}
 	if failed > 0 {
 		msg += fmt.Sprintf(" %d could not be changed: %s", failed, firstErr)
+		a.SetFlash(w, r, "error", msg)
+	} else if skipped > 0 && done == 0 {
 		a.SetFlash(w, r, "error", msg)
 	} else {
 		a.SetFlash(w, r, "success", msg)
@@ -845,6 +863,9 @@ func (a *Admin) handleEntityStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	_, err = c.Entities.UpdateEntityStatus(a.entityAuditCtx(r, nil), id, actorID(r), st)
 	if err != nil {
+		if a.refuseNotAllowed(w, r, err) {
+			return
+		}
 		if errors.Is(err, entity.ErrEntityNotFound) {
 			a.notFound(w, r, "Entity", a.adminPath+"/entities", "Back to entities")
 			return
@@ -945,6 +966,9 @@ func (a *Admin) handleEntityDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	back := a.entityBack(r, a.adminPath+"/entities")
 	if err := c.Entities.DeleteEntity(a.entityAuditCtx(r, a.entityDeleteDetail(r, id, nil)), id); err != nil {
+		if a.refuseNotAllowed(w, r, err) {
+			return
+		}
 		if errors.Is(err, entity.ErrEntityNotFound) {
 			a.notFound(w, r, "Entity", a.adminPath+"/entities", "Back to entities")
 			return
