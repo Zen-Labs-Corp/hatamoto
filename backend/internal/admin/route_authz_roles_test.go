@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"maps"
 	"os"
 	"strings"
 	"testing"
@@ -20,6 +21,42 @@ var adminWriteAllow = map[string]string{
 	"POST /admin/login/2fa":   "public sign-in step, redirects any caller without a pending 2FA login",
 	"POST /admin/theme":       "colour-scheme cookie, mounted before the session chain",
 	"DELETE /admin/{rest...}": "fallback 404 page", "PATCH /admin/{rest...}": "fallback 404 page", "POST /admin/{rest...}": "fallback 404 page", "PUT /admin/{rest...}": "fallback 404 page",
+}
+
+// contentWriteAllow lists the content screens' non-read routes the author, contributor and reviewer columns may reach:
+// they sit behind content.write, and the entity service and the media handlers decide per object (and the route's own
+// action, for the few that have one). Nothing else may be reachable.
+var contentWriteAllow = map[string]string{
+	"POST /admin/entities":                                              "create (entity.create is checked in the service; a reviewer is refused there)",
+	"POST /admin/entities/bulk":                                         "bulk status and delete: each row is checked in the service",
+	"POST /admin/entities/drafts":                                       "new draft (entity.create route gate)",
+	"POST /admin/entities/{id}":                                         "entity save: checked in the service",
+	"POST /admin/entities/{id}/analyze":                                 "editor analysis of the posted content, stores nothing",
+	"POST /admin/entities/{id}/delete":                                  "delete: checked in the service",
+	"POST /admin/entities/{id}/edit":                                    "page and blog editor save: checked in the service",
+	"POST /admin/entities/{id}/edit/analyze":                            "editor analysis of the posted content, stores nothing",
+	"POST /admin/entities/{id}/edit/autosave":                           "editor autosave of a draft: checked in the service",
+	"POST /admin/entities/{id}/edit/links/insert":                       "wraps a phrase in the posted content and returns it; stores nothing",
+	"POST /admin/entities/{id}/edit/links/suggest":                      "lists link rules matching the posted content; stores nothing",
+	"POST /admin/entities/{id}/edit/preview":                            "preview of the posted content, stores nothing",
+	"POST /admin/entities/{id}/edit/recovery":                           "the editor's own unsaved-changes copy",
+	"POST /admin/entities/{id}/edit/recovery/discard":                   "the editor's own unsaved-changes copy",
+	"POST /admin/entities/{id}/edit/render":                             "builder render of the posted document, stores nothing",
+	"POST /admin/entities/{id}/builder/analyze":                         "builder analysis of the posted document, stores nothing",
+	"POST /admin/entities/{id}/builder/component":                       "builder component render, stores nothing",
+	"POST /admin/entities/{id}/builder/recovery":                        "the builder's own unsaved-changes copy",
+	"POST /admin/entities/{id}/builder/recovery/discard":                "the builder's own unsaved-changes copy",
+	"POST /admin/entities/{id}/builder/save":                            "builder save: checked in the service",
+	"POST /admin/entities/{id}/builder/stage":                           "builder staging of the posted document, stores nothing",
+	"POST /admin/entities/{id}/seo":                                     "inline SEO save: checked in the service",
+	"POST /admin/entities/{id}/status":                                  "status change: checked in the service",
+	"POST /admin/entities/{id}/versions/{version}/nodes/{node}/restore": "node restore: checked in the service",
+	"POST /admin/entities/{id}/versions/{version}/restore":              "version restore: checked in the service",
+	"POST /admin/media/bulk":                                            "bulk media: each item is checked against its uploader",
+	"POST /admin/media/upload":                                          "upload (media.upload)",
+	"POST /admin/media/{id}":                                            "media update: checked against the uploader",
+	"POST /admin/media/{id}/delete":                                     "media delete: checked against the uploader",
+	"POST /admin/media/{id}/replace":                                    "media replace: checked against the uploader",
 }
 
 // assertNoWrites fails when a non-read route answers a listed column with
@@ -95,7 +132,11 @@ func TestAdminRolesRouteMatrix(t *testing.T) {
 		}
 	}
 
-	assertNoWrites(t, lines, []string{"read-only", "author", "contributor", "reviewer"}, adminWriteAllow)
+	assertNoWrites(t, lines, []string{"read-only"}, adminWriteAllow)
+	content := map[string]string{}
+	maps.Copy(content, adminWriteAllow)
+	maps.Copy(content, contentWriteAllow)
+	assertNoWrites(t, lines, []string{"author", "contributor", "reviewer"}, content)
 	var dash string
 	for _, l := range lines {
 		if strings.HasPrefix(l, "GET /admin ") {
