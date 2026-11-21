@@ -21,6 +21,68 @@ type RateLimiter struct {
 	sweepEvery time.Duration // at most one sweep per this interval
 	lastSweep  time.Time
 	now        func() time.Time // time.Now; tests inject a clock
+	timer      sweepTimer       // sweeps after a burst, once requests stop
+}
+
+// clock is now(), or time.Now for a zero-value limiter.
+func (rl *RateLimiter) clock() time.Time {
+	if rl.now == nil {
+		return time.Now()
+	}
+	return rl.now()
+}
+
+// sweepLocked drops visitors unseen for cleanup. Caller holds mu.
+func (rl *RateLimiter) sweepLocked(now time.Time) {
+	rl.lastSweep = now
+	for k, v := range rl.visitors {
+		if now.Sub(v.lastSeen) > rl.cleanup {
+			delete(rl.visitors, k)
+		}
+	}
+}
+
+// armLocked arms the cleanup timer while visitors remain. Caller holds mu.
+func (rl *RateLimiter) armLocked() {
+	if len(rl.visitors) > 0 {
+		rl.timer.arm(rl.cleanup+rl.sweepEvery, rl.timerSweep)
+	}
+}
+
+// timerSweep frees stale visitors when no request came to do it, and re-arms
+// only if some remain.
+func (rl *RateLimiter) timerSweep() {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	rl.timer.armed = false
+	rl.sweepLocked(rl.clock())
+	rl.armLocked()
+}
+
+// sweepTimer is a one-shot cleanup timer for a limiter's map. The owner arms
+// it while the map is non-empty and holds its own lock around every call, so
+// an empty (or never used) limiter has no timer at all.
+type sweepTimer struct {
+	t       *time.Timer
+	armed   bool
+	stopped bool
+}
+
+// arm schedules f after d unless a run is already pending or the limiter is stopped.
+func (s *sweepTimer) arm(d time.Duration, f func()) {
+	if s.armed || s.stopped {
+		return
+	}
+	s.armed = true
+	s.t = time.AfterFunc(d, f)
+}
+
+// stop cancels a pending run and refuses new ones.
+func (s *sweepTimer) stop() {
+	s.stopped, s.armed = true, false
+	if s.t != nil {
+		s.t.Stop()
+	}
 }
 
 type visitor struct {
@@ -65,26 +127,22 @@ func (rl *RateLimiter) ByIPv6Prefix() *RateLimiter {
 }
 
 // getVisitor retrieves or creates a rate limiter for an IP. Stale visitors
-// are swept here, at most once per sweepEvery, so an idle limiter runs no
-// goroutine and no timer; the map cannot grow without requests.
+// are swept here, at most once per sweepEvery; a one-shot timer, armed only
+// while the map is non-empty, frees them when requests stop.
 func (rl *RateLimiter) getVisitor(ip string) *rate.Limiter {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
-	now := rl.now()
+	now := rl.clock()
 	if now.Sub(rl.lastSweep) >= rl.sweepEvery {
-		rl.lastSweep = now
-		for k, v := range rl.visitors {
-			if now.Sub(v.lastSeen) > rl.cleanup {
-				delete(rl.visitors, k)
-			}
-		}
+		rl.sweepLocked(now)
 	}
 
 	v, exists := rl.visitors[ip]
 	if !exists {
 		limiter := rate.NewLimiter(rl.rate, rl.burst)
 		rl.visitors[ip] = &visitor{limiter: limiter, lastSeen: now}
+		rl.armLocked()
 		return limiter
 	}
 
@@ -92,8 +150,12 @@ func (rl *RateLimiter) getVisitor(ip string) *rate.Limiter {
 	return v.limiter
 }
 
-// Stop is kept for callers; the limiter has no background work to stop.
-func (rl *RateLimiter) Stop() {}
+// Stop cancels the pending cleanup timer, if any.
+func (rl *RateLimiter) Stop() {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	rl.timer.stop()
+}
 
 // Allow reports whether key may make a request now; it is the limiter's own
 // bucket logic for callers that choose the key themselves (a session, say).

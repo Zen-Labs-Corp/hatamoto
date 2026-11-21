@@ -75,3 +75,40 @@ func TestAPIKeyLimiterBurstKept(t *testing.T) {
 		t.Fatalf("%d of 11 immediate requests passed, want 10", passed)
 	}
 }
+
+func TestAPIKeyLimiterTimerFreesFloodWithoutRequests(t *testing.T) {
+	rl := NewAPIKeyRateLimiter()
+	rl.cleanup, rl.sweepEvery = 10*time.Millisecond, 10*time.Millisecond
+	for range 100 {
+		rl.Allow(uuid.New(), 100)
+	}
+	waitFor(t, "stale limiters freed", func() bool {
+		rl.mu.Lock()
+		defer rl.mu.Unlock()
+		return len(rl.limiters) == 0 && !rl.timer.armed
+	})
+}
+
+func TestAPIKeyLimiterNoTimerWhileEmptyAndStop(t *testing.T) {
+	rl := NewAPIKeyRateLimiter()
+	if rl.timer.armed || rl.timer.t != nil {
+		t.Fatal("timer armed on an empty limiter")
+	}
+	rl.Allow(uuid.New(), 100)
+	if !rl.timer.armed {
+		t.Fatal("timer not armed with a limiter")
+	}
+	rl.Stop()
+	rl.Allow(uuid.New(), 100)
+	if rl.timer.armed {
+		t.Fatal("timer armed after Stop")
+	}
+}
+
+func TestAPIKeyLimiterZeroValueClock(t *testing.T) {
+	rl := &APIKeyRateLimiter{limiters: map[uuid.UUID]*keyLimiter{}}
+	if !rl.Allow(uuid.New(), 100) {
+		t.Fatal("zero-value limiter refused")
+	}
+	rl.Stop()
+}

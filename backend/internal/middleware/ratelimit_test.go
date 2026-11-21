@@ -65,3 +65,54 @@ func TestRateLimiterStillLimits(t *testing.T) {
 		t.Fatal("third immediate request must be refused")
 	}
 }
+
+// waitFor polls cond until it holds or a second passes.
+func waitFor(t *testing.T, what string, cond func() bool) {
+	t.Helper()
+	for end := time.Now().Add(time.Second); !cond(); {
+		if time.Now().After(end) {
+			t.Fatalf("timed out waiting for %s", what)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func TestRateLimiterTimerFreesFloodWithoutRequests(t *testing.T) {
+	rl := NewRateLimiter(10, 10)
+	rl.cleanup, rl.sweepEvery = 10*time.Millisecond, 10*time.Millisecond
+	for i := range 100 {
+		rl.Allow(string(rune('a' + i)))
+	}
+	waitFor(t, "stale visitors freed", func() bool {
+		rl.mu.Lock()
+		defer rl.mu.Unlock()
+		return len(rl.visitors) == 0 && !rl.timer.armed
+	})
+}
+
+func TestRateLimiterNoTimerWhileEmpty(t *testing.T) {
+	rl := NewRateLimiter(10, 10)
+	if rl.timer.armed || rl.timer.t != nil {
+		t.Fatal("timer armed on an empty limiter")
+	}
+	rl.Allow("x")
+	if !rl.timer.armed {
+		t.Fatal("timer not armed with a visitor")
+	}
+	rl.Stop()
+	if rl.timer.armed {
+		t.Fatal("timer armed after Stop")
+	}
+	rl.Allow("y")
+	if rl.timer.armed {
+		t.Fatal("Stop did not keep the timer off")
+	}
+}
+
+func TestRateLimiterZeroValueClock(t *testing.T) {
+	rl := &RateLimiter{visitors: map[string]*visitor{}, rate: 1, burst: 1}
+	if !rl.Allow("x") {
+		t.Fatal("zero-value limiter refused")
+	}
+	rl.Stop()
+}
