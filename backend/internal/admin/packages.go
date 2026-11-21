@@ -256,9 +256,32 @@ func revokedText(reason string) string {
 	return "Disabled: " + defaultRevocation + " (" + reason + ")"
 }
 
-// RefusedPlain is TemplatesRefused in plain words for the plugin page.
+// RefusedPlain is TemplatesRefused in plain words for the plugin page. Entries
+// that read the same (one template reported by both vet and the call-graph
+// gate) are listed once.
 func (m PackageMeta) RefusedPlain() []render.TemplateRefusal {
-	return render.ExplainRefusals(m.TemplatesRefused)
+	all := render.ExplainRefusals(m.TemplatesRefused)
+	seen := make(map[[2]string]bool, len(all))
+	out := all[:0]
+	for _, r := range all {
+		k := [2]string{r.Template, r.Reason}
+		if !seen[k] {
+			seen[k] = true
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// OutputCapped reports a refusal for the output limit, which a site.scripts
+// grant lifts.
+func (m PackageMeta) OutputCapped() bool {
+	for _, r := range render.ExplainRefusals(m.TemplatesRefused) {
+		if r.Kind == render.RefusalOutputCap {
+			return true
+		}
+	}
+	return false
 }
 
 // MarkupPlain is MarkupStopped in plain words for the plugin page.

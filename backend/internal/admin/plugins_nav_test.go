@@ -486,7 +486,7 @@ func TestPluginRefusedTemplatesShowInBanner(t *testing.T) {
 		t.Error("the list row does not link to the callout")
 	}
 	page := g.do("GET", "/admin/plugins/refused/permissions", "owner-token", nil, nil).Body.String()
-	for _, want := range []string{`id="needs-attention"`, "2 templates not registered", "<code>section x</code>", "so pages show nothing in their place", "<code>section big</code>", "Its output went over the 256 KiB limit in the test render."} {
+	for _, want := range []string{`id="needs-attention"`, "Some templates are not registered", "<code>section x</code>", "so pages show nothing in their place", "<code>section big</code>", "Its output went over the 256 KiB limit in the test render."} {
 		if !strings.Contains(page, want) {
 			t.Errorf("plugin page lacks %q", want)
 		}
@@ -498,14 +498,24 @@ func TestPluginRefusedTemplatesShowInBanner(t *testing.T) {
 	}
 }
 
-func TestPluginRefusedTemplatesSingular(t *testing.T) {
+// One template reported by both vet and the call-graph gate is listed once,
+// and the heading carries no count (an "all templates" entry is not one template).
+func TestPluginRefusedTemplatesNoCountAndDeduped(t *testing.T) {
 	t.Parallel()
 
+	loop := "templates: template \"plugin/acme/a\" calls itself directly or through other templates"
 	g, _, fp := newPackageRig(t)
-	fp.list = append(fp.list, PluginInfo{Name: "refused", Package: &PackageMeta{Enabled: true, TemplatesRefused: []string{"plugin section acme/x: bad type (want ...) or empty source"}}})
+	fp.list = append(fp.list, PluginInfo{Name: "refused", Package: &PackageMeta{Enabled: true, TemplatesRefused: []string{
+		"all templates: " + loop, "section x: " + loop, "section x: " + loop}}})
 	page := g.do("GET", "/admin/plugins/refused/permissions", "owner-token", nil, nil).Body.String()
-	if !strings.Contains(page, "1 template not registered") {
-		t.Errorf("plugin page lacks the singular heading: %.300s", page)
+	if strings.Contains(page, "1 template not registered") || strings.Contains(page, "3 templates not registered") {
+		t.Errorf("plugin page shows a template count: %.300s", page)
+	}
+	if n := strings.Count(page, "<code>section x</code>"); n != 1 {
+		t.Errorf("section x listed %d times, want 1", n)
+	}
+	if !strings.Contains(page, "<code>all templates</code>") {
+		t.Error("the all-templates entry is missing")
 	}
 }
 
