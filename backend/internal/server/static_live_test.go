@@ -156,3 +156,82 @@ func TestStaticLiveThemePreviewNotRedirected(t *testing.T) {
 		t.Errorf("preview cookie: %d, next ran %d times", rec.Code, *calls)
 	}
 }
+
+// staticLiveRigSameHost is staticLiveRig for same host: static mode, no live origin.
+func staticLiveRigSameHost() (h http.Handler, calls *int) {
+	s := &Server{cfg: &config.Config{}}
+	s.setStaticHosting(statichost.StaticHosting{Static: true, SameHost: true, Site: testStaticSite})
+	calls = new(int)
+	h = s.staticLive(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		*calls++
+		w.WriteHeader(http.StatusOK)
+	}))
+	return h, calls
+}
+
+// Same host never redirects: the web server in front sends only island paths
+// here, and a page that does arrive is rendered, whatever its Host says.
+func TestStaticLiveSameHostNoRedirect(t *testing.T) {
+	t.Parallel()
+	h, calls := staticLiveRigSameHost()
+	n := 0
+	for _, host := range []string{"example.com", "www.example.com", "", staticLiveHost} {
+		for _, m := range []string{http.MethodGet, http.MethodHead} {
+			for _, p := range []string{"/", "/blog/x", "/about?x=1"} {
+				rec := staticLiveDo(h, m, p, host, "")
+				n++
+				if rec.Code != http.StatusOK || rec.Header().Get("Location") != "" {
+					t.Errorf("%s %s host %q: %d %q", m, p, host, rec.Code, rec.Header().Get("Location"))
+				}
+			}
+		}
+	}
+	if *calls != n {
+		t.Errorf("next ran %d of %d times", *calls, n)
+	}
+}
+
+func TestStaticLiveSameHostIslandsAnswer(t *testing.T) {
+	t.Parallel()
+	for name, c := range map[string]struct{ method, path string }{
+		"form post":    {http.MethodPost, "/forms/x/submit"},
+		"search":       {http.MethodGet, "/search?q=a"},
+		"locale srch":  {http.MethodGet, "/fr/search"},
+		"plugin":       {http.MethodGet, "/p/plug/x"},
+		"preview":      {http.MethodGet, "/preview/tok"},
+		"comment form": {http.MethodGet, commentFormLivePrefix + "11111111-1111-1111-1111-111111111111"},
+		"track":        {http.MethodPost, "/api/v1/track"},
+		"consent":      {http.MethodPost, "/api/v1/consent"},
+		"admin":        {http.MethodGet, "/admin"},
+	} {
+		h, calls := staticLiveRigSameHost()
+		rec := staticLiveDo(h, c.method, c.path, "example.com", "")
+		if *calls != 1 || rec.Code != http.StatusOK {
+			t.Errorf("%s: next calls=%d status=%d", name, *calls, rec.Code)
+		}
+		if rec.Header().Get("Access-Control-Allow-Origin") != "" || rec.Header().Get("Location") != "" {
+			t.Errorf("%s: CORS or redirect headers set: %v", name, rec.Header())
+		}
+	}
+	// A plugin preflight from the site is not answered with CORS: same origin needs none.
+	h, calls := staticLiveRigSameHost()
+	rec := staticLiveDo(h, http.MethodOptions, "/p/plug/x", "example.com", testStaticSite)
+	if rec.Header().Get("Access-Control-Allow-Origin") != "" || *calls != 1 {
+		t.Errorf("same-host plugin preflight: calls=%d headers=%v", *calls, rec.Header())
+	}
+}
+
+// The admin address is served by the dispatcher before the static chain, so
+// it answers for the site's own Host on the same host.
+func TestStaticLiveSameHostAdminReachable(t *testing.T) {
+	t.Parallel()
+	s := &Server{cfg: &config.Config{}, mux: http.NewServeMux()}
+	s.setStaticHosting(statichost.StaticHosting{Static: true, SameHost: true, Site: testStaticSite})
+	s.adminBundle.Store(&adminBundle{prefix: "/hq-x7k", h: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+	})})
+	rec := staticLiveDo(s.dispatcher(), http.MethodGet, "/hq-x7k/login", "example.com", "")
+	if rec.Code != http.StatusAccepted || rec.Header().Get("Location") != "" {
+		t.Errorf("admin: %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+}
