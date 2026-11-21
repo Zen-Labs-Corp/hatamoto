@@ -23,6 +23,7 @@ t-publish-rel    scripts/publish-release.sh,scripts/fake-hmctl.sh,backend/tools/
 t-publish-reg    scripts/publish-registry.sh,scripts/deploy-host.sh,scripts/deploy-target.sh,scripts/fake-hmctl.sh,scripts/test-publish-registry.sh   bash scripts/test-publish-registry.sh
 t-publish-sdk    scripts/publish-sdk.sh,scripts/test-publish-sdk.sh   bash scripts/test-publish-sdk.sh
 t-tag-release    scripts/tag-release.sh,scripts/verify-tag-signature.sh,scripts/version.sh,.github/workflows/release.yml,.github/allowed_signers,scripts/test-tag-release.sh   bash scripts/test-tag-release.sh
+t-edition-art   scripts/edition-artifacts.sh,backend/internal/release/release.go,scripts/test-edition-artifacts.sh,backend/tools/release/**,.github/workflows/release.yml   bash scripts/test-edition-artifacts.sh
 t-channel-fresh  scripts/check-channel-freshness.sh,scripts/test-check-channel-freshness.sh   bash scripts/test-check-channel-freshness.sh
 t-licenses-sh    scripts/third-party-licenses.sh,scripts/test-third-party-licenses.sh,backend/go.mod   bash scripts/test-third-party-licenses.sh
 t-channels-pub   *                                                  bash scripts/test-channels-public.sh

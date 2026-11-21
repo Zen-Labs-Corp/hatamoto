@@ -112,7 +112,7 @@ The tests check the done criteria of the importer: every old URL answers 200 or 
 | `make design-check` | Admin template, CSS, token and component rule violations, with no database. |
 | `scripts/check-neutral.sh` | Site-specific or fork-specific names in tracked files, locale-code path literals, a few retired schema names, and `hx-on`, `js:` values and trigger filters in admin templates (they need script evaluation, which the strict content security policy and the htmx setting `allowEval: false` forbid). |
 | `scripts/check-migrations.sh` and `scripts/test-check-migrations.sh` | New migrations that would break the previous release, and the linter's own fixture tests. |
-| `scripts/test-version.sh`, `scripts/test-publish-release.sh`, `scripts/test-staging-update-check.sh`, `deploy/test-apply-caddy.sh` | Fixture tests for the release scripts and the Caddy splice. |
+| `scripts/test-version.sh`, `scripts/test-publish-release.sh`, `scripts/test-edition-artifacts.sh`, `scripts/test-staging-update-check.sh`, `deploy/test-apply-caddy.sh` | Fixture tests for the release scripts and the Caddy splice. |
 | `make vendor-verify` | Vendored browser assets whose bytes no longer match `vendor.json`. |
 | `make vuln` | Known vulnerabilities in the code the server and the SDK call. Needs the network. |
 | `go run ./tools/licenses` (from `backend/`) | Any dependency with a non-permissive or unknown licence. |
