@@ -199,11 +199,11 @@ func TestUpdatesPageStates(t *testing.T) {
 		{"env_locked", func(f *fakeUpdates) {
 			f.state.Locks = UpdatesLocks{Mode: true, Channel: true, ModeVar: "HATAMOTO_UPDATES", ChannelVar: "HATAMOTO_UPDATE_CHANNEL"}
 		}, []string{">Automatic</span>", "Set by HATAMOTO_UPDATES on the server.", ">Stable (recommended for live sites)</span>", "Set by HATAMOTO_UPDATE_CHANNEL on the server."}, []string{`name="mode"`, `name="channel"`, "Automatic ·", "stable ·"}},
-		{"canary", func(f *fakeUpdates) { f.state.Channel = "canary" }, []string{`<option value="canary" selected>Canary (bleeding edge, may break)</option>`, "Stable is for live sites: it gets each release from day 7 (5%, then 25% on day 9, 100% on day 11). Edge gets it on day 2. Canary is bleeding edge for testing and may break: it gets each release first, before anyone else has run it. LTS stays on one long-term support line and gets only security fixes, for 18 months; it never moves you to a newer minor version."}, nil},
+		{"canary", func(f *fakeUpdates) { f.state.Channel = "canary" }, []string{`<option value="canary" selected>Canary (bleeding edge, may break)</option>`, "Stable is for live sites: it gets each release from day 7 (5%, then 25% on day 9, 100% on day 11). Edge gets it on day 2. Canary is bleeding edge for testing and may break: it gets each release first, before anyone else has run it. LTS follows one long-term support line per major version and gets only its security fixes, for 18 months. Choose it only while this server runs an LTS version: on any other version, or while no LTS line exists, it gets no updates at all, not even security fixes."}, nil},
 		{"env_locked_canary", func(f *fakeUpdates) {
 			f.state.Channel = "canary"
 			f.state.Locks = UpdatesLocks{Channel: true, ChannelVar: "HATAMOTO_UPDATE_CHANNEL"}
-		}, []string{">Canary (bleeding edge, may break)</span>", "version. Set by HATAMOTO_UPDATE_CHANNEL on the server."}, []string{`name="channel"`, "canary ·"}},
+		}, []string{">Canary (bleeding edge, may break)</span>", "not even security fixes. Set by HATAMOTO_UPDATE_CHANNEL on the server."}, []string{`name="channel"`, "canary ·"}},
 		{"lts", func(f *fakeUpdates) { f.state.Channel = "lts" }, []string{`<option value="canary">Canary (bleeding edge, may break)</option><option value="lts" selected>LTS (security fixes only, 18 months)</option>`}, nil},
 		{"env_locked_lts", func(f *fakeUpdates) {
 			f.state.Channel = "lts"

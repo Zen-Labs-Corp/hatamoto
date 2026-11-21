@@ -96,6 +96,19 @@ func TestDecideLTSLine(t *testing.T) {
 	}
 }
 
+func TestDecideLTSTwoLines(t *testing.T) {
+	w := newWorld()
+	w.add("v1.4.5", open(), func(r *release.Record, _ *release.Entry) { r.Security = true })
+	w.add("v1.8.1", open(), func(r *release.Record, _ *release.Entry) { r.Security = true })
+	in := w.input("v1.4.3")
+	in.Settings.Channel = "lts"
+	in.Settings.Pin = "v1.4"
+	// The pin does not hold back the newer line's security release.
+	if d := mustDecide(t, in); d.Action != ActionApply || d.Target != "v1.8.1" {
+		t.Fatalf("two lines, pinned to the older: %+v", d)
+	}
+}
+
 func TestDecideRampEdgeUsesRealBucket(t *testing.T) {
 	w := newWorld()
 	w.add("v1.0.1", []release.RampStep{{At: "2026-11-01T00:00:00Z", Pct: 5}})
