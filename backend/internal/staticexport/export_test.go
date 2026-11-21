@@ -169,6 +169,19 @@ func TestExport_ProgressLines(t *testing.T) {
 	}
 }
 
+func TestExport_ProgressLinesListingPages(t *testing.T) {
+	f := newFake("/admin", "/blog")
+	f.html("/blog", `<a href="/blog?page=2">next</a>`)
+	f.html("/blog?page=2", "<p>two</p>")
+	var out bytes.Buffer
+	if _, err := Export(context.Background(), f, &fakeRuns{}, &fakeTarget{t: t}, Options{Out: &out}); err != nil {
+		t.Fatal(err)
+	}
+	if want := "static: 1 pages (+1 listing pages), 0 assets, 0 media files"; !strings.Contains(out.String(), want) {
+		t.Errorf("output misses %q:\n%s", want, out.String())
+	}
+}
+
 func TestExport_DirTargetSwapLine(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "site")
 	tgt, err := NewDirTarget(out, DirGuard{})
