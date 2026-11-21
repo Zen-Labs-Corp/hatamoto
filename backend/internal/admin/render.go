@@ -2,6 +2,7 @@ package admin
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -419,6 +420,7 @@ func (a *Admin) build() error {
 	for key, file := range srcs.files {
 		pages[key] = &pageSet{fsys: srcs.fsys, file: file, base: srcs.base, fm: fm, lru: lru}
 	}
+	a.modulePageSets(pages, srcs, fm, lru)
 	a.mu.Lock()
 	a.assets, a.pages, a.loaded = as, pages, true
 	a.partials = &pageSet{base: srcs.base, fm: fm, lru: lru}
@@ -598,16 +600,27 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 	return v
 }
 
+// errRender marks a render that failed before anything was written; the cause
+// is already logged.
+var errRender = errors.New("admin: render failed")
+
 // Render writes page with status. Normal requests get the whole
 // document; an htmx request targeting a region gets only the page's "main"
 // block. A template error becomes a 500 page, never a half-written response.
 func (a *Admin) Render(w http.ResponseWriter, r *http.Request, status int, page string, v *View) {
+	if a.render(w, r, status, page, v) != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	}
+}
+
+// render is Render that returns an error instead of answering it, so a caller
+// can show its own error page. Nothing is written when it returns one.
+func (a *Admin) render(w http.ResponseWriter, r *http.Request, status int, page string, v *View) error {
 	as, pages := a.state()
 	ps, ok := pages[page]
 	if !ok {
 		a.logger().Error("admin: unknown page", "page", page)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
+		return errRender
 	}
 	if len(v.Crumbs) == 0 {
 		v.Crumbs = defaultAreaCrumbsIn(a.areaSet(), a.adminPath, v.Path, v.Section, v.Tab, v.Title)
@@ -619,29 +632,25 @@ func (a *Admin) Render(w http.ResponseWriter, r *http.Request, status int, page 
 	tmpl, err := ps.tmpl()
 	if err != nil {
 		a.logger().Error("admin: page template", "page", page, "err", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
+		return errRender
 	}
 	mods, err := pageModules(tmpl, as)
 	if err != nil {
 		a.logger().Error("admin: page modules", "page", page, "err", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
+		return errRender
 	}
 	v.Modules = mods
 	scripts, err := pageScripts(tmpl)
 	if err != nil {
 		a.logger().Error("admin: page scripts", "page", page, "err", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
+		return errRender
 	}
 	v.Scripts = append(v.Scripts, scripts...)
 	v.Width = pageWidth(v.Width)
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, name, v); err != nil {
 		a.logger().Error("admin: render failed", "page", page, "err", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
+		return errRender
 	}
 	if name == "page" && !v.SkipMarkupHooks && v.addMarkupNeeds(buf.String()) {
 		// The markup carries hooks (schemaform fields) whose scripts the page
@@ -649,8 +658,7 @@ func (a *Admin) Render(w http.ResponseWriter, r *http.Request, status int, page 
 		buf.Reset()
 		if err := tmpl.ExecuteTemplate(&buf, name, v); err != nil {
 			a.logger().Error("admin: render failed", "page", page, "err", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
+			return errRender
 		}
 	}
 	h := w.Header()
@@ -662,6 +670,7 @@ func (a *Admin) Render(w http.ResponseWriter, r *http.Request, status int, page 
 	if r.Method != http.MethodHead {
 		_, _ = w.Write(buf.Bytes())
 	}
+	return nil
 }
 
 // pageWidth maps a View.Width to one of the layout widths.
