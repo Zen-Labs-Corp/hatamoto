@@ -53,7 +53,7 @@ The `release` workflow checks the signature before it builds anything: `scripts/
 
 Pushing a tag that looks like `vMAJOR.MINOR.PATCH` (with an optional prerelease suffix) starts the `release` workflow. Its jobs hold only the permissions they use:
 
-1. `build` (read-only) validates the tag name before anything runs, because a tag can carry quotes and semicolons, then verifies the tag signature (above), builds the four artifacts and their bundles with `make release-build`, records the Go version and flags, reads the build facts from `hatamoto version --json`, and builds an **unsigned** release record with `go run ./tools/release record`. The kind follows the version: `x.0.0` is a major, `x.y.0` a minor, anything else a patch. The `rollback_floor` and `min_from` fields are placeholders that `record --check` flags for review. When `dist/` holds all four `hatamoto-<edition>-<os>-<arch>` files of an edition the release format lists (all or none), `record` adds them under `editions.<edition>`; it refuses build facts read from a non-default build. It then writes an SBOM per binary with syft (SPDX and CycloneDX), a `SHA256SUMS` file for every `hatamoto-*` file, and hands `dist/` to the next jobs.
+1. `build` (read-only) validates the tag name before anything runs, because a tag can carry quotes and semicolons, then verifies the tag signature (above), builds the four artifacts and their bundles with `make release-build`, records the Go version and flags, reads the build facts from `hatamoto version --json`, then, when the repository opts in to another edition (below), fetches that edition's verified builds into `dist/`, builds an **unsigned** release record with `go run ./tools/release record` and checks that every opted-in edition is in it. The kind follows the version: `x.0.0` is a major, `x.y.0` a minor, anything else a patch. The `rollback_floor` and `min_from` fields are placeholders that `record --check` flags for review. When `dist/` holds all four `hatamoto-<edition>-<os>-<arch>` files of an edition the release format lists (all or none), `record` adds them under `editions.<edition>`; it refuses build facts read from a non-default build. It then writes an SBOM per binary with syft (SPDX and CycloneDX), a `SHA256SUMS` file for every `hatamoto-*` file, and hands `dist/` to the next jobs.
 2. `attest` (identity token and attestation write) attests build provenance for each binary, bundle and SBOM and for `SHA256SUMS`, and attests both SBOMs against their binary. It runs in public repositories only. It is `continue-on-error`: the offline signature is the trust root, so a failed attestation (an Actions allowlist, an outage) leaves an error annotation and a summary line but never fails the run, which keeps `release.sh` from hanging on its run watch. Re-run the failed job to add the missing attestation.
 3. `draft` (the only job that can write) creates a **draft** release with the artifacts, bundles, SBOMs, `SHA256SUMS` and the record. Prereleases are marked as such. It needs only `build`, so it alone decides whether the run is green.
 
@@ -74,7 +74,19 @@ gh api -X PUT repos/Zen-Labs-Corp/hatamoto/environments/release-image \
 gh api -X POST repos/Zen-Labs-Corp/hatamoto/environments/release-image/deployment-branch-policies -f name=main
 ```
 
-No key or secret is used in this workflow. The provenance and signatures are tied to the workflow identity at the tag, which [Verify a download](../updates/verify-a-download.md) shows how to check.
+No signing key is used in this workflow. The one secret is `EDITION_DISPATCH_TOKEN`, read by the step that fetches another edition's build (next section) and by nothing else; with no opt-in the step does not run. The provenance and signatures are tied to the workflow identity at the tag, which [Verify a download](../updates/verify-a-download.md) shows how to check.
+
+### Releasing another edition with the same tag
+
+A build of another edition can ride in the same release. The repository opts in with repository variables and one secret:
+
+- `RELEASE_EDITIONS`: the edition names to release, space or comma separated. Empty (the default) means the release run is exactly the one described above.
+- `EDITION_REPO`: `owner/name` of the edition build repository.
+- `EDITION_DISPATCH_TOKEN` (secret): a fine-grained token on the edition build repository only, with Contents read and write (to send the dispatch) and Actions read (to read the artifact). It is passed to one step and never printed.
+
+With the opt-in set, the `build` job runs `scripts/edition-artifacts.sh fetch` after the default build. It sends a `repository_dispatch` event of type `edition-build` with `client_payload.tag` and `client_payload.sha` to the edition build repository, then polls for a fresh Actions artifact (created after the dispatch, so an older build of the same tag is never taken) until `EDITION_WAIT_SECONDS` (default 2700) has passed. The edition build must upload one artifact named `edition-builds-<tag>` holding `hatamoto-<edition>-<os>-<arch>` for the four platforms of every opted-in edition and one `SHA256SUMS` that lists exactly those files. The script refuses a missing or extra file, a checksum mismatch, an empty file and any name already in `dist/`; only a fully verified set is copied into `dist/`, where `record` adds it under `editions.<edition>`. The step after `record` then requires all four platforms of every opted-in edition in the unsigned record.
+
+Every failure stops the `build` job (a missing token or repository variable included, never a silent skip), so no draft is created and `release.sh` fails on its run watch. The check is the same on every channel, because a channel only ever offers a signed record. The edition files are listed in `SHA256SUMS` and uploaded with the draft. They are not attested by this workflow: the offline signature over the record, which pins their hashes, is the trust root, so review `record --check` before signing.
 
 ## Signing and publishing
 
@@ -88,6 +100,8 @@ go run ./tools/release sign-record release.json --key /secure/path/release.key
 go run ./tools/release verify --chan edge --record release.json \
     --sig release.json.sig --dir ../dist --version v1.2.3
 ```
+
+With an opt-in, check the record first: `RELEASE_EDITIONS=<editions> bash scripts/edition-artifacts.sh require --record release.json` fails when an opted-in edition is missing or partial. A release built on the maintainer's machine instead of the workflow fills `dist/` with `scripts/edition-artifacts.sh local --tag vX.Y.Z --from DIR --dist ../dist`, which applies the same checks to a local edition build directory.
 
 `rollback_floor` is the oldest release a rollback may return to, which comes from the n-1 check described in [Writing migrations](writing-migrations.md). `min_from` is the oldest version that may update straight to this release. Signing can use a key file or an ssh-agent. Verification checks the signature, the version and the size and hash of all four artifacts and of every edition build the record lists (`verify --dir` also checks that no listed file is missing), and nothing in `tools/release` touches the network.
 

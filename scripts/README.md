@@ -33,6 +33,7 @@ what a CI job runs and split the integration tests across jobs. The workflows ar
 | --- | --- |
 | [tag-release.sh](tag-release.sh), [verify-tag-signature.sh](verify-tag-signature.sh) | create and check the signed release tags |
 | [publish-release.sh](publish-release.sh) | upload one signed release to the update server |
+| [edition-artifacts.sh](edition-artifacts.sh) | bring another edition's verified builds into a release |
 | [publish-install.sh](publish-install.sh) | publish the attested `install.sh` of a release |
 | [publish-registry.sh](publish-registry.sh) | upload the built plugin registry |
 | [publish-sdk.sh](publish-sdk.sh) | export `backend/pkg/sdk` to the public SDK repository |
