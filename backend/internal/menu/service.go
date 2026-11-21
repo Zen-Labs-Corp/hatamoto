@@ -93,6 +93,19 @@ func (s *Service) GetMenuByLocation(ctx context.Context, location string) (*Menu
 	return s.repo.GetMenuByLocation(ctx, location)
 }
 
+// GetMenusWithItemsByLocations loads the menu at each location with its
+// items. Locations that are not valid are left out, as GetMenuByLocation
+// rejects them; locations without a menu are absent from the result.
+func (s *Service) GetMenusWithItemsByLocations(ctx context.Context, locations []string) (map[string]*Menu, error) {
+	valid := make([]string, 0, len(locations))
+	for _, loc := range locations {
+		if ValidLocation(loc) {
+			valid = append(valid, loc)
+		}
+	}
+	return s.repo.GetMenusWithItemsByLocations(ctx, valid)
+}
+
 // ListMenus retrieves all menus for the tenant.
 func (s *Service) ListMenus(ctx context.Context) ([]*Menu, error) {
 	return s.repo.ListMenus(ctx)

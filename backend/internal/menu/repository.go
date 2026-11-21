@@ -22,6 +22,9 @@ type Repository interface {
 	GetMenuByID(ctx context.Context, id uuid.UUID) (*Menu, error)
 	GetMenuBySlug(ctx context.Context, slug string) (*Menu, error)
 	GetMenuByLocation(ctx context.Context, location string) (*Menu, error)
+	// GetMenusWithItemsByLocations loads the menu at each location with its
+	// item tree in at most two statements. Locations without a menu are absent.
+	GetMenusWithItemsByLocations(ctx context.Context, locations []string) (map[string]*Menu, error)
 	ListMenus(ctx context.Context) ([]*Menu, error)
 	UpdateMenu(ctx context.Context, id uuid.UUID, input *UpdateMenuInput) (*Menu, error)
 	DeleteMenu(ctx context.Context, id uuid.UUID) error
@@ -561,15 +564,7 @@ func (r *PostgresRepository) GetMenuWithItems(ctx context.Context, menuID uuid.U
 	}
 
 	// Get all items for the menu with entity info
-	query := `
-		SELECT
-			mi.id, mi.menu_id, mi.parent_id, mi.label, mi.link_type,
-			mi.entity_id, mi.url, mi.schema_slug, mi.position, mi.open_in_new_tab,
-			mi.css_classes, mi.attrs, mi.created_at, mi.updated_at,
-			e.slug AS entity_slug, e.name AS entity_name, es.slug AS entity_schema_slug
-		FROM hatamoto_menu_items mi
-		LEFT JOIN hatamoto_entities e ON mi.entity_id = e.id
-		LEFT JOIN hatamoto_entity_schemas es ON e.schema_id = es.id
+	query := "SELECT " + menuItemColumns + `
 		WHERE mi.menu_id = $1
 		ORDER BY mi.position ASC
 	`
@@ -580,10 +575,31 @@ func (r *PostgresRepository) GetMenuWithItems(ctx context.Context, menuID uuid.U
 	}
 	defer rows.Close()
 
-	// Build flat list first
+	items, itemMap, err := scanMenuItems(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	rootItems := buildMenuTree(items, itemMap)
+	menu.Items = rootItems
+	return menu, nil
+}
+
+// menuItemColumns is the select list (with the entity joins) scanMenuItems reads.
+const menuItemColumns = `
+		mi.id, mi.menu_id, mi.parent_id, mi.label, mi.link_type,
+		mi.entity_id, mi.url, mi.schema_slug, mi.position, mi.open_in_new_tab,
+		mi.css_classes, mi.attrs, mi.created_at, mi.updated_at,
+		e.slug AS entity_slug, e.name AS entity_name, es.slug AS entity_schema_slug
+	FROM hatamoto_menu_items mi
+	LEFT JOIN hatamoto_entities e ON mi.entity_id = e.id
+	LEFT JOIN hatamoto_entity_schemas es ON e.schema_id = es.id`
+
+// scanMenuItems reads the rows of a menuItemColumns query into a flat list in
+// row order, plus an index by id.
+func scanMenuItems(rows pgx.Rows) ([]*MenuItem, map[uuid.UUID]*MenuItem, error) {
 	itemMap := make(map[uuid.UUID]*MenuItem)
 	var items []*MenuItem
-
 	for rows.Next() {
 		item := &MenuItem{}
 		var rawAttrs []byte
@@ -593,19 +609,22 @@ func (r *PostgresRepository) GetMenuWithItems(ctx context.Context, menuID uuid.U
 			&item.CSSClasses, &rawAttrs, &item.CreatedAt, &item.UpdatedAt,
 			&item.EntitySlug, &item.EntityName, &item.EntitySchemaSlug,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan menu item: %w", err)
+			return nil, nil, fmt.Errorf("failed to scan menu item: %w", err)
 		}
 		item.Attrs = decodeAttrs(rawAttrs)
 		item.Children = []*MenuItem{}
 		itemMap[item.ID] = item
 		items = append(items, item)
 	}
-
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	return items, itemMap, nil
+}
 
-	// Build tree structure
+// buildMenuTree nests items under their parents and returns the roots, both in
+// the order of items.
+func buildMenuTree(items []*MenuItem, itemMap map[uuid.UUID]*MenuItem) []*MenuItem {
 	var rootItems []*MenuItem
 	for _, item := range items {
 		if item.ParentID == nil {
@@ -614,9 +633,74 @@ func (r *PostgresRepository) GetMenuWithItems(ctx context.Context, menuID uuid.U
 			parent.Children = append(parent.Children, item)
 		}
 	}
+	return rootItems
+}
 
-	menu.Items = rootItems
-	return menu, nil
+// GetMenusWithItemsByLocations loads the menu at each location (the oldest, as
+// GetMenuByLocation picks it) with its item tree: no statement for no
+// locations, one when none of them has a menu, else two, on one connection.
+func (r *PostgresRepository) GetMenusWithItemsByLocations(ctx context.Context, locations []string) (map[string]*Menu, error) {
+	out := map[string]*Menu{}
+	if len(locations) == 0 {
+		return out, nil
+	}
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+
+	menuRows, err := conn.Query(ctx, `
+		SELECT DISTINCT ON (location) id, name, slug, location, created_at, updated_at
+		FROM hatamoto_menus
+		WHERE location = ANY($1)
+		ORDER BY location, created_at, id
+	`, locations)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get menus: %w", err)
+	}
+	defer menuRows.Close()
+	byID := map[uuid.UUID]*Menu{}
+	var ids []uuid.UUID
+	for menuRows.Next() {
+		m := &Menu{}
+		if err := menuRows.Scan(&m.ID, &m.Name, &m.Slug, &m.Location, &m.CreatedAt, &m.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan menu: %w", err)
+		}
+		byID[m.ID] = m
+		ids = append(ids, m.ID)
+		if m.Location != nil {
+			out[*m.Location] = m
+		}
+	}
+	if err := menuRows.Err(); err != nil {
+		return nil, err
+	}
+	menuRows.Close()
+	if len(ids) == 0 {
+		return out, nil
+	}
+
+	rows, err := conn.Query(ctx, "SELECT "+menuItemColumns+`
+		WHERE mi.menu_id = ANY($1)
+		ORDER BY mi.position ASC
+	`, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get menu items: %w", err)
+	}
+	defer rows.Close()
+	items, itemMap, err := scanMenuItems(rows)
+	if err != nil {
+		return nil, err
+	}
+	perMenu := map[uuid.UUID][]*MenuItem{}
+	for _, it := range items {
+		perMenu[it.MenuID] = append(perMenu[it.MenuID], it)
+	}
+	for id, m := range byID {
+		m.Items = buildMenuTree(perMenu[id], itemMap)
+	}
+	return out, nil
 }
 
 // ReorderItems updates positions and parent relationships for multiple items.
