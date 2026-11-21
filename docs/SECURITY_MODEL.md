@@ -416,6 +416,15 @@ A preview link lets anyone who holds it read one draft without signing in, so th
 | Guessing is throttled per client by a rate limit; lifetime is 1 hour to 30 days and at most 10 links are active per entity | `internal/server`, `internal/previewlink` | route and store tests |
 | Creating and revoking links is owner and editor only and audit-logged; `/preview` is a reserved first path segment | `internal/admin`, `internal/adminpath` | `TestSharePreviewFlow` |
 
+### Review policy for human edits
+
+A wrapper module can register the review stages of a human edit. The core never publishes an edit on a doubtful answer.
+
+| Guarantee | Where | Check |
+|---|---|---|
+| A registered review policy that errors, or returns a stage without a name or group, holds the edit: `StagesFor` returns `ErrPolicy` and no stages (fail closed). Registration is frozen once `app.Main` starts | `review`, `internal/reviewstate` | `review_test.go` |
+| An edit changeset publishes only when every one of its stages is approved, in order; a rejection ends it | `internal/changeset` | `stage_decision_integration_test.go` |
+
 ## The compile cache holds native code
 
 The plugin host compiles each module to native code and caches the result in

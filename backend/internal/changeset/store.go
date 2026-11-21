@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type changesetRow struct {
@@ -17,6 +19,9 @@ type changesetRow struct {
 	Plugin    string
 	State     string
 	ExpiresAt time.Time
+	Kind      ChangesetKind
+	Requester string
+	Stages    []StageSpec
 	// Items and PayloadBytes are the running totals the staging quota reads.
 	Items        int64
 	PayloadBytes int64
@@ -25,15 +30,29 @@ type changesetRow struct {
 // lockChangeset reads and row-locks a changeset.
 func lockChangeset(ctx context.Context, tx pgx.Tx, id int64) (changesetRow, error) {
 	var c changesetRow
-	err := tx.QueryRow(ctx, `SELECT id, run_id, plugin, state, expires_at, item_count, payload_bytes FROM hatamoto_changesets WHERE id = $1 FOR UPDATE`, id).
-		Scan(&c.ID, &c.RunID, &c.Plugin, &c.State, &c.ExpiresAt, &c.Items, &c.PayloadBytes)
+	var kind string
+	var stages []byte
+	err := tx.QueryRow(ctx, `SELECT id, run_id, plugin, state, expires_at, kind, requested_by, stages, item_count, payload_bytes FROM hatamoto_changesets WHERE id = $1 FOR UPDATE`, id).
+		Scan(&c.ID, &c.RunID, &c.Plugin, &c.State, &c.ExpiresAt, &kind, &c.Requester, &stages, &c.Items, &c.PayloadBytes)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return c, ErrNotFound
 	}
 	if err != nil {
 		return c, fmt.Errorf("failed to read changeset: %w", err)
 	}
+	c.Kind = ChangesetKind(kind)
+	if c.Stages, err = decodeStages(stages); err != nil {
+		return c, err
+	}
 	return c, nil
+}
+
+func decodeStages(raw []byte) ([]StageSpec, error) {
+	var st []StageSpec
+	if err := jsonx.Unmarshal(raw, &st); err != nil {
+		return nil, fmt.Errorf("failed to read changeset stages: %w", err)
+	}
+	return st, nil
 }
 
 func loadItems(ctx context.Context, tx rowsQuerier, csID int64, reverse bool) ([]StoredItem, error) {

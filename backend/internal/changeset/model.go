@@ -19,6 +19,34 @@ type Tx = pgx.Tx
 // TTL is how long a staged changeset waits for a decision before it expires.
 const TTL = 72 * time.Hour
 
+// NoExpiry is the expires_at of a human edit: it waits for its reviewers,
+// however long. The column stays NOT NULL so every expiry check keeps working.
+var NoExpiry = time.Date(9999, 12, 31, 0, 0, 0, 0, time.UTC)
+
+// ChangesetKind tells how a changeset came to be: a plugin or owner-tool run,
+// or a human edit that waits for review.
+type ChangesetKind string
+
+// The changeset kinds. Every changeset created before edits existed is a run.
+const (
+	ChangesetRun  ChangesetKind = "run"
+	ChangesetEdit ChangesetKind = "edit"
+)
+
+// StageSpec is one ordered review stage of an edit changeset, snapshotted
+// when the edit is staged.
+type StageSpec struct {
+	Name  string `json:"name"`
+	Group string `json:"group"`
+}
+
+// EditOptions opens an edit changeset. The caller resolves Stages (an empty
+// list needs no review).
+type EditOptions struct {
+	Requester string
+	Stages    []StageSpec
+}
+
 // Kind is the content kind of an item.
 type Kind string
 
@@ -58,12 +86,17 @@ const (
 
 // Errors of the engine.
 var (
-	ErrNotFound      = errors.New("changeset not found")
-	ErrNotStaged     = errors.New("changeset is not staged")
-	ErrNotPublished  = errors.New("changeset is not published")
-	ErrExpired       = errors.New("changeset expired")
-	ErrUnknownKind   = errors.New("unknown changeset item kind")
-	ErrInvalidItem   = errors.New("invalid changeset item")
+	ErrNotFound     = errors.New("changeset not found")
+	ErrNotStaged    = errors.New("changeset is not staged")
+	ErrNotPublished = errors.New("changeset is not published")
+	ErrExpired      = errors.New("changeset expired")
+	ErrUnknownKind  = errors.New("unknown changeset item kind")
+	ErrInvalidItem  = errors.New("invalid changeset item")
+	// ErrInvalidEdit means an edit changeset was asked for without a requester or with an unnamed stage.
+	ErrInvalidEdit = errors.New("invalid edit changeset")
+	// ErrReviewStarted means an edit already has a stage decision, so it takes no more items: an
+	// approval covers the items that were staged when it was given.
+	ErrReviewStarted = errors.New("edit review has started")
 	ErrNoWriter      = errors.New("no writer for this kind")
 	ErrUnsupportedOp = errors.New("operation not supported for this kind")
 	// ErrQuotaExceeded means the changeset holds as many items or bytes as it may.

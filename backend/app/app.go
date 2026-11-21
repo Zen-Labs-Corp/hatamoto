@@ -26,6 +26,7 @@ import (
 	"hatamoto.dev/core/internal/modhost"
 	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/reviewstate"
 	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/server"
 	"hatamoto.dev/core/internal/siteid"
@@ -282,6 +283,7 @@ func Main() {
 	adminpagestate.Freeze()
 	auditstate.Freeze()
 	authstate.Freeze()
+	reviewstate.Freeze()
 	logger := newLogger()
 	slog.SetDefault(logger)
 
