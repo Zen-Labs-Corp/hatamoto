@@ -908,12 +908,17 @@ func (h *renderHandlers) writeHTMLEncoded(w http.ResponseWriter, r *http.Request
 // writeNotModified answers a conditional request for a public page: the 200's
 // headers (Cache-Control incl. the directory TTL, CSP) and no body. The
 // compression middleware adds no Vary to a bodiless 304, so it is set here to
-// match the 200.
+// match the 200: Accept-Encoding only while compression is on (the 200 gets it
+// from the middleware or from a stored variant). A Range request skips the
+// middleware, so its 200 lacks the Vary its 304 carries; a spare Vary on a 304
+// is harmless.
 func (h *renderHandlers) writeNotModified(w http.ResponseWriter, r *http.Request, body []byte) {
 	hd := w.Header()
 	h.setPageHeaders(hd, r, body, false)
 	hd.Del("Content-Type")
-	hd.Add("Vary", "Accept-Encoding")
+	if h.encodeCached != nil && h.encodeCached() {
+		hd.Add("Vary", "Accept-Encoding")
+	}
 	w.WriteHeader(http.StatusNotModified)
 }
 
