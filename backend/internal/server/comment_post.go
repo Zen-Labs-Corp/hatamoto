@@ -16,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/statichost"
 	"hatamoto.dev/core/internal/user"
 )
 
@@ -68,7 +69,7 @@ func (s *Server) handleCommentPost(w http.ResponseWriter, r *http.Request) {
 	req := commentsubmit.Request{
 		EntityID: id, EntityTitle: title, Post: r.PostForm,
 		IP: middleware.GetClientIP(r), UserAgent: r.UserAgent(),
-		CrossSite: commentCrossSite(r), Now: now,
+		CrossSite: commentCrossSite(r, s.hosting.Load()), Now: now,
 	}
 	if raw := r.PostForm.Get(parentField); raw != "" {
 		if pid, err := uuid.Parse(raw); err == nil {
@@ -152,10 +153,19 @@ func (s *Server) commentNotFound(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 }
 
-// commentCrossSite is true unless the browser vouches for a same-origin post.
+// commentCrossSite is true unless the browser vouches for a same-origin post
+// or, in static mode, the post comes from the static site: its pages carry the
+// live form, and the token is IP-bound and single-use, so accepting that one
+// origin adds no ambient credential to ride.
 // Origin "null" is what a same-origin form post sends under Referrer-Policy
 // no-referrer, so it passes only with Sec-Fetch-Site: same-origin.
-func commentCrossSite(r *http.Request) bool {
+func commentCrossSite(r *http.Request, hs statichost.StaticHosting) bool {
+	if hs.AllowsOrigin(r.Header.Get("Origin")) {
+		switch r.Header.Get("Sec-Fetch-Site") {
+		case "", "cross-site", "same-site":
+			return false
+		}
+	}
 	if sfs := r.Header.Get("Sec-Fetch-Site"); sfs != "" && sfs != "same-origin" {
 		return true
 	}

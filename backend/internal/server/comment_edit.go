@@ -15,6 +15,7 @@ import (
 	"hatamoto.dev/core/internal/commentfmt"
 	"hatamoto.dev/core/internal/commentsubmit"
 	"hatamoto.dev/core/internal/middleware"
+	"hatamoto.dev/core/internal/statichost"
 )
 
 // editBodyField is the static field of the edit form. It is safe to name it
@@ -58,7 +59,8 @@ func (s *Server) serveOwnComment(w http.ResponseWriter, r *http.Request, ed comm
 		s.commentNotFound(w, r)
 		return
 	}
-	if commentCrossSite(r) {
+	// Edit and delete stay same-origin only: they are per visitor and never appear on static pages.
+	if commentCrossSite(r, statichost.StaticHosting{}) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
