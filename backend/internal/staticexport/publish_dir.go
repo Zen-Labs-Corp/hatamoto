@@ -27,7 +27,7 @@ type DirTarget struct {
 // NewDirTarget checks out against the guard. out must be absolute, must not
 // be "/", must not equal, sit inside or contain a forbidden directory, and
 // an existing non-empty directory must be an earlier export (it holds the
-// manifest file).
+// manifest file). The same holds for an existing <out>.prev.
 func NewDirTarget(out string, g DirGuard) (*DirTarget, error) {
 	if !filepath.IsAbs(out) {
 		return nil, fmt.Errorf("output directory %q must be an absolute path", out)
@@ -64,7 +64,35 @@ func NewDirTarget(out string, g DirGuard) (*DirTarget, error) {
 			}
 		}
 	}
+	if err := checkPrev(out + ".prev"); err != nil {
+		return nil, err
+	}
 	return &DirTarget{out: out}, nil
+}
+
+// checkPrev refuses an existing <out>.prev that an export did not write: the
+// swap replaces it, so anything else there would be deleted.
+func checkPrev(prev string) error {
+	info, err := os.Lstat(prev)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		entries, err := os.ReadDir(prev)
+		if err != nil {
+			return err
+		}
+		if len(entries) == 0 {
+			return nil
+		}
+		if _, err := os.Stat(filepath.Join(prev, ManifestFile)); err == nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("%s exists and was not written by a static export (no %s); the export would replace it, so move it away first", prev, ManifestFile)
 }
 
 // resolve makes p absolute and follows symlinks as far as the path exists.

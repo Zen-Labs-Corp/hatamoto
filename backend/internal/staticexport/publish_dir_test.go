@@ -167,6 +167,31 @@ func TestDirTarget_GuardRefuses(t *testing.T) {
 	}
 }
 
+func TestDirTarget_ForeignPrevRefused(t *testing.T) {
+	root := t.TempDir()
+	out := filepath.Join(root, "site")
+	prev := out + ".prev"
+	if err := os.MkdirAll(prev, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	keep := filepath.Join(prev, "backup.txt")
+	if err := os.WriteFile(keep, []byte("mine"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewDirTarget(out, DirGuard{}); err == nil {
+		t.Fatal("a foreign .prev must be refused")
+	}
+	if _, err := os.Stat(keep); err != nil {
+		t.Fatalf("foreign .prev touched: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(prev, ManifestFile), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewDirTarget(out, DirGuard{}); err != nil {
+		t.Fatalf("an export's own .prev must be accepted: %v", err)
+	}
+}
+
 func TestDirTarget_PreviousManifest(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "site")
 	tg, _ := NewDirTarget(out, DirGuard{})
