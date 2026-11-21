@@ -4,7 +4,7 @@ package authbridge
 
 import (
 	"context"
-	"encoding/json"
+	"hatamoto.dev/core/internal/jsonx"
 	"strings"
 	"testing"
 	"time"
@@ -52,7 +52,7 @@ func (r *provisionerAuditRig) only(t *testing.T, action string) auditstate.Event
 // noSecrets fails when any event carries the subject, a token or a path to one.
 func (r *provisionerAuditRig) noSecrets(t *testing.T, secrets ...string) {
 	t.Helper()
-	b, _ := json.Marshal(r.events)
+	b, _ := jsonx.Marshal(r.events)
 	for _, s := range secrets {
 		if strings.Contains(string(b), s) {
 			t.Fatalf("event leaks %q: %s", s, b)

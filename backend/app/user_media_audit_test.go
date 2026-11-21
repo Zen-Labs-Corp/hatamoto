@@ -5,7 +5,7 @@ package app
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"hatamoto.dev/core/internal/jsonx"
 	"strings"
 	"testing"
 	"time"
@@ -36,7 +36,7 @@ func cliUserMediaAuditRows(t *testing.T, db *database.DB, action string) []cliUs
 		if err := rows.Scan(&r.Actor, &r.Kind, &r.Target, &raw); err != nil {
 			t.Fatal(err)
 		}
-		if err := json.Unmarshal(raw, &r.Detail); err != nil {
+		if err := jsonx.Unmarshal(raw, &r.Detail); err != nil {
 			t.Fatal(err)
 		}
 		out = append(out, r)
