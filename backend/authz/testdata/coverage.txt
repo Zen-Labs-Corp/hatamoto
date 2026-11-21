@@ -1,0 +1,86 @@
+# Every authorization gate in core and the catalogue action(s) it maps to.
+# Checked by coverage_test.go: every action exists, every catalogue action is
+# cited, every file exists, and each file has one "group" row per
+# RequireRole( / RequireOwnerOrKeyScope( line in internal/admin and
+# internal/server (a new gate needs a row, and an action if none fits).
+#
+# <backend-relative path> group|inline <action>[,<action>...]   # <line at d1f7504a8> <note>
+#
+# group  = a RequireRole / RequireOwnerOrKeyScope line (counted by the test)
+# inline = any other gate: an owner/editor check in a handler, a key scope
+#          check, or a route open to every signed-in user
+
+# --- admin: RequireRole groups ---
+internal/admin/admin.go group admin.styleguide                       # :563 GET /_styleguide
+internal/admin/builder_reuse.go group builder.block.manage           # :46 blocks, make-block, templates
+internal/admin/entities.go group entity.create                       # :49 POST /entities/drafts
+internal/admin/entities.go group entity.reorder,entity.export        # :50 order, export, move
+internal/admin/entities.go group entity.handback                     # :59 hand back from a plugin
+internal/admin/entities.go group entity.duplicate                    # :63
+internal/admin/entities.go group entity.share                        # :72 share links
+internal/admin/entities.go group entity.translate                    # :76 translation links
+internal/admin/entities.go group entity.version.restore              # :84 restore a builder node version
+internal/admin/entities.go group entity.read                         # :85 node versions JSON
+internal/admin/comments_routes.go group comment.moderate,comment.read,comment.settings.read,comment.blocklist.manage  # :14 owner or editor
+internal/admin/comments_routes.go group comment.settings.manage      # :15 owner
+internal/admin/import.go group import.run                            # :94
+internal/admin/media.go group media.settings.manage                  # :31 formats, rebuild
+internal/admin/page_editor.go group builder.preset.create            # :83
+internal/admin/people.go group person.manage                         # :25
+internal/admin/plugins.go group plugin.manage,plugin.grant           # :32 owner
+internal/admin/plugins.go group plugin.view                          # :33 owner or editor
+internal/admin/plugins_changeset.go group plugin.changeset.review    # :51
+internal/admin/pluginui.go group plugin.ui.access                    # :58
+internal/admin/schemas.go group schema.manage                        # :26
+internal/admin/settings.go group settings.manage,audit.read,apikey.manage,webhook.manage  # :33 every settings sub-page
+internal/admin/setup.go group setup.run                              # :77 wizard
+internal/admin/setup.go group setup.run                              # :94 done page
+internal/admin/taxonomies.go group term.manage                       # :20
+internal/admin/themes.go group theme.manage                          # :23
+internal/admin/themes.go group theme.preview                         # :48
+internal/admin/users.go group user.manage,user.delete                # :145
+
+# --- server (REST /api/v1): RequireRole and RequireOwnerOrKeyScope groups ---
+internal/server/render_hooks.go group render.preview                 # :307
+internal/server/seo_settings_handlers.go group settings.seo.read,settings.seo.write  # :24 owner, or key scope
+internal/server/server_core.go group cache.flush                     # :55
+internal/server/server_core.go group user.manage                     # :72
+internal/server/server_core.go group plugin.manage,plugin.grant      # :83
+internal/server/server_core.go group schema.manage                   # :102
+internal/server/server_core.go group apikey.manage                   # :181
+internal/server/server_core.go group robots.policy.write             # :248
+internal/server/server_core.go group author.manage                   # :253
+internal/server/server_core.go group term.manage                     # :267
+internal/server/server_core.go group entity.terms.update             # :278
+internal/server/site_settings_handlers.go group settings.manage,theme.manage  # :140
+
+# --- inline gates in admin handlers ---
+internal/admin/analytics_traffic_settings.go inline analytics.settings.manage  # :11
+internal/admin/analytics.go inline analytics.read                    # analytics pages, any signed-in user
+internal/admin/comments_commenters.go inline comment.commenter.export,comment.commenter.erase  # :419,:425 owner (+ password recheck)
+internal/admin/dashboard.go inline dashboard.read                    # :584
+internal/admin/builder_editor.go inline builder.style                # :164 canStyle is owner only
+internal/admin/entity_edit.go inline entity.update,entity.publish,entity.unpublish,entity.delete  # any signed-in user
+internal/admin/media.go inline media.read,media.upload,media.update,media.delete  # /media/* open to any signed-in user
+internal/admin/forms.go inline form.settings.manage                  # :68,:150 owner controls
+internal/admin/analytics_conversions.go inline form.submission.read  # :35
+internal/admin/menus.go inline menu.manage,menu.read                 # /theme/menus, any signed-in user
+internal/admin/translations.go inline entity.translate               # :92
+internal/admin/entity_ownership_panel.go inline entity.handback      # :31,:69 handBackRoles card gate
+internal/admin/entities.go inline entity.read                        # any signed-in user: view, edit
+
+# --- inline gates in REST handlers ---
+internal/server/comment_post.go inline comment.reply_as_staff        # :195
+internal/server/form_handlers.go inline form.read,form.submission.read  # :1062
+internal/server/handlers.go inline user.owner.grant,user.delete,user.manage  # :290,:307,:399,:408,:429,:439,:539
+internal/auth/usertokens.go inline user.owner.grant                  # :208,:275
+internal/server/server_core.go inline profile.update,link.insert,link.suggest,redirect.read,redirect.manage,analytics.read  # routes open to any signed-in user or a key
+internal/pluginhost/routes.go inline plugin.route.invoke             # :166-176 route roles stay at the call site
+internal/admin/pluginui.go inline plugin.ui.host                 # :284 host page is owner only
+
+# --- API key scopes ---
+internal/middleware/apikey_route_auth.go inline entity.read,entity.update,entity.create,entity.publish,entity.unpublish,entity.version.restore,media.read,media.upload,form.read,form.submission.read  # :36-70 REST allowlist
+internal/mcpserver/tools_content.go inline entity.takeover,entity.duplicate,entity.reorder,menu.read,menu.manage,redirect.read,redirect.manage,schema.read,term.read,term.manage,media.upload  # MCP tools
+internal/mcpserver/tools_comments.go inline comment.read,comment.moderate,comment.reply_as_staff  # :79-152
+internal/mcpserver/tools_insight.go inline analytics.read           # :75-181
+internal/mcpserver/tools_seo.go inline settings.seo.read,settings.seo.write  # :59-140
