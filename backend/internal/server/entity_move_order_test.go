@@ -51,13 +51,18 @@ func TestPatchEntityPosition(t *testing.T) {
 	userID := uuid.New()
 	r.exec(`INSERT INTO hatamoto_users (id, email) VALUES ($1, $2)`, userID, userID.String()+"@example.test")
 	t.Cleanup(func() { r.exec(`DELETE FROM hatamoto_users WHERE id = $1`, userID) })
-	patch := func(body string) *httptest.ResponseRecorder {
+	patchAs := func(role, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest("PATCH", "/api/v1/entities/"+b.ID.String(), strings.NewReader(body))
 		req.SetPathValue("id", b.ID.String())
-		req = req.WithContext(middleware.ContextWithClaims(req.Context(), &auth.Claims{UserID: userID}))
+		req = req.WithContext(middleware.ContextWithClaims(req.Context(), &auth.Claims{UserID: userID, Role: role}))
 		rec := httptest.NewRecorder()
 		r.srv.handleUpdateEntity(rec, req)
 		return rec
+	}
+	// the handler runs without the role gate here, so the session carries its role
+	patch := func(body string) *httptest.ResponseRecorder { return patchAs("editor", body) }
+	if rec := patchAs("", `{"position":1}`); rec.Code != 403 {
+		t.Fatalf("session without a role: %d %s", rec.Code, rec.Body)
 	}
 	rec := patch(`{"position":1}`)
 	if rec.Code != 200 {
