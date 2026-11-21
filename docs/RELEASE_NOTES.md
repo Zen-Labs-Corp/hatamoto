@@ -77,11 +77,11 @@
 - **Migration.** Three columns on `hatamoto_changesets` (`kind`, `requested_by`, `stages`, all with defaults) and one new table, `hatamoto_changeset_stage_decisions`. Expand only. Rollback floor: unchanged. Existing changesets stay plain run changesets.
 ## Unreleased: run one site on several servers
 
-- **Scheduled jobs.** With several servers on one database, housekeeping jobs and plugin cron jobs now run on one server per interval; the others skip that tick. A server is named by the new `HATAMOTO_INSTANCE_ID`, or by its host name when that is unset. In containers, set a stable `HATAMOTO_INSTANCE_ID`: a changed name can skip one run after a restart. A failed claim query runs the job anyway and logs a warning. One server behaves as before.
+- **Scheduled jobs.** With several servers on one database, housekeeping jobs and plugin cron jobs now run on one server per interval; the others skip that tick. A failed claim query runs the job anyway and logs a warning. One server behaves as before.
 - **Previews.** The one-time tickets behind the builder canvas, draft previews and plugin admin pages are kept in the database, so a ticket minted on one server opens on another. No sticky sessions are needed.
 - **Cache purge.** `HATAMOTO_PURGE_URL` (with `HATAMOTO_PURGE_TOKEN` and `HATAMOTO_PURGE_ALLOW_PRIVATE`) makes the server send changed public URLs to a webhook, so an edge cache can drop them. `off` or unset sends nothing.
 - **Wrapper modules.** A new public Go package, `hatamoto.dev/core/purge`, lets a module that calls `app.Main` register one purger from an `init` function. Each call is limited to 10 seconds.
-- **Docs.** [Scaling](SCALING.md) and the operator pages describe the setup; ADR 0011 records the purge hook.
+- **Docs.** [Scaling](SCALING.md) and the operator pages describe the setup; ADR 0013 records the purge hook.
 - **Migration.** Two new tables, `hatamoto_job_claims` and `hatamoto_frame_tickets`. Expand only. Rollback floor: unchanged.
 
 ## Unreleased: authorization interface
