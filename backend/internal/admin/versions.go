@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
@@ -75,7 +76,7 @@ func (a *Admin) handleVersions(w http.ResponseWriter, r *http.Request) {
 	}
 	d := versionsData{Name: e.Name, ID: id, Tabs: a.entityTabsFor(r.Context(), e, "versions"), Count: len(vs), Actions: []ui.Button{back},
 		Rule: fmt.Sprintf("Keeps the last %d versions of each item, and every version that was live in the last 30 days. Older ones are removed daily.", keep)}
-	if u := userFrom(r.Context()); u != nil && u.Role == "owner" && a.deps.VersionRetention != nil {
+	if a.can(r.Context(), authz.ActionSettingsManage) && a.deps.VersionRetention != nil {
 		d.SettingsHref = a.adminPath + versionRetentionPath
 	}
 	t := ui.Table{

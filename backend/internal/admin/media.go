@@ -396,7 +396,7 @@ func (a *Admin) handleMedia(w http.ResponseWriter, r *http.Request) {
 	if !IsHTMX(r) && page == 1 && q == "" && typ == "" && folder == "" {
 		d.Storage, d.StorageNote, d.StorageSize = a.mediaStorage(ctx, ms)
 	}
-	if u := userFrom(ctx); u != nil && u.Role == "owner" {
+	if a.can(ctx, authz.ActionMediaSettingsManage) {
 		d.Formats = a.mediaFormatsView(ctx)
 	}
 	d.Page = ui.Pagination{Page: page, PerPage: per, Total: res.Total, BaseURL: a.adminPath + "/media", Query: pq}

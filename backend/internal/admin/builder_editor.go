@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"slices"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/builder"
@@ -159,10 +160,7 @@ func (a *Admin) builderShellData(r *http.Request, e *entity.Entity, sc *entity.E
 		}
 	}
 	// Site styles is owner only (the Theme routes are): editors get neither the flag nor the values.
-	canStyle := false
-	if u := userFrom(r.Context()); u != nil {
-		canStyle = u.Role == "owner"
-	}
+	canStyle := a.can(r.Context(), authz.ActionBuilderStyle)
 	var siteStyles *bootSiteStyles
 	if canStyle {
 		if cfg, err := a.loadSite(r.Context()); err == nil {

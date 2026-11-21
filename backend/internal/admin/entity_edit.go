@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/entity"
@@ -617,7 +618,7 @@ func (a *Admin) fill(r *http.Request, f *entityForm, sc *entity.EntitySchema, se
 			f.KindOptions = kindOptions(kinds, f.NewTermKind)
 			f.SEO.PrimaryTerms = primaryTermOptions(f.TermGroups, f.SEO.PrimaryTerm)
 		}
-		if u := userFrom(ctx); u != nil && u.Role == "owner" {
+		if a.can(ctx, authz.ActionTermManage) {
 			f.CanCreateTerm = f.ShowTerms
 		}
 	}
@@ -949,7 +950,7 @@ func (a *Admin) handleEntityNew(w http.ResponseWriter, r *http.Request) {
 		choices = append(choices, choice{Name: sc.Name, Description: d, Href: a.adminPath + "/entities/new?type=" + url.QueryEscape(sc.Slug), Icon: typeIcon(sc.Slug), Slug: sc.Slug, Draft: draftType(sc)})
 	}
 	empty := ui.Empty{Icon: "file-text", Title: "No entity types yet", Body: "An entity type describes the fields of a kind of content."}
-	if u := userFrom(r.Context()); u != nil && u.Role == "owner" {
+	if a.can(r.Context(), authz.ActionSchemaManage) {
 		empty.Actions = []ui.Button{{Label: "Create an entity type", Variant: "primary", Href: a.adminPath + "/settings/types/new"}}
 	}
 	v := a.NewView(w, r, "New entity")
@@ -1314,7 +1315,7 @@ func (a *Admin) afterSave(r *http.Request, p *posted, e *entity.Entity, sc *enti
 			created = append(created, newTerm{Kind: kind, Name: name})
 		}
 		if len(created) > 0 {
-			if u := userFrom(ctx); u == nil || u.Role != "owner" {
+			if !a.can(ctx, authz.ActionTermManage) {
 				notes = append(notes, "Only owners can create terms.")
 				created = nil
 			}
