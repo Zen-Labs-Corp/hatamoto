@@ -14,7 +14,7 @@ import (
 
 // bootRoutes runs the real setupRoutes and returns the full handler plus the
 // server. Booting must not panic.
-func bootRoutes(t *testing.T) (http.Handler, *Server) {
+func bootRoutes(t testing.TB) (http.Handler, *Server) {
 	t.Helper()
 	s, err := routeShell()
 	if err != nil {

@@ -153,6 +153,9 @@ type renderHandlers struct {
 	// conditional requests with 304. A pointer shared by forRequest's shallow
 	// copies; nil = off.
 	validators *pageValidators
+	// notFound keeps rendered 404 bodies per path until the next page-cache
+	// drop; nil = off. Shared by forRequest's shallow copies.
+	notFound *notFoundCache
 	// slot personalises the comment form of a page body per view; nil = off.
 	slot *commentSlot
 	// commentBypass sends a visitor with own non-public comments around the
@@ -198,6 +201,7 @@ func (s *Server) newRenderHandlers(engine pageRenderer, pageCache *cache.Cache) 
 		communityPlugin:  s.communityPlugin,
 		// Demo pages get their banner from a middleware that needs plain bytes.
 		encodeCached: func() bool { return s.compressOn.Load() && !s.demoOn() },
+		notFound:     newNotFoundCache(),
 	}
 	// Demo pages get their banner from a middleware that rewrites the body, so
 	// an ETag of the cached bytes would not describe what goes out.
@@ -804,18 +808,65 @@ func (h *renderHandlers) writeNotFound(w http.ResponseWriter, r *http.Request, p
 // writeNotFoundQuiet is writeNotFound without the 404-log entry, for pages that
 // exist but are not Go-served (a gate refusal is not a broken link).
 func (h *renderHandlers) writeNotFoundQuiet(w http.ResponseWriter, r *http.Request) {
-	v := h.errorView(r, &routeResult{NotFound: true})
-	var buf bytes.Buffer
-	if err := h.engine.RenderNotFound(&buf, v); err != nil {
-		h.logger.ErrorContext(r.Context(), "render: 404", "error", err)
-		http.Error(w, "not found", http.StatusNotFound)
-		return
+	key, gen, storeOK := h.notFoundKey(r) // gen before any page data is read
+	now := time.Now()
+	var body []byte
+	hit := false
+	if storeOK {
+		body, hit = h.notFound.get(key, gen, now)
 	}
-	body := buf.Bytes()
+	if !hit {
+		// Only a miss pays for this: a stored body was built from a healthy
+		// snapshot and stays readable, but a degraded one must not be kept.
+		storeOK = storeOK && !h.snapshotDegraded(r.Context())
+		before := render.DegradedCount()
+		var failuresBefore int64
+		if h.dataFailures != nil {
+			failuresBefore = h.dataFailures()
+		}
+		v, built := h.errorViewBuilt(r, &routeResult{NotFound: true})
+		var buf bytes.Buffer
+		if err := h.engine.RenderNotFound(&buf, v); err != nil {
+			h.logger.ErrorContext(r.Context(), "render: 404", "error", err)
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		body = buf.Bytes()
+		degraded := bytes.Contains(body, []byte(render.SectionFailedMarker)) ||
+			(v.Uncacheable != nil && *v.Uncacheable) ||
+			render.DegradedCount() != before ||
+			(h.dataFailures != nil && h.dataFailures() != failuresBefore)
+		if storeOK && built && !degraded && !v.Preview && !v.Dynamic && !database.PoolBusyHit(r.Context()) {
+			h.notFound.put(key, body, gen, now.Add(h.pageTTLFor(v)))
+		}
+	}
+	// Per request and after the store: the store keeps the template bytes.
 	if out, ok := h.staticPage(r, body); ok {
 		body = out
 	}
 	h.writeHTML(w, r, http.StatusNotFound, body, true)
+}
+
+// notFoundKey is the store key of a 404 for r and the page-cache token to
+// check it against; ok is false when this 404 must be rendered afresh and not
+// stored (the same rules as a page-cache read, and any query). The snapshot
+// state is checked by the caller, on a miss only.
+func (h *renderHandlers) notFoundKey(r *http.Request) (key string, gen uint64, ok bool) {
+	if h.notFound == nil || h.cache == nil || !h.baseURLPinned || !h.runtime.Enabled() {
+		return "", 0, false
+	}
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return "", 0, false
+	}
+	path := requestPath(r)
+	ctx := r.Context()
+	if r.URL.RawQuery != "" || len(path) > maxNotFoundPath ||
+		h.uncached || uncachedRequest(ctx) || h.commentBypass.applies(r) ||
+		isSmokeRequest(ctx) || refreshRequested(ctx) || hiddenLocalesServed(ctx) ||
+		h.pageFilter.Applies(path) {
+		return "", 0, false
+	}
+	return h.engine.Version() + "\x00" + path, h.cache.Generation(), true
 }
 
 // writeFailure maps a loader error to a themed error page.
@@ -865,12 +916,20 @@ func (h *renderHandlers) writeError(w http.ResponseWriter, r *http.Request, stat
 // errorView builds the site chrome for an error page; if even that fails the
 // page renders without it.
 func (h *renderHandlers) errorView(r *http.Request, rr *routeResult) *render.PageView {
+	v, _ := h.errorViewBuilt(r, rr)
+	return v
+}
+
+// errorViewBuilt is errorView that also reports whether the full view was
+// built (false: the chrome-less fallback, never stored).
+func (h *renderHandlers) errorViewBuilt(r *http.Request, rr *routeResult) (*render.PageView, bool) {
 	v, err := h.buildView(r.Context(), r, rr)
-	if err != nil || v == nil {
+	built := err == nil && v != nil
+	if !built {
 		v = &render.PageView{BaseURL: determineBaseURL(r), Path: requestPath(r)}
 	}
 	v.Ctx = r.Context()
-	return v
+	return v, built
 }
 
 // directoryMarker is how writeHTML recognises a rendered page with a plugin

@@ -16,7 +16,7 @@ import (
 
 // bootThemed404 is bootRoutes with the render handlers given the loaders a
 // database would supply, so a random public path ends in the real themed 404.
-func bootThemed404(t *testing.T) (http.Handler, *Server) {
+func bootThemed404(t testing.TB) (http.Handler, *Server) {
 	t.Helper()
 	h, s := bootRoutes(t)
 	publicThemeFixture(t, s)
@@ -24,7 +24,7 @@ func bootThemed404(t *testing.T) (http.Handler, *Server) {
 }
 
 // publicThemeFixture gives the route shell a themed, database-free public site.
-func publicThemeFixture(t *testing.T, s *Server) {
+func publicThemeFixture(t testing.TB, s *Server) {
 	t.Helper()
 	rh := s.renderHandlers
 	if rh == nil {
@@ -83,6 +83,9 @@ func serveDump(h http.Handler, method, target string) string {
 func TestStandardNotFoundMatchesRandom404(t *testing.T) {
 	full, s := bootThemed404(t)
 	s.registerNotFound()
+	// No store: the refusal must be compared with its own render, not with
+	// the body the public request just stored.
+	s.renderHandlers.notFound = nil
 	for _, target := range []string{"/no-such-page-q7x2", "/wp-login.php", "/a/b/c?x=1"} {
 		public := serveDump(full, "GET", target)
 		if !strings.HasPrefix(public, "404\n") || !strings.Contains(public, "<html") {
