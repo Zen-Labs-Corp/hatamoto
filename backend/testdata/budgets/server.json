@@ -13,27 +13,23 @@
       "tol_abs": 64
     },
     "render_queries_404": {
-      "value": 9,
+      "value": 6,
       "unit": "queries"
     },
     "render_queries_archive": {
-      "value": 14,
+      "value": 9,
       "unit": "queries"
     },
     "render_queries_entity": {
-      "value": 14,
+      "value": 6,
       "unit": "queries"
     },
     "render_queries_home": {
-      "value": 13,
+      "value": 6,
       "unit": "queries"
     }
   },
   "history": [
-    {
-      "reason": "admin-shell-auth: notices strip, segmented, radiocard, shell logic, auth pages",
-      "date": "2026-10-23"
-    },
     {
       "reason": "ai-analytics-redesign: SVG chart engine and five analytics sections replace Chart.js (-208 KB vendor)",
       "date": "2026-10-23"
@@ -108,6 +104,10 @@
     },
     {
       "reason": "add render query-count budgets",
+      "date": "2026-11-21"
+    },
+    {
+      "reason": "batch cache-miss render lookups",
       "date": "2026-11-21"
     }
   ]
