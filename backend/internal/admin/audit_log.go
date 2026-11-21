@@ -287,6 +287,9 @@ func (a *Admin) handleAuditLog(w http.ResponseWriter, r *http.Request) {
 	from, to, fromShown := auditRange(p, loc, now)
 	p.from = auditDayValue(p.from, loc, now)
 	p.to = auditDayValue(p.to, loc, now)
+	if p.from != "" && p.to != "" && p.from > p.to {
+		p.from, p.to = p.to, p.from
+	}
 	q.From, q.To, q.Limit = from, to, auditLogPer
 	q.Before = decodeAuditCursor(qv.Get("before"))
 	page, err := a.deps.AuditLog.Search(ctx, q)
