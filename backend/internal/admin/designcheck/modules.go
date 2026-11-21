@@ -27,7 +27,8 @@ var (
 	modClassDef   = regexp.MustCompile(`\.([A-Za-z_][\w-]*)`)
 	modStyleTag   = regexp.MustCompile(`(?i)<style\b`)
 	modStyleAttr  = regexp.MustCompile(`(?i)<[a-z][^>]*\sstyle\s*=`)
-	modClassValue = regexp.MustCompile(`(?i)\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')`)
+	modClassValue = regexp.MustCompile(`(?i)\bclass(?:\s*=\s*(?:"([^"]*)"|'([^']*)')|=([^\s"'>]+))`)
+	modCSSURL     = regexp.MustCompile(`(?i)url\([^)]*\)`)
 
 	coreClassesOnce sync.Once
 	coreClasses     map[string]bool
@@ -87,6 +88,9 @@ func lintMOD01(f uiFile, classes map[string]bool, add func(int, string, string))
 		if start < 0 {
 			start, end = m[4], m[5]
 		}
+		if start < 0 { // unquoted value
+			start, end = m[6], m[7]
+		}
 		for _, tok := range tokenSpans(src[start:end]) {
 			c := src[start+tok[0] : start+tok[1]]
 			if strings.HasPrefix(c, "-") || strings.HasSuffix(c, "-") || classes[c] {
@@ -142,7 +146,9 @@ func coreAdminClasses() (map[string]bool, error) {
 			if err != nil {
 				return err
 			}
-			for _, m := range modClassDef.FindAllStringSubmatch(blankComments(string(b)), -1) {
+			// A file name in url(x.svg) is not a class.
+			css := modCSSURL.ReplaceAllString(blankComments(string(b)), "url()")
+			for _, m := range modClassDef.FindAllStringSubmatch(css, -1) {
 				coreClasses[m[1]] = true
 			}
 			return nil

@@ -88,3 +88,30 @@ func TestCheckModuleIgnoresActionsAndNonHTML(t *testing.T) {
 		t.Errorf("css file checked: %q", got)
 	}
 }
+
+func TestCheckModuleUnquotedClass(t *testing.T) {
+	t.Parallel()
+	got := checkModule(t, "pages/x.html", modHead+"<div class=example-fancy>x</div>\n<p class=hm-muted>ok</p>{{end}}")
+	wantRule(t, got, "MOD-01", "example-fancy")
+	for _, g := range got {
+		if strings.Contains(g, `"hm-muted"`) {
+			t.Errorf("core class flagged: %s", g)
+		}
+	}
+	// An action in place of the value must not swallow the next attribute.
+	if got := checkModule(t, "pages/x.html", modHead+"<p class={{.Data.Cls}} id=a>ok</p>{{end}}"); len(got) != 0 {
+		t.Errorf("action value flagged: %q", got)
+	}
+}
+
+func TestCheckModuleURLFileNameIsNotAClass(t *testing.T) {
+	t.Parallel()
+	classes, err := coreAdminClasses()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if classes["woff2"] {
+		t.Error("a font file name in url() counted as a class")
+	}
+	wantRule(t, checkModule(t, "pages/x.html", modHead+`<p class="woff2">x</p>{{end}}`), "MOD-01", "woff2")
+}
