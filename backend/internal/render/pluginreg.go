@@ -56,6 +56,9 @@ type pluginRegistry struct {
 	// refusal cannot trigger a rebuild.
 	refused  map[string][]string
 	compiled map[string][]string
+	// beforeNote, when set, runs at the start of noteCompileRefused, outside
+	// the lock (test seam: orders a RemovePlugin against a compile).
+	beforeNote func()
 	// gate memoises the script/call-graph gate (a sample render of every
 	// template) for one registry generation and grant state. gateMu is never
 	// held together with mu while scanning.
@@ -137,12 +140,21 @@ func (r *pluginRegistry) noteRefused(plugin string, err error) {
 }
 
 // noteCompileRefused replaces the compile-time record of each plugin in
-// plugins with why[plugin] (none: the record is cleared).
+// plugins with why[plugin] (none: the record is cleared). A plugin that no
+// longer owns anything was removed while the compile ran: its record is
+// dropped, never recreated from the stale snapshot.
 func (r *pluginRegistry) noteCompileRefused(plugins []string, why map[string][]string) {
+	if h := r.beforeNote; h != nil {
+		h()
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	owns := make(map[string]bool, len(r.owner))
+	for _, p := range r.owner {
+		owns[p] = true
+	}
 	for _, p := range plugins {
-		if l := why[p]; len(l) > 0 {
+		if l := why[p]; len(l) > 0 && owns[p] {
 			r.compiled[p] = slices.Clone(l)
 		} else {
 			delete(r.compiled, p)
