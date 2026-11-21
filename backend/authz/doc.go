@@ -70,6 +70,15 @@
 // screens and routes (entities, editors and media). A policy that does not
 // delegate to Default must answer both, or every such request is refused,
 // owners included.
+// To stop all writes, deny ActionContentWrite as well as ActionSiteWrite:
+// denying only ActionSiteWrite no longer blocks entity and media writes.
+//
+// The entity service asks ActionEntityCreate, ActionEntityUpdate,
+// ActionEntityPublish, ActionEntityUnpublish, ActionEntityDelete and
+// ActionEntityVersionRestore with the entry's Object for every caller made
+// with a subject, owners included (admin, REST API, MCP and the CLI with
+// --as). A strict allow-list policy must answer them. Work without a subject
+// (the scheduler, workers, the CLI without --as) is not asked.
 //
 // # Objects
 //
