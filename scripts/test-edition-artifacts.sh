@@ -130,4 +130,44 @@ if grep -rq -- "$TOKEN" "$W/out" "$STUB_LOG"; then fail "the token was printed";
 if grep -qE '^[[:space:]]*set .*-[a-zA-Z]*x' "$SCRIPT"; then fail "script must not use set -x"; fi
 pass "the token is never printed"
 
+# --- ISC-7 / ISC-8: a record built from a local edition dir carries the edition
+( cd backend && go build -o "$W/release" ./tools/release )
+TOOL="$W/release"
+make_dist() { # make_dist <dir>: four community files and the build facts
+  local d=$1 p i=0
+  rm -rf "$d"; mkdir -p "$d"
+  for p in "${PLATS[@]}"; do i=$((i + 1)); head -c $((200 + i)) /dev/urandom > "$d/hatamoto-$p"; done
+  echo '{"version":"'$TAG'","commit":"abc","sdk":"0.10.0","schema_head":1}' > "$W/facts.json"
+}
+record() { "$TOOL" record --version $TAG --kind minor --facts "$W/facts.json" --rollback-floor v0.0.0 \
+  --min-from v0.0.0 --notes-url https://example.test/notes --dir "$1" --out "$1/release.json" >/dev/null; }
+make_src "$W/src"; make_dist "$W/d1"
+run RELEASE_EDITIONS="$ED" bash "$SCRIPT" local --tag $TAG --from "$W/src" --dist "$W/d1"
+[[ $RC -eq 0 ]] || fail "local copy failed: $(cat "$W/out/$OUT_N")"
+record "$W/d1"
+[[ $(jq --arg e "$ED" '.editions[$e] | length' "$W/d1/release.json") -eq 4 ]] || fail "record lacks four $ED platforms"
+for p in "${PLATS[@]}"; do
+  want=$(sha256sum "$W/src/hatamoto-$ED-$p" | cut -d' ' -f1)
+  got=$(jq -r --arg e "$ED" --arg p "$p" '.editions[$e][$p].sha256' "$W/d1/release.json")
+  [[ $want == "$got" ]] || fail "record sha256 for $p differs from the source file"
+done
+pass "record --dir on a locally filled dist writes editions.$ED with the source hashes"
+
+run RELEASE_EDITIONS="$ED" bash "$SCRIPT" require --record "$W/d1/release.json"
+[[ $RC -eq 0 ]] || fail "require must pass on a complete record"
+make_dist "$W/d2"; record "$W/d2"
+run RELEASE_EDITIONS="$ED" bash "$SCRIPT" require --record "$W/d2/release.json"
+[[ $RC -ne 0 ]] || fail "require must fail when the edition is missing"
+jq --arg e "$ED" 'del(.editions[$e]["linux-arm64"])' "$W/d1/release.json" > "$W/partial.json"
+run RELEASE_EDITIONS="$ED" bash "$SCRIPT" require --record "$W/partial.json"
+[[ $RC -ne 0 ]] || fail "require must fail on a partial edition"
+run RELEASE_EDITIONS= bash "$SCRIPT" require --record "$W/d2/release.json"
+[[ $RC -eq 0 ]] || fail "require must pass with no opt-in"
+pass "require checks every opted-in edition and passes with no opt-in"
+
+make_src "$W/src"; echo x >> "$W/src/hatamoto-$ED-linux-amd64"; make_dist "$W/d3"; BEFORE=$(snap "$W/d3")
+run RELEASE_EDITIONS="$ED" bash "$SCRIPT" local --tag $TAG --from "$W/src" --dist "$W/d3"
+[[ $RC -ne 0 ]] && [[ $(snap "$W/d3") == "$BEFORE" ]] || fail "local with a bad checksum must fail and leave dist unchanged"
+pass "local mode with a bad SHA256SUMS fails, dist unchanged"
+
 echo "ALL PASS"
