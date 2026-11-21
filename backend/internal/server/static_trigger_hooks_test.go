@@ -68,7 +68,7 @@ func TestStaticTriggerHooks(t *testing.T) {
 		{"site settings", func(s *Server) { s.invalidateSiteSettings(ctx) }, true, "change,settings"},
 		{"theme", func(s *Server) { s.onThemeChange(ctx) }, true, "change,theme"},
 		{"scheduled publish", func(s *Server) {
-			scheduledPublishSink{s: s, next: noopPublished{}}.EntityPublished(ctx, uuid.New(), "page", "p", "P", 1)
+			scheduledPublishSink{s: s, next: noopStaticTriggerSink{}}.EntityPublished(ctx, uuid.New(), "page", "p", "P", 1)
 		}, false, "change"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -82,9 +82,10 @@ func TestStaticTriggerHooks(t *testing.T) {
 	}
 }
 
-type noopPublished struct{}
+type noopStaticTriggerSink struct{}
 
-func (noopPublished) EntityPublished(context.Context, uuid.UUID, string, string, string, int) {}
+func (noopStaticTriggerSink) EntityPublished(context.Context, uuid.UUID, string, string, string, int) {
+}
 
 func TestStaticTriggerHooksWithoutTrigger(t *testing.T) {
 	s := &Server{logger: quietLogger()}
@@ -94,7 +95,7 @@ func TestStaticTriggerHooksWithoutTrigger(t *testing.T) {
 	s.dropRenderedEntity(ctx, uuid.New())
 	s.notifyRedirectsChanged()
 	s.onThemeChange(ctx)
-	scheduledPublishSink{s: s, next: noopPublished{}}.EntityPublished(ctx, uuid.New(), "page", "p", "P", 1)
+	scheduledPublishSink{s: s, next: noopStaticTriggerSink{}}.EntityPublished(ctx, uuid.New(), "page", "p", "P", 1)
 }
 
 // The boot-time package reconcile reports the installed theme as a change. That
