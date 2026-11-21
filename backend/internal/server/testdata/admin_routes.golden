@@ -72,6 +72,8 @@ GET /admin/forms/submissions/{sid}/delete -> admin.(*Admin).handleSubmissionDele
 GET /admin/forms/submissions/{sid}/files/{field} -> admin.(*Admin).handleSubmissionFile-fm
 GET /admin/login -> admin.(*Admin).handleLoginForm-fm
 GET /admin/login/2fa -> admin.(*Admin).handleTwoStepForm-fm
+GET /admin/login/provider/{id}/callback -> admin.(*Admin).handleProviderCallback-fm
+GET /admin/login/provider/{id}/start -> admin.(*Admin).handleProviderStart-fm
 GET /admin/media -> admin.(*Admin).handleMedia-fm
 GET /admin/media/new -> admin.(*Admin).handleMediaNew-fm
 GET /admin/media/picker -> admin.(*Admin).handleMediaPicker-fm
