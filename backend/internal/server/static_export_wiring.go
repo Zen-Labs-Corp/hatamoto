@@ -100,7 +100,7 @@ func (s *Server) setupStaticExport() {
 
 	if s.emailService != nil && s.userRepo != nil {
 		s.exportNotify = &exportFailNotifier{
-			configured: s.emailService.IsConfigured, owners: s.ownerEmails, site: s.digestSite,
+			configured: s.emailService.IsConfigured, owners: s.ownerEmails, site: liveAdminSite(s.digestSite, settings.Get),
 			location: s.siteLocation, send: s.emailService.SendStaticExportFailed, log: s.logger,
 			previousFailed: func(ctx context.Context, cur uuid.UUID) (bool, error) {
 				list, err := runs.List(ctx, 5)
@@ -136,6 +136,21 @@ func (s *Server) setupStaticExport() {
 	}
 	if s.admin != nil { // already mounted: hand it over directly
 		s.admin.SetHosting(s.hostingSvc)
+	}
+}
+
+// liveAdminSite points the mail's admin link at the live origin. In static
+// mode the Site URL is the CDN or directory that holds the exported files; the
+// admin answers on the live origin, so a link built on the Site URL would land
+// on the exported 404 page. Without a live origin the Site URL is all there is.
+func liveAdminSite(site func(ctx context.Context) (name, base, adminPath string),
+	settings func(ctx context.Context) (staticexport.Settings, bool, error)) func(ctx context.Context) (string, string, string) {
+	return func(ctx context.Context) (string, string, string) {
+		name, base, adminPath := site(ctx)
+		if set, found, err := settings(ctx); err == nil && found && set.Mode == staticexport.ModeStatic && set.LiveOrigin != "" {
+			base = set.LiveOrigin
+		}
+		return name, base, adminPath
 	}
 }
 

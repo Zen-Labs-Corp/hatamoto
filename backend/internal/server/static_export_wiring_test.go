@@ -177,3 +177,29 @@ func TestStaticExportRun_ReachedThroughTrigger(t *testing.T) {
 		t.Fatal("trigger did not run the export")
 	}
 }
+
+func TestLiveAdminSiteUsesLiveOriginInStaticMode(t *testing.T) {
+	site := func(context.Context) (string, string, string) {
+		return "Site", "https://cdn.example.com", "/secret-admin"
+	}
+	get := func(set staticexport.Settings, found bool) func(context.Context) (staticexport.Settings, bool, error) {
+		return func(context.Context) (staticexport.Settings, bool, error) { return set, found, nil }
+	}
+	static := staticexport.Settings{Mode: staticexport.ModeStatic, LiveOrigin: "https://live.example.com"}
+	for _, tc := range []struct {
+		name  string
+		set   staticexport.Settings
+		found bool
+		want  string
+	}{
+		{"static with live origin", static, true, "https://live.example.com"},
+		{"static without live origin", staticexport.Settings{Mode: staticexport.ModeStatic}, true, "https://cdn.example.com"},
+		{"served", staticexport.Settings{Mode: staticexport.ModeServed, LiveOrigin: "https://live.example.com"}, true, "https://cdn.example.com"},
+		{"no row", static, false, "https://cdn.example.com"},
+	} {
+		_, base, adminPath := liveAdminSite(site, get(tc.set, tc.found))(context.Background())
+		if base != tc.want || adminPath != "/secret-admin" {
+			t.Errorf("%s: base %q admin %q, want %q", tc.name, base, adminPath, tc.want)
+		}
+	}
+}
