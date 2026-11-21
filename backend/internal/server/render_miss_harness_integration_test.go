@@ -178,9 +178,13 @@ func countStmts(stmts []string, re *regexp.Regexp) int {
 
 var volatileHTML = regexp.MustCompile(`(nonce|csrf[-_a-z]*)="[^"]*"`)
 
-// normaliseHTML strips per-request volatile attribute values only.
+var footerYear = regexp.MustCompile(`&copy; \d{4} `)
+
+// normaliseHTML strips per-request volatile attribute values and the footer
+// year (the theme prints the wall-clock year).
 func normaliseHTML(s string) string {
-	return volatileHTML.ReplaceAllString(s, `$1=""`)
+	s = volatileHTML.ReplaceAllString(s, `$1=""`)
+	return footerYear.ReplaceAllString(s, `&copy; YEAR `)
 }
 
 // TestRenderMissGoldens pins the HTML of a cache-miss render, so batching the
