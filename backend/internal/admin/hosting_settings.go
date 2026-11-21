@@ -270,11 +270,23 @@ func hostingNotes(msg string) []string {
 // hostingInputFrom reads the posted form. The secret key is taken as typed.
 func hostingInputFrom(form url.Values) HostingInput {
 	typed := func(k string) string { return strings.TrimSpace(form.Get(k)) }
-	return HostingInput{
+	in := HostingInput{
 		Mode: typed("mode"), Target: typed("target"), Dir: typed("dir"), Service: typed("service"),
 		Endpoint: typed("endpoint"), Bucket: typed("bucket"), Prefix: typed("prefix"), Region: typed("region"),
 		AccessKey: typed("access_key"), SecretKey: form.Get("secret_key"), LiveOrigin: typed("live_origin"),
+		LiveMode: typed("live_mode"),
 	}
+	if in.LiveMode != HostingLiveSame && in.LiveMode != HostingLiveSeparate {
+		// A form without the choice (an older page) keeps its meaning: an origin means separate.
+		in.LiveMode = HostingLiveSame
+		if in.LiveOrigin != "" {
+			in.LiveMode = HostingLiveSeparate
+		}
+	}
+	if in.LiveMode == HostingLiveSame {
+		in.LiveOrigin = "" // a stale hidden value is never saved
+	}
+	return in
 }
 
 // hostingValidate is the admin-side check against the requested mode. The
@@ -318,7 +330,7 @@ func hostingValidate(in HostingInput, siteURL string) []ui.FieldError {
 	case "":
 		add("hosting-target", "Publish to", "Choose where the files go.")
 	}
-	if in.LiveOrigin == "" {
+	if in.LiveMode == HostingLiveSeparate && in.LiveOrigin == "" {
 		add("hosting-live-origin", "Live origin", "Enter the address where the live islands answer.")
 	}
 	return errs

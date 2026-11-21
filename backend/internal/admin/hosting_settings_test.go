@@ -290,7 +290,7 @@ func TestHostingSaveValidation(t *testing.T) {
 		{"relative dir", url.Values{"target": {"dir"}, "dir": {"site/out"}}, "Enter an absolute path"},
 		{"no bucket", url.Values{"bucket": {""}}, "Enter a bucket name."},
 		{"no endpoint", url.Values{"endpoint": {""}}, "Enter the endpoint of the storage service."},
-		{"no live origin", url.Values{"live_origin": {""}}, "Enter the address where the live islands answer."},
+		{"no live origin", url.Values{"live_mode": {"separate"}, "live_origin": {""}}, "Enter the address where the live islands answer."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -311,6 +311,61 @@ func TestHostingSaveValidation(t *testing.T) {
 				t.Errorf("a11y: %v", issues)
 			}
 		})
+	}
+}
+
+func TestHostingSaveSameHostNeedsNoLiveOrigin(t *testing.T) {
+	t.Parallel()
+
+	f := servedHosting()
+	p := newHostingSaveRig(t, f)
+	rec := p.do("POST", hostingURL, "owner-token", hostingForm(url.Values{"live_mode": {"same"}, "live_origin": {""}}), nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != hostingURL+"/mode?to=static" {
+		t.Fatalf("save = %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if len(f.saved) != 1 || f.saved[0].LiveOrigin != "" || f.saved[0].LiveMode != HostingLiveSame {
+		t.Fatalf("saved = %+v", f.saved)
+	}
+}
+
+func TestHostingSaveLiveModeDerivation(t *testing.T) {
+	t.Parallel()
+
+	// An older form posts only the origin: it means a separate live origin.
+	f := servedHosting()
+	p := newHostingSaveRig(t, f)
+	if rec := p.do("POST", hostingURL, "owner-token", hostingForm(nil), nil); rec.Code != 303 {
+		t.Fatalf("save = %d", rec.Code)
+	}
+	if got := f.saved[0]; got.LiveMode != HostingLiveSeparate || got.LiveOrigin != "https://live.example.com" {
+		t.Fatalf("saved = %+v", got)
+	}
+	// Same host drops a stale origin that was still in the form.
+	f = servedHosting()
+	p = newHostingSaveRig(t, f)
+	if rec := p.do("POST", hostingURL, "owner-token", hostingForm(url.Values{"live_mode": {"same"}}), nil); rec.Code != 303 {
+		t.Fatalf("save = %d", rec.Code)
+	}
+	if got := f.saved[0]; got.LiveOrigin != "" {
+		t.Fatalf("a stale origin was saved: %+v", got)
+	}
+}
+
+// A saved static site that goes back to the same host publishes differently,
+// so it asks for the password like any other live origin change.
+func TestHostingSaveStaticToSameHostNeedsSudo(t *testing.T) {
+	t.Parallel()
+
+	f := staticHosting()
+	p := newHostingSaveRig(t, f)
+	form := hostingForm(url.Values{"live_mode": {"same"}, "secret_key": {""}})
+	rec := p.do("POST", hostingURL, "owner-token", form, nil)
+	if rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), p.a.sudoPath()) || len(f.saved) != 0 {
+		t.Fatalf("save = %d %s, saved %d", rec.Code, rec.Header().Get("Location"), len(f.saved))
+	}
+	grantSudo(p.rig)
+	if rec := p.do("POST", hostingURL, "owner-token", form, nil); rec.Code != 303 || len(f.saved) != 1 || f.saved[0].LiveOrigin != "" {
+		t.Fatalf("with sudo = %d, saved %+v", rec.Code, f.saved)
 	}
 }
 
