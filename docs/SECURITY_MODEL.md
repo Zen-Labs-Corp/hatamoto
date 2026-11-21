@@ -388,6 +388,8 @@ An access end date limits sign-in. It is not a containment boundary against a ma
 
 A provider sign-in does not satisfy the second step on its own: it counts as a second factor only when the provider asserts that it performed one. Password re-confirmation for sensitive actions asks for a password, so a user created without one needs a password-set link, a password reset or a passkey before they can confirm such an action. A provider must link or create users by email only when the provider marks the address verified and the issuer is trusted; core requires only that the identity is linked to the user the provider returned, so an unverified address would allow account takeover. Provider sign-in is a compiled-in interface ([ADR 0010](adr/0010-sign-in-providers.md)); a standard build has none.
 
+A route mounted by a compiled-in module ([ADR 0011](adr/0011-module-runtime-hooks.md)) carries no core authentication and is not behind the site access gate: the module authenticates its callers. Core applies its sign-in rate limit per client address and a request body cap, and refuses prefixes core serves. A standard build mounts none.
+
 ### Outbound connections of the server itself
 
 | Guarantee | Package | Tests |
