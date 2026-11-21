@@ -106,6 +106,11 @@ func (s *Server) onEntityMoved(ctx context.Context, before, after *entity.Entity
 			s.logger.Warn("entity move: link rewrite", slog.String("entity_id", m.id.String()), slog.String("error", err.Error()))
 		}
 	}
+	old := make([]string, 0, len(all))
+	for _, m := range all {
+		old = append(old, m.oldPath)
+	}
+	s.notifyPurgePaths(old...)
 	// The rewrites change other entities' content after the entity.updated
 	// purge may already have run: purge again so linking pages show the new URL.
 	s.invalidateRendered(ctx)

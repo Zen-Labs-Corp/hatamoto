@@ -1,12 +1,18 @@
 package admin
 
 import (
+	"bytes"
+	"context"
+	"errors"
+	"log/slog"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/frameticket"
 )
 
 func newTestTickets() (*ticketStore, *fakeClock) {
@@ -112,8 +118,8 @@ func TestTicketStoreIsBounded(t *testing.T) {
 		clock.t = clock.t.Add(time.Millisecond) // eviction order follows expiry
 		s.mint(ticketPreview, sess, "e", nil)
 	}
-	if len(s.m) > ticketMax {
-		t.Fatalf("%d entries, cap %d", len(s.m), ticketMax)
+	if s.store().(*frameticket.Memory).Len() > ticketMax {
+		t.Fatalf("%d entries, cap %d", s.store().(*frameticket.Memory).Len(), ticketMax)
 	}
 	if _, ok := s.consume(ticketPreview, first, sess, "e"); ok {
 		t.Error("the oldest ticket survived eviction")
@@ -238,5 +244,50 @@ func TestParseChangesetFrame(t *testing.T) {
 		if _, ok := parseChangesetFrame(bad); ok {
 			t.Errorf("%q parsed", bad)
 		}
+	}
+}
+
+type failingBackend struct{}
+
+func (failingBackend) Put(context.Context, frameticket.Ticket, time.Time) error {
+	return errors.New("down")
+}
+
+func (failingBackend) Take(context.Context, string, time.Time) (frameticket.Ticket, bool, error) {
+	return frameticket.Ticket{}, false, errors.New("down")
+}
+
+func TestTicketBackendErrorRefuses(t *testing.T) {
+	s, _ := newTestTickets()
+	sess := uuid.New()
+	good := s.mint(ticketPreview, sess, "e", nil) // minted while the backend works
+	s.backend = failingBackend{}
+	if tok := s.mint(ticketPreview, sess, "e", nil); tok != "" {
+		t.Errorf("mint on a failing backend returned %q", tok)
+	}
+	if _, ok := s.consume(ticketPreview, good, sess, "e"); ok {
+		t.Error("consume succeeded on a failing backend")
+	}
+	if _, _, ok := s.consumeBound(ticketPreview, good, "e"); ok {
+		t.Error("consumeBound succeeded on a failing backend")
+	}
+}
+
+func TestTicketBackendErrorIsLoggedOnce(t *testing.T) {
+	var buf bytes.Buffer
+	l := slog.New(slog.NewTextHandler(&buf, nil))
+	s, _ := newTestTickets()
+	s.log = func() *slog.Logger { return l }
+	s.backend = failingBackend{}
+	sess := uuid.New()
+	s.mint(ticketPreview, sess, "e", nil)
+	s.consume(ticketPreview, strings.Repeat("A", ticketLen), sess, "e")
+	s.consumeBound(ticketPreview, strings.Repeat("A", ticketLen), "e")
+	out := buf.String()
+	if !strings.Contains(out, "level=WARN") || !strings.Contains(out, "down") {
+		t.Errorf("backend error not logged: %q", out)
+	}
+	if n := strings.Count(out, "level=WARN"); n != 1 {
+		t.Errorf("got %d warnings in one minute, want 1", n)
 	}
 }

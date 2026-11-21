@@ -42,6 +42,15 @@
 - **Users without a password.** The user store accepts a user with no password. Such a user signs in through a provider, a passkey or a password-set link.
 - **Migration.** One new table, `hatamoto_user_identities`. Expand only. Rollback floor: the schema is unchanged, but a user created without a password is stored with a NULL password hash that the previous release cannot read. Roll back only while no such user exists, or after each has a password (`hatamoto user reset-password`).
 
+## Unreleased: run one site on several servers
+
+- **Scheduled jobs.** With several servers on one database, housekeeping jobs and plugin cron jobs now run on one server per interval; the others skip that tick. A server is named by the new `HATAMOTO_INSTANCE_ID`, or by its host name when that is unset. In containers, set a stable `HATAMOTO_INSTANCE_ID`: a changed name can skip one run after a restart. A failed claim query runs the job anyway and logs a warning. One server behaves as before.
+- **Previews.** The one-time tickets behind the builder canvas, draft previews and plugin admin pages are kept in the database, so a ticket minted on one server opens on another. No sticky sessions are needed.
+- **Cache purge.** `HATAMOTO_PURGE_URL` (with `HATAMOTO_PURGE_TOKEN` and `HATAMOTO_PURGE_ALLOW_PRIVATE`) makes the server send changed public URLs to a webhook, so an edge cache can drop them. `off` or unset sends nothing.
+- **Wrapper modules.** A new public Go package, `hatamoto.dev/core/purge`, lets a module that calls `app.Main` register one purger from an `init` function. Each call is limited to 10 seconds.
+- **Docs.** [Scaling](SCALING.md) and the operator pages describe the setup; ADR 0011 records the purge hook.
+- **Migration.** Two new tables, `hatamoto_job_claims` and `hatamoto_frame_tickets`. Expand only. Rollback floor: unchanged.
+
 ## Unreleased: more time zones in the site settings
 
 - **Time zone.** The list in the setup wizard and in Settings > General offered no zone for places whose clock follows its own rules, so their sites had to pick a neighbour that is an hour or more off for part of the year: Queensland and Darwin, Iran, Afghanistan, Nepal, Myanmar, Morocco, the Azores, Cape Verde, Venezuela and its neighbours on UTC-4, New Caledonia, Fiji and Tonga, and, since 1 November 2026 in the time zone data, British Columbia, Alberta and Manitoba. Each now has a zone of its own: `Australia/Brisbane`, `Australia/Darwin`, `Asia/Tehran`, `Asia/Kabul`, `Asia/Kathmandu`, `Asia/Yangon`, `Africa/Casablanca`, `Atlantic/Azores`, `Atlantic/Cape_Verde`, `America/Caracas`, `Pacific/Noumea`, `Pacific/Fiji`, `Pacific/Tongatapu`, `America/Vancouver`, `America/Edmonton` and `America/Winnipeg`.
