@@ -330,6 +330,12 @@ type Deps struct {
 	// Offsite is the off-site backup target on Settings > Backups & recovery > Backups; nil hides
 	// the card. Set it only when non-nil and only with Backups.
 	Offsite OffsiteService
+	// Hosting is the static export service behind Settings > System > Hosting; nil answers
+	// that page as unavailable. Set it only when non-nil.
+	Hosting HostingService
+	// AgentLogIngest is true when access-log ingest is configured: the ingest endpoint or the
+	// Caddy log tailer.
+	AgentLogIngest bool
 	// MediaStorage checks that the media object storage is reachable, for the
 	// Media storage row of the Site health card; nil (local media) hides the
 	// row. It does not depend on Backups.
