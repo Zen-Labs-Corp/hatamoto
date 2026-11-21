@@ -351,7 +351,7 @@ func xpCheckEqualsLive(t *testing.T, x *xpSite, out string, files []string) (che
 		if err != nil {
 			t.Fatal(err)
 		}
-		if want := staticexport.RewriteListingLinks(doc, live.Body.Bytes()); !bytes.Equal(got, want) {
+		if want := staticexport.RewriteListingLinks(doc, x.admin, live.Body.Bytes()); !bytes.Equal(got, want) {
 			off := 0
 			for off < len(got) && off < len(want) && got[off] == want[off] {
 				off++

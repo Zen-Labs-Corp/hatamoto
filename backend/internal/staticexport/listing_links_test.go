@@ -20,7 +20,7 @@ func TestRewriteListingLinks(t *testing.T) {
 		{"entity query", `<a href="/blog?page=2" title="a &amp; b">`, `<a href="/blog/page/2/" title="a &amp; b">`},
 		{"two links", `<p>x &amp; y</p><a href="/blog?page=2">a</a> <a href="/blog?page=3">b</a>`, `<p>x &amp; y</p><a href="/blog/page/2/">a</a> <a href="/blog/page/3/">b</a>`},
 	} {
-		if got := string(RewriteListingLinks(doc, []byte(c.in))); got != c.want {
+		if got := string(RewriteListingLinks(doc, "/admin", []byte(c.in))); got != c.want {
 			t.Errorf("%s: got %q, want %q", c.name, got, c.want)
 		}
 	}
@@ -38,9 +38,12 @@ func TestRewriteListingLinksUntouched(t *testing.T) {
 		`<a data-href="/blog?page=2">x</a>`,
 		`<script>var u = '<a href="/blog?page=2">';</script>`,
 		`<a href="/blog?schema=a">x</a><p>&amp; plain</p>`,
+		`<a href="/media/manual.pdf?page=2">x</a>`,
+		`<a href="/admin/posts?page=2">x</a>`,
+		`<a href="/p/plugin/list?page=2">x</a>`,
 	} {
 		b := []byte(in)
-		got := RewriteListingLinks(doc, b)
+		got := RewriteListingLinks(doc, "/admin", b)
 		if string(got) != in || &got[0] != &b[0] {
 			t.Errorf("changed %q -> %q", in, got)
 		}

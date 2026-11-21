@@ -428,7 +428,7 @@ func (b *builder) store(urlPath, doc, tmpFile string, size int64, sum, ct, mt st
 		}
 		if mt == "text/html" {
 			if docURL, perr := b.site.Base.Parse(doc); perr == nil {
-				if nb := RewriteListingLinks(docURL, text); !bytes.Equal(nb, text) {
+				if nb := RewriteListingLinks(docURL, b.site.AdminPrefix, text); !bytes.Equal(nb, text) {
 					if err := os.WriteFile(tmpFile, nb, 0o644); err != nil {
 						b.fail("%s: %v", urlPath, err)
 						return

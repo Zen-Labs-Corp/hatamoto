@@ -17,8 +17,10 @@ var hrefAttrRe = regexp.MustCompile(`(?i)(\shref\s*=\s*)("[^"]*"|'[^']*'|[^\s>]+
 // (absolute, with its query): <a href>, and <link href> whose rel has prev or
 // next. Root-relative and relative values become root-relative paths; absolute
 // same-origin values stay absolute. Canonical, og:url, JSON-LD and scripts are
-// not touched. body is returned as is when nothing changes.
-func RewriteListingLinks(doc *url.URL, body []byte) []byte {
+// not touched, and neither are links to excluded or asset paths (the crawler
+// does not export them as listing pages). body is returned as is when nothing
+// changes.
+func RewriteListingLinks(doc *url.URL, adminPrefix string, body []byte) []byte {
 	var out []byte
 	last, off := 0, 0
 	z := xhtml.NewTokenizer(bytes.NewReader(body))
@@ -56,7 +58,7 @@ func RewriteListingLinks(doc *url.URL, body []byte) []byte {
 		if !hasHref || (tag == "link" && !relHasPrevNext(rel)) {
 			continue
 		}
-		repl, ok := listingHrefFor(doc, href)
+		repl, ok := listingHrefFor(doc, adminPrefix, href)
 		if !ok {
 			continue
 		}
@@ -98,7 +100,7 @@ func unquoteAttr(raw string) string {
 }
 
 // listingHrefFor maps a same-origin ?page=N href to its static address.
-func listingHrefFor(doc *url.URL, href string) (string, bool) {
+func listingHrefFor(doc *url.URL, adminPrefix, href string) (string, bool) {
 	ref, err := url.Parse(html.UnescapeString(strings.TrimSpace(href)))
 	if err != nil {
 		return "", false
@@ -108,7 +110,7 @@ func listingHrefFor(doc *url.URL, href string) (string, bool) {
 		return "", false
 	}
 	n, ok := ListingPage(u.RawQuery)
-	if !ok {
+	if !ok || isAssetPath(u.Path) || Excluded(u.EscapedPath(), adminPrefix) {
 		return "", false
 	}
 	p := u.EscapedPath()
