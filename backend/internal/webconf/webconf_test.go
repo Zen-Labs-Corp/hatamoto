@@ -43,6 +43,16 @@ func testHeaders() []Header {
 	}
 }
 
+func testRedirects() []Redirect {
+	return []Redirect{
+		{"/old-page", "/new-page", 301},
+		{"/promo", "https://example.com/offers?src=old", 302},
+		{"/blog/:p1/amp", "/articles/:p1", 301},
+		{"/docs/*", "/help/:splat", 308},
+		{"/gone", "/elsewhere", 410},
+	}
+}
+
 func sameHostInput() Input {
 	return Input{
 		Site:     "https://example.com",
@@ -50,6 +60,8 @@ func sameHostInput() Input {
 		Upstream: "127.0.0.1:8090",
 		Proxy:    statichost.ProxyPaths("/admin", "/api-public"),
 		Headers:  testHeaders(),
+
+		Redirects: testRedirects(),
 	}
 }
 

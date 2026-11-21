@@ -17,7 +17,7 @@ func nginxListen(origin string) (name, port string) {
 	return name, port
 }
 
-func nginx(in Input) string {
+func nginx(in Input, rules []rule) string {
 	var b strings.Builder
 	w := func(format string, a ...any) { fmt.Fprintf(&b, format+"\n", a...) }
 	proxy := func(indent string) {
@@ -63,7 +63,7 @@ func nginx(in Input) string {
 		w("\t\treturn 404;")
 		w("\t}")
 	}
-	for _, l := range nginxRedirects(in.Redirects) {
+	for _, l := range nginxRedirects(rules) {
 		w("\t%s", l)
 	}
 	w("\tlocation / {")

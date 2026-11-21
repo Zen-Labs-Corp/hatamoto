@@ -11,6 +11,13 @@ example.com {
 			Referrer-Policy "strict-origin-when-cross-origin"
 			Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; form-action 'self'"
 		}
+		redir /old-page /new-page 301
+		redir /promo https://example.com/offers?src=old 302
+		@r1 path_regexp r1 ^/blog/([^/]+)/amp$
+		redir @r1 /articles/{re.r1.1} 301
+		@r2 path_regexp r2 ^/docs/(.*)$
+		redir @r2 /help/{re.r2.1} 308
+		# skipped: /gone /elsewhere 410
 		try_files {path} {path}/index.html
 		file_server
 	}

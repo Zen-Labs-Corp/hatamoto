@@ -50,7 +50,8 @@ func Generate(in Input) (Output, error) {
 	if err := in.validate(); err != nil {
 		return Output{}, err
 	}
-	return Output{Caddy: caddy(in), Nginx: nginx(in)}, nil
+	rules, skipped := planRedirects(in.Redirects)
+	return Output{Caddy: caddy(in, rules), Nginx: nginx(in, rules), Skipped: skipped}, nil
 }
 
 var (

@@ -16,7 +16,7 @@ func caddyAddress(origin string) string {
 	return hp
 }
 
-func caddy(in Input) string {
+func caddy(in Input, rules []rule) string {
 	var b strings.Builder
 	w := func(format string, a ...any) { fmt.Fprintf(&b, format+"\n", a...) }
 
@@ -41,7 +41,7 @@ func caddy(in Input) string {
 		}
 		w("\t\t}")
 	}
-	for _, l := range caddyRedirects(in.Redirects) {
+	for _, l := range caddyRedirects(rules) {
 		w("\t\t%s", l)
 	}
 	w("\t\ttry_files {path} {path}/index.html")
