@@ -4,11 +4,22 @@
 # RequireRole( / RequireOwnerOrKeyScope( line in internal/admin and
 # internal/server (a new gate needs a row, and an action if none fits).
 #
-# <backend-relative path> group|inline <action>[,<action>...]   # <line at d1f7504a8> <note>
+# <backend-relative path> group|inline <action>[,<action>...] [n=<count>]   # <line at d1f7504a8> <note>
 #
 # group  = a RequireRole / RequireOwnerOrKeyScope line (counted by the test)
 # inline = any other gate: an owner/editor check in a handler, a key scope
 #          check, or a route open to every signed-in user
+# flag   = an owner/editor check that only changes what a screen shows
+#          (capability flag, banner, nav); no 403 of its own
+# other  = an owner/editor check that is not an access decision (recipient
+#          selection, claims derivation); the action column is "-"
+#
+# Role checks in internal/admin and internal/server are counted per file: the
+# optional fourth field n=<count> on inline, flag and other rows is the number of
+# lines in that file that compare a role with owner/editor or call requireOwner
+# (RequireRole lines are counted by the group rows). The n values of a file
+# must add up to the count in the source, so a new check needs a row. Line
+# numbers in the notes are hints only.
 
 # --- admin: RequireRole groups ---
 internal/admin/admin.go group admin.styleguide                       # :563 GET /_styleguide
@@ -55,28 +66,79 @@ internal/server/server_core.go group entity.terms.update             # :278
 internal/server/site_settings_handlers.go group settings.manage,theme.manage  # :140
 
 # --- inline gates in admin handlers ---
-internal/admin/analytics_traffic_settings.go inline analytics.settings.manage  # :11
+internal/admin/analytics_traffic_settings.go inline analytics.settings.manage n=1  # :11
 internal/admin/analytics.go inline analytics.read                    # analytics pages, any signed-in user
-internal/admin/comments_commenters.go inline comment.commenter.export,comment.commenter.erase  # :419,:425 owner (+ password recheck)
-internal/admin/dashboard.go inline dashboard.read                    # :584
-internal/admin/builder_editor.go inline builder.style                # :164 canStyle is owner only
+internal/admin/comments_commenters.go inline comment.commenter.export,comment.commenter.erase n=2  # :419,:425 owner (+ password recheck)
+internal/admin/dashboard.go inline dashboard.read n=1                # :584
+internal/admin/builder_editor.go inline builder.style n=1            # :164 canStyle is owner only
 internal/admin/entity_edit.go inline entity.update,entity.publish,entity.unpublish,entity.delete  # any signed-in user
 internal/admin/media.go inline media.read,media.upload,media.update,media.delete  # /media/* open to any signed-in user
-internal/admin/forms.go inline form.settings.manage                  # :68,:150 owner controls
-internal/admin/analytics_conversions.go inline form.submission.read  # :35
+internal/admin/forms.go inline form.settings.manage n=2              # :68,:150 owner controls
+internal/admin/analytics_conversions.go inline form.submission.read n=1  # :35 canViewSubmissions
 internal/admin/menus.go inline menu.manage,menu.read                 # /theme/menus, any signed-in user
-internal/admin/translations.go inline entity.translate               # :92
+internal/admin/translations.go inline entity.translate n=1            # :92 canEditTranslations
 internal/admin/entity_ownership_panel.go inline entity.handback      # :31,:69 handBackRoles card gate
 internal/admin/entities.go inline entity.read                        # any signed-in user: view, edit
 
 # --- inline gates in REST handlers ---
-internal/server/comment_post.go inline comment.reply_as_staff        # :195
-internal/server/form_handlers.go inline form.read,form.submission.read  # :1062
-internal/server/handlers.go inline user.owner.grant,user.delete,user.manage  # :290,:307,:399,:408,:429,:439,:539
+internal/server/comment_post.go inline comment.reply_as_staff n=1  # :195
+internal/server/handlers.go inline user.owner.grant,user.delete,user.manage n=7  # :290,:307,:399,:408,:429,:439,:539 owner only, 403
 internal/auth/usertokens.go inline user.owner.grant                  # :208,:275
 internal/server/server_core.go inline profile.update,link.insert,link.suggest,redirect.read,redirect.manage,analytics.read  # routes open to any signed-in user or a key
 internal/pluginhost/routes.go inline plugin.route.invoke             # :166-176 route roles stay at the call site
-internal/admin/pluginui.go inline plugin.ui.host                 # :284 host page is owner only
+internal/admin/pluginui.go inline plugin.ui.host n=1             # :284 host functions are owner only, 403
+
+# --- inline gates added by the inventory review ---
+internal/admin/comments_routes.go inline comment.settings.manage n=1  # :47 requireOwner, 403
+internal/admin/comments_settings.go inline comment.settings.manage n=4  # :259,:312,:360,:384 requireOwner
+internal/admin/comments_entity.go inline comment.settings.manage n=1  # :153 requireOwner
+internal/admin/analytics_robots.go inline robots.policy.write n=1  # :109 owner only, 403
+internal/admin/settings_locale_convert.go inline settings.manage n=1  # :706 owner only, 403
+internal/admin/entity_edit.go inline term.manage n=1  # :1319 "Only owners can create terms"
+internal/admin/plugins_changeset.go inline plugin.changeset.review n=1  # :325 re-check of the approving owner
+internal/admin/users.go inline user.owner.grant n=2  # :764,:774 MayGrant, last owner
+internal/admin/versions_nodes.go inline entity.version.restore n=1  # :84 mayRestoreNodes, owner or editor
+
+# --- editor-allowed routes with no role gate (default: any signed-in user) ---
+internal/admin/forms.go inline form.manage,form.submission.manage  # POST /forms, PUT definition, delete; submission status, email, bulk, delete, export
+internal/admin/forms_tabs.go inline form.manage                    # :36 duplicate
+internal/server/server_core.go inline form.manage,form.submission.manage,section_template.manage,link.rule.manage,redirect.manage  # /forms, /section-templates, /linking/rules, /404-log writes
+
+# --- capability flags (what a screen shows; no 403) ---
+internal/admin/analytics_agent.go flag robots.policy.write n=1  # :132
+internal/admin/analytics_crawlers.go flag robots.policy.write n=1  # :140
+internal/admin/analytics_robots.go flag robots.policy.write n=1  # :212
+internal/admin/seo_robots.go flag robots.policy.write n=1  # :180
+internal/admin/analytics_traffic.go flag analytics.settings.manage n=1  # :390
+internal/admin/comments_settings.go flag comment.settings.manage n=1  # :303 csetIsOwner
+internal/admin/dashboard.go flag dashboard.read n=2  # :567,:568
+internal/admin/entities.go flag entity.reorder,entity.export n=2  # :550,:565
+internal/admin/entity_edit.go flag term.manage,schema.manage n=2  # :620,:952
+internal/admin/entity_ownership_panel.go flag plugin.changeset.review n=1  # :79
+internal/admin/forms_design.go flag form.settings.manage n=1  # :96
+internal/admin/forms_tabs.go flag form.settings.manage n=2  # :61,:246
+internal/admin/media.go flag media.settings.manage n=1  # :398
+internal/admin/people.go flag person.manage n=2  # :193,:344
+internal/admin/pluginui.go flag plugin.ui.host n=1  # :145
+internal/admin/plugins.go flag plugin.view n=6  # :463,:510,:514,:655,:656,:664
+internal/admin/plugins_nav.go flag plugin.view n=2  # :28,:38
+internal/admin/nav_counts.go flag plugin.view n=1  # :99
+internal/admin/admin.go flag plugin.view n=2  # :510,:512
+internal/admin/versions.go flag settings.manage n=1  # :78
+internal/admin/site_access_banner.go flag settings.manage n=2  # :20,:36
+internal/admin/hosting_banner.go flag settings.manage n=1  # :16
+internal/admin/security_keep.go flag settings.manage n=1  # :39
+internal/admin/updates.go flag settings.manage n=1  # :1138
+internal/admin/stats.go flag settings.manage n=1  # :162
+
+# --- not access decisions ---
+internal/admin/address_notify.go other - n=1  # :22 recipient selection
+internal/admin/adminguard.go other - n=1  # :136 recipient selection
+internal/admin/authmw.go other - n=1  # :60 claims derivation
+internal/server/standing_digest.go other - n=1  # :124 recipient selection
+internal/server/comment_surge.go other - n=1  # :103 recipient selection
+internal/server/comment_notify_setup.go other - n=1  # :59 recipient selection
+internal/server/form_handlers.go other - n=1  # :1062 recipient lookup for the admin link in form emails
 
 # --- API key scopes ---
 internal/middleware/apikey_route_auth.go inline entity.read,entity.update,entity.create,entity.publish,entity.unpublish,entity.version.restore,media.read,media.upload,form.read,form.submission.read  # :36-70 REST allowlist
