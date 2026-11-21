@@ -103,7 +103,7 @@ var auditLabels = map[string]string{
 	"api_key.regenerated":          "API key regenerated",
 	"api_key.deleted":              "API key deleted",
 	"settings.updated":             "Settings saved",
-	"plugin.permissions":           "Plugin permissions changed",
+	"package.grants":               "Plugin permissions changed",
 	"webhook.created":              "Webhook added",
 	"webhook.updated":              "Webhook changed",
 	"webhook.paused":               "Webhook paused",
@@ -141,7 +141,8 @@ var auditLabels = map[string]string{
 	"media.uploaded":               "File uploaded",
 	"media.updated":                "File changed",
 	"media.deleted":                "File deleted",
-	"media.rebuilt":                "Images rebuilt",
+	"media.rebuild.start":          "Image rebuild started",
+	"media.rebuild.finish":         "Image rebuild finished",
 	"media.swept":                  "Unused files removed",
 	"media.adopted":                "Files adopted",
 }

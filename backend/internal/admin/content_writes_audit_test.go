@@ -226,8 +226,6 @@ func TestContentWritesAuditMediaRebuild(t *testing.T) {
 	if rec := c.post("/admin/media/rebuild", nil); rec.Code != 303 {
 		t.Fatalf("rebuild: %d", rec.Code)
 	}
-	ev := contentWritesAuditCount(t, read, 1)[0]
-	if ev.Action != AuditMediaRebuilt || ev.Target != "media" || ev.Detail["count"] != 40 {
-		t.Fatalf("rebuild row = %+v", ev)
-	}
+	// The rebuilder records "media.rebuild.start" itself; the handler adds none.
+	contentWritesAuditCount(t, read, 0)
 }

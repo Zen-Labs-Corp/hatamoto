@@ -438,7 +438,6 @@ func (a *Admin) handlePluginGrant(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The permissions could not be saved.")
 		return
 	}
-	a.audit(r, AuditPluginPermissions, "plugin:"+name, map[string]any{"granted": slices.Clone(perms)})
 	a.SetFlash(w, r, "success", "Permissions saved for "+name+".")
 	http.Redirect(w, r, a.pluginURL(name, "permissions"), http.StatusSeeOther)
 }

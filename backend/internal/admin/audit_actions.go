@@ -32,7 +32,6 @@ const (
 	AuditAPIKeyDeleted     = "api_key.deleted"
 
 	AuditSettingsUpdated    = "settings.updated"
-	AuditPluginPermissions  = "plugin.permissions"
 	AuditWebhookCreated     = "webhook.created"
 	AuditWebhookUpdated     = "webhook.updated"
 	AuditWebhookPaused      = "webhook.paused"
@@ -75,7 +74,6 @@ const (
 	AuditMediaUploaded = "media.uploaded"
 	AuditMediaUpdated  = "media.updated"
 	AuditMediaDeleted  = "media.deleted"
-	AuditMediaRebuilt  = "media.rebuilt"
 	AuditMediaSwept    = "media.swept"
 	AuditMediaAdopted  = "media.adopted"
 )

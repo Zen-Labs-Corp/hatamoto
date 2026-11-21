@@ -59,9 +59,10 @@ func TestPluginsWebhooksAuditPluginSettingsAndGrant(t *testing.T) {
 	if rec := g.do("POST", "/admin/plugins/hello/grant", "owner-token", url.Values{"permission": {"kv", "mail.send"}}, nil); rec.Code != 303 {
 		t.Fatalf("grant: %d", rec.Code)
 	}
-	ev = pluginsWebhooksAuditLast(t, read, 2, AuditPluginPermissions, "plugin:hello")
-	if granted, _ := ev.Detail["granted"].([]string); !slices.Equal(granted, []string{"kv", "mail.send"}) {
-		t.Fatalf("detail = %v", ev.Detail)
+	// The grant itself records "package.grants" in the packages manager; the
+	// admin handler must not add a second row for the same save.
+	if evs := read(); len(evs) != 1 {
+		t.Fatalf("grant wrote an extra admin row: %+v", evs)
 	}
 }
 
