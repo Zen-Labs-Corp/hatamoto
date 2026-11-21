@@ -103,7 +103,7 @@ func TestSiteDerivedCopiesAreIsolated(t *testing.T) {
 	cfg.ThemeExtra = jsontext.Value(`{"headerCta":{"text":"Go","url":"/go"}}`)
 	dc := (&Server{}).siteDerivedFor(cfg)
 	if dc.theme.HeaderCTA == nil {
-		t.Skip("theme does not decode headerCta from theme_extra")
+		t.Fatal("theme did not decode headerCta from theme_extra: the isolation check cannot run")
 	}
 	t1 := dc.themeCopy()
 	t1.HeaderCTA.Text = "changed"
