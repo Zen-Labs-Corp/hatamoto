@@ -20,6 +20,7 @@ hatamoto analytics referrals [--from D] [--to D]                 # AI-assistant 
 hatamoto export <file.tar.gz> [--no-submissions]
 hatamoto import <file.tar.gz> [--force]                          # --force imports an archive made under a different server secret and drops the commenter emails
 hatamoto import wordpress (--url URL --user U --app-password P | --wxr FILE) [--scan-only] [--resume RUN] [--audit-url URL]
+hatamoto static export [--out DIR] [--target dir|s3]       # plain files of the public site (not the archive export)
 
 hatamoto builder convert [--dry-run] [--verify-render] [--entity ID]
 
@@ -117,6 +118,41 @@ hatamoto locales convert --revert 1 [--force]          # undo conversion 1
 - Apply and revert lock writes for up to 5 seconds: editors' saves wait, public pages keep serving. A running server picks the change up within the content poll interval (3 seconds, 1 second in development); no restart is needed. Like the other CLI writes it fires no plugin events.
 - Run the migrations first; a database on an older layout reports `trigger_guard_missing`.
 
+## static export
+
+`hatamoto static export` renders the public site to plain files in a directory or an S3-compatible bucket. It is not `hatamoto export`, which writes an archive ([EXPORT.md](EXPORT.md)). Guide, layout and known gaps: [STATIC_EXPORT.md](STATIC_EXPORT.md).
+
+```
+hatamoto static export --out /srv/site-static         # directory (absolute path)
+hatamoto static export --target s3                    # S3-compatible bucket
+hatamoto static export                                # the target saved in the hosting settings
+```
+
+```
+$ hatamoto static export --out /srv/site-static
+static: 214 pages, 61 assets, 388 media files  (38.2 MB)
+static: changed 12, unchanged 651, removed 3
+static: wrote _redirects (41 rules) + 41 redirect stubs, 404.html
+static: swapped /srv/site-static (previous kept at /srv/site-static.prev)
+static: done in 9.1s, 0 errors
+
+$ hatamoto static export --target s3
+static: uploading 12 changed, deleting 3 removed (last) to s3://site/
+static: done in 14.0s, 0 errors
+
+$ hatamoto static export --out /srv/site-static      # a page fails to render
+static: error: /blog/x: render 500
+static: export failed, /srv/site-static unchanged
+```
+
+- `--out DIR` writes to a directory and implies `--target dir`. The path must be absolute. The previous output is kept as `DIR.prev`. `--out` with `--target s3` is an error, and so is a positional argument.
+- `--target dir|s3` picks the target. With neither flag the command uses the saved settings, and without those it stops with `no target: pass --out DIR or --target s3`.
+- For `--target s3` set `HATAMOTO_STATIC_S3_ENDPOINT`, `HATAMOTO_STATIC_S3_REGION`, `HATAMOTO_STATIC_S3_BUCKET`, `HATAMOTO_STATIC_S3_PREFIX`, `HATAMOTO_STATIC_S3_ACCESS_KEY` and `HATAMOTO_STATIC_S3_SECRET_KEY`. They are used when the bucket variable is set; otherwise the saved settings apply. The secret key is never printed.
+- Exit codes: 0 ok, 1 the export failed, was refused or another export is running, 2 usage error. A failed export changes nothing that is published.
+- The command needs `DATABASE_URL` and never migrates: with pending migrations it asks you to run `hatamoto migrate` first. It starts no worker and no listener.
+- Run it as the service user from the service's directory (or with `HATAMOTO_DATA` and `MEDIA_UPLOAD_DIR` set) so the server secret and the media directory resolve.
+- The admin Hosting page and automatic triggers come in a later change; until then this command is the way to run an export.
+
 ## Notes
 
 - `entity create` makes a draft unless `--publish` is given. Attributes are validated against the schema and rich-text HTML is sanitised, as in the API. The theme-driven sanitising of HTML section fields needs the running server's theme; rendering still sanitises them.
@@ -134,4 +170,4 @@ hatamoto locales convert --revert 1 [--force]          # undo conversion 1
   users, passwords and second factors are unchanged
   ```
 - `user create` and `user reset-password` are documented in the README; they also work on an imported database.
-- Export and import: see [EXPORT.md](EXPORT.md). Importing a WordPress site: see [IMPORT-WORDPRESS.md](IMPORT-WORDPRESS.md).
+- Export and import: see [EXPORT.md](EXPORT.md). Plain files of the public site: see [STATIC_EXPORT.md](STATIC_EXPORT.md). Importing a WordPress site: see [IMPORT-WORDPRESS.md](IMPORT-WORDPRESS.md).
