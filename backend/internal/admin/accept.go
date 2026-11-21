@@ -5,8 +5,10 @@ import (
 	"net/http"
 	"strings"
 
+	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/user"
 )
 
@@ -79,5 +81,19 @@ func (a *Admin) handleAccept(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "We could not create your account. Try again.")
 		return
 	}
+	a.auditInviteAccepted(r, u)
 	a.signInAfter(w, r, u, "Welcome. Your account is ready.")
+}
+
+// auditInviteAccepted records the new account. The page is public, so the
+// actor is the user who just accepted, not a signed-in session.
+func (a *Admin) auditInviteAccepted(r *http.Request, u *user.User) {
+	if a.deps.Audit == nil {
+		return
+	}
+	a.deps.Audit(r.Context(), AuditEvent{
+		ActorID: u.ID.String(), Actor: u.Email, ActorKind: audit.KindUser,
+		Action: AuditUserInviteAccepted, Target: u.Email, Detail: map[string]any{"role": string(u.Role)},
+		IP: middleware.GetClientIP(r), UserAgent: r.UserAgent(), RequestID: r.Header.Get("X-Request-ID"),
+	})
 }
