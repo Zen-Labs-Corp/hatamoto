@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authzsubject"
 	"hatamoto.dev/core/internal/database"
 )
 
@@ -27,7 +29,7 @@ type APIKeyAllower interface {
 type keyRoute struct {
 	method string
 	re     *regexp.Regexp
-	scope  auth.APIKeyScope
+	action authz.Action
 }
 
 func keyRoutePattern(p string) *regexp.Regexp { return regexp.MustCompile(p) }
@@ -44,39 +46,39 @@ var (
 	// key's scopes (including "*"). Patterns are anchored; ids are one
 	// segment.
 	keyRoutes = []keyRoute{
-		{http.MethodGet, keyRoutePattern(`^/api/v1/entities/?$`), auth.ScopeReadEntities},
-		{http.MethodGet, entityPath, auth.ScopeReadEntities},
-		{http.MethodGet, keyRoutePattern(`^/api/v1/entities/[^/]+/versions(/[^/]+)?/?$`), auth.ScopeReadEntities},
-		{http.MethodGet, keyRoutePattern(`^/api/v1/render/theme/?$`), auth.ScopeReadEntities},
-		{http.MethodPost, keyRoutePattern(`^/api/v1/render/preview/?$`), auth.ScopeReadEntities},
-		{http.MethodPost, keyRoutePattern(`^/api/v1/entities/?$`), auth.ScopeWriteEntities},
-		{http.MethodPatch, keyRoutePattern(`^/api/v1/entities/[^/]+/status/?$`), auth.ScopeWriteEntities},
-		{http.MethodPut, entityPath, auth.ScopeWriteEntities},
-		{http.MethodPatch, entityPath, auth.ScopeWriteEntities},
-		{http.MethodPost, keyRoutePattern(`^/api/v1/entities/[^/]+/restore/[^/]+/?$`), auth.ScopeWriteEntities},
+		{http.MethodGet, keyRoutePattern(`^/api/v1/entities/?$`), authz.ActionEntityRead},
+		{http.MethodGet, entityPath, authz.ActionEntityRead},
+		{http.MethodGet, keyRoutePattern(`^/api/v1/entities/[^/]+/versions(/[^/]+)?/?$`), authz.ActionEntityRead},
+		{http.MethodGet, keyRoutePattern(`^/api/v1/render/theme/?$`), authz.ActionRenderPreview},
+		{http.MethodPost, keyRoutePattern(`^/api/v1/render/preview/?$`), authz.ActionRenderPreview},
+		{http.MethodPost, keyRoutePattern(`^/api/v1/entities/?$`), authz.ActionEntityCreate},
+		{http.MethodPatch, keyRoutePattern(`^/api/v1/entities/[^/]+/status/?$`), authz.ActionEntityPublish},
+		{http.MethodPut, entityPath, authz.ActionEntityUpdate},
+		{http.MethodPatch, entityPath, authz.ActionEntityUpdate},
+		{http.MethodPost, keyRoutePattern(`^/api/v1/entities/[^/]+/restore/[^/]+/?$`), authz.ActionEntityVersionRestore},
 		// Internal-linking v2 for automated publishers: suggest is a
 		// non-mutating scan of the rules catalog against one entity's
 		// content (read); insert wraps one anchor in a source entity's
 		// stored content, the same power as PATCH /entities/{id} (write).
-		{http.MethodPost, keyRoutePattern(`^/api/v1/linking/suggest/[^/]+/?$`), auth.ScopeReadEntities},
-		{http.MethodPost, keyRoutePattern(`^/api/v1/linking/insert/?$`), auth.ScopeWriteEntities},
+		{http.MethodPost, keyRoutePattern(`^/api/v1/linking/suggest/[^/]+/?$`), authz.ActionLinkSuggest},
+		{http.MethodPost, keyRoutePattern(`^/api/v1/linking/insert/?$`), authz.ActionLinkInsert},
 		// Settings > SEO: read and partial update only.
-		{http.MethodGet, keyRoutePattern(`^/api/v1/settings/seo/?$`), auth.ScopeReadSEO},
-		{http.MethodPatch, keyRoutePattern(`^/api/v1/settings/seo/?$`), auth.ScopeWriteSEO},
+		{http.MethodGet, keyRoutePattern(`^/api/v1/settings/seo/?$`), authz.ActionSettingsSEORead},
+		{http.MethodPatch, keyRoutePattern(`^/api/v1/settings/seo/?$`), authz.ActionSettingsSEOWrite},
 		// Media: list and upload only; per-item routes stay closed.
-		{http.MethodGet, keyRoutePattern(`^/api/v1/media/?$`), auth.ScopeReadMedia},
-		{http.MethodPost, keyRoutePattern(`^/api/v1/media/upload/?$`), auth.ScopeWriteMedia},
+		{http.MethodGet, keyRoutePattern(`^/api/v1/media/?$`), authz.ActionMediaRead},
+		{http.MethodPost, keyRoutePattern(`^/api/v1/media/upload/?$`), authz.ActionMediaUpload},
 		// Forms: read-only. Single submissions and every write stay closed.
-		{http.MethodGet, keyRoutePattern(`^/api/v1/forms/?$`), auth.ScopeReadForms},
-		{http.MethodGet, keyRoutePattern(`^/api/v1/forms/` + formID + `/?$`), auth.ScopeReadForms},
-		{http.MethodGet, keyRoutePattern(`^/api/v1/forms/` + formID + `/submissions/?$`), auth.ScopeReadForms},
+		{http.MethodGet, keyRoutePattern(`^/api/v1/forms/?$`), authz.ActionFormRead},
+		{http.MethodGet, keyRoutePattern(`^/api/v1/forms/` + formID + `/?$`), authz.ActionFormRead},
+		{http.MethodGet, keyRoutePattern(`^/api/v1/forms/` + formID + `/submissions/?$`), authz.ActionFormSubmissionRead},
 	}
 )
 
-// matchKeyRoute returns the scope required for method+path, or false when the
-// route is not on the allowlist. Paths that are not in canonical form
+// matchKeyRoute returns the action authz is asked about for method+path, or
+// false when the route is not on the allowlist. Paths that are not in canonical form
 // (dot segments, encoded slashes or backslashes, empty segments) never match.
-func matchKeyRoute(r *http.Request) (auth.APIKeyScope, bool) {
+func matchKeyRoute(r *http.Request) (authz.Action, bool) {
 	p := r.URL.Path
 	if strings.Contains(p, "..") || strings.Contains(p, "//") || strings.Contains(p, `\`) {
 		return "", false
@@ -88,7 +90,7 @@ func matchKeyRoute(r *http.Request) (auth.APIKeyScope, bool) {
 	}
 	for _, kr := range keyRoutes {
 		if kr.method == r.Method && kr.re.MatchString(p) {
-			return kr.scope, true
+			return kr.action, true
 		}
 	}
 	return "", false
@@ -127,8 +129,13 @@ func AuthOrAPIKey(v APIKeyValidator, limiter APIKeyAllower, next func(http.Handl
 				return
 			}
 
-			scope, ok := matchKeyRoute(r)
-			if !ok || !key.HasScope(scope) {
+			// The allow-list comes first and is fail-closed; authz then
+			// decides from the key's scopes and creator.
+			act, ok := matchKeyRoute(r)
+			if ok {
+				ok = allowed(r, authzsubject.ForKey(key), act)
+			}
+			if !ok {
 				http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
 				return
 			}
