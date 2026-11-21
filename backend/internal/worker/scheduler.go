@@ -427,6 +427,10 @@ func (s *Scheduler) runEvery(ctx context.Context, first, interval time.Duration,
 	}
 }
 
+// claimTimeout bounds one claim query, so a stalled database falls into the
+// warn-and-run path instead of holding the job lock. A variable for tests.
+var claimTimeout = 10 * time.Second
+
 type jobParentKey struct{}
 
 // WithJobParent records parent, the scheduler's uncapped context, on a job's
@@ -454,7 +458,9 @@ func (s *Scheduler) runJob(ctx context.Context, name string, fn func(context.Con
 		s.jobsMu.Lock()
 		every, jitter := st.every, st.jitter
 		s.jobsMu.Unlock()
-		won, err := s.claims.Claim(ctx, name, claimLease(every, jitter))
+		cctx, cancel := context.WithTimeout(ctx, claimTimeout)
+		won, err := s.claims.Claim(cctx, name, claimLease(every, jitter))
+		cancel()
 		switch {
 		case err != nil:
 			s.logger.Warn("job claim failed; running anyway", slog.String("job", name), slog.Any("error", err))

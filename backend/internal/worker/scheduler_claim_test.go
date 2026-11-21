@@ -73,6 +73,29 @@ func TestRunJobClaimErrorFailsOpen(t *testing.T) {
 	}
 }
 
+type blockingClaimer struct{}
+
+func (blockingClaimer) Claim(ctx context.Context, _ string, _ time.Duration) (bool, error) {
+	<-ctx.Done()
+	return false, ctx.Err()
+}
+
+func TestRunJobClaimTimeoutFailsOpen(t *testing.T) {
+	old := claimTimeout
+	claimTimeout = 20 * time.Millisecond
+	t.Cleanup(func() { claimTimeout = old })
+	var buf bytes.Buffer
+	s, _ := claimTestScheduler(blockingClaimer{}, &buf)
+	var n int
+	s.runJob(context.Background(), "prune", countingFn(&n))
+	if n != 1 {
+		t.Fatalf("runs = %d, want 1", n)
+	}
+	if !strings.Contains(buf.String(), "job claim failed") {
+		t.Fatalf("no warning logged: %q", buf.String())
+	}
+}
+
 func TestRunJobUnclaimedIDsSkipTheClaimer(t *testing.T) {
 	c := &fakeClaimer{}
 	s, _ := claimTestScheduler(c, io.Discard)
