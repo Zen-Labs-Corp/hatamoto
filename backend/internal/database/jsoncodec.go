@@ -7,16 +7,15 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-
-	"hatamoto.dev/core/internal/jsonx"
 )
 
 // jsonTypes are json and jsonb with the pgx default codecs, except that a
 // *jsontext.Value target is a byte copy: pgx would run the whole generic
 // decoder only to copy the bytes. NULL handling is pgx's own (it runs before
-// Unmarshal is called). Other targets and encoding use the pinned jsonx codec,
-// the v1-compatible option set (the repo does not import encoding/json v1).
+// Unmarshal is called). Other targets and encoding use pgx's own default
+// functions, so they behave exactly as without this registration.
 func jsonTypes(fallback func([]byte, any) error) []*pgtype.Type {
+	marshal := defaultJSONCodec().Marshal
 	un := func(data []byte, v any) error {
 		if p, ok := v.(*jsontext.Value); ok {
 			// Copy: pgx reuses its row buffer.
@@ -26,13 +25,20 @@ func jsonTypes(fallback func([]byte, any) error) []*pgtype.Type {
 		return fallback(data, v)
 	}
 	return []*pgtype.Type{
-		{Name: "json", OID: pgtype.JSONOID, Codec: &pgtype.JSONCodec{Marshal: jsonx.MarshalPinned, Unmarshal: un}},
-		{Name: "jsonb", OID: pgtype.JSONBOID, Codec: &pgtype.JSONBCodec{Marshal: jsonx.MarshalPinned, Unmarshal: un}},
+		{Name: "json", OID: pgtype.JSONOID, Codec: &pgtype.JSONCodec{Marshal: marshal, Unmarshal: un}},
+		{Name: "jsonb", OID: pgtype.JSONBOID, Codec: &pgtype.JSONBCodec{Marshal: marshal, Unmarshal: un}},
 	}
 }
 
+// defaultJSONCodec is pgx's own json codec, the source of the default
+// Marshal and Unmarshal (no encoding/json import needed here).
+func defaultJSONCodec() *pgtype.JSONCodec {
+	t, _ := pgtype.NewMap().TypeForOID(pgtype.JSONOID)
+	return t.Codec.(*pgtype.JSONCodec)
+}
+
 func registerJSONTypes(m *pgtype.Map) {
-	for _, t := range jsonTypes(jsonx.UnmarshalPinned) {
+	for _, t := range jsonTypes(defaultJSONCodec().Unmarshal) {
 		m.RegisterType(t)
 	}
 }

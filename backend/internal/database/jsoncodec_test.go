@@ -3,6 +3,7 @@ package database
 import (
 	"bytes"
 	"encoding/json/jsontext"
+	"reflect"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -129,5 +130,61 @@ func TestJSONOtherTargetsUseUnmarshal(t *testing.T) {
 	}
 	if mp["A"] != float64(1) || st.A != 1 || an.(map[string]any)["A"] != float64(1) {
 		t.Fatalf("decoded wrong: %v %v %v", mp, st, an)
+	}
+}
+
+// rawMsg stands in for json.RawMessage (the repo bans importing encoding/json).
+type rawMsg []byte
+
+func (r rawMsg) MarshalJSON() ([]byte, error) { return r, nil }
+func (r *rawMsg) UnmarshalJSON(b []byte) error {
+	*r = append((*r)[:0], b...)
+	return nil
+}
+
+type diffTarget struct {
+	Under   string `json:"under_score"`
+	Dash    string `json:"-"`
+	Folded  int    `json:"Folded"`
+	Omitted string `json:"omitted,omitempty"`
+}
+
+// The fallback must behave exactly as pgx's default codec (encoding/json v1),
+// not as another JSON implementation.
+func TestJSONFallbackMatchesDefault(t *testing.T) {
+	def, reg := pgtype.NewMap(), pgtype.NewMap()
+	registerJSONTypes(reg)
+	for _, oid := range []uint32{pgtype.JSONOID, pgtype.JSONBOID} {
+		for _, in := range []any{
+			map[string]any{"a": "<&>", "b": []int{1}, "c": 1.5e300},
+			diffTarget{Under: "x", Dash: "y", Folded: 2},
+			"\u2028 <tag>", []byte("raw"), rawMsg(`{"k": 1}`),
+		} {
+			want, err1 := def.Encode(oid, pgtype.TextFormatCode, in, nil)
+			got, err2 := reg.Encode(oid, pgtype.TextFormatCode, in, nil)
+			if (err1 == nil) != (err2 == nil) || !bytes.Equal(want, got) {
+				t.Errorf("oid %d marshal %T: got %q/%v, want %q/%v", oid, in, got, err2, want, err1)
+			}
+		}
+		src := []byte(`{"UNDER_SCORE":"u","Under-Score":"d","-":"dash","folded":3,"omitted":"o"}`)
+		scan := func(m *pgtype.Map, dst any) {
+			t.Helper()
+			if err := m.PlanScan(oid, pgtype.TextFormatCode, dst).Scan(src, dst); err != nil {
+				t.Fatalf("scan %T: %v", dst, err)
+			}
+		}
+		pairs := map[string][2]any{
+			"struct": {&diffTarget{}, &diffTarget{}},
+			"map":    {&map[string]any{}, &map[string]any{}},
+			"any":    {new(any), new(any)},
+			"raw":    {&rawMsg{}, &rawMsg{}},
+		}
+		for name, p := range pairs {
+			scan(def, p[0])
+			scan(reg, p[1])
+			if !reflect.DeepEqual(p[0], p[1]) {
+				t.Errorf("oid %d unmarshal %s: got %+v, default %+v", oid, name, p[1], p[0])
+			}
+		}
 	}
 }
