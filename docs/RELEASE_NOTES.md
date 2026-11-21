@@ -1,5 +1,12 @@
 # Release notes
 
+## Unreleased: LTS update channel
+
+- **Updates.** A fourth update channel, `lts`, for long-term support lines: security fixes only, for 18 months. Choose it in Settings > Updates or with `HATAMOTO_UPDATE_CHANNEL=lts`. Older binaries ignore `lts` with a warning.
+- **Release process.** LTS branches `lts/vX.Y` are cut from a minor on stable; fixes are cherry-picked and built and signed like any release.
+- **Docs.** [Release process](site/migrate-contribute/release-process.md), [Upgrades](UPGRADES.md).
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: routes, jobs and mail for compiled-in modules
 
 - **Wrapper modules.** Three new public Go packages let a module that calls `app.Main` register, from an `init` function: an HTTP handler under its own public prefix (`module/route`), a recurring job that runs about once per interval across all servers sharing the database (`module/job`), and mail to the owners or to one user through core's mail path (`module/mail`). A standard build registers nothing and behaves as before.

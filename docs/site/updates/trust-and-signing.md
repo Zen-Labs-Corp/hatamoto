@@ -17,7 +17,7 @@ Their fingerprints are on [Signing keys and fingerprints](keys.md). The public k
 
 ## What the objects look like
 
-A channel manifest is signed JSON with these fields: `channel` (`stable`, `edge` or `canary`), `issued_at`, `expires_at`, `releases` and `yanked`. Each entry in `releases` carries a `version`, the `record_sig` of its record, a `ramp` (a list of `from` timestamps and `pct` values) and a `halted` flag with an optional `halt_reason`. A yank carries a version, a reason and optionally a replacement (`to`).
+A channel manifest is signed JSON with these fields: `channel` (`stable`, `edge`, `canary` or `lts`), `issued_at`, `expires_at`, `releases` and `yanked`. Each entry in `releases` carries a `version`, the `record_sig` of its record, a `ramp` (a list of `from` timestamps and `pct` values) and a `halted` flag with an optional `halt_reason`. A yank carries a version, a reason and optionally a replacement (`to`).
 
 A release record is a small JSON document:
 

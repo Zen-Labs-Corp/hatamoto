@@ -62,7 +62,7 @@ By default your server installs new patch and minor releases on its own. In this
 
 3. To limit installs to quiet hours, set the two hours of **Maintenance window**, the start and the end. The hours are in the site's time zone, shown under the name. A window from 22:00 to 04:00 crosses midnight. Leave both on **Any time**, or set the same hour twice, for no limit. Security fixes ignore the window.
 
-4. To change the **update channel**, the stream of releases you follow, pick `stable` (the default, for live sites), `edge` (2 days early) or `canary` (bleeding edge for testing, may break). The hint next to the field says how many days earlier each channel gets a release.
+4. To change the **update channel**, the stream of releases you follow, pick `stable` (the default, for live sites), `edge` (2 days early), `canary` (bleeding edge for testing, may break) or `lts` (security fixes only, 18 months; pick it while running the LTS minor). The hint next to the field says how many days earlier each channel gets a release.
 
 5. Select **Save settings**.
 

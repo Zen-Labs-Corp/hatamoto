@@ -63,7 +63,7 @@ Each install has a random 32-byte id in `$HATAMOTO_DATA/install_id` (mode 0600).
 | Setting | Values | Default | Notes |
 |---|---|---|---|
 | Mode | `auto`, `notify`, `off` | `auto` | Shown in the admin as **Automatic**, **Notify only** and **Off**. |
-| Channel | `stable`, `edge`, `canary` | `stable` | Stable is for live sites (day 7+). Edge gets each release on day 2. Canary is bleeding edge for testing and may break: it gets each release first. |
+| Channel | `stable`, `edge`, `canary`, `lts` | `stable` | Stable is for live sites (day 7+). Edge gets each release on day 2. Canary is bleeding edge for testing and may break: it gets each release first. LTS gets only security fixes on one long-term support line, for 18 months. |
 | Pin | `vMAJOR.MINOR` | none | Only releases on that minor line, plus security releases inside the same major. Set with `hatamoto update pin`; removed with `unpin` or the admin's **Unpin**. |
 | Defer days | 0 to 14 | 0 | Hold back non-security releases after first seeing them. Values outside the range are clamped. |
 | Maintenance window | start hour and end hour, 0 to 23 | any time | Evaluated in the site time zone (UTC when unset). The window is `[start, end)`, wraps midnight when start is greater than end, and means any time when either bound is empty or both are equal. |
@@ -85,7 +85,7 @@ Environment variables win over the stored settings, and the admin shows those fi
 | Variable | Default | Meaning |
 |---|---|---|
 | `HATAMOTO_UPDATES` | `auto` | `auto` (also `on`, `true`, `1`), `notify`, or `off` (also `false`, `0`, `no`, `disabled`), case-insensitive. Any other value fails closed to `off` and logs a warning. |
-| `HATAMOTO_UPDATE_CHANNEL` | `stable` | `stable`, `edge` or `canary`. An invalid value is logged and ignored. |
+| `HATAMOTO_UPDATE_CHANNEL` | `stable` | `stable`, `edge`, `canary` or `lts`. An invalid value is logged and ignored. |
 | `HATAMOTO_UPDATE_URL` | `https://hatamoto.dev/releases` | Another base URL for a mirror. Must be a plain `https://host/path` with no credentials, query or fragment. |
 | `HATAMOTO_UPDATE_BACKUP` | on | Set to `0` to skip the pre-update backup. |
 | `WORKER_DISABLE_JOBS` | empty | A comma-separated list of jobs; include `update_check` to stop scheduled checks. The CLI still works. |
