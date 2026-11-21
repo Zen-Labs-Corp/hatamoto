@@ -66,6 +66,7 @@ func TestRegisterPanicsThroughFacade(t *testing.T) {
 	mustPanic(t, func() { adminpages.Register(examplePage("example")) })
 	mustPanic(t, func() { adminpages.Register(examplePage("Bad ID")) })
 	mustPanic(t, func() { adminpages.RegisterBanner("example", nil) })
+	mustPanic(t, func() { adminpages.RegisterBanner("typed-nil", adminpages.BannerFunc(nil)) })
 	adminpages.FreezeForTest()
 	mustPanic(t, func() { adminpages.Register(examplePage("late")) })
 	mustPanic(t, func() {
