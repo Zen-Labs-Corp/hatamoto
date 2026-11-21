@@ -28,7 +28,7 @@ func (f *fakeClaimer) Claim(_ context.Context, id string, lease time.Duration) (
 	return f.won, f.err
 }
 
-func claimTestScheduler(c Claimer, log io.Writer) (*Scheduler, *fakeRecorder) {
+func claimTestScheduler(c jobClaimer, log io.Writer) (*Scheduler, *fakeRecorder) {
 	s := NewScheduler(nil, slog.New(slog.NewTextHandler(log, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	rec := &fakeRecorder{}
 	s.SetRecorder(rec)

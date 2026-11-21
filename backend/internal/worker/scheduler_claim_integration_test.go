@@ -19,8 +19,8 @@ func TestSchedulerClaimsOnePerInterval_Integration(t *testing.T) {
 	dbA, dbB := openStatusDB(t), openStatusDB(t)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	a, b := NewScheduler(dbA, log), NewScheduler(dbB, log)
-	a.SetClaimer(NewClaimStore(dbA, "server-a"))
-	b.SetClaimer(NewClaimStore(dbB, "server-b"))
+	a.SetClaimer(NewClaimer(dbA))
+	b.SetClaimer(NewClaimer(dbB))
 
 	pluginID := "plugin:claimtest-" + uuid.NewString() + ":tick"
 	t.Cleanup(func() {

@@ -73,7 +73,7 @@ type Scheduler struct {
 	jobsMu sync.Mutex
 	jobs   map[string]*jobState
 
-	claims Claimer // nil: every tick runs (no database)
+	claims jobClaimer // nil: every tick runs (no database)
 }
 
 // jobState is the bookkeeping of one job id. It outlives a re-Schedule of the
@@ -117,13 +117,25 @@ func NewScheduler(db *database.DB, logger *slog.Logger) *Scheduler {
 		stopCh: make(chan struct{}),
 	}
 	if db != nil {
-		s.claims = NewClaimStore(db, DefaultHolder())
+		s.claims = NewClaimer(db)
 	}
 	return s
 }
 
+// jobClaimer decides whether this server may run a job now.
+type jobClaimer interface {
+	Claim(ctx context.Context, jobID string, window time.Duration) (bool, error)
+}
+
+// claimLease is how long one claimed run keeps the job: just under the
+// shortest wait between two ticks, so the next interval is claimable again.
+func claimLease(every, jitter time.Duration) time.Duration {
+	ms := (every - jitter).Milliseconds() * 9 / 10
+	return max(time.Second, time.Duration(ms)*time.Millisecond)
+}
+
 // SetClaimer replaces the claimer (tests; nil turns claims off).
-func (s *Scheduler) SetClaimer(c Claimer) { s.claims = c }
+func (s *Scheduler) SetClaimer(c jobClaimer) { s.claims = c }
 
 // claimed reports whether id runs on one server per interval.
 func claimed(id string) bool {
