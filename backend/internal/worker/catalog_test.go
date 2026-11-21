@@ -42,3 +42,18 @@ func TestSwitchJobs(t *testing.T) {
 		t.Fatalf("SwitchJobs = %v", got)
 	}
 }
+
+func TestCatalogClaimSet(t *testing.T) {
+	var got []string
+	for _, d := range Catalog {
+		if d.Claim {
+			got = append(got, d.ID)
+		}
+	}
+	slices.Sort(got)
+	want := []string{"agent_hits_maintenance", "agent_hits_partition", "changeset_sweep", "comment_drafts_purge",
+		"entity_versions", "prune", "retention_purge", "traffic_prune", "webhook_prune"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("claimed jobs = %v, want %v (a claimed job is decided, not defaulted)", got, want)
+	}
+}
