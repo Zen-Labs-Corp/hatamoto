@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
@@ -52,13 +53,13 @@ func randomToken(n int) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-// providerFor returns the provider sign-in when id is registered.
-func (a *Admin) providerFor(id string) (ProviderSignIn, bool) {
+// providerFor returns the provider sign-in when id is registered and available.
+func (a *Admin) providerFor(ctx context.Context, id string) (ProviderSignIn, bool) {
 	ps := a.deps.ProviderSignIn
 	if ps == nil {
 		return nil, false
 	}
-	for _, p := range ps.Providers() {
+	for _, p := range ps.Providers(ctx) {
 		if p.ID == id {
 			return ps, true
 		}
@@ -77,7 +78,7 @@ func (a *Admin) providerCallbackURL(r *http.Request, id string) string {
 // handleProviderStart sends the browser to the provider with a fresh state.
 func (a *Admin) handleProviderStart(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	ps, ok := a.providerFor(id)
+	ps, ok := a.providerFor(r.Context(), id)
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -169,7 +170,7 @@ func (a *Admin) openProviderState(r *http.Request, id string) (providerState, bo
 // user in (through the second step unless the provider asserted one).
 func (a *Admin) handleProviderCallback(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	ps, ok := a.providerFor(id)
+	ps, ok := a.providerFor(r.Context(), id)
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -265,7 +266,7 @@ func (a *Admin) providerFailed(w http.ResponseWriter, r *http.Request, next stri
 	}
 	lvl("provider sign-in refused", "ip", middleware.GetClientIP(r), "reason", err.Error())
 	v := a.NewView(w, r, "Sign in")
-	v.Data = loginData{Next: next, DemoLogin: a.demoLoginData(), Passkeys: a.passkeysOn(), Providers: a.providerButtons(next),
+	v.Data = loginData{Next: next, DemoLogin: a.demoLoginData(), Passkeys: a.passkeysOn(), Providers: a.providerButtons(r.Context(), next),
 		Status: &Flash{Kind: "error", Message: providerMessage}}
 	a.Render(w, r, http.StatusUnprocessableEntity, "auth/login", v)
 }

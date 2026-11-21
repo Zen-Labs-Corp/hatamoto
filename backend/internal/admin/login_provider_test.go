@@ -296,6 +296,21 @@ func TestProviderRoutes404(t *testing.T) {
 	}
 }
 
+func TestProviderRoutes404WhenProviderUnavailable(t *testing.T) {
+	t.Parallel()
+
+	g := newProviderRig(t)
+	g.fp.infos = nil
+	for _, target := range []string{"/admin/login/provider/example/start", cbPath} {
+		if rec := g.nav(target); rec.Code != 404 {
+			t.Errorf("%s: %d", target, rec.Code)
+		}
+	}
+	if g.finished != 0 {
+		t.Error("Finish called for an unavailable provider")
+	}
+}
+
 func TestProviderStartWithoutSiteAddressFailsNeutrally(t *testing.T) {
 	t.Parallel()
 

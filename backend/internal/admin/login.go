@@ -31,13 +31,13 @@ type loginData struct {
 type providerButton struct{ Name, Href string }
 
 // providerButtons lists the registered sign-in providers as links to their
-// start route; none when no provider is registered.
-func (a *Admin) providerButtons(next string) []providerButton {
+// start route; none when no provider is available.
+func (a *Admin) providerButtons(ctx context.Context, next string) []providerButton {
 	if a.deps.ProviderSignIn == nil {
 		return nil
 	}
 	var out []providerButton
-	for _, p := range a.deps.ProviderSignIn.Providers() {
+	for _, p := range a.deps.ProviderSignIn.Providers(ctx) {
 		href := a.url("login/provider/" + p.ID + "/start")
 		if next != "" {
 			href += "?next=" + url.QueryEscape(next)
@@ -97,7 +97,7 @@ func (a *Admin) handleLoginForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, next, http.StatusSeeOther)
 		return
 	}
-	d := loginData{Next: next, DemoLogin: a.demoLoginData(), Passkeys: a.passkeysOn(), Providers: a.providerButtons(next)}
+	d := loginData{Next: next, DemoLogin: a.demoLoginData(), Passkeys: a.passkeysOn(), Providers: a.providerButtons(r.Context(), next)}
 	if r.URL.Query().Get("expired") == "1" {
 		d.Status = &Flash{Kind: "info", Message: "Your session expired. Sign in again."}
 	}
@@ -144,7 +144,7 @@ func (a *Admin) loginFailed(w http.ResponseWriter, r *http.Request, err error, e
 		fallthrough
 	case errors.Is(err, auth.ErrInvalidCredentials), errors.Is(err, auth.ErrUserNotFound), errors.Is(err, auth.ErrUserDisabled), errors.Is(err, auth.ErrSecondFactorRequired):
 		v := a.NewView(w, r, "Sign in")
-		v.Data = loginData{Email: email, Next: next, DemoLogin: a.demoLoginData(), Passkeys: a.passkeysOn(), Providers: a.providerButtons(next), Status: &Flash{Kind: "error", Message: loginMessage}}
+		v.Data = loginData{Email: email, Next: next, DemoLogin: a.demoLoginData(), Passkeys: a.passkeysOn(), Providers: a.providerButtons(r.Context(), next), Status: &Flash{Kind: "error", Message: loginMessage}}
 		a.Render(w, r, http.StatusUnprocessableEntity, "auth/login", v)
 	case errors.Is(err, context.Canceled):
 		// The client left (or was dropped while queued for a hash): nothing to answer.
