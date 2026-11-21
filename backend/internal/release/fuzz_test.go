@@ -38,9 +38,12 @@ func FuzzVerifyRecord(f *testing.F) {
 	f.Add(fx.record, fx.recordSig)
 	f.Add(fx.record, "")
 	f.Add(fx.record, "id:")
+	_, withEditions := editionRecord(f, fx)
+	withEditionsSig := fx.signRecord(f, fx.relKey, withEditions)
+	f.Add(withEditions, withEditionsSig)
 	f.Add([]byte(`{"version":"v1.0.0"}`), fx.recordSig)
 	f.Fuzz(func(t *testing.T, record []byte, sig string) {
-		if _, err := VerifyRecord(record, sig, fx.opts); err == nil && !bytes.Equal(record, fx.record) {
+		if _, err := VerifyRecord(record, sig, fx.opts); err == nil && !bytes.Equal(record, fx.record) && !bytes.Equal(record, withEditions) {
 			t.Fatalf("accepted record bytes that were not signed: %q", record)
 		}
 		_, _, _ = SplitRecordSig(sig)
