@@ -60,6 +60,8 @@ type hostingPage struct {
 	CrawlersWarn   bool
 	IngestDocs     string
 
+	Setup hostingSetupView
+
 	Last string
 	Log  ui.Table
 	// TestWhy and ExportWhy say why a button is disabled; "" means it is enabled.
@@ -93,9 +95,15 @@ func (a *Admin) renderHosting(w http.ResponseWriter, r *http.Request, status int
 		}
 		if err == nil {
 			live, stays := svc.Islands()
+			// A setup that cannot be read is not a page error: the card says so.
+			setup, serr := svc.Setup(ctx)
+			if serr != nil {
+				a.logger().Error("hosting setup", "err", serr)
+				setup = HostingSetup{Saved: true, GenError: "The web server setup could not be loaded."}
+			}
 			v := a.NewView(w, r, "Hosting")
 			v.Section, v.Tab, v.Width = "hosting", "hosting", "narrow"
-			v.Data = a.hostingPage(r, saved, form, errs, runs, liveRuns, live, stays)
+			v.Data = a.hostingPage(r, saved, form, errs, runs, liveRuns, live, stays, setup)
 			a.Render(w, r, status, "settings/hosting", v)
 			return
 		}
@@ -104,7 +112,7 @@ func (a *Admin) renderHosting(w http.ResponseWriter, r *http.Request, status int
 	a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The hosting settings could not be loaded.")
 }
 
-func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInput, errs []ui.FieldError, runs, liveRuns []HostingRun, live []HostingIsland, stays []string) hostingPage {
+func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInput, errs []ui.FieldError, runs, liveRuns []HostingRun, live []HostingIsland, stays []string, setup HostingSetup) hostingPage {
 	loc := a.siteLocation(r.Context())
 	f := saved
 	if form != nil {
@@ -185,6 +193,7 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 	if len(stays) > 0 {
 		p.Stays = "Stays on Hatamoto: " + strings.Join(stays, ", ") + "."
 	}
+	p.Setup = hostingSetupFrom(setup, r.URL.Query().Get("setup"), a.adminPath, loc)
 	p.Log = a.hostingLog(runs, loc)
 	p.Last = hostingLast(liveRuns)
 	return p

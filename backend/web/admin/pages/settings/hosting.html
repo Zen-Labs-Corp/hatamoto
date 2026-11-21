@@ -39,6 +39,23 @@
 {{with .Stays}}<p class="hm-muted">{{.}}</p>{{end}}
 {{if .CrawlersWarn}}{{template "hm/callout-start" (dict "Kind" "warning" "ID" "hosting-crawlers")}}<p>AI crawler analytics can't see CDN hits. Set up access-log ingest. <a href="{{.IngestDocs}}">How to set up</a></p>{{template "hm/callout-end"}}
 {{end}}{{template "hm/card-end"}}
+{{with .Setup}}{{if .Show}}{{template "hm/card-start" dict "ID" "hosting-setup" "Title" "Set up your web server" "Heading" "h2" "Description" "Based on saved settings."}}
+{{template "hm/tabs" dict "Label" "Web server" "Items" .Tabs}}
+<div class="hm-setlist">{{range .Checks}}<div class="hm-setrow">
+<div class="hm-setrow__text"><p class="hm-setrow__name">{{.Name}}</p><p class="hm-field__help">{{.Detail}}</p></div>
+<div class="hm-setrow__control">{{template "hm/badge" .Badge}}</div>
+</div>{{end}}</div>
+{{if eq .Kind "s3"}}<p>Upload the exported files to the bucket and put a CDN in front. A bucket cannot pass islands to this server: use Advanced: separate live origin, unless the CDN routes the island paths to this server.</p>
+{{with .Headers}}<p>Set the security headers Hatamoto sends on its own pages at the CDN:{{range $i, $h := .}}{{if $i}},{{end}} <code>{{$h}}</code>{{end}}. The Hosting setups section of the static export guide lists the values.</p>
+{{end}}<p>Cloudflare: add them with a Transform Rule that modifies response headers. Cloudflare Pages and Netlify read _redirects themselves. CloudFront: attach a response headers policy to the distribution; _redirects needs a function or a Lambda@Edge rule. A plain bucket ignores _redirects.</p>
+{{else}}{{with .Error}}{{template "hm/callout" (dict "Kind" "warning" "ID" "hosting-setup-error" "Body" .)}}
+{{end}}{{with .Note}}<p class="hm-muted">{{.}}</p>
+{{end}}{{if .Config}}<div class="hm-stack">
+{{template "hm/field" dict "ID" "hosting-setup-config" "Name" "setup_config" "Label" "Config" "Control" "textarea" "Rows" 14 "Value" .Config "Help" .Help "Attrs" (attrmap "readonly" "" "data-hm-code" "" "form" "hosting-setup-form")}}
+<div>{{template "hm/button" dict "Label" "Copy config" "Attrs" (attrmap "data-hm-copy-field" "hosting-setup-config")}}</div>
+</div>
+{{end}}{{end}}{{template "hm/card-end"}}
+{{end}}{{end}}
 {{template "hm/card-start" dict "ID" "hosting-exports" "Title" "Exports" "Heading" "h2"}}
 {{with .Last}}<p role="status">Last export: {{.}}.</p>{{end}}
 {{if .Log.Rows}}{{template "hm/table" .Log}}{{else}}{{template "hm/empty" .Log.Empty}}{{end}}
@@ -50,6 +67,7 @@
 {{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}
 {{template "hm/card-foot-end"}}
 </form>
+<form id="hosting-setup-form" hidden></form>
 <form id="test-form" method="post" action="{{adminPath}}/settings/hosting/test">{{template "hm/csrf" $}}</form>
 <form id="export-form" method="post" action="{{adminPath}}/settings/hosting/export">{{template "hm/csrf" $}}</form>
 <form id="rebuild-form" method="post" action="{{adminPath}}/settings/hosting/rebuild">{{template "hm/csrf" $}}</form>

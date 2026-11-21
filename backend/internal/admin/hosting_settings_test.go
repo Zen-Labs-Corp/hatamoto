@@ -279,6 +279,94 @@ func TestHostingPageLiveMode(t *testing.T) {
 	}
 }
 
+func dirSetupHosting() *fakeHosting {
+	f := staticHosting()
+	f.view = HostingView{Mode: HostingStatic, Target: HostingTargetDir, Dir: "/srv/site/public"}
+	f.setup = HostingSetup{
+		Saved: true, Target: HostingTargetDir, SameHost: true, Site: "https://example.com", Upstream: "127.0.0.1:8090",
+		Caddy: "example.com {\n\treverse_proxy 127.0.0.1:8090\n}\n", Nginx: "server {\n\tproxy_pass http://127.0.0.1:8090;\n}\n",
+		Folder: HostingCheckOK, Exact: 3, Wildcard: 1, RedirectsSplit: true, RedirectsTotal: 4, Reach: HostingCheckUnknown,
+		HeaderNames: []string{"X-Content-Type-Options", "X-Frame-Options"},
+	}
+	return f
+}
+
+func TestHostingPageSetupCard(t *testing.T) {
+	t.Parallel()
+
+	p := newHostingRig(t, dirSetupHosting())
+	get := func(q string) string {
+		t.Helper()
+		body := p.do("GET", hostingURL+q, "owner-token", nil, nil).Body.String()
+		if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+			t.Errorf("a11y %q: %v", q, issues)
+		}
+		return body
+	}
+	body := get("")
+	for _, want := range []string{`id="hosting-setup"`, "Set up your web server", "Based on saved settings.",
+		`href="/admin/settings/hosting?setup=nginx#hosting-setup"`, `aria-current="page">Caddy`, "S3 &#43; CDN",
+		`id="hosting-setup-config"`, "reverse_proxy 127.0.0.1:8090", `data-hm-copy-field="hosting-setup-config"`, `id="hosting-setup-form"`,
+		"Upstream 127.0.0.1:8090 is this server&#39;s listen address.",
+		"Not checked yet. It runs after the next export on this server.", "The folder exists and the service user can write to it.",
+		"3 exact rules become meta-refresh pages and 1 wildcard rule is lost", "included in the config below"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("page lacks %q", want)
+		}
+	}
+	if strings.Contains(body, "Run Test export") {
+		t.Error("the card sends the owner to a Test export that static mode disables")
+	}
+	if strings.Contains(body, `form="hosting-form"`) || strings.Contains(body, `id="hosting-setup-form" method`) {
+		t.Error("the config can post with Save")
+	}
+	if !strings.Contains(body, `readonly`) || !strings.Contains(body, `form="hosting-setup-form"`) {
+		t.Error("the config is not a readonly field of the empty form")
+	}
+
+	nginx := get("?setup=nginx")
+	if !strings.Contains(nginx, "proxy_pass http://127.0.0.1:8090") || strings.Contains(nginx, "reverse_proxy") || !strings.Contains(nginx, `aria-current="page">nginx`) {
+		t.Error("the nginx tab does not show the nginx config")
+	}
+	s3 := get("?setup=s3")
+	if !strings.Contains(s3, "A bucket cannot pass islands to this server") || !strings.Contains(s3, "<code>X-Frame-Options</code>") || strings.Contains(s3, `id="hosting-setup-config"`) {
+		t.Error("the S3 + CDN tab lacks its guidance")
+	}
+	if evil := get("?setup=evil%22%3E"); !strings.Contains(evil, `aria-current="page">Caddy`) || strings.Contains(evil, "evil") {
+		t.Error("an unknown tab does not fall back to the default")
+	}
+}
+
+func TestHostingPageSetupCardForS3AndErrors(t *testing.T) {
+	t.Parallel()
+
+	// An S3 target opens on the CDN tab; Caddy says there is nothing to copy.
+	f := staticHosting()
+	f.setup = HostingSetup{Saved: true, Target: HostingTargetS3, RedirectsTotal: 4, Reach: HostingCheckOK, ReachAt: time.Date(2026, 11, 21, 14, 5, 0, 0, time.UTC), Site: "https://example.com"}
+	p := newHostingRig(t, f)
+	body := p.do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `aria-current="page">S3 &#43; CDN`) || !strings.Contains(body, "A bucket cannot pass islands") ||
+		!strings.Contains(body, "The last export has 4 redirect rules.") || !strings.Contains(body, "https://example.com answers. Checked 21 Nov ") {
+		t.Errorf("S3 target card is wrong: %s", body[strings.Index(body, `id="hosting-setup"`):][:3000])
+	}
+	if body = p.do("GET", hostingURL+"?setup=caddy", "owner-token", nil, nil).Body.String(); !strings.Contains(body, "there is no web server config to copy") {
+		t.Error("the Caddy tab of an S3 target has no note")
+	}
+
+	// A refused config shows its reason, never a config.
+	f = dirSetupHosting()
+	f.setup.Caddy, f.setup.Nginx, f.setup.GenError = "", "", "The saved directory contains characters a web server config cannot hold."
+	body = newHostingRig(t, f).do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `id="hosting-setup-error"`) || strings.Contains(body, `id="hosting-setup-config"`) {
+		t.Error("a refused config is not shown as an error")
+	}
+
+	// Nothing saved: no card.
+	if body = newHostingRig(t, servedHosting()).do("GET", hostingURL, "owner-token", nil, nil).Body.String(); strings.Contains(body, `id="hosting-setup"`) {
+		t.Error("the card shows with no saved target")
+	}
+}
+
 func TestHostingPageOwnerOnlyAndUnavailable(t *testing.T) {
 	t.Parallel()
 
