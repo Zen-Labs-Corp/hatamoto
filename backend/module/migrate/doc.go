@@ -13,6 +13,11 @@
 // lock, and are recorded in the table module_<name>_goose_db_version, never
 // in core's goose_db_version. `hatamoto migrate status` lists them.
 //
+// Use timestamp versions (for example 202611211200_create_reports.sql):
+// migrations run with out-of-order versions allowed, so a file older than the
+// last applied one still runs. Core never runs a down migration. Modules
+// migrate in registration (init) order, after core's.
+//
 // A failed module migration is logged and recorded (see Err); the server
 // keeps running and that module's background services are not started, while
 // `hatamoto migrate` exits non-zero. Err describes the last run in this

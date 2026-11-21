@@ -157,7 +157,7 @@ static: export failed, /srv/site-static unchanged
 
 A build that registers Go modules (see [Go module extension points](PLUGIN_API.md#go-module-extension-points)) lists their commands under `module commands:` in `hatamoto help`. A standard build has none, and its help text is unchanged.
 
-- Core command names always win: a module command with the name of a core command is never run, including a name core adds in a later release.
+- Core command names always win: a module command with the name of a core command is never run, including a name core adds in a later release, so use a module-specific prefix for command names.
 - A module command exits with the code it chose through `cli.Exit`, from 1 to 255. Any other code, and any plain error, exits 1.
 - `hatamoto migrate` runs the module migrations after the core ones and exits non-zero if one of them fails.
 - `hatamoto migrate status` adds one `module <name>` section for each module that registered migrations.
