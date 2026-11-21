@@ -154,6 +154,8 @@ func TestStaticCLI_S3Env(t *testing.T) {
 	t.Setenv(staticexport.EnvPrefix, "site")
 	t.Setenv(staticexport.EnvAccessKey, s3test.AccessKey)
 	t.Setenv(staticexport.EnvSecretKey, s3test.SecretKey)
+	// The fake S3 listens on loopback, which the endpoint guard refuses by default.
+	t.Setenv(staticexport.EnvS3AllowPrivate, "1")
 
 	var buf bytes.Buffer
 	if err := runStatic(context.Background(), []string{"--target", "s3"}, &buf); err != nil {
