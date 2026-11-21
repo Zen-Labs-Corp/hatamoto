@@ -30,7 +30,9 @@ type Edit struct {
 	Schema        string
 	Delete        bool
 	SlugChange    bool
-	ReviewEnabled bool // the site's review switch, filled in by core
+	ReviewEnabled bool   // the site's review switch, filled in by core
+	RequesterRole string // the requester's role ("owner", "editor", ...); a key's creator role
+	Bypass        bool   // the requester may publish without review (core's entity.review.bypass right)
 }
 
 // Stage is one ordered review step; Group names who may decide it.
@@ -102,13 +104,14 @@ func Reset() {
 }
 
 // StagesFor returns the ordered review stages of e. With no policy it
-// returns none when review is off and one "Review" stage for the "reviewers"
-// group when it is on. A policy error or invalid answer yields ErrPolicy and
+// returns none when review is off or the requester holds the bypass right,
+// and one "Review" stage for the "reviewers" group otherwise. A registered
+// policy sees Bypass and RequesterRole and its answer wins. A policy error or invalid answer yields ErrPolicy and
 // no stages. A policy panic is not recovered.
 func StagesFor(ctx context.Context, e Edit) ([]Stage, error) {
 	r := reg.Load()
 	if r == nil {
-		if !e.ReviewEnabled {
+		if !e.ReviewEnabled || e.Bypass {
 			return []Stage{}, nil
 		}
 		return []Stage{{Name: DefaultStageName, Group: DefaultGroup}}, nil

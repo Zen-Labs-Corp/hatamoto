@@ -15,6 +15,13 @@ type fake struct {
 
 func (f *fake) Stages(context.Context, review.Edit) ([]review.Stage, error) { return f.stages, f.err }
 
+type spy struct{ got review.Edit }
+
+func (s *spy) Stages(_ context.Context, e review.Edit) ([]review.Stage, error) {
+	s.got = e
+	return []review.Stage{{Name: "Own", Group: "g"}}, nil
+}
+
 func reset(t *testing.T) {
 	t.Helper()
 	review.ResetForTest()
@@ -100,4 +107,17 @@ func TestRegisterPanics(t *testing.T) {
 	reset(t)
 	review.FreezeForTest()
 	mustPanic(t, "after Freeze", func() { review.Register(&fake{}) })
+}
+
+func TestPolicySeesRoleAndBypassAndWins(t *testing.T) {
+	reset(t)
+	sp := &spy{}
+	review.Register(sp)
+	st, err := review.StagesFor(context.Background(), review.Edit{ReviewEnabled: true, RequesterRole: "owner", Bypass: true})
+	if err != nil || len(st) != 1 || st[0].Name != "Own" {
+		t.Fatalf("got %#v, %v; the policy's stage must win over Bypass", st, err)
+	}
+	if sp.got.RequesterRole != "owner" || !sp.got.Bypass {
+		t.Fatalf("policy saw %#v", sp.got)
+	}
 }
