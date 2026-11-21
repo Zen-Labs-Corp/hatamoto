@@ -237,14 +237,17 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 	}
 
 	if rt.commentPost != nil || rt.commentEdit != nil || rt.commentDelete != nil {
-		// One per-client limiter for the three comment POST routes. No CORS:
-		// the handlers refuse cross-site posts themselves.
+		// One per-client limiter for the three comment POST routes. Only the
+		// new-comment post answers the static origin's CORS; the handlers refuse
+		// cross-site posts themselves, and edit and delete have no CORS.
 		commentLimiter := middleware.NewRateLimiter(0.2, 5).ByIPv6Prefix()
+		if rt.commentPost != nil {
+			handleStaticCORS(r, rt.hosting, http.MethodPost, commentPostPrefix+"{entityID}", rt.commentPost, commentLimiter.Middleware)
+		}
 		for _, m := range []struct {
 			pattern string
 			h       http.HandlerFunc
 		}{
-			{"POST " + commentPostPrefix + "{entityID}", rt.commentPost},
 			{"POST " + commentEditPrefix + "{commentID}", rt.commentEdit},
 			{"POST " + commentDeletePrefix + "{commentID}", rt.commentDelete},
 		} {
