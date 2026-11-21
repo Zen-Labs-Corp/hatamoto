@@ -629,10 +629,10 @@ func (s *Server) restLogoutAudit(r *http.Request, id uuid.UUID) {
 // of the typed email, the same for a known and an unknown address; neither the
 // address nor the password or code is stored.
 func (s *Server) restLoginAuditFailed(r *http.Request, in auth.LoginRequest, reason string) {
-	actor := "unknown"
-	if s.cfg != nil && in.Email != "" {
-		actor = auditlog.NewEmailHasher(s.cfg.Secret)(in.Email)
+	if s.cfg == nil || in.Email == "" {
+		return // no typed address: nothing to attribute the row to
 	}
+	actor := auditlog.NewEmailHasher(s.cfg.Secret)(in.Email)
 	method := admin.SignInPassword
 	if in.Code != "" {
 		method = admin.SignInTOTP

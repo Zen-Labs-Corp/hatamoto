@@ -53,12 +53,10 @@ func TestPasskeyAuditRefusedAssertion(t *testing.T) {
 	if rec := g.passkeySignIn("", `{"id":"nouv"}`); rec.Code != 401 {
 		t.Fatalf("finish: %d", rec.Code)
 	}
-	evs := read()
-	ev := loginAuditOne(t, evs, AuditSignInFailed)
-	if ev.Result != audit.ResultDenied || ev.Actor != "unknown" || ev.Detail["reason"] != ReasonCredentials || ev.Detail["method"] != SignInPasskey {
-		t.Fatalf("row = %+v", ev)
+	// No user and no typed address: no row.
+	if evs := read(); len(evs) != 0 {
+		t.Fatalf("rows = %+v", evs)
 	}
-	assertAuditSafe(t, evs)
 }
 
 func TestPasskeyAuditRefusedSessionIsLocked(t *testing.T) {
@@ -124,12 +122,10 @@ func TestPasskeyAuditProviderFinishError(t *testing.T) {
 	g.finErr = auth.ErrInvalidCredentials
 	read := auditCapture(g.a)
 	passkeyAuditCallback(t, g)
-	evs := read()
-	ev := loginAuditOne(t, evs, AuditSignInFailed)
-	if ev.Actor != "unknown" || ev.Detail["reason"] != ReasonCredentials {
-		t.Fatalf("row = %+v", ev)
+	// An unmapped callback has no user to attribute the row to: no row.
+	if evs := read(); len(evs) != 0 {
+		t.Fatalf("rows = %+v", evs)
 	}
-	assertAuditSafe(t, evs)
 }
 
 func TestPasskeyAuditProviderPendingSecondStepWritesNothing(t *testing.T) {

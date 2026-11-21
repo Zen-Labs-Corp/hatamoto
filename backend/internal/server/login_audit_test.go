@@ -160,3 +160,15 @@ func TestRestLoginAuditSuccessAndLogoutRows(t *testing.T) {
 		t.Fatalf("sign-out = %v", out)
 	}
 }
+
+func TestRestLoginAuditFailedWithoutEmailWritesNothing(t *testing.T) {
+	t.Parallel()
+
+	s, lg, _ := restLoginServer(t, false)
+	if rr := restLoginPost(s, `{"email":"","password":"typed-wrong-pw"}`); rr.Code != http.StatusUnauthorized {
+		t.Fatalf("status %d", rr.Code)
+	}
+	if len(lg.recs) != 0 {
+		t.Fatalf("rows = %v", lg.recs)
+	}
+}

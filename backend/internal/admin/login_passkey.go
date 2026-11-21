@@ -67,11 +67,12 @@ func (a *Admin) auditPasskeyRefused(r *http.Request, actorID string, err error) 
 	if errors.Is(err, auth.ErrAccountLocked) {
 		reason = ReasonLocked
 	}
-	actor := actorID
-	if actor == "" {
-		actor = "unknown"
+	if actorID == "" {
+		// No user and no typed address: an anonymous, free-to-forge request
+		// would only fill the log.
+		return
 	}
-	a.auditSignInFailed(r, actorID, actor, reason, map[string]any{"method": SignInPasskey})
+	a.auditSignInFailed(r, actorID, actorID, reason, map[string]any{"method": SignInPasskey})
 }
 
 func (a *Admin) handlePasskeyBegin(w http.ResponseWriter, r *http.Request) {
