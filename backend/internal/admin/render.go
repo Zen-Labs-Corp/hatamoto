@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/jsonx"
@@ -185,6 +186,8 @@ type View struct {
 	// Refresh, in seconds, reloads the page without JavaScript (a live status
 	// page); htmx pages poll instead.
 	Refresh int
+	// SiteNotices shows the site-level notices (setup, site address, updates, admin address, stats, export, modules).
+	SiteNotices bool
 	// NoSiteAddress asks the owner to set the site address (emails need it).
 	NoSiteAddress bool
 	// SetupPending reminds the owner that the wizard was not finished.
@@ -558,6 +561,7 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 		Title: title, SiteName: a.deps.SiteNameFallback, Lang: "en", Theme: themeOf(r), Density: densityOf(r), Path: r.URL.Path, adminPath: a.adminPath, speculation: a.speculation, appVersion: a.appVersion,
 		Nonce: Nonce(ctx), CSRF: csrfToken(ctx), Assets: as, User: userFrom(ctx), vw: a.viewerOf(ctx),
 	}
+	v.SiteNotices = v.viewer().Can(authz.ActionSettingsManage)
 	if runenv.Staging() {
 		v.StagingBanner = runenv.Banner
 	}
