@@ -368,8 +368,3 @@ func (p *Provider) Check(ctx context.Context, s Settings) error {
 	}
 	return nil
 }
-
-// MapUser is implemented in mapuser.go.
-func (p *Provider) MapUser(context.Context, authstate.MapRequest) (authstate.User, error) {
-	return authstate.User{}, refuse("not_ready", nil)
-}
