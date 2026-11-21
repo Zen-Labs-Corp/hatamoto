@@ -7,7 +7,7 @@
 #   --base URL     where the signed manifests are served (default
 #                  https://hatamoto.dev/releases/channels; file:// works)
 #   --min-days N   fail when expires_at is less than N days away (default 7)
-#   CHANNEL...     default: canary edge stable
+#   CHANNEL...     default: canary edge stable lts
 #
 # A manifest (its expires_at is in the signed "index" object) is signed for 14 days and re-signed daily, so a healthy channel is
 # never closer than 13 days to expiry. Under 7 days left means a week of
@@ -29,7 +29,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 [[ "$min" =~ ^[0-9]+$ ]] || { echo "--min-days must be a whole number" >&2; exit 64; }
-[ ${#chans[@]} -gt 0 ] || chans=(canary edge stable)
+[ ${#chans[@]} -gt 0 ] || chans=(canary edge stable lts)
 
 now=$(date -u +%s) bad=0
 for c in "${chans[@]}"; do

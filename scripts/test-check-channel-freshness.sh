@@ -13,16 +13,17 @@ manifest() { # manifest CHANNEL DAYS_FROM_NOW
   printf '{"index":{"channel":"%s","issued_at":"x","expires_at":"%s","releases":[]},"signature":"x"}\n' "$1" "$(date -u -d "now + $2 days" +%Y-%m-%dT%H:%M:%SZ)" > "$W/$1.json"; }
 run() { bash "$S" --base "file://$W" "$@" 2>&1; }
 
-for c in canary edge stable; do manifest "$c" 13; done
+for c in canary edge stable lts; do manifest "$c" 13; done
 out=$(run) || fail "fresh manifests failed: $out"
-[ "$(grep -c '^ok ' <<<"$out")" = 3 ] || fail "want three ok lines: $out"
-pass "all three fresh (13 days left): ok"
+[ "$(grep -c '^ok ' <<<"$out")" = 4 ] || fail "want four ok lines: $out"
+pass "all four fresh (13 days left): ok"
 
 manifest edge 6
 if out=$(run); then fail "6 days left must fail: $out"; fi
 grep -q '::error title=channel edge expires soon' <<<"$out" || fail "no loud error for edge: $out"
 grep -q 'ok   canary' <<<"$out" || fail "canary was not reported: $out"
 grep -q 'ok   stable' <<<"$out" || fail "stable was not reported: $out"
+grep -q 'ok   lts' <<<"$out" || fail "lts was not reported: $out"
 pass "one channel at 6 days left: fails loudly, the others still reported"
 
 manifest edge 8

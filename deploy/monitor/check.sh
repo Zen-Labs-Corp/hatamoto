@@ -4,7 +4,7 @@
 # 1 (with one "FAIL:" line per problem on stderr) otherwise.
 #
 # Checks:
-#   * /releases/channels/{stable,edge,canary}.json: HTTP 200, JSON, .index.expires_at
+#   * /releases/channels/{stable,edge,canary,lts}.json: HTTP 200, JSON, .index.expires_at
 #     parses and is more than EXPIRY_DAYS (7) away (signed manifests live 14
 #     days and are re-signed daily, so <7 days means signing has stopped)
 #   * /registry.json: HTTP 200, signed JSON whose .index (or top level) has .packages
@@ -52,7 +52,7 @@ ok_get() { # path label
 	[[ $code == 200 ]] || { fail "$2: HTTP $code (want 200)"; return 1; }
 }
 
-for c in stable edge canary; do
+for c in stable edge canary lts; do
 	p=/releases/channels/$c.json
 	ok_get "$p" "$p" || continue
 	exp=$(jq -er '.index.expires_at | strings' <<<"$body" 2>/dev/null) || { fail "$p: not valid JSON or .index.expires_at missing"; continue; }
