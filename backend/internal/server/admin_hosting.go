@@ -68,7 +68,7 @@ func (h *hostingAdmin) View(ctx context.Context) (admin.HostingView, error) {
 	}
 	if set.Mode == staticexport.ModeStatic {
 		if why := h.snapshot().InactiveReason(); why != "" {
-			v.IslandsWarning = "Live islands are off: " + fullStopText(why)
+			v.IslandsWarning = why // bare: the page adds the sentence around it
 		}
 	}
 	return v, nil

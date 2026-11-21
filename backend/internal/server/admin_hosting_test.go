@@ -321,7 +321,8 @@ func TestHostingAdmin_ViewIslandsWarning(t *testing.T) {
 	fx.store.set.Mode = staticexport.ModeStatic
 	fx.h.snapshot = func() statichost.StaticHosting { return statichost.StaticHosting{Static: true, Site: fx.site} }
 	v, err := fx.h.View(context.Background())
-	if err != nil || !strings.HasPrefix(v.IslandsWarning, "Live islands are off") || !strings.HasSuffix(v.IslandsWarning, ".") {
+	// The page wraps this in "islands are off: %s.", so it must be the bare reason.
+	if err != nil || v.IslandsWarning != fx.h.snapshot().InactiveReason() || strings.Contains(v.IslandsWarning, "islands are off") || strings.HasSuffix(v.IslandsWarning, ".") {
 		t.Fatalf("view = %+v %v", v, err)
 	}
 	fx.store.set.Mode = staticexport.ModeServed
