@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/internal/bizprofile"
+	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/consent"
 	"hatamoto.dev/core/internal/entity"
@@ -67,6 +68,7 @@ var doctorRegistry = map[string]colCheck{
 	"hatamoto_static_export_runs.errors":           {decode: decodeAs[[]string]()},
 	"hatamoto_webhooks.headers":                    {decode: decodeAs[map[string]string]()},
 	"hatamoto_admin_audit.detail":                  opaque,
+	"hatamoto_changesets.stages":                   {decode: decodeAs[[]changeset.StageSpec](), shape: keynorm.ShapeOf(reflect.TypeFor[[]changeset.StageSpec]())},
 	"hatamoto_changeset_items.before":              opaque,
 	"hatamoto_changeset_items.payload":             opaque,
 	"hatamoto_entities.attributes":                 opaque,
