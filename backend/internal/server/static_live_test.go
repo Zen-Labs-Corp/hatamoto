@@ -140,3 +140,19 @@ func TestStaticLiveServedModeUntouched(t *testing.T) {
 		}
 	}
 }
+
+func TestStaticLiveThemePreviewNotRedirected(t *testing.T) {
+	t.Parallel()
+	h, calls := staticLiveRig(true)
+	rec := staticLiveDo(h, http.MethodGet, "/?hm_theme_preview=tok", staticLiveHost, "")
+	if rec.Code != http.StatusOK {
+		t.Errorf("preview start: %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	req := httptest.NewRequest(http.MethodGet, "http://"+staticLiveHost+"/about", nil)
+	req.AddCookie(&http.Cookie{Name: "hm_theme_preview", Value: "tok"})
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || *calls != 2 {
+		t.Errorf("preview cookie: %d, next ran %d times", rec.Code, *calls)
+	}
+}

@@ -36,7 +36,7 @@ func (s *Server) staticLive(next http.Handler) http.Handler {
 			return
 		}
 		if (r.Method == http.MethodGet || r.Method == http.MethodHead) && !statichost.IsExport(r.Context()) &&
-			strings.EqualFold(r.Host, hs.LiveHost()) && !s.staticNoRedirect(r.URL.Path) {
+			strings.EqualFold(r.Host, hs.LiveHost()) && !s.staticNoRedirect(r.URL.Path) && !themePreviewRequest(r) {
 			// A switch back to served mode must not stick in browser caches.
 			w.Header().Set("Cache-Control", "public, max-age=3600")
 			http.Redirect(w, r, hs.Site+r.URL.RequestURI(), http.StatusMovedPermanently)
@@ -44,4 +44,15 @@ func (s *Server) staticLive(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// themePreviewRequest reports a request that starts or carries a theme
+// preview. The preview is rendered by the live origin, and its token must not
+// be sent on to the static host.
+func themePreviewRequest(r *http.Request) bool {
+	if r.URL.Query().Has(previewParam) {
+		return true
+	}
+	_, err := r.Cookie(previewCookie)
+	return err == nil
 }
