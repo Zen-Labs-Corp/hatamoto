@@ -148,7 +148,7 @@ func TestHistoryKeepsLast20(t *testing.T) {
 	}
 }
 
-// A query-count metric has no tolerance, so one extra query fails and the
+// A query-count metric is an exact pin: one extra or one fewer query fails and the
 // message names the key and both numbers.
 func TestCheckQueriesZeroTolerance(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "q.json")
@@ -162,7 +162,7 @@ func TestCheckQueriesZeroTolerance(t *testing.T) {
 		status string
 	}{
 		{9, false, "ok"},
-		{8, false, "under"},
+		{8, true, "FAIL"},
 		{10, true, "FAIL"},
 	} {
 		f := &fakeT{}
@@ -175,7 +175,7 @@ func TestCheckQueriesZeroTolerance(t *testing.T) {
 			t.Errorf("got=%d: output %q lacks status=%s", c.got, out, c.status)
 		}
 		if c.fail {
-			for _, want := range []string{"BUDGET server/render_queries_entity got=10 baseline=9 limit=9 unit=queries", "make budgets-update"} {
+			for _, want := range []string{fmt.Sprintf("BUDGET server/render_queries_entity got=%d baseline=9 limit=9 unit=queries", c.got), "make budgets-update"} {
 				if !strings.Contains(out, want) {
 					t.Errorf("got=%d: output %q lacks %q", c.got, out, want)
 				}
