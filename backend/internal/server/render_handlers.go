@@ -184,7 +184,7 @@ func (s *Server) newRenderHandlers(engine pageRenderer, pageCache *cache.Cache) 
 		loadHome:      func(r *http.Request) (*PublicPageResponse, pageOutcome, error) { return s.loadHomepage(r) },
 		snapshot:      s.urlSnapshotOrErr,
 		resolve:       s.resolveForRender,
-		buildView:     s.buildPageView,
+		buildView:     s.buildPageViewPrefetched,
 		searchLimit:   middleware.NewRateLimiter(2, 30).Middleware,
 		// setupPlugins runs before the render routes mount, so s.plugins is set
 		// (nil: the runtime failed, so no plugin filters).
