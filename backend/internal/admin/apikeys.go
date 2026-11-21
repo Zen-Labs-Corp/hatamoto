@@ -247,6 +247,15 @@ func (a *Admin) handleAPIKeyCreate(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The key could not be created.")
 		return
 	}
+	names := make([]string, len(scopes))
+	for i, sc := range scopes {
+		names[i] = string(sc)
+	}
+	var expires any
+	if in.ExpiresAt != nil {
+		expires = in.ExpiresAt.UTC().Format(time.RFC3339)
+	}
+	a.audit(r, AuditAPIKeyCreated, "api_key:"+key.ID.String(), map[string]any{"name": name, "scopes": names, "expires": expires, "prefix": key.KeyPrefix})
 	a.SetFlash(w, r, "success", "API key created.")
 	a.redirectToSecret(w, r, key.ID.String(), name, key.PlainKey)
 }
@@ -320,6 +329,7 @@ func (a *Admin) handleAPIKeyRevoke(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The key could not be revoked.")
 		return
 	}
+	a.audit(r, AuditAPIKeyRevoked, "api_key:"+id.String(), nil)
 	a.SetFlash(w, r, "success", "Key revoked. It stops working immediately.")
 	http.Redirect(w, r, a.adminPath+"/settings/api-keys", http.StatusSeeOther)
 }
@@ -335,6 +345,7 @@ func (a *Admin) handleAPIKeyRegenerate(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "A new secret could not be created.")
 		return
 	}
+	a.audit(r, AuditAPIKeyRegenerated, "api_key:"+id.String(), nil)
 	a.redirectToSecret(w, r, id.String(), "", key)
 }
 
@@ -348,6 +359,7 @@ func (a *Admin) handleAPIKeyDelete(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The key could not be deleted.")
 		return
 	}
+	a.audit(r, AuditAPIKeyDeleted, "api_key:"+id.String(), nil)
 	a.SetFlash(w, r, "success", "Key deleted.")
 	http.Redirect(w, r, a.adminPath+"/settings/api-keys", http.StatusSeeOther)
 }
