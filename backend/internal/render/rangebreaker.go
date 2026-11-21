@@ -16,6 +16,8 @@ const (
 	rangeBreakPause      = 10 * time.Minute // how long a tripped template renders nothing
 	rangeBreakProbeLease = time.Minute      // how long one probe render may take before another is granted
 	rangeBreakKeys       = 256              // bound on the tracked templates
+	rangeBreakStale      = 10 * time.Minute // an open key nobody probed this long after its pause is dropped
+	rangeBreakSweep      = time.Minute      // at most one sweep for stale keys per this interval
 )
 
 // breakVerdict is what admit tells a template execution about to start.
@@ -45,6 +47,8 @@ type rangeBreaker struct {
 	open atomic.Int64 // keys that are open or half open; 0 lets admit skip the lock
 	mu   sync.Mutex
 	keys map[string]*breakState
+
+	nextSweep time.Time // earliest time of the next sweepLocked
 }
 
 // rangeBreaks is the process-wide breaker, like rangeWarns tests swap it.
@@ -64,11 +68,12 @@ func (b *rangeBreaker) admit(plugin, tmpl string) breakVerdict {
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	now := b.now()
+	b.sweepLocked(now)
 	st := b.keys[breakKey(plugin, tmpl)]
 	if st == nil || !st.tripped {
 		return verdictRun
 	}
-	now := b.now()
 	if st.probeAt.IsZero() {
 		if now.Before(st.until) {
 			return verdictSkip
@@ -117,6 +122,31 @@ func (b *rangeBreaker) breach(plugin, tmpl string, probe bool) (tripped bool, un
 	st.breaches, st.tripped, st.until, st.probeAt = nil, true, now.Add(rangeBreakPause), time.Time{}
 	b.open.Add(1)
 	return true, st.until
+}
+
+// sweepLocked drops tripped keys that nobody tried again long after their pause
+// (the template is no longer rendered, or the plugin was removed during a
+// render), so that open falls back to zero and admit to its lock-free path. A
+// dropped template simply runs again, like after a clean probe. It runs at most
+// once per rangeBreakSweep and walks at most rangeBreakKeys keys.
+func (b *rangeBreaker) sweepLocked(now time.Time) {
+	if now.Before(b.nextSweep) {
+		return
+	}
+	b.nextSweep = now.Add(rangeBreakSweep)
+	for k, st := range b.keys {
+		if !st.tripped {
+			continue
+		}
+		last := st.until
+		if !st.probeAt.IsZero() {
+			last = st.probeAt.Add(rangeBreakProbeLease)
+		}
+		if now.Sub(last) > rangeBreakStale {
+			delete(b.keys, k)
+			b.open.Add(-1)
+		}
+	}
 }
 
 // pruneLocked drops closed keys whose breaches are all out of the window.
@@ -177,6 +207,7 @@ func (b *rangeBreaker) paused(plugin string) []PausedTemplate {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	now := b.now()
+	b.sweepLocked(now)
 	var out []PausedTemplate
 	for _, st := range b.keys {
 		if st.plugin != plugin || !st.tripped || !st.probeAt.IsZero() || !st.until.After(now) {

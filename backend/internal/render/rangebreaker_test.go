@@ -210,3 +210,57 @@ func TestPluginTemplatesPausedSnapshot(t *testing.T) {
 		t.Fatalf("expired entries listed: %v", got)
 	}
 }
+
+func TestRangeBreakerDropsStaleOpenKeys(t *testing.T) {
+	t.Parallel()
+	b, now := clockedBreaker()
+	trip(t, b, "acme", "section-gone")
+	trip(t, b, "acme", "section-live")
+
+	// Within the pause and the grace period the keys stay.
+	*now = now.Add(rangeBreakPause + rangeBreakStale)
+	b.admit("acme", "section-other")
+	if n := b.open.Load(); n != 2 {
+		t.Fatalf("open = %d before the keys are stale, want 2", n)
+	}
+
+	// Nobody runs section-gone again; any later admit sweeps it.
+	*now = now.Add(time.Minute + time.Second)
+	if v := b.admit("acme", "section-other"); v != verdictRun {
+		t.Fatalf("admit = %d, want run", v)
+	}
+	if n := b.open.Load(); n != 0 || len(b.keys) != 0 {
+		t.Fatalf("stale keys kept: open=%d keys=%d", n, len(b.keys))
+	}
+	if v := b.admit("acme", "section-gone"); v != verdictRun {
+		t.Fatalf("dropped key admit = %d, want run", v)
+	}
+}
+
+func TestRangeBreakerKeepsFreshOpenKeysWhileSweeping(t *testing.T) {
+	t.Parallel()
+	b, now := clockedBreaker()
+	trip(t, b, "acme", "section-old")
+	*now = now.Add(rangeBreakPause + rangeBreakStale + time.Minute)
+	trip(t, b, "acme", "section-new")
+	b.admit("acme", "section-x")
+	if n := b.open.Load(); n != 1 {
+		t.Fatalf("open = %d, want only the fresh key", n)
+	}
+	if v := b.admit("acme", "section-new"); v != verdictSkip {
+		t.Fatalf("fresh key admit = %d, want skip", v)
+	}
+}
+
+func TestRangeBreakerSweepsOnPausedListing(t *testing.T) {
+	t.Parallel()
+	b, now := clockedBreaker()
+	trip(t, b, "acme", "section-gone")
+	*now = now.Add(rangeBreakPause + rangeBreakStale + time.Minute)
+	if got := b.paused("acme"); got != nil {
+		t.Fatalf("paused = %v", got)
+	}
+	if n := b.open.Load(); n != 0 {
+		t.Fatalf("open = %d after listing, want 0", n)
+	}
+}
