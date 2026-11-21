@@ -155,10 +155,20 @@ func compileRedirect(r Redirect) (rule, bool) {
 	}
 	re.WriteString("$")
 	to, ok := targetParts(r.To, groups, splat)
-	if !ok {
+	if !ok || buildsOffSite(r.To, to, splat) {
 		return rule{}, false
 	}
 	return rule{from: re.String(), to: to, status: r.Status}, true
+}
+
+// buildsOffSite reports a wildcard target a visitor could steer off the site: it
+// starts with a placeholder, with "//", or is "/" followed by the splat (a
+// request for "//host" would redirect to "//host").
+func buildsOffSite(to string, parts []part, splat int) bool {
+	if strings.HasPrefix(to, "//") || len(parts) == 0 || parts[0].group > 0 {
+		return true
+	}
+	return parts[0].lit == "/" && len(parts) > 1 && splat > 0 && parts[1].group == splat
 }
 
 // targetParts splits a target at its ":pN" and ":splat" placeholders.

@@ -155,3 +155,23 @@ func TestRedirectCapturesRejectControlChars(t *testing.T) {
 		}
 	}
 }
+
+// A visitor must not be able to steer a wildcard redirect to another host.
+func TestRedirectSkipsTargetsThatCanLeaveTheSite(t *testing.T) {
+	t.Parallel()
+	for _, r := range []Redirect{
+		{"/*", "/:splat", 301},
+		{"/a/:p1", ":p1/x", 301},
+		{"/a/:p1", "//evil.example/:p1", 301},
+		{"/a/*", "//:splat", 301},
+	} {
+		rules, skipped := planRedirects([]Redirect{r})
+		if len(skipped) != 1 || rules[0].skip == "" {
+			t.Errorf("%+v must be skipped, got %+v", r, rules)
+		}
+	}
+	rules, skipped := planRedirects([]Redirect{{"/a/*", "/b/:splat", 301}, {"/a/:p1", "/b/:p1", 301}, {"//x", "/y", 301}})
+	if len(skipped) != 0 || len(rules) != 3 {
+		t.Errorf("ordinary rules were skipped: %v", skipped)
+	}
+}
