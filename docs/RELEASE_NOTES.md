@@ -2,7 +2,8 @@
 
 ## Unreleased: built-in roles
 
-- **Roles.** Four built-in roles: Author, Contributor, Reviewer and Read-only. Read-only users can see the admin and change nothing (admin, REST API, MCP). Author, Contributor and Reviewer have read-only rights until their content rules ship. Invite or create them in Settings > Users or with `hatamoto user create --role`. New roles never see plugin pages, and an API key acts with at most its creator's current role.
+- **Roles.** Four built-in roles: Author, Contributor, Reviewer and Read-only. Read-only users can see the admin and change nothing (admin, REST API, MCP). Author creates and edits, publishes, unpublishes, deletes and restores their own entries. Contributor creates and edits, deletes and restores their own drafts and never publishes, also not by scheduling. Reviewer edits, publishes, unpublishes and restores any entry but cannot create or delete. All three upload media and change or delete only media they uploaded. Own means the user who created the entry; entries without a known creator are changed only by owners, editors and reviewers. `hatamoto entity ... --as EMAIL` applies that user's role. Invite or create them in Settings > Users or with `hatamoto user create --role`. New roles never see plugin pages, and an API key acts with at most its creator's current role.
+- **Compiled-in authorizers.** `authz.Object` has two new fields, `CreatedBy` and `Status`. A new action, `content.write`, guards the content screens and routes, so an authorizer that does not delegate to `Default` must answer it or owners and editors lose content writes.
 - **Migration.** Widens the user and invite role checks (expand only). Do not roll back below this release once a user has one of the new roles.
 
 ## Unreleased: LTS update channel
