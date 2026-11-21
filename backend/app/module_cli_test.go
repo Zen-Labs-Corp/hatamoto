@@ -4,7 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -100,5 +104,45 @@ func TestCallModuleCommandClampsExitCode(t *testing.T) {
 		if err := callModuleCommand(context.Background(), cmd, env, nil); !errors.As(err, &ee) || ee.code != want {
 			t.Errorf("code %d: err = %v, want exit %d", code, err, want)
 		}
+	}
+}
+
+// TestCoreWordsMatchParseArgs keeps coreWords in sync with the parseArgs switch.
+func TestCoreWordsMatchParseArgs(t *testing.T) {
+	f, err := parser.ParseFile(token.NewFileSet(), "app.go", nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	words := coreCommandWords()
+	found := 0
+	for _, d := range f.Decls {
+		fn, ok := d.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != "parseArgs" {
+			continue
+		}
+		ast.Inspect(fn.Body, func(n ast.Node) bool {
+			cc, ok := n.(*ast.CaseClause)
+			if !ok {
+				return true
+			}
+			for _, e := range cc.List {
+				lit, ok := e.(*ast.BasicLit)
+				if !ok || lit.Kind != token.STRING {
+					continue
+				}
+				w, err := strconv.Unquote(lit.Value)
+				if err != nil {
+					t.Fatal(err)
+				}
+				found++
+				if !words[w] {
+					t.Errorf("parseArgs handles %q but coreWords lacks it", w)
+				}
+			}
+			return true
+		})
+	}
+	if found == 0 {
+		t.Fatal("no parseArgs case words found")
 	}
 }

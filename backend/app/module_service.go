@@ -29,7 +29,12 @@ func startModuleServices(ctx context.Context, logger *slog.Logger) (wait func(ti
 		mu      sync.Mutex
 		running = map[string]bool{}
 	)
-	for _, s := range modhost.Services() {
+	svcs := modhost.Services()
+	if len(svcs) == 0 {
+		// Nothing registered: no goroutine, no timer (idle budget).
+		return func(time.Duration) {}
+	}
+	for _, s := range svcs {
 		if err := modhost.MigrationErr(s.Name); err != nil {
 			logger.Error("module service not started: its migrations failed", "module", s.Name, "err", err)
 			continue

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -76,5 +77,19 @@ func TestModuleServicesWaitDeadline(t *testing.T) {
 	out := buf.String()
 	if !strings.Contains(out, "did not stop in time") || !strings.Contains(out, "stuck") || strings.Contains(out, "polite") {
 		t.Errorf("log should name only the stuck service:\n%s", out)
+	}
+}
+
+func TestStartModuleServicesNoneRegistered(t *testing.T) {
+	t.Cleanup(modhost.Reset)
+	before := runtime.NumGoroutine()
+	wait := startModuleServices(context.Background(), slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	start := time.Now()
+	wait(time.Hour)
+	if time.Since(start) > time.Second {
+		t.Error("wait blocked with no services registered")
+	}
+	if after := runtime.NumGoroutine(); after != before {
+		t.Errorf("goroutines %d -> %d with no services", before, after)
 	}
 }

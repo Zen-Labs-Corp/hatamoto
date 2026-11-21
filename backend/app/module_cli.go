@@ -17,7 +17,7 @@ import (
 // sync with it: a module command never shadows one of them.
 var coreWords = []string{
 	"builder", "doctor", "locales", "serve", "supervise", "update", "migrate", "user",
-	"admin-url", "media", "routes", "plugins", "version", "healthcheck",
+	"admin-url", "media", "static", "routes", "plugins", "version", "healthcheck",
 	"help", "-h", "--help", "sanitize-html-sections",
 }
 
