@@ -56,6 +56,24 @@ func (a *Admin) passkeyError(w http.ResponseWriter, r *http.Request, err error) 
 	}
 }
 
+// auditPasskeyRefused records a refused passkey sign-in. Faults (a missing
+// relying party, a store error) are not sign-in outcomes and write nothing.
+// actorID is the user the ceremony is known to be for, or "".
+func (a *Admin) auditPasskeyRefused(r *http.Request, actorID string, err error) {
+	if !errors.Is(err, twofactor.ErrPasskeyFailed) && !errors.Is(err, twofactor.ErrNotFound) && !errors.Is(err, auth.ErrInvalidCredentials) && !errors.Is(err, auth.ErrAccountLocked) {
+		return
+	}
+	reason := ReasonCredentials
+	if errors.Is(err, auth.ErrAccountLocked) {
+		reason = ReasonLocked
+	}
+	actor := actorID
+	if actor == "" {
+		actor = "unknown"
+	}
+	a.auditSignInFailed(r, actorID, actor, reason, map[string]any{"method": SignInPasskey})
+}
+
 func (a *Admin) handlePasskeyBegin(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.passkeyReady(w, r); !ok {
 		return
@@ -77,25 +95,41 @@ func (a *Admin) handlePasskeyFinish(w http.ResponseWriter, r *http.Request) {
 	uid, next, via := a.passkeyMode(r)
 	got, err := a.deps.Passkeys.FinishLogin(r.Context(), r.URL.Query().Get(passkeyCeremonyParam), uid, r)
 	if err != nil {
+		a.auditPasskeyRefused(r, uuidString(uid), err)
 		a.passkeyError(w, r, err)
 		return
 	}
 	// Second-factor mode: the passkey must belong to the user the password proved.
 	if uid != nil && got != *uid {
+		a.auditPasskeyRefused(r, uuidString(uid), twofactor.ErrPasskeyFailed)
 		a.passkeyError(w, r, twofactor.ErrPasskeyFailed)
 		return
 	}
 	token, err := ps.IssueVerifiedSession(r.Context(), got, via, r.UserAgent(), middleware.GetClientIP(r))
 	if err != nil {
+		a.auditPasskeyRefused(r, got.String(), err)
 		a.passkeyError(w, r, err)
 		return
 	}
+	step := "first_factor"
+	if uid != nil {
+		step = "second_factor"
+	}
+	a.auditSignIn(r, got.String(), got.String(), SignInPasskey, map[string]any{"step": step})
 	a.clearPending(w, r)
 	a.setSession(w, r, token)
 	if next = SafeNextFor(a.adminPath, next); next == "" {
 		next = a.landing()
 	}
 	a.writeJSON(w, http.StatusOK, map[string]string{"redirect": next})
+}
+
+// uuidString is the text of id, or "" when it is nil.
+func uuidString(id *uuid.UUID) string {
+	if id == nil {
+		return ""
+	}
+	return id.String()
 }
 
 // passkeysOn says passkey sign-in is wired, so the sign-in page offers it.
