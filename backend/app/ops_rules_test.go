@@ -52,7 +52,7 @@ func TestOpsRulesCLIAs(t *testing.T) {
 	}
 
 	// create --publish as a contributor leaves the created draft and reports the refusal.
-	id, err = create("--name", "Draft two", "--publish", "--as", "writer@example.test")
+	_, err = create("--name", "Draft two", "--publish", "--as", "writer@example.test")
 	if err == nil || !strings.Contains(err.Error(), "cannot publish") {
 		t.Fatalf("contributor create --publish err = %v, want a refusal", err)
 	}
