@@ -11,7 +11,7 @@
 </header>
 <main id="hm-main" class="hm-content">
 <div class="hm-page" data-width="{{.Width}}">
-{{template "hm/flash" .Flash}}
+{{if .StagingBanner}}{{template "hm/callout-start" (dict "Kind" "warning" "Compact" true "Attrs" (attrmap "data-hm-staging-banner" ""))}}{{.StagingBanner}}{{template "hm/callout-end"}}{{end}}{{template "hm/flash" .Flash}}
 {{template "main" .}}
 </div>
 </main>

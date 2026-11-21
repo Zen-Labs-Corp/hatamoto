@@ -8,7 +8,7 @@
 <main id="hm-main" class="hm-bare">
 <p class="hm-brand hm-bare__brand">{{if .Brand.LogoURL}}<img class="hm-brand__logo" src="{{.Brand.LogoURL}}" alt="{{.SiteName}} logo" width="20" height="20">{{else}}<span class="hm-brand__seal" aria-hidden="true">{{icon "seal"}}</span>{{end}}<span>{{.SiteName}}</span></p>
 <div class="hm-bare__panel{{if .Wide}} hm-bare__panel--wide{{end}}">
-{{if .DemoBanner}}{{template "hm/callout-start" (dict "Kind" "warning" "Compact" true)}}{{.DemoBanner}}{{template "hm/callout-end"}}{{end}}
+{{if .StagingBanner}}{{template "hm/callout-start" (dict "Kind" "warning" "Compact" true "Attrs" (attrmap "data-hm-staging-banner" ""))}}{{.StagingBanner}}{{template "hm/callout-end"}}{{end}}{{if .DemoBanner}}{{template "hm/callout-start" (dict "Kind" "warning" "Compact" true)}}{{.DemoBanner}}{{template "hm/callout-end"}}{{end}}
 {{template "hm/flash" .Flash}}
 {{template "main" .}}
 </div>
