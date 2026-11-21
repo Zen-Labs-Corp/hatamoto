@@ -44,9 +44,9 @@ func TestRedirectTranslation(t *testing.T) {
 	}
 	wantCaddy := []string{
 		"redir /old /new 301",
-		"@r1 path_regexp r1 ^/blog/([^/[:cntrl:]]+)/x/([^/[:cntrl:]]+)$",
+		"@r1 path_regexp r1 ^/blog/([^/\\x5c[:cntrl:]]+)/x/([^/\\x5c[:cntrl:]]+)$",
 		"redir @r1 /b/{re.r1.2}/{re.r1.1} 302",
-		"@r2 path_regexp r2 ^/docs/([^[:cntrl:]]*)$",
+		"@r2 path_regexp r2 ^/docs/([^\\x5c[:cntrl:]]*)$",
 		"redir @r2 /help/{re.r2.1} 308",
 	}
 	if got := caddyRedirects(rules); !reflect.DeepEqual(got, wantCaddy) {
@@ -54,8 +54,8 @@ func TestRedirectTranslation(t *testing.T) {
 	}
 	wantNginx := []string{
 		"location = /old {", "\treturn 301 /new;", "}",
-		"location ~ ^/blog/([^/[:cntrl:]]+)/x/([^/[:cntrl:]]+)$ {", "\treturn 302 /b/$2/$1;", "}",
-		"location ~ ^/docs/([^[:cntrl:]]*)$ {", "\treturn 308 /help/$1;", "}",
+		"location ~ ^/blog/([^/\\x5c[:cntrl:]]+)/x/([^/\\x5c[:cntrl:]]+)$ {", "\treturn 302 /b/$2/$1;", "}",
+		"location ~ ^/docs/([^\\x5c[:cntrl:]]*)$ {", "\treturn 308 /help/$1;", "}",
 	}
 	if got := nginxRedirects(rules); !reflect.DeepEqual(got, wantNginx) {
 		t.Errorf("nginx:\n%q\nwant\n%q", got, wantNginx)
@@ -104,7 +104,7 @@ func TestRedirectSkipped(t *testing.T) {
 func TestRedirectLiteralsAreEscaped(t *testing.T) {
 	t.Parallel()
 	rules, _ := planRedirects([]Redirect{{"/a.b/:p1", "/c", 301}})
-	if got := caddyRedirects(rules); !strings.Contains(got[0], `^/a\.b/([^/[:cntrl:]]+)$`) {
+	if got := caddyRedirects(rules); !strings.Contains(got[0], `^/a\.b/([^/\x5c[:cntrl:]]+)$`) {
 		t.Errorf("literal dot not escaped: %q", got)
 	}
 }
@@ -148,6 +148,8 @@ func TestRedirectCapturesRejectControlChars(t *testing.T) {
 		{1, "/docs/a\r", false},
 		{1, "/docs/a\nb", false},
 		{1, "/docs/a\r\nb", false},
+		{0, "/blog/x\\evil/amp", false},
+		{1, "/docs/a\\b", false},
 	}
 	for _, c := range cases {
 		if got := regexp.MustCompile(rules[c.rule].from).MatchString(c.path); got != c.want {
@@ -164,15 +166,14 @@ func TestRedirectSkipsTargetsThatCanLeaveTheSite(t *testing.T) {
 		{"/a/:p1", ":p1/x", 301},
 		{"/a/:p1", "//evil.example/:p1", 301},
 		{"/a/*", "//:splat", 301},
-		{"/old/:p1", "/:p1", 301},
 	} {
 		rules, skipped := planRedirects([]Redirect{r})
 		if len(skipped) != 1 || rules[0].skip == "" {
 			t.Errorf("%+v must be skipped, got %+v", r, rules)
 		}
 	}
-	rules, skipped := planRedirects([]Redirect{{"/a/*", "/b/:splat", 301}, {"/a/:p1", "/b/:p1", 301}, {"//x", "/y", 301}})
-	if len(skipped) != 0 || len(rules) != 3 {
+	rules, skipped := planRedirects([]Redirect{{"/a/*", "/b/:splat", 301}, {"/a/:p1", "/b/:p1", 301}, {"/old/:p1", "/:p1", 301}, {"//x", "/y", 301}})
+	if len(skipped) != 0 || len(rules) != 4 {
 		t.Errorf("ordinary rules were skipped: %v", skipped)
 	}
 }

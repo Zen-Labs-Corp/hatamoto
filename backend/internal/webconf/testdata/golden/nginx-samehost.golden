@@ -216,10 +216,10 @@ server {
 	location = /promo {
 		return 302 https://example.com/offers?src=old;
 	}
-	location ~ ^/blog/([^/[:cntrl:]]+)/amp$ {
+	location ~ ^/blog/([^/\x5c[:cntrl:]]+)/amp$ {
 		return 301 /articles/$1;
 	}
-	location ~ ^/docs/([^[:cntrl:]]*)$ {
+	location ~ ^/docs/([^\x5c[:cntrl:]]*)$ {
 		return 308 /help/$1;
 	}
 	# skipped: /gone /elsewhere 410

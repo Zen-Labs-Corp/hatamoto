@@ -43,9 +43,9 @@ example.com {
 		}
 		redir /old-page /new-page 301
 		redir /promo https://example.com/offers?src=old 302
-		@r1 path_regexp r1 ^/blog/([^/[:cntrl:]]+)/amp$
+		@r1 path_regexp r1 ^/blog/([^/\x5c[:cntrl:]]+)/amp$
 		redir @r1 /articles/{re.r1.1} 301
-		@r2 path_regexp r2 ^/docs/([^[:cntrl:]]*)$
+		@r2 path_regexp r2 ^/docs/([^\x5c[:cntrl:]]*)$
 		redir @r2 /help/{re.r2.1} 308
 		# skipped: /gone /elsewhere 410
 		try_files {path} {path}/index.html

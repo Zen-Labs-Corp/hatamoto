@@ -62,10 +62,12 @@ var (
 
 // The capture classes leave out control characters: nginx matches the decoded
 // URI and writes $N into Location unescaped, so a CR or LF in a capture would
-// split the response.
+// split the response. They also leave out the backslash (written \x5c, because
+// nginx unescapes "\\" in config tokens): a browser reads "/\host" as another
+// site, so a request with %5C in a capture must fall through to a 404.
 const (
-	segCapture   = "([^/[:cntrl:]]+)"
-	splatCapture = "([^[:cntrl:]]*)"
+	segCapture   = "([^/\\x5c[:cntrl:]]+)"
+	splatCapture = "([^\\x5c[:cntrl:]]*)"
 )
 
 // part is a piece of a redirect target: a literal or a capture group.
@@ -162,14 +164,14 @@ func compileRedirect(r Redirect) (rule, bool) {
 }
 
 // buildsOffSite reports a wildcard target a visitor could steer off the site: it
-// starts with a placeholder, with "//", or is "/" followed by a placeholder (a
-// request for "//host" or "%5Chost" would redirect to "//host" or "/\\host", which
-// a browser reads as another site).
+// starts with a placeholder, with "//", or is "/" followed by the splat (a request
+// for "//host" would redirect to "//host", which a browser reads as another
+// site). A segment capture cannot hold "/" or a backslash, so "/:p1" is safe.
 func buildsOffSite(to string, parts []part, splat int) bool {
 	if strings.HasPrefix(to, "//") || len(parts) == 0 || parts[0].group > 0 {
 		return true
 	}
-	return parts[0].lit == "/" && len(parts) > 1 && parts[1].group > 0
+	return parts[0].lit == "/" && len(parts) > 1 && splat > 0 && parts[1].group == splat
 }
 
 // targetParts splits a target at its ":pN" and ":splat" placeholders.
