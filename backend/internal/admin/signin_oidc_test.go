@@ -106,6 +106,31 @@ func TestSignInOIDCCardRenders(t *testing.T) {
 	compareGolden(t, "pages/users-sign-in-oidc.html", uuidRE.ReplaceAllString(normalizePage(body), "UUID"))
 }
 
+func TestSignInOIDCCardSecretHelp(t *testing.T) {
+	t.Parallel()
+
+	saved := savedOIDCView()
+	none := savedOIDCView()
+	none.SecretSaved = false
+	for name, tc := range map[string]struct {
+		v    SignInOIDCView
+		want string
+		not  string
+	}{
+		"saved": {saved, "Saved. Leave blank to keep the saved secret.", "No secret saved yet"},
+		"none":  {none, "No secret saved yet.", "Leave blank to keep"},
+	} {
+		g := newOIDCRig(t, tc.v)
+		body := g.do("GET", "/admin/settings/users/sign-in", "owner-token", nil, nil).Body.String()
+		if !strings.Contains(body, tc.want) || strings.Contains(body, tc.not) {
+			t.Errorf("%s: want %q and not %q", name, tc.want, tc.not)
+		}
+		if strings.Contains(body, oidcTestSecret) {
+			t.Errorf("%s: the client secret is in the page", name)
+		}
+	}
+}
+
 func TestSignInOIDCCardWithoutSiteAddressAndLostSecret(t *testing.T) {
 	t.Parallel()
 
