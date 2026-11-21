@@ -65,8 +65,10 @@ func TestViewerAsksOncePerAction(t *testing.T) {
 	authztest.Use(t, rc)
 	u := &CurrentUser{ID: "u1", Role: "owner"}
 	v := newViewer(context.Background(), slog.Default(), u)
-	if !v.Can(authz.ActionSettingsManage) || !v.Can(authz.ActionSettingsManage) {
-		t.Fatal("owner denied")
+	for range 2 {
+		if !v.Can(authz.ActionSettingsManage) {
+			t.Fatal("owner denied")
+		}
 	}
 	calls := rc.Calls()
 	if len(calls) != 1 {
