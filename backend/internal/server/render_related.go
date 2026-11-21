@@ -71,7 +71,7 @@ func memoRelated(selfID string, fetch func() ([]*entity.Entity, error), locate f
 // relatedLocator builds each item's URL through the URL registry.
 func relatedLocator(ctx context.Context, snap *entity.URLSnapshot, repo resolveRepo, schema string) func(*entity.Entity) string {
 	return func(e *entity.Entity) string {
-		loc, found, err := snap.Locate(schema, entity.FlattenAttributes(e.Attributes), snap.VarsFor(e, ancestorSlugs(ctx, snap, repo, e, schema)))
+		loc, found, err := snap.Locate(schema, e.FlatAttributes(), snap.VarsFor(e, ancestorSlugs(ctx, snap, repo, e, schema)))
 		if err != nil || !found {
 			return ""
 		}

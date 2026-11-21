@@ -44,7 +44,7 @@ func (s *Server) onEntityMoved(ctx context.Context, before, after *entity.Entity
 		if ent.Locale != lang {
 			return
 		}
-		attrs := entity.FlattenAttributes(ent.Attributes)
+		attrs := ent.FlatAttributes()
 		was := *ent
 		was.Slug = oldSlug
 		o, ok1, e1 := snap.Locate(schema, attrs, snap.VarsFor(&was, oldChain))

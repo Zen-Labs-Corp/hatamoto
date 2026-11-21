@@ -30,7 +30,7 @@ func locateEntity(ctx context.Context, snap *entity.URLSnapshot, repo resolveRep
 	if ent.Schema == nil {
 		return fallback
 	}
-	attrs := entity.FlattenAttributes(ent.Attributes)
+	attrs := ent.FlatAttributes()
 	loc, found, err := snap.Locate(ent.Schema.Slug, attrs, snap.VarsFor(ent, ancestorSlugs(ctx, snap, repo, ent, ent.Schema.Slug)))
 	if err != nil || !found {
 		return fallback
@@ -44,7 +44,7 @@ func locateWith(snap *entity.URLSnapshot, ent *entity.Entity, ancestors []string
 	if ent.Schema == nil {
 		return fallback
 	}
-	loc, found, err := snap.Locate(ent.Schema.Slug, entity.FlattenAttributes(ent.Attributes), snap.VarsFor(ent, ancestors))
+	loc, found, err := snap.Locate(ent.Schema.Slug, ent.FlatAttributes(), snap.VarsFor(ent, ancestors))
 	if err != nil || !found {
 		return fallback
 	}
@@ -57,7 +57,7 @@ func locateWith(snap *entity.URLSnapshot, ent *entity.Entity, ancestors []string
 func ancestorsOf(ctx context.Context, snap *entity.URLSnapshot, repo *entity.PostgresPublicRepository, rows []*entity.Entity) (map[uuid.UUID][]string, error) {
 	var ids []uuid.UUID
 	for _, e := range rows {
-		if e.ParentID != nil && e.Schema != nil && snap.NeedsAncestors(e.Schema.Slug, entity.FlattenAttributes(e.Attributes)) {
+		if e.ParentID != nil && e.Schema != nil && snap.NeedsAncestors(e.Schema.Slug, e.FlatAttributes()) {
 			ids = append(ids, e.ID)
 		}
 	}
@@ -94,7 +94,7 @@ func publicPaths(ctx context.Context, snap *entity.URLSnapshot, repo *entity.Pos
 // loaded when the pattern serving ent (as a schemaSlug row) uses {parent} or
 // {path}, so sites without nested URLs pay nothing.
 func ancestorSlugs(ctx context.Context, snap *entity.URLSnapshot, repo resolveRepo, ent *entity.Entity, schemaSlug string) []string {
-	if ent.ParentID == nil || repo == nil || !snap.NeedsAncestors(schemaSlug, entity.FlattenAttributes(ent.Attributes)) {
+	if ent.ParentID == nil || repo == nil || !snap.NeedsAncestors(schemaSlug, ent.FlatAttributes()) {
 		return nil
 	}
 	path, err := repo.GetEntityPath(ctx, ent.ID)

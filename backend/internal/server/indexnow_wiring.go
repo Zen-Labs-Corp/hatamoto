@@ -169,14 +169,14 @@ func indexNowEligible(set *seo.Settings, e *entity.Entity) bool {
 	if e == nil || e.Slug == "" || e.Schema == nil || entity.IsReuseSchema(e.Schema) || entity.IsBlockSchema(e.Schema) {
 		return false
 	}
-	if seo.EntryNoIndex(e.Metadata, e.Attributes) || entity.FlattenAttributes(e.Attributes)["hide_from_sitemap"] == "true" {
+	if seo.EntryNoIndex(e.Metadata, e.Attributes) || e.FlatAttributes()["hide_from_sitemap"] == "true" {
 		return false
 	}
 	kind := seo.KindSingle
 	if e.Schema.Slug == entity.PersonSchemaSlug {
 		// Like the sitemap: a person page exists only when marked public, and
 		// the owner may leave author pages out.
-		if entity.FlattenAttributes(e.Attributes)["public"] != "true" || set.Sitemap.NoAuthor {
+		if e.FlatAttributes()["public"] != "true" || set.Sitemap.NoAuthor {
 			return false
 		}
 		kind = seo.KindAuthor
