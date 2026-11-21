@@ -258,6 +258,18 @@ func TestAuditLogClampsExtremeDates(t *testing.T) {
 	}
 }
 
+func TestAuditLogClipsLongAgentErrors(t *testing.T) {
+	t.Parallel()
+
+	rows := auditRows(1)
+	rows[0].Source, rows[0].Src, rows[0].Result, rows[0].Error = "agent", auditSrcAgent, "error", strings.Repeat("e", 500)
+	g := newRig(t, func(d *Deps) { d.AuditLog = &fakeAuditLog{rows: rows} })
+	body := g.do("GET", "/admin/audit", "owner-token", nil, nil).Body.String()
+	if strings.Contains(body, strings.Repeat("e", 201)) || !strings.Contains(body, strings.Repeat("e", 200)+"…") {
+		t.Error("agent error is not clipped to 200 runes")
+	}
+}
+
 func TestAuditLogToleratesBadInput(t *testing.T) {
 	t.Parallel()
 
