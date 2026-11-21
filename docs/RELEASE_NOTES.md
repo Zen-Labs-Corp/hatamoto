@@ -29,6 +29,12 @@
 - **CLI.** `version --json` adds `edition`.
 - **Migration.** None. Rollback floor: unchanged.
 
+## Unreleased: audit sink
+
+- **Audit sink.** A new public Go package, `hatamoto.dev/core/audit`, lets a wrapper module that calls `app.Main` register one sink from an `init` function and call `audit.Record` inside its own transaction. The sink sees the events core writes to the audit log (not MCP tool calls). A changeset publish and signing everyone out call it inside their transaction, so a sink that returns an error rolls the change back; every other writer calls it after the change committed and only logs a sink error. A standard build registers nothing and behaves as before. See [ADR 0007](adr/0007-audit-sink.md).
+- **Audit log.** `hatamoto_admin_audit` gains the actor kind, an API key id (not filled yet), the request address, user agent and request id, and a result. Existing rows keep an empty actor kind. A changeset publish is now one row, not up to three, and its actor is the user's email.
+- **Migration.** Six new columns with defaults and three indexes on `hatamoto_admin_audit`. Expand only; the index builds briefly block writes to the table. Rollback floor: unchanged, an older release still writes the table.
+
 ## Unreleased: more time zones in the site settings
 
 - **Time zone.** The list in the setup wizard and in Settings > General offered no zone for places whose clock follows its own rules, so their sites had to pick a neighbour that is an hour or more off for part of the year: Queensland and Darwin, Iran, Afghanistan, Nepal, Myanmar, Morocco, the Azores, Cape Verde, Venezuela and its neighbours on UTC-4, New Caledonia, Fiji and Tonga, and, since 1 November 2026 in the time zone data, British Columbia, Alberta and Manitoba. Each now has a zone of its own: `Australia/Brisbane`, `Australia/Darwin`, `Asia/Tehran`, `Asia/Kabul`, `Asia/Kathmandu`, `Asia/Yangon`, `Africa/Casablanca`, `Atlantic/Azores`, `Atlantic/Cape_Verde`, `America/Caracas`, `Pacific/Noumea`, `Pacific/Fiji`, `Pacific/Tongatapu`, `America/Vancouver`, `America/Edmonton` and `America/Winnipeg`.
