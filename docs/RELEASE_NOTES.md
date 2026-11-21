@@ -1,5 +1,11 @@
 # Release notes
 
+## Unreleased: more time zones in the site settings
+
+- **Time zone.** The list in the setup wizard and in Settings > General offered no zone for places whose clock follows its own rules, so their sites had to pick a neighbour that is an hour or more off for part of the year: Queensland and Darwin, Iran, Afghanistan, Nepal, Myanmar, Morocco, the Azores, Cape Verde, Venezuela and its neighbours on UTC-4, New Caledonia, Fiji and Tonga, and, since 1 November 2026 in the time zone data, British Columbia, Alberta and Manitoba. Each now has a zone of its own: `Australia/Brisbane`, `Australia/Darwin`, `Asia/Tehran`, `Asia/Kabul`, `Asia/Kathmandu`, `Asia/Yangon`, `Africa/Casablanca`, `Atlantic/Azores`, `Atlantic/Cape_Verde`, `America/Caracas`, `Pacific/Noumea`, `Pacific/Fiji`, `Pacific/Tongatapu`, `America/Vancouver`, `America/Edmonton` and `America/Winnipeg`.
+- **Existing sites.** Nothing changes. A site keeps its zone; one on a neighbour's zone can switch to its own in Settings > General.
+- **Migration.** None. Rollback floor: unchanged. An older release shows a newly listed zone as the current value, as it does any unlisted one.
+
 ## Unreleased: the home page takes the site name at setup
 
 - **Setup.** The server makes the home page on its first start, before the setup wizard asks for the site name, so the page was named after the default "My Hatamoto site". It kept that name after setup, and with it the page title and `og:title` of the home page; with **Start empty** the hero headline kept it too. Finishing the wizard now gives the untouched first-boot home page the site name, as its page name and as its headline. **Install starter content** now renames the page as well; it already rewrote the content.

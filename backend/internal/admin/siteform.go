@@ -89,15 +89,21 @@ var languages = func() []ui.Option {
 	return out
 }()
 
+// timezones are the offered site time zones: at least one for every set of
+// clock rules a sizeable place follows (no summer time, a half or quarter
+// hour, its own change dates), so no site has to pick a neighbour that is an
+// hour off for part of the year. An unlisted zone still validates.
 var timezones = []string{
-	"UTC", "Europe/London", "Europe/Dublin", "Europe/Lisbon", "Europe/Paris", "Europe/Berlin", "Europe/Madrid", "Europe/Rome",
+	"UTC", "Europe/London", "Europe/Dublin", "Europe/Lisbon", "Atlantic/Azores", "Europe/Paris", "Europe/Berlin", "Europe/Madrid", "Europe/Rome",
 	"Europe/Amsterdam", "Europe/Stockholm", "Europe/Warsaw", "Europe/Athens", "Europe/Helsinki", "Europe/Istanbul", "Europe/Moscow",
-	"Africa/Cairo", "Africa/Lagos", "Africa/Johannesburg", "Africa/Nairobi", "Asia/Dubai", "Asia/Karachi", "Asia/Kolkata",
-	"Asia/Dhaka", "Asia/Bangkok", "Asia/Jakarta", "Asia/Singapore", "Asia/Hong_Kong", "Asia/Shanghai", "Asia/Manila", "Asia/Seoul",
-	"Asia/Tokyo", "Australia/Perth", "Australia/Adelaide", "Australia/Sydney", "Pacific/Auckland", "America/St_Johns",
-	"America/Halifax", "America/New_York", "America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles",
-	"America/Anchorage", "Pacific/Honolulu", "America/Mexico_City", "America/Bogota", "America/Lima", "America/Santiago",
-	"America/Sao_Paulo", "America/Argentina/Buenos_Aires",
+	"Africa/Casablanca", "Atlantic/Cape_Verde", "Africa/Cairo", "Africa/Lagos", "Africa/Johannesburg", "Africa/Nairobi",
+	"Asia/Tehran", "Asia/Dubai", "Asia/Kabul", "Asia/Karachi", "Asia/Kolkata", "Asia/Kathmandu",
+	"Asia/Dhaka", "Asia/Yangon", "Asia/Bangkok", "Asia/Jakarta", "Asia/Singapore", "Asia/Hong_Kong", "Asia/Shanghai", "Asia/Manila", "Asia/Seoul",
+	"Asia/Tokyo", "Australia/Perth", "Australia/Darwin", "Australia/Adelaide", "Australia/Brisbane", "Australia/Sydney",
+	"Pacific/Noumea", "Pacific/Fiji", "Pacific/Auckland", "Pacific/Tongatapu", "America/St_Johns",
+	"America/Halifax", "America/New_York", "America/Chicago", "America/Winnipeg", "America/Denver", "America/Edmonton", "America/Phoenix",
+	"America/Los_Angeles", "America/Vancouver", "America/Anchorage", "Pacific/Honolulu", "America/Mexico_City", "America/Bogota", "America/Lima",
+	"America/Caracas", "America/Santiago", "America/Sao_Paulo", "America/Argentina/Buenos_Aires",
 }
 
 // languageOptions marks current selected and keeps an unlisted current value.
