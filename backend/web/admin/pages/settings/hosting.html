@@ -27,9 +27,13 @@
 <p class="hm-field__help">From <a href="{{adminPath}}/settings/general#identity">Site settings</a>. Visitors open the exported site here.</p></div>
 <div class="hm-setrow__control">{{if .SiteURL}}<code>{{.SiteURL}}</code>{{else}}<span class="hm-muted">Not set</span>{{end}}</div>
 </div></div>
-{{template "hm/field" dict "ID" "hosting-live-origin" "Name" "live_origin" "Label" "Live origin" "Value" .Form.LiveOrigin "Placeholder" "https://live.example.com" "Help" "Where the live islands answer. It must be a different address from the static site URL." "Error" (index .Errs "hosting-live-origin") "Attrs" (attrmap "autocomplete" "off")}}
 {{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "hosting-islands-card" "Title" "Live islands" "Heading" "h2" "Description" .IslandsDesc}}
+{{template "hm/field" dict "ID" "hosting-live-same" "Name" "live_mode" "Label" "Where the islands answer" "Control" "radio" "Options" .LiveSameOptions "Help" "Your web server serves the files and passes islands and the admin to this server."}}
+<details class="hm-disclosure"{{if .AdvancedOpen}} open{{end}}><summary>Advanced: separate live origin</summary><div class="hm-disclosure__body">
+{{template "hm/field" dict "ID" "hosting-live-separate" "Name" "live_mode" "Label" "Separate live origin" "Control" "radio" "Options" .LiveSeparateOptions}}
+<div data-hosting-only="live">{{template "hm/field" dict "ID" "hosting-live-origin" "Name" "live_origin" "Label" "Live origin" "Value" .Form.LiveOrigin "Placeholder" "https://live.example.com" "Help" "Where the live islands answer, on a different host from the static site URL. The admin moves there too." "Error" (index .Errs "hosting-live-origin") "Attrs" (attrmap "autocomplete" "off")}}</div>
+</div></details>
 {{if .IslandsWarning}}{{template "hm/callout" (dict "Kind" "warning" "ID" "hosting-islands-inactive" "Body" (printf "Static mode is saved but islands are off: %s. Pages are served by Hatamoto until this is fixed." .IslandsWarning))}}
 {{end}}{{template "hm/table" .Islands}}
 {{with .Stays}}<p class="hm-muted">{{.}}</p>{{end}}

@@ -1,5 +1,7 @@
-/* Target card of Settings > Hosting: only the fields of the chosen target show. All fields stay in the
-   form, so a hidden target keeps its saved values and the toggle needs no script. */
+/* Target and live origin of Settings > Hosting: only the fields of the chosen target show, and the live origin
+   field shows only for a separate live origin. All fields stay in the form, so a hidden one keeps its saved
+   values and the toggle needs no script. */
 [data-hosting-only] { display: flex; flex-direction: column; gap: var(--space-4); }
 form:has(input[name="target"][value="dir"]:checked) [data-hosting-only="s3"],
 form:has(input[name="target"][value="s3"]:checked) [data-hosting-only="dir"] { display: none; }
+form:has(input[name="live_mode"][value="same"]:checked) [data-hosting-only="live"] { display: none; }

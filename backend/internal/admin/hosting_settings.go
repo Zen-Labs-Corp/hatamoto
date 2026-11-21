@@ -39,9 +39,14 @@ type hostingPage struct {
 	Errs    map[string]string
 	Summary []ui.FieldError
 
-	Static         bool // the saved mode
-	ModeCards      []ui.RadioCardItem
-	TargetOptions  []ui.Option
+	Static        bool // the saved mode
+	ModeCards     []ui.RadioCardItem
+	TargetOptions []ui.Option
+	// Live islands choice: one radio each, in one group (name live_mode).
+	LiveSameOptions     []ui.Option
+	LiveSeparateOptions []ui.Option
+	// AdvancedOpen opens the separate live origin disclosure: it is chosen or its field has an error.
+	AdvancedOpen   bool
 	ServiceOptions []ui.Option
 	Form           HostingView // the saved values, or the posted ones on a refused save
 
@@ -119,6 +124,10 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 		f.Service = OffsiteAWS
 	}
 	static := saved.Mode == HostingStatic
+	separate := f.LiveOrigin != ""
+	if form != nil {
+		separate = form.LiveMode == HostingLiveSeparate
+	}
 	p := hostingPage{
 		Errs: map[string]string{}, Summary: errs, Static: static, Form: f,
 		SiteURL: a.siteAddress(r), Zone: loc.String(), IngestDocs: ingestDocsURL,
@@ -130,7 +139,9 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 			{Value: HostingTargetDir, Label: "Local directory", Selected: f.Target == HostingTargetDir},
 			{Value: HostingTargetS3, Label: "S3-compatible storage", Selected: f.Target == HostingTargetS3},
 		},
-		CrawlersWarn: static && !a.deps.AgentLogIngest,
+		LiveSameOptions:     []ui.Option{{Value: HostingLiveSame, Label: "Same host", Selected: !separate}},
+		LiveSeparateOptions: []ui.Option{{Value: HostingLiveSeparate, Label: "Use a separate live origin", Selected: separate}},
+		CrawlersWarn:        static && !a.deps.AgentLogIngest,
 	}
 	for _, s := range offsiteServices {
 		p.ServiceOptions = append(p.ServiceOptions, ui.Option{Value: s.v, Label: s.label, Selected: f.Service == s.v})
@@ -138,6 +149,7 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 	for _, e := range errs {
 		p.Errs[e.ID] = e.Message
 	}
+	p.AdvancedOpen = separate || p.Errs["hosting-live-origin"] != ""
 	if static {
 		p.IslandsWarning = saved.IslandsWarning
 	}

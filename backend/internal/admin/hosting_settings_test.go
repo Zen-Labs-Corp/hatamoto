@@ -241,6 +241,44 @@ func TestHostingPageStatic(t *testing.T) {
 	}
 }
 
+func TestHostingPageLiveMode(t *testing.T) {
+	t.Parallel()
+
+	const (
+		sameChecked     = `value="same" checked`
+		separateChecked = `value="separate" checked`
+		closed          = `<details class="hm-disclosure"><summary>Advanced: separate live origin`
+		open            = `<details class="hm-disclosure" open><summary>Advanced: separate live origin`
+	)
+	// Same host: no live origin saved, in served and in static mode.
+	for _, f := range []*fakeHosting{servedHosting(), staticHosting()} {
+		f.view.LiveOrigin = ""
+		f.live = []HostingIsland{{Label: "Forms", Route: "/forms/*", Status: "via proxy"}}
+		body := newHostingRig(t, f).do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+		if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+			t.Errorf("a11y: %v", issues)
+		}
+		if !strings.Contains(body, sameChecked) || strings.Contains(body, separateChecked) || !strings.Contains(body, closed) {
+			t.Errorf("%s: same host is not the selected, closed choice", f.view.Mode)
+		}
+		if f.view.Mode == HostingStatic && !strings.Contains(body, "via proxy") {
+			t.Error("static same host has no via proxy status")
+		}
+	}
+	// A saved live origin keeps working unchanged: separate, disclosure open.
+	body := newHostingRig(t, staticHosting()).do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, separateChecked) || strings.Contains(body, sameChecked) || !strings.Contains(body, open) || !strings.Contains(body, "https://live.example.com") {
+		t.Error("a saved live origin is not shown as the open separate choice")
+	}
+	// A refused save with separate and no origin shows the disclosure open with the error.
+	f := servedHosting()
+	p := newHostingSaveRig(t, f)
+	body = p.do("POST", hostingURL, "owner-token", hostingForm(url.Values{"live_mode": {"separate"}, "live_origin": {""}}), nil).Body.String()
+	if !strings.Contains(body, open) || !strings.Contains(body, separateChecked) || !strings.Contains(body, `href="#hosting-live-origin"`) {
+		t.Error("the refused page hides the live origin error")
+	}
+}
+
 func TestHostingPageOwnerOnlyAndUnavailable(t *testing.T) {
 	t.Parallel()
 
