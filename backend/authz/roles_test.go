@@ -1,0 +1,104 @@
+package authz
+
+import (
+	"context"
+	"slices"
+	"testing"
+)
+
+// wantReadOnly is what every built-in role other than owner and editor may
+// do, written out independently of readRights.
+var wantReadOnly = []string{
+	"analytics.read", "apikey.creator.act", "dashboard.read", "entity.read", "form.read",
+	"media.read", "menu.read", "profile.update", "redirect.read", "schema.read", "term.read",
+}
+
+var otherRoles = []string{"author", "contributor", "reviewer", "read-only"}
+
+func can(t *testing.T, s Subject, a Action) bool {
+	t.Helper()
+	ok, err := Default().Can(context.Background(), s, a, Object{})
+	if err != nil {
+		t.Fatalf("%s: %v", a, err)
+	}
+	return ok
+}
+
+func TestBuiltinRoleRights(t *testing.T) {
+	for _, role := range otherRoles {
+		for _, a := range Actions() {
+			got := can(t, Subject{UserID: "u", Role: role}, a)
+			if want := slices.Contains(wantReadOnly, string(a)); got != want {
+				t.Errorf("%s %s: got %v, want %v", role, a, got, want)
+			}
+		}
+	}
+	// No allowed action is a write: none has a write scope, none is site.write or a plugin action.
+	for _, s := range wantReadOnly {
+		a := Action(s)
+		if r := table[a]; len(r.scope) >= 6 && r.scope[:6] == "write:" {
+			t.Errorf("%s has write scope %q", a, r.scope)
+		}
+		if a == ActionSiteWrite || len(s) >= 7 && s[:7] == "plugin." {
+			t.Errorf("%s must not be allowed", a)
+		}
+	}
+}
+
+// oldKey is the key predicate before the built-in roles: only owner and editor creators.
+func oldKey(s Subject, a Action) bool {
+	r := table[a]
+	creatorOK := s.UserID != "" && (s.CreatorRole == "owner" || s.CreatorRole == "editor")
+	return creatorOK && r.scope != "" && hasScope(s.Scopes, s.CreatorRole, r.scope)
+}
+
+func TestKeyCreatorRoleCeiling(t *testing.T) {
+	scopeSets := [][]string{nil, {"*"}, {"write:entities", "read:media"}}
+	for _, sc := range knownScopes {
+		scopeSets = append(scopeSets, []string{sc})
+	}
+	for _, creator := range []string{"owner", "editor"} {
+		for _, a := range Actions() {
+			for _, sc := range scopeSets {
+				s := Subject{UserID: "u", KeyID: "k", Scopes: sc, CreatorRole: creator}
+				if got, want := can(t, s, a), oldKey(s, a); got != want {
+					t.Errorf("creator=%s %s scopes=%v: got %v, want %v", creator, a, sc, got, want)
+				}
+			}
+		}
+	}
+
+	scoped := []string{"entity.read", "media.read", "form.read", "analytics.read", "menu.read", "redirect.read", "schema.read", "term.read"}
+	for _, role := range otherRoles {
+		for _, a := range Actions() {
+			s := Subject{UserID: "u", KeyID: "k", Scopes: []string{"*"}, CreatorRole: role}
+			want := slices.Contains(scoped, string(a))
+			if got := can(t, s, a); got != want {
+				t.Errorf("%s creator, * key, %s: got %v, want %v", role, a, got, want)
+			}
+		}
+		for _, a := range []Action{ActionEntityUpdate, ActionMediaUpload, ActionMenuManage, ActionCommentModerate, ActionEntityPublish} {
+			if can(t, Subject{UserID: "u", KeyID: "k", Scopes: []string{"*"}, CreatorRole: role}, a) {
+				t.Errorf("%s creator key may %s", role, a)
+			}
+		}
+	}
+	for _, creator := range []string{"", "viewer"} {
+		for _, a := range Actions() {
+			if can(t, Subject{UserID: "u", KeyID: "k", Scopes: []string{"*"}, CreatorRole: creator}, a) {
+				t.Errorf("creator %q key may %s", creator, a)
+			}
+		}
+	}
+}
+
+func TestOwnerEditorUnchanged(t *testing.T) {
+	for _, a := range Actions() {
+		if !can(t, Subject{UserID: "u", Role: "owner"}, a) {
+			t.Errorf("owner denied %s", a)
+		}
+		if got := can(t, Subject{UserID: "u", Role: "editor"}, a); got != table[a].editor {
+			t.Errorf("editor %s: got %v, want %v", a, got, table[a].editor)
+		}
+	}
+}

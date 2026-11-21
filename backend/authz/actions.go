@@ -153,6 +153,9 @@ const (
 	ActionSetupRun Action = "setup.run"
 	// ActionSiteReceiveOwnerMail is the "site.receive_owner_mail" action: owner notices (run digest, export failure, admin address, comment surge).
 	ActionSiteReceiveOwnerMail Action = "site.receive_owner_mail"
+	// ActionSiteWrite is the "site.write" action: change anything at all. The admin and the REST API ask it before every
+	// request that is not a read (GET, HEAD, OPTIONS), in addition to the route's own action. Denying it makes a user read-only.
+	ActionSiteWrite Action = "site.write"
 	// ActionTermManage is the "term.manage" action.
 	ActionTermManage Action = "term.manage"
 	// ActionTermRead is the "term.read" action.

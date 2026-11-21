@@ -88,6 +88,7 @@ var want = map[authz.Action]struct {
 	"settings.seo.write":              {false, "write:seo"},
 	"setup.run":                       {false, ""},
 	"site.receive_owner_mail":         {false, ""},
+	"site.write":                      {true, ""},
 	"term.manage":                     {false, "write:terms"},
 	"term.read":                       {true, "read:entities"},
 	"theme.manage":                    {false, ""},

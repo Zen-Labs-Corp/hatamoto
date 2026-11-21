@@ -89,6 +89,7 @@ var table = map[Action]rule{
 	ActionSettingsSEOWrite:             {editor: false, scope: "write:seo"},
 	ActionSetupRun:                     {editor: false, scope: ""},
 	ActionSiteReceiveOwnerMail:         {editor: false, scope: ""},
+	ActionSiteWrite:                    {editor: true, scope: ""},
 	ActionTermManage:                   {editor: false, scope: "write:terms"},
 	ActionTermRead:                     {editor: true, scope: "read:entities"},
 	ActionThemeManage:                  {editor: false, scope: ""},
@@ -133,6 +134,50 @@ func hasScope(held []string, creatorRole, need string) bool {
 	return false
 }
 
+// Built-in role ids besides owner and editor. Keep in sync with internal/user (roles_sync_test.go).
+const (
+	roleAuthor      = "author"
+	roleContributor = "contributor"
+	roleReviewer    = "reviewer"
+	roleReadOnly    = "read-only"
+)
+
+// readRights are what a read-only user may do: read the admin and keep their own account.
+var readRights = []Action{
+	ActionAnalyticsRead, ActionAPIKeyCreatorAct, ActionDashboardRead, ActionEntityRead, ActionFormRead,
+	ActionMediaRead, ActionMenuRead, ActionProfileUpdate, ActionRedirectRead, ActionSchemaRead, ActionTermRead,
+}
+
+// roleRights holds the rights of the built-in roles other than owner and
+// editor. Author, contributor and reviewer start with the read-only rights;
+// their content rules are added separately.
+var roleRights = map[string]map[Action]bool{
+	roleAuthor:      setOf(readRights),
+	roleContributor: setOf(readRights),
+	roleReviewer:    setOf(readRights),
+	roleReadOnly:    setOf(readRights),
+}
+
+func setOf(as []Action) map[Action]bool {
+	m := make(map[Action]bool, len(as))
+	for _, a := range as {
+		m[a] = true
+	}
+	return m
+}
+
+// roleAllows reports whether a user with role may do a under rule r. An
+// unknown role may do nothing.
+func roleAllows(role string, a Action, r rule) bool {
+	switch role {
+	case "owner":
+		return true
+	case "editor":
+		return r.editor
+	}
+	return roleRights[role][a]
+}
+
 type defaultAuthorizer struct{}
 
 // Can implements Authorizer with the built-in rules; the object is ignored.
@@ -144,17 +189,11 @@ func (defaultAuthorizer) Can(_ context.Context, s Subject, a Action, _ Object) (
 	if s.KeyID != "" {
 		// A valid key always has a creator (all three key entry points reject
 		// one without), so UserID is required here as well.
-		creatorOK := s.UserID != "" && (s.CreatorRole == "owner" || s.CreatorRole == "editor")
+		creatorOK := s.UserID != "" && roleAllows(s.CreatorRole, a, r)
 		return creatorOK && r.scope != "" && hasScope(s.Scopes, s.CreatorRole, r.scope), nil
 	}
 	if s.UserID == "" {
 		return false, nil
 	}
-	switch s.Role {
-	case "owner":
-		return true, nil
-	case "editor":
-		return r.editor, nil
-	}
-	return false, nil
+	return roleAllows(s.Role, a, r), nil
 }

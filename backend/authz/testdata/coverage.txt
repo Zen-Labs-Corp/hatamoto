@@ -165,3 +165,5 @@ internal/mcpserver/tools_content.go inline entity.takeover,entity.duplicate,enti
 internal/mcpserver/tools_comments.go inline comment.read,comment.moderate,comment.reply_as_staff roles=owner,editor  # :79-152
 internal/mcpserver/tools_insight.go inline analytics.read roles=owner,editor  # :75-181
 internal/mcpserver/tools_seo.go inline settings.seo.read,settings.seo.write roles=owner  # :59-140
+internal/admin/admin.go inline site.write roles=owner,editor  # writeGuard (write_guard.go) on the signed-in admin group
+internal/server/server_core.go inline site.write roles=owner,editor  # middleware.WriteGuard on the REST protected group

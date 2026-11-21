@@ -17,7 +17,7 @@ import (
 type Subject struct {
 	// UserID is the signed-in user, or the key's creator.
 	UserID string
-	// Role is the session role ("owner" or "editor"). It is ignored for key
+	// Role is the session role ("owner", "editor", "author", "contributor", "reviewer" or "read-only"). It is ignored for key
 	// subjects (KeyID != ""); leave it empty there and set CreatorRole.
 	Role string
 	// KeyID is non-empty when the request is made with an API key.
@@ -63,8 +63,8 @@ var ErrUnknownAction = errors.New("authz: unknown action")
 // started, on a second call, and with a nil (or typed-nil) authorizer.
 func Register(a Authorizer) { authzstate.Set(a) }
 
-// Default returns the built-in authorizer, which answers what the owner and
-// editor roles and API key scopes allow.
+// Default returns the built-in authorizer, which answers what the built-in
+// roles and API key scopes allow.
 func Default() Authorizer { return defaultAuthorizer{} }
 
 // Can asks the registered authorizer, or the default one when none is
