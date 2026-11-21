@@ -124,15 +124,60 @@ func TestHostingPageServed(t *testing.T) {
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}
-	for _, want := range []string{"Served by Hatamoto", "Static files &#43; live islands", "Forms", "/search", "Stays on Hatamoto: admin, API.", "No exports yet.", `id="hosting-form"`, `value="served" checked`} {
+	for _, want := range []string{"Served by Hatamoto", "Static files &#43; live islands", "Forms", "/search", "Stays on Hatamoto: admin, API.", "No exports yet.", `id="hosting-form"`, `value="served" checked`,
+		"Test export", "Export now", "Rebuild all", `id="test-form"`, `id="export-form"`, `id="rebuild-form"`,
+		"Save a target first.", "Needs static mode. Use Test export first.", "These apply once the site is in static mode."} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
-	for _, not := range []string{"Export now", "Rebuild all", `id="export-form"`, `id="hosting-crawlers"`, `id="hosting-islands-inactive"`} {
+	for _, not := range []string{"Nothing has been exported yet.", ">live<", `id="hosting-crawlers"`, `id="hosting-islands-inactive"`, "These parts of the site still call this server."} {
 		if strings.Contains(body, not) {
 			t.Errorf("served page has %q", not)
 		}
+	}
+	if n := strings.Count(body, "No exports yet."); n != 1 {
+		t.Errorf("No exports yet. appears %d times, want 1", n)
+	}
+	for _, id := range []string{"test-form", "export-form", "rebuild-form"} {
+		if n := strings.Count(body, `disabled="disabled" form="`+id+`"`); n != 1 {
+			t.Errorf("button for %s: %d disabled, want 1", id, n)
+		}
+	}
+}
+
+// With a saved directory the Test export works in served mode; Export now still needs static mode.
+func TestHostingPageServedWithTarget(t *testing.T) {
+	t.Parallel()
+
+	f := servedHosting()
+	f.view.Dir = "/srv/site/public"
+	body := newHostingRig(t, f).do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %v", issues)
+	}
+	if strings.Contains(body, `aria-describedby="hosting-test-why"`) || strings.Contains(body, "Save a target first.") {
+		t.Error("Test export is disabled with a saved target")
+	}
+	if !strings.Contains(body, `aria-describedby="hosting-export-why"`) || !strings.Contains(body, "Needs static mode.") {
+		t.Error("Export now is not disabled in served mode")
+	}
+}
+
+func TestHostingPageWorkerOff(t *testing.T) {
+	t.Parallel()
+
+	f := staticHosting()
+	f.view.WorkerOff = true
+	body := newHostingRig(t, f).do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %v", issues)
+	}
+	if !strings.Contains(body, "The export worker is off on this server.") || strings.Count(body, `aria-describedby="hosting-export-why"`) != 2 {
+		t.Error("Export now and Rebuild all are not disabled with the worker reason")
+	}
+	if strings.Contains(body, `aria-describedby="hosting-test-why"`) {
+		t.Error("Test export is disabled although it needs no worker")
 	}
 }
 
@@ -145,13 +190,16 @@ func TestHostingPageStatic(t *testing.T) {
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}
-	for _, want := range []string{"Export now", "Rebuild all", `id="export-form"`, `id="rebuild-form"`, `id="hosting-crawlers"`, "214 pages", "2 minutes ago", "https://live.example.com", "upload refused"} {
+	for _, want := range []string{"Export now", "Rebuild all", `id="export-form"`, `id="rebuild-form"`, `id="hosting-crawlers"`, "214 pages", "2 minutes ago", "https://live.example.com", "upload refused", "Test export", `id="test-form"`, "These parts of the site still call this server.", ">live<"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
 	if !strings.Contains(body, "Failed") || !strings.Contains(body, "hm-badge--danger") {
 		t.Error("the failed run has no danger badge")
+	}
+	if strings.Contains(body, "disabled") {
+		t.Error("a button is disabled in static mode with a target")
 	}
 	if strings.Contains(body, `id="hosting-islands-inactive"`) {
 		t.Error("islands warning without a reason")

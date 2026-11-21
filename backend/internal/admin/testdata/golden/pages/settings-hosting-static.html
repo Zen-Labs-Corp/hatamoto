@@ -211,11 +211,15 @@
 </tbody></table></div>
 
 </div>
-</div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--secondary" form="export-form"><span>Export now</span></button>
+
+
+</div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--secondary" form="test-form"><span>Test export</span></button>
+<button type="submit" class="hm-btn hm-btn--secondary" form="export-form"><span>Export now</span></button>
 <button type="submit" class="hm-btn hm-btn--secondary" form="rebuild-form"><span>Rebuild all</span></button>
 <button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button>
 </footer></section>
 </form>
+<form id="test-form" method="post" action="/admin/settings/hosting/test"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
 <form id="export-form" method="post" action="/admin/settings/hosting/export"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
 <form id="rebuild-form" method="post" action="/admin/settings/hosting/rebuild"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
 <p class="hm-muted">Dates are in the site time zone: Europe/Paris.</p>

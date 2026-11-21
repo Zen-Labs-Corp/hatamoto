@@ -48,6 +48,8 @@ type hostingPage struct {
 	SiteURL string // "" links to the site address setting instead
 	Islands ui.Table
 	Stays   string
+	// IslandsDesc is the islands card text: in served mode nothing is live yet.
+	IslandsDesc string
 
 	IslandsWarning string
 	CrawlersWarn   bool
@@ -55,7 +57,10 @@ type hostingPage struct {
 
 	Last string
 	Log  ui.Table
-	Zone string
+	// TestWhy and ExportWhy say why a button is disabled; "" means it is enabled.
+	TestWhy   string
+	ExportWhy string
+	Zone      string
 }
 
 func (a *Admin) handleHosting(w http.ResponseWriter, r *http.Request) {
@@ -129,15 +134,31 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 	if static {
 		p.IslandsWarning = saved.IslandsWarning
 	}
+	if !hostingTargetSaved(saved) {
+		p.TestWhy = "Save a target first."
+	}
+	switch {
+	case saved.WorkerOff:
+		p.ExportWhy = "The export worker is off on this server."
+	case !static:
+		p.ExportWhy = "Needs static mode. Use Test export first."
+	}
+	p.IslandsDesc = "These apply once the site is in static mode."
 	p.Islands = ui.Table{
 		ID: "hosting-islands", Caption: "Live islands",
-		Columns: []ui.Col{{Key: "island", Label: "Island", Role: "title"}, {Key: "route", Label: "Route"}, {Key: "status", Label: "Status"}},
+		Columns: []ui.Col{{Key: "island", Label: "Island", Role: "title"}, {Key: "route", Label: "Route"}},
 		Empty:   ui.Empty{Icon: "layers", Title: "No live islands.", Compact: true},
 	}
+	if static {
+		p.IslandsDesc = "These parts of the site still call this server."
+		p.Islands.Columns = append(p.Islands.Columns, ui.Col{Key: "status", Label: "Status"})
+	}
 	for _, i := range live {
-		p.Islands.Rows = append(p.Islands.Rows, ui.Row{ID: i.Route, Label: i.Label, Cells: []ui.Cell{
-			{Text: i.Label}, {Text: i.Route, Mono: true}, {Badge: &ui.Badge{Label: i.Status, Kind: "success"}},
-		}})
+		cells := []ui.Cell{{Text: i.Label}, {Text: i.Route, Mono: true}}
+		if static {
+			cells = append(cells, ui.Cell{Badge: &ui.Badge{Label: i.Status, Kind: "success"}})
+		}
+		p.Islands.Rows = append(p.Islands.Rows, ui.Row{ID: i.Route, Label: i.Label, Cells: cells})
 	}
 	if len(stays) > 0 {
 		p.Stays = "Stays on Hatamoto: " + strings.Join(stays, ", ") + "."

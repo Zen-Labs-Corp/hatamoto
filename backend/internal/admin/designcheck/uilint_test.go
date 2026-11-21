@@ -159,6 +159,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-10", File: "pages/settings/backups.html", Needle: `id="backup-form"`, Reason: "Back up now, a header action that starts a background job and takes no input, so there is nothing to put in a dialog"},
 
 	{Rule: "UI-10", File: "pages/settings/hosting.html", Needle: `id="hosting-form"`, Reason: "the hosting settings form, a settings form and not a create form; the islands and export log tables are read-only"},
+	{Rule: "UI-10", File: "pages/settings/hosting.html", Needle: `id="test-form"`, Reason: "Test export, a card action that starts a background export of the saved target and takes no input"},
 	{Rule: "UI-10", File: "pages/settings/hosting.html", Needle: `id="export-form"`, Reason: "Export now, a card action that starts a background export and takes no input"},
 	{Rule: "UI-10", File: "pages/settings/hosting.html", Needle: `id="rebuild-form"`, Reason: "Rebuild all, a card action that asks for the password and starts a full export; it takes no input"},
 
