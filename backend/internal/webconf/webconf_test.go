@@ -175,9 +175,9 @@ func TestSameHostPassesFallbackPrefixesAndThemePreview(t *testing.T) {
 		}
 	}
 	for _, want := range []string{
-		"location ^~ /media/ {\n\t\ttry_files $uri @hatamoto;",
-		"location ^~ /theme/ {\n\t\ttry_files $uri @hatamoto;",
-		"location ^~ /fonts/ {\n\t\ttry_files $uri @hatamoto;",
+		"location ^~ /media/ {",
+		"location ^~ /theme/ {",
+		"location ^~ /fonts/ {",
 		"location @hatamoto {",
 		"if ($arg_hm_theme_preview != \"\") {",
 		"if ($cookie_hm_theme_preview != \"\") {",
@@ -244,6 +244,20 @@ func TestCaddyErrorRouteIsFor404Only(t *testing.T) {
 		}
 		if strings.Count(errs, "rewrite * /404.html") != 1 || strings.Contains(strings.Split(errs, "handle @notfound")[0], "rewrite") {
 			t.Errorf("%s: the rewrite must sit inside the 404 handle", name)
+		}
+	}
+}
+
+// A theme asset kept at the same path in every theme (a script, an image) must
+// come from Hatamoto, not from the export, while a preview is on.
+func TestNginxPreviewReachesHatamotoFromFallbackPrefixes(t *testing.T) {
+	t.Parallel()
+	got, _ := Generate(sameHostInput())
+	for _, p := range []string{"/media/", "/theme/", "/fonts/"} {
+		want := "location ^~ " + p + " {\n\t\tif ($arg_hm_theme_preview != \"\") {\n\t\t\treturn 418;\n\t\t}\n" +
+			"\t\tif ($cookie_hm_theme_preview != \"\") {\n\t\t\treturn 418;\n\t\t}\n\t\ttry_files $uri @hatamoto;"
+		if !strings.Contains(got.Nginx, want) {
+			t.Errorf("nginx %s block does not hand a preview to Hatamoto", p)
 		}
 	}
 }

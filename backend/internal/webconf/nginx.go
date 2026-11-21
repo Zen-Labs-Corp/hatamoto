@@ -37,6 +37,16 @@ func nginx(in Input, rules []rule) string {
 		}
 	}
 
+	// A theme preview is a query or a cookie on any page: pass it to Hatamoto.
+	preview := func(indent string) {
+		w(indent+"if ($arg_%s != \"\") {", previewName)
+		w(indent + "\treturn 418;")
+		w(indent + "}")
+		w(indent+"if ($cookie_%s != \"\") {", previewName)
+		w(indent + "\treturn 418;")
+		w(indent + "}")
+	}
+
 	w("# Static site published by Hatamoto: %s is served from disk.", in.Root)
 	if in.Live == "" {
 		w("# Island paths, the admin and previews are passed to Hatamoto on %s.", in.Upstream)
@@ -58,6 +68,7 @@ func nginx(in Input, rules []rule) string {
 			case p.Fallback:
 				// The file when the folder has it, else Hatamoto.
 				w("\tlocation ^~ %s {", p.Path)
+				preview("\t\t")
 				w("\t\ttry_files $uri @hatamoto;")
 				w("\t}")
 				continue
@@ -85,13 +96,7 @@ func nginx(in Input, rules []rule) string {
 	}
 	w("\tlocation / {")
 	if in.Live == "" {
-		// A theme preview is a query or a cookie on any page: pass it to Hatamoto.
-		w("\t\tif ($arg_%s != \"\") {", previewName)
-		w("\t\t\treturn 418;")
-		w("\t\t}")
-		w("\t\tif ($cookie_%s != \"\") {", previewName)
-		w("\t\t\treturn 418;")
-		w("\t\t}")
+		preview("\t\t")
 	}
 	headers()
 	w("\t\ttry_files $uri $uri/index.html =404;")

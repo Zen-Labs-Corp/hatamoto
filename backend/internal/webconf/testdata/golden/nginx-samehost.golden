@@ -79,6 +79,12 @@ server {
 		proxy_set_header X-Forwarded-Proto $scheme;
 	}
 	location ^~ /fonts/ {
+		if ($arg_hm_theme_preview != "") {
+			return 418;
+		}
+		if ($cookie_hm_theme_preview != "") {
+			return 418;
+		}
 		try_files $uri @hatamoto;
 	}
 	location ^~ /forms/ {
@@ -108,6 +114,12 @@ server {
 		proxy_set_header X-Forwarded-Proto $scheme;
 	}
 	location ^~ /media/ {
+		if ($arg_hm_theme_preview != "") {
+			return 418;
+		}
+		if ($cookie_hm_theme_preview != "") {
+			return 418;
+		}
 		try_files $uri @hatamoto;
 	}
 	location ^~ /p/ {
@@ -151,6 +163,12 @@ server {
 		proxy_set_header X-Forwarded-Proto $scheme;
 	}
 	location ^~ /theme/ {
+		if ($arg_hm_theme_preview != "") {
+			return 418;
+		}
+		if ($cookie_hm_theme_preview != "") {
+			return 418;
+		}
 		try_files $uri @hatamoto;
 	}
 	location = /theme/assets/hm-live.js {
