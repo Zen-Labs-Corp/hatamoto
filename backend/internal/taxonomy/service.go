@@ -26,6 +26,7 @@ type Service struct {
 	changed func(ctx context.Context)
 	// groups links term copies; see CreateTermCopy.
 	groups *TermGroupStore
+	audit  AuditFunc
 }
 
 // SetChangeObserver installs the callback run after a term was created,
@@ -204,6 +205,17 @@ func (s *Service) chainOf(ctx context.Context, id uuid.UUID) []*Term {
 // CreateTerm validates input and persists a new term. Returns
 // ErrTermSlugConflict on (kind, slug) collision.
 func (s *Service) CreateTerm(ctx context.Context, in CreateTermInput) (*Term, error) {
+	t, err := s.createTerm(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	s.record(ctx, "term.created", t.ID.String(), termDetail(t))
+	return t, nil
+}
+
+// createTerm is CreateTerm without the audit row, for callers that record
+// their own (CreateTermCopy).
+func (s *Service) createTerm(ctx context.Context, in CreateTermInput) (*Term, error) {
 	in.Kind = strings.ToLower(strings.TrimSpace(in.Kind))
 	in.Name = strings.TrimSpace(in.Name)
 	in.Slug = strings.ToLower(strings.TrimSpace(in.Slug))
@@ -255,6 +267,17 @@ type UpdateTermInput struct {
 
 // UpdateTerm patches name + slug. Empty slug auto-slugifies from name.
 func (s *Service) UpdateTerm(ctx context.Context, in UpdateTermInput) (*Term, error) {
+	t, err := s.updateTerm(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	s.record(ctx, "term.updated", t.ID.String(), termDetail(t))
+	return t, nil
+}
+
+// updateTerm is UpdateTerm without the audit row, for callers that record
+// their own (MoveTerm).
+func (s *Service) updateTerm(ctx context.Context, in UpdateTermInput) (*Term, error) {
 	if in.ID == uuid.Nil {
 		return nil, fmt.Errorf("missing_id")
 	}
@@ -372,6 +395,7 @@ func (s *Service) DeleteTerm(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 	s.notifyChanged(ctx)
+	s.record(ctx, "term.deleted", id.String(), nil)
 	return nil
 }
 
@@ -443,6 +467,7 @@ func (s *Service) ReplaceEntityTerms(ctx context.Context, entityID uuid.UUID, te
 		return err
 	}
 	s.notifyChanged(ctx)
+	s.record(ctx, "entity.terms_replaced", entityID.String(), map[string]any{"count": len(termIDs)})
 	return nil
 }
 
