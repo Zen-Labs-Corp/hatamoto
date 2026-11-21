@@ -81,7 +81,7 @@ func TestPageValidatorsFirstStampIsAfterStart(t *testing.T) {
 	}
 }
 
-func TestPageValidatorsResetNeverRepeatsASecond(t *testing.T) {
+func TestPageValidatorsEvictionNeverRepeatsASecond(t *testing.T) {
 	v, c := newClockedValidators()
 	v.max = 2
 	c.advance(5 * time.Second)
@@ -89,9 +89,57 @@ func TestPageValidatorsResetNeverRepeatsASecond(t *testing.T) {
 	if s := v.stamp("b", 1); s.After(latest) {
 		latest = s
 	}
-	v.stamp("c", 1) // map full: starts over
+	v.stamp("c", 1) // map full: a is evicted
 	if got := v.stamp("a", 2); !got.After(latest) {
-		t.Fatalf("after reset %v is not after %v", got, latest)
+		t.Fatalf("after eviction %v is not after %v", got, latest)
+	}
+	checkList(t, v)
+}
+
+func TestPageValidatorsEvictsLeastRecent(t *testing.T) {
+	v, c := newClockedValidators()
+	v.max = 2
+	c.advance(5 * time.Second)
+	aSince := v.stamp("a", 1)
+	c.advance(10 * time.Second)
+	v.stamp("b", 1)
+	c.advance(10 * time.Second)
+	v.stamp("a", 1) // touch a: b is now the least recent
+	cSince := v.stamp("c", 1)
+	if want := c.now().Truncate(time.Second); !cSince.Equal(want) {
+		t.Fatalf("inserting key since = %v, want %v", cSince, want)
+	}
+	if len(v.m) != 2 || v.m["a"] == nil || v.m["c"] == nil || v.m["b"] != nil {
+		t.Fatalf("map keys after eviction = %v", v.m)
+	}
+	if !v.m["a"].since.Equal(aSince) {
+		t.Fatalf("recent key lost its since: %v -> %v", aSince, v.m["a"].since)
+	}
+	// Changed bytes for a known key at the cap evict nothing.
+	v.stamp("a", 2)
+	if len(v.m) != 2 || v.m["c"] == nil {
+		t.Fatalf("changed bytes evicted: %v", v.m)
+	}
+	checkList(t, v)
+}
+
+// checkList asserts the recency list holds exactly the mapped keys, within the cap.
+func checkList(t *testing.T, v *pageValidators) {
+	t.Helper()
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	n := 0
+	for e := v.root.next; e != &v.root; e = e.next {
+		n++
+		if v.m[e.key] != e {
+			t.Fatalf("list node %q is not the mapped entry", e.key)
+		}
+		if n > len(v.m) {
+			t.Fatal("list longer than map")
+		}
+	}
+	if n != len(v.m) || n > v.max {
+		t.Fatalf("list %d, map %d, max %d", n, len(v.m), v.max)
 	}
 }
 
@@ -159,6 +207,21 @@ func TestPageValidatorsStampKnownKeyAllocatesNothing(t *testing.T) {
 	}
 }
 
+func TestPageValidatorsInsertAtCapAllocatesNothing(t *testing.T) {
+	v, _ := newClockedValidators()
+	v.max = 1
+	v.stamp("k1", 1)
+	keys := [2]string{"k1", "k2"}
+	i := 0
+	n := testing.AllocsPerRun(100, func() {
+		i++
+		v.stamp(keys[i%2], uint64(i))
+	})
+	if n != 0 {
+		t.Fatalf("insert at cap allocates %v per call", n)
+	}
+}
+
 func TestPageValidatorsConcurrentStamps(t *testing.T) {
 	v, _ := newClockedValidators()
 	var wg sync.WaitGroup
@@ -172,6 +235,7 @@ func TestPageValidatorsConcurrentStamps(t *testing.T) {
 		}(g)
 	}
 	wg.Wait()
+	checkList(t, v)
 }
 
 func TestCachedVariantFPUsesGivenFingerprint(t *testing.T) {
