@@ -90,7 +90,8 @@ func TestUsersAuditInviteAcceptedUsesNewUserAsActor(t *testing.T) {
 	g.do("POST", "/admin/accept", "", form, nil)
 	evs := read()
 	assertAuditSafe(t, evs, usersAuditPassword, token)
-	if len(evs) != 1 {
+	// The accepted invite, then the sign-in it opens.
+	if len(evs) != 2 || evs[1].Action != AuditSignIn {
 		t.Fatalf("events = %+v", evs)
 	}
 	ev := evs[0]

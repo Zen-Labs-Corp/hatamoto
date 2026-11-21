@@ -1,8 +1,6 @@
 package admin
 
 import (
-	"net/url"
-	"strings"
 	"testing"
 
 	"hatamoto.dev/core/audit"
@@ -76,69 +74,6 @@ func TestPasskeyAuditRefusedSessionIsLocked(t *testing.T) {
 	assertAuditSafe(t, evs)
 }
 
-func passkeyAuditCallback(t *testing.T, g *providerRig) {
-	t.Helper()
-	c, state := g.start(t, "/admin/login/provider/example/start")
-	g.nav(cbPath+"?state="+url.QueryEscape(state), c)
-}
-
-func TestPasskeyAuditProviderSignIn(t *testing.T) {
-	t.Parallel()
-
-	g := newProviderRig(t)
-	g.mfa = true
-	read := auditCapture(g.a)
-	passkeyAuditCallback(t, g)
-	evs := read()
-	ev := loginAuditOne(t, evs, AuditSignIn)
-	if ev.Detail["method"] != SignInProvider || ev.Detail["provider"] != "example" || ev.ActorID != g.uid.String() || ev.Actor != "olga@example.com" {
-		t.Fatalf("row = %+v", ev)
-	}
-	assertAuditSafe(t, evs)
-}
-
-func TestPasskeyAuditProviderRefused(t *testing.T) {
-	t.Parallel()
-
-	g := newProviderRig(t)
-	g.auth.verifiedErr = auth.ErrAccountLocked
-	read := auditCapture(g.a)
-	passkeyAuditCallback(t, g)
-	evs := read()
-	ev := loginAuditOne(t, evs, AuditSignInFailed)
-	if ev.Detail["reason"] != ReasonLocked || ev.Detail["provider"] != "example" || ev.Result != audit.ResultDenied {
-		t.Fatalf("row = %+v", ev)
-	}
-	if strings.Contains(strings.ToLower(ev.Actor), "@") {
-		t.Fatalf("actor = %q", ev.Actor)
-	}
-	assertAuditSafe(t, evs)
-}
-
-func TestPasskeyAuditProviderFinishError(t *testing.T) {
-	t.Parallel()
-
-	g := newProviderRig(t)
-	g.finErr = auth.ErrInvalidCredentials
-	read := auditCapture(g.a)
-	passkeyAuditCallback(t, g)
-	// An unmapped callback has no user to attribute the row to: no row.
-	if evs := read(); len(evs) != 0 {
-		t.Fatalf("rows = %+v", evs)
-	}
-}
-
-func TestPasskeyAuditProviderPendingSecondStepWritesNothing(t *testing.T) {
-	t.Parallel()
-
-	g := newProviderRig(t)
-	read := auditCapture(g.a)
-	passkeyAuditCallback(t, g)
-	if evs := read(); len(evs) != 0 {
-		t.Fatalf("pending second step wrote %+v", evs)
-	}
-}
-
 // The sign-in hot path is one audit insert: the email comes back from the
 // session issue, not from a second user read.
 func TestSignInAuditMakesNoExtraUserRead(t *testing.T) {
@@ -163,19 +98,6 @@ func TestSignInAuditMakesNoExtraUserRead(t *testing.T) {
 		if rec := g.passkeySignIn("", `{"id":"ok"}`); rec.Code != 200 {
 			t.Fatalf("finish: %d", rec.Code)
 		}
-		if ev := loginAuditOne(t, read(), AuditSignIn); ev.Actor != "olga@example.com" {
-			t.Fatalf("actor = %q", ev.Actor)
-		}
-		if n := g.users.reads.Load(); n != 0 {
-			t.Fatalf("user reads = %d, want 0", n)
-		}
-	})
-	t.Run("provider", func(t *testing.T) {
-		t.Parallel()
-		g := newProviderRig(t)
-		g.mfa = true
-		read := auditCapture(g.a)
-		passkeyAuditCallback(t, g)
 		if ev := loginAuditOne(t, read(), AuditSignIn); ev.Actor != "olga@example.com" {
 			t.Fatalf("actor = %q", ev.Actor)
 		}

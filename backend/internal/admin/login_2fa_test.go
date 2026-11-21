@@ -208,10 +208,12 @@ func newTwoStepRigWith(t *testing.T, mutate ...func(*Deps)) *twoStepRig {
 	tf := &fakeTwoFactor{uid: u.ID, totp: "123456", recovery: "ABCDEFGHJKMN"}
 	fa := &fakeAuth{users: map[string]*user.User{u.Email: u}, fails: map[string]int{}}
 	ft := &fakeTokens{resets: map[string]*user.User{}, invites: map[string]*auth.Invite{}, user: u}
-	users := &countingUsers{fakeUsers: fakeUsers{u.ID: u}}
+	users := &countingUsers{}
 	g := newRig(t, func(d *Deps) {
 		d.Auth, d.Tokens, d.Finder = stepAuth{fa, tf}, ft, fakeFinder{u}
 		d.TwoFactor = tf
+		users.fakeUsers = d.Users.(fakeUsers) // keep the rig's owner and editor
+		users.fakeUsers[u.ID] = u
 		d.Users = users
 		d.PendingKey = twofactor.PendingKeyFor("test-secret")
 		for _, m := range mutate {
