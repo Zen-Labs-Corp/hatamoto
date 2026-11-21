@@ -72,7 +72,7 @@ func (src *staticSource) Site(ctx context.Context) (staticexport.Site, error) {
 		AdminPrefix:       s.adminPathValue(),
 		LegacyWPRedirects: conf != nil && conf.LegacyWPRedirects,
 	}
-	if why := s.hosting.Load().InactiveReason(); why != "" {
+	if why := statichost.HostingFrom(ctx, s.hosting.Load()).InactiveReason(); why != "" {
 		site.Warnings = []string{"static mode is on but islands stay on this site's own paths: " + why}
 	}
 	return site, nil
