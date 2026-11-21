@@ -3,8 +3,10 @@ package server
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/middleware"
 )
@@ -53,6 +55,8 @@ func (s *Server) handleCreateAPIKey(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to create API key")
 		return
 	}
+
+	s.restUserAudit(r, admin.AuditAPIKeyCreated, restAPIKeyTarget(key.ID), restAPIKeyCreatedDetail(key))
 
 	// Return with the plain key (only shown once)
 	writeJSON(w, http.StatusCreated, key)
@@ -111,6 +115,8 @@ func (s *Server) handleUpdateAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.restUserAudit(r, admin.AuditAPIKeyUpdated, restAPIKeyTarget(key.ID), restAPIKeyUpdatedDetail(key, &input))
+
 	writeJSON(w, http.StatusOK, key)
 }
 
@@ -140,6 +146,8 @@ func (s *Server) handleRevokeAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.restUserAudit(r, admin.AuditAPIKeyRevoked, restAPIKeyTarget(id), map[string]any{})
+
 	writeJSON(w, http.StatusOK, map[string]string{"message": "API key revoked"})
 }
 
@@ -162,6 +170,8 @@ func (s *Server) handleDeleteAPIKey(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to delete API key")
 		return
 	}
+
+	s.restUserAudit(r, admin.AuditAPIKeyDeleted, restAPIKeyTarget(id), map[string]any{})
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "API key deleted"})
 }
@@ -193,6 +203,8 @@ func (s *Server) handleRegenerateAPIKey(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusInternalServerError, "failed to retrieve API key")
 		return
 	}
+
+	s.restUserAudit(r, admin.AuditAPIKeyRegenerated, restAPIKeyTarget(id), map[string]any{"name": key.Name, "prefix": key.KeyPrefix})
 
 	writeJSON(w, http.StatusOK, &auth.APIKeyWithSecret{
 		APIKey:   *key,
@@ -236,4 +248,42 @@ func (s *Server) handleGetAPIKeyScopes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"scopes": scopeList,
 	})
+}
+
+// restAPIKeyTarget is the audit target of a key: its id, never its value.
+func restAPIKeyTarget(id uuid.UUID) string { return "api_key:" + id.String() }
+
+// restAPIKeyCreatedDetail describes a new key by name, scopes, expiry and the
+// visible prefix. The key value is never part of it.
+func restAPIKeyCreatedDetail(k *auth.APIKeyWithSecret) map[string]any {
+	scopes := make([]string, 0, len(k.Scopes))
+	for _, sc := range k.Scopes {
+		scopes = append(scopes, string(sc))
+	}
+	d := map[string]any{"name": k.Name, "scopes": scopes, "prefix": k.KeyPrefix, "expires": nil}
+	if k.ExpiresAt != nil {
+		d["expires"] = k.ExpiresAt.UTC().Format(time.RFC3339)
+	}
+	return d
+}
+
+// restAPIKeyUpdatedDetail names the key and the fields the update set.
+func restAPIKeyUpdatedDetail(k *auth.APIKey, in *auth.UpdateAPIKeyInput) map[string]any {
+	changed := []string{}
+	if in.Name != nil {
+		changed = append(changed, "name")
+	}
+	if in.Description != nil {
+		changed = append(changed, "description")
+	}
+	if in.Scopes != nil {
+		changed = append(changed, "scopes")
+	}
+	if in.RateLimit != nil {
+		changed = append(changed, "rate_limit")
+	}
+	if in.IsActive != nil {
+		changed = append(changed, "is_active")
+	}
+	return map[string]any{"name": k.Name, "changed": changed}
 }
