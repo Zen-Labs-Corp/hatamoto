@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -672,6 +673,31 @@ func (a *Admin) handlePluginSettings(w http.ResponseWriter, r *http.Request) {
 	a.renderPlugin(w, r, pa, http.StatusOK, p, values, nil, "")
 }
 
+// pluginSettingsChanged names the settings whose value differs from the stored
+// one. A write-only secret is posted empty to keep it, so it counts only when
+// a new value was typed or the clear box was ticked. Values never leave here.
+func pluginSettingsChanged(schema []byte, prev, values map[string]any) []string {
+	writeOnly := map[string]bool{}
+	if root, err := schemaform.ParseSchema(schema); err == nil {
+		for _, prop := range root.Props {
+			writeOnly[prop.Name] = prop.Node.WriteOnly
+		}
+	}
+	out := []string{}
+	for k, v := range values {
+		if writeOnly[k] {
+			if s, isStr := v.(string); isStr && s == "" {
+				continue
+			}
+		} else if reflect.DeepEqual(v, prev[k]) {
+			continue
+		}
+		out = append(out, k)
+	}
+	slices.Sort(out)
+	return out
+}
+
 func (a *Admin) handlePluginSettingsSave(w http.ResponseWriter, r *http.Request) {
 	pa, p, ok := a.pluginWithSettings(w, r)
 	if !ok {
@@ -716,6 +742,7 @@ func (a *Admin) handlePluginSettingsSave(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	a.invalidate(r.Context())
+	a.audit(r, "plugin.settings", "plugin:"+p.Name, map[string]any{"keys": pluginSettingsChanged(p.SettingsSchema, prev, values)})
 	a.SetFlash(w, r, "success", "Settings saved for "+p.Name+".")
 	http.Redirect(w, r, a.pluginURL(p.Name, "settings"), http.StatusSeeOther)
 }

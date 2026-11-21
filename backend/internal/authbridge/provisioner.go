@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/auditstate"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/authstate"
 	"hatamoto.dev/core/internal/database"
@@ -27,6 +28,8 @@ type ProvisionerDeps struct {
 	// AdminPath returns the admin mount path ("/admin" by default).
 	AdminPath func() string
 	Now       func() time.Time
+	// Audit records a change made through the provisioner (nil: none).
+	Audit func(ctx context.Context, ev auditstate.Event)
 }
 
 // Provisioner implements authstate.Provisioner on core's services.
@@ -40,6 +43,19 @@ func NewProvisioner(d ProvisionerDeps) *Provisioner {
 		d.Now = time.Now
 	}
 	return &Provisioner{d: d}
+}
+
+// audit records one change; the actor is the signed-in user when ctx has one,
+// else the sign-in provider. It is called only after the change succeeded.
+func (p *Provisioner) audit(ctx context.Context, action, target string, detail map[string]any) {
+	if p.d.Audit == nil {
+		return
+	}
+	ev := auditstate.Event{Actor: "system (sign-in provider)", ActorKind: "system", Action: action, Target: target, Detail: detail}
+	if id, ok := database.GetUserID(ctx); ok {
+		ev.ActorID, ev.Actor, ev.ActorKind = id.String(), id.String(), "user"
+	}
+	p.d.Audit(ctx, ev)
 }
 
 func toDTO(u *user.User) authstate.User {
@@ -146,6 +162,7 @@ func (p *Provisioner) Create(ctx context.Context, in authstate.NewUser) (authsta
 	if err != nil {
 		return authstate.User{}, mapErr(err)
 	}
+	p.audit(ctx, "user.created", u.Email, map[string]any{"role": string(u.Role), "via": "provider"})
 	return toDTO(u), nil
 }
 
@@ -173,16 +190,30 @@ func (p *Provisioner) Update(ctx context.Context, id string, c authstate.Changes
 		return authstate.User{}, err
 	}
 	in := &user.UpdateUserInput{Name: c.Name}
+	var before user.Role
 	if c.Role != nil {
 		role := user.Role(*c.Role)
 		if !user.ValidRole(role) {
 			return authstate.User{}, authstate.ErrInvalidRole
 		}
 		in.Role = &role
+		if p.d.Audit != nil {
+			old, err := p.d.Users.GetByID(database.WithSuperadmin(ctx), uid)
+			if err != nil {
+				return authstate.User{}, mapErr(err)
+			}
+			before = old.Role
+		}
 	}
 	u, err := p.d.Users.Update(database.WithSuperadmin(ctx), uid, in)
 	if err != nil {
 		return authstate.User{}, mapErr(err)
+	}
+	if in.Role != nil && before != "" && before != *in.Role {
+		p.audit(ctx, "user.role_changed", u.Email, map[string]any{"from": string(before), "to": string(*in.Role)})
+	}
+	if c.Name != nil {
+		p.audit(ctx, "user.updated", u.Email, map[string]any{"changed": []string{"name"}})
 	}
 	return toDTO(u), nil
 }
@@ -194,11 +225,21 @@ func (p *Provisioner) SetAccessEnd(ctx context.Context, id string, end *time.Tim
 	if err != nil {
 		return err
 	}
-	if _, err := p.d.Users.Update(database.WithSuperadmin(ctx), uid, &user.UpdateUserInput{
+	var from any
+	if p.d.Audit != nil {
+		old, err := p.d.Users.GetByID(database.WithSuperadmin(ctx), uid)
+		if err != nil {
+			return mapErr(err)
+		}
+		from = auditTime(old.AccessEndsAt)
+	}
+	u, err := p.d.Users.Update(database.WithSuperadmin(ctx), uid, &user.UpdateUserInput{
 		AccessEndsAt: user.AccessEnd{Set: true, At: end},
-	}); err != nil {
+	})
+	if err != nil {
 		return mapErr(err)
 	}
+	p.audit(ctx, "user.access_changed", u.Email, map[string]any{"from": from, "to": auditTime(end)})
 	if end != nil && !end.After(p.d.Now()) {
 		return p.RevokeSessionsAndKeys(ctx, id)
 	}
@@ -220,8 +261,12 @@ func (p *Provisioner) RevokeSessionsAndKeys(ctx context.Context, id string) erro
 	}
 	ctx = database.WithSuperadmin(ctx)
 	errSessions := p.d.Sessions.RevokeAllForUser(ctx, uid)
-	_, errKeys := p.d.Keys.RevokeAllForCreator(ctx, uid)
-	return errors.Join(errSessions, errKeys)
+	keys, errKeys := p.d.Keys.RevokeAllForCreator(ctx, uid)
+	if err := errors.Join(errSessions, errKeys); err != nil {
+		return err
+	}
+	p.audit(ctx, "user.sessions_revoked", id, map[string]any{"keys": keys})
+	return nil
 }
 
 // LinkIdentity attaches (issuer, subject) to the user.
@@ -230,7 +275,11 @@ func (p *Provisioner) LinkIdentity(ctx context.Context, id, issuer, subject stri
 	if err != nil {
 		return err
 	}
-	return mapErr(p.d.Identities.Link(database.WithSuperadmin(ctx), uid, issuer, subject))
+	if err := p.d.Identities.Link(database.WithSuperadmin(ctx), uid, issuer, subject); err != nil {
+		return mapErr(err)
+	}
+	p.audit(ctx, "user.identity_linked", id, map[string]any{"issuer": issuer})
+	return nil
 }
 
 // UnlinkIdentity removes (issuer, subject) from the user.
@@ -239,7 +288,11 @@ func (p *Provisioner) UnlinkIdentity(ctx context.Context, id, issuer, subject st
 	if err != nil {
 		return err
 	}
-	return mapErr(p.d.Identities.Unlink(database.WithSuperadmin(ctx), uid, issuer, subject))
+	if err := p.d.Identities.Unlink(database.WithSuperadmin(ctx), uid, issuer, subject); err != nil {
+		return mapErr(err)
+	}
+	p.audit(ctx, "user.identity_unlinked", id, map[string]any{"issuer": issuer})
+	return nil
 }
 
 // IssuePasswordSetLink returns a site-root-relative path that lets the user
@@ -253,5 +306,14 @@ func (p *Provisioner) IssuePasswordSetLink(ctx context.Context, id string) (stri
 	if err != nil {
 		return "", mapErr(err)
 	}
+	p.audit(ctx, "user.reset_link_sent", id, nil)
 	return p.d.AdminPath() + "/reset?token=" + tok, nil
+}
+
+// auditTime is a time as an audit detail value: RFC 3339 in UTC, nil for none.
+func auditTime(t *time.Time) any {
+	if t == nil {
+		return nil
+	}
+	return t.UTC().Format(time.RFC3339)
 }

@@ -118,10 +118,13 @@ func (a *Admin) handleLogin(w http.ResponseWriter, r *http.Request) {
 		a.handleLoginTwoStep(w, r, ps, email, password, next)
 		return
 	}
-	_, token, err := a.deps.Auth.LoginSession(r.Context(), email, password, r.UserAgent(), middleware.GetClientIP(r))
+	u, token, err := a.deps.Auth.LoginSession(r.Context(), email, password, r.UserAgent(), middleware.GetClientIP(r))
 	if err != nil {
 		a.loginFailed(w, r, err, email, next)
 		return
+	}
+	if u != nil {
+		a.auditSignIn(r, u.ID.String(), u.Email, SignInPassword, nil)
 	}
 	a.finishSignIn(w, r, token, next)
 }
@@ -135,6 +138,18 @@ func (a *Admin) finishSignIn(w http.ResponseWriter, r *http.Request, token, next
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
+// credentialRefusal reports whether err is a refused sign-in (wrong, unknown,
+// disabled or locked) rather than a fault, and the audit reason for it.
+func credentialRefusal(err error) (reason string, refused bool) {
+	switch {
+	case errors.Is(err, auth.ErrAccountLocked):
+		return ReasonLocked, true
+	case errors.Is(err, auth.ErrInvalidCredentials), errors.Is(err, auth.ErrUserNotFound), errors.Is(err, auth.ErrUserDisabled), errors.Is(err, auth.ErrSecondFactorRequired):
+		return ReasonCredentials, true
+	}
+	return "", false
+}
+
 // loginFailed answers a failed password step: the neutral message for every
 // credential problem, a log line and 500 for anything else.
 func (a *Admin) loginFailed(w http.ResponseWriter, r *http.Request, err error, email, next string) {
@@ -143,6 +158,10 @@ func (a *Admin) loginFailed(w http.ResponseWriter, r *http.Request, err error, e
 		a.logger().Info("login attempt on locked account", "ip", middleware.GetClientIP(r))
 		fallthrough
 	case errors.Is(err, auth.ErrInvalidCredentials), errors.Is(err, auth.ErrUserNotFound), errors.Is(err, auth.ErrUserDisabled), errors.Is(err, auth.ErrSecondFactorRequired):
+		if reason, _ := credentialRefusal(err); email != "" {
+			// Same row for a known and an unknown address: the actor is a keyed hash.
+			a.auditSignInFailed(r, "", a.failedActor(email), reason, nil)
+		}
 		v := a.NewView(w, r, "Sign in")
 		v.Data = loginData{Email: email, Next: next, DemoLogin: a.demoLoginData(), Passkeys: a.passkeysOn(), Providers: a.providerButtons(r.Context(), next), Status: &Flash{Kind: "error", Message: loginMessage}}
 		a.Render(w, r, http.StatusUnprocessableEntity, "auth/login", v)
@@ -160,7 +179,11 @@ func (a *Admin) loginFailed(w http.ResponseWriter, r *http.Request, err error, e
 func (a *Admin) handleLogout(w http.ResponseWriter, r *http.Request) {
 	if s := sessionFrom(r.Context()); s != nil && a.deps.Sessions != nil {
 		var err error
-		if r.PostFormValue("all") == "1" && s.UserID != nil {
+		all := r.PostFormValue("all") == "1" && s.UserID != nil
+		if u := userFrom(r.Context()); u != nil {
+			a.auditSignOut(r, u.ID, u.Email, all)
+		}
+		if all {
 			err = a.deps.Sessions.RevokeAllForUser(r.Context(), *s.UserID)
 		} else {
 			err = a.deps.Sessions.Revoke(r.Context(), s.ID)

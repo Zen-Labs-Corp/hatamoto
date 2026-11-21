@@ -88,13 +88,13 @@ func TestSignInPolicyAdmitByMethod(t *testing.T) {
 	svc, repo, u := factorRig(t, fakeGate{}, nil)
 	repo.getByIDReturn = u
 
-	if err := svc.admit(ctx, u.ID, authstate.Via{Method: authstate.MethodPasskey}); !errors.Is(err, ErrInvalidCredentials) {
+	if _, err := svc.admit(ctx, u.ID, authstate.Via{Method: authstate.MethodPasskey}); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("passkey: %v", err)
 	}
-	if err := svc.admit(ctx, u.ID, viaPassword); err != nil {
+	if _, err := svc.admit(ctx, u.ID, viaPassword); err != nil {
 		t.Fatalf("password: %v", err)
 	}
-	if err := svc.admit(ctx, u.ID, authstate.Via{Method: authstate.MethodProvider, Provider: "x"}); err != nil {
+	if _, err := svc.admit(ctx, u.ID, authstate.Via{Method: authstate.MethodProvider, Provider: "x"}); err != nil {
 		t.Fatalf("provider: %v", err)
 	}
 }
@@ -103,7 +103,7 @@ func TestSignInPolicyErrorFailsClosed(t *testing.T) {
 	registerPolicy(t, &refuseMethods{err: errors.New("policy store down")})
 	svc, repo, u := factorRig(t, fakeGate{}, nil)
 	repo.getByIDReturn = u
-	if err := svc.admit(context.Background(), u.ID, viaPassword); !errors.Is(err, ErrInvalidCredentials) {
+	if _, err := svc.admit(context.Background(), u.ID, viaPassword); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("err = %v, want ErrInvalidCredentials", err)
 	}
 }
@@ -112,7 +112,7 @@ func TestSignInPolicyNoneRegisteredAllows(t *testing.T) {
 	authstate.Reset()
 	svc, repo, u := factorRig(t, fakeGate{}, nil)
 	repo.getByIDReturn = u
-	if err := svc.admit(context.Background(), u.ID, authstate.Via{Method: authstate.MethodProvider, Provider: "x"}); err != nil {
+	if _, err := svc.admit(context.Background(), u.ID, authstate.Via{Method: authstate.MethodProvider, Provider: "x"}); err != nil {
 		t.Fatal(err)
 	}
 }

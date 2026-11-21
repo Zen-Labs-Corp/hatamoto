@@ -924,9 +924,38 @@ wires `Deps.AuditLog`; without it the route is a 404. There is no sidebar link: 
 Activity card's "Audit log" link. Actions are
 named by `auditLabel`, falling back to the raw action. Recorded: `entity.publish`,
 `entity.unpublish`, `entity.archive`, `entity.update`, `entity.schedule`, `entity.delete`,
-`entity.restore_version` (explicit saves and status changes, never autosaves or builder
-saves), plus backups, email, cache, spam and update settings actions. Automatic updates
-and CLI actions appear under their own actor ("Auto update").
+`entity.restore_version` (explicit saves and status changes, never autosaves, draft
+auto-creates or unsaved builder changes), plus backups, email, cache, spam and update settings
+actions. Automatic updates and CLI actions appear under their own actor ("Auto update", "cli").
+Also recorded:
+
+- **Sign-ins.** `session.sign_in` (method password, totp, recovery, passkey, provider, reset or invite; the actor is the user's email),
+  `session.sign_in_failed` (reason credentials, locked or second_factor) and `session.sign_out`.
+  A failed sign-in stores the typed address only as `email-hash:...`, an HMAC under the server
+  secret, for known and unknown addresses alike; never the address, the password or a code. A
+  failed sign-in adds one row each, kept like the other rows (1 year). A failure with no user and
+  no typed address (a forged provider state, a passkey with no ceremony) writes no row.
+- **Users, invites and API keys.** Creating, changing, removing, inviting and revoking, and the
+  API key actions (`api_key.created|updated|revoked|regenerated|deleted`). A key's secret is
+  never stored.
+- **Settings.** `settings.updated` with its target (general, locale, design, theme, SEO and
+  so on). Values are never stored, only the names of the fields that changed. Webhook, content
+  type, template and link rule actions are recorded the same way; a webhook secret or URL is not.
+- **Content.** `entity.create`, `entity.publish_scheduled` (kind system, actor "system
+  (scheduler)"), and the term, menu, redirect and media actions (`term.created`, `menu.created`,
+  `redirect.created`, `media.uploaded`, and their update, delete and reorder siblings).
+- **API and MCP entity writes.** `entity.create|update|publish|unpublish|archive|schedule|delete`
+  from the REST API or an MCP key, with the actor `api-key:<name>` (kind `api_key`, the key id
+  kept) or the signed-in user, written in the same transaction as the change. Term, menu,
+  redirect and media writes through the API or MCP are recorded the same way.
+
+Admin entity saves and publishes are written in the same transaction as the change. A
+registered audit sink can refuse a row, and the page then shows the save error and that
+write is not kept. Each write is refused on its own: a save followed by a publish is two
+writes, so a refused publish leaves the saved content in place. A scheduled publish waits while a registered sink refuses its row.
+
+Not recorded: forms and form submissions, people, connection tests (email, off-site, spam,
+webhook test), autosaves and draft auto-create.
 
 Every shell page ends with a colophon at the bottom right of the content area: the running
 version ("Hatamoto v1.4.2", or "dev build" for an unstamped or between-tags build) linking to

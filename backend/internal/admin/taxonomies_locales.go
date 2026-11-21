@@ -177,6 +177,7 @@ func (a *Admin) handleTermLocale(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		a.invalidate(r.Context())
+		a.audit(r, AuditTermUpdated, t.ID.String(), map[string]any{"locale": loc})
 		a.SetFlash(w, r, "success", "Locale saved.")
 	}
 	Redirect(w, r, a.termURL(t.ID))
@@ -246,6 +247,7 @@ func (a *Admin) handleTermCopy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.invalidate(r.Context())
+	a.audit(r, AuditTermCopied, cp.ID.String(), map[string]any{"locale": tag})
 	a.SetFlash(w, r, "success", "Created the "+tag+" copy.")
 	Redirect(w, r, a.termURL(cp.ID))
 }
@@ -262,6 +264,7 @@ func (a *Admin) handleTermLink(w http.ResponseWriter, r *http.Request) {
 		a.SetFlash(w, r, "error", "That term cannot be linked: it needs the same kind and a locale this term does not have yet.")
 	} else {
 		a.invalidate(r.Context())
+		a.audit(r, AuditTermLinked, t.ID.String(), nil)
 		a.SetFlash(w, r, "success", "Linked the term.")
 	}
 	Redirect(w, r, a.termURL(t.ID))
@@ -312,6 +315,7 @@ func (a *Admin) handleTermUnlink(w http.ResponseWriter, r *http.Request) {
 		return
 	default:
 		a.invalidate(r.Context())
+		a.audit(r, AuditTermUnlinked, id.String(), nil)
 		a.SetFlash(w, r, "success", "Unlinked the term.")
 	}
 	Redirect(w, r, a.termURL(t.ID))

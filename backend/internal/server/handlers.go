@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/auditlog"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
@@ -136,16 +138,19 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	result, err := s.authService.Login(r.Context(), &input, userAgent, clientIP)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
+			s.restLoginAuditFailed(r, input, "credentials")
 			writeError(w, http.StatusUnauthorized, "invalid email or password")
 			return
 		}
 		if errors.Is(err, auth.ErrFactorSetupRequired) {
+			s.restLoginAuditFailed(r, input, "factor_setup")
 			writeError(w, http.StatusForbidden, "this site requires two-step sign-in: set up an authenticator app or a passkey in the admin, then sign in again")
 			return
 		}
 		if errors.Is(err, auth.ErrSecondFactorRequired) {
 			// A user with a second factor needs a valid "code"; without one the
 			// answer is the same generic 401, never "needs a code".
+			s.restLoginAuditFailed(r, input, "credentials")
 			writeError(w, http.StatusUnauthorized, "invalid email or password")
 			return
 		}
@@ -154,6 +159,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			// not distinguishable from a wrong password or an unknown email
 			// (avoids account enumeration). The lock still blocks auth server-side.
 			s.logger.Warn("login attempt on locked account", "ip", clientIP)
+			s.restLoginAuditFailed(r, input, "locked")
 			writeError(w, http.StatusUnauthorized, "invalid email or password")
 			return
 		}
@@ -165,6 +171,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "login failed")
 		return
 	}
+
+	s.restLoginAuditOK(r, result.User, input.Code != "")
 
 	// The session token is in the body for bearer clients. With cookie-auth
 	// enabled it is also set as an HttpOnly API session cookie (never the admin
@@ -193,6 +201,9 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		for _, token := range tokens {
 			if sess, verr := s.sessionStore.Validate(r.Context(), token); verr == nil {
 				_ = s.sessionStore.Revoke(r.Context(), sess.ID)
+				if sess.UserID != nil {
+					s.restLogoutAudit(r, *sess.UserID)
+				}
 			}
 		}
 	}
@@ -347,6 +358,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to create user")
 		return
 	}
+	s.restUserAudit(r, admin.AuditUserCreated, u.Email, map[string]any{"role": string(u.Role)})
 	if input.AccessEndsAt != nil {
 		s.auditAccessChange(r, claims, u.Email, nil, input.AccessEndsAt, "created")
 	}
@@ -455,6 +467,19 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// A role change names the role it replaces: read it once, only then.
+	if before == nil && input.Role != nil {
+		if before, err = s.userRepo.GetByID(r.Context(), id); err != nil {
+			if errors.Is(err, user.ErrUserNotFound) {
+				writeError(w, http.StatusNotFound, "user not found")
+				return
+			}
+			s.logger.Error("failed to get user", "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to update user")
+			return
+		}
+	}
+
 	u, err := s.userRepo.Update(r.Context(), id, &input)
 	if err != nil {
 		if errors.Is(err, user.ErrUserNotFound) {
@@ -472,6 +497,12 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("failed to update user", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update user")
 		return
+	}
+	if before != nil && input.Role != nil && before.Role != u.Role {
+		s.restUserAudit(r, admin.AuditUserRoleChanged, u.Email, map[string]any{"from": string(before.Role), "to": string(u.Role)})
+	}
+	if changed := restUserChangedFields(&input); len(changed) > 0 {
+		s.restUserAudit(r, admin.AuditUserUpdated, u.Email, map[string]any{"changed": changed})
 	}
 	if before != nil && !sameAccessEnd(before.AccessEndsAt, u.AccessEndsAt) {
 		s.auditAccessChange(r, claims, u.Email, before.AccessEndsAt, u.AccessEndsAt, "")
@@ -541,6 +572,11 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The row is gone after the delete: keep the address and role for the log.
+	target, detail := id.String(), map[string]any{}
+	if gone, gerr := s.userRepo.GetByID(r.Context(), id); gerr == nil && gone != nil {
+		target, detail["role"] = gone.Email, string(gone.Role)
+	}
 	if err := s.userRepo.Delete(r.Context(), id); err != nil {
 		if errors.Is(err, user.ErrUserNotFound) {
 			writeError(w, http.StatusNotFound, "user not found")
@@ -550,6 +586,85 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to delete user")
 		return
 	}
+	s.restUserAudit(r, admin.AuditUserDeleted, target, detail)
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "user deleted"})
+}
+
+// restLoginAudit writes one session row for a JSON API sign-in or sign-out.
+// The actor is passed in: a sign-in has no authenticated caller yet.
+func (s *Server) restLoginAudit(r *http.Request, action, actorID, actor, result string, detail map[string]any) {
+	detail["via"] = "api"
+	s.adminAudit(r.Context(), admin.AuditEvent{
+		ActorID: actorID, Actor: actor, ActorKind: audit.KindUser, Result: result,
+		Action: action, Target: "session", Detail: detail,
+		IP: middleware.GetClientIP(r), UserAgent: r.UserAgent(), RequestID: r.Header.Get("X-Request-ID"),
+	})
+}
+
+// restLoginAuditOK records a completed sign-in. totp is true when the request
+// carried a second-step code.
+func (s *Server) restLoginAuditOK(r *http.Request, u *user.User, totp bool) {
+	if u == nil {
+		return
+	}
+	method := admin.SignInPassword
+	if totp {
+		method = admin.SignInTOTP
+	}
+	s.restLoginAudit(r, admin.AuditSignIn, u.ID.String(), u.Email, audit.ResultOK, map[string]any{"method": method})
+}
+
+// restLogoutAudit records a sign-out as the user's email, like the sign-in
+// row; an unreadable user falls back to the id.
+func (s *Server) restLogoutAudit(r *http.Request, id uuid.UUID) {
+	actor := id.String()
+	if u, err := s.userRepo.GetByID(r.Context(), id); err == nil && u != nil && u.Email != "" {
+		actor = u.Email
+	}
+	s.restLoginAudit(r, admin.AuditSignOut, id.String(), actor, audit.ResultOK, map[string]any{"all": false})
+}
+
+// restLoginAuditFailed records a refused sign-in. The actor is the keyed hash
+// of the typed email, the same for a known and an unknown address; neither the
+// address nor the password or code is stored.
+func (s *Server) restLoginAuditFailed(r *http.Request, in auth.LoginRequest, reason string) {
+	if s.cfg == nil || in.Email == "" {
+		return // no typed address: nothing to attribute the row to
+	}
+	actor := auditlog.NewEmailHasher(s.cfg.Secret)(in.Email)
+	method := admin.SignInPassword
+	if in.Code != "" {
+		method = admin.SignInTOTP
+	}
+	s.restLoginAudit(r, admin.AuditSignInFailed, "", actor, audit.ResultDenied, map[string]any{"reason": reason, "method": method})
+}
+
+// restUserAudit records a user or API key change made over the JSON API, as the
+// signed-in caller. Detail must carry names and counts only: never a password,
+// a key value or a token.
+func (s *Server) restUserAudit(r *http.Request, action, target string, detail map[string]any) {
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok {
+		return
+	}
+	detail["via"] = "api"
+	s.adminAudit(r.Context(), admin.AuditEvent{
+		ActorID: claims.UserID.String(), Actor: claims.Email,
+		Action: action, Target: target, Detail: detail,
+		IP: middleware.GetClientIP(r), UserAgent: r.UserAgent(), RequestID: r.Header.Get("X-Request-ID"),
+	})
+}
+
+// restUserChangedFields names the profile fields an update sets (not the role,
+// which has its own action, nor the access end, which keeps its own row).
+func restUserChangedFields(in *user.UpdateUserInput) []string {
+	var out []string
+	if in.Name != nil {
+		out = append(out, "name")
+	}
+	if in.AvatarURL != nil {
+		out = append(out, "avatar")
+	}
+	return out
 }

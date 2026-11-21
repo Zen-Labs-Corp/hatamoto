@@ -53,6 +53,7 @@ func (s *Service) MergeTerms(ctx context.Context, from, into uuid.UUID) error {
 		s.moved(ctx, []PathMove{{From: paths[from], To: paths[into]}})
 	}
 	s.notifyChanged(ctx)
+	s.record(ctx, "term.merged", from.String(), map[string]any{"into": into.String()})
 	return nil
 }
 

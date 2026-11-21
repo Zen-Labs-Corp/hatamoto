@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
+	"hatamoto.dev/core/internal/auditstate"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/idle"
 )
@@ -33,6 +35,10 @@ type PublishWorker struct {
 	logger *slog.Logger
 	events PublishEventSink
 
+	// auditTx records each promoted entity inside the promoting transaction;
+	// nil promotes without a transaction or audit rows.
+	auditTx func(ctx context.Context, tx pgx.Tx, ev auditstate.Event) error
+
 	// minDue reads the earliest scheduled time; a variable so tests need no
 	// database.
 	minDue func(ctx context.Context) (*time.Time, error)
@@ -48,6 +54,16 @@ type PublishEventSink interface {
 
 // SetEvents installs the sink; nil disables notification.
 func (w *PublishWorker) SetEvents(s PublishEventSink) { w.events = s }
+
+// SetAuditTx records each promoted entity inside the promoting transaction; a
+// registered audit sink that refuses rolls the whole batch back, and the next
+// tick retries it.
+func (w *PublishWorker) SetAuditTx(f func(ctx context.Context, tx pgx.Tx, ev auditstate.Event) error) {
+	w.auditTx = f
+}
+
+// schedulerActor is the actor of a promotion made by the scheduler.
+const schedulerActor = "system (scheduler)"
 
 // NewPublishWorker constructs the worker.
 func NewPublishWorker(db *database.DB, logger *slog.Logger) *PublishWorker {
@@ -94,7 +110,7 @@ func (w *PublishWorker) Run(ctx context.Context) ([]PublishedEntity, error) {
 	}
 	defer conn.Release()
 
-	rows, err := conn.Query(adminCtx, `
+	const promoteSQL = `
 		UPDATE hatamoto_entities
 		   SET status = 'published',
 		       updated_at = NOW()
@@ -103,7 +119,24 @@ func (w *PublishWorker) Run(ctx context.Context) ([]PublishedEntity, error) {
 		RETURNING id, slug, name, version,
 		          COALESCE((SELECT s.slug FROM hatamoto_entity_schemas s
 		                     WHERE s.id = hatamoto_entities.schema_id), '')
-	`)
+	`
+
+	var (
+		q interface {
+			Query(context.Context, string, ...any) (pgx.Rows, error)
+		} = conn
+		tx pgx.Tx
+	)
+	if w.auditTx != nil {
+		tx, err = conn.Begin(adminCtx)
+		if err != nil {
+			return nil, fmt.Errorf("begin promote: %w", err)
+		}
+		defer func() { _ = tx.Rollback(adminCtx) }()
+		q = tx
+	}
+
+	rows, err := q.Query(adminCtx, promoteSQL)
 	if err != nil {
 		return nil, fmt.Errorf("promote scheduled entities: %w", err)
 	}
@@ -119,6 +152,23 @@ func (w *PublishWorker) Run(ctx context.Context) ([]PublishedEntity, error) {
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate promoted entities: %w", err)
+	}
+	rows.Close()
+
+	if tx != nil {
+		for _, e := range published {
+			err := w.auditTx(adminCtx, tx, auditstate.Event{
+				Actor: schedulerActor, ActorKind: "system",
+				Action: "entity.publish_scheduled", Target: e.ID.String(),
+				Detail: map[string]any{"name": e.Name, "slug": e.Slug, "schema": e.SchemaSlug},
+			})
+			if err != nil {
+				return nil, fmt.Errorf("audit scheduled publish: %w", err)
+			}
+		}
+		if err := tx.Commit(adminCtx); err != nil {
+			return nil, fmt.Errorf("commit promote: %w", err)
+		}
 	}
 
 	for _, e := range published {

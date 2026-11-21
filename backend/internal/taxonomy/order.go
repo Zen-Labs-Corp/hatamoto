@@ -52,7 +52,7 @@ func (s *Service) MoveTerm(ctx context.Context, id uuid.UUID, in MoveInput) (*Mo
 	}
 	if in.ClearParent && existing.ParentID != nil || !in.ClearParent && in.ParentID != nil && !sameParent(existing.ParentID, in.ParentID) {
 		// UpdateTerm re-derives an empty slug from the name: pass both as stored.
-		if _, err := s.UpdateTerm(ctx, UpdateTermInput{
+		if _, err := s.updateTerm(ctx, UpdateTermInput{
 			ID: id, Name: existing.Name, Slug: existing.Slug, ParentID: in.ParentID, ClearParent: in.ClearParent,
 		}); err != nil {
 			return nil, err
@@ -63,6 +63,7 @@ func (s *Service) MoveTerm(ctx context.Context, id uuid.UUID, in MoveInput) (*Mo
 		return nil, err
 	}
 	s.notifyChanged(ctx)
+	s.record(ctx, "term.reorder", id.String(), nil)
 	t, err := s.repo.GetTerm(ctx, id)
 	if err != nil {
 		return nil, err

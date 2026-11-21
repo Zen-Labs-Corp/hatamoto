@@ -23,7 +23,7 @@ func TestIssueVerifiedSessionProvider(t *testing.T) {
 	svc := NewService(r.users, nil, r.sessions)
 	u := r.newUser(t, user.RoleEditor)
 
-	if _, err := svc.IssueVerifiedSession(ctx, u.ID, viaFake, "ua", ""); err != nil {
+	if _, _, err := svc.IssueVerifiedSession(ctx, u.ID, viaFake, "ua", ""); err != nil {
 		t.Fatalf("active user: %v", err)
 	}
 	if n := r.sessionCount(t, u.ID); n != 1 {
@@ -32,7 +32,7 @@ func TestIssueVerifiedSessionProvider(t *testing.T) {
 
 	past := time.Now().Add(-time.Minute)
 	r.setEnd(t, u.ID, &past)
-	if _, err := svc.IssueVerifiedSession(ctx, u.ID, viaFake, "ua", ""); !errors.Is(err, ErrInvalidCredentials) {
+	if _, _, err := svc.IssueVerifiedSession(ctx, u.ID, viaFake, "ua", ""); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("ended user: %v", err)
 	}
 	r.setEnd(t, u.ID, nil)
@@ -40,7 +40,7 @@ func TestIssueVerifiedSessionProvider(t *testing.T) {
 	if err := r.users.RecordFailedLogin(database.WithSuperadmin(ctx), u.ID, 1, time.Hour); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.IssueVerifiedSession(ctx, u.ID, viaFake, "ua", ""); !errors.Is(err, ErrAccountLocked) {
+	if _, _, err := svc.IssueVerifiedSession(ctx, u.ID, viaFake, "ua", ""); !errors.Is(err, ErrAccountLocked) {
 		t.Fatalf("locked user: %v", err)
 	}
 	// Ending access also revoked the first session; the refusals added none.
@@ -67,7 +67,7 @@ func TestSignInPolicyRefusesSessionRows(t *testing.T) {
 			return err
 		},
 		"IssueSession":         func() error { _, err := svc.IssueSession(ctx, u.ID, "ua", ""); return err },
-		"IssueVerifiedSession": func() error { _, err := svc.IssueVerifiedSession(ctx, u.ID, viaFake, "ua", ""); return err },
+		"IssueVerifiedSession": func() error { _, _, err := svc.IssueVerifiedSession(ctx, u.ID, viaFake, "ua", ""); return err },
 	}
 	for name, call := range calls {
 		if err := call(); !errors.Is(err, ErrInvalidCredentials) {
@@ -78,7 +78,7 @@ func TestSignInPolicyRefusesSessionRows(t *testing.T) {
 		t.Fatalf("%d sessions were created under a refusing policy", n)
 	}
 	// The passkey method is not refused here.
-	if _, err := svc.IssueVerifiedSession(ctx, u.ID, authstate.Via{Method: authstate.MethodPasskey}, "ua", ""); err != nil {
+	if _, _, err := svc.IssueVerifiedSession(ctx, u.ID, authstate.Via{Method: authstate.MethodPasskey}, "ua", ""); err != nil {
 		t.Fatalf("passkey: %v", err)
 	}
 }

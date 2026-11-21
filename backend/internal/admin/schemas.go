@@ -1074,11 +1074,37 @@ func (a *Admin) saveSchema(w http.ResponseWriter, r *http.Request, f *schemaForm
 		return
 	}
 	if existing == nil {
+		a.audit(r, AuditContentTypeCreated, saved.Slug, map[string]any{"name": saved.Name})
 		a.SetFlash(w, r, "success", "Entity type created.")
 	} else {
+		a.audit(r, AuditContentTypeUpdated, saved.Slug, map[string]any{"name": saved.Name, "changed": schemaChanged(existing, saved)})
 		a.SetFlash(w, r, "success", "Entity type saved.")
 	}
 	Redirect(w, r, a.adminPath+"/settings/types/"+saved.ID.String())
+}
+
+// schemaChanged names the parts of an entity type that differ after a save.
+func schemaChanged(was, now *entity.EntitySchema) []string {
+	wasDesc, nowDesc := "", ""
+	if was.Description != nil {
+		wasDesc = *was.Description
+	}
+	if now.Description != nil {
+		nowDesc = *now.Description
+	}
+	out := []string{}
+	for _, c := range []struct {
+		name string
+		same bool
+	}{
+		{"name", was.Name == now.Name}, {"description", wasDesc == nowDesc},
+		{"schema", string(was.Schema) == string(now.Schema)}, {"settings", string(was.Settings) == string(now.Settings)},
+	} {
+		if !c.same {
+			out = append(out, c.name)
+		}
+	}
+	return out
 }
 
 func (a *Admin) handleSchemaDeleteConfirm(w http.ResponseWriter, r *http.Request) {
@@ -1101,9 +1127,16 @@ func (a *Admin) handleSchemaDelete(w http.ResponseWriter, r *http.Request) {
 		a.notFound(w, r, "Entity type", a.adminPath+"/settings/types", "Back to entity types")
 		return
 	}
+	// Read first so the audit row can name the type; a failed read only drops the name.
+	prev, _ := a.deps.Content.Entities.GetSchema(r.Context(), id)
 	err := a.deps.Content.Entities.DeleteSchema(r.Context(), id)
 	switch {
 	case err == nil:
+		if prev != nil {
+			a.audit(r, AuditContentTypeDeleted, prev.Slug, map[string]any{"name": prev.Name})
+		} else {
+			a.audit(r, AuditContentTypeDeleted, id.String(), nil)
+		}
 		a.SetFlash(w, r, "success", "Entity type deleted.")
 		Redirect(w, r, a.adminPath+"/settings/types")
 	case errors.Is(err, entity.ErrSchemaNotFound):

@@ -294,6 +294,7 @@ func (a *Admin) handleMenuCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.invalidate(r.Context())
+	a.audit(r, AuditMenuCreated, m.ID.String(), menuAuditDetail(name, loc, -1))
 	a.SetFlash(w, r, "success", "Menu created.")
 	Redirect(w, r, createdRedirect(a.adminPath+"/theme/menus", m.ID.String()))
 }
@@ -728,6 +729,19 @@ func swapBlocks(rows []menuRow, a, b, c int) []menuRow {
 	return append(out, rows[c:]...)
 }
 
+// menuAuditDetail is the audit detail of a menu write; items < 0 leaves the
+// count out and an empty location is not recorded.
+func menuAuditDetail(name, location string, items int) map[string]any {
+	d := map[string]any{"name": name}
+	if location != "" {
+		d["location"] = location
+	}
+	if items >= 0 {
+		d["items"] = items
+	}
+	return d
+}
+
 func (a *Admin) handleMenuSave(w http.ResponseWriter, r *http.Request) {
 	m, ok := a.loadMenu(w, r)
 	if !ok {
@@ -790,6 +804,7 @@ func (a *Admin) handleMenuSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.invalidate(r.Context())
+	a.audit(r, AuditMenuUpdated, m.ID.String(), menuAuditDetail(f.Name, loc, len(items.out)))
 	a.SetFlash(w, r, "success", "Menu saved.")
 	http.Redirect(w, r, a.adminPath+"/theme/menus/"+m.ID.String(), http.StatusSeeOther)
 }
@@ -1007,6 +1022,7 @@ func (a *Admin) handleMenuDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.invalidate(r.Context())
+	a.audit(r, AuditMenuDeleted, id.String(), nil)
 	a.SetFlash(w, r, "success", "Menu deleted.")
 	Redirect(w, r, a.adminPath+"/theme/menus")
 }

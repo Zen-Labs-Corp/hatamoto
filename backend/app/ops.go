@@ -14,8 +14,11 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
+	"hatamoto.dev/core/internal/auditctx"
+	"hatamoto.dev/core/internal/auditlog"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
@@ -129,7 +132,9 @@ func runEntity(ctx context.Context, db *database.DB, args []string, out io.Write
 	if len(args) == 0 {
 		return errors.New("usage: hatamoto entity list|get|create|publish|unpublish")
 	}
-	svc := entity.NewService(entity.NewPostgresSchemaRepository(db), entity.NewPostgresEntityRepository(db), logger)
+	repo := entity.NewPostgresEntityRepository(db)
+	repo.SetAuditTx(auditlog.TxHook(logger))
+	svc := entity.NewService(entity.NewPostgresSchemaRepository(db), repo, logger)
 	// A locale-neutral type defaults to all languages on a multi-language site.
 	svc.URLRegistry().SetLocales(siteconfig.NewStore(db, logger).LocaleSource())
 	sub, rest := args[0], args[1:]
@@ -191,6 +196,9 @@ func runEntity(ctx context.Context, db *database.DB, args []string, out io.Write
 		if err != nil {
 			return fmt.Errorf("%q is not an entity id", pos[0])
 		}
+		if sub != "get" {
+			ctx = auditctx.With(ctx, cliActor(as, actor))
+		}
 		var e *entity.Entity
 		switch sub {
 		case "get":
@@ -225,6 +233,7 @@ func runEntity(ctx context.Context, db *database.DB, args []string, out io.Write
 		if schema == "" || name == "" {
 			return errors.New("--schema and --name are required")
 		}
+		ctx = auditctx.With(ctx, cliActor(as, actor))
 		if attrsFile != "" {
 			b, err := os.ReadFile(attrsFile)
 			if err != nil {
@@ -256,6 +265,17 @@ func runEntity(ctx context.Context, db *database.DB, args []string, out io.Write
 	return fmt.Errorf("unknown entity command %q", sub)
 }
 
+// cliActor is the principal behind a CLI entity write: the --as user, or the
+// plain "cli" actor when the change is unattributed.
+func cliActor(as string, id *uuid.UUID) auditctx.Actor {
+	a := auditctx.Actor{Name: "cli", Kind: audit.KindCLI, Via: "cli"}
+	if id != nil {
+		a.ID = id.String()
+		a.Name = strings.TrimSpace(as)
+	}
+	return a
+}
+
 // resolveActor looks up the user a CLI change is attributed to (created_by /
 // updated_by). Empty means unattributed (NULL), as before.
 func resolveActor(ctx context.Context, db *database.DB, email string) (*uuid.UUID, error) {
@@ -275,6 +295,13 @@ func runRedirect(ctx context.Context, db *database.DB, args []string, out io.Wri
 	}
 	svc := redirect.NewService(db, logger)
 	defer svc.Close()
+	svc.SetAudit(func(ctx context.Context, action, target string, detail map[string]any) {
+		if detail == nil {
+			detail = map[string]any{}
+		}
+		detail["via"] = "cli"
+		auditCLI(ctx, db.Pool(), logger, action, target, detail)
+	})
 	sub, rest := args[0], args[1:]
 	switch sub {
 	case "list":

@@ -1,20 +1,24 @@
 package admin
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/audit"
+	"hatamoto.dev/core/internal/auditctx"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/middleware"
 )
 
-// Audit actions for explicit entity changes made in the admin. Autosave
-// (blog_editor.go), draft auto-create (entity_draft.go) and the builder's
-// per-keystroke saves are deliberately not audited: they would flood the log.
-// The exception is the one save or autosave that takes a plugin's page over, which
-// writes entity.take_over (once per page: the next save finds it the owner's).
-// MCP, API and scheduled publishes have no admin request, so they are not
-// audited here either.
+// Audit actions for explicit entity changes made in the admin. Saves, status
+// changes, schedules, deletes and creates from the entity forms, lists and
+// editors are recorded by the entity store in the write's own transaction
+// (see entityAuditCtx). Autosave and draft auto-create are deliberately not
+// audited: they would flood the log. The one save or autosave that takes a
+// plugin's page over also writes entity.take_over (once per page: the next
+// save finds it the owner's).
 const (
 	auditEntityPublish        = "entity.publish"
 	auditEntityUnpublish      = "entity.unpublish"
@@ -29,18 +33,6 @@ const (
 	auditEntityTakeOver       = "entity.take_over"
 	auditEntityReorder        = "entity.reorder"
 )
-
-// auditStatusAction names the audit action of a move to st: published is a
-// publish, archived an archive, anything else (draft) an unpublish.
-func auditStatusAction(st entity.EntityStatus) string {
-	switch st {
-	case entity.StatusPublished:
-		return auditEntityPublish
-	case entity.StatusArchived:
-		return auditEntityArchive
-	}
-	return auditEntityUnpublish
-}
 
 // auditEntity records an action on an entity. The target is the entity id;
 // name, slug and schema are added when the entity is known, so the log stays
@@ -58,15 +50,36 @@ func (a *Admin) auditEntity(r *http.Request, action string, id uuid.UUID, e *ent
 	a.audit(r, action, id.String(), detail)
 }
 
-// entityForAudit is a best-effort read of an entity before it is deleted; nil
-// when it cannot be read, in which case the audit row carries the id only.
-func (a *Admin) entityForAudit(r *http.Request, id uuid.UUID) *entity.Entity {
+// entityDeleteDetail adds the entity's schema to extra before it is deleted:
+// the store's row carries name and slug, and the schema is gone with the
+// entity. Best effort; without it the row simply has no schema.
+func (a *Admin) entityDeleteDetail(r *http.Request, id uuid.UUID, extra map[string]any) map[string]any {
 	if a.deps.Audit == nil {
-		return nil
+		return extra
 	}
 	e, err := a.deps.Content.Entities.GetEntity(r.Context(), id)
-	if err != nil {
-		return nil
+	if err != nil || e.Schema == nil {
+		return extra
 	}
-	return e
+	if extra == nil {
+		extra = map[string]any{}
+	}
+	extra["schema"] = e.Schema.Slug
+	return extra
+}
+
+// entityAuditCtx returns the request context carrying the signed-in user as
+// the audit actor, so the entity store records the write in its own
+// transaction (a registered audit sink can refuse it). Use it for ONE store
+// call; extra is merged into the row's detail (schema, from, bulk, locale).
+func (a *Admin) entityAuditCtx(r *http.Request, extra map[string]any) context.Context {
+	u := userFrom(r.Context())
+	if u == nil {
+		return r.Context()
+	}
+	return auditctx.With(r.Context(), auditctx.Actor{
+		ID: u.ID, Name: u.Email, Kind: audit.KindUser,
+		IP: middleware.GetClientIP(r), UserAgent: r.UserAgent(), RequestID: r.Header.Get("X-Request-ID"),
+		Detail: extra,
+	})
 }

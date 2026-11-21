@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -38,15 +39,34 @@ func (s stepAuth) Admit(_ context.Context, _ uuid.UUID, _ authstate.Via) error {
 	return s.fakeAuth.verifiedErr
 }
 
-func (s stepAuth) IssueVerifiedSession(ctx context.Context, id uuid.UUID, via authstate.Via, _, _ string) (string, error) {
+func (s stepAuth) IssueVerifiedSession(ctx context.Context, id uuid.UUID, via authstate.Via, _, _ string) (string, *user.User, error) {
 	s.fakeAuth.mu.Lock()
 	s.fakeAuth.vias = append(s.fakeAuth.vias, via)
 	err := s.fakeAuth.verifiedErr
+	var u *user.User
+	for _, cand := range s.fakeAuth.users {
+		if cand.ID == id {
+			u = cand
+		}
+	}
 	s.fakeAuth.mu.Unlock()
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return s.fakeAuth.IssueSession(ctx, id, "", "")
+	token, err := s.fakeAuth.IssueSession(ctx, id, "", "")
+	return token, u, err
+}
+
+// countingUsers counts user reads, so a test can prove a sign-in made none
+// beyond what the auth service already did.
+type countingUsers struct {
+	fakeUsers
+	reads atomic.Int32
+}
+
+func (c *countingUsers) GetByID(ctx context.Context, id uuid.UUID) (*user.User, error) {
+	c.reads.Add(1)
+	return c.fakeUsers.GetByID(ctx, id)
 }
 
 // fakeTwoFactor models twofactor.Service: an app code that works once, one
@@ -176,7 +196,8 @@ func (f *fakeTwoFactor) Verify(_ context.Context, id uuid.UUID, code string) err
 
 type twoStepRig struct {
 	*authRig
-	tf *fakeTwoFactor
+	tf    *fakeTwoFactor
+	users *countingUsers
 }
 
 func newTwoStepRig(t *testing.T) *twoStepRig { return newTwoStepRigWith(t) }
@@ -187,15 +208,19 @@ func newTwoStepRigWith(t *testing.T, mutate ...func(*Deps)) *twoStepRig {
 	tf := &fakeTwoFactor{uid: u.ID, totp: "123456", recovery: "ABCDEFGHJKMN"}
 	fa := &fakeAuth{users: map[string]*user.User{u.Email: u}, fails: map[string]int{}}
 	ft := &fakeTokens{resets: map[string]*user.User{}, invites: map[string]*auth.Invite{}, user: u}
+	users := &countingUsers{}
 	g := newRig(t, func(d *Deps) {
 		d.Auth, d.Tokens, d.Finder = stepAuth{fa, tf}, ft, fakeFinder{u}
 		d.TwoFactor = tf
+		users.fakeUsers = d.Users.(fakeUsers) // keep the rig's owner and editor
+		users.fakeUsers[u.ID] = u
+		d.Users = users
 		d.PendingKey = twofactor.PendingKeyFor("test-secret")
 		for _, m := range mutate {
 			m(d)
 		}
 	})
-	return &twoStepRig{authRig: &authRig{rig: g, auth: fa, tokens: ft}, tf: tf}
+	return &twoStepRig{authRig: &authRig{rig: g, auth: fa, tokens: ft}, tf: tf, users: users}
 }
 
 func cookieNamed(rec *httptest.ResponseRecorder, name string) *http.Cookie {

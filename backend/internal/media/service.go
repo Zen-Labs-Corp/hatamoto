@@ -92,6 +92,7 @@ type Service struct {
 	local *localStore
 	// formats decides which modern formats are written; nil = WebP only.
 	formats func(context.Context) Formats
+	audit   AuditFunc
 
 	// stale holds copies a rebuild replaced. They stay on disk until
 	// RemoveStale, because cached pages still link to them.
@@ -310,6 +311,9 @@ func (s *Service) Upload(ctx context.Context, userID *uuid.UUID, file io.Reader,
 		return nil, err
 	}
 
+	s.record(ctx, "media.uploaded", m.ID.String(), map[string]any{
+		"name": m.OriginalFilename, "mime": m.MimeType, "size": m.FileSize, "folder": m.Folder,
+	})
 	return m, nil
 }
 
@@ -365,6 +369,7 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input *UpdateMediaIn
 		return nil, err
 	}
 	s.notifyChanged(ctx)
+	s.record(ctx, "media.updated", m.ID.String(), map[string]any{"changed": changedFields(input)})
 
 	return m, nil
 }
@@ -383,6 +388,7 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	s.notifyChanged(ctx)
+	s.record(ctx, "media.deleted", id.String(), map[string]any{"name": m.OriginalFilename})
 
 	// Delete main file and variants; a missing file is not a problem.
 	if err := s.store.Delete(ctx, m.StoragePath); err != nil && !errors.Is(err, fs.ErrNotExist) {

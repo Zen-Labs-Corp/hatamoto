@@ -5,8 +5,10 @@ import (
 	"net/http"
 	"strings"
 
+	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/user"
 )
 
@@ -79,5 +81,20 @@ func (a *Admin) handleAccept(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "We could not create your account. Try again.")
 		return
 	}
-	a.signInAfter(w, r, u, "Welcome. Your account is ready.")
+	a.auditUserEvent(r, u, AuditUserInviteAccepted, map[string]any{"role": string(u.Role)})
+	a.signInAfter(w, r, u, SignInInvite, "Welcome. Your account is ready.")
+}
+
+// auditUserEvent records an action on the user's own account from a public
+// page (invite acceptance, reset link), so the actor is that user and not a
+// signed-in session.
+func (a *Admin) auditUserEvent(r *http.Request, u *user.User, action string, detail map[string]any) {
+	if a.deps.Audit == nil {
+		return
+	}
+	a.deps.Audit(r.Context(), AuditEvent{
+		ActorID: u.ID.String(), Actor: u.Email, ActorKind: audit.KindUser,
+		Action: action, Target: u.Email, Detail: detail,
+		IP: middleware.GetClientIP(r), UserAgent: r.UserAgent(), RequestID: r.Header.Get("X-Request-ID"),
+	})
 }

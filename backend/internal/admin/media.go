@@ -544,6 +544,7 @@ func (a *Admin) handleMediaUpload(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		done++
+		a.audit(r, AuditMediaUploaded, m.ID.String(), map[string]any{"name": h.Filename, "mime": m.MimeType, "size": m.FileSize, "folder": m.Folder})
 		uploaded = append(uploaded, uploadedFile{ID: m.ID.String(), URL: mediaURL(m), Name: h.Filename})
 		if len(m.Cleaned) > 0 {
 			cleanedNotes = append(cleanedNotes, fmt.Sprintf("%s was cleaned: removed %s.", h.Filename, strings.Join(m.Cleaned, ", ")))
@@ -710,6 +711,29 @@ func (a *Admin) handleMediaDetail(w http.ResponseWriter, r *http.Request) {
 	a.renderMediaDetail(w, r, http.StatusOK, m, alt, caption, credit, "", "")
 }
 
+// mediaChangedFields names the fields an edit sets to another value than the
+// stored one.
+func mediaChangedFields(m *media.Media, in *media.UpdateMediaInput) []string {
+	var names []string
+	for _, f := range []struct {
+		name string
+		old  *string
+		new  *string
+	}{{"alt_text", m.AltText, in.AltText}, {"caption", m.Caption, in.Caption}, {"credit", m.Credit, in.Credit}} {
+		var old string
+		if f.old != nil {
+			old = *f.old
+		}
+		if f.new != nil && *f.new != old {
+			names = append(names, f.name)
+		}
+	}
+	if in.Folder != nil {
+		names = append(names, "folder")
+	}
+	return names
+}
+
 func (a *Admin) handleMediaUpdate(w http.ResponseWriter, r *http.Request) {
 	m, ok := a.loadMedia(w, r)
 	if !ok {
@@ -739,6 +763,9 @@ func (a *Admin) handleMediaUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	if in.Folder != nil && updated != nil && !sameFolder(updated.Folder, m.Folder) {
 		a.audit(r, "media.move", "media", map[string]any{"count": 1, "folder": updated.Folder})
+	}
+	if changed := mediaChangedFields(m, in); len(changed) > 0 {
+		a.audit(r, AuditMediaUpdated, m.ID.String(), map[string]any{"changed": changed})
 	}
 	a.SetFlash(w, r, "success", "Saved.")
 	Redirect(w, r, a.adminPath+"/media/"+m.ID.String())
@@ -826,6 +853,14 @@ func (a *Admin) handleMediaDeleteConfirm(w http.ResponseWriter, r *http.Request)
 	a.renderConfirm(w, r, confirmData{Title: "Delete “" + name + "”?", Message: msg, Post: a.adminPath + "/media/" + m.ID.String() + "/delete", Label: "Delete file", Back: a.adminPath + "/media/" + m.ID.String(), Danger: true})
 }
 
+// mediaAuditName is the file's original name (empty for a nil file).
+func mediaAuditName(m *media.Media) string {
+	if m == nil {
+		return ""
+	}
+	return m.OriginalFilename
+}
+
 func (a *Admin) handleMediaDelete(w http.ResponseWriter, r *http.Request) {
 	m, ok := a.loadMedia(w, r)
 	if !ok {
@@ -835,6 +870,7 @@ func (a *Admin) handleMediaDelete(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, r, "The file could not be deleted", err)
 		return
 	}
+	a.audit(r, AuditMediaDeleted, m.ID.String(), map[string]any{"name": mediaAuditName(m)})
 	a.SetFlash(w, r, "success", "File deleted.")
 	Redirect(w, r, a.adminPath+"/media")
 }
@@ -947,13 +983,17 @@ func (a *Admin) handleMediaBulk(w http.ResponseWriter, r *http.Request) {
 	done, failed := 0, 0
 	for _, raw := range ids {
 		id, err := uuid.Parse(raw)
+		var m *media.Media
 		if err == nil {
+			// The name is only for the audit row; a failed read leaves it empty.
+			m, _ = ms.Get(r.Context(), id)
 			err = ms.Delete(r.Context(), id)
 		}
 		if err != nil {
 			failed++
 			continue
 		}
+		a.audit(r, AuditMediaDeleted, id.String(), map[string]any{"name": mediaAuditName(m)})
 		done++
 	}
 	msg := fmt.Sprintf("Deleted %d %s.", done, plural(done, "file", "files"))

@@ -6,7 +6,9 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
+	"slices"
 
 	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/jsonx"
@@ -97,6 +99,8 @@ func (s *Server) handlePutPluginSettings(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	s.invalidateRendered(r.Context()) // plugin settings feed template funcs, filters and sitemaps
+	// Same action and shape as the CLI row: the setting names, never a value.
+	s.restSettingsAudit(r, "plugin.settings", "plugin:"+name, map[string]any{"keys": slices.Sorted(maps.Keys(obj))})
 	writeJSON(w, http.StatusOK, pluginSettingsView(schema, merged))
 }
 

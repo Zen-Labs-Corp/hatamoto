@@ -13,8 +13,10 @@ import (
 type AuditEvent struct {
 	ActorID, Actor, Action, Target string
 	Detail                         map[string]any
-	Result                         string // ok, denied or error; "" means ok
 	IP, UserAgent, RequestID       string // set from the admin request
+	// ActorKind, KeyID and Result are set by sign-in and API events. Empty
+	// keeps the kind derived from the actor and the result "ok".
+	ActorKind, KeyID, Result string // Result: ok, denied or error
 }
 
 // audit records an action by the signed-in user; it does nothing when no sink

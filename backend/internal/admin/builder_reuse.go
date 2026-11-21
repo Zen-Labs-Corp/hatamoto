@@ -152,7 +152,7 @@ func (a *Admin) handleMakeBlock(w http.ResponseWriter, r *http.Request) {
 	}
 	attrs, _ := jsonx.Marshal(map[string]jsontext.Value{"page_doc": raw})
 	in := &entity.CreateEntityInput{SchemaID: bs.ID, Name: name, Slug: "block-" + uuid.NewString()[:8], Attributes: attrs}
-	created, err := a.deps.Content.Entities.CreateEntity(r.Context(), actorID(r), in)
+	created, err := a.deps.Content.Entities.CreateEntity(a.entityAuditCtx(r, map[string]any{"schema": bs.Slug}), actorID(r), in)
 	if err != nil {
 		if errors.Is(err, entity.ErrValidationFailed) {
 			problem(http.StatusUnprocessableEntity, "invalid", sentence(entityErrorText(err)))

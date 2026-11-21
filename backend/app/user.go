@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -99,6 +100,7 @@ func runUserCreate(ctx context.Context, db *database.DB, f *userFlags, stdin io.
 	if err != nil {
 		return err
 	}
+	auditCLI(ctx, db.Pool(), slog.Default(), "user.created", u.Email, map[string]any{"role": string(u.Role), "via": "cli"})
 	fmt.Fprintf(out, "created %s user %s\n", u.Role, u.Email)
 	if generated {
 		fmt.Fprintf(out, "temporary password: %s\n", pw)
@@ -128,6 +130,7 @@ func runUserResetPassword(ctx context.Context, db *database.DB, f *userFlags, st
 	if err := repo.SetPassword(ctx, u.ID, hash); err != nil {
 		return err
 	}
+	auditCLI(ctx, db.Pool(), slog.Default(), "user.password_reset", u.Email, map[string]any{"via": "cli"})
 	if err := session.NewStore(db).RevokeAllForUser(ctx, u.ID); err != nil {
 		return fmt.Errorf("password changed but revoking sessions failed: %w", err)
 	}

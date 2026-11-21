@@ -126,7 +126,8 @@ func (a *Admin) handleEntitySEOInline(w http.ResponseWriter, r *http.Request) {
 			b, _ := jsonx.Marshal(res.Attrs)
 			raw := jsontext.Value(b)
 			summary := "Updated SEO in the list"
-			updated, err := c.Entities.UpdateEntity(r.Context(), e.ID, actorID(r), &entity.UpdateEntityInput{Attributes: &raw, ChangeSummary: &summary, ExpectedVersion: &e.Version})
+			detail := map[string]any{"schema": sc.Slug, "bulk": false, "inline": true, "fields": res.Changed}
+			_, err := c.Entities.UpdateEntity(a.entityAuditCtx(r, detail), e.ID, actorID(r), &entity.UpdateEntityInput{Attributes: &raw, ChangeSummary: &summary, ExpectedVersion: &e.Version})
 			if errors.Is(err, entity.ErrVersionConflict) {
 				continue
 			}
@@ -134,11 +135,6 @@ func (a *Admin) handleEntitySEOInline(w http.ResponseWriter, r *http.Request) {
 				fail(http.StatusUnprocessableEntity, seoFieldsOf(attrsMap(e.Attributes)), entityErrorText(err))
 				return
 			}
-			detail := map[string]any{"schema": sc.Slug, "bulk": false, "inline": true, "fields": res.Changed}
-			if updated.TookOwnership {
-				detail["took_ownership"] = true
-			}
-			a.auditEntity(r, auditEntityUpdate, e.ID, updated, detail)
 		}
 		out := seoInlineReply{Status: "saved", Values: res.Current, Counters: seoCounters(res.Current), Message: "Saved SEO for " + e.Name + "."}
 		status := http.StatusOK

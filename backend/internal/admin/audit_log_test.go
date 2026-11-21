@@ -141,3 +141,16 @@ func TestAuditLogHonoursAdminPath(t *testing.T) {
 		t.Error("pager must use the configured admin path")
 	}
 }
+
+func TestAuditLabelNamesTheNewActions(t *testing.T) {
+	t.Parallel()
+
+	for _, a := range newAuditActions {
+		if l := auditLabel(a); l == "" || l == a {
+			t.Errorf("%s has no label (%q)", a, l)
+		}
+		if _, ok := auditDetailKeys[a]; !ok {
+			t.Errorf("%s has no detail allow-list", a)
+		}
+	}
+}

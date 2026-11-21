@@ -1148,7 +1148,7 @@ func (a *Admin) handleEntityCreate(w http.ResponseWriter, r *http.Request) {
 	if b := a.resolveAuthor(r, sc, p); b.set {
 		in.BylinePersonID, in.BylineOrg = b.person, b.org
 	}
-	created, err := c.Entities.CreateEntity(r.Context(), actorID(r), in)
+	created, err := c.Entities.CreateEntity(a.entityAuditCtx(r, map[string]any{"schema": sc.Slug}), actorID(r), in)
 	if err != nil {
 		if a.entityFormError(r, p.f, err) {
 			a.renderEntityForm(w, r, http.StatusUnprocessableEntity, p.f, nil, sc, p.attrs, p.errs, p.parentID, p.authorID, p.picked)
@@ -1282,17 +1282,15 @@ func (a *Admin) afterSave(r *http.Request, p *posted, e *entity.Entity, sc *enti
 	case want == entity.StatusScheduled:
 		at, err := time.ParseInLocation(scheduleLayout, p.f.Schedule, a.siteLocation(ctx))
 		if err == nil && (before != entity.StatusScheduled || e.PublishedAt == nil || !e.PublishedAt.Equal(at)) {
-			if _, err := c.Entities.ScheduleEntity(ctx, e.ID, actorID(r), at); err != nil {
+			actx := a.entityAuditCtx(r, map[string]any{"schema": sc.Slug, "from": string(before), "to": string(want)})
+			if _, err := c.Entities.ScheduleEntity(actx, e.ID, actorID(r), at); err != nil {
 				notes = append(notes, "The status could not be set: "+entityErrorText(err))
-			} else {
-				a.auditEntity(r, auditEntitySchedule, e.ID, e, map[string]any{"schema": sc.Slug, "from": string(before), "to": string(want), "publish_at": at.UTC().Format(time.RFC3339)})
 			}
 		}
 	case want != before && entity.ValidStatus(want):
-		if _, err := c.Entities.UpdateEntityStatus(ctx, e.ID, actorID(r), want); err != nil {
+		actx := a.entityAuditCtx(r, map[string]any{"schema": sc.Slug, "from": string(before)})
+		if _, err := c.Entities.UpdateEntityStatus(actx, e.ID, actorID(r), want); err != nil {
 			notes = append(notes, "The status could not be set: "+entityErrorText(err))
-		} else {
-			a.auditEntity(r, auditStatusAction(want), e.ID, e, map[string]any{"schema": sc.Slug, "from": string(before), "to": string(want)})
 		}
 	}
 	if sc.Slug != person.SchemaSlug {
@@ -1388,7 +1386,11 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	a.resolveAuthor(r, sc, p).apply(in)
-	updated, err := c.Entities.UpdateEntity(r.Context(), e.ID, actorID(r), in)
+	detail := map[string]any{"schema": sc.Slug}
+	if in.Locale != nil {
+		detail["locale"] = *in.Locale
+	}
+	updated, err := c.Entities.UpdateEntity(a.entityAuditCtx(r, detail), e.ID, actorID(r), in)
 	if err != nil {
 		if errors.Is(err, entity.ErrEntityNotFound) {
 			a.notFound(w, r, "Entity", a.adminPath+"/entities", "Back to entities")
@@ -1407,14 +1409,6 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	updated.PublishedAt = e.PublishedAt
-	detail := map[string]any{"schema": sc.Slug}
-	if in.Locale != nil {
-		detail["locale"] = *in.Locale
-	}
-	if updated.TookOwnership {
-		detail["took_ownership"] = true
-	}
-	a.auditEntity(r, auditEntityUpdate, e.ID, updated, detail)
 	msg := "Saved."
 	kind := "success"
 	if note := a.afterSave(r, p, updated, sc, e.Status); note != "" {

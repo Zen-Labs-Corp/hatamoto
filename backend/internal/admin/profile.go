@@ -308,6 +308,7 @@ func (a *Admin) handleProfilePassword(w http.ResponseWriter, r *http.Request) {
 			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "Your password could not be changed.")
 			return
 		default:
+			a.audit(r, AuditUserPasswordChanged, userFrom(r.Context()).Email, map[string]any{"via": "admin"})
 			a.SetFlash(w, r, "success", "Password changed. Your other browser sessions were signed out.")
 			http.Redirect(w, r, a.adminPath+"/profile", http.StatusSeeOther)
 			return

@@ -755,16 +755,10 @@ func (a *Admin) handleEntitiesBulk(w http.ResponseWriter, r *http.Request) {
 		}
 		if isStatus {
 			if err = a.refuseGeneratedSlug(r, id, st); err == nil {
-				var e *entity.Entity
-				if e, err = c.Entities.UpdateEntityStatus(r.Context(), id, actorID(r), st); err == nil {
-					a.auditEntity(r, auditStatusAction(st), id, e, map[string]any{"bulk": true})
-				}
+				_, err = c.Entities.UpdateEntityStatus(a.entityAuditCtx(r, map[string]any{"bulk": true}), id, actorID(r), st)
 			}
 		} else {
-			e := a.entityForAudit(r, id)
-			if err = c.Entities.DeleteEntity(r.Context(), id); err == nil {
-				a.auditEntity(r, auditEntityDelete, id, e, map[string]any{"bulk": true})
-			}
+			err = c.Entities.DeleteEntity(a.entityAuditCtx(r, a.entityDeleteDetail(r, id, map[string]any{"bulk": true})), id)
 		}
 		if err != nil {
 			failed++
@@ -848,7 +842,7 @@ func (a *Admin) handleEntityStatus(w http.ResponseWriter, r *http.Request) {
 		Redirect(w, r, back)
 		return
 	}
-	e, err := c.Entities.UpdateEntityStatus(r.Context(), id, actorID(r), st)
+	_, err = c.Entities.UpdateEntityStatus(a.entityAuditCtx(r, nil), id, actorID(r), st)
 	if err != nil {
 		if errors.Is(err, entity.ErrEntityNotFound) {
 			a.notFound(w, r, "Entity", a.adminPath+"/entities", "Back to entities")
@@ -857,7 +851,6 @@ func (a *Admin) handleEntityStatus(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, r, "The status could not be changed", err)
 		return
 	}
-	a.auditEntity(r, auditStatusAction(st), id, e, nil)
 	a.SetFlash(w, r, "success", "Status changed to "+string(st)+".")
 	Redirect(w, r, back)
 }
@@ -950,8 +943,7 @@ func (a *Admin) handleEntityDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	back := a.entityBack(r, a.adminPath+"/entities")
-	gone := a.entityForAudit(r, id)
-	if err := c.Entities.DeleteEntity(r.Context(), id); err != nil {
+	if err := c.Entities.DeleteEntity(a.entityAuditCtx(r, a.entityDeleteDetail(r, id, nil)), id); err != nil {
 		if errors.Is(err, entity.ErrEntityNotFound) {
 			a.notFound(w, r, "Entity", a.adminPath+"/entities", "Back to entities")
 			return
@@ -964,7 +956,6 @@ func (a *Admin) handleEntityDelete(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, r, "The entity could not be deleted", err)
 		return
 	}
-	a.auditEntity(r, auditEntityDelete, id, gone, nil)
 	a.SetFlash(w, r, "success", "Entity deleted.")
 	if strings.HasPrefix(back, a.adminPath+"/entities/"+id.String()) {
 		back = a.adminPath + "/entities"

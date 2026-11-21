@@ -551,7 +551,12 @@ func (a *Admin) handleInvite(w http.ResponseWriter, r *http.Request) {
 		a.renderInvite(w, r, http.StatusUnprocessableEntity, d)
 		return
 	}
-	if inv := a.issueInvite(w, r, r.PostFormValue("email"), role, end, "Invite created"); inv != nil && end != nil {
+	inv := a.issueInvite(w, r, r.PostFormValue("email"), role, end, "Invite created")
+	if inv == nil {
+		return
+	}
+	a.audit(r, AuditUserInvited, inv.Email, map[string]any{"role": string(inv.Role)})
+	if end != nil {
 		a.audit(r, "user.access_changed", inv.Email, map[string]any{"from": nil, "to": auditTime(end), "invite": true})
 	}
 }
@@ -592,6 +597,7 @@ func (a *Admin) handleInviteRevoke(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The invitation could not be revoked.")
 		return
 	}
+	a.audit(r, AuditUserInviteRevoked, id.String(), nil)
 	a.SetFlash(w, r, "success", "Invitation revoked.")
 	Redirect(w, r, a.adminPath+"/settings/users")
 }
@@ -609,7 +615,9 @@ func (a *Admin) handleInviteResend(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, inv := range invs {
 		if inv.ID == id {
-			a.issueInvite(w, r, inv.Email, inv.Role, inv.AccessEndsAt, "Invite sent again")
+			if sent := a.issueInvite(w, r, inv.Email, inv.Role, inv.AccessEndsAt, "Invite sent again"); sent != nil {
+				a.audit(r, AuditUserInviteResent, sent.Email, map[string]any{"role": string(sent.Role)})
+			}
 			return
 		}
 	}
@@ -689,6 +697,7 @@ func (a *Admin) handleUserCreate(w http.ResponseWriter, r *http.Request) {
 			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The user could not be created.")
 			return
 		default:
+			a.audit(r, AuditUserCreated, created.Email, map[string]any{"role": string(role)})
 			if end != nil {
 				a.audit(r, "user.access_changed", created.Email, map[string]any{"from": nil, "to": auditTime(end), "created": true})
 			}
@@ -773,6 +782,7 @@ func (a *Admin) handleUserUpdate(w http.ResponseWriter, r *http.Request) {
 	if changed {
 		in.AccessEndsAt = user.AccessEnd{Set: true, At: end}
 	}
+	was := u.Role
 	_, uerr := a.deps.Manager.Update(r.Context(), u.ID, in)
 	switch {
 	case errors.Is(uerr, user.ErrLastOwner) && changed && end != nil && role == user.RoleOwner:
@@ -787,6 +797,9 @@ func (a *Admin) handleUserUpdate(w http.ResponseWriter, r *http.Request) {
 		a.logger().Error("update user failed", "err", uerr)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The user could not be saved.")
 		return
+	}
+	if role != was {
+		a.audit(r, AuditUserRoleChanged, u.Email, map[string]any{"from": string(was), "to": string(role)})
 	}
 	if changed {
 		a.audit(r, "user.access_changed", u.Email, map[string]any{"from": auditTime(u.AccessEndsAt), "to": auditTime(end)})
@@ -816,6 +829,7 @@ func (a *Admin) handleUserReset(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The reset link could not be created.")
 		return
 	}
+	a.audit(r, AuditUserResetLinkSent, u.Email, nil)
 	link := a.shownLink(r, a.adminPath+"/reset", token)
 	emailed, noAddress := false, false
 	if a.mailConfigured() && a.siteAddress(r) == "" {
@@ -878,6 +892,7 @@ func (a *Admin) handleUserDelete(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The user could not be deleted.")
 		return
 	}
+	a.audit(r, AuditUserDeleted, u.Email, map[string]any{"role": string(u.Role)})
 	if a.deps.Sessions != nil {
 		_ = a.deps.Sessions.RevokeAllForUser(r.Context(), u.ID)
 	}

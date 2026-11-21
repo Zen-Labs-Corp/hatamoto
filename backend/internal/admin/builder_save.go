@@ -320,7 +320,7 @@ func storedDocDiffers(e *entity.Entity, posted jsontext.Value) bool {
 // for published pages, Publish for drafts. The version the browser holds must be
 // the stored one; nothing is written otherwise.
 func (a *Admin) handleBuilderSave(w http.ResponseWriter, r *http.Request) {
-	e, _, ok := a.builderGate(w, r)
+	e, sc, ok := a.builderGate(w, r)
 	if !ok {
 		return
 	}
@@ -339,7 +339,13 @@ func (a *Admin) handleBuilderSave(w http.ResponseWriter, r *http.Request) {
 		reply(http.StatusConflict, builderSaveReply{Conflict: true, Version: e.Version, Error: staleMessage(req.Version, e.Version)})
 		return
 	}
-	saved, err := a.saveBuilderDocSEO(r.Context(), actorID(r), e, req.Doc, req.Op, req.Name, "", req.SEO)
+	// An autosave carries no actor: it leaves no audit row. A save or publish
+	// records its own entity writes (update, then publish) in their transactions.
+	ctx := r.Context()
+	if req.Op != opAutosave {
+		ctx = a.entityAuditCtx(r, map[string]any{"schema": sc.Slug, "builder": true})
+	}
+	saved, err := a.saveBuilderDocSEO(ctx, actorID(r), e, req.Doc, req.Op, req.Name, "", req.SEO)
 	if err != nil {
 		var p *saveProblem
 		if errors.As(err, &p) {

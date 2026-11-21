@@ -217,6 +217,7 @@ func (a *Admin) handleSectionSave(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The template could not be saved.")
 		return
 	}
+	a.audit(r, AuditTemplateSaved, s.ID.String(), map[string]any{"name": f.Name})
 	a.SetFlash(w, r, "success", "Section template saved.")
 	http.Redirect(w, r, a.adminPath+"/theme/templates", http.StatusSeeOther)
 }
@@ -240,6 +241,7 @@ func (a *Admin) handleSectionDelete(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The template could not be deleted.")
 		return
 	}
+	a.audit(r, AuditTemplateDeleted, s.ID.String(), map[string]any{"name": s.Name})
 	a.SetFlash(w, r, "success", "Section template deleted.")
 	Redirect(w, r, a.adminPath+"/theme/templates")
 }

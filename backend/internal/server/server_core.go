@@ -110,7 +110,7 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 
 	// Entity management
 	{
-		r := r.Group("/entities")
+		r := r.Group("/entities", s.auditActorMiddleware)
 		r.HandleFunc("GET /", s.handleListEntities)
 		r.HandleFunc("POST /", s.handleCreateEntity)
 		r.HandleFunc("POST /validate", s.handleValidateEntityAttributes)
@@ -128,7 +128,7 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 
 	// Media management
 	{
-		r := r.Group("/media")
+		r := r.Group("/media", s.auditActorMiddleware)
 		r.HandleFunc("POST /upload", s.handleMediaUpload)
 		r.HandleFunc("GET /", s.handleMediaList)
 		r.HandleFunc("GET /{id}", s.handleMediaGet)
@@ -138,7 +138,7 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 
 	// Menu management
 	{
-		r := r.Group("/menus")
+		r := r.Group("/menus", s.auditActorMiddleware)
 		r.HandleFunc("GET /", s.handleListMenus)
 		r.HandleFunc("POST /", s.handleCreateMenu)
 		r.HandleFunc("GET /{id}", s.handleGetMenu)
@@ -218,13 +218,13 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 
 	// Redirect / 404 monitor
 	{
-		r := r.Group("/404-log")
+		r := r.Group("/404-log", s.auditActorMiddleware)
 		r.HandleFunc("GET /", s.handleList404Entries)
 		r.HandleFunc("POST /{id}/ignore", s.handleIgnore404Entry)
 		r.HandleFunc("DELETE /{id}", s.handleDelete404Entry)
 	}
 	{
-		r := r.Group("/redirects")
+		r := r.Group("/redirects", s.auditActorMiddleware)
 		r.HandleFunc("GET /", s.handleListRedirects)
 		// What happens to URL X, and why.
 		r.HandleFunc("GET /explain", s.handleRedirectExplain)
@@ -264,7 +264,7 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 	// hundreds of public-facing pages.
 	if s.taxonomyHandlers != nil {
 		{
-			r := r.Group("/terms", middleware.RequireRole("owner"))
+			r := r.Group("/terms", middleware.RequireRole("owner"), s.auditActorMiddleware)
 			r.HandleFunc("GET /", s.taxonomyHandlers.ListTerms)
 			r.HandleFunc("POST /", s.taxonomyHandlers.CreateTerm)
 			r.HandleFunc("PUT /{id}", s.taxonomyHandlers.UpdateTerm)
@@ -275,7 +275,7 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 		// to keep the taxonomy handler co-located. Owner-only
 		// because attaching a term affects public archive URLs.
 		{
-			r := r.Group("/entities/{entity_id}/terms", middleware.RequireRole("owner", "editor"))
+			r := r.Group("/entities/{entity_id}/terms", middleware.RequireRole("owner", "editor"), s.auditActorMiddleware)
 			r.HandleFunc("GET /", s.taxonomyHandlers.GetEntityTerms)
 			r.HandleFunc("PUT /", s.taxonomyHandlers.ReplaceEntityTerms)
 		}

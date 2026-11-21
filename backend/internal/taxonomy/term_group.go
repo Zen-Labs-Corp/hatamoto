@@ -407,7 +407,7 @@ func (s *Service) CreateTermCopy(ctx context.Context, srcID uuid.UUID, locale, n
 			in.ParentID = &mapped[0]
 		}
 	}
-	t, err := s.CreateTerm(ctx, in)
+	t, err := s.createTerm(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -424,5 +424,6 @@ func (s *Service) CreateTermCopy(ctx context.Context, srcID uuid.UUID, locale, n
 	if _, err := s.groups.Link(ctx, srcID, t.ID); err != nil {
 		return undo(err)
 	}
+	s.record(ctx, "term.copied", t.ID.String(), map[string]any{"locale": locale})
 	return t, nil
 }

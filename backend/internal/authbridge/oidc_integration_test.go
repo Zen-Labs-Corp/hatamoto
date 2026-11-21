@@ -126,7 +126,7 @@ func TestOIDCSignInEndToEnd(t *testing.T) {
 	if n := o.count(t, `SELECT count(*) FROM hatamoto_user_identities WHERE user_id = $1 AND issuer = $2`, uid, o.idp.URL); n != 1 {
 		t.Fatalf("%d identity rows for the issuer, want 1", n)
 	}
-	if _, err := o.svc.IssueVerifiedSession(o.ctx, uid, via, "ua", ""); err != nil {
+	if _, _, err := o.svc.IssueVerifiedSession(o.ctx, uid, via, "ua", ""); err != nil {
 		t.Fatal(err)
 	}
 	if n := o.count(t, `SELECT count(*) FROM hatamoto_sessions WHERE user_id = $1 AND kind = 'admin'`, uid); n != 1 {

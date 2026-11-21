@@ -66,7 +66,7 @@ func TestSignInProviderEndToEnd(t *testing.T) {
 		t.Fatalf("Finish = %v, %v, %v", uid, mfa, err)
 	}
 	r.cleanupUser(t, uid)
-	if _, err := svc.IssueVerifiedSession(r.ctx, uid, via, "ua", ""); err != nil {
+	if _, _, err := svc.IssueVerifiedSession(r.ctx, uid, via, "ua", ""); err != nil {
 		t.Fatal(err)
 	}
 	if n := r.count(t, `SELECT count(*) FROM hatamoto_sessions WHERE user_id = $1 AND kind = 'admin'`, uid); n != 1 {
@@ -93,7 +93,7 @@ func TestSignInProviderEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.IssueVerifiedSession(r.ctx, uid, via, "ua", ""); !errors.Is(err, auth.ErrInvalidCredentials) {
+	if _, _, err := svc.IssueVerifiedSession(r.ctx, uid, via, "ua", ""); !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Fatalf("disabled user: %v, want ErrInvalidCredentials", err)
 	}
 	if n := r.count(t, `SELECT count(*) FROM hatamoto_sessions WHERE user_id = $1 AND kind = 'admin'`, uid); n != 0 {

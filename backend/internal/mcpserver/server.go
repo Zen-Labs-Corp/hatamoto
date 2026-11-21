@@ -19,6 +19,7 @@ import (
 
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
+	"hatamoto.dev/core/internal/auditctx"
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
@@ -243,7 +244,11 @@ func register[In any](s *Server, spec toolSpec, h func(ctx context.Context, key 
 		case !key.HasScope(spec.scope):
 			err = userErr("forbidden: the API key lacks the %s scope", spec.scope)
 		default:
-			out, err = h(ctx, key, in)
+			hctx := ctx
+			if spec.write {
+				hctx = auditctx.With(ctx, keyActor(key))
+			}
+			out, err = h(hctx, key, in)
 		}
 		s.d.Audit.Record(ctx, AuditEntry{KeyID: key.ID, KeyName: key.Name, Tool: spec.name, Args: auditArgs(in), Err: err})
 		if err != nil {

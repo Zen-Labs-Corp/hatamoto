@@ -96,7 +96,7 @@ type ProviderSignIn interface {
 // that factor was verified (or none exists).
 type PasswordStep interface {
 	CheckPassword(ctx context.Context, email, password string) (*user.User, error)
-	IssueVerifiedSession(ctx context.Context, userID uuid.UUID, via authstate.Via, userAgent, ip string) (string, error)
+	IssueVerifiedSession(ctx context.Context, userID uuid.UUID, via authstate.Via, userAgent, ip string) (string, *user.User, error)
 	// Admit is IssueVerifiedSession's refusals without the session: a provider
 	// sign-in asks it before it shows the second step.
 	Admit(ctx context.Context, userID uuid.UUID, via authstate.Via) error
@@ -231,6 +231,9 @@ type Deps struct {
 	ProviderSignIn ProviderSignIn
 	// ProviderKey seals the provider sign-in state cookie.
 	ProviderKey []byte
+	// HashEmail maps a typed sign-in email to the audit actor of a failed
+	// sign-in, so the log never holds the address.
+	HashEmail func(email string) string
 	// SignInSettings is the OIDC sign-in configuration on Settings > Sign-in;
 	// nil hides its card.
 	SignInSettings SignInSettingsService

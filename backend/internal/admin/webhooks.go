@@ -3,6 +3,7 @@ package admin
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
@@ -282,6 +283,40 @@ func webhookProblems(f *webhookForm, err error) []ui.FieldError {
 	return summary
 }
 
+// webhookAuditDetail is the audit detail of a webhook: its name and events.
+// Never the address, the secret or the headers.
+func webhookAuditDetail(name string, events []string) map[string]any {
+	return map[string]any{"name": name, "events": slices.Clone(events)}
+}
+
+// webhookDetailFor reads the webhook for an audit row; when it cannot be read
+// the row still records the action, without name and events.
+func (a *Admin) webhookDetailFor(r *http.Request, id string) map[string]any {
+	if sub, err := a.deps.Webhooks.Get(r.Context(), id); err == nil && sub != nil {
+		return webhookAuditDetail(sub.Name, sub.Events)
+	}
+	return map[string]any{}
+}
+
+// webhookChanged names the fields of the form that differ from the stored webhook.
+func webhookChanged(prev *webhook.Subscription, in webhook.Subscription) []string {
+	out := []string{}
+	for _, c := range []struct {
+		name string
+		same bool
+	}{
+		{"name", prev.Name == in.Name}, {"url", prev.URL == in.URL}, {"events", slices.Equal(prev.Events, in.Events)},
+		{"headers", maps.Equal(prev.Headers, in.Headers)}, {"active", prev.Active == in.Active}, {"allow_http", prev.AllowHTTP == in.AllowHTTP},
+		{"max_retries", prev.MaxRetries == in.MaxRetries}, {"retry_delay_seconds", prev.RetryDelaySeconds == in.RetryDelaySeconds},
+		{"timeout_seconds", prev.TimeoutSeconds == in.TimeoutSeconds},
+	} {
+		if !c.same {
+			out = append(out, c.name)
+		}
+	}
+	return out
+}
+
 func (a *Admin) handleWebhookCreate(w http.ResponseWriter, r *http.Request) {
 	if a.webhooksUnavailable(w, r) {
 		return
@@ -297,6 +332,7 @@ func (a *Admin) handleWebhookCreate(w http.ResponseWriter, r *http.Request) {
 		var secret string
 		var created webhook.Subscription
 		if created, secret, err = a.deps.Webhooks.Create(r.Context(), sub); err == nil {
+			a.audit(r, AuditWebhookCreated, created.ID, webhookAuditDetail(created.Name, created.Events))
 			a.SetFlash(w, r, "success", "Webhook created.")
 			token := a.secrets.putEntry(secretEntry{user: userFrom(r.Context()).ID, name: created.Name, key: secret, kind: "webhook"})
 			http.Redirect(w, r, createdRedirect(a.adminPath+webhooksList, created.ID)+"&secret="+token, http.StatusSeeOther)
@@ -339,11 +375,17 @@ func (a *Admin) handleWebhookUpdate(w http.ResponseWriter, r *http.Request) {
 	in, f := webhookInput(r)
 	var err error
 	if len(f.Errs) == 0 {
+		prev, _ := a.deps.Webhooks.Get(r.Context(), id)
 		err = a.deps.Webhooks.Update(r.Context(), id, webhook.SubscriptionPatch{
 			Name: &in.Name, URL: &in.URL, Events: &in.Events, Headers: &in.Headers, Active: &in.Active, AllowHTTP: &in.AllowHTTP,
 			MaxRetries: &in.MaxRetries, RetryDelaySeconds: &in.RetryDelaySeconds, TimeoutSeconds: &in.TimeoutSeconds,
 		})
 		if err == nil {
+			detail := webhookAuditDetail(in.Name, in.Events)
+			if prev != nil {
+				detail["changed"] = webhookChanged(prev, in)
+			}
+			a.audit(r, AuditWebhookUpdated, id, detail)
 			a.SetFlash(w, r, "success", "Webhook saved.")
 			http.Redirect(w, r, a.adminPath+webhooksList, http.StatusSeeOther)
 			return
@@ -416,9 +458,16 @@ func (a *Admin) setWebhookActive(w http.ResponseWriter, r *http.Request, active 
 	if a.webhooksUnavailable(w, r) {
 		return
 	}
-	if a.webhookFailed(w, r, a.deps.Webhooks.SetActive(r.Context(), r.PathValue("id"), active), "set webhook active") {
+	id := r.PathValue("id")
+	detail := a.webhookDetailFor(r, id)
+	if a.webhookFailed(w, r, a.deps.Webhooks.SetActive(r.Context(), id, active), "set webhook active") {
 		return
 	}
+	action := AuditWebhookPaused
+	if active {
+		action = AuditWebhookResumed
+	}
+	a.audit(r, action, id, detail)
 	a.SetFlash(w, r, "success", msg)
 	http.Redirect(w, r, a.adminPath+webhooksList, http.StatusSeeOther)
 }
@@ -462,6 +511,7 @@ func (a *Admin) handleWebhookNewSecret(w http.ResponseWriter, r *http.Request) {
 	if a.webhookFailed(w, r, err, "regenerate webhook secret") {
 		return
 	}
+	a.audit(r, AuditWebhookSecretRot, id, webhookAuditDetail(sub.Name, sub.Events))
 	a.SetFlash(w, r, "success", "New secret created. The old one no longer works.")
 	token := a.secrets.putEntry(secretEntry{user: userFrom(r.Context()).ID, name: sub.Name, key: secret, kind: "webhook"})
 	http.Redirect(w, r, createdRedirect(a.adminPath+webhooksList, id)+"&secret="+token, http.StatusSeeOther)
@@ -471,9 +521,12 @@ func (a *Admin) handleWebhookDelete(w http.ResponseWriter, r *http.Request) {
 	if a.webhooksUnavailable(w, r) {
 		return
 	}
-	if a.webhookFailed(w, r, a.deps.Webhooks.Delete(r.Context(), r.PathValue("id")), "delete webhook") {
+	id := r.PathValue("id")
+	detail := a.webhookDetailFor(r, id)
+	if a.webhookFailed(w, r, a.deps.Webhooks.Delete(r.Context(), id), "delete webhook") {
 		return
 	}
+	a.audit(r, AuditWebhookDeleted, id, detail)
 	a.SetFlash(w, r, "success", "Webhook deleted.")
 	http.Redirect(w, r, a.adminPath+webhooksList, http.StatusSeeOther)
 }
