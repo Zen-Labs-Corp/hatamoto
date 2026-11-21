@@ -176,6 +176,10 @@ directories, and one that reads `_redirects` or serves the stubs.
   export warns once when the WordPress toggle is on.
 - **Forms, comments, search and the tracking beacon** still post to the live
   site. A static host does not run them.
+  In static mode with a live origin saved in the hosting settings
+  (`live_origin`), exported pages send them to that live origin, which answers
+  CORS for the site address only and redirects its page GETs to the static
+  site; see [THEMES.md](THEMES.md#static-mode).
 - **Response headers of `/media`** are not carried over. Set caching on the
   host (the bucket target sets Cache-Control as above).
 - **Wildcard translation** follows Netlify and Cloudflare Pages. How a host

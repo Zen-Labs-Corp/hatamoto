@@ -70,6 +70,18 @@ unapproved comment through the host API, and it has no function to write or
 moderate comments. The `comment.check` filter fails closed: an error, trap,
 timeout, reject or open circuit breaker holds the comment for moderation.
 
+### Static hosting islands
+
+With static hosting on, pages are served from a static origin (for example `https://static.example.net`) and the interactive parts (forms, comments, search, the beacon, public plugin routes) stay on the live origin (`https://live.example.net`).
+
+- CORS is answered for the configured static origin only, never with credentials, and always with `Vary: Origin` in static mode.
+- Other origins get no CORS, and island POSTs from them are refused in static mode.
+- Comment form tokens stay bound to the visitor's network and single-use.
+- The live origin redirects page GETs (`301`) to the static site, never admin, API, previews, forms, comments, search, media or assets.
+- Served mode, with static hosting off, is unchanged.
+
+Tests: `public_cors_static_test.go`, `static_origin_test.go`, `comment_form_live_test.go`, `static_live_test.go` and `static_inventory_test.go`.
+
 ### Plugin database role
 
 Each plugin that asks for `db.*` gets its own Postgres login role that owns one

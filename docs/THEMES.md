@@ -23,6 +23,7 @@ registered at boot next to the JSON API.
 - [Plugins](#plugins)
 - [Writing and submitting a theme](#writing-and-submitting-a-theme)
 - [Interactivity](#interactivity)
+- [Static mode](#static-mode)
 - [Headless mode](#headless-mode)
 - [Known gaps](#known-gaps)
 
@@ -1562,6 +1563,21 @@ as a fragment (the form, with the new comment inserted at the top of
 ships htmx as its own asset, which keeps a strict script policy intact (see
 [Strict script policy](#strict-script-policy-cspstrictscripts)). Without htmx the
 attributes do nothing.
+
+## Static mode
+
+With static hosting on, the engine renders pages for a static host (see [STATIC_EXPORT.md](STATIC_EXPORT.md)). Hatamoto rewrites the rendered pages, so a theme changes nothing:
+
+- Double-quoted `action`, `formaction` and `hx-post` values, and `<a href>` values, that point at an island path are changed to point at the live origin (for example `https://live.example.net`).
+- The comment form becomes a placeholder that the core script `hm-live.js` fills from the live origin; without JavaScript it is a link to the form there.
+- `<meta name="hm-live-origin" content="https://live.example.net">` is inserted first in `<head>`.
+- The JSON-LD `SearchAction` points at the live search.
+
+A theme with its own JavaScript must prefix island calls with the content of that meta tag, and match form actions with `new URL(action, location.href)` instead of a regular expression on the raw attribute.
+
+If the static host sets a Content Security Policy, it must allow the live origin in `connect-src`, `form-action` and `script-src`.
+
+Search results on the live origin link to the static site. The static export renders requests that are marked as export: no redirect, and links stay relative.
 
 ## Site icons
 
