@@ -4,10 +4,11 @@ package app
 
 import (
 	"bytes"
-	"encoding/json"
+
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/user"
 )
 
@@ -33,7 +34,7 @@ func TestOpsRulesCLIAs(t *testing.T) {
 		var e struct {
 			ID string `json:"id"`
 		}
-		_ = json.Unmarshal(out.Bytes(), &e)
+		_ = jsonx.Unmarshal(out.Bytes(), &e)
 		return e.ID, err
 	}
 
