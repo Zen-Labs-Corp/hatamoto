@@ -341,6 +341,12 @@ func sortedKeysBool(m map[string]bool) []string {
 	return out
 }
 
+// Refresh compiles the template set now if the plugin registry or a plugin's
+// site.scripts grant changed since the last compile, so the refused-template
+// list is current without waiting for a page render. It is cheap when nothing
+// changed, and a failed rebuild is not retried (see current).
+func (e *Engine) Refresh() { e.current() }
+
 // current returns the compiled set, rebuilding when the plugin registry
 // changed.
 func (e *Engine) current() *compiled {
