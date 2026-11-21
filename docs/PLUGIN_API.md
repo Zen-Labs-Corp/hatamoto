@@ -947,7 +947,7 @@ until the next major release, like the rest of this document. Register from an
 `init` function: `app.Main` freezes every registry, and a later call panics, as
 do a nil value, an invalid name and (where only one is allowed) a second call.
 Nothing registered means no change. Module code that errors or panics fails
-closed. Design records: [ADR 0007](adr/0007-module-extension-points.md), [ADR 0011](adr/0011-module-runtime-hooks.md).
+closed. Design records: [ADR 0007](adr/0007-module-extension-points.md), [ADR 0012](adr/0012-module-runtime-hooks.md).
 
 **Edition plugin key.** `edition.RegisterPluginKey(pub ed25519.PublicKey)` sets the one key that plugins declaring `license: "commercial"` must be signed with. Register it from the same `init` as `edition.Register`; it panics after `app.Main` started, on a second call or on a key that is not an ed25519 public key. The key is never added to `HATAMOTO_TRUSTED_KEYS`, and trusted keys never sign a commercial plugin. `PluginEntitled(ctx, plugin)` on the `Gate` is asked for each commercial plugin on every reconcile, so cache the answer. With no key registered, or no entitlement, every commercial plugin is refused. See [Trust and the unsigned opt-in](PACKAGES.md#trust-and-the-unsigned-opt-in) and [ADR 0010](adr/0010-plugin-license.md).
 

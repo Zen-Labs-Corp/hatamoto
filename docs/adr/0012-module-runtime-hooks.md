@@ -1,4 +1,4 @@
-# ADR 0011: Module runtime hooks (routes, jobs, mail)
+# ADR 0012: Module runtime hooks (routes, jobs, mail)
 
 Status: accepted (2026-11-22)
 

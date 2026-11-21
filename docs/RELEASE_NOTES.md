@@ -6,7 +6,7 @@
 - **Routes.** Core applies its sign-in rate limit and a body cap and does no authentication; the module checks its callers. Prefixes core serves are refused, and `serve` exits at boot when a prefix collides with the admin address, the API prefix or a scanner probe path.
 - **Jobs.** Module jobs appear on the Jobs screen as "Module: <module> > <job>" and honour `WORKER_DISABLE_JOBS`.
 - **Mail.** Module mail is written to the email log with the kind `module` and is suppressed in staging mode like other mail.
-- **Docs.** [ADR 0011](adr/0011-module-runtime-hooks.md), the "Go module extension points" section in [Plugin API](PLUGIN_API.md), [Security model](SECURITY_MODEL.md) and [Staging](STAGING.md).
+- **Docs.** [ADR 0012](adr/0012-module-runtime-hooks.md), the "Go module extension points" section in [Plugin API](PLUGIN_API.md), [Security model](SECURITY_MODEL.md) and [Staging](STAGING.md).
 - **Migration.** New table `hatamoto_job_claims` (`202611220100`), expand-only. Rollback floor: unchanged.
 
 ## Unreleased: module extension points (commands, migrations, secrets, services)
