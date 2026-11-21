@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -114,27 +113,6 @@ func GetClaims(ctx context.Context) (*auth.Claims, bool) {
 // middleware uses, without importing the unexported context key.
 func ContextWithClaims(ctx context.Context, claims *auth.Claims) context.Context {
 	return context.WithValue(ctx, claimsContextKey, claims)
-}
-
-// RequireRole middleware ensures the user has one of the specified roles.
-func RequireRole(roles ...string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			trace(r, fmt.Sprint("role", roles))
-			claims, ok := GetClaims(r.Context())
-			if !ok {
-				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-				return
-			}
-
-			if slices.Contains(roles, claims.Role) {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
-		})
-	}
 }
 
 // RequireCan lets the request through when authz allows its subject to

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/httpx"
 
 	"hatamoto.dev/core/internal/auth"
@@ -29,7 +30,7 @@ func injectRole(role string) func(http.Handler) http.Handler {
 	}
 }
 
-// mountGate wires a single route exactly as server_core.go does (RequireRole
+// mountGate wires a single route exactly as server_core.go does (RequireCan
 // gate + handler) behind the role-injecting middleware, and returns the status
 // code for a request made as `role`.
 func statusFor(t *testing.T, role string, gate func(*httpx.Group)) int {
@@ -49,7 +50,7 @@ func TestAuthz_CacheFlush_OwnerOnly(t *testing.T) {
 	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	gate := func(r *httpx.Group) {
 		{
-			r := r.Group("", middleware.RequireRole("owner"))
+			r := r.Group("", middleware.RequireCan(authz.ActionCacheFlush))
 			r.HandleFunc("POST /cache/flush", ok)
 		}
 	}
@@ -70,7 +71,7 @@ func TestAuthz_Users_OwnerOnly(t *testing.T) {
 		{
 			r := r.Group("", injectRole(role))
 			{
-				r := r.Group("/users", middleware.RequireRole("owner"))
+				r := r.Group("/users", middleware.RequireCan(authz.ActionUserManage))
 				r.HandleFunc("GET /", ok)
 			}
 		}

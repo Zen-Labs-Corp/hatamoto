@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/httpx"
 
 	"hatamoto.dev/core/internal/entity"
@@ -307,7 +308,7 @@ func (s *Server) mountRenderAdminRoutes(r *httpx.Group) {
 
 func mountRenderAdmin(r *httpx.Group, h *renderAdminHandlers) {
 	{
-		r := r.Group("/render", middleware.RequireRole("owner", "editor"))
+		r := r.Group("/render", middleware.RequireCan(authz.ActionRenderPreview))
 		r.HandleFunc("GET /theme", h.handleRenderTheme)
 		r.HandleFunc("POST /preview", h.handleRenderPreview)
 	}

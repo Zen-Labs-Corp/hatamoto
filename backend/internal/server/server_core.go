@@ -9,6 +9,7 @@ package server
 import (
 	"net/http"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/middleware"
 )
@@ -40,7 +41,7 @@ func (s *Server) mountTrack(r *httpx.Group) {
 // mountCoreProtectedRoutes mounts the CMS-core route subset that sits
 // behind AuthMiddleware in the /api/v1 protected group. The caller is
 // responsible for applying AuthMiddleware once at the group level;
-// individual sub-routers add their own RequireRole gates where needed.
+// individual sub-routers add their own RequireCan gates where needed.
 func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 	// Auth
 	r.HandleFunc("POST /auth/logout", s.handleLogout)
@@ -52,7 +53,7 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 	// Cache management (owner only). Flushing the cache is a tenant-wide,
 	// potentially disruptive operation; gate it behind owner like /tenant.
 	{
-		r := r.Group("", middleware.RequireRole("owner"))
+		r := r.Group("", middleware.RequireCan(authz.ActionCacheFlush))
 		r.HandleFunc("POST /cache/flush", s.handleFlushCache)
 	}
 
@@ -69,7 +70,7 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 	// User management (owner only). Creating/deleting users and changing roles
 	// is a privilege-granting surface; restrict to owner.
 	{
-		r := r.Group("/users", middleware.RequireRole("owner"))
+		r := r.Group("/users", middleware.RequireCan(authz.ActionUserManage))
 		r.HandleFunc("GET /", s.handleListUsers)
 		r.HandleFunc("POST /", s.handleCreateUser)
 		r.HandleFunc("GET /{id}", s.handleGetUser)
@@ -80,7 +81,7 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 	// Plugin inspector and settings (owner only): which plugins loaded, which
 	// failed (and why), and which hooks each handles.
 	{
-		r := r.Group("/plugins", middleware.RequireRole("owner"))
+		r := r.Group("/plugins", middleware.RequireCan(authz.ActionPluginManage))
 		r.HandleFunc("GET /", s.handleListPlugins)
 		r.HandleFunc("GET /{name}/settings", s.handleGetPluginSettings)
 		r.HandleFunc("PUT /{name}/settings", s.handlePutPluginSettings)
@@ -99,7 +100,7 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 	// bearing for the threat model, so the sub-router is gated
 	// at the same level as /tenant and /users.
 	{
-		r := r.Group("/schemas", middleware.RequireRole("owner"))
+		r := r.Group("/schemas", middleware.RequireCan(authz.ActionSchemaManage))
 		r.HandleFunc("GET /", s.handleListSchemas)
 		r.HandleFunc("POST /", s.handleCreateSchema)
 		r.HandleFunc("GET /{id}", s.handleGetSchema)
@@ -178,7 +179,7 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 
 	// API Key management (owner only)
 	{
-		r := r.Group("/api-keys", middleware.RequireRole("owner"))
+		r := r.Group("/api-keys", middleware.RequireCan(authz.ActionAPIKeyManage))
 		r.HandleFunc("GET /", s.handleListAPIKeys)
 		r.HandleFunc("POST /", s.handleCreateAPIKey)
 		r.HandleFunc("GET /scopes", s.handleGetAPIKeyScopes)
@@ -245,12 +246,12 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 		r.HandleFunc("GET /entities/{id}", s.agentAdminHandlers.HandleEntityActivity)
 		r.HandleFunc("GET /robots-policy", s.agentAdminHandlers.HandleGetRobotsPolicy)
 		// Changes what every crawler is told site-wide: owner only.
-		r.Group("", middleware.RequireRole("owner")).HandleFunc("PUT /robots-policy", s.agentAdminHandlers.HandlePutRobotsPolicy)
+		r.Group("", middleware.RequireCan(authz.ActionRobotsPolicyWrite)).HandleFunc("PUT /robots-policy", s.agentAdminHandlers.HandlePutRobotsPolicy)
 	}
 
 	// Authors: bylines (content, not accounts) with a bio and an avatar.
 	if s.authorHandlers != nil {
-		r := r.Group("/authors", middleware.RequireRole("owner", "editor"))
+		r := r.Group("/authors", middleware.RequireCan(authz.ActionAuthorManage))
 		r.HandleFunc("GET /", s.authorHandlers.List)
 		r.HandleFunc("POST /", s.authorHandlers.Create)
 		r.HandleFunc("GET /{id}", s.authorHandlers.Get)
@@ -264,7 +265,7 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 	// hundreds of public-facing pages.
 	if s.taxonomyHandlers != nil {
 		{
-			r := r.Group("/terms", middleware.RequireRole("owner"), s.auditActorMiddleware)
+			r := r.Group("/terms", middleware.RequireCan(authz.ActionTermManage), s.auditActorMiddleware)
 			r.HandleFunc("GET /", s.taxonomyHandlers.ListTerms)
 			r.HandleFunc("POST /", s.taxonomyHandlers.CreateTerm)
 			r.HandleFunc("PUT /{id}", s.taxonomyHandlers.UpdateTerm)
@@ -275,7 +276,7 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 		// to keep the taxonomy handler co-located. Owner-only
 		// because attaching a term affects public archive URLs.
 		{
-			r := r.Group("/entities/{entity_id}/terms", middleware.RequireRole("owner", "editor"), s.auditActorMiddleware)
+			r := r.Group("/entities/{entity_id}/terms", middleware.RequireCan(authz.ActionEntityTermsUpdate), s.auditActorMiddleware)
 			r.HandleFunc("GET /", s.taxonomyHandlers.GetEntityTerms)
 			r.HandleFunc("PUT /", s.taxonomyHandlers.ReplaceEntityTerms)
 		}
