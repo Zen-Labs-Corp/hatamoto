@@ -42,7 +42,8 @@ func TestPurgeConfigBadURL(t *testing.T) {
 	for _, v := range []string{"ftp://x", "/relative", "https://user:pw@example.com/p", "https://example.com/p#frag", "https:///nohost"} {
 		setPurgeEnv(t, v, "t0k", "")
 		err := loadPurgeConfig().Validate()
-		if err == nil || !strings.Contains(err.Error(), "HATAMOTO_PURGE_URL") || strings.Contains(err.Error(), "t0k") {
+		if err == nil || !strings.Contains(err.Error(), "HATAMOTO_PURGE_URL") || strings.Contains(err.Error(), "t0k") ||
+			strings.Contains(err.Error(), "pw") || strings.Contains(err.Error(), "example.com") {
 			t.Errorf("%q: err = %v", v, err)
 		}
 	}
