@@ -95,7 +95,7 @@ func TestProvisionerAuditCreateUpdateAndFind(t *testing.T) {
 		t.Fatal(err)
 	}
 	ev = r.only(t, "user.role_changed")
-	if ev.Target != created.ID || ev.Detail["from"] != "editor" || ev.Detail["to"] != "owner" ||
+	if ev.Target != email || ev.Detail["from"] != "editor" || ev.Detail["to"] != "owner" ||
 		ev.ActorKind != "user" || ev.ActorID != actor.String() {
 		t.Fatalf("user.role_changed = %+v", ev)
 	}
@@ -104,6 +104,9 @@ func TestProvisionerAuditCreateUpdateAndFind(t *testing.T) {
 		t.Fatal(err)
 	}
 	ev = r.only(t, "user.updated")
+	if ev.Target != email {
+		t.Fatalf("user.updated target = %q, want the email", ev.Target)
+	}
 	if c, _ := ev.Detail["changed"].([]string); len(c) != 1 || c[0] != "name" {
 		t.Fatalf("user.updated = %+v", ev)
 	}
@@ -119,7 +122,7 @@ func TestProvisionerAuditAccessIdentityAndLink(t *testing.T) {
 	if err := r.prov.SetAccessEnd(r.ctx, id, &past); err != nil {
 		t.Fatal(err)
 	}
-	if ev := r.only(t, "user.access_changed"); ev.Target != id || ev.Detail["to"] == nil {
+	if ev := r.only(t, "user.access_changed"); ev.Target != u.Email || ev.Detail["to"] == nil || ev.Detail["from"] != nil {
 		t.Fatalf("user.access_changed = %+v", ev)
 	}
 	if ev := r.only(t, "user.sessions_revoked"); ev.Target != id || ev.Detail["keys"] != int64(2) {

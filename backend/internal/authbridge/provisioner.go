@@ -210,10 +210,10 @@ func (p *Provisioner) Update(ctx context.Context, id string, c authstate.Changes
 		return authstate.User{}, mapErr(err)
 	}
 	if in.Role != nil && before != "" && before != *in.Role {
-		p.audit(ctx, "user.role_changed", u.ID.String(), map[string]any{"from": string(before), "to": string(*in.Role)})
+		p.audit(ctx, "user.role_changed", u.Email, map[string]any{"from": string(before), "to": string(*in.Role)})
 	}
 	if c.Name != nil {
-		p.audit(ctx, "user.updated", u.ID.String(), map[string]any{"changed": []string{"name"}})
+		p.audit(ctx, "user.updated", u.Email, map[string]any{"changed": []string{"name"}})
 	}
 	return toDTO(u), nil
 }
@@ -225,16 +225,21 @@ func (p *Provisioner) SetAccessEnd(ctx context.Context, id string, end *time.Tim
 	if err != nil {
 		return err
 	}
-	if _, err := p.d.Users.Update(database.WithSuperadmin(ctx), uid, &user.UpdateUserInput{
+	var from any
+	if p.d.Audit != nil {
+		old, err := p.d.Users.GetByID(database.WithSuperadmin(ctx), uid)
+		if err != nil {
+			return mapErr(err)
+		}
+		from = auditTime(old.AccessEndsAt)
+	}
+	u, err := p.d.Users.Update(database.WithSuperadmin(ctx), uid, &user.UpdateUserInput{
 		AccessEndsAt: user.AccessEnd{Set: true, At: end},
-	}); err != nil {
+	})
+	if err != nil {
 		return mapErr(err)
 	}
-	var to any
-	if end != nil {
-		to = end.UTC().Format(time.RFC3339)
-	}
-	p.audit(ctx, "user.access_changed", id, map[string]any{"to": to})
+	p.audit(ctx, "user.access_changed", u.Email, map[string]any{"from": from, "to": auditTime(end)})
 	if end != nil && !end.After(p.d.Now()) {
 		return p.RevokeSessionsAndKeys(ctx, id)
 	}
@@ -303,4 +308,12 @@ func (p *Provisioner) IssuePasswordSetLink(ctx context.Context, id string) (stri
 	}
 	p.audit(ctx, "user.reset_link_sent", id, nil)
 	return p.d.AdminPath() + "/reset?token=" + tok, nil
+}
+
+// auditTime is a time as an audit detail value: RFC 3339 in UTC, nil for none.
+func auditTime(t *time.Time) any {
+	if t == nil {
+		return nil
+	}
+	return t.UTC().Format(time.RFC3339)
 }
