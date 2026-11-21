@@ -4,7 +4,7 @@
 # RequireRole( / RequireOwnerOrKeyScope( line in internal/admin and
 # internal/server (a new gate needs a row, and an action if none fits).
 #
-# <backend-relative path> group|inline <action>[,<action>...] [n=<count>]   # <line at d1f7504a8> <note>
+# <backend-relative path> group|inline|flag|other <action>[,<action>...] [n=<count>]   # <note, with line numbers as hints>
 #
 # group  = a RequireRole / RequireOwnerOrKeyScope line (counted by the test)
 # inline = any other gate: an owner/editor check in a handler, a key scope
