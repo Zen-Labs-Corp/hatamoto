@@ -5,6 +5,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/audit"
+	"hatamoto.dev/core/internal/auditlog"
 	"hatamoto.dev/core/internal/jsonx"
 )
 
@@ -42,13 +44,15 @@ func (m *Manager) Audit(ctx context.Context, action, target string, detail map[s
 		detail["by"] = a.Name
 	}
 	raw, _ := jsonx.Marshal(detail)
-	var actorID *uuid.UUID
+	var actorID string
 	if a.ID != uuid.Nil {
-		actorID = &a.ID
+		actorID = a.ID.String()
 	}
-	// The write must outlive a cancelled request: the change already happened.
-	if _, err := m.Pool.Exec(context.WithoutCancel(ctx), `INSERT INTO hatamoto_admin_audit (actor_id, actor, action, target, detail) VALUES ($1, $2, $3, $4, $5)`,
-		actorID, a.Email, action, target, raw); err != nil {
+	// The recorder's write outlives a cancelled request: the change already happened.
+	if err := (auditlog.Recorder{Pool: m.Pool}).Record(ctx, nil, audit.Event{
+		ActorID: actorID, Actor: a.Email, ActorKind: auditlog.KindFor(actorID, a.Email),
+		Action: action, Target: target, Detail: detail,
+	}); err != nil {
 		m.Logger.Error("packages: audit write failed", "action", action, "error", err)
 	}
 	m.Logger.Info("admin audit", "action", action, "actor", a.Email, "target", target, "detail", string(raw))

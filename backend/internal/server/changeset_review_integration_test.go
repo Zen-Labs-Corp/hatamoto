@@ -15,8 +15,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
+	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/auditstate"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
@@ -456,3 +459,152 @@ func TestChangesetReviewCountsRedirectsDroppedWithPage(t *testing.T) {
 		t.Fatalf("publish applied %d and dropped %d, but the review said %d and %d", applied, dropped, d.PublishCount, d.DroppedCount)
 	}
 }
+
+// reviewPublishFixture is a staged changeset ready to publish through the
+// review service, wired like production (s.changesetAuditTx).
+type reviewPublishFixture struct {
+	ctx    context.Context
+	db     *database.DB
+	rev    *changesetReviewer
+	runs   *plugrun.Store
+	runID  uuid.UUID
+	cs     int64
+	uid    uuid.UUID
+	email  string
+	schema *entity.EntitySchema
+}
+
+func newReviewPublishFixture(t *testing.T) *reviewPublishFixture {
+	t.Helper()
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 1, MinConnections: 1,
+		MaxConnLifetime: time.Minute, MaxConnIdleTime: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	s := &Server{db: db, logger: logger}
+
+	tag := uuid.NewString()[:8]
+	schemas := entity.NewPostgresSchemaRepository(db)
+	sc, err := schemas.Create(ctx, &entity.CreateSchemaInput{Name: "ra " + tag, Slug: "ra-" + tag,
+		Schema: jsontext.Value(`{"type":"object","properties":{"content":{"type":"string"}},"required":["content"]}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uid := uuid.New()
+	email := "pub-" + tag + "@example.com"
+	if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_users (id, email, name) VALUES ($1, $2, 'Pat Publisher')`, uid, email); err != nil {
+		t.Fatal(err)
+	}
+	plugin := "ra" + tag
+	var cs int64
+	t.Cleanup(func() {
+		bg := context.Background()
+		_, _ = db.Pool().Exec(bg, `DELETE FROM hatamoto_admin_audit WHERE actor_id = $1`, uid)
+		_, _ = db.Pool().Exec(bg, `DELETE FROM hatamoto_users WHERE id = $1`, uid)
+		_, _ = db.Pool().Exec(bg, `DELETE FROM hatamoto_entities WHERE schema_id = $1`, sc.ID)
+		_ = schemas.Delete(bg, sc.ID)
+	})
+
+	entSvc := entity.NewService(schemas, entity.NewPostgresEntityRepository(db), logger)
+	eng := &changeset.Engine{DB: db, Logger: logger, AuditTx: s.changesetAuditTx, Writers: map[changeset.Kind]changeset.KindWriter{
+		changeset.KindEntity: changeset.EntityWriter{Svc: entSvc},
+	}}
+	runs := &plugrun.Store{DB: db}
+	rev := &changesetReviewer{eng: eng, runs: runs, audit: s.changesetAudit}
+	run, err := runs.Create(ctx, plugrun.Run{Plugin: plugin, Name: "import"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_runs WHERE id = $1`, run.ID) })
+	if cs, err = eng.Begin(ctx, run.ID, plugin); err != nil {
+		t.Fatal(err)
+	}
+	p, _ := jsonx.Marshal(map[string]any{"schema": sc.Slug, "name": "N", "slug": "ra-" + tag, "attributes": map[string]any{"content": "x"}})
+	if err := eng.Stage(ctx, cs, changeset.Item{Kind: changeset.KindEntity, Op: changeset.OpUpsert, SourceKey: "a-" + tag, Payload: p}); err != nil {
+		t.Fatal(err)
+	}
+	return &reviewPublishFixture{ctx: ctx, db: db, rev: rev, runs: runs, runID: run.ID, cs: cs, uid: uid, email: email, schema: sc}
+}
+
+// A publish through the review flow writes exactly one changeset.publish row,
+// from the engine, inside the publish transaction. The actor is the user (id
+// and email) so the history still names who published it. The pool has a
+// single connection, so the actor lookup must run on the publish transaction.
+func TestChangesetReviewPublishWritesOneAuditRow(t *testing.T) {
+	f := newReviewPublishFixture(t)
+	ctx, db, rev, runs, cs, uid, email := f.ctx, f.db, f.rev, f.runs, f.cs, f.uid, f.email
+	if err := runs.Finish(ctx, f.runID, jsontext.Value(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	// The pool has one connection: reading the actor email on a second one
+	// while the publish tx holds the first would block until the timeout.
+	pubCtx, cancel := context.WithTimeout(database.WithUser(ctx, uid), 20*time.Second)
+	defer cancel()
+	if _, _, err := rev.Publish(pubCtx, cs); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	var actor string
+	var actorID uuid.UUID
+	rows, err := db.Pool().Query(ctx, `SELECT actor, actor_id FROM hatamoto_admin_audit WHERE action = 'changeset.publish' AND target IN ($1, $2)`, changesetTarget(cs), fmt.Sprint(cs))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		n++
+		if err := rows.Scan(&actor, &actorID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rows.Close()
+	if n != 1 || actor != email || actorID != uid {
+		t.Fatalf("publish audit rows = %d (actor %q, id %s), want 1 by %q (%s)", n, actor, actorID, email, uid)
+	}
+	t.Cleanup(func() {
+		_, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_admin_audit WHERE target = $1`, changesetTarget(cs))
+	})
+	if h, err := rev.History(ctx, 5, 0); err != nil || len(h) == 0 || h[0].ID != cs || h[0].By != "Pat Publisher" {
+		t.Fatalf("history by = %+v, %v", h, err)
+	}
+}
+
+// A registered sink that refuses must fail the publish through the production
+// wiring (s.changesetAuditTx): swallowing the sink error there would commit
+// the entity and write the row.
+func TestChangesetReviewPublishRefusedBySink(t *testing.T) {
+	f := newReviewPublishFixture(t)
+	auditstate.Register(refusingSink{})
+	t.Cleanup(auditstate.Reset)
+	if err := f.runs.Finish(f.ctx, f.runID, jsontext.Value(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := f.rev.Publish(database.WithUser(f.ctx, f.uid), f.cs); !errors.Is(err, audit.ErrSink) {
+		t.Fatalf("Publish err = %v, want ErrSink", err)
+	}
+	var ents, rows int
+	var state string
+	q := func(dst *int, sql string, args ...any) {
+		if err := f.db.Pool().QueryRow(f.ctx, sql, args...).Scan(dst); err != nil {
+			t.Fatal(err)
+		}
+	}
+	q(&ents, `SELECT count(*) FROM hatamoto_entities WHERE schema_id = $1`, f.schema.ID)
+	q(&rows, `SELECT count(*) FROM hatamoto_admin_audit WHERE action = 'changeset.publish' AND target = $1`, changesetTarget(f.cs))
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT state FROM hatamoto_changesets WHERE id = $1`, f.cs).Scan(&state); err != nil {
+		t.Fatal(err)
+	}
+	if ents != 0 || rows != 0 || state != "staged" {
+		t.Fatalf("entities %d, publish rows %d, state %q: want 0, 0, staged (rolled back)", ents, rows, state)
+	}
+}
+
+type refusingSink struct{}
+
+func (refusingSink) Record(context.Context, pgx.Tx, audit.Event) error { return errors.New("refused") }

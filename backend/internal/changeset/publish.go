@@ -114,6 +114,13 @@ func (e *Engine) publish(ctx context.Context, csID int64, mode publishMode, gate
 				return fmt.Errorf("failed to mark changeset automatic: %w", err)
 			}
 		}
+		if e.AuditTx != nil {
+			detail := publishAuditDetail(res, mode, dropped)
+			detail["plugin"] = cs.Plugin
+			if err := e.AuditTx(ctx, tx, "changeset.publish", fmt.Sprintf("changeset:%d", csID), detail); err != nil {
+				return fmt.Errorf("audit: %w", err)
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -130,12 +137,18 @@ func (e *Engine) publish(ctx context.Context, csID int64, mode publishMode, gate
 	e.afterCommit(ctx, res.Items)
 	e.deleteBlobs(ctx, keys)
 	e.logger().Info("changeset published: " + res.summary())
+	if e.AuditTx == nil {
+		e.audit(ctx, "changeset.publish", csID, publishAuditDetail(res, mode, dropped))
+	}
+	return res, dropped, nil
+}
+
+func publishAuditDetail(res Result, mode publishMode, dropped int) map[string]any {
 	detail := map[string]any{"applied": res.Applied, "skipped": res.Skipped}
 	if mode == publishReviewed {
 		detail["dropped"] = dropped
 	}
-	e.audit(ctx, "changeset.publish", csID, detail)
-	return res, dropped, nil
+	return detail
 }
 
 func (e *Engine) publishItem(ctx context.Context, tx pgx.Tx, plugin string, it StoredItem, res *Result, undos *[]func(context.Context)) error {

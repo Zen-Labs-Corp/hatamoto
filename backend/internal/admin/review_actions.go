@@ -201,7 +201,6 @@ func (a *Admin) handleReviewPublish(w http.ResponseWriter, r *http.Request) {
 	if a.reviewError(w, r, h, err) {
 		return
 	}
-	a.audit(r, "changeset.publish", strconv.FormatInt(h.ID, 10), map[string]any{"plugin": h.Plugin, "changeset": h.ID, "applied": applied, "dropped": dropped})
 	msg := fmt.Sprintf("Published changeset #%d: %s live", h.ID, countNoun(applied, "change"))
 	if dropped > 0 {
 		msg += fmt.Sprintf(", %d dropped by you", dropped)

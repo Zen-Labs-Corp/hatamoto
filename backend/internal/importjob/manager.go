@@ -26,6 +26,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"hatamoto.dev/core/audit"
+	"hatamoto.dev/core/internal/auditlog"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/wpimport"
 )
@@ -771,12 +773,14 @@ func (m *Manager) audit(ctx context.Context, actor Actor, action string, run uui
 		detail["error"] = strings.ToValidUTF8(msg[:maxAuditError], "") + "…"
 	}
 	raw, _ := jsonx.Marshal(detail)
-	var actorID *uuid.UUID
+	var actorID string
 	if actor.ID != uuid.Nil {
-		actorID = &actor.ID
+		actorID = actor.ID.String()
 	}
-	if _, err := m.cfg.Pool.Exec(ctx, `INSERT INTO hatamoto_admin_audit (actor_id, actor, action, target, detail) VALUES ($1, $2, $3, $4, $5)`,
-		actorID, actor.Email, action, "import_run:"+run.String(), raw); err != nil {
+	if err := (auditlog.Recorder{Pool: m.cfg.Pool}).Record(ctx, nil, audit.Event{
+		ActorID: actorID, Actor: actor.Email, ActorKind: auditlog.KindFor(actorID, actor.Email),
+		Action: action, Target: "import_run:" + run.String(), Detail: detail,
+	}); err != nil {
 		m.cfg.Logger.Error("admin audit write failed", "action", action, "err", err)
 	}
 	m.cfg.Logger.Info("admin audit", "action", action, "actor", actor.Email, "run", run, "detail", string(raw))

@@ -15,6 +15,7 @@ import (
 
 	"hatamoto.dev/core/internal/adminpagestate"
 	"hatamoto.dev/core/internal/adminpath"
+	"hatamoto.dev/core/internal/auditstate"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
@@ -272,11 +273,12 @@ func newLogger() *slog.Logger {
 
 // Main runs hatamoto's server or one of its subcommands and exits on failure.
 func Main() {
-	// Registration by a wrapper module happens in init; nothing registers after this.
+	// Registration by a wrapper module (edition, audit sink) happens in init; nothing registers after this.
 	editionstate.Freeze()
 	modhost.Freeze()
 	modhost.SetSecretSource(serverSecret)
 	adminpagestate.Freeze()
+	auditstate.Freeze()
 	logger := newLogger()
 	slog.SetDefault(logger)
 
