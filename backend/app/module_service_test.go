@@ -89,7 +89,13 @@ func TestStartModuleServicesNoneRegistered(t *testing.T) {
 	if time.Since(start) > time.Second {
 		t.Error("wait blocked with no services registered")
 	}
-	if after := runtime.NumGoroutine(); after != before {
+	// Only growth is a leak; unrelated goroutines from earlier tests may exit.
+	after := runtime.NumGoroutine()
+	for i := 0; i < 20 && after > before; i++ {
+		time.Sleep(10 * time.Millisecond)
+		after = runtime.NumGoroutine()
+	}
+	if after > before {
 		t.Errorf("goroutines %d -> %d with no services", before, after)
 	}
 }
