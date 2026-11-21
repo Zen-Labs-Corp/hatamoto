@@ -58,8 +58,10 @@ func TestRateLimiterStopIsSafe(t *testing.T) {
 
 func TestRateLimiterStillLimits(t *testing.T) {
 	rl := NewRateLimiter(1, 2)
-	if !rl.Allow("x") || !rl.Allow("x") {
-		t.Fatal("burst of 2 must pass")
+	for i := 0; i < 2; i++ {
+		if !rl.Allow("x") {
+			t.Fatalf("request %d of the burst of 2 must pass", i+1)
+		}
 	}
 	if rl.Allow("x") {
 		t.Fatal("third immediate request must be refused")
