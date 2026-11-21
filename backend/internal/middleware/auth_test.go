@@ -4,10 +4,14 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authztest"
 )
 
 func reqWith(remoteAddr, xff string) *http.Request {
@@ -262,11 +266,12 @@ func TestAuthMiddleware_APICookieBearerAndFlag(t *testing.T) {
 }
 
 func TestRequireOwnerOrKeyScope(t *testing.T) {
-	h := RequireOwnerOrKeyScope(auth.ScopeReadSEO, auth.ScopeWriteSEO)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	h := RequireOwnerOrKeyScope(authz.ActionSettingsSEORead, authz.ActionSettingsSEOWrite)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	keyCtxAs := func(creator string, scope auth.APIKeyScope) context.Context {
-		ctx := context.WithValue(context.Background(), apiKeyContextKey, &auth.APIKey{Scopes: []auth.APIKeyScope{scope}, CreatorRole: creator})
+		creatorID := uuid.New()
+		ctx := context.WithValue(context.Background(), apiKeyContextKey, &auth.APIKey{ID: uuid.New(), CreatedBy: &creatorID, Scopes: []auth.APIKeyScope{scope}, CreatorRole: creator})
 		ctx = context.WithValue(ctx, authTypeContextKey, AuthTypeAPIKey)
 		// keys run with editor claims; the decision follows the creator's role
 		return ContextWithClaims(ctx, &auth.Claims{UserID: uuid.New(), Role: "editor"})
@@ -303,5 +308,95 @@ func TestRequireOwnerOrKeyScope(t *testing.T) {
 		if rec.Code != c.want {
 			t.Errorf("%s: got %d want %d", c.name, rec.Code, c.want)
 		}
+	}
+}
+
+func TestRequireOwnerOrKeyScopeDenyAll(t *testing.T) {
+	authztest.Use(t, authztest.DenyAll)
+	h := RequireOwnerOrKeyScope(authz.ActionSettingsSEORead, authz.ActionSettingsSEOWrite)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	creator := uuid.New()
+	keyCtx := context.WithValue(context.Background(), apiKeyContextKey, &auth.APIKey{ID: uuid.New(), CreatedBy: &creator, CreatorRole: "owner", Scopes: []auth.APIKeyScope{auth.ScopeAll}})
+	keyCtx = context.WithValue(keyCtx, authTypeContextKey, AuthTypeAPIKey)
+	for name, ctx := range map[string]context.Context{
+		"owner session": ContextWithClaims(context.Background(), &auth.Claims{UserID: uuid.New(), Role: "owner"}),
+		"owner * key":   keyCtx,
+	} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx))
+		if rec.Code != http.StatusForbidden {
+			t.Errorf("%s: got %d want 403", name, rec.Code)
+		}
+	}
+}
+
+func TestRequireCan(t *testing.T) {
+	var tags []string
+	TraceHook = func(_ *http.Request, tag string) { tags = append(tags, tag) }
+	t.Cleanup(func() { TraceHook = nil })
+
+	mw := func(act authz.Action) http.Handler {
+		return RequireCan(act)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		}))
+	}
+	session := func(role string) context.Context {
+		return ContextWithClaims(context.Background(), &auth.Claims{UserID: uuid.New(), Role: role})
+	}
+	// editorKey is an editor-created "*" key: it runs with synthesised editor claims.
+	editorKey := func(withKey bool) context.Context {
+		creator := uuid.New()
+		ctx := context.WithValue(context.Background(), authTypeContextKey, AuthTypeAPIKey)
+		if withKey {
+			ctx = context.WithValue(ctx, apiKeyContextKey, &auth.APIKey{ID: uuid.New(), CreatedBy: &creator, CreatorRole: "editor", Scopes: []auth.APIKeyScope{auth.ScopeAll}})
+		}
+		return ContextWithClaims(ctx, &auth.Claims{UserID: creator, Role: "editor"})
+	}
+	cases := []struct {
+		name string
+		ctx  context.Context
+		act  authz.Action
+		want int
+		body string
+	}{
+		{"no claims", context.Background(), authz.ActionUserManage, 401, `{"error":"unauthorized"}`},
+		{"editor user.manage", session("editor"), authz.ActionUserManage, 403, `{"error":"forbidden"}`},
+		{"owner user.manage", session("owner"), authz.ActionUserManage, 204, ""},
+		{"editor author.manage", session("editor"), authz.ActionAuthorManage, 204, ""},
+		{"viewer author.manage", session("viewer"), authz.ActionAuthorManage, 403, `{"error":"forbidden"}`},
+		{"editor-created * key user.manage", editorKey(true), authz.ActionUserManage, 403, `{"error":"forbidden"}`},
+		{"editor-created * key author.manage", editorKey(true), authz.ActionAuthorManage, 403, `{"error":"forbidden"}`},
+		{"api key type without key", editorKey(false), authz.ActionAuthorManage, 403, `{"error":"forbidden"}`},
+	}
+	for _, c := range cases {
+		rec := httptest.NewRecorder()
+		mw(c.act).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil).WithContext(c.ctx))
+		if rec.Code != c.want {
+			t.Errorf("%s: got %d want %d", c.name, rec.Code, c.want)
+		}
+		if c.body != "" && strings.TrimSpace(rec.Body.String()) != c.body {
+			t.Errorf("%s: body %q want %q", c.name, rec.Body.String(), c.body)
+		}
+	}
+
+	tags = nil
+	mw(authz.ActionAuthorManage).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil).WithContext(session("owner")))
+	mw(authz.ActionUserManage).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil).WithContext(session("owner")))
+	if want := []string{"role[owner editor]", "role[owner]"}; !slices.Equal(tags, want) {
+		t.Errorf("trace tags = %v, want %v", tags, want)
+	}
+}
+
+func TestRequireCanDenyAll(t *testing.T) {
+	authztest.Use(t, authztest.DenyAll)
+	h := RequireCan(authz.ActionCacheFlush)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	rec := httptest.NewRecorder()
+	ctx := ContextWithClaims(context.Background(), &auth.Claims{UserID: uuid.New(), Role: "owner"})
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/", nil).WithContext(ctx))
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("owner under deny-all: got %d want 403", rec.Code)
 	}
 }

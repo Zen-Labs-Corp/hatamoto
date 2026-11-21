@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/seosvc"
@@ -21,7 +21,7 @@ type seoSettingsHandlers struct {
 }
 
 func mountSEOSettings(r *httpx.Group, h *seoSettingsHandlers) {
-	r = r.Group("/settings/seo", middleware.RequireOwnerOrKeyScope(auth.ScopeReadSEO, auth.ScopeWriteSEO))
+	r = r.Group("/settings/seo", middleware.RequireOwnerOrKeyScope(authz.ActionSettingsSEORead, authz.ActionSettingsSEOWrite))
 	r.HandleFunc("GET /", h.handleGet)
 	r.HandleFunc("PATCH /", h.handlePatch)
 }
