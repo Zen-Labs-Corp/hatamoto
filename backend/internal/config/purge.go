@@ -32,6 +32,9 @@ func loadPurgeConfig() PurgeConfig {
 		}
 	}
 	p.Token = strings.TrimSpace(os.Getenv("HATAMOTO_PURGE_TOKEN"))
+	if strings.EqualFold(raw, "off") {
+		p.Token = ""
+	}
 	if p.Token != "" && p.URL == "" && p.urlErr == nil {
 		p.urlErr = fmt.Errorf("HATAMOTO_PURGE_TOKEN is set but HATAMOTO_PURGE_URL is not")
 	}
