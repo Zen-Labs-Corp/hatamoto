@@ -76,12 +76,3 @@ func (s *Store) Take(ctx context.Context, nonce string, now time.Time) (Ticket, 
 	t.Expiry = t.Expiry.UTC()
 	return t, true, nil
 }
-
-// PurgeExpired deletes rows past expiry and returns how many went.
-func (s *Store) PurgeExpired(ctx context.Context, now time.Time) (int64, error) {
-	tag, err := s.db.Pool().Exec(ctx, `DELETE FROM hatamoto_frame_tickets WHERE expires_at < $1`, now)
-	if err != nil {
-		return 0, fmt.Errorf("frameticket: purge: %w", err)
-	}
-	return tag.RowsAffected(), nil
-}
