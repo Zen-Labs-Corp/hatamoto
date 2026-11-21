@@ -14,7 +14,7 @@ import (
 // requireOwner, RequireRole and the removed APIKey.CreatorCanAct method (the authzsubject helper of that name is the
 // permitted way and does not match). Comparisons
 // with nil and "" are presence checks and do not match.
-var inlineRole = regexp.MustCompile(`(?i:role)\s*(==|!=)\s*(string\()?((user\.)?Role(Owner|Editor)\b|"[^"]+")|\[\]string\{"(owner|editor)"|requireOwner\(|RequireRole\(|\b(k|key|apiKey)\.CreatorCanAct\(`)
+var inlineRole = regexp.MustCompile(`(?i:role)\)?\s*(==|!=)\s*(string\()?((user\.)?Role(Owner|Editor)\b|"[^"]+")|\b(user\.)?Role(Owner|Editor)\s*(==|!=)|"(owner|editor)"\s*(==|!=)|\bcase\s+(user\.Role(Owner|Editor)\b|"(owner|editor)")|\[\]string\{"(owner|editor)"|requireOwner\(|RequireRole\(|\b(k|key|apiKey)\.CreatorCanAct\(`)
 
 // templateRole matches a template reading the signed-in user's role.
 var templateRole = regexp.MustCompile(`\.User\.Role`)
@@ -37,6 +37,7 @@ var inlineRoleAllow = []allowedInlineRole{
 	{"internal/server/handlers.go", "*input.Role == user.RoleOwner", "domain: target role"},
 	{"internal/server/handlers.go", "target.Role != user.RoleOwner", "domain: target role"},
 	{"internal/siteconfig/siteconfig.go", "return role == \"owner\"", "two-factor policy binding (data policy, not a permission)"},
+	{"internal/admin/users.go", "case \"owner\":", "display: badge colour of a listed user's role"},
 	{"internal/admin/ui/ui.go", "c.Role == \"title\"", "table column role, not a user role"},
 	{"internal/admin/pluginui.go", "return []string{\"owner\"}", "plugin manifest ui.roles default (SDK contract)"},
 	{"internal/pluginhost/routes.go", "roles = []string{\"owner\"}", "plugin manifest route roles default (SDK contract)"},
@@ -119,6 +120,11 @@ func TestInlineRolePatternCatchesForms(t *testing.T) {
 		`roles := []string{"owner"}`,
 		`if !requireOwner(w, r) {`,
 		`key.CreatorCanAct()`,
+		`if string(u.Role) == "owner" {`,
+		`if user.RoleOwner == u.Role {`,
+		`if "owner" == role {`,
+		`case user.RoleOwner:`,
+		`case "editor", "owner":`,
 	} {
 		if !inlineRole.MatchString(l) {
 			t.Errorf("pattern misses %q", l)
