@@ -69,7 +69,6 @@
 - **Users without a password.** The user store accepts a user with no password. Such a user signs in through a provider, a passkey or a password-set link.
 - **Migration.** One new table, `hatamoto_user_identities`. Expand only. Rollback floor: the schema is unchanged, but a user created without a password is stored with a NULL password hash that the previous release cannot read. Roll back only while no such user exists, or after each has a password (`hatamoto user reset-password`).
 
-
 ## Unreleased: review policy for human edits (off)
 
 - **Review policy.** A new public Go package, `hatamoto.dev/core/review`, lets a wrapper module that calls `app.Main` register, from an `init` function, the review stages a human edit must pass before it is published. A standard build registers nothing and nothing changes: with the site's review switch off an edit has no stages, and with it on it has one stage, "Review", for the `reviewers` group (Owner, Editor and Reviewer). A policy that returns an error, or a stage without a name or group, holds the edit: it is never published.
