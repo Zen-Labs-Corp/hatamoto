@@ -65,6 +65,7 @@ func failingPage() adminpagestate.Page {
 			route("", func(adminpagestate.Context) error { return nil }),
 			route("/err", func(adminpagestate.Context) error { return errors.New("boom") }),
 			route("/panic", func(adminpagestate.Context) error { panic("boom") }),
+			route("/abort", func(adminpagestate.Context) error { panic(http.ErrAbortHandler) }),
 			route("/parse", func(c adminpagestate.Context) error { return c.Render(200, "broken", "x", nil) }),
 			route("/exec", func(c adminpagestate.Context) error { return c.Render(200, "exec", "x", struct{}{}) }),
 			route("/unknown", func(c adminpagestate.Context) error { return c.Render(200, "nope", "x", nil) }),
@@ -171,4 +172,15 @@ func TestModulePagesAbsentWithoutModules(t *testing.T) {
 	if rec := g.do("GET", exampleBase, "owner-token", nil, nil); rec.Code != http.StatusNotFound {
 		t.Fatalf("status %d", rec.Code)
 	}
+}
+
+func TestModulePageRepanicsErrAbortHandler(t *testing.T) {
+	t.Parallel()
+	g := newModuleRig(t)
+	defer func() {
+		if r := recover(); r != http.ErrAbortHandler {
+			t.Fatalf("recovered %v, want http.ErrAbortHandler", r)
+		}
+	}()
+	g.do("GET", "/admin/settings/modules/failing/abort", "owner-token", nil, nil)
 }

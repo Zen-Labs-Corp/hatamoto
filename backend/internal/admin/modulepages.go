@@ -60,6 +60,9 @@ func (a *Admin) modulePage(p adminpagestate.Page, rt adminpagestate.Route) http.
 		c := &moduleCtx{a: a, w: w, r: r, p: p}
 		defer func() {
 			if rec := recover(); rec != nil {
+				if rec == http.ErrAbortHandler {
+					panic(rec) // net/http's own way to abort a response quietly
+				}
 				a.logger().Error("admin: module page panic", "module", p.ID, "panic", rec)
 				c.fail()
 			}
