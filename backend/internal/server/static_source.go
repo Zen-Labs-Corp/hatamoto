@@ -67,11 +67,15 @@ func (src *staticSource) Site(ctx context.Context) (staticexport.Site, error) {
 		return staticexport.Site{}, fmt.Errorf("%w: the site URL %q is not an origin", staticexport.ErrRefused, base)
 	}
 	src.base = u
-	return staticexport.Site{
+	site := staticexport.Site{
 		Base:              u,
 		AdminPrefix:       s.adminPathValue(),
 		LegacyWPRedirects: conf != nil && conf.LegacyWPRedirects,
-	}, nil
+	}
+	if why := s.hosting.Load().InactiveReason(); why != "" {
+		site.Warnings = []string{"static mode is on but islands stay on this site's own paths: " + why}
+	}
+	return site, nil
 }
 
 // Seeds lists the sitemap set (as the preloader does, but with the resolved

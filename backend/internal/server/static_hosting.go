@@ -83,4 +83,7 @@ func (s *Server) refreshStaticHostingFrom(ctx context.Context, get hostingSettin
 		return
 	}
 	s.setStaticHosting(hostingSnapshot(set, found, pluginEntityPaths{s}.BaseURL(ctx)))
+	if why := s.hosting.Load().InactiveReason(); why != "" {
+		s.logger.Warn("static hosting: mode is static but the island snapshot is inactive, so pages are served as in served mode", slog.String("reason", why))
+	}
 }

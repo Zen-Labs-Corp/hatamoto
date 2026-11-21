@@ -1,12 +1,14 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/config"
@@ -163,5 +165,25 @@ func TestStaticFetch_MarksExport(t *testing.T) {
 	}
 	if !marked {
 		t.Error("the export request is not marked with statichost.WithExport")
+	}
+}
+
+func TestRefreshStaticHostingWarnsWhenInactive(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	s := &Server{logger: slog.New(slog.NewTextHandler(&buf, nil)), cfg: &config.Config{}}
+	s.cfg.PublicSite.BaseURL = testSiteOrigin
+	s.refreshStaticHostingFrom(context.Background(), func(context.Context) (staticexport.Settings, bool, error) {
+		return staticexport.Settings{Mode: staticexport.ModeStatic}, true, nil
+	})
+	if !strings.Contains(buf.String(), "live origin is empty") {
+		t.Errorf("no warning naming the reason: %q", buf.String())
+	}
+	buf.Reset()
+	s.refreshStaticHostingFrom(context.Background(), func(context.Context) (staticexport.Settings, bool, error) {
+		return staticexport.Settings{Mode: staticexport.ModeStatic, LiveOrigin: testLiveOrigin}, true, nil
+	})
+	if buf.Len() != 0 {
+		t.Errorf("an active snapshot logged: %q", buf.String())
 	}
 }
