@@ -114,7 +114,9 @@ func TestEntityEditOwnershipButtonFollowsRole(t *testing.T) {
 			t.Fatalf("%s: %d", role, rec.Code)
 		}
 		body := rec.Body.String()
-		has(t, body, `Who owns this page`)
+		if want { // a user who cannot edit gets the read-only page, which has no ownership card
+			has(t, body, `Who owns this page`)
+		}
 		if got := strings.Contains(body, `id="hm-ownform"`) && strings.Contains(body, `Let demo track this again`); got != want {
 			t.Errorf("%s: hand-back button shown = %v, want %v", role, got, want)
 		}
