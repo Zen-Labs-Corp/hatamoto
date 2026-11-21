@@ -7,7 +7,7 @@
 {{if .New}}{{template "hm/field" dict "ID" "email" "Name" "email" "Label" "Email" "Type" "email" "Value" .Email "Required" true "Error" (index .Errors "email")}}
 {{else}}{{template "hm/field" dict "ID" "email-display" "Name" "email_display" "Label" "Email" "Type" "email" "Value" .Email "Attrs" (attrmap "readonly" "readonly")}}{{end}}
 {{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Value" .Name "Error" (index .Errors "name") "Attrs" (attrmap "autocomplete" "off")}}
-{{template "hm/field" dict "ID" "role" "Name" "role" "Label" "Role" "Control" "select" "Options" .Roles "Help" "For now Author, Contributor and Reviewer can only view the admin; their content permissions arrive in a later release." "Error" (index .Errors "role")}}
+{{template "hm/field" dict "ID" "role" "Name" "role" "Label" "Role" "Control" "select" "Options" .Roles "Error" (index .Errors "role")}}
 {{template "hm/field" dict "ID" "access-ends" "Name" "access_ends" "Label" "Access ends on" "Type" "date" "Value" .AccessEnds "Error" (index .Errors "access-ends") "Help" (or .AccessNote "Optional. Their access stops at the end of this day (site time zone). Leave empty for no end date.")}}
 {{if .AccessEnds}}{{template "hm/field" dict "ID" "clear-access" "Control" "switch" "Name" "clear_access" "Value" "1" "Label" "Clear date" "Help" "Tick this to remove the end date and save."}}
 {{end}}{{if .New}}{{template "hm/field" dict "ID" "password" "Name" "password" "Label" "Password" "Type" "password" "Required" true "Help" "At least 12 characters. They can change it after signing in." "Error" (index .Errors "password") "Attrs" (attrmap "autocomplete" "new-password" "minlength" "12")}}{{end}}
