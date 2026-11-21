@@ -2,6 +2,7 @@ package entity
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"errors"
 	"strings"
 	"testing"
@@ -237,5 +238,42 @@ func TestStatusAction(t *testing.T) {
 		if got := statusAction(c.from, c.to); got != c.want {
 			t.Errorf("%s -> %s: %s, want %s", c.from, c.to, got, c.want)
 		}
+	}
+}
+
+// A person's status follows attributes.public, so a Contributor must not publish through it.
+func TestAuthzPersonPublicNeedsPublish(t *testing.T) {
+	g := newAuthzRig(t)
+	sr := g.svc.schemaRepo.(*mockSchemaRepository)
+	person := seedSchema(t, sr, func(s *EntitySchema) { s.Name, s.Slug = "Person", personSchemaSlug })
+	me := uuid.New()
+	public := jsontext.Value(`{"title":"x","public":true}`)
+	hidden := jsontext.Value(`{"title":"x","public":false}`)
+	owner := asRole("owner", me)
+
+	ctx := asRole("contributor", me)
+	if _, err := g.svc.CreateEntity(ctx, &me, &CreateEntityInput{SchemaID: person.ID, Name: "p", Slug: "p", Attributes: public}); !errors.Is(err, ErrNotAllowed) {
+		t.Fatalf("create public: err = %v, want ErrNotAllowed", err)
+	}
+	mine, err := g.svc.CreateEntity(ctx, &me, &CreateEntityInput{SchemaID: person.ID, Name: "q", Slug: "q", Attributes: hidden})
+	if err != nil {
+		t.Fatalf("create hidden: %v", err)
+	}
+	if _, err := g.svc.UpdateEntity(ctx, mine.ID, &me, &UpdateEntityInput{Attributes: &public}); !errors.Is(err, ErrNotAllowed) {
+		t.Fatalf("update to public: err = %v, want ErrNotAllowed", err)
+	}
+	g.repo.versions[mine.ID] = []*EntityVersion{{ID: uuid.New(), EntityID: mine.ID, Version: 1, Attributes: public}}
+	if _, err := g.svc.RestoreVersion(ctx, mine.ID, &me, 1); !errors.Is(err, ErrNotAllowed) {
+		t.Fatalf("restore public: err = %v, want ErrNotAllowed", err)
+	}
+	if got := g.repo.entities[mine.ID].Status; got != StatusDraft {
+		t.Fatalf("status = %s, want draft", got)
+	}
+
+	if _, err := g.svc.UpdateEntity(owner, mine.ID, &me, &UpdateEntityInput{Attributes: &public}); err != nil {
+		t.Fatalf("owner update to public: %v", err)
+	}
+	if _, err := g.svc.CreateEntity(owner, &me, &CreateEntityInput{SchemaID: person.ID, Name: "r", Slug: "r", Attributes: public}); err != nil {
+		t.Fatalf("owner create public: %v", err)
 	}
 }

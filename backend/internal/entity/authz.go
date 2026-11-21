@@ -101,3 +101,15 @@ func (s *Service) authorizeStored(ctx context.Context, id uuid.UUID, act authz.A
 	}
 	return Authorize(ctx, act, e.AuthzObject())
 }
+
+// authorizeLocked asks for the publish or unpublish a locked status (a person follows Public) implies, so
+// that route cannot publish what entity.publish would refuse. A nil locked status or no live change asks nothing.
+func authorizeLocked(ctx context.Context, from EntityStatus, locked *EntityStatus, obj authz.Object) error {
+	if locked == nil {
+		return nil
+	}
+	if act := statusAction(from, *locked); act != authz.ActionEntityUpdate {
+		return Authorize(ctx, act, obj)
+	}
+	return nil
+}

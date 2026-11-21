@@ -364,6 +364,9 @@ func (s *Service) CreateEntity(ctx context.Context, userID *uuid.UUID, input *Cr
 		return nil, err
 	}
 	input.Status = lockedStatus(schema, input.Attributes)
+	if err := authorizeLocked(ctx, StatusDraft, input.Status, authz.Object{Kind: "entity", Schema: schema.Slug, Locale: input.Locale}); err != nil {
+		return nil, err
+	}
 
 	entity, err := s.entityRepo.Create(ctx, userID, input)
 	if err != nil {
@@ -522,6 +525,9 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 	}
 	if st := lockedStatus(existing.Schema, attrs); st != nil {
 		input.Status = st
+		if err := authorizeLocked(ctx, existing.Status, st, existing.AuthzObject()); err != nil {
+			return nil, err
+		}
 	}
 
 	entity, err := s.entityRepo.Update(ctx, id, userID, input)
@@ -930,11 +936,16 @@ func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID
 
 	changeSummary := fmt.Sprintf("Restored from version %d", version)
 
+	locked := lockedStatus(existing.Schema, restoredAttrs)
+	if err := authorizeLocked(ctx, existing.Status, locked, existing.AuthzObject()); err != nil {
+		return nil, err
+	}
+
 	// Update with the old attributes
 	entity, err := s.entityRepo.Update(ctx, entityID, userID, &UpdateEntityInput{
 		Attributes:    &restoredAttrs,
 		ChangeSummary: &changeSummary,
-		Status:        lockedStatus(existing.Schema, restoredAttrs),
+		Status:        locked,
 		TakeOwnership: structuralAttrsChanged(existing.Schema, ver.Attributes, existing.Attributes),
 	})
 	if err != nil {
