@@ -870,7 +870,7 @@ The request is JSON on the `http_handle` input and the response JSON on its outp
   "user": { "id": "uuid", "role": "owner" } }
 ```
 
-`user.role` can be any of the six built-in role ids: `owner`, `editor`, `author`, `contributor`, `reviewer` or `read-only`. A plugin must not assume it is one of the first two. `ui.roles` and a route's `roles` still accept only `owner` and `editor` (and `viewer` for routes), so people with the other roles never reach plugin pages.
+Today `user.role` is `owner`, `editor` or `viewer`: a route's `roles` accept only those, `ui.roles` only `owner` and `editor`, and the plugin UI needs an action the four newer built-in roles (`author`, `contributor`, `reviewer`, `read-only`) do not have, so people with those roles never reach plugin routes or pages. Treat `role` as an open set anyway and do not assume it is one of the first two.
 ```json
 { "status": 200, "headers": { "Content-Type": "application/json" }, "body": "{...}", "body_b64": "" }
 ```

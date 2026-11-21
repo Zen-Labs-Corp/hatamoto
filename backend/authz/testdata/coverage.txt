@@ -10,7 +10,9 @@
 #          on every row but other. authz.Default() must answer the same for
 #          an owner and an editor for every cited action (checked by
 #          coverage_test.go). Where a plugin's own role list narrows editors,
-#          roles is the widest answer and the note says so.
+#          roles is the widest answer and the note says so. It names the staff
+#          roles only: the author, contributor, reviewer and read-only roles
+#          pass just the actions in authz.readRights (see default.go).
 #
 # group  = a RequireRole / RequireCan / RequireOwnerOrKeyScope line (counted by the test)
 # inline = any other gate: an owner/editor check in a handler, a key scope

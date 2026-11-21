@@ -8,10 +8,15 @@
 //
 //   - An owner session may do every action.
 //   - An editor session may do the actions that editors can do today.
+//   - The author, contributor, reviewer and read-only roles may, for now, only
+//     read the admin and keep their own account (the same short list for all
+//     four). Reading form submissions and comments, and every write, is not
+//     in it.
 //   - Any other role, and a session without a user, may do nothing.
-//   - An API key may act only while its creator is still an owner or an
-//     editor, only for an action that has a key scope, and only when the key
-//     holds that scope. A write scope implies the matching read scope, "*"
+//   - An API key acts within what its creator's role may do: it may act only
+//     for an action that has a key scope, only when the key holds that scope,
+//     and only if the creator's role is allowed the action (so a key made by a
+//     read-only user can read but never write). A write scope implies the matching read scope, "*"
 //     implies every scope, and the owner-only scopes (read:seo, write:seo,
 //     write:terms) need an owner as the creator, also through "*".
 //   - The object is ignored.
@@ -52,11 +57,16 @@
 // inside an authorizer is not recovered. A registered authorizer receives
 // every action string unchanged, including ones a module defines itself.
 //
+// The admin and the REST API ask ActionSiteWrite before every request that
+// changes something (any method but GET, HEAD and OPTIONS), apart from a
+// user's own account. A policy that does not delegate to Default must answer
+// it, or every such request is refused, owners included.
+//
 // Some checks stay outside this package: the password recheck before a
 // dangerous action, the plugin manifest role lists, the route allowlist that
 // decides which REST routes an API key can reach at all, and invariants such
 // as keeping at least one open owner account.
 //
-// No route, screen or tool asks Can yet; the interface and the default rules
-// are in place so that they can move onto it without changing any answer.
+// Routes, screens and tools ask Can; the default rules answer as core always
+// did for owners and editors.
 package authz
