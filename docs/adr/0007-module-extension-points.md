@@ -59,7 +59,7 @@ hook. Each public package is a thin wrapper (types are aliases of the
 | `module/cli` | `Register(Command{Name, Usage, Run})`: a new `hatamoto <name>` command with a database pool, logger, data directory and output streams; `Exit(code, err)` picks the exit code. Core command names always win. | Unknown commands print usage and exit 2 |
 | `module/migrate` | `Register(module, fsys)`: embedded goose SQL migrations. They run after core in `serve` and in `hatamoto migrate`, on the same advisory lock, and are recorded in `module_<name>_goose_db_version`, never in `goose_db_version`. `migrate status` lists them. `Err(module)` reports the last run. | No module tables |
 | `module/secret` | `Seal`/`Open(module, purpose, aad, ...)`: authenticated encryption with a key derived under the fixed domain `module/<module>/<purpose>`. The server secret is installed by core and not handed out by this API; core keys cannot be derived through it. | `ErrNoSecret` |
-| `module/service` | `Register(module, run)`: a background function started by `serve` (never by a CLI command), with its context cancelled at shutdown. Panics are recovered and logged; there is no restart loop. | None started |
+| `module/service` | `Register(module, run)`: a background function started by `serve` (never by a CLI command) after migrations and before the listener accepts connections, in every serve process. A module name registers at most one service; a duplicate panics. Its context is cancelled at shutdown. Panics are recovered and logged; there is no restart loop. | None started |
 
 A failed module migration is logged at error level and recorded. `serve`
 continues (an optional module must not take the site down) and the services of
