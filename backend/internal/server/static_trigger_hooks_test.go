@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/statictrigger"
 )
 
@@ -63,6 +64,10 @@ func TestStaticTriggerHooks(t *testing.T) {
 		{"invalidateRendered", func(s *Server) { s.invalidateRendered(ctx) }, false, "change"},
 		{"invalidateEntityRendered", func(s *Server) { s.invalidateEntityRendered(ctx, uuid.New()) }, false, "entity"},
 		{"dropRenderedEntity", func(s *Server) { s.dropRenderedEntity(ctx, uuid.New()) }, false, "comment"},
+		{"commentAnonymised", func(s *Server) {
+			c := comment.Comment{ID: uuid.New(), EntityID: uuid.New(), Status: comment.StatusApproved}
+			commentCacheObserver{drop: s.dropRenderedEntity, all: func(context.Context) {}}.OnUpdated(ctx, c, c)
+		}, false, "comment"},
 		{"redirects", func(s *Server) { s.notifyRedirectsChanged() }, false, "redirects"},
 		{"media", func(s *Server) { s.onMediaChange(ctx) }, false, "change"},
 		{"site settings", func(s *Server) { s.invalidateSiteSettings(ctx) }, true, "change,settings"},
