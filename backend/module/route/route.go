@@ -14,7 +14,8 @@ const (
 
 // Mount hands every request under Prefix to Handler.
 type Mount struct {
-	// Module is the module name (lowercase letters, digits and dashes).
+	// Module is the module name: a lowercase letter, then lowercase letters,
+	// digits and underscores, 31 characters at most (no dashes).
 	Module string
 	// Prefix starts and ends with a slash, for example "/example/".
 	Prefix string
