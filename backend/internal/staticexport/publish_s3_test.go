@@ -197,3 +197,37 @@ func TestS3Target_UnchangedNotUploaded(t *testing.T) {
 		}
 	}
 }
+
+func TestS3Target_MediaHeaders(t *testing.T) {
+	tgt, srv := s3Fixture(t, "")
+	staged, next := stageFiles(t, map[string]string{
+		"index.html": "<p>hi</p>", "media/a.jpg": "jpg", "media/x.zip": "zip", "media/y.html": "<b>x</b>",
+	})
+	next.Files["media/a.jpg"] = Entry{SHA256: "s-a", Size: 3, Type: "image/jpeg"}
+	next.Files["media/x.zip"] = Entry{SHA256: "s-x", Size: 3, Type: "application/octet-stream"}
+	next.Files["media/y.html"] = Entry{SHA256: "s-y", Size: 8, Type: "text/html; charset=utf-8"}
+	d := Diff{Changed: []string{"index.html", "media/a.jpg", "media/x.zip", "media/y.html"}}
+	if err := tgt.Publish(context.Background(), staged, d, next); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string][2]string{
+		"/" + s3test.Bucket + "/index.html":   {"text/html; charset=utf-8", ""},
+		"/" + s3test.Bucket + "/media/a.jpg":  {"image/jpeg", ""},
+		"/" + s3test.Bucket + "/media/x.zip":  {"application/octet-stream", "attachment"},
+		"/" + s3test.Bucket + "/media/y.html": {"application/octet-stream", "attachment"},
+	}
+	seen := 0
+	for _, r := range srv.Requests() {
+		w, ok := want[r.Path]
+		if r.Method != http.MethodPut || !ok {
+			continue
+		}
+		seen++
+		if r.Header.Get("Content-Type") != w[0] || r.Header.Get("Content-Disposition") != w[1] || r.Header.Get("Cache-Control") == "" {
+			t.Errorf("%s: headers %v, want type %q disposition %q", r.Path, r.Header, w[0], w[1])
+		}
+	}
+	if seen != len(want) {
+		t.Fatalf("saw %d of %d PUTs: %v", seen, len(want), srv.Requests())
+	}
+}

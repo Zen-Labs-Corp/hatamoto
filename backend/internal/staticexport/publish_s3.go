@@ -6,11 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 
+	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/s3"
 )
 
@@ -153,16 +156,31 @@ func (t *S3Target) put(ctx context.Context, staged, p string, e Entry) error {
 	if st.IsDir() {
 		return errors.New("staged path is a directory: " + p)
 	}
-	err = t.c.PutWithOptions(ctx, t.prefix+p, f, st.Size(), s3.PutOptions{
-		ContentType:  e.Type,
+	o := s3.PutOptions{
 		CacheControl: CacheControl(p),
 		Meta:         map[string]string{"sha256": e.SHA256},
-	})
+	}
+	o.ContentType, o.ContentDisposition = mediaObjectType(p, e.Type)
+	err = t.c.PutWithOptions(ctx, t.prefix+p, f, st.Size(), o)
 	if err != nil {
 		return fmt.Errorf("upload %s: %w", p, err)
 	}
 	t.puts.Add(1)
 	return nil
+}
+
+// mediaObjectType mirrors the live /media answer: a type outside the upload
+// allowlist is served as an attachment. CSP, nosniff and frame headers cannot be
+// object metadata; the docs send them to the CDN.
+func mediaObjectType(p, ct string) (string, string) {
+	if !strings.HasPrefix(p, "media/") {
+		return ct, ""
+	}
+	mt, _, err := mime.ParseMediaType(ct)
+	if _, ok := media.AllowedExtensionsForMIME(mt); err == nil && ok {
+		return ct, ""
+	}
+	return "application/octet-stream", "attachment"
 }
 
 // Discard removes the staging directory.
