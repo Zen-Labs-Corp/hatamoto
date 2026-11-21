@@ -319,6 +319,11 @@ func (h *hostingAdmin) LastRun(ctx context.Context) (admin.HostingRun, bool, err
 	return admin.HostingRun{}, false, nil
 }
 
+// Setup is filled in by hosting_setup.go.
+func (h *hostingAdmin) Setup(ctx context.Context) (admin.HostingSetup, error) {
+	return admin.HostingSetup{}, nil
+}
+
 func (h *hostingAdmin) Islands() ([]admin.HostingIsland, []string) {
 	var live []admin.HostingIsland
 	var stays []string

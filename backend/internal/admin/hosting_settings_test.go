@@ -37,6 +37,7 @@ type fakeHosting struct {
 	runs      []HostingRun
 	live      []HostingIsland
 	stays     []string
+	setup     HostingSetup
 }
 
 func (f *fakeHosting) View(context.Context) (HostingView, error) { return f.view, f.viewErr }
@@ -88,7 +89,8 @@ func (f *fakeHosting) LastRun(context.Context) (HostingRun, bool, error) {
 	}
 	return HostingRun{}, false, nil
 }
-func (f *fakeHosting) Islands() ([]HostingIsland, []string) { return f.live, f.stays }
+func (f *fakeHosting) Setup(context.Context) (HostingSetup, error) { return f.setup, nil }
+func (f *fakeHosting) Islands() ([]HostingIsland, []string)        { return f.live, f.stays }
 
 func servedHosting() *fakeHosting {
 	return &fakeHosting{

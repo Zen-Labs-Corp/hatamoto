@@ -16,7 +16,10 @@ func (stubHosting) View(context.Context) (admin.HostingView, error) {
 }
 func (stubHosting) Runs(context.Context, int) ([]admin.HostingRun, error)     { return nil, nil }
 func (stubHosting) LiveRuns(context.Context, int) ([]admin.HostingRun, error) { return nil, nil }
-func (stubHosting) Islands() ([]admin.HostingIsland, []string)                { return nil, nil }
+func (stubHosting) Setup(context.Context) (admin.HostingSetup, error) {
+	return admin.HostingSetup{}, nil
+}
+func (stubHosting) Islands() ([]admin.HostingIsland, []string) { return nil, nil }
 
 // setupStaticExport runs inside New, before the admin is mounted. The service
 // it leaves on the server must reach the admin through the mount, or the

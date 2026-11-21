@@ -25,6 +25,18 @@ const (
 	// HostingTriggerTest marks a Test export run: it writes the saved target but
 	// is never the live export (no banner, no mail, not the Last export line).
 	HostingTriggerTest = "test"
+
+	// Live islands choice: static files and islands on the site address, or
+	// islands on a separate live origin.
+	HostingLiveSame     = "same"
+	HostingLiveSeparate = "separate"
+
+	// Setup checklist states (folder and reachability).
+	HostingCheckOK          = "ok"
+	HostingCheckNotWritable = "not-writable"
+	HostingCheckMissing     = "missing"
+	HostingCheckFailed      = "failed"
+	HostingCheckUnknown     = "unknown" // not checked
 )
 
 var (
@@ -77,6 +89,37 @@ func hostingTargetSaved(v HostingView) bool {
 // it blank, which keeps the saved key.
 type HostingInput struct {
 	Mode, Target, Dir, Service, Endpoint, Bucket, Prefix, Region, AccessKey, SecretKey, LiveOrigin string
+	// LiveMode is HostingLiveSame or HostingLiveSeparate; "" derives from LiveOrigin.
+	LiveMode string
+}
+
+// HostingSetup is what the "Set up your web server" card shows, from the
+// SAVED settings. It holds plain strings: the admin does not import the
+// generator.
+type HostingSetup struct {
+	Saved    bool   // a target is saved
+	Target   string // HostingTargetDir or HostingTargetS3
+	SameHost bool   // no live origin saved
+	Site     string
+	Upstream string // host:port the generated config proxies to
+
+	Caddy, Nginx string   // "" when not generated (S3 target or unsafe value)
+	GenError     string   // safe text when generation was refused
+	Skipped      []string // redirect rules left out of the config
+
+	Folder string // HostingCheckOK, NotWritable, Missing or Unknown
+
+	// Redirect rules of the last export: exact ones become meta-refresh pages
+	// and wildcard ones are lost on a plain web server. RedirectsSplit is false
+	// when only the total is known (S3 target).
+	Exact, Wildcard int
+	RedirectsSplit  bool
+	RedirectsTotal  int
+
+	Reach   string // HostingCheckOK, HostingCheckFailed or HostingCheckUnknown
+	ReachAt time.Time
+
+	HeaderNames []string // security headers the static host must send
 }
 
 // HostingRun is one row of the export log.
@@ -121,6 +164,9 @@ type HostingService interface {
 	LiveRuns(ctx context.Context, limit int) ([]HostingRun, error)
 	// LastRun is the newest FINISHED run (ok or failed); a running row is skipped.
 	LastRun(ctx context.Context) (HostingRun, bool, error)
+	// Setup describes the web-server setup for the saved settings. A missing
+	// export is not an error.
+	Setup(ctx context.Context) (HostingSetup, error)
 	// Islands: live = islands answered by the live origin, stays = names of
 	// the ones that stay on Hatamoto.
 	Islands() (live []HostingIsland, stays []string)
