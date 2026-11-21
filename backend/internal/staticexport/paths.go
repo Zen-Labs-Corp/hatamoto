@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -98,9 +99,47 @@ func isAssetPath(p string) bool {
 	return false
 }
 
+// maxListingPage is the highest page number a listing serves.
+const maxListingPage = 10000
+
+// ListingPage reports N when rawQuery is exactly page=N: one key, one value,
+// ASCII digits without a leading zero, 1..maxListingPage.
+func ListingPage(rawQuery string) (int, bool) {
+	v, ok := strings.CutPrefix(rawQuery, "page=")
+	if !ok || v == "" || v[0] == '0' || len(v) > 5 {
+		return 0, false
+	}
+	for _, c := range v {
+		if c < '0' || c > '9' {
+			return 0, false
+		}
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n > maxListingPage {
+		return 0, false
+	}
+	return n, true
+}
+
+// ListingFilePath is the export file of page n (n>=2) of the listing at
+// urlPath: <listing>/page/<n>/index.html.
+func ListingFilePath(urlPath string, n int) (string, error) {
+	return FilePath(strings.TrimSuffix(urlPath, "/")+"/page/"+strconv.Itoa(n), true)
+}
+
+// listingHref is the static address of page n of the listing at escapedPath:
+// the path plus "/page/<n>/". Page 1 is the listing itself.
+func listingHref(escapedPath string, n int) string {
+	if n <= 1 {
+		return escapedPath
+	}
+	return strings.TrimSuffix(escapedPath, "/") + "/page/" + strconv.Itoa(n) + "/"
+}
+
 // QueryKind says whether a URL with this raw query is skipped, and why. A
 // file path cannot carry a query, so every query URL is skipped; the reason
-// names the known cases. Asset URLs are exported by path before this is asked.
+// names the known cases. Asset URLs are exported by path and listing pages
+// (see ListingPage) are handled before this is asked.
 func QueryKind(rawQuery string) (skip bool, reason string) {
 	if rawQuery == "" {
 		return false, ""
