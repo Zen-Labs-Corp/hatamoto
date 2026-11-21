@@ -49,6 +49,14 @@ func TestPurgeConfigBadURL(t *testing.T) {
 	}
 }
 
+func TestPurgeConfigOffIgnoresToken(t *testing.T) {
+	setPurgeEnv(t, "off", "t0k", "")
+	p := loadPurgeConfig()
+	if err := p.Validate(); err != nil || p.URL != "" || p.Token != "" {
+		t.Errorf("got %+v, err %v", p, err)
+	}
+}
+
 func TestPurgeConfigTokenWithoutURL(t *testing.T) {
 	setPurgeEnv(t, "", "t0k", "")
 	err := loadPurgeConfig().Validate()
