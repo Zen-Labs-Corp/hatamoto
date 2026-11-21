@@ -87,7 +87,7 @@ func (s *Server) setupPackages() {
 		opts.Engine = s.renderEngine
 		opts.NewPreview = func(layers []fs.FS, settings map[string]any) (*render.Engine, error) {
 			return render.New(render.Options{
-				Layers: layers, Settings: settings,
+				Layers: layers, Settings: settings, Preview: true, // a preview never rewrites the admin's refused-template list
 				HeadFilter: pluginhost.HeadFilter(s.hooks), SiteGraphFilter: pluginhost.SiteGraphFilter(s.hooks), ExtSources: pluginhost.ExtSources(s.hooks), Data: s.renderData, Refs: s.renderData, Logger: s.logger,
 			})
 		}
