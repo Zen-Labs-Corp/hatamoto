@@ -869,6 +869,8 @@ The request is JSON on the `http_handle` input and the response JSON on its outp
   "body": "{...}", "body_b64": "",
   "user": { "id": "uuid", "role": "owner" } }
 ```
+
+`user.role` can be any of the six built-in role ids: `owner`, `editor`, `author`, `contributor`, `reviewer` or `read-only`. A plugin must not assume it is one of the first two. `ui.roles` and a route's `roles` still accept only `owner` and `editor` (and `viewer` for routes), so people with the other roles never reach plugin pages.
 ```json
 { "status": 200, "headers": { "Content-Type": "application/json" }, "body": "{...}", "body_b64": "" }
 ```

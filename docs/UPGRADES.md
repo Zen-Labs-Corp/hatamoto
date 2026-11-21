@@ -121,6 +121,10 @@ the n-1 check passes. It also removes the direct content write functions of the 
 binary still serves to plugins that rely on them. That is the recorded minimum: no release after it
 takes a floor below 1.1.0.
 
+The release that adds the built-in roles is a second recorded minimum. An older binary does not know the
+new roles and lets a signed-in user of a new role through its ungated routes, so no release after it takes
+a floor below it.
+
 ### Squashing migrations
 
 The migration chain is folded into a new baseline only at a major release, never in a patch or
