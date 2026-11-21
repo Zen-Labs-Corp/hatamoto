@@ -17,6 +17,16 @@
 - **Docs.** [Single sign-on](SSO.md).
 - **Migration.** One new table, `hatamoto_signin_oidc`, added by `hatamoto migrate`; the previous release never reads it. Rollback floor: unchanged, but a person created by single sign-on has no password; see [ADR 0010](adr/0010-sign-in-providers.md) before rolling back.
 
+## Unreleased: the audit log records sign-ins, user, key and settings changes and every content write
+
+- **Admin.** The audit log also lists sign-ins, failed sign-ins (the typed address only as a keyed hash), sign-outs, user, invite and API key changes, settings saves (changed field names, never values), webhook, content type, template and link rule changes, and term, menu, redirect and media changes. Autosaves, forms, people and connection tests are not recorded.
+- **API.** Entity writes with an API key or a session are recorded with the key or the user as actor, in the same transaction as the change. Term, menu, redirect and media writes are recorded too.
+- **MCP.** Write tools add the same rows (kind `api_key`, the key id). `hatamoto_mcp_audit` is unchanged.
+- **CLI.** `entity create|publish|unpublish`, `redirect create|delete`, `user create`, `user reset-password` and applied `media sweep` / `media adopt` are recorded as `cli` or the `--as` user.
+- **Scheduler.** A scheduled publish is recorded as `entity.publish_scheduled` by "system (scheduler)", in the same transaction as the promotion.
+- **Changed.** Admin entity saves are now recorded in the same transaction (rows keep their shape). A registered audit sink can refuse a row, which fails the write.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: module extension points (commands, migrations, secrets, services)
 
 - **Wrapper modules.** New public Go packages let a module that calls `app.Main` register, from an `init` function: a CLI command (`module/cli`), its own database migrations (`module/migrate`), sealed secrets under its own key domain (`module/secret`) and a background service that runs in `serve` (`module/service`). A standard build registers nothing and behaves as before: same help text, same `migrate status`, same schema.

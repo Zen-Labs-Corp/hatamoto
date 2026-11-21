@@ -282,3 +282,5 @@ Save the final tweak and publish in one call:
 ## Audit log
 
 Every call (allowed or refused) writes a row to `hatamoto_mcp_audit`: time, key id and name, tool, success, error and the arguments (long strings shortened, capped at 4 KB). Rows older than 90 days are pruned by the worker.
+
+Write tools also write the shared audit log shown in Admin (`hatamoto_admin_audit`): one row per change, actor `api-key:<name>` with kind `api_key` and the key id, `via` set to `mcp`. Entity writes are recorded in the same transaction as the change. `hatamoto_mcp_audit` is unchanged and still records every call.
