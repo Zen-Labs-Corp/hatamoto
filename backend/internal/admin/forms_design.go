@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/jsonx"
@@ -93,7 +94,7 @@ func (a *Admin) handleFormDesign(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	boot, icons, err := a.formBoot(r.Context(), f, formModeBuild, userFrom(r.Context()).Role == "owner")
+	boot, icons, err := a.formBoot(r.Context(), f, formModeBuild, a.can(r.Context(), authz.ActionFormSettingsManage))
 	if err != nil {
 		a.logger().Error("form designer boot failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The form could not be loaded.")

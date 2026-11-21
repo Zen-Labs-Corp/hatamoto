@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/httpx"
@@ -58,7 +59,7 @@ func (a *Admin) handleFormTab(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Admin) renderFormSettings(w http.ResponseWriter, r *http.Request, f *form.Form) {
-	owner := userFrom(r.Context()).Role == "owner"
+	owner := a.can(r.Context(), authz.ActionFormSettingsManage)
 	boot, _, err := a.formBoot(r.Context(), f, formModeSettings, owner)
 	if err != nil {
 		a.logger().Error("form settings boot failed", "err", err)
@@ -243,7 +244,7 @@ func (a *Admin) renderSubmissionsTab(w http.ResponseWriter, r *http.Request, f *
 				drawer.NextURL = a.tabURL(f.ID, q, status, page, ids[i+1])
 			}
 		}
-		if userFrom(ctx).Role == "owner" {
+		if a.can(ctx, authz.ActionFormSettingsManage) {
 			drawer.ShowWebhooks = true
 			var names []string
 			for _, h := range a.formWebhooks(ctx) {
