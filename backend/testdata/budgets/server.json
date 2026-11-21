@@ -11,13 +11,25 @@
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
+    },
+    "render_queries_404": {
+      "value": 9,
+      "unit": "queries"
+    },
+    "render_queries_archive": {
+      "value": 14,
+      "unit": "queries"
+    },
+    "render_queries_entity": {
+      "value": 14,
+      "unit": "queries"
+    },
+    "render_queries_home": {
+      "value": 13,
+      "unit": "queries"
     }
   },
   "history": [
-    {
-      "reason": "admin-editors: phone builder bar, panes, entity form save state; editor_js cap 128->132 KiB (declared in PR body)",
-      "date": "2026-10-23"
-    },
     {
       "reason": "admin-shell-auth: notices strip, segmented, radiocard, shell logic, auth pages",
       "date": "2026-10-23"
@@ -93,6 +105,10 @@
     {
       "reason": "form file upload field adds widget CSS/JS and designer palette entry",
       "date": "2026-11-07"
+    },
+    {
+      "reason": "add render query-count budgets",
+      "date": "2026-11-21"
     }
   ]
 }
