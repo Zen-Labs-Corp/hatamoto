@@ -235,6 +235,18 @@ func dummyHash() string {
 	return dummyHsh
 }
 
+// verifyStored is VerifyPasswordContext for a stored hash that may be empty
+// (a user created without a password): it spends the same time and says no.
+func verifyStored(ctx context.Context, password, stored string) (bool, error) {
+	if stored == "" {
+		if _, err := VerifyPasswordContext(ctx, password, dummyHash()); err != nil {
+			return false, err
+		}
+		return false, nil
+	}
+	return VerifyPasswordContext(ctx, password, stored)
+}
+
 // authenticate checks email and password with the lockout policy: a locked
 // account is rejected before spending a password verification, a failure is
 // recorded (locking at the threshold), a success clears the failure state.
@@ -278,7 +290,7 @@ func (s *Service) authenticate(ctx context.Context, email, password string, mode
 	}
 
 	// Verify password
-	valid, err := VerifyPasswordContext(ctx, password, u.PasswordHash)
+	valid, err := verifyStored(ctx, password, u.PasswordHash)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to verify password: %w", err)
 	}

@@ -358,7 +358,7 @@ func (t *UserTokens) ChangePassword(ctx context.Context, userID uuid.UUID, curre
 	if err != nil {
 		return err
 	}
-	ok, err := VerifyPasswordContext(ctx, current, old)
+	ok, err := verifyStored(ctx, current, old)
 	if cerr := ctx.Err(); cerr != nil {
 		return cerr
 	}
@@ -393,7 +393,7 @@ func (t *UserTokens) passwordHash(ctx context.Context, userID uuid.UUID) (string
 	defer conn.Release()
 	var hash string
 	var lockedUntil *time.Time
-	if err := conn.QueryRow(ctx, `SELECT password_hash, locked_until FROM hatamoto_users WHERE id = $1`, userID).Scan(&hash, &lockedUntil); err != nil {
+	if err := conn.QueryRow(ctx, `SELECT COALESCE(password_hash, ''), locked_until FROM hatamoto_users WHERE id = $1`, userID).Scan(&hash, &lockedUntil); err != nil {
 		return "", ErrInvalidCredentials
 	}
 	if lockedUntil != nil && lockedUntil.After(t.now()) {
@@ -411,7 +411,7 @@ var errPasswordChanged = errors.New("password changed concurrently")
 func (t *UserTokens) setPassword(ctx context.Context, userID uuid.UUID, old, hash string, keepSession *uuid.UUID) error {
 	return t.tx(ctx, func(tx pgx.Tx) error {
 		var cur string
-		if err := tx.QueryRow(ctx, `SELECT password_hash FROM hatamoto_users WHERE id = $1 FOR UPDATE`, userID).Scan(&cur); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT COALESCE(password_hash, '') FROM hatamoto_users WHERE id = $1 FOR UPDATE`, userID).Scan(&cur); err != nil {
 			return ErrInvalidCredentials
 		}
 		if cur != old {
