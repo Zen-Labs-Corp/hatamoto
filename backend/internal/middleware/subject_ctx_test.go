@@ -43,8 +43,18 @@ func TestAttachSubjectKey(t *testing.T) {
 	}
 }
 
-func TestAttachSubjectNoClaims(t *testing.T) {
-	if s, ok := subjectSeenBy(context.Background()); ok {
-		t.Fatalf("subject = %+v, want none", s)
+func TestAttachSubjectRefusesWithoutSubject(t *testing.T) {
+	keyWithoutKey := context.WithValue(claimsCtx("editor"), authTypeContextKey, AuthTypeAPIKey)
+	for name, c := range map[string]struct {
+		ctx  context.Context
+		want int
+	}{"no claims": {context.Background(), http.StatusUnauthorized}, "key type without a key": {keyWithoutKey, http.StatusForbidden}} {
+		called := false
+		rec := httptest.NewRecorder()
+		AttachSubject(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true })).
+			ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil).WithContext(c.ctx))
+		if called || rec.Code != c.want {
+			t.Errorf("%s: called=%v status=%d, want refused with %d", name, called, rec.Code, c.want)
+		}
 	}
 }

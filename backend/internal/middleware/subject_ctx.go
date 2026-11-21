@@ -8,13 +8,14 @@ import (
 
 // AttachSubject puts the request's authz subject (API key first, then the
 // session) on the context, so the entity service can check the object it
-// loads. Requests without a subject pass unchanged.
+// loads. A request with no usable subject is refused, never passed on as a system caller.
 func AttachSubject(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		if s, status := requestSubject(ctx); status == 0 {
-			ctx = authzctx.With(ctx, s)
+		s, status := requestSubject(r.Context())
+		if status != 0 {
+			deny(w, status)
+			return
 		}
-		next.ServeHTTP(w, r.WithContext(ctx))
+		next.ServeHTTP(w, r.WithContext(authzctx.With(r.Context(), s)))
 	})
 }
