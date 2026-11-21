@@ -597,15 +597,27 @@ func (s *Server) menuNavFound(ctx context.Context, location string, links *navLi
 	return s.navOf(ctx, s.menusAt(ctx, location)[location], links)
 }
 
-// menusAt loads the menus at locations (with their items) in one round trip;
-// nil on error, so the page still renders without them.
+// menusAt loads the menus at locations (with their items) in one round trip.
+// If the batch fails each location is loaded on its own, so one bad lookup
+// cannot blank the others; a location that still fails is left out and the
+// page renders without it.
 func (s *Server) menusAt(ctx context.Context, locations ...string) map[string]*menu.Menu {
 	if s.menuService == nil {
 		return nil
 	}
 	ms, err := s.menuService.GetMenusWithItemsByLocations(ctx, locations)
-	if err != nil {
-		return nil
+	if err == nil {
+		return ms
+	}
+	ms = make(map[string]*menu.Menu, len(locations))
+	for _, loc := range locations {
+		m, err := s.menuService.GetMenuByLocation(ctx, loc)
+		if err != nil || m == nil {
+			continue
+		}
+		if full, err := s.menuService.GetMenuWithItems(ctx, m.ID); err == nil && full != nil {
+			ms[loc] = full
+		}
 	}
 	return ms
 }
