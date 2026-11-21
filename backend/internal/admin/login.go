@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"hatamoto.dev/core/internal/auth"
@@ -23,6 +24,27 @@ type loginData struct {
 	DemoLogin *demoLogin
 	// Passkeys shows the "Sign in with a passkey" button (passkey sign-in is on).
 	Passkeys bool
+	// Providers are the "Continue with ..." buttons of the registered sign-in providers.
+	Providers []providerButton
+}
+
+type providerButton struct{ Name, Href string }
+
+// providerButtons lists the registered sign-in providers as links to their
+// start route; none when no provider is registered.
+func (a *Admin) providerButtons(next string) []providerButton {
+	if a.deps.ProviderSignIn == nil {
+		return nil
+	}
+	var out []providerButton
+	for _, p := range a.deps.ProviderSignIn.Providers() {
+		href := a.url("login/provider/" + p.ID + "/start")
+		if next != "" {
+			href += "?next=" + url.QueryEscape(next)
+		}
+		out = append(out, providerButton{Name: p.Name, Href: href})
+	}
+	return out
 }
 
 type demoLogin struct{ Email, Password string }
@@ -45,6 +67,8 @@ func (a *Admin) mountLogin(public, authed *httpx.Group) {
 	public.HandleFunc("POST /login/2fa", a.handleTwoStep)
 	public.HandleFunc("POST /login/passkey/begin", a.handlePasskeyBegin)
 	public.HandleFunc("POST /login/passkey/finish", a.handlePasskeyFinish)
+	public.HandleFunc("GET /login/provider/{id}/start", a.handleProviderStart)
+	public.HandleFunc("GET /login/provider/{id}/callback", a.handleProviderCallback)
 	authed.HandleFunc("POST /logout", a.handleLogout)
 }
 
@@ -73,7 +97,7 @@ func (a *Admin) handleLoginForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, next, http.StatusSeeOther)
 		return
 	}
-	d := loginData{Next: next, DemoLogin: a.demoLoginData(), Passkeys: a.passkeysOn()}
+	d := loginData{Next: next, DemoLogin: a.demoLoginData(), Passkeys: a.passkeysOn(), Providers: a.providerButtons(next)}
 	if r.URL.Query().Get("expired") == "1" {
 		d.Status = &Flash{Kind: "info", Message: "Your session expired. Sign in again."}
 	}
@@ -120,7 +144,7 @@ func (a *Admin) loginFailed(w http.ResponseWriter, r *http.Request, err error, e
 		fallthrough
 	case errors.Is(err, auth.ErrInvalidCredentials), errors.Is(err, auth.ErrUserNotFound), errors.Is(err, auth.ErrUserDisabled), errors.Is(err, auth.ErrSecondFactorRequired):
 		v := a.NewView(w, r, "Sign in")
-		v.Data = loginData{Email: email, Next: next, DemoLogin: a.demoLoginData(), Passkeys: a.passkeysOn(), Status: &Flash{Kind: "error", Message: loginMessage}}
+		v.Data = loginData{Email: email, Next: next, DemoLogin: a.demoLoginData(), Passkeys: a.passkeysOn(), Providers: a.providerButtons(next), Status: &Flash{Kind: "error", Message: loginMessage}}
 		a.Render(w, r, http.StatusUnprocessableEntity, "auth/login", v)
 	case errors.Is(err, context.Canceled):
 		// The client left (or was dropped while queued for a hash): nothing to answer.

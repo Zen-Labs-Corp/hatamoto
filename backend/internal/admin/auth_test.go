@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authstate"
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/user"
 )
@@ -27,6 +28,9 @@ type fakeAuth struct {
 	issued []uuid.UUID
 	// needFactor makes IssueSession refuse, as it does for a user with a second factor.
 	needFactor bool
+	// vias records the method of every IssueVerifiedSession; verifiedErr, when set, makes it fail.
+	vias        []authstate.Via
+	verifiedErr error
 }
 
 func (f *fakeAuth) LoginSession(_ context.Context, email, password, _, _ string) (*user.User, string, error) {

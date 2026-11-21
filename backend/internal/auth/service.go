@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/authstate"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/session"
 	"hatamoto.dev/core/internal/twofactor"
@@ -235,6 +236,18 @@ func dummyHash() string {
 	return dummyHsh
 }
 
+// verifyStored is VerifyPasswordContext for a stored hash that may be empty
+// (a user created without a password): it spends the same time and says no.
+func verifyStored(ctx context.Context, password, stored string) (bool, error) {
+	if stored == "" {
+		if _, err := VerifyPasswordContext(ctx, password, dummyHash()); err != nil {
+			return false, err
+		}
+		return false, nil
+	}
+	return VerifyPasswordContext(ctx, password, stored)
+}
+
 // authenticate checks email and password with the lockout policy: a locked
 // account is rejected before spending a password verification, a failure is
 // recorded (locking at the threshold), a success clears the failure state.
@@ -242,7 +255,7 @@ func dummyHash() string {
 // password alone does not clear the failure state, the second step does.
 // With failMemory, failures are counted in process memory instead of the
 // persisted lockout, which is then only read.
-func (s *Service) authenticate(ctx context.Context, email, password string, mode failureMode) (u *user.User, hasFactor bool, err error) {
+func (s *Service) authenticate(ctx context.Context, email, password string, mode failureMode, signIn bool) (u *user.User, hasFactor bool, err error) {
 	// Use superadmin context for login since we don't know the tenant yet
 	superCtx := database.WithSuperadmin(ctx)
 
@@ -278,14 +291,17 @@ func (s *Service) authenticate(ctx context.Context, email, password string, mode
 	}
 
 	// Verify password
-	valid, err := VerifyPasswordContext(ctx, password, u.PasswordHash)
+	valid, err := verifyStored(ctx, password, u.PasswordHash)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to verify password: %w", err)
 	}
 	if !valid {
 		// Record the failure (increments counter, locks at the threshold).
 		// Best-effort: a bookkeeping error must not change the auth outcome.
-		if s.neverLocked(u.Email) {
+		// A user with no password has nothing to guess: counting would only
+		// let anyone lock them out of provider sign-in.
+		// The same holds for a user the policy refuses password sign-in for.
+		if s.neverLocked(u.Email) || u.PasswordHash == "" || (signIn && s.allow(ctx, u, viaPassword) != nil) {
 			return nil, false, ErrInvalidCredentials
 		}
 		if mode == failMemory {
@@ -302,6 +318,14 @@ func (s *Service) authenticate(ctx context.Context, email, password string, mode
 	// was verified so the timing matches. It does not count against the lockout.
 	if u.AccessEnded(time.Now()) {
 		return nil, false, ErrInvalidCredentials
+	}
+
+	// A policy refusal is neutral and is no failed login. It comes before any
+	// counter is touched, so a refused correct password resets nothing.
+	if signIn {
+		if err := s.allow(ctx, u, viaPassword); err != nil {
+			return nil, false, err
+		}
 	}
 
 	s.maybeRehash(ctx, superCtx, u, password)
@@ -373,7 +397,7 @@ func (s *Service) maybeRehash(ctx, superCtx context.Context, u *user.User, passw
 // asks the user for a second factor when one exists and then calls
 // IssueVerifiedSession.
 func (s *Service) CheckPassword(ctx context.Context, email, password string) (*user.User, error) {
-	u, _, err := s.authenticate(ctx, email, password, failDB)
+	u, _, err := s.authenticate(ctx, email, password, failDB, true)
 	if err != nil {
 		return nil, err
 	}
@@ -384,7 +408,7 @@ func (s *Service) CheckPassword(ctx context.Context, email, password string) (*u
 // LoginSession authenticates and issues a server-side session. It returns the
 // user and the opaque session token to set as the cookie.
 func (s *Service) LoginSession(ctx context.Context, email, password, userAgent, ip string) (*user.User, string, error) {
-	u, hasFactor, err := s.authenticate(ctx, email, password, failDB)
+	u, hasFactor, err := s.authenticate(ctx, email, password, failDB, true)
 	if err != nil {
 		return nil, "", err
 	}
@@ -410,7 +434,7 @@ func (s *Service) LoginSession(ctx context.Context, email, password, userAgent, 
 // site policy requires to have a factor, and who has none, gets
 // ErrFactorSetupRequired instead of a session.
 func (s *Service) LoginAPISession(ctx context.Context, email, password, code, userAgent, ip string) (*user.User, string, error) {
-	u, hasFactor, err := s.authenticate(ctx, email, password, failMemory)
+	u, hasFactor, err := s.authenticate(ctx, email, password, failMemory, true)
 	if err != nil {
 		return nil, "", err
 	}
@@ -438,7 +462,7 @@ func (s *Service) LoginAPISession(ctx context.Context, email, password, code, us
 	if s.sessions == nil {
 		return nil, "", errors.New("sessions are not configured")
 	}
-	if err := s.requireActive(ctx, u.ID); err != nil {
+	if err := s.admit(ctx, u.ID, viaPassword); err != nil {
 		return nil, "", err
 	}
 	token, _, err := s.sessions.IssueAPI(database.WithSuperadmin(ctx), u.ID, adminSessionTTL, userAgent, ip)
@@ -465,17 +489,19 @@ func (s *Service) IssueSession(ctx context.Context, userID uuid.UUID, userAgent,
 	if hasFactor {
 		return "", ErrSecondFactorRequired
 	}
-	return s.issueAdmin(ctx, userID, userAgent, ip)
+	return s.issueAdmin(ctx, userID, viaPassword, userAgent, ip)
 }
 
 // IssueVerifiedSession starts an admin session for a user who has just passed
-// every step sign-in requires of them (password plus second factor, or a
-// passkey). It is the only way past the second-factor gate, and only the
-// second-factor completion handlers call it. It skips the checks of
-// authenticate (the passkey sign-in has no password step), so any account-state
-// rule added to authenticate must be added here too.
-func (s *Service) IssueVerifiedSession(ctx context.Context, userID uuid.UUID, userAgent, ip string) (string, error) {
-	token, err := s.issueAdmin(ctx, userID, userAgent, ip)
+// every step sign-in requires of them (password plus second factor, a passkey,
+// or a sign-in provider). It is the only way past the second-factor gate, and
+// only the sign-in completion handlers call it. It skips the checks of
+// authenticate (passkey and provider sign-in have no password step), so any
+// account-state rule added to authenticate must be added here too (admit).
+// via names the method: access end and the registered sign-in policy apply to
+// every method, the persisted lockout also to a provider sign-in.
+func (s *Service) IssueVerifiedSession(ctx context.Context, userID uuid.UUID, via authstate.Via, userAgent, ip string) (string, error) {
+	token, err := s.issueAdmin(ctx, userID, via, userAgent, ip)
 	if err != nil {
 		return "", err
 	}
@@ -488,24 +514,62 @@ func (s *Service) IssueVerifiedSession(ctx context.Context, userID uuid.UUID, us
 	return token, nil
 }
 
-func (s *Service) issueAdmin(ctx context.Context, userID uuid.UUID, userAgent, ip string) (string, error) {
+func (s *Service) issueAdmin(ctx context.Context, userID uuid.UUID, via authstate.Via, userAgent, ip string) (string, error) {
 	if s.sessions == nil {
 		return "", errors.New("sessions are not configured")
 	}
-	if err := s.requireActive(ctx, userID); err != nil {
+	if err := s.admit(ctx, userID, via); err != nil {
 		return "", err
 	}
 	token, _, err := s.sessions.IssueAdmin(database.WithSuperadmin(ctx), userID, adminSessionTTL, userAgent, ip)
 	return token, err
 }
 
-// requireActive refuses to issue a session to a user whose access has ended or
-// who no longer exists, with the same error as a wrong password. Every session
-// issuance funnels through it, including the paths that skip authenticate
-// (reset, invite acceptance, passkey, second-factor completion).
-func (s *Service) requireActive(ctx context.Context, id uuid.UUID) error {
+// Admit reports whether a session could be issued to the user now through via,
+// without issuing one: the same refusals as IssueVerifiedSession (ended access,
+// lock, policy). A caller asks it before it shows a second-step prompt.
+func (s *Service) Admit(ctx context.Context, userID uuid.UUID, via authstate.Via) error {
+	return s.admit(ctx, userID, via)
+}
+
+var viaPassword = authstate.Via{Method: authstate.MethodPassword}
+
+// admit refuses to issue a session to a user whose access has ended, who no
+// longer exists, who signs in through a provider while locked, or whom the
+// registered sign-in policy refuses, with the same error as a wrong password
+// (a lock answers ErrAccountLocked). Every session issuance funnels through
+// it, including the paths that skip authenticate (reset, invite acceptance,
+// passkey, provider, second-factor completion). Password and passkey keep
+// their own lockout handling.
+func (s *Service) admit(ctx context.Context, id uuid.UUID, via authstate.Via) error {
 	u, err := s.userRepo.GetByID(database.WithSuperadmin(ctx), id)
 	if err != nil || u.AccessEnded(time.Now()) {
+		return ErrInvalidCredentials
+	}
+	if via.Method == authstate.MethodProvider && u.LockedUntil != nil && u.LockedUntil.After(time.Now()) && !s.neverLocked(u.Email) {
+		return ErrAccountLocked
+	}
+	return s.allow(ctx, u, via)
+}
+
+// allow asks the registered sign-in policy (none = allow). A refusal or an
+// error is the neutral ErrInvalidCredentials and does not count as a failed
+// login.
+func (s *Service) allow(ctx context.Context, u *user.User, via authstate.Via) error {
+	name := ""
+	if u.Name != nil {
+		name = *u.Name
+	}
+	err := authstate.Allow(ctx, authstate.SignInAttempt{
+		User: authstate.User{
+			ID: u.ID.String(), Email: u.Email, Name: name, Role: string(u.Role),
+			AccessEndsAt: u.AccessEndsAt, HasPassword: u.PasswordHash != "",
+		},
+		Method:     via.Method,
+		ProviderID: via.Provider,
+	})
+	if err != nil {
+		slog.InfoContext(ctx, "sign-in refused by policy", "method", via.String(), "err", err)
 		return ErrInvalidCredentials
 	}
 	return nil

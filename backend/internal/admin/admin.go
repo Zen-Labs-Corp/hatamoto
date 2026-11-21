@@ -23,6 +23,7 @@ import (
 	"hatamoto.dev/core/internal/admin/starter"
 	"hatamoto.dev/core/internal/adminpagestate"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authstate"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/httpx"
@@ -81,13 +82,23 @@ type Authenticator interface {
 	IssueSession(ctx context.Context, userID uuid.UUID, userAgent, ip string) (string, error)
 }
 
+// ProviderSignIn is sign-in through the registered providers (authbridge).
+type ProviderSignIn interface {
+	Providers() []authstate.ProviderInfo
+	Start(ctx context.Context, id, callbackURL, state string) (redirectURL, data string, err error)
+	Finish(ctx context.Context, id string, req authstate.FinishRequest) (uid uuid.UUID, mfa bool, err error)
+}
+
 // PasswordStep is the two-step half of auth.Service: CheckPassword verifies
 // the password without issuing a session; IssueVerifiedSession is the only way
 // to a session for a user who has a second factor, and is called only after
 // that factor was verified (or none exists).
 type PasswordStep interface {
 	CheckPassword(ctx context.Context, email, password string) (*user.User, error)
-	IssueVerifiedSession(ctx context.Context, userID uuid.UUID, userAgent, ip string) (string, error)
+	IssueVerifiedSession(ctx context.Context, userID uuid.UUID, via authstate.Via, userAgent, ip string) (string, error)
+	// Admit is IssueVerifiedSession's refusals without the session: a provider
+	// sign-in asks it before it shows the second step.
+	Admit(ctx context.Context, userID uuid.UUID, via authstate.Via) error
 }
 
 // TwoFactorService is the second-factor domain (twofactor.Service) as the
@@ -215,9 +226,13 @@ type Deps struct {
 	Passkeys PasskeyService
 	// PendingKey signs the pending sign-in cookie (twofactor.PendingKeyFor).
 	PendingKey twofactor.PendingKey
-	Tokens     TokenService
-	Finder     UserFinder
-	Mailer     Mailer
+	// ProviderSignIn runs sign-in through registered providers; nil when none is registered.
+	ProviderSignIn ProviderSignIn
+	// ProviderKey seals the provider sign-in state cookie.
+	ProviderKey []byte
+	Tokens      TokenService
+	Finder      UserFinder
+	Mailer      Mailer
 	// BaseURL returns the site address the owner or operator configured
 	// (PUBLIC_BASE_URL, else the Site address setting); "" when none is set.
 	// Emailed links use only this, never the request's headers.
@@ -463,6 +478,9 @@ type Admin struct {
 	// spentPending holds the ids of pending sign-ins that already finished,
 	// so a copied cookie is no use after the real one signed in.
 	spentPending spentIDs
+	// spentProvider holds the ids of provider sign-in states already used,
+	// until they expire.
+	spentProvider spentIDs
 	// convertReviews holds the plans whose dry run passed until the owner
 	// opens the confirm page (see settings_locale_convert.go).
 	convertReviews convertReviewStore

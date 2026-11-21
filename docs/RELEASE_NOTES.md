@@ -35,6 +35,13 @@
 - **Audit log.** `hatamoto_admin_audit` gains the actor kind, an API key id (not filled yet), the request address, user agent and request id, and a result. Existing rows keep an empty actor kind. A changeset publish is now one row, not up to three, and its actor is the user's email.
 - **Migration.** Six new columns with defaults and three indexes on `hatamoto_admin_audit`. Expand only; the index builds briefly block writes to the table. Rollback floor: unchanged, an older release still writes the table.
 
+## Unreleased: sign-in providers
+
+- **Sign-in providers.** A new public Go package, `hatamoto.dev/core/auth`, lets a wrapper module that calls `app.Main` register sign-in providers and one sign-in policy from an `init` function, and gives it a provisioning API for users and linked identities. Provider sign-in ends in the same session code as a password sign-in, so the access end date, the lockout, the sign-in policy and the second step apply. A registered policy that errors refuses the sign-in. See [ADR 0010](adr/0010-sign-in-providers.md).
+- **Login page.** Each registered provider shows as a "Continue with <name>" button; the routes are `<admin>/login/provider/<id>/start` and `/callback`. A standard build registers nothing and nothing changes.
+- **Users without a password.** The user store accepts a user with no password. Such a user signs in through a provider, a passkey or a password-set link.
+- **Migration.** One new table, `hatamoto_user_identities`. Expand only. Rollback floor: the schema is unchanged, but a user created without a password is stored with a NULL password hash that the previous release cannot read. Roll back only while no such user exists, or after each has a password (`hatamoto user reset-password`).
+
 ## Unreleased: more time zones in the site settings
 
 - **Time zone.** The list in the setup wizard and in Settings > General offered no zone for places whose clock follows its own rules, so their sites had to pick a neighbour that is an hour or more off for part of the year: Queensland and Darwin, Iran, Afghanistan, Nepal, Myanmar, Morocco, the Azores, Cape Verde, Venezuela and its neighbours on UTC-4, New Caledonia, Fiji and Tonga, and, since 1 November 2026 in the time zone data, British Columbia, Alberta and Manitoba. Each now has a zone of its own: `Australia/Brisbane`, `Australia/Darwin`, `Asia/Tehran`, `Asia/Kabul`, `Asia/Kathmandu`, `Asia/Yangon`, `Africa/Casablanca`, `Atlantic/Azores`, `Atlantic/Cape_Verde`, `America/Caracas`, `Pacific/Noumea`, `Pacific/Fiji`, `Pacific/Tongatapu`, `America/Vancouver`, `America/Edmonton` and `America/Winnipeg`.

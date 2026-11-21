@@ -123,10 +123,13 @@ type Crumb = ui.Crumb
 // implicitly: they take explicit dict arguments.
 type View struct {
 	// areas is the area set of the Admin that built the view; nil means the shared one.
-	areas    []*adminArea
-	Title    string
-	Crumbs   []Crumb
-	SiteName string
+	areas []*adminArea
+	Title string
+	// ContinueTo, when set, is a same-origin address the page opens by itself
+	// (a meta refresh, which the content security policy does not govern).
+	ContinueTo string
+	Crumbs     []Crumb
+	SiteName   string
 	// Brand is the admin branding (name, logo, accent, managed-by line); its
 	// Name is SiteName.
 	Brand brandView

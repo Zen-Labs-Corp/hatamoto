@@ -15,6 +15,7 @@
 {{if .Passkeys}}<div class="hm-bare__alt">
 {{template "hm/button" dict "Label" "Sign in with a passkey" "Variant" "secondary" "Type" "button" "Attrs" (attrmap "data-passkey" "1" "hidden" "hidden" "data-next" .Next)}}
 <p id="passkey-status" class="hm-muted" role="status" aria-live="polite"></p>
-</div>{{end}}
+</div>{{end}}{{if .Providers}}
+<div class="hm-bare__alt">{{range .Providers}}{{template "hm/button" dict "Label" (print "Continue with " .Name) "Variant" "secondary" "Href" .Href}}{{end}}</div>{{end}}
 <p class="hm-bare__links hm-bare__links--start"><a href="{{adminPath}}/forgot">Forgot your password?</a></p>
 {{end}}{{end}}

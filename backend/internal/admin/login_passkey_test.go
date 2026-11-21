@@ -7,9 +7,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authstate"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/twofactor"
 )
@@ -178,4 +181,38 @@ func (f *fakePasskeys) FinishRegistration(_ context.Context, id string, uid uuid
 		return uuid.Nil, twofactor.ErrPasskeyFailed
 	}
 	return uuid.New(), nil
+}
+
+// A session refused after a good assertion (access ended, a policy) is the
+// generic 401, not a server error.
+func TestPasskeyRefusedSessionIsGeneric401(t *testing.T) {
+	t.Parallel()
+
+	g, _ := newPasskeyRig(t)
+	for _, err := range []error{auth.ErrInvalidCredentials, auth.ErrAccountLocked} {
+		g.auth.verifiedErr = err
+		rec := g.passkeySignIn("", `{"id":"ok"}`)
+		if rec.Code != 401 || cookieNamed(rec, "hatamoto_session") != nil || !strings.Contains(rec.Body.String(), sudoMessage) {
+			t.Fatalf("%v: %d %s", err, rec.Code, rec.Body)
+		}
+	}
+}
+
+// The passkey that completes a pending provider sign-in is the second factor,
+// so the session is issued for the provider, not as a passkey sign-in.
+func TestPasskeySecondFactorKeepsThePendingVia(t *testing.T) {
+	t.Parallel()
+
+	g, _ := newPasskeyRig(t)
+	p, err := twofactor.NewPending(g.tf.uid, "", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Via = "provider:x"
+	if rec := g.passkeySignIn(g.a.deps.PendingKey.Seal(p), `{"id":"ok"}`); rec.Code != 200 {
+		t.Fatalf("finish: %d %s", rec.Code, rec.Body)
+	}
+	if want := (authstate.Via{Method: authstate.MethodProvider, Provider: "x"}); len(g.auth.vias) != 1 || g.auth.vias[0] != want {
+		t.Fatalf("vias = %+v", g.auth.vias)
+	}
 }

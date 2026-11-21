@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authstate"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/twofactor"
 )
@@ -22,11 +24,11 @@ type passkeyBeginReply struct {
 
 // passkeyMode reads the sign-in mode: with a valid pending cookie the passkey
 // is the second factor of that user, without one it is a discoverable sign-in.
-func (a *Admin) passkeyMode(r *http.Request) (uid *uuid.UUID, next string) {
+func (a *Admin) passkeyMode(r *http.Request) (uid *uuid.UUID, next string, via authstate.Via) {
 	if p, ok := a.readPending(r); ok {
-		return &p.UserID, p.Next
+		return &p.UserID, p.Next, authstate.ParseVia(p.Via)
 	}
-	return nil, a.nextParam(r)
+	return nil, a.nextParam(r), authstate.Via{Method: authstate.MethodPasskey}
 }
 
 func (a *Admin) passkeyReady(w http.ResponseWriter, r *http.Request) (PasswordStep, bool) {
@@ -44,7 +46,8 @@ func (a *Admin) passkeyError(w http.ResponseWriter, r *http.Request, err error) 
 	switch {
 	case errors.Is(err, twofactor.ErrNoRelyingParty):
 		a.writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "Set the site address first."})
-	case errors.Is(err, twofactor.ErrPasskeyFailed), errors.Is(err, twofactor.ErrNotFound):
+	case errors.Is(err, twofactor.ErrPasskeyFailed), errors.Is(err, twofactor.ErrNotFound),
+		errors.Is(err, auth.ErrInvalidCredentials), errors.Is(err, auth.ErrAccountLocked):
 		a.logger().Info("passkey sign-in refused", "reason", "refused")
 		a.writeJSON(w, http.StatusUnauthorized, map[string]string{"error": sudoMessage})
 	default:
@@ -57,7 +60,7 @@ func (a *Admin) handlePasskeyBegin(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.passkeyReady(w, r); !ok {
 		return
 	}
-	uid, _ := a.passkeyMode(r)
+	uid, _, _ := a.passkeyMode(r)
 	opts, id, err := a.deps.Passkeys.BeginLogin(r.Context(), uid)
 	if err != nil {
 		a.passkeyError(w, r, err)
@@ -71,7 +74,7 @@ func (a *Admin) handlePasskeyFinish(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	uid, next := a.passkeyMode(r)
+	uid, next, via := a.passkeyMode(r)
 	got, err := a.deps.Passkeys.FinishLogin(r.Context(), r.URL.Query().Get(passkeyCeremonyParam), uid, r)
 	if err != nil {
 		a.passkeyError(w, r, err)
@@ -82,7 +85,7 @@ func (a *Admin) handlePasskeyFinish(w http.ResponseWriter, r *http.Request) {
 		a.passkeyError(w, r, twofactor.ErrPasskeyFailed)
 		return
 	}
-	token, err := ps.IssueVerifiedSession(r.Context(), got, r.UserAgent(), middleware.GetClientIP(r))
+	token, err := ps.IssueVerifiedSession(r.Context(), got, via, r.UserAgent(), middleware.GetClientIP(r))
 	if err != nil {
 		a.passkeyError(w, r, err)
 		return

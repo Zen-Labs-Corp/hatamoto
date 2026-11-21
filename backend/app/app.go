@@ -17,6 +17,7 @@ import (
 	"hatamoto.dev/core/internal/adminpath"
 	"hatamoto.dev/core/internal/auditstate"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authstate"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/editionstate"
@@ -280,6 +281,7 @@ func Main() {
 	modhost.SetSecretSource(serverSecret)
 	adminpagestate.Freeze()
 	auditstate.Freeze()
+	authstate.Freeze()
 	logger := newLogger()
 	slog.SetDefault(logger)
 

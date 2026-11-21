@@ -200,6 +200,26 @@ func TestInterceptSignedOutAllowList(t *testing.T) {
 			t.Errorf("%s %s = %d %q, want pass-through", c.method, c.path, code, body)
 		}
 	}
+	// The provider sign-in legs are GET navigations that happen signed out.
+	for _, p := range []string{"/login/provider/example/start", "/login/provider/example/callback", "/login/provider/a-1/start"} {
+		if code, body := h.get(testPrefix + p); code != 200 || body != bodyNext {
+			t.Errorf("GET %s = %d %q, want pass-through", p, code, body)
+		}
+	}
+	for _, c := range []struct{ method, path string }{
+		{"POST", "/login/provider/example/start"}, {"POST", "/login/provider/example/callback"},
+		{"DELETE", "/login/provider/example/callback"},
+	} {
+		if code, body, _ := h.do(c.method, testPrefix+c.path, "198.51.100.1"); code != 404 || body != bodyRefused {
+			t.Errorf("%s %s = %d %q, want refused", c.method, c.path, code, body)
+		}
+	}
+	for _, p := range []string{"/login/provider", "/login/provider/", "/login/provider/x", "/login/provider/Bad/start",
+		"/login/provider/1x/start", "/login/provider/x/start/y", "/login/provider/x/other", "/login/provider/x/start/"} {
+		if code, body := h.get(testPrefix + p); code != 404 || body != bodyRefused {
+			t.Errorf("GET %q = %d %q, want refused", p, code, body)
+		}
+	}
 	for _, p := range []string{"/settings", "/entities", "/entities/x", "/setup", "/accept", "/login/", "/login/x",
 		"/login/2fa/", "/login/passkey", "/login/passkey/x", "/_", "/_styleguide"} {
 		if code, body := h.get(testPrefix + p); code != 404 || body != bodyRefused {

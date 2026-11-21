@@ -4,7 +4,8 @@
 <meta name="csrf-token" content="{{.CSRF}}">
 <meta name="admin-base" content="{{adminPath}}">
 <meta name="htmx-config" content="{{.HTMXConfig}}">
-<title>{{if .Title}}{{.Title}} · {{end}}Hatamoto</title>
+{{with .ContinueTo}}<meta http-equiv="refresh" content="0;url={{.}}">
+{{end}}<title>{{if .Title}}{{.Title}} · {{end}}Hatamoto</title>
 <link rel="stylesheet" href="{{.Assets.CSSURL}}">
 {{with .Brand.CSS}}<style nonce="{{$.Nonce}}">{{.}}</style>
 {{end}}<script type="importmap" nonce="{{.Nonce}}">{{.Assets.Importmap}}</script>
