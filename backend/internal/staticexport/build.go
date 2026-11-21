@@ -139,6 +139,8 @@ type builder struct {
 	skipLog    int
 	tmpN       int
 	fetched    int
+	// placeFn replaces place in tests.
+	placeFn func(from, to string) error
 }
 
 func (b *builder) warn(format string, a ...any) {
@@ -467,14 +469,18 @@ func (b *builder) store(urlPath, doc, tmpFile string, size int64, sum, ct, mt st
 	if page > 0 {
 		b.listingOut[out] = true
 	}
-	b.mu.Unlock()
-
-	if err := place(tmpFile, filepath.Join(b.dir, filepath.FromSlash(out))); err != nil {
+	// Placed under the lock that decided the collision, so the file on disk
+	// is always the one the manifest entry describes.
+	placeFile := place
+	if b.placeFn != nil {
+		placeFile = b.placeFn
+	}
+	if err := placeFile(tmpFile, filepath.Join(b.dir, filepath.FromSlash(out))); err != nil {
+		b.mu.Unlock()
 		b.fail("%s: %v", urlPath, err)
 		return
 	}
 
-	b.mu.Lock()
 	if count {
 		switch {
 		case page > 0:

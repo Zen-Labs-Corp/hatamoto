@@ -401,3 +401,68 @@ func TestBuild_SiteWarningsReachReport(t *testing.T) {
 		t.Errorf("warnings = %v", r.Warnings)
 	}
 }
+
+// A listing page and a real page that map to the same file are stored at
+// the same time: the file left on disk must be the one the manifest describes.
+func TestStore_ListingCollisionKeepsManifestAndFileInStep(t *testing.T) {
+	base, _ := url.Parse("https://example.test")
+	dir := t.TempDir()
+	b := &builder{
+		site: Site{Base: base}, dir: dir, tmp: filepath.Join(dir, stagingTmp),
+		manifest:   Manifest{Version: manifestVersion, Files: map[string]Entry{}},
+		listingOut: map[string]bool{},
+	}
+	if err := os.MkdirAll(b.tmp, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	put := func(name, body string) (string, string) {
+		f := filepath.Join(b.tmp, name)
+		if err := os.WriteFile(f, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		h := sha256.Sum256([]byte(body))
+		return f, hex.EncodeToString(h[:])
+	}
+	lf, ls := put("listing", "<p>listing</p>")
+	rf, rs := put("real", "<p>real page</p>")
+
+	// The listing page pauses in its placement until the real page has been
+	// stored, or a moment passes when the real page has to wait for it.
+	inPlace, realDone := make(chan struct{}), make(chan struct{})
+	b.placeFn = func(from, to string) error {
+		if from == lf {
+			close(inPlace)
+			select {
+			case <-realDone:
+			case <-time.After(300 * time.Millisecond):
+			}
+		}
+		return place(from, to)
+	}
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		b.store("/blog", "/blog?page=2", lf, 14, ls, "text/html", "text/html", true, 2)
+	}()
+	go func() {
+		defer wg.Done()
+		<-inPlace
+		b.store("/blog/page/2", "/blog/page/2", rf, 16, rs, "text/html", "text/html", true, 0)
+		close(realDone)
+	}()
+	wg.Wait()
+	if len(b.manifest.Files) != 1 {
+		t.Fatalf("manifest = %v, want one file", b.manifest.Files)
+	}
+	for out, e := range b.manifest.Files {
+		got, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(out)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		h := sha256.Sum256(got)
+		if hex.EncodeToString(h[:]) != e.SHA256 {
+			t.Fatalf("%s holds %q but the manifest sha is %s", out, got, e.SHA256)
+		}
+	}
+}
