@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/agents"
 )
@@ -127,10 +128,7 @@ func (p *agentPage) lede() string { return p.ledeText }
 func (a *Admin) buildAgent(ctx context.Context, q url.Values, rg agents.Range, cmp bool, id string, d *agentDetail) (*agentPage, error) {
 	reg := a.registry().ByID(id)
 	pid := purposeID(d.Purpose)
-	owner := false
-	if u := userFrom(ctx); u != nil {
-		owner = u.Role == "owner"
-	}
+	owner := a.can(ctx, authz.ActionRobotsPolicyWrite)
 	form, err := a.robotsData(ctx, nil, nil)
 	if err != nil {
 		return nil, err

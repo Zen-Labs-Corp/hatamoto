@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 )
 
@@ -227,7 +228,7 @@ func (a *Admin) handleCommentSettings(w http.ResponseWriter, r *http.Request) {
 // renderCommentSettings shows the page with vals in the site settings form
 // (the posted values after a refused save) and errs beside their fields.
 func (a *Admin) renderCommentSettings(w http.ResponseWriter, r *http.Request, status int, s CommentSettings, vals url.Values, errs []csetError) {
-	d := commentSettingsView{Enabled: s.Enabled, Owner: csetIsOwner(r), NoAddress: a.commentsNoAddress(r), S: s}
+	d := commentSettingsView{Enabled: s.Enabled, Owner: a.can(r.Context(), authz.ActionCommentSettingsManage), NoAddress: a.commentsNoAddress(r), S: s}
 	byName := map[string]string{}
 	for _, e := range errs {
 		byName[e.Name] = e.Message
@@ -256,7 +257,7 @@ func (a *Admin) renderCommentSettings(w http.ResponseWriter, r *http.Request, st
 // handleCommentSettingsSave saves the site settings. Enabled always comes
 // from the store: the switch has its own route.
 func (a *Admin) handleCommentSettingsSave(w http.ResponseWriter, r *http.Request) {
-	if !a.requireOwner(w, r) {
+	if !a.requireCan(w, r, authz.ActionCommentSettingsManage) {
 		return
 	}
 	svc := a.deps.Comments
@@ -297,19 +298,13 @@ func (a *Admin) handleCommentSettingsSave(w http.ResponseWriter, r *http.Request
 	Redirect(w, r, a.csetPath())
 }
 
-// csetIsOwner reports whether the signed-in user is an owner.
-func csetIsOwner(r *http.Request) bool {
-	u := userFrom(r.Context())
-	return u != nil && u.Role == "owner"
-}
-
 // csetPath is the Settings > Comments page.
 func (a *Admin) csetPath() string { return a.adminPath + "/settings/comments" }
 
 // handleCommentSwitch applies the site switch. Turning off is one step. Turning
 // on saves nothing: the confirm step (handleCommentEnable) decides.
 func (a *Admin) handleCommentSwitch(w http.ResponseWriter, r *http.Request) {
-	if !a.requireOwner(w, r) {
+	if !a.requireCan(w, r, authz.ActionCommentSettingsManage) {
 		return
 	}
 	svc := a.deps.Comments
@@ -357,7 +352,7 @@ func (a *Admin) handleCommentSwitch(w http.ResponseWriter, r *http.Request) {
 // handleCommentEnablePage is the no-JS confirm step: the second warning and
 // the tick.
 func (a *Admin) handleCommentEnablePage(w http.ResponseWriter, r *http.Request) {
-	if !a.requireOwner(w, r) {
+	if !a.requireCan(w, r, authz.ActionCommentSettingsManage) {
 		return
 	}
 	if a.deps.Comments == nil {
@@ -381,7 +376,7 @@ func (a *Admin) renderCommentEnable(w http.ResponseWriter, r *http.Request, stat
 // handleCommentEnable turns comments on once the tick is posted. It is the
 // only path that calls SetEnabled(true).
 func (a *Admin) handleCommentEnable(w http.ResponseWriter, r *http.Request) {
-	if !a.requireOwner(w, r) {
+	if !a.requireCan(w, r, authz.ActionCommentSettingsManage) {
 		return
 	}
 	svc := a.deps.Comments

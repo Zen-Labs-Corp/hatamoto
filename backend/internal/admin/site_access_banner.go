@@ -3,6 +3,7 @@ package admin
 import (
 	"net/http"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/siteaccess"
 )
 
@@ -17,7 +18,7 @@ type AccessBanner struct {
 // editor is looking and the site is in a mode other than open. A failed read
 // shows no banner.
 func (a *Admin) accessBanner(r *http.Request, u *CurrentUser) *AccessBanner {
-	if a.deps.SiteAccess == nil || u == nil || (u.Role != "owner" && u.Role != "editor") {
+	if a.deps.SiteAccess == nil || !canUser(r.Context(), a.logger(), u, authz.ActionDashboardRead) {
 		return nil
 	}
 	s, err := a.deps.SiteAccess.Get(r.Context())
@@ -33,7 +34,7 @@ func (a *Admin) accessBanner(r *http.Request, u *CurrentUser) *AccessBanner {
 	case siteaccess.ModePassword:
 		b.Label, b.Detail = "password", "Visitors need a password."
 	}
-	if u.Role == "owner" {
+	if canUser(r.Context(), a.logger(), u, authz.ActionSettingsManage) {
 		b.Href = a.adminPath + siteAccessPath
 	}
 	return b

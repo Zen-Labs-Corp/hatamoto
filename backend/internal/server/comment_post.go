@@ -9,7 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authzsubject"
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/comment/identity"
 	"hatamoto.dev/core/internal/commentsubmit"
@@ -17,7 +19,6 @@ import (
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/statichost"
-	"hatamoto.dev/core/internal/user"
 )
 
 // maxCommentPostBody caps a comment post (the body field alone is 5000 runes).
@@ -192,7 +193,7 @@ func (s *Server) commentAdminAuthor(r *http.Request) (uuid.UUID, string, bool) {
 		return uuid.Nil, "", false
 	}
 	claims, err := s.authService.ValidateSession(r.Context(), c.Value)
-	if err != nil || (claims.Role != string(user.RoleOwner) && claims.Role != string(user.RoleEditor)) {
+	if err != nil || !s.commentStaff(r.Context(), claims) {
 		return uuid.Nil, "", false
 	}
 	name := ""
@@ -205,6 +206,17 @@ func (s *Server) commentAdminAuthor(r *http.Request) (uuid.UUID, string, bool) {
 		name = "Site team" // never the account's email
 	}
 	return claims.UserID, name, true
+}
+
+// commentStaff reports whether the session may reply as the site team. An
+// authorizer error counts as no and is logged.
+func (s *Server) commentStaff(ctx context.Context, claims *auth.Claims) bool {
+	ok, err := authz.Can(ctx, authzsubject.ForSession(claims.UserID.String(), claims.Role), authz.ActionCommentReplyAsStaff, authz.Object{})
+	if err != nil {
+		s.logger.WarnContext(ctx, "authz check failed", "action", string(authz.ActionCommentReplyAsStaff), "err", err)
+		return false
+	}
+	return ok
 }
 
 // commentDevice returns the commenter the device cookie belongs to.

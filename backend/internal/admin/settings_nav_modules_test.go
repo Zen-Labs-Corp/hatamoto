@@ -12,7 +12,7 @@ func modulePageDef(id, icon string) adminpagestate.Page {
 }
 
 func moduleView(a *Admin, role, section string) *View {
-	return &View{User: &CurrentUser{Role: role}, Section: section, adminPath: a.adminPath, areas: a.areas}
+	return &View{User: &CurrentUser{ID: "u-" + role, Role: role}, Section: section, adminPath: a.adminPath, areas: a.areas}
 }
 
 func TestModuleAreaCommunityUnchanged(t *testing.T) {
@@ -21,7 +21,7 @@ func TestModuleAreaCommunityUnchanged(t *testing.T) {
 	if &g.a.areas[0] != &adminAreas[0] || g.a.settings != settingsArea {
 		t.Fatal("a community Admin must use the shared areas")
 	}
-	for _, sec := range settingsFor("/admin", "owner") {
+	for _, sec := range settingsFor("/admin", roleViewer("owner")) {
 		if sec.ID == "module-example" {
 			t.Fatal("global settingsFor must not see module sections")
 		}

@@ -10,9 +10,11 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/audit"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/auditlog"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authzsubject"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/user"
@@ -66,7 +68,7 @@ func (s *Server) softAuthed(r *http.Request) bool {
 		return false
 	}
 	key, err := s.apiKeyService.ValidateKey(ctx, raw)
-	return err == nil && key != nil && key.CreatedBy != nil && key.CreatorCanAct()
+	return err == nil && key != nil && authzsubject.CreatorCanAct(ctx, key)
 }
 
 // probeText answers a public probe: a bare word, never cached.
@@ -298,7 +300,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if input.AccessEndsAt != nil {
-		if claims.Role != string(user.RoleOwner) {
+		if !middleware.Can(r.Context(), authz.ActionUserManage, authz.Object{}) {
 			writeError(w, http.StatusForbidden, "only owners can set an access end date")
 			return
 		}
@@ -315,7 +317,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Non-owners cannot create owners
-	if role == user.RoleOwner && claims.Role != string(user.RoleOwner) {
+	if role == user.RoleOwner && !middleware.Can(r.Context(), authz.ActionUserOwnerGrant, authz.Object{}) {
 		writeError(w, http.StatusForbidden, "only owners can create owner accounts")
 		return
 	}
@@ -408,8 +410,14 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Only owners can change roles
-	if input.Role != nil && claims.Role != string(user.RoleOwner) {
+	if input.Role != nil && !middleware.Can(r.Context(), authz.ActionUserManage, authz.Object{}) {
 		writeError(w, http.StatusForbidden, "only owners can change user roles")
+		return
+	}
+
+	// Making an owner is the owner grant, as on create.
+	if input.Role != nil && *input.Role == user.RoleOwner && !middleware.Can(r.Context(), authz.ActionUserOwnerGrant, authz.Object{}) {
+		writeError(w, http.StatusForbidden, "only owners can grant the owner role")
 		return
 	}
 
@@ -448,7 +456,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	// The end date is owner only, and a changed value must be in the future.
 	var before *user.User
 	if input.AccessEndsAt.Set {
-		if claims.Role != string(user.RoleOwner) {
+		if !middleware.Can(r.Context(), authz.ActionUserManage, authz.Object{}) {
 			writeError(w, http.StatusForbidden, "only owners can set an access end date")
 			return
 		}
@@ -567,7 +575,7 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Only owners can delete users
-	if claims.Role != string(user.RoleOwner) {
+	if !middleware.Can(r.Context(), authz.ActionUserDelete, authz.Object{}) {
 		writeError(w, http.StatusForbidden, "only owners can delete users")
 		return
 	}

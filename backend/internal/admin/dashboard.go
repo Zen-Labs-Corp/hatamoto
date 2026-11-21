@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/entity"
@@ -560,12 +561,13 @@ func dashChange(cur, prev int64) *ui.StatChange {
 	return ch
 }
 
-// dashJobs are the cards a role sees. Editors get content and submissions
-// only: the owner-only stores (404 log, analytics) are never called
-// for them.
-func (a *Admin) dashJobs(role string) []dashJob {
-	candidates := []*dashJob{a.contentJob(), a.submissionsJob(), a.commentsJob(role == "owner")}
-	if role == "owner" {
+// dashJobs are the cards the viewer may see. Viewers without the owner
+// overview get content and submissions only: the owner-only stores (404 log,
+// analytics) are never called for them.
+func (a *Admin) dashJobs(v viewer) []dashJob {
+	owner := v.Can(authz.ActionDashboardOwnerRead)
+	candidates := []*dashJob{a.contentJob(), a.submissionsJob(), a.commentsJob(owner)}
+	if owner {
 		candidates = append(candidates, a.healthJob(), a.referralsJob(), a.missingJob(), a.topPagesJob(), a.activityJob())
 	}
 	var jobs []dashJob
@@ -577,17 +579,16 @@ func (a *Admin) dashJobs(role string) []dashJob {
 	return jobs
 }
 
-// handleDashboard serves GET /admin. A role that is neither owner nor editor
+// handleDashboard serves GET /admin. A user who may not read the dashboard
 // (not possible today) keeps the old behaviour: the landing screen.
 func (a *Admin) handleDashboard(w http.ResponseWriter, r *http.Request) {
-	u := userFrom(r.Context())
-	if u == nil || (u.Role != "owner" && u.Role != "editor") {
+	if !a.can(r.Context(), authz.ActionDashboardRead) {
 		http.Redirect(w, r, a.landing(), http.StatusSeeOther)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), dashTimeout)
 	defer cancel()
 	v := a.NewView(w, r, "Overview")
-	v.Data = a.buildDash(ctx, a.dashJobs(u.Role))
+	v.Data = a.buildDash(ctx, a.dashJobs(v.viewer()))
 	a.Render(w, r, http.StatusOK, "dashboard/index", v)
 }

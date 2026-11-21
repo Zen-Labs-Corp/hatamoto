@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/jsonx"
@@ -703,7 +704,7 @@ func (a *Admin) convertCandidates(r *http.Request, cfg *siteconfig.Config) bool 
 	if a.deps.LocaleConvert == nil || a.deps.LocaleConvertCandidates == nil || localeSetOf(cfg).Multi() {
 		return false
 	}
-	if u := userFrom(r.Context()); u == nil || u.Role != "owner" {
+	if !a.can(r.Context(), authz.ActionSettingsManage) {
 		return false
 	}
 	found, err := a.deps.LocaleConvertCandidates(r.Context())

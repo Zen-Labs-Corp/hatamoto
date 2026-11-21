@@ -17,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/csvx"
 	"hatamoto.dev/core/internal/form"
@@ -60,12 +61,12 @@ func (a *Admin) mountForms(authed *httpx.Group) {
 
 // formsTabs are the tabs across the top of the Forms pages. Spam is owner-only,
 // like its route. active is "forms", "submissions" or "spam".
-func (a *Admin) formsTabs(role, active string) []ui.Tab {
+func (a *Admin) formsTabs(v viewer, active string) []ui.Tab {
 	tabs := []ui.Tab{
 		{Label: "Forms", Href: a.adminPath + "/forms", Active: active == "forms"},
 		{Label: "Submissions", Href: a.adminPath + "/forms/submissions", Active: active == "submissions"},
 	}
-	if role == "owner" {
+	if v.Can(authz.ActionFormSettingsManage) {
 		tabs = append(tabs, ui.Tab{Label: "Spam", Href: a.adminPath + "/forms/spam", Active: active == "spam"})
 	}
 	return tabs
@@ -73,11 +74,7 @@ func (a *Admin) formsTabs(role, active string) []ui.Tab {
 
 // formsTabsFor is formsTabs for the signed-in user of v.
 func (a *Admin) formsTabsFor(v *View, active string) []ui.Tab {
-	role := ""
-	if v.User != nil {
-		role = v.User.Role
-	}
-	return a.formsTabs(role, active)
+	return a.formsTabs(v.viewer(), active)
 }
 
 func (a *Admin) formStore(w http.ResponseWriter, r *http.Request) (FormStore, bool) {
@@ -147,7 +144,7 @@ func (a *Admin) handleForms(w http.ResponseWriter, r *http.Request) {
 	d.Table.Empty = ui.Empty{Icon: "inbox", Title: "No forms yet", Body: "A form collects enquiries from your pages.", Actions: []ui.Button{{Label: "New form", Href: a.adminPath + "/forms/new", Variant: "primary", Attrs: map[string]string{"data-hm-open": "new-form"}}}}
 	v := a.NewView(w, r, "Forms")
 	actions := []ui.Button{}
-	if v.User != nil && v.User.Role == "owner" {
+	if v.viewer().Can(authz.ActionFormSettingsManage) {
 		actions = append(actions, ui.Button{Label: "Spam protection", Href: a.adminPath + "/forms/spam", Icon: "shield-check"})
 	}
 	actions = append(actions, ui.Button{Label: "New form", Href: a.adminPath + "/forms/new", Variant: "primary", Icon: "plus", Attrs: map[string]string{"data-hm-open": "new-form"}})

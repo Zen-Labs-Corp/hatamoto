@@ -56,7 +56,9 @@ func ThemeFor(role string) []SettingsSection { return themeArea.For(role) }
 func SettingsFor(role string) []SettingsSection { return settingsArea.For(role) }
 
 // For is the area's sidebar for role under the default admin prefix.
-func (ar *adminArea) For(role string) []SettingsSection { return ar.forPrefix(DefaultAdminPath, role) }
+func (ar *adminArea) For(role string) []SettingsSection {
+	return ar.forPrefix(DefaultAdminPath, roleViewer(role))
+}
 
 // areaLocate is areaLocateIn under the default admin prefix.
 func areaLocate(path string) (section, tab string) { return areaLocateIn(DefaultAdminPath, path) }

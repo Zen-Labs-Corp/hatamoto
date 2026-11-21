@@ -106,6 +106,11 @@
 - **Unchanged.** No route, screen or tool asks it yet, so behaviour is identical.
 - **Migration.** None. Rollback floor: unchanged.
 
+## Unreleased: capability checks in screens and notifications
+
+- **Authorization.** Screens, navigation, notification recipients and API key checks ask the authorization interface; with nothing registered the answers are unchanged.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: more time zones in the site settings
 
 - **Time zone.** The list in the setup wizard and in Settings > General offered no zone for places whose clock follows its own rules, so their sites had to pick a neighbour that is an hour or more off for part of the year: Queensland and Darwin, Iran, Afghanistan, Nepal, Myanmar, Morocco, the Azores, Cape Verde, Venezuela and its neighbours on UTC-4, New Caledonia, Fiji and Tonga, and, since 1 November 2026 in the time zone data, British Columbia, Alberta and Manitoba. Each now has a zone of its own: `Australia/Brisbane`, `Australia/Darwin`, `Asia/Tehran`, `Asia/Kabul`, `Asia/Kathmandu`, `Asia/Yangon`, `Africa/Casablanca`, `Atlantic/Azores`, `Atlantic/Cape_Verde`, `America/Caracas`, `Pacific/Noumea`, `Pacific/Fiji`, `Pacific/Tongatapu`, `America/Vancouver`, `America/Edmonton` and `America/Winnipeg`.

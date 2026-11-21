@@ -1,8 +1,6 @@
 package admin
 
 import (
-	"net/http"
-
 	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/httpx"
 )
@@ -40,14 +38,4 @@ func (a *Admin) mountComments(authed *httpx.Group) {
 	sudo.HandleFunc("GET /settings/comments/commenters/{id}/export", a.handleCommenterExport)
 	sudo.HandleFunc("GET /settings/comments/commenters/{id}/erase", a.handleCommenterErasePage)
 	sudo.HandleFunc("POST /settings/comments/commenters/{id}/erase", a.handleCommenterErase)
-}
-
-// requireOwner is the in-handler re-check behind the owner group: it answers
-// 403 and reports false for anyone but an owner.
-func (a *Admin) requireOwner(w http.ResponseWriter, r *http.Request) bool {
-	if u := userFrom(r.Context()); u == nil || u.Role != "owner" {
-		a.forbidden(w, r)
-		return false
-	}
-	return true
 }

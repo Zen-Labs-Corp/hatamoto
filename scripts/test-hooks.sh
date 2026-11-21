@@ -377,7 +377,7 @@ push_out a1 && grep -qE 'affected: backend \./b .*\+1 dependents' "$tmp/out" && 
   && ok "A1 a Go change runs its package and dependents only, and skips the suites no path asks for" || { bad "A1 affected-only push"; sed 's/^/    | /' "$tmp/out"; }
 git checkout -q -b a1web origin/main
 echo changed >backend/web/admin/page.html; git commit -q -a -s -m "fix: admin template"
-push_out a1web && grep -qE 'affected: backend \./internal/admin' "$tmp/out" && ! grep -q 'mode: FULL' "$tmp/out" \
+push_out a1web && grep -qE 'affected: backend (\./[a-z/]+ )*\./internal/admin' "$tmp/out" && ! grep -q 'mode: FULL' "$tmp/out" \
   && ! grep -q 'skipped webonly' "$tmp/out" \
   && ok "A1 a template maps to the package that reads it (affected-readers.txt), not to a full run" || { bad "A1 template push"; sed 's/^/    | /' "$tmp/out"; }
 git checkout -q -b a2 origin/main

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/jsonx"
@@ -124,6 +125,8 @@ type Crumb = ui.Crumb
 type View struct {
 	// areas is the area set of the Admin that built the view; nil means the shared one.
 	areas []*adminArea
+	// vw answers what the signed-in user may do; viewer() falls back for test-built Views.
+	vw    viewer
 	Title string
 	// ContinueTo, when set, is a same-origin address the page opens by itself
 	// (a meta refresh, which the content security policy does not govern).
@@ -183,6 +186,8 @@ type View struct {
 	// Refresh, in seconds, reloads the page without JavaScript (a live status
 	// page); htmx pages poll instead.
 	Refresh int
+	// SiteNotices shows the site-level notices (setup, site address, updates, admin address, stats, export, modules).
+	SiteNotices bool
 	// NoSiteAddress asks the owner to set the site address (emails need it).
 	NoSiteAddress bool
 	// SetupPending reminds the owner that the wizard was not finished.
@@ -554,8 +559,9 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 	ctx := r.Context()
 	v := &View{
 		Title: title, SiteName: a.deps.SiteNameFallback, Lang: "en", Theme: themeOf(r), Density: densityOf(r), Path: r.URL.Path, adminPath: a.adminPath, speculation: a.speculation, appVersion: a.appVersion,
-		Nonce: Nonce(ctx), CSRF: csrfToken(ctx), Assets: as, User: userFrom(ctx),
+		Nonce: Nonce(ctx), CSRF: csrfToken(ctx), Assets: as, User: userFrom(ctx), vw: a.viewerOf(ctx),
 	}
+	v.SiteNotices = v.viewer().Can(authz.ActionSettingsManage)
 	if runenv.Staging() {
 		v.StagingBanner = runenv.Banner
 	}
@@ -595,9 +601,9 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 	v.areas = a.areas
 	v.Section, v.Tab = areaLocateAmong(a.areaSet(), a.adminPath, r.URL.Path)
 	if v.User != nil {
-		v.Nav = a.nav.For(v.User.Role, r.URL.Path)
+		v.Nav = a.nav.For(v.viewer(), r.URL.Path)
 		if v.Section == "" && isPluginsPath(a.adminPath, r.URL.Path) {
-			v.pluginNav = a.pluginsNavFor(v.User.Role, r.URL.Path)
+			v.pluginNav = a.pluginsNavFor(v.viewer(), r.URL.Path)
 		}
 	}
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {

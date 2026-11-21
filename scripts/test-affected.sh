@@ -113,7 +113,13 @@ hm_affected "$T" nosuchref..HEAD;    want "bad range" full
 cd "$top"
 rows() { hm_readers_match scripts/affected-readers.txt "$1" | sort | tr '\t\n' ': '; }
 [[ $(rows design/homepage/page_attributes.json) == 'backend:./internal/render ' ]] || fail "design/** must map to internal/render"
-[[ $(rows backend/internal/wasmhost/testdata/hostile/x.go) == 'backend:./internal/pluginhost backend:./internal/wasmhost ' ]] || fail "wasmhost testdata must map to pluginhost and wasmhost"
+[[ $(rows backend/internal/wasmhost/testdata/hostile/x.go) == 'backend:./authz backend:./internal/pluginhost backend:./internal/wasmhost ' ]] || fail "wasmhost testdata must map to authz, pluginhost and wasmhost"
+[[ $(rows backend/internal/supervisor/testdata/stub/main.go) == *./internal/supervisor* ]] || fail "supervisor testdata must map to internal/supervisor"
+# A Go fixture under testdata must have a row besides the authz guard, or the full-run fallback is lost.
+while IFS= read -r fx; do
+  [[ $(rows "$fx" | tr ' ' '\n' | grep -v '^backend:\./authz$' | grep -c .) -gt 0 ]] || fail "testdata fixture $fx has no mapping besides authz"
+done < <(git ls-files 'backend/internal/*/testdata/*.go')
+[[ $(rows backend/internal/render/testdata/x.json) != *./authz* ]] || fail "a non-Go fixture under backend/internal must not map to authz"
 grep -E '^t-publish-rel ' scripts/check-suites.txt | grep -q 'backend/tools/release/\*\*' || fail "t-publish-rel must run for a change under backend/tools/release"
 uncovered=()
 # Reads that are not a file dependency, with the reason (the ship-time full run still covers them):

@@ -547,10 +547,7 @@ func (a *Admin) renderEntities(w http.ResponseWriter, r *http.Request, p listPar
 	if total >= 0 {
 		d.Status = fmt.Sprintf("%d %s", total, plural(total, "entity", "entities"))
 	}
-	owner := false
-	if u := userFrom(r.Context()); u != nil && u.Role == "owner" {
-		owner = true
-	}
+	owner := a.can(r.Context(), authz.ActionSchemaManage)
 	active := ""
 	if resolved != nil {
 		active = resolved.Slug
@@ -563,7 +560,7 @@ func (a *Admin) renderEntities(w http.ResponseWriter, r *http.Request, p listPar
 		d.Primary = &act
 		if !entity.IsReuseSchema(resolved) {
 			d.Actions = []ui.Button{{Label: "Reorder", Href: a.adminPath + "/entities/order?type=" + url.QueryEscape(resolved.Slug), Icon: "arrow-up"}}
-			if u := userFrom(r.Context()); u != nil && (u.Role == "owner" || u.Role == "editor") {
+			if a.can(r.Context(), authz.ActionEntityExport) {
 				d.Actions = append(d.Actions, ui.Button{Label: "Export CSV", Href: a.adminPath + "/entities/export?type=" + url.QueryEscape(resolved.Slug), Icon: "copy"})
 			}
 		}

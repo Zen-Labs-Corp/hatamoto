@@ -13,6 +13,8 @@ const (
 	ActionAnalyticsSettingsManage Action = "analytics.settings.manage"
 	// ActionAPIKeyManage is the "apikey.manage" action.
 	ActionAPIKeyManage Action = "apikey.manage"
+	// ActionAPIKeyCreatorAct is the "apikey.creator.act" action: the creator of an API key still may let it act.
+	ActionAPIKeyCreatorAct Action = "apikey.creator.act"
 	// ActionAuditRead is the "audit.read" action.
 	ActionAuditRead Action = "audit.read"
 	// ActionAuthorManage is the "author.manage" action.
@@ -35,6 +37,8 @@ const (
 	ActionCommentModerate Action = "comment.moderate"
 	// ActionCommentRead is the "comment.read" action.
 	ActionCommentRead Action = "comment.read"
+	// ActionCommentReceiveModerationMail is the "comment.receive_moderation_mail" action.
+	ActionCommentReceiveModerationMail Action = "comment.receive_moderation_mail"
 	// ActionCommentReplyAsStaff is the "comment.reply_as_staff" action.
 	ActionCommentReplyAsStaff Action = "comment.reply_as_staff"
 	// ActionCommentSettingsManage is the "comment.settings.manage" action.
@@ -147,6 +151,8 @@ const (
 	ActionSettingsSEOWrite Action = "settings.seo.write"
 	// ActionSetupRun is the "setup.run" action.
 	ActionSetupRun Action = "setup.run"
+	// ActionSiteReceiveOwnerMail is the "site.receive_owner_mail" action: owner notices (run digest, export failure, admin address, comment surge).
+	ActionSiteReceiveOwnerMail Action = "site.receive_owner_mail"
 	// ActionTermManage is the "term.manage" action.
 	ActionTermManage Action = "term.manage"
 	// ActionTermRead is the "term.read" action.

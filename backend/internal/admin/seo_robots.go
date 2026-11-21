@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/seo"
 )
@@ -176,8 +177,7 @@ func (a *Admin) seoRobotsAIForm(r *http.Request) *seoRobotsAI {
 		}
 		return nil
 	}
-	u := userFrom(r.Context())
-	owner := u != nil && u.Role == "owner"
+	owner := a.can(r.Context(), authz.ActionRobotsPolicyWrite)
 	policies := aiaPolicies(form, owner)
 	ai := &seoRobotsAI{Form: ui.AiaPolicyForm{CSRF: csrfToken(r.Context()), Return: a.adminPath + seoRobotsPath, Owner: owner}}
 	for _, row := range form.Rows {

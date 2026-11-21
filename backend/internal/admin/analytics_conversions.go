@@ -11,11 +11,11 @@ import (
 	"strconv"
 	"time"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
 	"hatamoto.dev/core/internal/csvx"
-	"hatamoto.dev/core/internal/user"
 )
 
 const (
@@ -31,8 +31,7 @@ const (
 // canViewSubmissions is whether the signed-in user may see who submitted a form: the Recent leads
 // emails and the CSV export need it. Owner and editor may; no user or an unknown role may not.
 func (a *Admin) canViewSubmissions(ctx context.Context) bool {
-	u := userFrom(ctx)
-	return u != nil && (u.Role == string(user.RoleOwner) || u.Role == string(user.RoleEditor))
+	return a.can(ctx, authz.ActionFormSubmissionRead)
 }
 
 // touchSwitch is the First touch | Last touch control of the Traffic and Conversions tabs: a GET

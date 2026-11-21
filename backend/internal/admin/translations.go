@@ -2,9 +2,11 @@ package admin
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strings"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/entity"
 )
@@ -88,8 +90,7 @@ type copyView struct {
 // canEditTranslations reports whether the person may change links: the same
 // roles the write routes allow.
 func canEditTranslations(r *http.Request) bool {
-	u := userFrom(r.Context())
-	return u != nil && (u.Role == "owner" || u.Role == "editor")
+	return canUser(r.Context(), slog.Default(), userFrom(r.Context()), authz.ActionEntityTranslate)
 }
 
 func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *entity.Entity, members []entity.Member, defaultLocale string, set *entity.LocaleSet) {

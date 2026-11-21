@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
+	"hatamoto.dev/core/internal/authzuser"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/session"
 	"hatamoto.dev/core/internal/user"
@@ -133,7 +135,7 @@ func (a *Admin) guardFor(s scope) func(http.Handler) http.Handler {
 					// changeset and item. Owner sessions only. consumeBound (the
 					// cookieless preview host) is never used here.
 					u, sess, authed := a.cachedAuth(r)
-					if authed && sess != nil && u != nil && u.Role == user.RoleOwner {
+					if authed && sess != nil && u != nil && authzuser.Can(r.Context(), a.logger(), u, authz.ActionPluginChangesetReview) {
 						_, ok = a.tickets.consume(ticketChangesetPreview, cs.ticket, sess.ID, changesetTarget(cs.id, cs.seq))
 					} else {
 						ok = false

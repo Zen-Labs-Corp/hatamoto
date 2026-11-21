@@ -726,7 +726,7 @@ func TestFormsTabs(t *testing.T) {
 		{"owner", "spam", []string{"Forms", "Submissions", "Spam"}},
 		{"editor", "submissions", []string{"Forms", "Submissions"}},
 	} {
-		got, active := labels(a.formsTabs(tc.role, tc.active))
+		got, active := labels(a.formsTabs(roleViewer(tc.role), tc.active))
 		if strings.Join(got, ",") != strings.Join(tc.want, ",") {
 			t.Errorf("%s tabs %v, want %v", tc.role, got, tc.want)
 		}

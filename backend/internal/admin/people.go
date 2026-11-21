@@ -191,7 +191,7 @@ func (a *Admin) handlePeople(w http.ResponseWriter, r *http.Request) {
 
 	// Account emails are for owners, as on the users screen; an editor sees only
 	// whether a person has a login.
-	owner := userFrom(ctx) != nil && userFrom(ctx).Role == "owner"
+	owner := a.can(ctx, authz.ActionUserManage)
 	logins := map[uuid.UUID]string{}
 	for _, pe := range rows {
 		uid, ok := linked[pe.ID]
@@ -341,10 +341,7 @@ func (a *Admin) peopleSubnav(ctx context.Context) ([]EntityNavEntry, bool) {
 		a.logger().Error("list entity types for the subnav failed", "err", err)
 		return nil, false
 	}
-	owner := false
-	if u := userFrom(ctx); u != nil && u.Role == "owner" {
-		owner = true
-	}
+	owner := a.can(ctx, authz.ActionSchemaManage)
 	return entitiesNavIn(a.adminPath, a.entityCounts(ctx, schemas, nil).types, person.SchemaSlug), owner
 }
 

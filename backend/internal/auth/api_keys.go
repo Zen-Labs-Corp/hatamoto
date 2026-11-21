@@ -119,12 +119,6 @@ type APIKey struct {
 	CreatorRole string `json:"-"`
 }
 
-// CreatorCanAct reports whether the key's creator still holds a role that may
-// edit content (owner or editor). An unknown or empty role fails closed.
-func (k *APIKey) CreatorCanAct() bool {
-	return k.CreatorRole == "owner" || k.CreatorRole == "editor"
-}
-
 // APIKeyWithSecret is returned only when creating a new key.
 // The plain key is shown once and never stored.
 type APIKeyWithSecret struct {
@@ -502,9 +496,9 @@ func (s *APIKeyService) ValidateKey(ctx context.Context, plainKey string) (*APIK
 		return nil, ErrAPIKeyExpired
 	}
 
-	// The creator must still be an owner/editor: demotion or deletion revokes
-	// the key's effective power without touching the key.
-	if !apiKey.CreatorCanAct() {
+	// The creator is missing or their access ended (from the query). Whether
+	// the creator may still act is asked by the entry points via authz.
+	if apiKey.CreatorRole == "" {
 		return nil, ErrAPIKeyCreatorGone
 	}
 
@@ -570,6 +564,8 @@ func OwnerOnlyScope(s APIKeyScope) bool {
 
 // HasScope checks if an API key has a specific scope. Owner-only scopes are
 // refused (also through "*") unless the creator's current role is owner.
+// It describes the key; a request is decided by authz (the default authorizer
+// applies the same rule), and this method only words a refusal.
 func (k *APIKey) HasScope(scope APIKeyScope) bool {
 	if OwnerOnlyScope(scope) && k.CreatorRole != "owner" {
 		return false

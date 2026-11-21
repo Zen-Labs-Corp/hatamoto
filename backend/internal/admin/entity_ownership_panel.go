@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/entity"
 )
@@ -25,10 +26,6 @@ type ownershipPanel struct {
 	FormID      string // the one-button form that posts it; the button sits in the card foot
 	ButtonLabel string // empty while a plugin tracks the page: there is nothing to hand back
 }
-
-// handBackRoles are the roles the hand-back route lets in; the card shows its
-// button to the same roles.
-var handBackRoles = []string{"owner", "editor"}
 
 // ownershipFormID is the id of the hand-back form the editors render after
 // their own form, so the card's button can submit it without nesting forms.
@@ -66,7 +63,7 @@ func (a *Admin) ownershipPanel(r *http.Request, e *entity.Entity) *ownershipPane
 	default:
 		p.BadgeLabel, p.BadgeKind = "Yours", "info"
 		p.Sentence = fmt.Sprintf("You edited this page on %s, so imports no longer change it.", fmtDate(e.UpdatedAt.In(zone)))
-		if u := userFrom(r.Context()); u != nil && contains(handBackRoles, string(u.Role)) {
+		if a.can(r.Context(), authz.ActionEntityHandback) {
 			p.ButtonLabel = "Let " + label + " track this again"
 		}
 	}
@@ -76,7 +73,7 @@ func (a *Admin) ownershipPanel(r *http.Request, e *entity.Entity) *ownershipPane
 			p.LastLabel += ", " + fmtDate(o.PublishedAt.In(zone))
 		}
 		// The changeset pages are the owner's.
-		if u := userFrom(r.Context()); u != nil && u.Role == "owner" {
+		if a.can(r.Context(), authz.ActionPluginChangesetReview) {
 			p.LastHref = a.changesetURL(o.Plugin, o.ChangesetID, "")
 		}
 	}

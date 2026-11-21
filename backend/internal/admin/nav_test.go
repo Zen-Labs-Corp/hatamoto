@@ -3,6 +3,8 @@ package admin
 import (
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/authz"
 )
 
 func labels(es []NavEntry) []string {
@@ -39,10 +41,10 @@ func eq(a, b []string) bool {
 func editorPluginNav(first string) *Nav {
 	n := DefaultNav()
 	n.update(pluginsID, func(it *NavItem) {
-		it.Roles = nil
-		it.Visible = func(role string) bool { return role == "owner" || first != "" }
-		it.HrefFor = func(role string) string {
-			if role == "owner" {
+		it.Cap = ""
+		it.Visible = func(v viewer) bool { return v.Can(authz.ActionPluginManage) || first != "" }
+		it.HrefFor = func(v viewer) string {
+			if v.Can(authz.ActionPluginManage) {
 				return "/admin/plugins"
 			}
 			return "/admin/plugins/" + first + "/settings"
@@ -54,7 +56,7 @@ func editorPluginNav(first string) *Nav {
 func TestNavOwnerSeesSevenPrimaryItems(t *testing.T) {
 	t.Parallel()
 
-	got := editorPluginNav("hreflang").For("owner", "/admin/entities")
+	got := editorPluginNav("hreflang").For(roleViewer("owner"), "/admin/entities")
 	if want := []string{"Overview", "Entities", "Media", "Forms", "Analytics", "Plugins", "Theme", "Settings"}; !eq(labels(got), want) {
 		t.Fatalf("owner nav %v, want %v", labels(got), want)
 	}
@@ -69,11 +71,11 @@ func TestNavEditor(t *testing.T) {
 	// No plugin page for the editor: Plugins is hidden. Settings shows because
 	// the editor reaches Redirects and more.
 	for _, n := range []*Nav{DefaultNav(), editorPluginNav("")} {
-		if got := n.For("editor", "/admin/entities"); !eq(labels(got), []string{"Overview", "Entities", "Media", "Forms", "Analytics", "Theme", "Settings"}) {
+		if got := n.For(roleViewer("editor"), "/admin/entities"); !eq(labels(got), []string{"Overview", "Entities", "Media", "Forms", "Analytics", "Theme", "Settings"}) {
 			t.Fatalf("editor nav %v", labels(got))
 		}
 	}
-	got := editorPluginNav("hreflang").For("editor", "/admin/entities")
+	got := editorPluginNav("hreflang").For(roleViewer("editor"), "/admin/entities")
 	if want := []string{"Overview", "Entities", "Media", "Forms", "Analytics", "Plugins", "Theme", "Settings"}; !eq(labels(got), want) {
 		t.Fatalf("editor nav with a plugin page %v, want %v", labels(got), want)
 	}
@@ -120,7 +122,7 @@ func TestNavActive(t *testing.T) {
 		{"/admin/entitiesx", "", ""},
 		{"/admin/profile", "", ""},
 	} {
-		if l, c := current(n.For("owner", tc.path)); l != tc.label || c != tc.cur {
+		if l, c := current(n.For(roleViewer("owner"), tc.path)); l != tc.label || c != tc.cur {
 			t.Errorf("%s: current = %q %q, want %q %q", tc.path, l, c, tc.label, tc.cur)
 		}
 	}
@@ -199,17 +201,17 @@ func TestGroupNav(t *testing.T) {
 		{"owner", editorPluginNav("hreflang"), "owner", ":Overview|Site:Entities,Media,Forms,Analytics|Customize:Plugins,Theme,Settings"},
 		{"editor", DefaultNav(), "editor", ":Overview|Site:Entities,Media,Forms,Analytics|Customize:Theme,Settings"},
 	} {
-		if got := shape(GroupNav(tc.nav.For(tc.role, "/admin"))); got != tc.want {
+		if got := shape(GroupNav(tc.nav.For(roleViewer(tc.role), "/admin"))); got != tc.want {
 			t.Errorf("%s groups %q, want %q", tc.name, got, tc.want)
 		}
 	}
 	// A group whose items are all hidden leaves no trace.
 	n := DefaultNav()
-	n.update("analytics", func(it *NavItem) { it.Visible = func(string) bool { return false } })
-	n.update("entities", func(it *NavItem) { it.Visible = func(string) bool { return false } })
-	n.update("media", func(it *NavItem) { it.Visible = func(string) bool { return false } })
-	n.update("forms", func(it *NavItem) { it.Visible = func(string) bool { return false } })
-	if got := shape(GroupNav(n.For("owner", "/admin"))); got != ":Overview|Customize:Plugins,Theme,Settings" {
+	n.update("analytics", func(it *NavItem) { it.Visible = func(viewer) bool { return false } })
+	n.update("entities", func(it *NavItem) { it.Visible = func(viewer) bool { return false } })
+	n.update("media", func(it *NavItem) { it.Visible = func(viewer) bool { return false } })
+	n.update("forms", func(it *NavItem) { it.Visible = func(viewer) bool { return false } })
+	if got := shape(GroupNav(n.For(roleViewer("owner"), "/admin"))); got != ":Overview|Customize:Plugins,Theme,Settings" {
 		t.Errorf("hidden group still listed: %q", got)
 	}
 }
@@ -218,7 +220,7 @@ func TestAnalyticsSubNavOrder(t *testing.T) {
 	t.Parallel()
 
 	var got []string
-	for _, s := range analyticsArea.forPrefix("/admin", "owner") {
+	for _, s := range analyticsArea.forPrefix("/admin", roleViewer("owner")) {
 		got = append(got, s.ID)
 	}
 	want := []string{"ai-overview", "ai-traffic", "ai-conversions", "ai-content", "ai-crawlers", "ai-google", "ai-referrals", "ai-health"}

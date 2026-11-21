@@ -15,9 +15,9 @@ import (
 
 	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
+	"hatamoto.dev/core/internal/authzuser"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/httpx"
-	"hatamoto.dev/core/internal/user"
 )
 
 // ChangesetReader reads a staged changeset. The changeset engine implements it.
@@ -323,7 +323,7 @@ func (a *Admin) PreviewHostHandler() http.Handler {
 			a.refuse(w, r)
 			return
 		}
-		if u, err := a.deps.Users.GetByID(r.Context(), uid); err != nil || u.Role != user.RoleOwner {
+		if u, err := a.deps.Users.GetByID(r.Context(), uid); err != nil || !authzuser.Can(r.Context(), a.logger(), u, authz.ActionPluginChangesetReview) {
 			a.refuse(w, r)
 			return
 		}

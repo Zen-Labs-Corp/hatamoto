@@ -84,7 +84,7 @@ func TestModuleBannersNilWithoutProviders(t *testing.T) {
 	t.Parallel()
 	g := newRig(t)
 	req := httptest.NewRequest("GET", "/admin", nil)
-	if got := g.a.moduleBanners(req, &CurrentUser{Role: "owner"}); got != nil {
+	if got := g.a.moduleBanners(req, &CurrentUser{ID: "u-owner", Role: "owner"}); got != nil {
 		t.Fatalf("got %v", got)
 	}
 }

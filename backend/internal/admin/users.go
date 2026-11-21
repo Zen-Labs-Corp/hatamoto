@@ -540,6 +540,9 @@ func (a *Admin) handleInvite(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		role = user.RoleEditor
 	}
+	if !a.requireOwnerGrant(w, r, role) {
+		return
+	}
 	if a.deps.Tokens == nil {
 		a.Error(w, r, http.StatusServiceUnavailable, "Invitations unavailable", "The server is not ready.")
 		return
@@ -659,6 +662,9 @@ func (a *Admin) handleUserCreate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		f.Errors["role"] = "Choose a role"
 	}
+	if err == nil && !a.requireOwnerGrant(w, r, role) {
+		return
+	}
 	if !strings.Contains(f.Email, "@") || strings.ContainsAny(f.Email, " <>") {
 		f.Errors["email"] = "Enter a valid email address"
 	}
@@ -750,6 +756,9 @@ func (a *Admin) handleUserUpdate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		f.Errors["role"] = "Choose a role"
 		a.renderUserForm(w, r, http.StatusUnprocessableEntity, f)
+		return
+	}
+	if !a.requireOwnerGrant(w, r, role) {
 		return
 	}
 	f.AccessEnds = strings.TrimSpace(r.PostFormValue("access_ends"))

@@ -286,13 +286,13 @@ func TestDashboardHealthIsOwnerOnly(t *testing.T) {
 
 	fb := &fakeBackups{state: BackupsState{FreeBytes: 9 << 30}}
 	g := newRig(t, func(d *Deps) { d.Backups = fb })
-	for _, j := range g.a.dashJobs("editor") {
+	for _, j := range g.a.dashJobs(roleViewer("editor")) {
 		if j.Name == "site health" {
 			t.Error("editors must not get the health card")
 		}
 	}
 	owner := false
-	for _, j := range g.a.dashJobs("owner") {
+	for _, j := range g.a.dashJobs(roleViewer("owner")) {
 		owner = owner || j.Name == "site health"
 	}
 	if !owner {

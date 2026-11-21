@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"hatamoto.dev/core/authz"
 	"net/http"
 	"net/url"
 )
@@ -8,7 +9,7 @@ import (
 // handleTrafficSettings saves the engagement switch of the Traffic page (owner only) and goes
 // back to the page with the range kept.
 func (a *Admin) handleTrafficSettings(w http.ResponseWriter, r *http.Request) {
-	if u := userFrom(r.Context()); u == nil || u.Role != "owner" {
+	if !a.can(r.Context(), authz.ActionAnalyticsSettingsManage) {
 		a.Error(w, r, http.StatusForbidden, "Not allowed", "Only the site owner can change what the visit counter records.")
 		return
 	}

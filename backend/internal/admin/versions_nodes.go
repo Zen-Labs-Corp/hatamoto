@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
@@ -80,8 +81,7 @@ func (a *Admin) layoutView(r *http.Request, e *entity.Entity, la, ra jsontext.Va
 // mayRestoreNodes reports whether the restore forms should be offered: the
 // person can edit and the current page is one the builder owns.
 func (a *Admin) mayRestoreNodes(r *http.Request, e *entity.Entity) bool {
-	u := userFrom(r.Context())
-	if u == nil || (u.Role != "owner" && u.Role != "editor") {
+	if !a.can(r.Context(), authz.ActionEntityVersionRestore) {
 		return false
 	}
 	sc := e.Schema

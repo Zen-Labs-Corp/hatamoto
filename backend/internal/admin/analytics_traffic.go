@@ -9,6 +9,7 @@ import (
 	"golang.org/x/text/language"
 	"golang.org/x/text/language/display"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
@@ -386,9 +387,7 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 			p.Engagement.Items = append(p.Engagement.Items, ui.BarItem{Label: e.Label, Value: fmtNum(e.N), Share: share(e.N, totals.Visits), N: float64(e.N)})
 		}
 	}
-	if u := userFrom(ctx); u != nil {
-		p.Owner = u.Role == "owner"
-	}
+	p.Owner = a.can(ctx, authz.ActionAnalyticsSettingsManage)
 	p.Return = sectionHref(a.adminPath+"/analytics/traffic", q)
 	return p, nil
 }

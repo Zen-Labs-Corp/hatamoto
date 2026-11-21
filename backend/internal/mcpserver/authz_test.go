@@ -46,7 +46,7 @@ func TestToolActionsMatchScopes(t *testing.T) {
 // A registered authorizer that refuses everything stops a key that holds every
 // scope, and the tool's handler never runs (Deps is empty, so it would panic).
 func TestDenyAllAuthorizerRefusesTool(t *testing.T) {
-	authztest.Use(t, authztest.DenyAll)
+	authztest.Use(t, creatorActAllowed(authztest.DenyAll))
 	ts := newTestServer(t, []hmauth.APIKeyScope{hmauth.ScopeAll}, Deps{})
 	text, isErr := call(t, session(t, ts), "entities_list", map[string]any{})
 	if !isErr || !strings.Contains(text, "forbidden") {
@@ -56,9 +56,9 @@ func TestDenyAllAuthorizerRefusesTool(t *testing.T) {
 
 // An authorizer that fails refuses the call too.
 func TestAuthorizerErrorRefusesTool(t *testing.T) {
-	authztest.Use(t, authztest.Func(func(_ context.Context, _ authz.Subject, _ authz.Action, _ authz.Object) (bool, error) {
+	authztest.Use(t, creatorActAllowed(authztest.Func(func(_ context.Context, _ authz.Subject, _ authz.Action, _ authz.Object) (bool, error) {
 		return true, errors.New("backend down")
-	}))
+	})))
 	ts := newTestServer(t, []hmauth.APIKeyScope{hmauth.ScopeAll}, Deps{})
 	text, isErr := call(t, session(t, ts), "entities_list", map[string]any{})
 	if !isErr || !strings.Contains(text, "forbidden") {
@@ -71,7 +71,7 @@ func TestAuthorizerErrorRefusesTool(t *testing.T) {
 // the scopes are the key's.
 func TestAuthorizerSeesKeySubject(t *testing.T) {
 	rec := &authztest.Recorder{Answer: authztest.DenyAll}
-	authztest.Use(t, rec)
+	authztest.Use(t, creatorActAllowed(rec))
 	scopes := []hmauth.APIKeyScope{hmauth.ScopeReadEntities, hmauth.ScopeWriteComments}
 	ts := newTestServerRole(t, "editor", scopes, Deps{})
 	call(t, session(t, ts), "entities_list", map[string]any{})

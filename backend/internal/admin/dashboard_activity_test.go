@@ -115,13 +115,13 @@ func TestDashboardActivityWiring(t *testing.T) {
 	if err != nil || res.Sec.State != dashEmpty || res.Sec.More != nil {
 		t.Errorf("updates only, no history: want an empty card without the Audit log link: %+v %v", res.Sec, err)
 	}
-	for _, j := range g.a.dashJobs("editor") {
+	for _, j := range g.a.dashJobs(roleViewer("editor")) {
 		if j.Name == "activity" {
 			t.Error("editors must not get the activity card")
 		}
 	}
 	owner := false
-	for _, j := range g.a.dashJobs("owner") {
+	for _, j := range g.a.dashJobs(roleViewer("owner")) {
 		owner = owner || j.Name == "activity"
 	}
 	if !owner {

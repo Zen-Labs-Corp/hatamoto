@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
+	"hatamoto.dev/core/internal/authzuser"
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/user"
 )
@@ -44,26 +46,12 @@ func (o commentNotifyObserver) OnApproved(ctx context.Context, c comment.Comment
 	}
 }
 
-// commentModerators lists owners and editors with an address whose access has
-// not ended.
+// commentModerators lists the accounts that receive moderation mail and have
+// an address and access that has not ended.
 func (s *Server) commentModerators(ctx context.Context) ([]*user.User, error) {
-	const page = 200
 	now := time.Now()
-	var out []*user.User
-	for offset := 0; ; offset += page {
-		users, err := s.userRepo.List(ctx, page, offset)
-		if err != nil {
-			return out, err
-		}
-		for _, u := range users {
-			if (u.Role == user.RoleOwner || u.Role == user.RoleEditor) && u.Email != "" && !u.AccessEnded(now) {
-				out = append(out, u)
-			}
-		}
-		if len(users) < page {
-			return out, nil
-		}
-	}
+	return authzuser.Allowed(ctx, s.logger, s.userRepo.List, authz.ActionCommentReceiveModerationMail,
+		func(u *user.User) bool { return u.Email != "" && !u.AccessEnded(now) })
 }
 
 // queueCommentModeration notes a held comment for every moderator. With

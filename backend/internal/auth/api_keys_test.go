@@ -112,5 +112,4 @@ func TestWithExtraDestAppendsCreatorRole(t *testing.T) {
 	var key APIKey
 	testutil.RequireNoError(t, scanAPIKey(withExtraDest{fakeRow{vals: vals}, &key.CreatorRole}, &key))
 	testutil.Equal(t, "viewer", key.CreatorRole)
-	testutil.False(t, key.CreatorCanAct())
 }

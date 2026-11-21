@@ -4,9 +4,11 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"hatamoto.dev/core/authz"
 )
 
-// NavItem is one sidebar link. Roles empty means every signed-in user.
+// NavItem is one sidebar link. Cap empty means every signed-in user.
 type NavItem struct {
 	ID, Label, Href, Icon string
 	Order                 int
@@ -14,7 +16,9 @@ type NavItem struct {
 	// listed together, and "" means no title. Items sharing a Group must have
 	// adjacent Order, or GroupNav splits them into separate groups.
 	Group string
-	Roles []string
+	// Cap is the action the viewer needs to see the item; "" means every
+	// signed-in user.
+	Cap authz.Action
 	// Prefixes are the paths the item covers: it is the current section when
 	// the request path equals one or lies below it (at a "/" boundary). Empty
 	// means Href alone.
@@ -22,15 +26,15 @@ type NavItem struct {
 	// Exact limits the item to Href alone: Overview lives at /admin, which is
 	// the parent of every other admin path.
 	Exact bool
-	// Badge is evaluated per render for the viewer's role ("" hides it).
-	Badge func(role string) string
+	// Badge is evaluated per render for the viewer ("" hides it).
+	Badge func(v viewer) string
 	// BadgeLabel words a non-empty badge for the viewer ("3 drafts to review"): it is the
 	// marker's title and its screen-reader text.
-	BadgeLabel func(role, badge string) string
-	// Visible, when set, decides visibility per role instead of Roles.
-	Visible func(role string) bool
-	// HrefFor, when set, resolves the link per role instead of Href.
-	HrefFor func(role string) string
+	BadgeLabel func(v viewer, badge string) string
+	// Visible, when set, decides visibility per viewer instead of Cap.
+	Visible func(v viewer) bool
+	// HrefFor, when set, resolves the link per viewer instead of Href.
+	HrefFor func(v viewer) string
 }
 
 // NavEntry is a NavItem resolved for one user and path. Current is the
@@ -141,17 +145,17 @@ func (it NavItem) matchLen(path string) int {
 	return best
 }
 
-func (it NavItem) allows(role string) bool {
+func (it NavItem) allows(v viewer) bool {
 	if it.Visible != nil {
-		return it.Visible(role)
+		return it.Visible(v)
 	}
-	return len(it.Roles) == 0 || contains(it.Roles, role)
+	return it.Cap == "" || v.Can(it.Cap)
 }
 
-// For resolves the primary entries visible to role and marks the one covering
+// For resolves the primary entries visible to the viewer and marks the one covering
 // path. The most specific prefix wins, so /admin/plugins lights up
 // Plugins and not Settings.
-func (n *Nav) For(role, path string) []NavEntry {
+func (n *Nav) For(v viewer, path string) []NavEntry {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 	top := n.all()
@@ -164,18 +168,18 @@ func (n *Nav) For(role, path string) []NavEntry {
 	var cands []cand
 	best := -1
 	for _, it := range top {
-		if !it.allows(role) {
+		if !it.allows(v) {
 			continue
 		}
 		e := NavEntry{Label: it.Label, Href: it.Href, Icon: it.Icon, Group: it.Group}
 		if it.HrefFor != nil {
-			e.Href = it.HrefFor(role)
+			e.Href = it.HrefFor(v)
 		}
 		if it.Badge != nil {
-			e.Badge = it.Badge(role)
+			e.Badge = it.Badge(v)
 		}
 		if e.Badge != "" && it.BadgeLabel != nil {
-			e.BadgeLabel = it.BadgeLabel(role, e.Badge)
+			e.BadgeLabel = it.BadgeLabel(v, e.Badge)
 		}
 		m := it.matchLen(path)
 		cands = append(cands, cand{e, m})
@@ -205,18 +209,17 @@ func contains(ss []string, s string) bool {
 // Settings carry a secondary sidebar of their own (see adminArea).
 func defaultNav(prefix string) *Nav {
 	n := &Nav{}
-	owner := []string{"owner"}
 	for i, it := range []NavItem{
 		{ID: "overview", Label: "Overview", Href: prefix, Icon: "home", Exact: true},
 		{ID: "entities", Label: "Entities", Group: "Site", Href: prefix + "/entities", Icon: "file-text", Prefixes: []string{prefix + "/entities", prefix + "/people"}},
 		{ID: "media", Label: "Media", Group: "Site", Href: prefix + "/media", Icon: "image", Prefixes: []string{prefix + "/media"}},
 		{ID: "forms", Label: "Forms", Group: "Site", Href: prefix + "/forms", Icon: "inbox", Prefixes: []string{prefix + "/forms"}},
 		// Hidden until wireNavCounts finds a comment service in use (Visible reads a cached count only).
-		{ID: "comments", Label: "Comments", Group: "Site", Href: prefix + "/comments", Icon: "quote", Prefixes: []string{prefix + "/comments"}, Visible: func(string) bool { return false }},
+		{ID: "comments", Label: "Comments", Group: "Site", Href: prefix + "/comments", Icon: "quote", Prefixes: []string{prefix + "/comments"}, Visible: func(viewer) bool { return false }},
 		{ID: "analytics", Label: "Analytics", Group: "Site", Href: prefix + "/analytics", Icon: "analytics", Prefixes: []string{prefix + "/analytics"}},
-		{ID: pluginsID, Label: "Plugins", Group: "Customize", Href: prefix + "/plugins", Icon: "puzzle", Roles: owner, Prefixes: []string{prefix + "/plugins"}},
-		{ID: "theme", Label: "Theme", Group: "Customize", Href: prefix + "/theme", Icon: "palette", Visible: func(role string) bool { return len(themeFor(prefix, role)) > 0 }, Prefixes: []string{prefix + "/theme"}},
-		{ID: "settings", Label: "Settings", Group: "Customize", Href: prefix + "/settings", Icon: "settings", Visible: func(role string) bool { return len(settingsFor(prefix, role)) > 0 }, Prefixes: []string{prefix + "/settings"}},
+		{ID: pluginsID, Label: "Plugins", Group: "Customize", Href: prefix + "/plugins", Icon: "puzzle", Cap: authz.ActionPluginManage, Prefixes: []string{prefix + "/plugins"}},
+		{ID: "theme", Label: "Theme", Group: "Customize", Href: prefix + "/theme", Icon: "palette", Visible: func(v viewer) bool { return len(themeFor(prefix, v)) > 0 }, Prefixes: []string{prefix + "/theme"}},
+		{ID: "settings", Label: "Settings", Group: "Customize", Href: prefix + "/settings", Icon: "settings", Visible: func(v viewer) bool { return len(settingsFor(prefix, v)) > 0 }, Prefixes: []string{prefix + "/settings"}},
 	} {
 		it.Order = i
 		n.Register(it)
