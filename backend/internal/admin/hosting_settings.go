@@ -305,6 +305,12 @@ func (a *Admin) handleHostingSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	errs := hostingValidate(in, a.siteAddress(r))
+	if len(errs) == 0 && hostingNeedsSudo(cur, in) {
+		if sess := sessionFrom(r.Context()); sess == nil || !a.sudo.store.Active(sess.ID) {
+			a.toSudo(w, r)
+			return
+		}
+	}
 	if len(errs) == 0 {
 		if errs, err = svc.Save(r.Context(), in); err != nil {
 			a.logger().Error("hosting settings save", "err", err)
@@ -325,6 +331,24 @@ func (a *Admin) handleHostingSave(w http.ResponseWriter, r *http.Request) {
 	}
 	a.SetFlash(w, r, "success", "Hosting settings saved.")
 	http.Redirect(w, r, a.adminPath+hostingPath, http.StatusSeeOther)
+}
+
+// hostingNeedsSudo: a static site publishes from these settings, so changing
+// where or how it publishes asks for the password. Served saves never do, and
+// the mode switch has its own confirm and sudo.
+func hostingNeedsSudo(cur HostingView, in HostingInput) bool {
+	if cur.Mode != HostingStatic {
+		return false
+	}
+	if in.SecretKey != "" {
+		return true
+	}
+	for _, f := range hostingChanged(cur, in) {
+		if f != "mode" {
+			return true
+		}
+	}
+	return false
 }
 
 // hostingChanged names the fields that differ from the stored ones; values

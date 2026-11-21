@@ -267,6 +267,7 @@ func TestHostingSaveNeverEchoesOrAuditsTheSecretKey(t *testing.T) {
 
 	f := staticHosting()
 	p := newHostingSaveRig(t, f)
+	grantSudo(p.rig)
 	rec := p.do("POST", hostingURL, "owner-token", hostingForm(nil), nil)
 	if rec.Code != 303 || rec.Header().Get("Location") != hostingURL {
 		t.Fatalf("save = %d %s", rec.Code, rec.Header().Get("Location"))
@@ -296,6 +297,7 @@ func TestHostingSaveRefusedByServiceDropsTheSecret(t *testing.T) {
 	f := staticHosting()
 	f.saveErrs = []ui.FieldError{{ID: "hosting-live-origin", Label: "Live origin", Message: "Use a different address from the site."}}
 	p := newHostingSaveRig(t, f)
+	grantSudo(p.rig)
 	rec := p.do("POST", hostingURL, "owner-token", hostingForm(url.Values{"bucket": {"posted-bucket"}}), nil)
 	body := rec.Body.String()
 	if rec.Code != 422 || !strings.Contains(body, "Use a different address from the site.") || !strings.Contains(body, `href="#hosting-live-origin"`) {
@@ -320,12 +322,59 @@ func TestHostingSaveBlankSecretKeepsTheStoredKey(t *testing.T) {
 
 	f := staticHosting()
 	p := newHostingSaveRig(t, f)
+	grantSudo(p.rig)
 	rec := p.do("POST", hostingURL, "owner-token", hostingForm(url.Values{"secret_key": {""}}), nil)
 	if rec.Code != 303 || len(f.saved) != 1 || f.saved[0].SecretKey != "" {
 		t.Fatalf("code %d, saved %+v", rec.Code, f.saved)
 	}
 	if p.events[0].Detail["secret_changed"] != false {
 		t.Errorf("detail = %v", p.events[0].Detail)
+	}
+}
+
+func TestHostingSaveStaticTargetChangeNeedsSudo(t *testing.T) {
+	t.Parallel()
+
+	for name, extra := range map[string]url.Values{
+		"target":      {"target": {"dir"}, "dir": {"/srv/site"}},
+		"live origin": {"live_origin": {"https://other.example.com"}},
+		"secret":      {},
+	} {
+		f := staticHosting()
+		p := newHostingSaveRig(t, f)
+		form := hostingForm(extra)
+		if name != "secret" {
+			form.Set("secret_key", "")
+		}
+		rec := p.do("POST", hostingURL, "owner-token", form, nil)
+		if rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), p.a.sudoPath()) {
+			t.Fatalf("%s: save = %d %s, want the sudo page", name, rec.Code, rec.Header().Get("Location"))
+		}
+		if len(f.saved) != 0 || len(p.events) != 0 {
+			t.Fatalf("%s: saved %d, audited %d before sudo", name, len(f.saved), len(p.events))
+		}
+		grantSudo(p.rig)
+		if rec := p.do("POST", hostingURL, "owner-token", form, nil); rec.Code != 303 || len(f.saved) != 1 {
+			t.Fatalf("%s: with sudo = %d, saved %d", name, rec.Code, len(f.saved))
+		}
+	}
+}
+
+// Posting the page back unchanged needs no password.
+func TestHostingSaveStaticUnchangedNeedsNoSudo(t *testing.T) {
+	t.Parallel()
+
+	f := staticHosting()
+	p := newHostingSaveRig(t, f)
+	v := f.view
+	form := url.Values{
+		"mode": {v.Mode}, "target": {v.Target}, "dir": {v.Dir}, "service": {v.Service}, "endpoint": {v.Endpoint},
+		"bucket": {v.Bucket}, "prefix": {v.Prefix}, "region": {v.Region}, "access_key": {v.AccessKey},
+		"secret_key": {""}, "live_origin": {v.LiveOrigin},
+	}
+	rec := p.do("POST", hostingURL, "owner-token", form, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != hostingURL || len(f.saved) != 1 {
+		t.Fatalf("unchanged save = %d %s, saved %d", rec.Code, rec.Header().Get("Location"), len(f.saved))
 	}
 }
 
@@ -349,6 +398,7 @@ func TestHostingSaveServiceFailureIsAnErrorPage(t *testing.T) {
 	f := staticHosting()
 	f.saveFatal = errors.New("db down " + testHostingSecret)
 	p := newHostingSaveRig(t, f)
+	grantSudo(p.rig)
 	rec := p.do("POST", hostingURL, "owner-token", hostingForm(nil), nil)
 	if rec.Code != 500 || strings.Contains(rec.Body.String(), testHostingSecret) || strings.Contains(rec.Body.String(), "db down") {
 		t.Fatalf("code %d", rec.Code)
