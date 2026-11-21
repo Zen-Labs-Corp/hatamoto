@@ -9,6 +9,7 @@ import (
 
 	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/seo"
 )
 
@@ -92,6 +93,8 @@ func seoHeadWith(ctx context.Context, v *PageView, replaceSiteGraph bool, sg Sit
 	h.Icon = v.Site.FaviconURL
 	if v.Preview {
 		h.Robots = "noindex,follow"
+	} else if runenv.Staging() {
+		h.Robots = "noindex"
 	} else {
 		h.Robots = seo.ComposeRobots(seo.ParseDirectives(v.Page.RobotsRaw), robotsDefaults(v.SEO), v.Page.NoIndex || settingsNoIndex(v))
 	}
