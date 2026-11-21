@@ -547,7 +547,7 @@ func New(d Deps) (*Admin, error) {
 		a.areas = []*adminArea{a.settings, themeArea, analyticsArea}
 	}
 	a.sudo.store = &d.Sudo.s
-	a.tickets = &ticketStore{key: deriveTicketKey(a.csrfKey), backend: d.FrameTickets}
+	a.tickets = &ticketStore{key: deriveTicketKey(a.csrfKey), backend: d.FrameTickets, log: a.logger}
 	// Plugins is the owner's, and an editor's when a plugin UI admits them.
 	d.Nav.update(pluginsID, func(it *NavItem) {
 		it.Roles = nil
