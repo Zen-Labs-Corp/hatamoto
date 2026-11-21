@@ -78,6 +78,8 @@ type Service struct {
 	// Optional: called after every change to the redirect rules.
 	onChange atomic.Pointer[func()]
 
+	audit AuditFunc
+
 	// Async hit counter: hits are queued (dropped when full), summed per rule
 	// and written in batches by one goroutine.
 	hitCh    chan uuid.UUID
@@ -236,17 +238,30 @@ func (s *Service) ListRecent404Entries(ctx context.Context, since time.Time, lim
 
 // Ignore404Entry marks an entry as ignored.
 func (s *Service) Ignore404Entry(ctx context.Context, id uuid.UUID) error {
-	return s.repo.Ignore404Entry(ctx, id)
+	if err := s.repo.Ignore404Entry(ctx, id); err != nil {
+		return err
+	}
+	s.record(ctx, "not_found.ignored", id.String(), nil)
+	return nil
 }
 
 // Delete404Entry deletes a 404 entry.
 func (s *Service) Delete404Entry(ctx context.Context, id uuid.UUID) error {
-	return s.repo.Delete404Entry(ctx, id)
+	if err := s.repo.Delete404Entry(ctx, id); err != nil {
+		return err
+	}
+	s.record(ctx, "not_found.deleted", id.String(), nil)
+	return nil
 }
 
 // DeleteAll404Entries empties the 404 log and returns how many rows went.
 func (s *Service) DeleteAll404Entries(ctx context.Context) (int64, error) {
-	return s.repo.DeleteAll404Entries(ctx)
+	n, err := s.repo.DeleteAll404Entries(ctx)
+	if err != nil {
+		return n, err
+	}
+	s.record(ctx, "404log.cleared", "404log", map[string]any{"count": n})
+	return n, nil
 }
 
 // ── Redirect CRUD ────────────────────────────────────────────────────────────
@@ -274,6 +289,7 @@ func (s *Service) CreateRedirect(ctx context.Context, input *CreateRedirectInput
 	}
 
 	s.invalidateCache()
+	s.record(ctx, "redirect.created", rd.ID.String(), redirectDetail(rd))
 	return rd, nil
 }
 
@@ -316,6 +332,7 @@ func (s *Service) UpdateRedirect(ctx context.Context, id uuid.UUID, input *Updat
 		return nil, err
 	}
 	s.invalidateCache()
+	s.record(ctx, "redirect.updated", rd.ID.String(), redirectDetail(rd))
 	return rd, nil
 }
 
@@ -325,6 +342,7 @@ func (s *Service) DeleteRedirect(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 	s.invalidateCache()
+	s.record(ctx, "redirect.deleted", id.String(), nil)
 	return nil
 }
 
