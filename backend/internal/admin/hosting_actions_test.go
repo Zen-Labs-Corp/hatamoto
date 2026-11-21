@@ -214,3 +214,18 @@ func TestHostingTestExportNeedsCSRF(t *testing.T) {
 		t.Errorf("POST without CSRF = %d, calls %d", rec.Code, f.tests)
 	}
 }
+
+// In static mode Test export would publish to the live target: it is refused.
+func TestHostingTestExportRefusedInStaticMode(t *testing.T) {
+	t.Parallel()
+
+	f := staticHosting()
+	p := newHostingSaveRig(t, f)
+	rec := p.do("POST", hostingURL+"/test", "owner-token", url.Values{}, nil)
+	if body := followFlashTo(p.ownerRig, hostingURL, rec); rec.Code != 303 || !strings.Contains(body, "In static mode, use Export now.") {
+		t.Errorf("code %d, no refusal flash", rec.Code)
+	}
+	if f.tests != 0 || len(p.events) != 0 {
+		t.Errorf("test export ran in static mode: %d calls, audit %+v", f.tests, p.events)
+	}
+}

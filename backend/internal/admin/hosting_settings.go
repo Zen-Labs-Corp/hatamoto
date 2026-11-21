@@ -67,6 +67,10 @@ func (a *Admin) handleHosting(w http.ResponseWriter, r *http.Request) {
 	a.renderHosting(w, r, http.StatusOK, nil, nil)
 }
 
+// hostingTestStaticWhy is why Test export is off in static mode: it would write
+// the live target, which is what Export now does and records as a live run.
+const hostingTestStaticWhy = "In static mode, use Export now."
+
 // renderHosting shows the page. form is the posted input to show again (nil
 // shows the saved values); its secret key is never read.
 func (a *Admin) renderHosting(w http.ResponseWriter, r *http.Request, status int, form *HostingInput, errs []ui.FieldError) {
@@ -137,7 +141,10 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 	if static {
 		p.IslandsWarning = saved.IslandsWarning
 	}
-	if !hostingTargetSaved(saved) {
+	switch {
+	case static:
+		p.TestWhy = hostingTestStaticWhy
+	case !hostingTargetSaved(saved):
 		p.TestWhy = "Save a target first."
 	}
 	switch {

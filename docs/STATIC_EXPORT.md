@@ -256,9 +256,11 @@ On a served site, or without the worker, nothing runs by itself. Only one
 export runs at a time: if another process holds the run, the export is
 retried after the next window.
 
-**Buttons.** All three are always shown. *Test export* writes the site to
-the saved target in either mode, with islands rewritten as in static mode,
-without changing what visitors get. It needs a saved target ("Save a target
+**Buttons.** All three are always shown. *Test export* is for a served
+site: it writes the site to the saved target, with islands rewritten as in
+static mode, without changing what visitors get. In static mode it is disabled
+("In static mode, use Export now.") because it would publish to the live
+target; use *Export now* there. It needs a saved target ("Save a target
 first."), does not ask for your password, sends no failure mail, shows no
 failure banner and appears in the log as "Test export". With no live origin
 set, islands keep this site's relative paths. A test export writes real files:

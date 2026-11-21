@@ -102,6 +102,11 @@ func (a *Admin) handleHostingTest(w http.ResponseWriter, r *http.Request) {
 		a.unavailable(w, r, "Hosting")
 		return
 	}
+	if v, err := svc.View(r.Context()); err == nil && v.Mode == HostingStatic {
+		a.SetFlash(w, r, "info", hostingTestStaticWhy)
+		http.Redirect(w, r, a.adminPath+hostingPath, http.StatusSeeOther)
+		return
+	}
 	err := svc.TestExport(r.Context())
 	switch {
 	case errors.Is(err, ErrHostingNoTarget):

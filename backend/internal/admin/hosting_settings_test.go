@@ -187,8 +187,8 @@ func TestHostingPageWorkerOff(t *testing.T) {
 	if !strings.Contains(body, "The export worker is off on this server.") || strings.Count(body, `aria-describedby="hosting-export-why"`) != 2 {
 		t.Error("Export now and Rebuild all are not disabled with the worker reason")
 	}
-	if strings.Contains(body, `aria-describedby="hosting-test-why"`) {
-		t.Error("Test export is disabled although it needs no worker")
+	if strings.Contains(body, `hosting-test-why">The export worker`) {
+		t.Error("Test export carries the worker reason although it needs no worker")
 	}
 }
 
@@ -198,6 +198,9 @@ func TestHostingPageStatic(t *testing.T) {
 	f := staticHosting()
 	p := newHostingRig(t, f)
 	body := p.do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `aria-describedby="hosting-test-why"`) || !strings.Contains(body, "In static mode, use Export now.") {
+		t.Error("Test export is not disabled with its reason in static mode")
+	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}
@@ -209,8 +212,8 @@ func TestHostingPageStatic(t *testing.T) {
 	if !strings.Contains(body, "Failed") || !strings.Contains(body, "hm-badge--danger") {
 		t.Error("the failed run has no danger badge")
 	}
-	if strings.Contains(body, "disabled") {
-		t.Error("a button is disabled in static mode with a target")
+	if strings.Contains(body, `aria-describedby="hosting-export-why"`) {
+		t.Error("Export now or Rebuild all is disabled in static mode with a target")
 	}
 	if strings.Contains(body, `id="hosting-islands-inactive"`) {
 		t.Error("islands warning without a reason")
