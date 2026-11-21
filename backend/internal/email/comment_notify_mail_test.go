@@ -2,6 +2,7 @@ package email
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +22,15 @@ func modData(items ...CommentModerationItem) CommentModerationData {
 func replyData() CommentReplyData {
 	return CommentReplyData{SiteName: "Site S", EntityTitle: "Post P", ReplierName: "Bob",
 		URL: "https://example.test/p#comment-1", UnsubscribeURL: testUnsub}
+}
+
+func replyDigestData(n int) CommentReplyDigestData {
+	d := CommentReplyDigestData{SiteName: "Site S", UnsubscribeURL: testUnsub}
+	for i := 1; i <= n; i++ {
+		d.Items = append(d.Items, CommentReplyItem{ReplierName: fmt.Sprintf("R%d", i), EntityTitle: "Post P",
+			URL: fmt.Sprintf("https://example.test/p#comment-%d", i)})
+	}
+	return d
 }
 
 func oneMessage(t *testing.T, srv *smtptest.Server) (head, body string) {
@@ -103,12 +113,107 @@ func TestSendCommentReply_LogAndHeaders(t *testing.T) {
 	}
 }
 
+func TestSendCommentReplyDigest_LogAndHeaders(t *testing.T) {
+	svc, rec, srv := newLoggedSink(t, smtptest.Options{}, nil)
+	if err := svc.SendCommentReplyDigest(context.Background(), "a@b.test", replyDigestData(3)); err != nil {
+		t.Fatal(err)
+	}
+	head, body := oneMessage(t, srv)
+	if !strings.Contains(head, "Subject: 3 new replies on Site S\r\n") {
+		t.Errorf("subject:\n%s", head)
+	}
+	for _, want := range []string{"https://example.test/p#comment-1", "https://example.test/p#comment-2", "https://example.test/p#comment-3", testUnsub} {
+		if !strings.Contains(body, want) {
+			t.Errorf("body misses %q:\n%s", want, body)
+		}
+	}
+	e := rec.entries[0]
+	if e.Kind != KindCommentReplyDigest || e.BodyText != "" || e.BodyHTML != "" {
+		t.Errorf("entry = %+v", e)
+	}
+	if len(e.Recipients) != 1 || e.Recipients[0] != "a***@b***.test" {
+		t.Errorf("recipients = %v", e.Recipients)
+	}
+}
+
+func TestSendCommentReplyDigest_CapsItems(t *testing.T) {
+	svc, _, srv := newLoggedSink(t, smtptest.Options{}, nil)
+	if err := svc.SendCommentReplyDigest(context.Background(), "a@b.test", replyDigestData(25)); err != nil {
+		t.Fatal(err)
+	}
+	head, body := oneMessage(t, srv)
+	if !strings.Contains(head, "Subject: 25 new replies on Site S") || !strings.Contains(body, "and 5 more") {
+		t.Errorf("mail:\n%s\n%s", head, body)
+	}
+	if n := strings.Count(body, "comment-20"); n == 0 || strings.Contains(body, "comment-21") {
+		t.Errorf("listed items wrong:\n%s", body)
+	}
+}
+
+func TestSendCommentReplyDigest_Empty(t *testing.T) {
+	svc, _, srv := newLoggedSink(t, smtptest.Options{}, nil)
+	if err := svc.SendCommentReplyDigest(context.Background(), "a@b.test", replyDigestData(0)); err == nil {
+		t.Error("no items must be an error")
+	}
+	if len(srv.Messages()) != 0 {
+		t.Error("mail was sent")
+	}
+}
+
+func TestSendCommentReplyDigest_Injection(t *testing.T) {
+	const evil = "Eve\r\nBcc: x@example.test"
+	svc, _, srv := newLoggedSink(t, smtptest.Options{}, nil)
+	d := replyDigestData(2)
+	d.Items[0].ReplierName = evil
+	d.Items[1].EntityTitle = "<script>t"
+	d.Items[1].ReplierName = "<script>r"
+	if err := svc.SendCommentReplyDigest(context.Background(), "a@b.test", d); err != nil {
+		t.Fatal(err)
+	}
+	head, body := oneMessage(t, srv)
+	if strings.Contains(head, "Bcc:") || strings.Contains(head, "Eve") {
+		t.Errorf("name reached the header block:\n%s", head)
+	}
+	if !strings.Contains(body, "Eve  Bcc: x@example.test") || strings.Contains(body, "\r\nBcc:") {
+		t.Errorf("name not folded in the body:\n%s", body)
+	}
+	_, html, ok := strings.Cut(body, "text/html")
+	if !ok || strings.Contains(html, "<script>") || !strings.Contains(html, "&lt;script&gt;") {
+		t.Errorf("HTML not escaped:\n%s", html)
+	}
+}
+
+func TestSendCommentReplyDigest_BadRecipientAndSubject(t *testing.T) {
+	srv := smtptest.Start(t, smtptest.Options{})
+	svc := newSink(t, sinkConfig(srv, SecurityNone))
+	for _, to := range []string{"a@b.test\r\nBcc: c@d.test", "Name <a@b.test>", "<a@b.test>", ""} {
+		if err := svc.SendCommentReplyDigest(context.Background(), to, replyDigestData(2)); err == nil {
+			t.Errorf("digest to %q: want an error", to)
+		}
+	}
+	if len(srv.Messages()) != 0 {
+		t.Error("mail was sent")
+	}
+	d := replyDigestData(2)
+	d.SiteName = "T\r\nBcc: x@example.test"
+	if err := svc.SendCommentReplyDigest(context.Background(), "a@b.test", d); err != nil {
+		t.Fatal(err)
+	}
+	head, _ := oneMessage(t, srv)
+	if strings.Contains(head, "Bcc:") || !strings.Contains(head, "Subject: New replies to your comments\r\n") {
+		t.Errorf("subject did not fall back:\n%s", head)
+	}
+}
+
 func TestCommentNotify_UnsubscribeEverywhere(t *testing.T) {
 	for name, send := range map[string]func(*Service) error{
 		"moderation": func(s *Service) error {
 			return s.SendCommentModeration(context.Background(), "m@example.test", modData(CommentModerationItem{AuthorName: "A", EntityTitle: "T", Held: "h"}))
 		},
 		"reply": func(s *Service) error { return s.SendCommentReply(context.Background(), "a@b.test", replyData()) },
+		"reply digest": func(s *Service) error {
+			return s.SendCommentReplyDigest(context.Background(), "a@b.test", replyDigestData(2))
+		},
 	} {
 		srv := smtptest.Start(t, smtptest.Options{})
 		svc := newSink(t, sinkConfig(srv, SecurityNone))

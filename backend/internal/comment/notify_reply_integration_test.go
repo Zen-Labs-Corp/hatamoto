@@ -31,13 +31,23 @@ func (f *fixture) replyQueued(reply Comment) int {
 	return n
 }
 
-func (f *fixture) claimReplies() []ReplyNotice {
+func (f *fixture) claimBatches() []ReplyBatch {
 	f.t.Helper()
-	got, err := f.svc.ClaimReplies(f.ctx, 100)
+	got, err := f.svc.ClaimReplyBatches(f.ctx, 100, 15*time.Minute)
 	if err != nil {
 		f.t.Fatal(err)
 	}
 	return got
+}
+
+// claimReplies returns the claimed replies of all batches.
+func (f *fixture) claimReplies() []Comment {
+	f.t.Helper()
+	var out []Comment
+	for _, b := range f.claimBatches() {
+		out = append(out, b.Replies...)
+	}
+	return out
 }
 
 func (f *fixture) queueReply(reply Comment) {
@@ -56,13 +66,13 @@ func TestReplyQueueSendsToConfirmedOptedInParent(t *testing.T) {
 	if f.replyQueued(reply) != 1 {
 		t.Fatalf("queue rows = %d, want 1", f.replyQueued(reply))
 	}
-	got := f.claimReplies()
-	if len(got) != 1 {
-		t.Fatalf("claimed %d, want 1", len(got))
+	got := f.claimBatches()
+	if len(got) != 1 || len(got[0].Replies) != 1 {
+		t.Fatalf("claimed %d batches, want 1 with 1 reply", len(got))
 	}
-	n := got[0]
-	if n.Email != "parent@example.test" || n.Reply.ID != reply.ID || n.ParentID != parent.ID || n.CommenterID != *parent.CommenterID {
-		t.Errorf("notice = %+v", n)
+	b := got[0]
+	if b.Email != "parent@example.test" || b.Replies[0].ID != reply.ID || b.CommenterID != *parent.CommenterID {
+		t.Errorf("batch = %+v", b)
 	}
 	if again := f.claimReplies(); len(again) != 0 {
 		t.Errorf("second claim = %d, want 0", len(again))
@@ -120,11 +130,9 @@ func TestReplyQueueNeverToSelf(t *testing.T) {
 	if got := f.claimReplies(); len(got) != 0 {
 		t.Errorf("claimed %d replies to the replier themself, want 0", len(got))
 	}
-	// The row is spent, not left to retry.
-	var sent *time.Time
-	f.scalar(&sent, `SELECT sent_at FROM hatamoto_comment_reply_queue WHERE comment_id = $1`, own.ID)
-	if sent == nil {
-		t.Error("self reply stayed unclaimed")
+	// The row is dropped, never left to retry and never counted as a send.
+	if f.replyQueued(own) != 0 {
+		t.Error("self reply stayed queued")
 	}
 }
 

@@ -65,6 +65,8 @@ func emailKindLabel(kind, plugin string) string {
 		return "Comments summary"
 	case email.KindCommentReply:
 		return "Comment reply"
+	case email.KindCommentReplyDigest:
+		return "Comment replies summary"
 	case email.KindCommentSurge:
 		return "Comment surge"
 	case email.KindPlugin:
