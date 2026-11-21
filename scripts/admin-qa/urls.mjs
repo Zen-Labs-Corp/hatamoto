@@ -102,6 +102,7 @@ export const screens = [
   // need an unpinned install: shots-address.mjs walks them (wizard, change, banner, keep) against a fresh database.
   { name: "settings-security-admin-address", path: "/admin/settings/security/admin-address", legacy: null, mock: null, roles: O },
   { name: "settings-backups", path: "/admin/settings/backups", mock: null, roles: O, states: [rowMenu] }, // rows come from backups-seed.sh; the confirm link lives in the closed row menu, so open the menu instead of clicking it
+  { name: "settings-hosting", path: "/admin/settings/hosting", mock: null, roles: O }, // served by default; QA_SEED_HOSTING=1 seeds static mode and export runs, one failed (hosting-seed.sh)
   { name: "settings-api-keys", path: "/admin/settings/api-keys", legacy: "/admin/settings/api", mock: null, roles: O, primary: true, list: true, states: [newDialog] },
   // submit: fill and submit the /new form so the page shown is the redirect with the one-time secret banner and the highlighted new row.
   { name: "settings-api-keys-secret", path: "/admin/settings/api-keys/new", legacy: null, mock: null, roles: O, submit: { fill: { "#key-name": "QA key" }, check: "#scope-0", button: 'form[action="/admin/settings/api-keys"] button.hm-btn--primary' }, expect: ".hm-secretbanner" },
