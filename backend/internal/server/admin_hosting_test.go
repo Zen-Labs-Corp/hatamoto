@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/staticexport"
 	"hatamoto.dev/core/internal/statichost"
@@ -369,5 +370,116 @@ func TestHostingAdmin_SaveServedRequestWithInvalidStaticTargetIsFieldError(t *te
 	}
 	if len(errs) == 0 || fx.store.saves != 0 {
 		t.Fatalf("errs=%v saves=%d, want a field error and nothing saved", errs, fx.store.saves)
+	}
+}
+
+type testExportCall struct {
+	target staticexport.Target
+	hs     statichost.StaticHosting
+	opts   staticexport.Options
+}
+
+func testExportFixture(t *testing.T, calls *[]testExportCall) (*hostingFixture, string) {
+	t.Helper()
+	fx := newHostingFixture(t)
+	dir := filepath.Join(t.TempDir(), "public")
+	fx.store.set = staticexport.Settings{Mode: staticexport.ModeServed, Target: staticexport.TargetDir, DirPath: dir, LiveOrigin: "https://live.example.com"}
+	fx.store.found = true
+	fx.h.spawn = func(f func()) { f() }
+	fx.h.background = context.Background
+	fx.h.log = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	fx.h.testExport = func(_ context.Context, tg staticexport.Target, hs statichost.StaticHosting, o staticexport.Options) (staticexport.Result, error) {
+		*calls = append(*calls, testExportCall{tg, hs, o})
+		return staticexport.Result{}, nil
+	}
+	return fx, dir
+}
+
+func TestHostingAdmin_TestExportServedDir(t *testing.T) {
+	var calls []testExportCall
+	fx, dir := testExportFixture(t, &calls)
+	if err := fx.h.TestExport(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 1 {
+		t.Fatalf("calls = %d", len(calls))
+	}
+	c := calls[0]
+	if c.opts.Trigger != admin.HostingTriggerTest || !c.hs.Static || c.hs.Live != "https://live.example.com" || c.hs.Site != fx.site {
+		t.Errorf("call = %+v", c)
+	}
+	if !strings.Contains(c.target.Key(), dir) {
+		t.Errorf("target key %q does not refer to %q", c.target.Key(), dir)
+	}
+	if fx.refresh != 0 || fx.store.saves != 0 {
+		t.Errorf("test export refreshed or saved (refresh=%d saves=%d)", fx.refresh, fx.store.saves)
+	}
+	if fx.h.testing.Load() {
+		t.Error("single-flight flag not released")
+	}
+}
+
+func TestHostingAdmin_TestExportRefusals(t *testing.T) {
+	var calls []testExportCall
+	fx, _ := testExportFixture(t, &calls)
+	ctx := context.Background()
+
+	fx.runs.runs = []staticexport.Run{{Status: admin.HostingRunRunning}}
+	if err := fx.h.TestExport(ctx); !errors.Is(err, admin.ErrHostingTestBusy) {
+		t.Errorf("running run: %v", err)
+	}
+	fx.runs.runs = nil
+	fx.h.testing.Store(true)
+	if err := fx.h.TestExport(ctx); !errors.Is(err, admin.ErrHostingTestBusy) {
+		t.Errorf("single-flight: %v", err)
+	}
+	fx.h.testing.Store(false)
+	fx.refuse = errors.New("demo")
+	if err := fx.h.TestExport(ctx); err == nil || err.Error() != "demo" {
+		t.Errorf("refuse: %v", err)
+	}
+	fx.refuse = nil
+	fx.store.set.DirPath = ""
+	if err := fx.h.TestExport(ctx); !errors.Is(err, admin.ErrHostingNoTarget) {
+		t.Errorf("empty dir: %v", err)
+	}
+	fx.h.testExport = nil
+	if err := fx.h.TestExport(ctx); err == nil {
+		t.Error("nil testExport must error")
+	}
+	if len(calls) != 0 {
+		t.Errorf("export ran %d times", len(calls))
+	}
+}
+
+func TestHostingAdmin_LastRunSkipsTestRuns(t *testing.T) {
+	fx := newHostingFixture(t)
+	fx.runs.runs = []staticexport.Run{
+		{Trigger: admin.HostingTriggerTest, Status: admin.HostingRunFailed},
+		{Trigger: "manual", Status: "ok", Pages: 7},
+	}
+	r, ok, err := fx.h.LastRun(context.Background())
+	if err != nil || !ok || r.Trigger != "manual" || r.Pages != 7 {
+		t.Fatalf("last = %+v %v %v", r, ok, err)
+	}
+	fx.runs.runs = fx.runs.runs[:1]
+	if _, ok, _ := fx.h.LastRun(context.Background()); ok {
+		t.Error("only a test run: LastRun must be empty")
+	}
+}
+
+func TestPreviousLiveFailedIgnoresTestRuns(t *testing.T) {
+	cur := uuid.New()
+	list := []staticexport.Run{
+		{ID: cur, Status: "ok"},
+		{Trigger: admin.HostingTriggerTest, Status: "failed"},
+		{Trigger: "manual", Status: "ok"},
+	}
+	if previousLiveFailed(list, cur) {
+		t.Error("a failed test run counted as the previous live failure")
+	}
+	list[2].Status = "failed"
+	if !previousLiveFailed(list, cur) {
+		t.Error("previous live failure missed")
 	}
 }

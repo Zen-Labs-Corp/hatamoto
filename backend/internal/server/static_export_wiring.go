@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/staticexport"
 	"hatamoto.dev/core/internal/statictrigger"
@@ -86,6 +87,19 @@ func (r *staticExportRunner) run(ctx context.Context, full bool, reason string) 
 	return err
 }
 
+// previousLiveFailed reports whether the newest finished export before cur
+// failed. The running run and test runs are skipped: a test run is not the
+// live export.
+func previousLiveFailed(list []staticexport.Run, cur uuid.UUID) bool {
+	for _, r := range list {
+		if r.ID == cur || r.Status == "running" || r.Trigger == admin.HostingTriggerTest {
+			continue
+		}
+		return r.Status == "failed"
+	}
+	return false
+}
+
 // setupStaticExport builds the trigger (worker process only), the failure
 // notifier and the Hosting adapter. Run it once the mail service and the
 // site settings exist; the admin may not be mounted yet (see hostingSvc).
@@ -107,13 +121,7 @@ func (s *Server) setupStaticExport() {
 				if err != nil {
 					return false, err
 				}
-				for _, r := range list {
-					if r.ID == cur || r.Status == "running" {
-						continue
-					}
-					return r.Status == "failed", nil
-				}
-				return false, nil
+				return previousLiveFailed(list, cur), nil
 			},
 		}
 	}
@@ -133,6 +141,7 @@ func (s *Server) setupStaticExport() {
 		settings: settings, runs: runs, key: key, trigger: s.staticTrigger,
 		refresh: s.refreshStaticHosting, siteURL: pluginEntityPaths{s}.BaseURL, snapshot: s.staticHosting,
 		refuse: s.staticRefusal, dirGuard: guard,
+		testExport: s.StaticTestExport, background: func() context.Context { return s.lifecycleCtx }, log: s.logger,
 	}
 	if s.admin != nil { // already mounted: hand it over directly
 		s.admin.SetHosting(s.hostingSvc)

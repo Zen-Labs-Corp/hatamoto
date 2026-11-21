@@ -3,7 +3,10 @@ package server
 import (
 	"context"
 	"errors"
+	"log/slog"
+	"os"
 	"strings"
+	"sync/atomic"
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/admin/ui"
@@ -42,6 +45,12 @@ type hostingAdmin struct {
 	// (demo, Site access); nil means nothing refuses.
 	refuse   func(ctx context.Context) error
 	dirGuard staticexport.DirGuard
+	// testExport runs one Test export (Server.StaticTestExport); nil = unavailable.
+	testExport func(ctx context.Context, t staticexport.Target, hs statichost.StaticHosting, o staticexport.Options) (staticexport.Result, error)
+	background func() context.Context // the server lifecycle context
+	spawn      func(func())           // nil = go f(); tests run inline
+	log        *slog.Logger
+	testing    atomic.Bool // a Test export is running in this process
 }
 
 func (h *hostingAdmin) load(ctx context.Context) (staticexport.Settings, error) {
@@ -200,8 +209,52 @@ func hostingRun(r staticexport.Run) admin.HostingRun {
 	return out
 }
 
-func (h *hostingAdmin) TestExport(context.Context) error {
-	return errors.New("test export is not available")
+// TestExport writes one export to the saved target in the background, with the
+// island snapshot of static mode applied to that export only (s.hosting is
+// never touched). The run is recorded with the test trigger; it sends no mail
+// and prunes nothing, because a test run is never the live export.
+func (h *hostingAdmin) TestExport(ctx context.Context) error {
+	if h.testExport == nil {
+		return errors.New("test export is not available on this server")
+	}
+	set, err := h.load(ctx)
+	if err != nil {
+		return err
+	}
+	if (set.Target == staticexport.TargetS3 && set.Bucket == "") || (set.Target != staticexport.TargetS3 && set.DirPath == "") {
+		return admin.ErrHostingNoTarget
+	}
+	if h.refuse != nil {
+		if err := h.refuse(ctx); err != nil {
+			return err
+		}
+	}
+	t, err := staticexport.SavedTarget(set, h.key, h.dirGuard, os.Getenv)
+	if err != nil {
+		return err
+	}
+	if runs, err := h.runs.List(ctx, 1); err == nil && len(runs) > 0 && runs[0].Status == admin.HostingRunRunning {
+		return admin.ErrHostingTestBusy
+	}
+	if !h.testing.CompareAndSwap(false, true) {
+		return admin.ErrHostingTestBusy
+	}
+	hs := hostingSnapshot(set, true, h.siteURL(ctx))
+	hs.Static = true
+	run := func() {
+		defer h.testing.Store(false)
+		ctx, cancel := context.WithTimeout(h.background(), exportTimeout)
+		defer cancel()
+		if _, err := h.testExport(ctx, t, hs, staticexport.Options{Trigger: admin.HostingTriggerTest}); err != nil && h.log != nil {
+			h.log.Warn("static test export", slog.String("error", err.Error()))
+		}
+	}
+	if h.spawn != nil {
+		h.spawn(run)
+	} else {
+		go run()
+	}
+	return nil
 }
 
 func (h *hostingAdmin) Runs(ctx context.Context, limit int) ([]admin.HostingRun, error) {
@@ -222,7 +275,7 @@ func (h *hostingAdmin) LastRun(ctx context.Context) (admin.HostingRun, bool, err
 		return admin.HostingRun{}, false, err
 	}
 	for _, r := range runs {
-		if r.Status != admin.HostingRunRunning {
+		if r.Status != admin.HostingRunRunning && r.Trigger != admin.HostingTriggerTest {
 			return hostingRun(r), true, nil
 		}
 	}
