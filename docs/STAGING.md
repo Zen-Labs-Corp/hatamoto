@@ -25,7 +25,7 @@ defaults. A staging copy usually keeps `ENVIRONMENT=production` so it behaves li
 At start, `serve` logs one line:
 
 ```
-staging mode: mail, webhooks, IndexNow, off-site backup, updater, plugin outbound HTTP, install statistics, static export to S3 and media deletions in object storage are off
+staging mode: mail, webhooks, IndexNow, cache purge, off-site backup, updater, plugin outbound HTTP, install statistics, static export to S3 and media deletions in object storage are off
 ```
 
 Each blocked send also logs one `staging mode: suppressed` line that names the sender.
@@ -37,6 +37,7 @@ Each blocked send also logs one `staging mode: suppressed` line that names the s
 | Mail (including the SMTP connection check) | Nothing is sent, and the connection check (which would sign in to the copied SMTP server) is skipped | The email log records the message as suppressed. **Send a test email** shows a warning that nothing was sent. Saving the email settings still works and shows a warning that the connection was not checked |
 | Webhooks | Nothing is queued and the delivery job does nothing; **Send test** is refused | **Send test** shows a warning and returns to the webhook list |
 | IndexNow | Queued URLs are dropped instead of submitted | A log line with the URL count |
+| Cache purge (webhook target and registered purgers) | Queued purges are dropped instead of sent to the CDN | A log line with the item count |
 | Off-site backup | The whole run is refused (no local backup is taken for it, no upload, no pruning of the bucket); **Test connection** is refused | The run is recorded as failed with the staging message |
 | Updater (check and apply) | Skipped, nothing is stored | The on-page **Check** reply says "skipped, staging mode". Nothing is stored, so the page keeps showing whatever it showed before, and **Update now** does nothing |
 | Plugin outbound HTTP (`http.fetch`, downloads, import by URL) | Refused | The plugin gets a blocked-fetch error |
