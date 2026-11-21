@@ -80,8 +80,10 @@ type Service struct {
 
 	// Async hit counter: hits are queued (dropped when full), summed per rule
 	// and written in batches by one goroutine.
-	hitCh   chan uuid.UUID
-	hitDone chan struct{}
+	hitCh    chan uuid.UUID
+	hitDone  chan struct{}
+	hitEvery time.Duration // flush delay after the first pending hit; hitFlushEvery outside tests
+	hitFires atomic.Uint64 // flush timer fires (tests)
 
 	// In-memory redirect cache (singleton).
 	mu    sync.RWMutex
@@ -103,13 +105,14 @@ func NewService(db *database.DB, logger *slog.Logger) *Service {
 // background logger.
 func NewServiceWithStore(store Store, logger *slog.Logger) *Service {
 	s := &Service{
-		repo:    store,
-		logger:  logger,
-		logCh:   make(chan logEntry, logChannelSize),
-		done:    make(chan struct{}),
-		hitCh:   make(chan uuid.UUID, hitChannelSize),
-		hitDone: make(chan struct{}),
-		warned:  make(map[uuid.UUID]struct{}),
+		repo:     store,
+		logger:   logger,
+		logCh:    make(chan logEntry, logChannelSize),
+		done:     make(chan struct{}),
+		hitCh:    make(chan uuid.UUID, hitChannelSize),
+		hitDone:  make(chan struct{}),
+		hitEvery: hitFlushEvery,
+		warned:   make(map[uuid.UUID]struct{}),
 	}
 	go s.processLogEntries()
 	go s.processHits()
@@ -133,8 +136,9 @@ func (s *Service) countHit(id uuid.UUID) {
 	}
 }
 
-// processHits sums queued hits per rule and flushes them every hitFlushEvery
-// and on Close, one UPDATE per rule.
+// processHits sums queued hits per rule and writes them hitEvery after the
+// first pending hit, and on Close, one UPDATE per rule. No timer runs while
+// nothing is pending.
 func (s *Service) processHits() {
 	defer close(s.hitDone)
 	pending := map[uuid.UUID]int{}
@@ -146,17 +150,30 @@ func (s *Service) processHits() {
 			delete(pending, id)
 		}
 	}
-	tick := time.NewTicker(hitFlushEvery)
-	defer tick.Stop()
+	var timer *time.Timer
+	var timerC <-chan time.Time
 	for {
 		select {
 		case id, ok := <-s.hitCh:
 			if !ok {
+				if timer != nil {
+					timer.Stop()
+				}
 				flush()
 				return
 			}
 			pending[id]++
-		case <-tick.C:
+			if timerC == nil {
+				if timer == nil {
+					timer = time.NewTimer(s.hitEvery)
+				} else {
+					timer.Reset(s.hitEvery)
+				}
+				timerC = timer.C
+			}
+		case <-timerC:
+			s.hitFires.Add(1)
+			timerC = nil
 			flush()
 		}
 	}
