@@ -189,9 +189,15 @@ func VerifyRecord(recordBytes []byte, recordSig string, o Options) (*Record, err
 // VerifyArtifact checks that r holds exactly the build rec names for
 // platform: size within the cap, then sha256. At most size+1 bytes are read.
 func VerifyArtifact(rec *Record, platform string, r io.Reader, o Options) error {
-	art, ok := rec.Artifacts[platform]
-	if !ok {
-		return fmt.Errorf("%w: no artifact for %s", ErrRecordMismatch, platform)
+	return VerifyArtifactFor(rec, "", platform, r, o)
+}
+
+// VerifyArtifactFor is VerifyArtifact for the build of edition ("" or the
+// community name selects the default build). It never falls back to it.
+func VerifyArtifactFor(rec *Record, edition, platform string, r io.Reader, o Options) error {
+	art, err := rec.ArtifactFor(edition, platform)
+	if err != nil {
+		return err
 	}
 	return checkArtifact(art, r, o)
 }

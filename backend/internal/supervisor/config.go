@@ -5,8 +5,17 @@ import (
 	"log/slog"
 	"time"
 
+	"hatamoto.dev/core/internal/editionstate"
 	"hatamoto.dev/core/internal/release"
 )
+
+// edition is the build the supervisor verifies and runs.
+func (c Config) edition() string {
+	if c.Edition != "" {
+		return c.Edition
+	}
+	return editionstate.Name()
+}
 
 // Config is what Run needs. Timings are shrinkable for tests; zero values
 // take the defaults.
@@ -15,6 +24,8 @@ type Config struct {
 	Bootstrap        string // path of the binary the supervisor itself runs from
 	BootstrapVersion string // its version stamp (may be a non-semver build string)
 	ReadyURL         string // the child's /ready, e.g. http://127.0.0.1:8080/ready
+	// Edition selects the build to verify; "" = the edition this binary registered (editionstate.Name()).
+	Edition string
 
 	StopGrace     time.Duration // SIGTERM to SIGKILL; must exceed the child's own shutdown (default 40s)
 	ReadyTimeout  time.Duration // default 120s

@@ -15,6 +15,13 @@
 - **Unchanged.** Installs are never blocked by a refused template; the template rules and the 256 KiB cap are the same.
 - **Migration.** None. Rollback floor: unchanged.
 
+## Unreleased: release records can carry another edition's builds
+
+- **Records.** A release record may carry `editions`: per edition name, then platform, the same `sha256` and `size` as `artifacts`. It is omitted when empty, so records of the default build are unchanged, and older releases ignore it. The release tooling adds it when `dist/` holds all four builds of an edition, checks it in `verify --dir`, and `publish-release.sh` uploads exactly the files the signed record names.
+- **Updates.** A build of another edition installs only its own edition's binary and refuses a release that has none. The default build never takes an edition's binary.
+- **CLI.** `version --json` adds `edition`.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: more time zones in the site settings
 
 - **Time zone.** The list in the setup wizard and in Settings > General offered no zone for places whose clock follows its own rules, so their sites had to pick a neighbour that is an hour or more off for part of the year: Queensland and Darwin, Iran, Afghanistan, Nepal, Myanmar, Morocco, the Azores, Cape Verde, Venezuela and its neighbours on UTC-4, New Caledonia, Fiji and Tonga, and, since 1 November 2026 in the time zone data, British Columbia, Alberta and Manitoba. Each now has a zone of its own: `Australia/Brisbane`, `Australia/Darwin`, `Asia/Tehran`, `Asia/Kabul`, `Asia/Kathmandu`, `Asia/Yangon`, `Africa/Casablanca`, `Atlantic/Azores`, `Atlantic/Cape_Verde`, `America/Caracas`, `Pacific/Noumea`, `Pacific/Fiji`, `Pacific/Tongatapu`, `America/Vancouver`, `America/Edmonton` and `America/Winnipeg`.
@@ -36,7 +43,7 @@
 ## Unreleased: edition package and site id
 
 - **Editions.** A new public Go package, `hatamoto.dev/core/edition`, lets a wrapper module that calls `app.Main` register an edition name and a feature gate from an `init` function. A standard build registers nothing: the edition is `community` and every gated feature is off. A gate that errors denies.
-- **CLI.** `hatamoto version` ends with the edition, for example `(community)`. `version --json` is unchanged.
+- **CLI.** `hatamoto version` ends with the edition, for example `(community)`. `version --json` gained `edition` later (see "release records can carry another edition's builds").
 - **Site id.** Each install gets a stable random id stored in the database (kept by a backup restore, not by content export/import). Hatamoto never sends it anywhere.
 - **Migration.** One new table, `hatamoto_site_identity`, created with its single row. Expand only. Rollback floor: unchanged.
 

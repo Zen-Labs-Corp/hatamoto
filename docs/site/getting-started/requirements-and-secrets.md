@@ -93,7 +93,7 @@ The signature is verified by `hatamoto update apply` (given `--sig release.json.
 hatamoto v1.1.0 (commit 478035ef543010635e28e108699b86f6713e622f, sdk 0.19.0) (community)
 ```
 
-`hatamoto version --json` prints the same as JSON and adds the database schema head and the older SDK versions the build still serves, which is useful in a bug report.
+`hatamoto version --json` prints the same as JSON, including an `edition` member, and adds the database schema head and the older SDK versions the build still serves, which is useful in a bug report.
 
 ## The server secret
 

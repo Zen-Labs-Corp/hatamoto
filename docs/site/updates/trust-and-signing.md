@@ -40,6 +40,8 @@ A release record is a small JSON document:
 
 The values above are an illustration of the shape; real records list all four platforms (`linux-amd64`, `linux-arm64`, `darwin-amd64`, `darwin-arm64`).
 
+A record may also carry `editions`, optional: one member per edition name the release format lists, each with the same `sha256` and `size` per platform as `artifacts`. It is omitted when empty, so a record of the default build looks as before, and older releases ignore it.
+
 ## What every update verifies
 
 For an install from the channel, the checks run in this order and the first failure stops the update:
@@ -50,7 +52,7 @@ For an install from the channel, the checks run in this order and the first fail
 4. The version appears in the manifest and is in canonical `vMAJOR.MINOR.PATCH[-prerelease]` form (no build metadata, no missing `v`).
 5. The record signature, against the release keys, over the exact bytes of the record.
 6. The record's version equals the channel entry's version, and its `rollback_floor` and `min_from` are valid versions, and `removed_permissions` (the permissions this release no longer accepts) is a list of names. The preflight uses it to hold back an update while an enabled plugin still declares one.
-7. The binary for your platform exists in the record, is within the size cap (256 MiB) and matches both the recorded size and SHA-256.
+7. The binary for your platform and your build's edition exists in the record (the default build uses `artifacts`; any other edition uses only `editions.<edition>`, never the default build's binary), is within the size cap (256 MiB) and matches both the recorded size and SHA-256.
 
 A binary that does not match its signed record is rejected before it is staged. The supervisor verifies the stored record again before it runs a staged release, so a file tampered with on disk after staging is caught too.
 

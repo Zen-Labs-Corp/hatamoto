@@ -4,6 +4,7 @@
 //	go run ./tools/release keygen --kind release|manifest --out DIR
 //	go run ./tools/release record --version v1.2.3 --kind patch --facts facts.json \
 //	    --rollback-floor v1.2.0 --min-from v1.0.0 --notes-url URL --dir dist --out release.json
+//	    (--dir may also hold hatamoto-<edition>-<platform> files for the editions the release format lists)
 //	go run ./tools/release record --check release.json [--dir dist] [--allow-same]
 //	go run ./tools/release record --amend release.json [--security] [--kind K] [--rollback-floor V] [--min-from V]
 //	go run ./tools/release sign-record release.json (--key FILE | --agent [--agent-key ID]) [--allow-same]

@@ -27,11 +27,12 @@ cp "$W/keys/manifest.pub" "$W/trust/manifest.pub"
 export HATAMOTO_TEST_TRUST_DIR="$W/trust"
 
 VER=v0.25.0
-make_release() { # make_release <dir> <signing key dir>
-  local d=$1 k=$2 i=0 p
+make_release() { # make_release <dir> <signing key dir> [edition]: edition adds its four files
+  local d=$1 k=$2 ed=${3:-} i=0 p
   mkdir -p "$d"
   for p in linux-amd64 linux-arm64 darwin-amd64 darwin-arm64; do
     i=$((i + 1)); head -c $((200 + i)) /dev/urandom > "$d/hatamoto-$p"
+    if [[ -n "$ed" ]]; then head -c $((300 + i)) /dev/urandom > "$d/hatamoto-$ed-$p"; fi
   done
   echo '{"version":"'$VER'","commit":"abc","sdk":"0.10.0","schema_head":1}' > "$W/facts.json"
   "$TOOL" record --version $VER --kind minor --facts "$W/facts.json" --rollback-floor v0.0.0 \
@@ -295,4 +296,50 @@ FAKE_STATIC_FAIL_NTH=2 cellpub $VER "$W/rel/good"
 [[ -f "$CELLROOT/releases/$VER/release.json.sig" && -f "$CELLROOT/releases/$VER/hatamoto-linux-amd64" ]] || fail "cell: signature/artifacts not published first"
 [[ ! -e "$CELLROOT/releases/$VER/release.json" ]] || fail "cell: release.json live before the second publish"
 pass "cell: release.json is published after the signature"
+# 18. Edition publish: ten files, artifacts then signature, release.json last.
+ED=enterprise
+make_release "$W/rel/ed" "$W/keys" $ED
+pub $VER "$W/rel/ed"
+[[ $RC == 0 ]] || { echo "$OUT"; fail "edition publish exited $RC"; }
+[[ $(ls "$BOXDIR/$VER" | wc -l) == 10 ]] || fail "expected 10 files on the box"
+for f in release.json release.json.sig hatamoto-linux-amd64 hatamoto-$ED-linux-amd64 hatamoto-$ED-darwin-arm64; do
+  cmp -s "$W/rel/ed/$f" "$BOXDIR/$VER/$f" || fail "$f missing or different on the box"
+done
+grep -q "published $VER (10 files)" <<<"$OUT" || fail "no 10-file success line"
+[[ $(grep '^rsync' "$STUB_LOG" | sed -n 1p) == *" hatamoto-$ED-darwin-arm64 "* ]] || fail "edition files were not in the artifact upload"
+[[ $(grep '^rsync' "$STUB_LOG" | sed -n 2p) == *" release.json.sig stubhost:"* ]] || fail "signature was not the second upload"
+[[ $(grep '^rsync' "$STUB_LOG" | tail -1) == *" release.json stubhost:"* ]] || fail "release.json was not uploaded last"
+pass "edition publish: artifacts, signature, release.json last"
+rm -rf "$BOXDIR"
+
+# 19. Edition files in a DIR whose record names none: refused, box untouched.
+cp -r "$W/rel/good" "$W/rel/ed-unlisted"
+for p in linux-amd64 linux-arm64 darwin-amd64 darwin-arm64; do head -c 300 /dev/urandom > "$W/rel/ed-unlisted/hatamoto-$ED-$p"; done
+pub $VER "$W/rel/ed-unlisted"
+[[ $RC != 0 ]] || fail "edition files outside the record accepted"
+[[ ! -s "$STUB_LOG" ]] || fail "server contacted for unlisted edition files"
+[[ ! -e "$BOXDIR" ]] || fail "box touched for unlisted edition files"
+pass "edition files the record does not name refused, box untouched"
+
+# 20. Record names an edition but one of its files is gone.
+cp -r "$W/rel/ed" "$W/rel/ed-missing"; rm "$W/rel/ed-missing/hatamoto-$ED-linux-arm64"
+pub $VER "$W/rel/ed-missing"
+[[ $RC != 0 ]] || fail "missing edition file accepted"
+[[ ! -s "$STUB_LOG" ]] || fail "server contacted despite a missing edition file"
+[[ ! -e "$BOXDIR" ]] || fail "box touched despite a missing edition file"
+pass "missing edition file refused, box untouched"
+
+# 21. A stray hatamoto-* file next to a valid edition release.
+cp -r "$W/rel/ed" "$W/rel/ed-stray"; echo x > "$W/rel/ed-stray/hatamoto-other-linux-amd64"
+pub $VER "$W/rel/ed-stray"
+[[ $RC != 0 ]] || fail "stray hatamoto-other file accepted"
+[[ ! -s "$STUB_LOG" ]] || fail "server contacted despite a stray hatamoto file"
+[[ ! -e "$BOXDIR" ]] || fail "box touched despite a stray hatamoto file"
+pass "stray hatamoto-* file refused (exact set), box untouched"
+
+# 22. --help still prints the header.
+help=$("$SCRIPT" --help)
+[[ $(head -1 <<<"$help") == "# publish-release.sh - upload one signed release"* ]] || fail "--help lost the header"
+pass "--help prints the header"
+
 echo "publish-release tests ok"

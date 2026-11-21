@@ -108,7 +108,7 @@ func TestRecordAndDownloadRequestsAreAnonymousToo(t *testing.T) {
 		t.Fatalf("%q %q %v", rec, sig, err)
 	}
 	dst := filepath.Join(t.TempDir(), "bin")
-	if err := f.Download(context.Background(), "v1.0.1", "linux-amd64", dst, 1<<20); err != nil {
+	if err := f.Download(context.Background(), "v1.0.1", "", "linux-amd64", dst, 1<<20); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(dst); string(b) != "payload" {
@@ -137,8 +137,11 @@ func TestFetcherRefusesBadArguments(t *testing.T) {
 	if _, _, err := f.Record(ctx, "v1/../../x"); err == nil {
 		t.Error("bad version accepted")
 	}
-	if err := f.Download(ctx, "v1.0.1", "plan9-386", filepath.Join(t.TempDir(), "x"), 10); err == nil {
+	if err := f.Download(ctx, "v1.0.1", "", "plan9-386", filepath.Join(t.TempDir(), "x"), 10); err == nil {
 		t.Error("bad platform accepted")
+	}
+	if err := f.Download(ctx, "v1.0.1", "other", "linux-amd64", filepath.Join(t.TempDir(), "x"), 10); err == nil {
+		t.Error("unknown edition accepted")
 	}
 	if n := len(srv.requests()); n != 0 {
 		t.Errorf("%d requests made for refused arguments", n)
@@ -152,7 +155,7 @@ func TestNon200IsAnError(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 	dst := filepath.Join(t.TempDir(), "bin")
-	if err := f.Download(context.Background(), "v1.0.1", "linux-amd64", dst, 10); err == nil {
+	if err := f.Download(context.Background(), "v1.0.1", "", "linux-amd64", dst, 10); err == nil {
 		t.Fatal("404 download succeeded")
 	}
 	if _, err := os.Stat(dst); err == nil {
@@ -172,7 +175,7 @@ func TestCrossHostRedirectIsRefusedWithoutAFollowUpRequest(t *testing.T) {
 	if n := len(other.requests()); n != 0 {
 		t.Fatalf("%d requests reached the other host", n)
 	}
-	if err := f.Download(context.Background(), "v1.0.1", "linux-amd64", filepath.Join(t.TempDir(), "b"), 10); err == nil {
+	if err := f.Download(context.Background(), "v1.0.1", "", "linux-amd64", filepath.Join(t.TempDir(), "b"), 10); err == nil {
 		t.Fatal("artifact redirect followed")
 	}
 }
@@ -225,7 +228,7 @@ func TestDownloadRejectsOversize(t *testing.T) {
 		srv := newRecorder(t, h)
 		f := testFetcher(t, srv.URL)
 		dst := filepath.Join(t.TempDir(), "bin")
-		err := f.Download(context.Background(), "v1.0.1", "linux-amd64", dst, 500)
+		err := f.Download(context.Background(), "v1.0.1", "", "linux-amd64", dst, 500)
 		if !errors.Is(err, ErrTooLarge) {
 			t.Errorf("%s: err = %v", name, err)
 		}
@@ -235,7 +238,7 @@ func TestDownloadRejectsOversize(t *testing.T) {
 	}
 	// Exactly the cap is fine.
 	srv := newRecorder(t, okBody(big))
-	if err := testFetcher(t, srv.URL).Download(context.Background(), "v1.0.1", "linux-amd64", filepath.Join(t.TempDir(), "b"), 1000); err != nil {
+	if err := testFetcher(t, srv.URL).Download(context.Background(), "v1.0.1", "", "linux-amd64", filepath.Join(t.TempDir(), "b"), 1000); err != nil {
 		t.Errorf("at the cap: %v", err)
 	}
 }
@@ -250,7 +253,7 @@ func TestDownloadStallAborts(t *testing.T) {
 	f.stall = 150 * time.Millisecond
 	dst := filepath.Join(t.TempDir(), "bin")
 	begin := time.Now()
-	err := f.Download(context.Background(), "v1.0.1", "linux-amd64", dst, 1<<20)
+	err := f.Download(context.Background(), "v1.0.1", "", "linux-amd64", dst, 1<<20)
 	if !errors.Is(err, ErrStalled) {
 		t.Fatalf("err = %v", err)
 	}
@@ -272,7 +275,7 @@ func TestDownloadStallGuardResetsOnProgress(t *testing.T) {
 	})
 	f := testFetcher(t, srv.URL)
 	f.stall = 400 * time.Millisecond
-	if err := f.Download(context.Background(), "v1.0.1", "linux-amd64", filepath.Join(t.TempDir(), "b"), 100); err != nil {
+	if err := f.Download(context.Background(), "v1.0.1", "", "linux-amd64", filepath.Join(t.TempDir(), "b"), 100); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -287,7 +290,7 @@ func TestDownloadIgnoresCallerDeadline(t *testing.T) {
 	f := testFetcher(t, srv.URL)
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	if err := f.Download(ctx, "v1.0.1", "linux-amd64", filepath.Join(t.TempDir(), "b"), 100); err != nil {
+	if err := f.Download(ctx, "v1.0.1", "", "linux-amd64", filepath.Join(t.TempDir(), "b"), 100); err != nil {
 		t.Fatal(err)
 	}
 }

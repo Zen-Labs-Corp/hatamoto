@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"hatamoto.dev/core/internal/editionstate"
 	"hatamoto.dev/core/internal/release"
 	"hatamoto.dev/core/internal/supervisor"
 	"hatamoto.dev/core/internal/worker"
@@ -52,6 +53,7 @@ type Env struct {
 	Data        string // absolute data dir
 	Version     string // the running version
 	Platform    string // "" = this build's platform
+	Edition     string // "" = the edition this binary registered (editionstate.Name())
 	Supervisor  supervisor.Config
 	Store       *Store // nil: no stored policy or status (the offline CLI)
 	Plugins     PluginSource
@@ -123,6 +125,9 @@ func New(env Env) (*Updater, error) {
 	}
 	if env.Platform == "" {
 		env.Platform = runtime.GOOS + "-" + runtime.GOARCH
+	}
+	if env.Edition == "" {
+		env.Edition = editionstate.Name()
 	}
 	if env.Now == nil {
 		env.Now = time.Now
@@ -500,9 +505,12 @@ func (u *Updater) named(m *release.ChannelManifest, state *supervisor.State, rec
 
 // preflight returns why the target cannot be installed now, or "".
 func (u *Updater) preflight(ctx context.Context, dec Decision, o RunOpts) string {
-	art, ok := dec.Rec.Artifacts[u.env.Platform]
-	if !ok {
-		return fmt.Sprintf("%s has no build for %s", dec.Target, u.env.Platform)
+	art, err := dec.Rec.ArtifactFor(u.env.Edition, u.env.Platform)
+	if err != nil {
+		if u.env.Edition == editionstate.Community {
+			return fmt.Sprintf("%s has no build for %s", dec.Target, u.env.Platform)
+		}
+		return fmt.Sprintf("%s has no %s build for %s", dec.Target, u.env.Edition, u.env.Platform)
 	}
 	if o.Force {
 		return ""
@@ -602,7 +610,7 @@ func (u *Updater) install(ctx context.Context, st Status, dec Decision, records 
 	files := supervisor.ApplyOpts{
 		File: filepath.Join(dir, "hatamoto"), Record: filepath.Join(dir, "release.json"),
 		Sig: filepath.Join(dir, "release.json.sig"), Release: u.env.Supervisor.Release, Platform: u.env.Platform,
-		Retry: o.Retry,
+		Edition: u.env.Edition, Retry: o.Retry,
 	}
 	if err := os.WriteFile(files.Record, f.rb, 0o600); err != nil {
 		return Status{}, err
@@ -610,7 +618,11 @@ func (u *Updater) install(ctx context.Context, st Status, dec Decision, records 
 	if err := os.WriteFile(files.Sig, append(f.sig, '\n'), 0o600); err != nil {
 		return Status{}, err
 	}
-	if err := u.fetcher.Download(ctx, dec.Target, u.env.Platform, files.File, dec.Rec.Artifacts[u.env.Platform].Size); err != nil {
+	art, err := dec.Rec.ArtifactFor(u.env.Edition, u.env.Platform)
+	if err != nil {
+		return Status{}, fmt.Errorf("download %s: %w", dec.Target, err)
+	}
+	if err := u.fetcher.Download(ctx, dec.Target, u.env.Edition, u.env.Platform, files.File, art.Size); err != nil {
 		return Status{}, fmt.Errorf("download %s: %w", dec.Target, err)
 	}
 
@@ -668,7 +680,12 @@ func (u *Updater) alreadyStaged(dec Decision) bool {
 		return false
 	}
 	rec, err := supervisor.StoredRecord(u.env.Supervisor, dec.Target)
-	return err == nil && rec.Artifacts[u.env.Platform].SHA256 == dec.Rec.Artifacts[u.env.Platform].SHA256
+	if err != nil {
+		return false
+	}
+	have, errHave := rec.ArtifactFor(u.env.Edition, u.env.Platform)
+	want, errWant := dec.Rec.ArtifactFor(u.env.Edition, u.env.Platform)
+	return errHave == nil && errWant == nil && have.SHA256 == want.SHA256
 }
 
 // recordCache fetches and verifies release records once each and keeps the

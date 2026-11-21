@@ -40,6 +40,7 @@ hatamoto admin-url                                                # print the ad
 hatamoto admin-url set <path> [--i-understand-weak]               # store a new admin address; a weak one is refused without the flag
 hatamoto admin-url random                                         # store a new random admin address
 hatamoto plugin settings set <plugin> key=value...   # key=@FILE or key=- reads the value from a file (max 1 MiB) or stdin; `@@x` sets the literal `@x`
+hatamoto version [--json]                                        # version, commit, SDK and edition; --json adds the schema head
 hatamoto supervise                                                # run `serve` as a child; releases, health gate, rollback
 hatamoto update apply --file F --record R [--sig S]               # install a signed release from local files
 hatamoto update rollback [--force]                                # back to the previous release (--force: even a bad-listed one)

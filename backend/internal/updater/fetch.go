@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"hatamoto.dev/core/internal/editionstate"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/release"
 	"hatamoto.dev/core/internal/safefetch"
@@ -144,20 +145,24 @@ func (f *Fetcher) Record(ctx context.Context, version string) (rec, sig []byte, 
 // scheduler's job cap is far shorter than a slow download. Cancelling ctx (the
 // server shutting down) does stop it. A failed download
 // leaves no file behind.
-func (f *Fetcher) Download(ctx context.Context, version, platform, dst string, max int64) (err error) {
+func (f *Fetcher) Download(ctx context.Context, version, edition, platform, dst string, max int64) (err error) {
 	if !release.ValidVersion(version) {
 		return fmt.Errorf("invalid version %q", version)
 	}
 	if !slices.Contains(release.Platforms, platform) {
 		return fmt.Errorf("unknown platform %q", platform)
 	}
+	if edition != "" && edition != editionstate.Community && !slices.Contains(release.Editions, edition) {
+		return fmt.Errorf("unknown edition %q", edition)
+	}
+	name := release.ArtifactName(edition, platform)
 	ctx, cancel := detachDeadline(ctx, f.totalLimit)
 	defer cancel()
 	var stalled atomic.Bool
 	timer := time.AfterFunc(f.stall, func() { stalled.Store(true); cancel() })
 	defer timer.Stop()
 
-	u := f.url(version, "hatamoto-"+platform)
+	u := f.url(version, name)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return err
@@ -171,7 +176,7 @@ func (f *Fetcher) Download(ctx context.Context, version, platform, dst string, m
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s answered %s", f.url(version, "hatamoto-"+platform), resp.Status)
+		return fmt.Errorf("%s answered %s", f.url(version, name), resp.Status)
 	}
 	if resp.ContentLength > max {
 		return fmt.Errorf("%w: %d bytes announced, cap is %d", ErrTooLarge, resp.ContentLength, max)
