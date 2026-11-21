@@ -149,15 +149,18 @@ opened by the server secret; if the server secret was changed, the key cannot
 be opened and the command says so. The prefix is optional and scopes the export
 to part of the bucket.
 
-A private endpoint is refused: a loopback, private or link-local address or
-`localhost`. The check runs when hosting settings are saved, in the CLI (from
+A private endpoint is refused: a loopback, private, link-local or
+carrier-grade NAT (`100.64.0.0/10`, which includes mesh VPN addresses) address
+or `localhost`. The check runs when hosting settings are saved, in the CLI (from
 the environment or the saved settings) with
 `endpoint refused: private or link-local address`, and again each time the
 upload client connects, so a hostname that resolves to a private address
-(DNS rebinding) is refused too. To use a storage service on a private network,
-such as a LAN MinIO, set `HATAMOTO_STATIC_S3_ALLOW_PRIVATE=1` in the
-environment of the server and the CLI. The upload client does not use
-`HTTPS_PROXY`.
+(DNS rebinding) is refused too; the Hosting form and the failed run both name
+the setting below. To use a storage service on a private network, such as a LAN
+MinIO or one reached over a mesh VPN, set `HATAMOTO_STATIC_S3_ALLOW_PRIVATE=1`
+in the environment of the server and the CLI. It turns the address check off
+for every range, loopback and link-local included. Without it the upload client
+does not use `HTTPS_PROXY`; with it, it does.
 
 Objects are written with:
 
@@ -217,9 +220,12 @@ directories, and one that reads `_redirects` or serves the stubs.
   (trigger `comment`).
 - **Response headers of `/media`** are not carried over, except the types and
   the attachment disposition above. Set caching on the host. Object metadata
-  cannot hold the rest, so set these as CDN response-header rules for `/media/`:
-  a `Content-Security-Policy: sandbox` header, `X-Content-Type-Options:
-  nosniff`, and `X-Frame-Options` (or `frame-ancestors`) for PDF files.
+  cannot hold the rest, so set these as CDN response-header rules for `/media/`,
+  as the live server does: `X-Content-Type-Options: nosniff` on everything;
+  `Content-Security-Policy: sandbox` on SVG and on any type that is not an
+  allowed media type, but not on PDF files (it breaks the browser's PDF
+  viewer); and for PDF files `Content-Security-Policy: frame-ancestors 'self'`
+  with `X-Frame-Options: SAMEORIGIN`.
 - **Wildcard translation** follows Netlify and Cloudflare Pages. How a host
   treats an empty `*` segment can differ; the stubs cover exact rules.
 
