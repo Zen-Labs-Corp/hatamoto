@@ -41,7 +41,8 @@ The public package `hatamoto.dev/core/review` has:
   registration.
 - `StagesFor(ctx, Edit)`: the stages of an edit. An error, a nil result from a
   failing policy, or a stage without a name or group returns `ErrPolicy`, which
-  means: hold the edit.
+  means: hold the edit. A nil result with no error means no review, the same as
+  an empty list.
 
 ### 2. The free default
 
@@ -66,8 +67,17 @@ edit may publish at once); review on gives one stage, "Review", for the group
   ADR 0004 applies to run changesets.
 - A person may edit an object of any origin, so staging and publishing an edit
   skip the plugin ownership check. Run changesets keep it.
+- Staging into an edit is refused (`ErrReviewStarted`) once any stage decision
+  exists, so an approval covers the items that were staged when it was given.
+  Run changesets are unchanged.
+- Publishing an edit writes origin `owner` for entities. A plugin-owned entity
+  therefore becomes owner-owned. The takeover rule, its audit row and the
+  reviewer-group check belong to the follow-up that routes edits here.
 - Existing rows are plain run changesets with no stages. The previous release
-  never reads the new columns or table, so a rollback is safe.
+  never reads the new columns or table. A rollback is safe today because
+  nothing creates edit changesets. The release that first creates edits must
+  raise the rollback floor, since the previous release would not know an
+  edit's stages or decisions.
 
 ## Not decided here
 

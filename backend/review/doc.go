@@ -19,4 +19,7 @@
 // freezes the registration and a later Register panics. A policy that
 // returns an error, or a stage without a name or group, makes StagesFor
 // return ErrPolicy: the edit is held and never published (fail closed).
+//
+// Policy will not gain methods, and Edit may gain fields: build an Edit with
+// keyed literals.
 package review
