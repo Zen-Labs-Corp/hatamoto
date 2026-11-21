@@ -32,7 +32,7 @@ Plugin calls, webhooks and the import are checked against private, loopback and 
 
 ## Staging mode
 
-With `HATAMOTO_ENV=staging` the server makes none of the sends above that it owns: email, webhooks, IndexNow, off-site backup, update checks, plugin HTTP, install stats and static export to S3 are all off. Captcha checks and read-only fetches (registry, fonts, crawler IP ranges, WordPress import) stay on. See [Staging mode](https://github.com/Zen-Labs-Corp/hatamoto/blob/main/docs/STAGING.md).
+With `HATAMOTO_ENV=staging` the server makes none of the sends above that it owns: email, webhooks, IndexNow, off-site backup, update checks, plugin HTTP, install stats and static export to S3 are all off. Deleting media objects in object storage is also off. Captcha checks, read-only fetches (registry, fonts, crawler IP ranges, WordPress import) and media uploads stay on; give a staging copy its own media bucket. See [Staging mode](https://github.com/Zen-Labs-Corp/hatamoto/blob/main/docs/STAGING.md).
 
 ## Where each one lives in the code
 
