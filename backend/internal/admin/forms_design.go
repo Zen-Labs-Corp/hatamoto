@@ -94,7 +94,7 @@ func (a *Admin) handleFormDesign(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	boot, icons, err := a.formBoot(r.Context(), f, formModeBuild, a.can(r.Context(), authz.ActionFormSettingsManage))
+	boot, icons, err := a.formBoot(r.Context(), f, formModeBuild, a.can(r.Context(), authz.ActionFormSettingsManage), false)
 	if err != nil {
 		a.logger().Error("form designer boot failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The form could not be loaded.")
@@ -128,8 +128,9 @@ type formBootWebhook struct {
 // formBoot builds the boot JSON the designer script reads, and the icons its
 // template needs. The Build boot is the base; Settings adds the data the
 // panel previews (latest real submission, webhooks). owner gates the
-// webhooks, which only owners may see.
-func (a *Admin) formBoot(ctx context.Context, f *form.Form, mode string, owner bool) (template.HTML, []string, error) {
+// webhooks, which only owners may see; canSample gates the submission sample
+// (form.submission.read).
+func (a *Admin) formBoot(ctx context.Context, f *form.Form, mode string, owner, canSample bool) (template.HTML, []string, error) {
 	id := f.ID.String()
 	types := make([]formDesignType, 0, len(form.GetFieldTypes()))
 	icons := append([]string(nil), formDesignUIIcons...)
@@ -149,7 +150,9 @@ func (a *Admin) formBoot(ctx context.Context, f *form.Form, mode string, owner b
 	}
 	if mode == formModeSettings {
 		m["mode"] = mode
-		m["sample"] = a.formSample(ctx, f.ID)
+		if canSample { // the sample is a real submission's answers: form.submission.read only
+			m["sample"] = a.formSample(ctx, f.ID)
+		}
 		if owner { // Settings > Webhooks is owner-only; an editor gets none of it
 			m["webhooks"] = a.formWebhooks(ctx)
 		}

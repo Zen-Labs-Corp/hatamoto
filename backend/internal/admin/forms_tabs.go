@@ -64,7 +64,7 @@ func (a *Admin) handleFormTab(w http.ResponseWriter, r *http.Request) {
 
 func (a *Admin) renderFormSettings(w http.ResponseWriter, r *http.Request, f *form.Form) {
 	owner := a.can(r.Context(), authz.ActionFormSettingsManage)
-	boot, _, err := a.formBoot(r.Context(), f, formModeSettings, owner)
+	boot, _, err := a.formBoot(r.Context(), f, formModeSettings, owner, a.can(r.Context(), authz.ActionFormSubmissionRead))
 	if err != nil {
 		a.logger().Error("form settings boot failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The form could not be loaded.")

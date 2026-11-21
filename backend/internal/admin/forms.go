@@ -142,7 +142,8 @@ func (a *Admin) handleForms(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The forms could not be loaded.")
 		return
 	}
-	d := a.buildFormsList(r.Context(), fs, forms)
+	canRead := a.can(r.Context(), authz.ActionFormSubmissionRead)
+	d := a.buildFormsList(r.Context(), fs, forms, canRead)
 	d.Table.Empty = ui.Empty{Icon: "inbox", Title: "No forms yet", Body: "A form collects enquiries from your pages.", Actions: []ui.Button{{Label: "New form", Href: a.adminPath + "/forms/new", Variant: "primary", Attrs: map[string]string{"data-hm-open": "new-form"}}}}
 	v := a.NewView(w, r, "Forms")
 	actions := []ui.Button{}
