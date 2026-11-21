@@ -459,14 +459,15 @@ func TestChangesetReviewCountsRedirectsDroppedWithPage(t *testing.T) {
 
 // A publish through the review flow writes exactly one changeset.publish row,
 // from the engine, inside the publish transaction. The actor is the user (id
-// and email) so the history still names who published it.
+// and email) so the history still names who published it. The pool has a
+// single connection, so the actor lookup must run on the publish transaction.
 func TestChangesetReviewPublishWritesOneAuditRow(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		t.Skip("DATABASE_URL not set")
 	}
 	ctx := context.Background()
-	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 6, MinConnections: 1,
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 1, MinConnections: 1,
 		MaxConnLifetime: time.Minute, MaxConnIdleTime: time.Minute})
 	if err != nil {
 		t.Fatal(err)
@@ -519,7 +520,11 @@ func TestChangesetReviewPublishWritesOneAuditRow(t *testing.T) {
 	if err := runs.Finish(ctx, run.ID, jsontext.Value(`{}`)); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := rev.Publish(database.WithUser(ctx, uid), cs); err != nil {
+	// The pool has one connection: reading the actor email on a second one
+	// while the publish tx holds the first would block until the timeout.
+	pubCtx, cancel := context.WithTimeout(database.WithUser(ctx, uid), 20*time.Second)
+	defer cancel()
+	if _, _, err := rev.Publish(pubCtx, cs); err != nil {
 		t.Fatal(err)
 	}
 	var n int

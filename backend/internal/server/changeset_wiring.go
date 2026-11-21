@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/audit"
@@ -80,14 +81,14 @@ func (s *Server) changesetAudit(ctx context.Context, action, target string, deta
 
 // changesetAuditTx writes a publish in the business transaction. Only a
 // registered sink's error fails it; a failed default row is logged and the
-// publish goes on. The user's email is read through the pool, never tx: a
-// failed statement would abort the publish transaction.
+// publish goes on. The user's email is read through tx, under a savepoint so a
+// failed read cannot abort the publish transaction, and without a second pool
+// connection while tx holds one.
 func (s *Server) changesetAuditTx(ctx context.Context, tx pgx.Tx, action, target string, detail map[string]any) error {
 	ev := audit.Event{Actor: "system", ActorKind: audit.KindSystem, Action: action, Target: target, Detail: detail}
 	if id, ok := database.GetUserID(ctx); ok {
 		ev.ActorID, ev.Actor, ev.ActorKind = id.String(), id.String(), audit.KindUser
-		var email string
-		if err := s.db.Pool().QueryRow(ctx, `SELECT email FROM hatamoto_users WHERE id = $1`, id).Scan(&email); err == nil && email != "" {
+		if email := userEmailInTx(ctx, tx, id); email != "" {
 			ev.Actor = email
 		}
 	}
@@ -100,6 +101,21 @@ func (s *Server) changesetAuditTx(ctx context.Context, tx pgx.Tx, action, target
 	}
 	s.logger.Info("admin audit", "action", action, "actor", ev.Actor, "target", target)
 	return nil
+}
+
+// userEmailInTx returns the user's email, or "" when it cannot be read. The
+// lookup runs in a savepoint that is always rolled back.
+func userEmailInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) string {
+	sp, err := tx.Begin(ctx)
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = sp.Rollback(ctx) }()
+	var email string
+	if err := sp.QueryRow(ctx, `SELECT email FROM hatamoto_users WHERE id = $1`, id).Scan(&email); err != nil {
+		return ""
+	}
+	return email
 }
 
 // pathIsLivePage reports whether the site serves a page at path: a published
