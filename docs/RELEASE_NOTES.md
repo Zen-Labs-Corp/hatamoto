@@ -42,6 +42,12 @@
 - **Users without a password.** The user store accepts a user with no password. Such a user signs in through a provider, a passkey or a password-set link.
 - **Migration.** One new table, `hatamoto_user_identities`. Expand only. Rollback floor: the schema is unchanged, but a user created without a password is stored with a NULL password hash that the previous release cannot read. Roll back only while no such user exists, or after each has a password (`hatamoto user reset-password`).
 
+## Unreleased: authorization interface
+
+- **Authorization.** A new public Go package, `hatamoto.dev/core/authz`, lets a wrapper module that calls `app.Main` register an authorizer from an `init` function. It answers whether a signed-in user or an API key may perform a named action on an object. With nothing registered the answers equal today's owner, editor and API key rules. A registered authorizer replaces the default and can call `authz.Default()` for the rest; an error denies.
+- **Unchanged.** No route, screen or tool asks it yet, so behaviour is identical.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: more time zones in the site settings
 
 - **Time zone.** The list in the setup wizard and in Settings > General offered no zone for places whose clock follows its own rules, so their sites had to pick a neighbour that is an hour or more off for part of the year: Queensland and Darwin, Iran, Afghanistan, Nepal, Myanmar, Morocco, the Azores, Cape Verde, Venezuela and its neighbours on UTC-4, New Caledonia, Fiji and Tonga, and, since 1 November 2026 in the time zone data, British Columbia, Alberta and Manitoba. Each now has a zone of its own: `Australia/Brisbane`, `Australia/Darwin`, `Asia/Tehran`, `Asia/Kabul`, `Asia/Kathmandu`, `Asia/Yangon`, `Africa/Casablanca`, `Atlantic/Azores`, `Atlantic/Cape_Verde`, `America/Caracas`, `Pacific/Noumea`, `Pacific/Fiji`, `Pacific/Tongatapu`, `America/Vancouver`, `America/Edmonton` and `America/Winnipeg`.
