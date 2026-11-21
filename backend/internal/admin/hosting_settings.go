@@ -22,6 +22,9 @@ func (a *Admin) mountHostingSettings(owner *httpx.Group) {
 	owner.HandleFunc("POST "+hostingPath, a.handleHostingSave)
 	owner.HandleFunc("GET "+hostingPath+"/mode", a.handleHostingModeConfirm)
 	owner.HandleFunc("POST "+hostingPath+"/export", a.handleHostingExport)
+	// Test export is not behind the password, like Export now: it runs in the
+	// background and never changes what visitors get.
+	owner.HandleFunc("POST "+hostingPath+"/test", a.handleHostingTest)
 	// Switching the mode and rebuilding everything ask for the password. A POST
 	// is never replayed after that page: the owner clicks again on the page
 	// they came from.

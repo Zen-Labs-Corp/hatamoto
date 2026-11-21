@@ -2,6 +2,8 @@ package admin
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"reflect"
 	"strings"
@@ -152,12 +154,63 @@ func TestHostingActionsAreOwnerOnly(t *testing.T) {
 	if rec := p.do("GET", hostingURL+"/mode?to=static", "editor-token", nil, nil); rec.Code != 403 {
 		t.Errorf("editor confirm = %d, want 403", rec.Code)
 	}
-	for _, path := range []string{"/mode", "/export", "/rebuild"} {
+	for _, path := range []string{"/mode", "/export", "/rebuild", "/test"} {
 		if rec := p.do("POST", hostingURL+path, "editor-token", url.Values{"mode": {"served"}}, nil); rec.Code != 403 {
 			t.Errorf("editor POST %s = %d, want 403", path, rec.Code)
 		}
 	}
-	if len(f.modes) != 0 || len(f.exports) != 0 {
-		t.Errorf("service touched: %v %v", f.modes, f.exports)
+	if len(f.modes) != 0 || len(f.exports) != 0 || f.tests != 0 {
+		t.Errorf("service touched: %v %v %d", f.modes, f.exports, f.tests)
+	}
+}
+
+func TestHostingTestExportStartsWithoutSudo(t *testing.T) {
+	t.Parallel()
+
+	f := servedHosting()
+	p := newHostingSaveRig(t, f)
+	rec := p.do("POST", hostingURL+"/test", "owner-token", url.Values{}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != hostingURL || f.tests != 1 {
+		t.Fatalf("test export = %d %s, calls %d", rec.Code, rec.Header().Get("Location"), f.tests)
+	}
+	if len(p.events) != 1 || p.events[0].Action != "hosting.test_export" {
+		t.Errorf("audit = %+v", p.events)
+	}
+	if body := followFlashTo(p.ownerRig, hostingURL, rec); !strings.Contains(body, "Test export started.") {
+		t.Error("no start flash")
+	}
+}
+
+func TestHostingTestExportErrors(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		err  error
+		want string
+	}{
+		{ErrHostingNoTarget, "Save a target first."},
+		{ErrHostingTestBusy, "An export is running. Try the test export again when it finishes."},
+		{errors.New("target unreachable"), "The test export could not be started: target unreachable."},
+	} {
+		f := servedHosting()
+		f.testErr = tc.err
+		p := newHostingSaveRig(t, f)
+		rec := p.do("POST", hostingURL+"/test", "owner-token", url.Values{}, nil)
+		if body := followFlashTo(p.ownerRig, hostingURL, rec); rec.Code != 303 || !strings.Contains(body, tc.want) || len(p.events) != 0 {
+			t.Errorf("%v: code %d, flash lacks %q or audited", tc.err, rec.Code, tc.want)
+		}
+	}
+}
+
+func TestHostingTestExportNeedsCSRF(t *testing.T) {
+	t.Parallel()
+
+	f := servedHosting()
+	p := newHostingSaveRig(t, f)
+	req := httptest.NewRequest("POST", hostingURL+"/test", strings.NewReader(""))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
+	if rec := serve(p.h, req, nil); rec.Code != 403 || f.tests != 0 {
+		t.Errorf("POST without CSRF = %d, calls %d", rec.Code, f.tests)
 	}
 }
