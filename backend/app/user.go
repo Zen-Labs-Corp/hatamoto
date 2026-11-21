@@ -31,6 +31,15 @@ type userFlags struct {
 	passwordStdin bool
 }
 
+// roleList is the built-in roles as "a, b or c" for help and error text.
+func roleList() string {
+	var ids []string
+	for _, r := range user.Roles() {
+		ids = append(ids, string(r))
+	}
+	return strings.Join(ids[:len(ids)-1], ", ") + " or " + ids[len(ids)-1]
+}
+
 func parseUserFlags(name string, args []string, create bool) (*userFlags, error) {
 	f := &userFlags{}
 	fs := flag.NewFlagSet("user "+name, flag.ContinueOnError)
@@ -41,7 +50,7 @@ func parseUserFlags(name string, args []string, create bool) (*userFlags, error)
 	}
 	if create {
 		fs.StringVar(&f.name, "name", "", "display name")
-		fs.StringVar(&f.role, "role", string(user.RoleOwner), "owner or editor")
+		fs.StringVar(&f.role, "role", string(user.RoleOwner), "role: "+roleList())
 	}
 	if err := fs.Parse(args); err != nil {
 		return nil, err
@@ -84,7 +93,7 @@ func resolvePassword(f *userFlags, stdin io.Reader) (pw string, generated bool, 
 func runUserCreate(ctx context.Context, db *database.DB, f *userFlags, stdin io.Reader, out io.Writer) error {
 	role, err := user.ParseRole(f.role)
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid role %q: want %s", f.role, roleList())
 	}
 	pw, generated, err := resolvePassword(f, stdin)
 	if err != nil {
