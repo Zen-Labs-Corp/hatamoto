@@ -42,9 +42,14 @@ func (e *NotAllowedError) Error() string {
 // Unwrap lets errors.Is(err, ErrNotAllowed) match.
 func (e *NotAllowedError) Unwrap() error { return ErrNotAllowed }
 
-// AuthzObject describes e to the authorizer. CreatedBy is the creating user, not the byline.
+// AuthzObject describes e to the authorizer. CreatedBy is the creating user, not the byline. A block or
+// theme part is always stored as a draft, but pages use it by reference and show edits at once, so it
+// reports as published: the draft-only rules (Contributors) do not cover it.
 func (e *Entity) AuthzObject() authz.Object {
 	o := authz.Object{Kind: "entity", ID: e.ID.String(), Locale: e.Locale, Status: string(e.Status)}
+	if IsReuseSchema(e.Schema) {
+		o.Status = string(StatusPublished)
+	}
 	if e.Schema != nil {
 		o.Schema = e.Schema.Slug
 	}

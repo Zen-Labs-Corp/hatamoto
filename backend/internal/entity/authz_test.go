@@ -277,3 +277,23 @@ func TestAuthzPersonPublicNeedsPublish(t *testing.T) {
 		t.Fatalf("owner create public: %v", err)
 	}
 }
+
+// A block is always a draft in the store, yet pages show it live: a Contributor cannot edit it after creating it.
+func TestAuthzReuseSchemaIsLive(t *testing.T) {
+	g := newAuthzRig(t)
+	sr := g.svc.schemaRepo.(*mockSchemaRepository)
+	block := seedSchema(t, sr, func(s *EntitySchema) { s.Name, s.Slug, s.IsBuiltin = "Block", BlockSchemaSlug, true })
+	me := uuid.New()
+	e := seedEntity(t, g.repo.mockEntityRepository, block, func(e *Entity) { e.CreatedBy = &me; e.Status = StatusDraft })
+	name := "N"
+	in := &UpdateEntityInput{Name: &name}
+
+	if _, err := g.svc.UpdateEntity(asRole("contributor", me), e.ID, &me, in); !errors.Is(err, ErrNotAllowed) {
+		t.Errorf("contributor update own block: err = %v, want ErrNotAllowed", err)
+	}
+	for _, role := range []string{"author", "owner", "editor"} {
+		if _, err := g.svc.UpdateEntity(asRole(role, me), e.ID, &me, in); err != nil {
+			t.Errorf("%s update own block: %v", role, err)
+		}
+	}
+}
