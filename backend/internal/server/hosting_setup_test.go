@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/staticexport"
 )
 
@@ -162,5 +163,26 @@ func TestHostingSetupNothingSaved(t *testing.T) {
 	}
 	if got.Saved || got.Caddy != "" {
 		t.Fatalf("setup = %+v", got)
+	}
+}
+
+// The upload ceiling reaches the generated nginx config: the larger of the media
+// and the form file limits, with room for the multipart framing.
+func TestHostingSetupPassesUploadLimit(t *testing.T) {
+	t.Parallel()
+	if got := uploadLimitMB(10); got != form.MaxFileUploadMB+5 {
+		t.Errorf("limit for the default media size = %d", got)
+	}
+	if got := uploadLimitMB(100); got != 105 {
+		t.Errorf("limit for 100 MB media = %d", got)
+	}
+	fx := setupFixture(t, t.TempDir())
+	fx.h.setup.maxBodyMB = uploadLimitMB(100)
+	got, err := fx.h.Setup(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got.Nginx, "client_max_body_size 105m;") {
+		t.Errorf("nginx config lacks the upload limit:\n%s", got.Nginx)
 	}
 }

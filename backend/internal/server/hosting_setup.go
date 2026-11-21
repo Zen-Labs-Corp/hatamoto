@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/staticexport"
 	"hatamoto.dev/core/internal/statichost"
 	"hatamoto.dev/core/internal/webconf"
@@ -26,9 +27,17 @@ type hostingSetupDeps struct {
 	adminPath func() string
 	apiPrefix string
 	upstream  string // dialable host:port
+	maxBodyMB int    // largest upload the web server must pass; 0 = unknown
 	headers   func(ctx context.Context, live string) []secHeader
 	folder    func(dir string) string
 	reach     func() (string, time.Time)
+}
+
+// uploadLimitMB is the request body limit for a web server in front of
+// Hatamoto: the larger of the media and the form file ceilings, plus room for
+// the multipart framing and the other fields.
+func uploadLimitMB(mediaMaxMB int) int {
+	return max(mediaMaxMB, form.MaxFileUploadMB) + 5
 }
 
 // upstreamAddr is the address a web server on the same box dials to reach
@@ -87,7 +96,7 @@ func (h *hostingAdmin) Setup(ctx context.Context) (admin.HostingSetup, error) {
 			return out, nil
 		}
 		gen, err := webconf.Generate(webconf.Input{
-			Site: site, Live: live, Root: set.DirPath, Upstream: d.upstream,
+			Site: site, Live: live, Root: set.DirPath, Upstream: d.upstream, MaxBodyMB: d.maxBodyMB,
 			Proxy:   statichost.ProxyPaths(d.adminPath(), d.apiPrefix),
 			Headers: headers, Redirects: rules,
 		})

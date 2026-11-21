@@ -61,6 +61,7 @@ func sameHostInput() Input {
 		Proxy:    statichost.ProxyPaths("/admin", "/api-public"),
 		Headers:  testHeaders(),
 
+		MaxBodyMB: 15,
 		Redirects: testRedirects(),
 	}
 }
@@ -191,5 +192,37 @@ func TestSameHostPassesFallbackPrefixesAndThemePreview(t *testing.T) {
 		if strings.Contains(live.Caddy, bad) || strings.Contains(live.Nginx, bad) {
 			t.Errorf("live origin config must not mention %q", bad)
 		}
+	}
+}
+
+// nginx rejects a body over 1 MB by default, so an admin upload would get a 413
+// before Hatamoto saw it; MCP streams, so it must not be buffered.
+func TestNginxUploadLimitAndStreaming(t *testing.T) {
+	t.Parallel()
+	same, _ := Generate(sameHostInput())
+	live, _ := Generate(liveOriginInput())
+	for name, conf := range map[string]string{"same host": same.Nginx, "live origin": live.Nginx} {
+		if !strings.Contains(conf, "client_max_body_size 15m;") || !strings.Contains(conf, "proxy_http_version 1.1;") {
+			t.Errorf("%s: no body limit or HTTP/1.1 upstream:\n%s", name, conf)
+		}
+	}
+	for _, loc := range []string{"location = /mcp {", "location ^~ /mcp/ {"} {
+		_, rest, ok := strings.Cut(same.Nginx, loc)
+		block, _, _ := strings.Cut(rest, "}")
+		if !ok || !strings.Contains(block, "proxy_buffering off;") {
+			t.Errorf("%s must turn proxy buffering off", loc)
+		}
+	}
+	if strings.Count(same.Nginx, "proxy_buffering off;") != 2 {
+		t.Error("only the MCP locations stream")
+	}
+	in := sameHostInput()
+	in.MaxBodyMB = 0
+	if out, _ := Generate(in); strings.Contains(out.Nginx, "client_max_body_size") {
+		t.Error("an unset limit must leave nginx's default")
+	}
+	in.MaxBodyMB = -1
+	if _, err := Generate(in); !errors.Is(err, ErrUnsafe) {
+		t.Errorf("negative limit: %v", err)
 	}
 }

@@ -154,7 +154,7 @@ func (s *Server) setupStaticExport() {
 		testExport: s.StaticTestExport, background: func() context.Context { return s.lifecycleCtx }, log: s.logger, finished: afterRun,
 		setup: hostingSetupDeps{
 			adminPath: s.adminPathValue, apiPrefix: s.cfg.PublicSite.APIPrefix,
-			upstream: upstreamAddr(s.cfg.Server.Host, s.cfg.Server.Port), headers: s.staticPageHeaders,
+			upstream: upstreamAddr(s.cfg.Server.Host, s.cfg.Server.Port), maxBodyMB: uploadLimitMB(s.cfg.Server.MediaMaxSizeMB), headers: s.staticPageHeaders,
 			folder: folderState, reach: probe.result,
 		},
 	}

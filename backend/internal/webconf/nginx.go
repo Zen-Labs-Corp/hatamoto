@@ -20,8 +20,13 @@ func nginxListen(origin string) (name, port string) {
 func nginx(in Input, rules []rule) string {
 	var b strings.Builder
 	w := func(format string, a ...any) { fmt.Fprintf(&b, format+"\n", a...) }
-	proxy := func(indent string) {
+	proxy := func(indent string, stream bool) {
 		w(indent+"proxy_pass http://%s;", in.Upstream)
+		w(indent + "proxy_http_version 1.1;")
+		w(indent + "proxy_set_header Connection \"\";")
+		if stream { // MCP answers with a stream; buffering would hold it back
+			w(indent + "proxy_buffering off;")
+		}
 		w(indent + "proxy_set_header Host $host;")
 		w(indent + "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;")
 		w(indent + "proxy_set_header X-Forwarded-Proto $scheme;")
@@ -44,6 +49,9 @@ func nginx(in Input, rules []rule) string {
 	w("\t# Add your TLS lines here: listen 443 ssl; ssl_certificate ...; ssl_certificate_key ...;")
 	w("\tserver_name %s;", name)
 	w("\troot %s;", in.Root)
+	if in.MaxBodyMB > 0 && in.Live == "" {
+		w("\tclient_max_body_size %dm;", in.MaxBodyMB)
+	}
 	if in.Live == "" {
 		for _, p := range in.Proxy {
 			switch {
@@ -60,11 +68,11 @@ func nginx(in Input, rules []rule) string {
 			default:
 				w("\tlocation = %s {", p.Path)
 			}
-			proxy("\t\t")
+			proxy("\t\t", strings.HasPrefix(p.Path, "/mcp"))
 			w("\t}")
 		}
 		w("\tlocation @hatamoto {")
-		proxy("\t\t")
+		proxy("\t\t", false)
 		w("\t}")
 	}
 	for _, f := range hiddenFiles {
@@ -104,8 +112,11 @@ func nginx(in Input, rules []rule) string {
 		w("\tlisten %s;", lport)
 		w("\t# Add your TLS lines here: listen 443 ssl; ssl_certificate ...; ssl_certificate_key ...;")
 		w("\tserver_name %s;", lname)
+		if in.MaxBodyMB > 0 {
+			w("\tclient_max_body_size %dm;", in.MaxBodyMB)
+		}
 		w("\tlocation / {")
-		proxy("\t\t")
+		proxy("\t\t", true)
 		w("\t}")
 		w("}")
 	}

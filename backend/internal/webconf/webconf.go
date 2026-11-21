@@ -30,10 +30,13 @@ type Redirect struct {
 
 // Input is everything the generator needs.
 type Input struct {
-	Site      string // normalised origin, e.g. https://example.com
-	Live      string // normalised live origin; "" = same host
-	Root      string // absolute export folder
-	Upstream  string // host:port Hatamoto listens on
+	Site     string // normalised origin, e.g. https://example.com
+	Live     string // normalised live origin; "" = same host
+	Root     string // absolute export folder
+	Upstream string // host:port Hatamoto listens on
+	// MaxBodyMB is the largest request body nginx passes to Hatamoto (uploads);
+	// 0 leaves nginx's 1 MB default.
+	MaxBodyMB int
 	Proxy     []statichost.ProxyPath
 	Headers   []Header
 	Redirects []Redirect
@@ -90,6 +93,9 @@ func (in Input) validate() error {
 	host, port, err := net.SplitHostPort(in.Upstream)
 	if n, perr := strconv.Atoi(port); err != nil || perr != nil || n < 1 || n > 65535 || !upstreamHost(host) {
 		return fmt.Errorf("%w: upstream", ErrUnsafe)
+	}
+	if in.MaxBodyMB < 0 || in.MaxBodyMB > 4096 {
+		return fmt.Errorf("%w: upload limit", ErrUnsafe)
 	}
 	for _, p := range in.Proxy {
 		if !pathChars.MatchString(p.Path) {
