@@ -168,7 +168,7 @@ func runAPIKeyCreate(ctx context.Context, args []string, logger *slog.Logger, ou
 		return err
 	}
 	// Audited before delivery: the key exists from here on, whatever happens to the file.
-	auditCLI(ctx, db.Pool(), logger, "apikey.create", "apikey:"+key.ID.String(), map[string]any{"name": key.Name, "scopes": key.Scopes, "prefix": key.KeyPrefix})
+	auditCLI(ctx, db.Pool(), logger, "api_key.created", "api_key:"+key.ID.String(), map[string]any{"name": key.Name, "scopes": key.Scopes, "prefix": key.KeyPrefix})
 	if f != nil {
 		if _, err = f.WriteString(key.PlainKey + "\n"); err == nil {
 			err = f.Close()

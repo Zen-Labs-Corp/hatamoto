@@ -82,7 +82,7 @@ func TestInstallOps_Integration(t *testing.T) {
 	var n int
 	_ = db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_api_keys WHERE name='ci-key' AND created_by IS NOT NULL`).Scan(&n)
 	var leaked int
-	_ = db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_admin_audit WHERE action='apikey.create' AND detail::text LIKE '%'||$1||'%'`, key).Scan(&leaked)
+	_ = db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_admin_audit WHERE action='api_key.created' AND detail::text LIKE '%'||$1||'%'`, key).Scan(&leaked)
 	if n != 1 || leaked != 0 {
 		t.Fatalf("stored keys %d, audit rows containing the key %d", n, leaked)
 	}
@@ -116,9 +116,9 @@ func TestInstallOps_Integration(t *testing.T) {
 	if n == 0 {
 		t.Fatal("activation not audited")
 	}
-	_ = db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_admin_audit WHERE action='apikey.create' AND actor='cli' AND detail->>'name'='ci-key'`).Scan(&n)
+	_ = db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_admin_audit WHERE action='api_key.created' AND actor='cli' AND detail->>'name'='ci-key'`).Scan(&n)
 	if n != 2 {
-		t.Fatalf("apikey.create audit rows = %d, want 2", n)
+		t.Fatalf("api_key.created audit rows = %d, want 2", n)
 	}
 }
 

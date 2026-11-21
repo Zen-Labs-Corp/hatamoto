@@ -52,6 +52,10 @@ var auditDetailKeys = map[string][]string{
 	"user.identity_unlinked":   {"issuer"},
 	"user.sessions_revoked":    {"keys", "via"},
 	"api_key.created":          {"name", "scopes", "expires", "prefix", "via"},
+	"apikey.create":            {"name", "scopes", "prefix"},
+	"media.rebuild.start":      {"run_id", "images"},
+	"media.rebuild.finish":     {"run_id", "images", "skipped"},
+	"package.grants":           {"from", "to", "kept"},
 	"api_key.updated":          {"name", "changed", "via"},
 	"api_key.revoked":          {"name", "via"},
 	"api_key.regenerated":      {"name", "prefix", "via"},
@@ -225,6 +229,7 @@ var newAuditActions = []string{
 	"user.identity_unlinked",
 	"user.sessions_revoked",
 	"api_key.created",
+	"apikey.create", // written by the CLI before api_key.created existed
 	"api_key.updated",
 	"api_key.revoked",
 	"api_key.regenerated",

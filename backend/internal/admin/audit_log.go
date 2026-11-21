@@ -98,6 +98,7 @@ var auditLabels = map[string]string{
 	"user.identity_unlinked":       "Sign-in identity unlinked",
 	"user.sessions_revoked":        "Signed out everywhere",
 	"api_key.created":              "API key created",
+	"apikey.create":                "API key created",
 	"api_key.updated":              "API key changed",
 	"api_key.revoked":              "API key revoked",
 	"api_key.regenerated":          "API key regenerated",
