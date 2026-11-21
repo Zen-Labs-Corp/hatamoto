@@ -26,7 +26,7 @@ func loadPurgeConfig() PurgeConfig {
 		u, err := url.Parse(raw)
 		if err != nil || !u.IsAbs() || (u.Scheme != "http" && u.Scheme != "https") ||
 			u.Host == "" || u.Hostname() == "" || u.User != nil || u.Fragment != "" {
-			p.urlErr = fmt.Errorf("HATAMOTO_PURGE_URL: %q is not an absolute http or https URL without credentials (or off)", raw)
+			p.urlErr = fmt.Errorf("HATAMOTO_PURGE_URL is not an absolute http or https URL without credentials (or off)")
 		} else {
 			p.URL = raw
 		}
