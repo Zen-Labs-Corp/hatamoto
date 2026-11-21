@@ -153,6 +153,16 @@ static: export failed, /srv/site-static unchanged
 - Run it as the service user from the service's directory (or with `HATAMOTO_DATA` and `MEDIA_UPLOAD_DIR` set) so the server secret and the media directory resolve.
 - The admin Hosting page and automatic triggers come in a later change; until then this command is the way to run an export.
 
+## Module commands
+
+A build that registers Go modules (see [Go module extension points](PLUGIN_API.md#go-module-extension-points)) lists their commands under `module commands:` in `hatamoto help`. A standard build has none, and its help text is unchanged.
+
+- Core command names always win: a module command with the name of a core command is never run, including a name core adds in a later release.
+- A module command exits with the code it chose through `cli.Exit`, from 1 to 255. Any other code, and any plain error, exits 1.
+- `hatamoto migrate` runs the module migrations after the core ones and exits non-zero if one of them fails.
+- `hatamoto migrate status` adds one `module <name>` section for each module that registered migrations.
+- `hatamoto serve` logs a failed module migration and keeps running, but does not start the background services of that module.
+
 ## Notes
 
 - `entity create` makes a draft unless `--publish` is given. Attributes are validated against the schema and rich-text HTML is sanitised, as in the API. The theme-driven sanitising of HTML section fields needs the running server's theme; rendering still sanitises them.
