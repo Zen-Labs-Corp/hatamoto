@@ -104,6 +104,9 @@ func (p *Provider) settings(ctx context.Context, rt *Runtime) (Settings, bool, e
 		return e.s, e.found, e.err
 	}
 	s, found, err := rt.Settings.Get(ctx)
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return s, found, err // one visitor's disconnect must not hide sign-in for others
+	}
 	p.set = &settingsEntry{s: s, found: found, err: err, at: rt.now()}
 	return s, found, err
 }

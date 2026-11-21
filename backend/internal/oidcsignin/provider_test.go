@@ -250,3 +250,26 @@ func TestCheck(t *testing.T) {
 		t.Error("Check without runtime succeeded")
 	}
 }
+
+type ctxSource struct{ fakeSource }
+
+func (c *ctxSource) Get(ctx context.Context) (Settings, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return Settings{}, false, err
+	}
+	return c.fakeSource.Get(ctx)
+}
+
+func TestAvailableDoesNotCacheCancelledRead(t *testing.T) {
+	r := newRig(t)
+	src := &ctxSource{fakeSource: *r.src}
+	r.p.SetRuntime(Runtime{Settings: src, SecretKey: testKey, Client: r.idp.Client()})
+	gone, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, ok := r.p.Available(gone); ok {
+		t.Fatal("available on a cancelled context")
+	}
+	if _, ok := r.p.Available(context.Background()); !ok {
+		t.Fatal("a cancelled read was cached for the next visitor")
+	}
+}
