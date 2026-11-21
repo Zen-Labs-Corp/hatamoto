@@ -53,7 +53,8 @@ func (a *Admin) modulePageSets(pages map[string]*pageSet, srcs *pageSources, fm 
 }
 
 // modulePage runs a module handler. An error or a panic that happens before the
-// handler answered becomes the core error page, never a plain or half page.
+// handler answered becomes the core error page, never a plain or half page. So
+// does a handler that returns nil without writing a response.
 func (a *Admin) modulePage(p adminpagestate.Page, rt adminpagestate.Route) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := &moduleCtx{a: a, w: w, r: r, p: p}
@@ -65,6 +66,11 @@ func (a *Admin) modulePage(p adminpagestate.Page, rt adminpagestate.Route) http.
 		}()
 		if err := rt.Handle(c); err != nil {
 			a.logger().Error("admin: module page", "module", p.ID, "err", err)
+			c.fail()
+			return
+		}
+		if !c.done {
+			a.logger().Error("admin: module page wrote no response", "module", p.ID)
 			c.fail()
 		}
 	}

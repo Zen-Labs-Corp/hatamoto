@@ -156,7 +156,7 @@ func TestModulePageSudoAndDangerConfirm(t *testing.T) {
 func TestModulePageFailsClosed(t *testing.T) {
 	t.Parallel()
 	g := newModuleRig(t)
-	for _, path := range []string{"/err", "/panic", "/parse", "/exec", "/unknown"} {
+	for _, path := range []string{"", "/err", "/panic", "/parse", "/exec", "/unknown"} {
 		rec := g.do("GET", "/admin/settings/modules/failing"+path, "owner-token", nil, nil)
 		body := rec.Body.String()
 		if rec.Code != http.StatusInternalServerError || !strings.Contains(body, "Something went wrong") || !strings.Contains(body, "hm-shell") {

@@ -20,7 +20,8 @@
 // data) renders pages/<name>.html. Use the designcheck subpackage in a test to
 // check the templates against core's design rules.
 //
-// A handler that returns an error or panics, an unknown page and a template
+// A handler that returns an error or panics, a handler that returns nil
+// without rendering, redirecting or calling Error, an unknown page and a template
 // that fails to parse or execute all render core's error page with status 500.
 //
 // # Banners
