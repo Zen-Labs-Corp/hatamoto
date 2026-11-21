@@ -1541,7 +1541,19 @@ func (m *Manager) reconcile(ctx context.Context) {
 		changed = m.reconcileTheme(ctx, rows) || changed
 	}
 	if changed {
+		m.refreshTemplates()
 		m.changed(ctx)
+	}
+}
+
+// refreshTemplates compiles plugin templates now, so the refused-template list
+// (admin page, GET /api/v1/plugins) is current right after an install, upgrade
+// or enable rather than after the first page render. Refusals never block the
+// install. Engines without Refresh (test fakes) are skipped; in the CLI it compiles the
+// process-local set, which is harmless.
+func (m *Manager) refreshTemplates() {
+	if r, ok := m.Engine.(interface{ Refresh() }); ok {
+		r.Refresh()
 	}
 }
 
@@ -1788,6 +1800,7 @@ func (m *Manager) LoadDevDir(ctx context.Context, dir string) {
 		m.loadPlugin(ctx, p)
 		m.loaded[p.Name] = loadedPlugin{sha: "dir", pkg: p, pinned: true}
 	}
+	m.refreshTemplates()
 }
 
 // PluginPackage returns the parsed package of a loaded plugin (its public

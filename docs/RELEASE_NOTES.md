@@ -1,5 +1,13 @@
 # Release notes
 
+## Unreleased: refused plugin templates listed at install, in plain words
+
+- **Admin.** A plugin's page lists templates that are not registered as soon as the install, update or enable finishes, one plain sentence each. The 256 KiB output limit is named as its own reason instead of a scripts stop.
+- **API.** `templates_refused` in `GET /api/v1/plugins` keeps its shape. It is filled right after install, and also lists output-limit stops (additive).
+- **Fixes.** The list no longer briefly shows a plugin that was just removed, and a theme check or preview no longer changes it.
+- **Unchanged.** Installs are never blocked by a refused template; the template rules and the 256 KiB cap are the same.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: more time zones in the site settings
 
 - **Time zone.** The list in the setup wizard and in Settings > General offered no zone for places whose clock follows its own rules, so their sites had to pick a neighbour that is an hour or more off for part of the year: Queensland and Darwin, Iran, Afghanistan, Nepal, Myanmar, Morocco, the Azores, Cape Verde, Venezuela and its neighbours on UTC-4, New Caledonia, Fiji and Tonga, and, since 1 November 2026 in the time zone data, British Columbia, Alberta and Manitoba. Each now has a zone of its own: `Australia/Brisbane`, `Australia/Darwin`, `Asia/Tehran`, `Asia/Kabul`, `Asia/Kathmandu`, `Asia/Yangon`, `Africa/Casablanca`, `Atlantic/Azores`, `Atlantic/Cape_Verde`, `America/Caracas`, `Pacific/Noumea`, `Pacific/Fiji`, `Pacific/Tongatapu`, `America/Vancouver`, `America/Edmonton` and `America/Winnipeg`.
