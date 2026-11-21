@@ -2,6 +2,8 @@ package admin
 
 import (
 	"net/http"
+	"net/url"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -17,6 +19,7 @@ const ingestDocsURL = "https://hatamoto.dev/docs/ai-seo/access-log-ingest"
 
 func (a *Admin) mountHostingSettings(owner *httpx.Group) {
 	owner.HandleFunc("GET "+hostingPath, a.handleHosting)
+	owner.HandleFunc("POST "+hostingPath, a.handleHostingSave)
 }
 
 // hostingPage is the Settings > Hosting page. There is deliberately no secret
@@ -190,4 +193,118 @@ func hostingNotes(msg string) []string {
 		return nil
 	}
 	return []string{msg}
+}
+
+// hostingInputFrom reads the posted form. The secret key is taken as typed.
+func hostingInputFrom(form url.Values) HostingInput {
+	typed := func(k string) string { return strings.TrimSpace(form.Get(k)) }
+	return HostingInput{
+		Mode: typed("mode"), Target: typed("target"), Dir: typed("dir"), Service: typed("service"),
+		Endpoint: typed("endpoint"), Bucket: typed("bucket"), Prefix: typed("prefix"), Region: typed("region"),
+		AccessKey: typed("access_key"), SecretKey: form.Get("secret_key"), LiveOrigin: typed("live_origin"),
+	}
+}
+
+// hostingValidate is the admin-side check against the requested mode. The
+// adapter adds the engine's checks (live origin format, target guards).
+func hostingValidate(in HostingInput, siteURL string) []ui.FieldError {
+	var errs []ui.FieldError
+	add := func(id, label, msg string) { errs = append(errs, ui.FieldError{ID: id, Label: label, Message: msg}) }
+	if in.Mode != HostingServed && in.Mode != HostingStatic {
+		add("hosting-mode", "Mode", "Choose how pages are served.")
+	}
+	if in.Target != "" && in.Target != HostingTargetDir && in.Target != HostingTargetS3 {
+		add("hosting-target", "Publish to", "Choose a local directory or S3-compatible storage.")
+	}
+	if in.Service != "" {
+		known := false
+		for _, s := range offsiteServices {
+			known = known || s.v == in.Service
+		}
+		if !known {
+			add("hosting-service", "Storage service", "Choose one of the listed services.")
+		}
+	}
+	if in.Mode != HostingStatic {
+		return errs
+	}
+	if siteURL == "" {
+		add("hosting-mode", "Mode", "Set the site address in Site settings first.")
+	}
+	switch in.Target {
+	case HostingTargetDir:
+		if !filepath.IsAbs(in.Dir) {
+			add("hosting-dir", "Directory", "Enter an absolute path, for example /var/www/site.")
+		}
+	case HostingTargetS3:
+		if in.Endpoint == "" && in.Service != OffsiteAWS {
+			add("hosting-endpoint", "Endpoint", "Enter the endpoint of the storage service.")
+		}
+		if in.Bucket == "" {
+			add("hosting-bucket", "Bucket", "Enter a bucket name.")
+		}
+	case "":
+		add("hosting-target", "Publish to", "Choose where the files go.")
+	}
+	if in.LiveOrigin == "" {
+		add("hosting-live-origin", "Live origin", "Enter the address where the live islands answer.")
+	}
+	return errs
+}
+
+func (a *Admin) handleHostingSave(w http.ResponseWriter, r *http.Request) {
+	svc := a.deps.Hosting
+	if svc == nil {
+		a.unavailable(w, r, "Hosting")
+		return
+	}
+	_ = r.ParseForm() // a malformed body leaves the form empty and fails validation
+	in := hostingInputFrom(r.PostForm)
+	cur, err := svc.View(r.Context())
+	if err != nil {
+		a.logger().Error("hosting settings", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The hosting settings could not be loaded.")
+		return
+	}
+	errs := hostingValidate(in, a.siteAddress(r))
+	if len(errs) == 0 {
+		if errs, err = svc.Save(r.Context(), in); err != nil {
+			a.logger().Error("hosting settings save", "err", err)
+			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The hosting settings could not be saved.")
+			return
+		}
+	}
+	if len(errs) > 0 {
+		in.SecretKey = ""
+		a.renderHosting(w, r, http.StatusUnprocessableEntity, &in, errs)
+		return
+	}
+	a.audit(r, "hosting.update", "hosting", map[string]any{"changed": hostingChanged(cur, in), "secret_changed": in.SecretKey != ""})
+	if in.Mode != cur.Mode {
+		a.SetFlash(w, r, "info", "Settings saved. Confirm the switch.")
+		http.Redirect(w, r, a.adminPath+hostingPath+"/mode?to="+url.QueryEscape(in.Mode), http.StatusSeeOther)
+		return
+	}
+	a.SetFlash(w, r, "success", "Hosting settings saved.")
+	http.Redirect(w, r, a.adminPath+hostingPath, http.StatusSeeOther)
+}
+
+// hostingChanged names the fields that differ from the stored ones; values
+// stay out of the audit log.
+func hostingChanged(v HostingView, in HostingInput) []string {
+	changed := []string{}
+	for _, c := range []struct {
+		name string
+		diff bool
+	}{
+		{"mode", v.Mode != in.Mode}, {"target", v.Target != in.Target}, {"dir", v.Dir != in.Dir},
+		{"service", v.Service != in.Service}, {"endpoint", v.Endpoint != in.Endpoint}, {"bucket", v.Bucket != in.Bucket},
+		{"prefix", v.Prefix != in.Prefix}, {"region", v.Region != in.Region}, {"access_key", v.AccessKey != in.AccessKey},
+		{"live_origin", v.LiveOrigin != in.LiveOrigin},
+	} {
+		if c.diff {
+			changed = append(changed, c.name)
+		}
+	}
+	return changed
 }

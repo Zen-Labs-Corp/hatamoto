@@ -2,6 +2,10 @@ package admin
 
 import (
 	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -177,5 +181,186 @@ func TestHostingPageOwnerOnlyAndUnavailable(t *testing.T) {
 	}
 	if rec := newHostingRig(t, nil).do("GET", hostingURL, "owner-token", nil, nil); rec.Code != 503 {
 		t.Errorf("no service GET = %d, want 503", rec.Code)
+	}
+}
+
+func hostingForm(extra url.Values) url.Values {
+	f := url.Values{
+		"mode": {"static"}, "target": {"s3"}, "dir": {""}, "service": {"r2"}, "endpoint": {"https://acct.r2.cloudflarestorage.com"},
+		"bucket": {"site"}, "prefix": {"out/"}, "region": {"auto"}, "access_key": {"AKIAEXAMPLE"}, "secret_key": {testHostingSecret},
+		"live_origin": {"https://live.example.com"},
+	}
+	for k, v := range extra {
+		f[k] = v
+	}
+	return f
+}
+
+func newHostingSaveRig(t *testing.T, f *fakeHosting) *perfRig {
+	t.Helper()
+	p := newHostingRig(t, f)
+	p.a.deps.BaseURL = func(*http.Request) string { return "https://example.com" }
+	return p
+}
+
+func TestHostingSaveValidation(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name  string
+		extra url.Values
+		want  string
+	}{
+		{"bad mode", url.Values{"mode": {"edge"}}, "Choose how pages are served."},
+		{"bad target", url.Values{"target": {"ftp"}}, "Choose a local directory or S3-compatible storage."},
+		{"bad service", url.Values{"service": {"gcs"}}, "Choose one of the listed services."},
+		{"relative dir", url.Values{"target": {"dir"}, "dir": {"site/out"}}, "Enter an absolute path"},
+		{"no bucket", url.Values{"bucket": {""}}, "Enter a bucket name."},
+		{"no endpoint", url.Values{"endpoint": {""}}, "Enter the endpoint of the storage service."},
+		{"no live origin", url.Values{"live_origin": {""}}, "Enter the address where the live islands answer."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			f := servedHosting()
+			p := newHostingSaveRig(t, f)
+			rec := p.do("POST", hostingURL, "owner-token", hostingForm(tc.extra), nil)
+			body := rec.Body.String()
+			if rec.Code != 422 || !strings.Contains(body, tc.want) {
+				t.Fatalf("code %d, body lacks %q", rec.Code, tc.want)
+			}
+			if len(f.saved) != 0 || len(p.events) != 0 {
+				t.Errorf("saved %v, audit %v", f.saved, p.events)
+			}
+			if strings.Contains(body, testHostingSecret) {
+				t.Error("the refused page echoes the secret key")
+			}
+			if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+				t.Errorf("a11y: %v", issues)
+			}
+		})
+	}
+}
+
+func TestHostingSaveNeedsSiteAddress(t *testing.T) {
+	t.Parallel()
+
+	f := servedHosting()
+	p := newHostingRig(t, f)
+	p.a.deps.BaseURL = func(*http.Request) string { return "" }
+	rec := p.do("POST", hostingURL, "owner-token", hostingForm(nil), nil)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "Set the site address in Site settings first.") || len(f.saved) != 0 {
+		t.Fatalf("code %d, saved %v", rec.Code, f.saved)
+	}
+}
+
+func TestHostingSaveNeverEchoesOrAuditsTheSecretKey(t *testing.T) {
+	t.Parallel()
+
+	f := staticHosting()
+	p := newHostingSaveRig(t, f)
+	rec := p.do("POST", hostingURL, "owner-token", hostingForm(nil), nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != hostingURL {
+		t.Fatalf("save = %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if len(f.saved) != 1 || f.saved[0].SecretKey != testHostingSecret || f.saved[0].Mode != HostingStatic || f.saved[0].Prefix != "out/" {
+		t.Fatalf("saved = %+v", f.saved)
+	}
+	if len(f.modes) != 0 {
+		t.Errorf("Save set the mode: %v", f.modes)
+	}
+	if len(p.events) != 1 || p.events[0].Action != "hosting.update" || p.events[0].Detail["secret_changed"] != true {
+		t.Fatalf("audit = %+v", p.events)
+	}
+	for k, v := range p.events[0].Detail {
+		if strings.Contains(k, testHostingSecret) || strings.Contains(toText(v), testHostingSecret) {
+			t.Errorf("audit leaks the key: %v", p.events[0].Detail)
+		}
+	}
+	if body := followFlashTo(p.ownerRig, hostingURL, rec); !strings.Contains(body, "Hosting settings saved.") || strings.Contains(body, testHostingSecret) {
+		t.Error("flash missing or page leaks the key")
+	}
+}
+
+func TestHostingSaveRefusedByServiceDropsTheSecret(t *testing.T) {
+	t.Parallel()
+
+	f := staticHosting()
+	f.saveErrs = []ui.FieldError{{ID: "hosting-live-origin", Label: "Live origin", Message: "Use a different address from the site."}}
+	p := newHostingSaveRig(t, f)
+	rec := p.do("POST", hostingURL, "owner-token", hostingForm(url.Values{"bucket": {"posted-bucket"}}), nil)
+	body := rec.Body.String()
+	if rec.Code != 422 || !strings.Contains(body, "Use a different address from the site.") || !strings.Contains(body, `href="#hosting-live-origin"`) {
+		t.Fatalf("code %d, body lacks the error", rec.Code)
+	}
+	if strings.Contains(body, testHostingSecret) {
+		t.Fatal("the refused page echoes the secret key")
+	}
+	if !strings.Contains(body, `value="posted-bucket"`) {
+		t.Error("the posted bucket is not shown again")
+	}
+	if !strings.Contains(body, "Leave blank to keep the saved key.") {
+		t.Error("the saved-secret hint is gone")
+	}
+	if len(p.events) != 0 {
+		t.Errorf("a refused save was audited: %+v", p.events)
+	}
+}
+
+func TestHostingSaveBlankSecretKeepsTheStoredKey(t *testing.T) {
+	t.Parallel()
+
+	f := staticHosting()
+	p := newHostingSaveRig(t, f)
+	rec := p.do("POST", hostingURL, "owner-token", hostingForm(url.Values{"secret_key": {""}}), nil)
+	if rec.Code != 303 || len(f.saved) != 1 || f.saved[0].SecretKey != "" {
+		t.Fatalf("code %d, saved %+v", rec.Code, f.saved)
+	}
+	if p.events[0].Detail["secret_changed"] != false {
+		t.Errorf("detail = %v", p.events[0].Detail)
+	}
+}
+
+func TestHostingSaveModeChangeGoesToConfirm(t *testing.T) {
+	t.Parallel()
+
+	f := servedHosting()
+	p := newHostingSaveRig(t, f)
+	rec := p.do("POST", hostingURL, "owner-token", hostingForm(nil), nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != hostingURL+"/mode?to=static" {
+		t.Fatalf("save = %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if len(f.saved) != 1 || len(f.modes) != 0 {
+		t.Errorf("saved %d, modes %v", len(f.saved), f.modes)
+	}
+}
+
+func TestHostingSaveServiceFailureIsAnErrorPage(t *testing.T) {
+	t.Parallel()
+
+	f := staticHosting()
+	f.saveFatal = errors.New("db down " + testHostingSecret)
+	p := newHostingSaveRig(t, f)
+	rec := p.do("POST", hostingURL, "owner-token", hostingForm(nil), nil)
+	if rec.Code != 500 || strings.Contains(rec.Body.String(), testHostingSecret) || strings.Contains(rec.Body.String(), "db down") {
+		t.Fatalf("code %d", rec.Code)
+	}
+}
+
+func TestHostingSaveOwnerOnlyAndCSRF(t *testing.T) {
+	t.Parallel()
+
+	f := servedHosting()
+	p := newHostingSaveRig(t, f)
+	if rec := p.do("POST", hostingURL, "editor-token", hostingForm(nil), nil); rec.Code != 403 {
+		t.Errorf("editor POST = %d, want 403", rec.Code)
+	}
+	req := httptest.NewRequest("POST", hostingURL, strings.NewReader(hostingForm(nil).Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
+	if rec := serve(p.h, req, nil); rec.Code != 403 {
+		t.Errorf("POST without CSRF = %d, want 403", rec.Code)
+	}
+	if len(f.saved) != 0 {
+		t.Errorf("saved %v", f.saved)
 	}
 }
