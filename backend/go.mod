@@ -6,6 +6,7 @@ toolchain go1.27.4
 
 require (
 	github.com/boombuler/barcode v1.1.0
+	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/extism/go-sdk v1.7.1
 	github.com/fxamacker/cbor/v2 v2.9.4
 	github.com/gen2brain/avif v0.4.4
@@ -23,6 +24,7 @@ require (
 	golang.org/x/crypto v0.58.0
 	golang.org/x/image v0.47.0
 	golang.org/x/net v0.62.0
+	golang.org/x/oauth2 v0.38.0
 	golang.org/x/text v0.43.0
 	golang.org/x/time v0.16.0
 	hatamoto.dev/sdk v0.0.0-00010101000000-000000000000
@@ -32,6 +34,7 @@ require (
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/dylibso/observe-sdk/go v0.0.0-20240828172851-9145d8ad07e1 // indirect
 	github.com/ebitengine/purego v0.8.3 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/go-webauthn/x v0.3.1 // indirect
 	github.com/gobwas/glob v1.0.0 // indirect
@@ -54,7 +57,6 @@ require (
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
