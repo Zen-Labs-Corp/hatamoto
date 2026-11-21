@@ -76,15 +76,31 @@
 
 
 <header class="hm-pageheader">
-<div class="hm-pageheader__row"><div class="hm-pageheader__text"><div class="hm-pageheader__title"><h1>Audit log</h1></div><p class="hm-muted">Who changed what in the admin, newest first.</p></div>
+<div class="hm-pageheader__row"><div class="hm-pageheader__text"><div class="hm-pageheader__title"><h1>Audit log</h1></div><p class="hm-muted">Who changed what, in the admin and through agents, newest first.</p></div>
 <div class="hm-row"></div></div>
 </header>
 <div class="hm-card hm-tablecard" id="audit-log">
-<div class="hm-empty"><span class="hm-empty__icon"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+<form class="hm-table__filters hm-filterbar" role="search" method="get" action="/admin/audit" hx-get="/admin/audit" hx-trigger="input changed delay:300ms from:#audit-log-q, change from:#audit-log-q, change from:#audit-log-p0, change from:#audit-log-p1, change from:#audit-log-p2, submit" hx-target="#audit-log" hx-select="#audit-log" hx-select-oob="#audit-log-head,#audit-log-older" hx-swap="outerHTML" hx-push-url="true" hx-indicator="#audit-log-busy">
+<label class="hm-visually-hidden" for="audit-log-q">Search the audit log</label><input class="hm-field__control hm-table__search" type="search" id="audit-log-q" name="q" value="" placeholder="Search the audit log">
+<label class="hm-visually-hidden" for="audit-log-p0">Source</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="audit-log-p0" name="source"><option value="" selected>Any source</option><option value="admin">Admin</option><option value="api">API</option><option value="agent">Agent</option><option value="cli">CLI</option><option value="system">System</option></select></div>
+<label class="hm-visually-hidden" for="audit-log-p1">Actor</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="audit-log-p1" name="actor"><option value="" selected>Any actor</option></select></div>
+<label class="hm-visually-hidden" for="audit-log-p2">Action</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="audit-log-p2" name="action"><option value="" selected>Any action</option></select></div>
+<button type="button" class="hm-btn" popovertarget="audit-log-filters" aria-haspopup="dialog" aria-expanded="false"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>Filters</button>
+<div class="hm-popover-panel" popover id="audit-log-filters" role="dialog" aria-labelledby="audit-log-filters-t">
+<header><h2 id="audit-log-filters-t">Filters</h2></header>
+<div class="hm-popover-panel__body"><div class="hm-field"><label class="hm-field__label" for="audit-log-f0">From</label><input class="hm-field__control" type="date" id="audit-log-f0" name="from" value=""></div>
+<div class="hm-field"><label class="hm-field__label" for="audit-log-f1">To</label><input class="hm-field__control" type="date" id="audit-log-f1" name="to" value=""></div>
+</div>
+<footer><a class="hm-btn hm-btn--ghost" href="/admin/audit"><span>Clear all</span></a><button type="submit" class="hm-btn hm-btn--primary"><span>Apply</span></button></footer>
+</div>
+<noscript><button type="submit" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-apply=""><span>Apply filters</span></button></noscript>
+
+<span class="hm-indicator" id="audit-log-busy" role="status" data-hm-busy-text="Loading results"><span class="hm-visually-hidden" data-hm-busy-label></span></span></form><div class="hm-empty"><span class="hm-empty__icon"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
 <p class="hm-empty__title">Nothing recorded yet</p><p class="hm-muted">Changes made in the admin appear here.</p>
 </div>
 
 </div>
+<div id="audit-log-older"></div>
 
 </div>
 </main>

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"html"
 	"strings"
 	"testing"
 	"time"
@@ -117,25 +118,25 @@ func auditRows(n int) []AuditRow {
 	at := time.Date(2026, 10, 2, 8, 30, 0, 0, time.UTC)
 	rows := make([]AuditRow, n)
 	for i := range rows {
-		rows[i] = AuditRow{ID: int64(n - i), At: at.Add(-time.Duration(i) * time.Minute), Actor: "owner@example.com", Action: "entity.publish", Target: fmt.Sprintf("id-%d", i), Detail: map[string]any{"name": fmt.Sprintf("Page %d", i)}}
+		rows[i] = AuditRow{ID: int64(n - i), At: at.Add(-time.Duration(i) * time.Minute), Actor: "owner@example.com", Action: "entity.publish", Target: fmt.Sprintf("id-%d", i), Src: auditSrcAdmin, Source: "admin", Result: "ok", Detail: map[string]any{"name": fmt.Sprintf("Page %d", i)}}
 	}
 	return rows
 }
 
-func TestAuditLogOwnerSeesPagedRows(t *testing.T) {
+func TestAuditLogOwnerSeesFirstPageAndOlderLink(t *testing.T) {
 	t.Parallel()
 
 	f := &fakeAuditLog{rows: auditRows(30)}
 	g := newRig(t, func(d *Deps) { d.AuditLog = f })
 	rec := g.do("GET", "/admin/audit", "owner-token", nil, nil)
 	body := rec.Body.String()
-	if rec.Code != 200 || f.limit != 25 || f.offset != 0 {
-		t.Fatalf("page 1: %d limit=%d offset=%d", rec.Code, f.limit, f.offset)
+	if rec.Code != 200 || f.lastQuery.Limit != 25 || f.lastQuery.Before != nil {
+		t.Fatalf("page 1: %d query=%+v", rec.Code, f.lastQuery)
 	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %s", strings.Join(issues, "; "))
 	}
-	for _, want := range []string{"Audit log", "owner@example.com", "Published", "Page 0", "2 Oct 2026 08:30", `href="/admin/audit?page=2"`, "Showing 1–25 of 30"} {
+	for _, want := range []string{"Audit log", "owner@example.com", "Published", "Page 0", "2 Oct 2026 08:30", ">Source<", ">Result<", ">Admin<", ">OK<", `id="audit-log-older"`, `/admin/audit?before=`, `id="row-a30"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}
@@ -143,9 +144,99 @@ func TestAuditLogOwnerSeesPagedRows(t *testing.T) {
 	if strings.Contains(body, "Page 25") {
 		t.Error("page 1 shows row 26")
 	}
-	g.do("GET", "/admin/audit?page=2", "owner-token", nil, nil)
-	if f.offset != 25 {
-		t.Errorf("page 2 offset = %d", f.offset)
+	older := f.lastPageNext(t, g)
+	rec = g.do("GET", older, "owner-token", nil, nil)
+	if rec.Code != 200 || f.lastQuery.Before == nil || !strings.Contains(rec.Body.String(), "Page 25") || strings.Contains(rec.Body.String(), "Page 0<") {
+		t.Errorf("older page: %d before=%v", rec.Code, f.lastQuery.Before)
+	}
+	if !strings.Contains(rec.Body.String(), `id="audit-log-older"`) || strings.Contains(rec.Body.String(), `>Older<`) {
+		t.Error("last page keeps the wrapper but drops the Older button")
+	}
+}
+
+// lastPageNext returns the Older href of the first page.
+func (f *fakeAuditLog) lastPageNext(t *testing.T, g *rig) string {
+	t.Helper()
+	body := g.do("GET", "/admin/audit", "owner-token", nil, nil).Body.String()
+	i := strings.Index(body, `href="/admin/audit?before=`)
+	if i < 0 {
+		t.Fatal("no Older link")
+	}
+	rest := body[i+len(`href="`):]
+	return html.UnescapeString(rest[:strings.Index(rest, `"`)])
+}
+
+func TestAuditLogFiltersReachTheReader(t *testing.T) {
+	t.Parallel()
+
+	rows := auditRows(3)
+	rows[1].Source, rows[1].Src, rows[1].Actor, rows[1].Action, rows[1].Result, rows[1].Error = "agent", auditSrcAgent, "ci-bot", "entities_update", "denied", "forbidden: scope"
+	f := &fakeAuditLog{rows: rows, facets: AuditFacets{Actions: []string{"entity.publish", "entities_update"}}}
+	g := newRig(t, func(d *Deps) { d.AuditLog = f })
+	rec := g.do("GET", "/admin/audit?source=agent&action=entities_update&actor=n:ci-bot&from=2026-10-01&to=2026-10-03", "owner-token", nil, nil)
+	body := rec.Body.String()
+	q := f.lastQuery
+	if rec.Code != 200 || q.Source != "agent" || q.Action != "entities_update" || q.Actor != "n:ci-bot" {
+		t.Fatalf("query = %+v (%d)", q, rec.Code)
+	}
+	if !q.From.Equal(time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)) || !q.To.Equal(time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("window = %v .. %v, want to inclusive", q.From, q.To)
+	}
+	for _, want := range []string{"ci-bot", ">Agent<", ">Refused<", "forbidden: scope", `id="row-m2"`, "From 1 Oct 2026"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	if strings.Contains(body, "owner@example.com") {
+		t.Error("filtered page shows a row the filters exclude")
+	}
+	body = g.do("GET", "/admin/audit?source=system", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "No matching entries") {
+		t.Error("no filtered empty state")
+	}
+}
+
+func TestAuditLogSearchAlwaysHasARange(t *testing.T) {
+	t.Parallel()
+
+	f := &fakeAuditLog{rows: auditRows(2)}
+	g := newRig(t, func(d *Deps) { d.AuditLog = f })
+	body := g.do("GET", "/admin/audit?q=page", "owner-token", nil, nil).Body.String()
+	if f.lastQuery.Q != "page" || f.lastQuery.From.IsZero() {
+		t.Fatalf("query = %+v", f.lastQuery)
+	}
+	if d := time.Until(f.lastQuery.From); d > -29*24*time.Hour || d < -32*24*time.Hour {
+		t.Errorf("default from = %v ago, want about 30 days", -d)
+	}
+	if !strings.Contains(body, `value="`+f.lastQuery.From.Format("2006-01-02")+`"`) {
+		t.Error("From input does not show the effective date")
+	}
+	g.do("GET", "/admin/audit?q=page&from=2020-01-01&to=2026-10-03", "owner-token", nil, nil)
+	if days := f.lastQuery.To.Sub(f.lastQuery.From).Hours() / 24; days != 366 {
+		t.Errorf("range = %v days, want 366", days)
+	}
+	g.do("GET", "/admin/audit?from=2020-01-01", "owner-token", nil, nil)
+	if f.lastQuery.Q != "" || !f.lastQuery.From.Equal(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("filter without q must keep its own range: %+v", f.lastQuery)
+	}
+	g.do("GET", "/admin/audit?from=2026-10-05&to=2026-10-01", "owner-token", nil, nil)
+	if !f.lastQuery.From.Before(f.lastQuery.To) {
+		t.Errorf("reversed range not swapped: %+v", f.lastQuery)
+	}
+}
+
+func TestAuditLogToleratesBadInput(t *testing.T) {
+	t.Parallel()
+
+	f := &fakeAuditLog{rows: auditRows(2), facetsErr: context.DeadlineExceeded}
+	g := newRig(t, func(d *Deps) { d.AuditLog = f })
+	rec := g.do("GET", "/admin/audit?from=nope&to=2026-13-40&before=garbage&actor=u:bad&source=zzz", "owner-token", nil, nil)
+	q := f.lastQuery
+	if rec.Code != 200 || !q.From.IsZero() || !q.To.IsZero() || q.Before != nil || q.Actor != "" || q.Source != "" {
+		t.Errorf("bad input: %d %+v", rec.Code, q)
+	}
+	if !strings.Contains(rec.Body.String(), "Page 0") {
+		t.Error("bad input should show the first page")
 	}
 }
 
@@ -203,7 +294,11 @@ func TestAuditLogHonoursAdminPath(t *testing.T) {
 
 	g := newRig(t, func(d *Deps) { d.AdminPath = "/x-test"; d.AuditLog = &fakeAuditLog{rows: auditRows(30)} })
 	body := g.do("GET", "/x-test/audit", "owner-token", nil, nil).Body.String()
-	if !strings.Contains(body, `href="/x-test/audit?page=2"`) || strings.Contains(body, `"/admin/`) {
-		t.Error("pager must use the configured admin path")
+	if !strings.Contains(body, `href="/x-test/audit?before=`) || strings.Contains(body, `"/admin/`) {
+		t.Error("Older link must use the configured admin path")
+	}
+	body = g.do("GET", "/x-test/audit?source=admin&from=2026-10-01", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `href="/x-test/audit?source=admin"`) || strings.Contains(body, `"/admin/`) {
+		t.Error("chips and clear link must use the configured admin path")
 	}
 }
