@@ -487,14 +487,17 @@ func (s *Server) buildSiteView(ctx context.Context) (render.SiteView, error) {
 	d := s.siteDerivedFor(cfg)
 	theme := d.themeCopy()
 	links := s.newNavLinks(ctx)
+	menus := s.menusAt(ctx, "header", "footer")
+	headerNav, _ := s.navOf(ctx, menus["header"], links)
+	footerNav, _ := s.navOf(ctx, menus["footer"], links)
 	site := render.SiteView{
 		Name:       cfg.CompanyName,
 		Tagline:    cfg.Tagline,
 		LogoURL:    cfg.LogoURL,
 		FaviconURL: cfg.FaviconURL,
 		Tokens:     themeTokens(theme),
-		Nav:        s.headerNav(ctx, links),
-		FooterNav:  s.menuNav(ctx, "footer", links),
+		Nav:        headerNav,
+		FooterNav:  footerNav,
 		Language:   siteLanguage(cfg),
 		Phone:      cfg.Phone,
 		Hours:      cfg.BusinessHours,
@@ -591,15 +594,26 @@ func (s *Server) menuNav(ctx context.Context, location string, links *navLinks) 
 // menuNavFound is menuNav that also reports whether a menu sits at location,
 // so an existing menu with no items stays distinguishable from none.
 func (s *Server) menuNavFound(ctx context.Context, location string, links *navLinks) ([]render.NavItem, bool) {
+	return s.navOf(ctx, s.menusAt(ctx, location)[location], links)
+}
+
+// menusAt loads the menus at locations (with their items) in one round trip;
+// nil on error, so the page still renders without them.
+func (s *Server) menusAt(ctx context.Context, locations ...string) map[string]*menu.Menu {
 	if s.menuService == nil {
-		return nil, false
+		return nil
 	}
-	m, err := s.menuService.GetMenuByLocation(ctx, location)
-	if err != nil || m == nil {
-		return nil, false
+	ms, err := s.menuService.GetMenusWithItemsByLocations(ctx, locations)
+	if err != nil {
+		return nil
 	}
-	full, err := s.menuService.GetMenuWithItems(ctx, m.ID)
-	if err != nil || full == nil {
+	return ms
+}
+
+// navOf maps a loaded menu (nil: none at that location) to nav items and
+// reports whether a menu exists.
+func (s *Server) navOf(ctx context.Context, m *menu.Menu, links *navLinks) ([]render.NavItem, bool) {
+	if m == nil {
 		return nil, false
 	}
 	if o := stagedFrom(ctx); o != nil { // changeset preview only
@@ -607,7 +621,7 @@ func (s *Server) menuNavFound(ctx context.Context, location string, links *navLi
 			return links.items(items), true
 		}
 	}
-	return links.items(full.Items), true
+	return links.items(m.Items), true
 }
 
 // formsForSections loads the active form definition behind every
