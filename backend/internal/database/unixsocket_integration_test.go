@@ -30,6 +30,9 @@ func socketEnv(t *testing.T) (dsn, sockdir string) {
 	if dsn == "" || sockdir == "" {
 		t.Skip("HATAMOTO_TEST_DB_URL or HATAMOTO_TEST_PG_SOCKDIR not set")
 	}
+	if _, err := os.Stat(sockdir); err != nil {
+		t.Skip("socket directory not visible here (test runs on another host)")
+	}
 	return dsn, sockdir
 }
 
