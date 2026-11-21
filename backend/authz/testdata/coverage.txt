@@ -12,7 +12,7 @@
 #          coverage_test.go). Where a plugin's own role list narrows editors,
 #          roles is the widest answer and the note says so. It names the staff
 #          roles only: the author, contributor, reviewer and read-only roles
-#          pass just the actions in authz.readRights (see default.go).
+#          pass just the actions in authz.readRights plus their content rules (contentRights; see default.go).
 #
 # group  = a RequireRole / RequireCan / RequireOwnerOrKeyScope line (counted by the test)
 # inline = any other gate: an owner/editor check in a handler, a key scope
@@ -170,5 +170,7 @@ internal/mcpserver/tools_content.go inline entity.takeover,entity.duplicate,enti
 internal/mcpserver/tools_comments.go inline comment.read,comment.moderate,comment.reply_as_staff roles=owner,editor  # :79-152
 internal/mcpserver/tools_insight.go inline analytics.read roles=owner,editor  # :75-181
 internal/mcpserver/tools_seo.go inline settings.seo.read,settings.seo.write roles=owner  # :59-140
+internal/admin/admin.go inline content.write roles=owner,editor  # content group guard (entities, editors, media)
 internal/admin/admin.go inline site.write roles=owner,editor  # writeGuard (write_guard.go) on the signed-in admin group
+internal/server/server_core.go inline content.write roles=owner,editor  # REST content group (/entities, /media)
 internal/server/server_core.go inline site.write roles=owner,editor  # middleware.WriteGuard on the REST protected group

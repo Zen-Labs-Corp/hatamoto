@@ -8,10 +8,16 @@
 //
 //   - An owner session may do every action.
 //   - An editor session may do the actions that editors can do today.
-//   - The author, contributor, reviewer and read-only roles may, for now, only
-//     read the admin and keep their own account (the same short list for all
-//     four). Reading form submissions and comments, and every write, is not
-//     in it.
+//   - The read-only role may only read the admin and keep their own account.
+//     Reading form submissions and comments, and every write, is not in it.
+//   - The author, contributor and reviewer roles have the read-only rights
+//     plus content rules. An author creates entities and changes, publishes,
+//     unpublishes, deletes and restores versions of their own; a contributor
+//     creates entities and changes, deletes and restores versions of their
+//     own drafts, and never publishes; a reviewer changes, publishes and
+//     unpublishes any entity. All three upload media and change or delete
+//     the media they uploaded. They never reach menus, settings, users and
+//     the like.
 //   - Any other role, and a session without a user, may do nothing.
 //   - An API key acts within what its creator's role may do: it may act only
 //     for an action that has a key scope, only when the key holds that scope,
@@ -19,7 +25,8 @@
 //     read-only user can read but never write). A write scope implies the matching read scope, "*"
 //     implies every scope, and the owner-only scopes (read:seo, write:seo,
 //     write:terms) need an owner as the creator, also through "*".
-//   - The object is ignored.
+//   - Owners and editors ignore the object; the author, contributor and
+//     reviewer roles decide some actions from CreatedBy and Status.
 //   - An action outside the catalogue is denied with ErrUnknownAction.
 //
 // A wrapper module has its own main package that imports a package whose
@@ -59,8 +66,10 @@
 //
 // The admin and the REST API ask ActionSiteWrite before every request that
 // changes something (any method but GET, HEAD and OPTIONS), apart from a
-// user's own account. A policy that does not delegate to Default must answer
-// it, or every such request is refused, owners included.
+// user's own account. They ask ActionContentWrite instead for the content
+// screens and routes (entities, editors and media). A policy that does not
+// delegate to Default must answer both, or every such request is refused,
+// owners included.
 //
 // # Objects
 //

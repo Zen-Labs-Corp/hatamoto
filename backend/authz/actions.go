@@ -45,6 +45,10 @@ const (
 	ActionCommentSettingsManage Action = "comment.settings.manage"
 	// ActionCommentSettingsRead is the "comment.settings.read" action.
 	ActionCommentSettingsRead Action = "comment.settings.read"
+	// ActionContentWrite is the "content.write" action: change entities and media at all. The admin and the REST API ask it before
+	// every non-read request to the content screens and routes; which entity or media item may change is decided per object
+	// (entity.update, media.update, ...).
+	ActionContentWrite Action = "content.write"
 	// ActionDashboardOwnerRead is the "dashboard.owner.read" action.
 	ActionDashboardOwnerRead Action = "dashboard.owner.read"
 	// ActionDashboardRead is the "dashboard.read" action.

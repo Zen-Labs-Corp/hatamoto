@@ -15,6 +15,33 @@ var wantReadOnly = []string{
 
 var otherRoles = []string{"author", "contributor", "reviewer", "read-only"}
 
+// wantContent is what each content role may do with the zero Object, on top of wantReadOnly, written out
+// independently of contentRights. Read-only has none.
+var wantContent = map[string][]string{
+	"author": {
+		"content.write", "entity.create", "entity.update", "entity.publish", "entity.unpublish", "entity.delete",
+		"entity.version.restore", "media.upload", "media.update", "media.delete",
+	},
+	"contributor": {
+		"content.write", "entity.create", "entity.update", "entity.delete", "entity.version.restore",
+		"media.upload", "media.update", "media.delete",
+	},
+	"reviewer": {
+		"content.write", "entity.update", "entity.publish", "entity.unpublish", "entity.version.restore",
+		"media.upload", "media.update", "media.delete",
+	},
+	"read-only": nil,
+}
+
+// wantContentKey is what a key made by each content role may do with a "*" scope: the actions above that
+// have a key scope (entity.delete, media.update, media.delete and content.write have none).
+var wantContentKey = map[string][]string{
+	"author":      {"entity.create", "entity.update", "entity.publish", "entity.unpublish", "entity.version.restore", "media.upload"},
+	"contributor": {"entity.create", "entity.update", "entity.version.restore", "media.upload"},
+	"reviewer":    {"entity.update", "entity.publish", "entity.unpublish", "entity.version.restore", "media.upload"},
+	"read-only":   nil,
+}
+
 func can(t *testing.T, s Subject, a Action) bool {
 	t.Helper()
 	ok, err := Default().Can(context.Background(), s, a, Object{})
@@ -28,12 +55,21 @@ func TestBuiltinRoleRights(t *testing.T) {
 	for _, role := range otherRoles {
 		for _, a := range Actions() {
 			got := can(t, Subject{UserID: "u", Role: role}, a)
-			if want := slices.Contains(wantReadOnly, string(a)); got != want {
+			want := slices.Contains(wantReadOnly, string(a)) || slices.Contains(wantContent[role], string(a))
+			if got != want {
 				t.Errorf("%s %s: got %v, want %v", role, a, got, want)
 			}
 		}
 	}
-	// No allowed action is a write: none has a write scope, none is site.write or a plugin action.
+	// No read-only action is a write: none has a write scope, none is site.write or a plugin action. No
+	// content role may do site.write or a plugin action either.
+	for _, role := range otherRoles {
+		for _, a := range []Action{ActionSiteWrite, ActionMenuManage, ActionSettingsManage, ActionUserManage, ActionPluginManage, ActionThemeManage} {
+			if can(t, Subject{UserID: "u", Role: role}, a) {
+				t.Errorf("%s may %s", role, a)
+			}
+		}
+	}
 	for _, s := range wantReadOnly {
 		a := Action(s)
 		if r := table[a]; len(r.scope) >= 6 && r.scope[:6] == "write:" {
@@ -72,10 +108,14 @@ func TestKeyCreatorRoleCeiling(t *testing.T) {
 	for _, role := range otherRoles {
 		for _, a := range Actions() {
 			s := Subject{UserID: "u", KeyID: "k", Scopes: []string{"*"}, CreatorRole: role}
-			want := slices.Contains(scoped, string(a))
+			want := slices.Contains(scoped, string(a)) || slices.Contains(wantContentKey[role], string(a))
 			if got := can(t, s, a); got != want {
 				t.Errorf("%s creator, * key, %s: got %v, want %v", role, a, got, want)
 			}
+		}
+		// The write list is checked for read-only only; the others act within their rights (wantContentKey).
+		if role != "read-only" {
+			continue
 		}
 		for _, a := range []Action{ActionEntityUpdate, ActionMediaUpload, ActionMenuManage, ActionCommentModerate, ActionEntityPublish} {
 			if can(t, Subject{UserID: "u", KeyID: "k", Scopes: []string{"*"}, CreatorRole: role}, a) {
