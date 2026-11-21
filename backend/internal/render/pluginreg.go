@@ -117,8 +117,8 @@ func RegisterPluginSection(plugin, typ, src string) error {
 
 // PluginTemplatesRefused lists the plugin's sections and partials that are
 // not registered, each with its reason: what registration refused, what the
-// last template compile left out, and the call-graph faults the gate finds
-// now (the live part, memoised per registry change and grant change). The
+// last template compile left out, and the call-graph faults and sample-render
+// output-limit refusals the gate finds now (the live part, memoised per registry change and grant change). The
 // compile part is replaced on every compile, so with engines on different
 // themes the last compile wins. The list is sorted, deduplicated and capped;
 // it is nil when nothing was refused.

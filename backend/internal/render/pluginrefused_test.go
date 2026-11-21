@@ -224,3 +224,45 @@ func TestPluginGateServingIgnoresMemo(t *testing.T) { //nolint:paralleltest // u
 		}
 	}
 }
+
+const capSource = `{{define "section-big"}}{{range 30000}}<span class="cell">0123456789</span>{{end}}{{end}}`
+
+// The sample-render output limit is its own refusal, not a scripts stop.
+func TestOutputCapIsItsOwnRefusal(t *testing.T) {
+	t.Parallel()
+	reg := newPluginRegistry()
+	if err := reg.registerSection("acme-big", "big", capSource); err != nil {
+		t.Fatal(err)
+	}
+	out, why, graph := reg.snapshot().withoutScripts(nil)
+	if len(why["acme-big"]) != 0 {
+		t.Errorf("scripts bucket = %q, want empty", why["acme-big"])
+	}
+	got := graph["acme-big"]
+	if len(got) != 1 {
+		t.Fatalf("graph bucket = %q, want one entry", got)
+	}
+	if !strings.HasPrefix(got[0], "section big: output limit: sample render of") ||
+		!strings.Contains(got[0], "256 KiB output limit") ||
+		strings.Contains(got[0], "markup:") || strings.Contains(got[0], "site.scripts") {
+		t.Errorf("entry = %q", got[0])
+	}
+	if _, ok := out.sections["big"]; ok {
+		t.Error("the capped section was not dropped")
+	}
+}
+
+func TestOutputCapListedAsNotRegistered(t *testing.T) { //nolint:paralleltest // uses the process-wide plugin registry
+	const plugin = "acme-capped"
+	t.Cleanup(func() { RemovePlugin(plugin) })
+	if err := RegisterPluginSection(plugin, "big", capSource); err != nil {
+		t.Fatal(err)
+	}
+	got := PluginTemplatesRefused(plugin)
+	if len(got) != 1 || !strings.Contains(got[0], "256 KiB") {
+		t.Errorf("refused = %q, want one output-limit entry", got)
+	}
+	if stopped := PluginMarkupStopped(plugin); len(stopped) != 0 {
+		t.Errorf("markup stopped = %q, want empty", stopped)
+	}
+}

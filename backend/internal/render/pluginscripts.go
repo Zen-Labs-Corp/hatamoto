@@ -126,8 +126,9 @@ func withDot(p *parse.PipeNode, dot dotKind) dotKind {
 	return dotContent
 }
 
-// errPluginOutput is errPackOutput worded for a plugin template.
-var errPluginOutput = errors.New("plugin template output exceeds the size cap")
+// errPluginOutput is errPackOutput worded for a plugin template: its own stop,
+// the sample-render output limit, not a scripts stop.
+var errPluginOutput = fmt.Errorf("plugin template output is over the %d KiB output limit", maxPackOutput>>10)
 
 // maxStubString caps every string a stubbed builtin returns, so a chain of
 // assignments that doubles a value cannot grow past it.
@@ -246,7 +247,7 @@ func sampleRender(src string, funcs template.FuncMap) (*rangeBudget, error) {
 		data := preparedSection{Section: Section{Content: map[string]any{}}, Settings: map[string]any{}}
 		err := d.Execute(&cappedWriter{buf: &out, max: maxPackOutput}, data)
 		if errors.Is(err, errPackOutput) {
-			return shared, fmt.Errorf("markup: sample render of %s: %w", d.Name(), errPluginOutput)
+			return shared, fmt.Errorf("output limit: sample render of %s: %w", d.Name(), errPluginOutput)
 		}
 		if err != nil {
 			continue
@@ -261,8 +262,8 @@ func sampleRender(src string, funcs template.FuncMap) (*rangeBudget, error) {
 // withoutScripts drops the sections and blanks the partials of every plugin the gate
 // refuses that fail the script check, and returns why each was dropped
 // ("section promo", "partial card": reason), keyed by plugin. Templates refused
-// for the call graph are not about scripts: they are returned apart, in graph,
-// in the same form.
+// for a reason other than scripts (call-graph faults and the sample-render
+// output limit) are returned apart, in graph, in the same form.
 func (s pluginSnapshot) withoutScripts(allowed func(string) bool) (out pluginSnapshot, why, graph map[string][]string) {
 	why, graph = map[string][]string{}, map[string][]string{}
 	out = s
@@ -284,13 +285,11 @@ func (s pluginSnapshot) withoutScripts(allowed func(string) bool) (out pluginSna
 		}
 		if err != nil {
 			msg := label + ": " + err.Error()
-			if graphFaults[plugin] != nil {
+			if graphFaults[plugin] != nil || errors.Is(err, errPluginOutput) {
+				// Not about scripts: listed as not registered.
 				graph[plugin] = append(graph[plugin], msg)
 			} else {
-				if !errors.Is(err, errPluginOutput) {
-					msg += " (not allowed without site.scripts)"
-				}
-				why[plugin] = append(why[plugin], msg)
+				why[plugin] = append(why[plugin], msg+" (not allowed without site.scripts)")
 			}
 			return false
 		}
