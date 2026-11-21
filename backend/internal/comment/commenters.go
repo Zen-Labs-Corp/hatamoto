@@ -169,12 +169,13 @@ const deletedBody = "[deleted]"
 // EraseByEmail erases one address: comments nobody replied to are deleted, those
 // with replies are anonymised (no name, body replaced, hashes and agent cleared)
 // so the thread keeps its shape, and the commenter row is deleted. Entity counts
-// are recomputed and OnDeleted fires for each deleted comment. Unknown: ErrNotFound.
+// are recomputed, OnDeleted fires for each deleted comment and OnUpdated for each
+// anonymised one (same status, new content). Unknown: ErrNotFound.
 func (s *Service) EraseByEmail(ctx context.Context, email string) (EraseResult, error) {
 	h := s.keys.HashEmail(email)
 	now := s.utcNow()
 	var res EraseResult
-	var deleted []Comment
+	var deleted, anonymised []Comment
 	err := s.db.WithTx(ctx, func(tx pgx.Tx) error {
 		c, _, err := s.commenterRow(ctx, tx, h)
 		if err != nil {
@@ -220,17 +221,18 @@ func (s *Service) EraseByEmail(ctx context.Context, email string) (EraseResult, 
 		rows, err := tx.Query(ctx, `UPDATE hatamoto_comments SET author_name = '', body_raw = $2, body_html = $2,
 				has_links = false, link_domains = '{}', body_hash = '', ip_hash = '', net_hash = '',
 				user_agent = '', notify_replies = false, updated_at = $3
-			WHERE commenter_id = $1 RETURNING entity_id`, c.ID, deletedBody, now)
+			WHERE commenter_id = $1 RETURNING `+commentColumns, c.ID, deletedBody, now)
 		if err != nil {
 			return err
 		}
 		for rows.Next() {
-			var e uuid.UUID
-			if err := rows.Scan(&e); err != nil {
+			cm, err := scanComment(rows)
+			if err != nil {
 				rows.Close()
 				return err
 			}
-			touched[e] = true
+			anonymised = append(anonymised, cm)
+			touched[cm.EntityID] = true
 			res.Anonymised++
 		}
 		rows.Close()
@@ -258,6 +260,10 @@ func (s *Service) EraseByEmail(ctx context.Context, email string) (EraseResult, 
 	}
 	for _, c := range deleted {
 		s.obs.each("deleted", func(o Observer) { o.OnDeleted(ctx, c) })
+	}
+	for _, c := range anonymised {
+		// Status is unchanged; before == after tells the cache the content changed.
+		s.obs.each("updated", func(o Observer) { o.OnUpdated(ctx, c, c) })
 	}
 	return res, nil
 }

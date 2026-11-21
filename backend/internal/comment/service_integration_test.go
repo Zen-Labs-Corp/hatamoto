@@ -617,7 +617,8 @@ func TestEraseByEmail(t *testing.T) {
 	f.wantCounts(3, 0, "seed")
 
 	var deleted []uuid.UUID
-	f.svc.Register(&deleteRecorder{ids: &deleted})
+	var updated []Comment
+	f.svc.Register(&deleteRecorder{ids: &deleted, updated: &updated})
 	res, err := f.svc.EraseByEmail(f.ctx, "erase@example.test")
 	if err != nil {
 		t.Fatal(err)
@@ -627,6 +628,9 @@ func TestEraseByEmail(t *testing.T) {
 	}
 	if len(deleted) != 1 || deleted[0] != leaf.ID {
 		t.Errorf("OnDeleted ids = %v, want the leaf", deleted)
+	}
+	if len(updated) != 1 || updated[0].ID != withReply.ID || updated[0].Status != StatusApproved || updated[0].BodyHTML != deletedBody {
+		t.Errorf("OnUpdated = %+v, want the anonymised comment, approved, body %q", updated, deletedBody)
 	}
 	var name, body, ip string
 	var commenter *uuid.UUID
@@ -658,7 +662,14 @@ func TestEraseByEmail(t *testing.T) {
 
 type deleteRecorder struct {
 	NopObserver
-	ids *[]uuid.UUID
+	ids     *[]uuid.UUID
+	updated *[]Comment
+}
+
+func (d *deleteRecorder) OnUpdated(_ context.Context, _, after Comment) {
+	if d.updated != nil {
+		*d.updated = append(*d.updated, after)
+	}
 }
 
 func (d *deleteRecorder) OnDeleted(_ context.Context, c Comment) { *d.ids = append(*d.ids, c.ID) }
