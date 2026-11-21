@@ -36,7 +36,10 @@ for example `https://example.com`. The flags and exit codes are in
 
 The export asks the server's own router for each address, as an anonymous
 visitor, in process. Each file is therefore what a visitor gets today, byte for
-byte. Nothing in the export counts as traffic: it adds no access-log lines, no
+byte, with one exception: in exported HTML, pager links to listing pages
+(`?page=N`) are rewritten to the exported files (see
+[What is exported](#what-is-exported)). Canonical links, `og:url` and JSON-LD
+stay as the live site serves them. Nothing in the export counts as traffic: it adds no access-log lines, no
 404 rows, no redirect hits and no crawler rows.
 
 The list of files is built from the sitemap, a fixed set of root files, and the
@@ -47,6 +50,12 @@ site only).
 
 - Every page and archive the site serves, taxonomy pages and forms pages
   linked from content.
+- Listing pages: a link to `?page=N` (N from 2 to 10000, `page` the only query
+  key) on a listing is fetched and written as `<listing>/page/N/index.html`,
+  for example `blog/page/2/index.html`. In exported HTML, `<a href>` values and
+  `<link rel="prev|next">` values that point at such a page are rewritten to
+  `/blog/page/2/`; `?page=1` points at the listing itself. The run counts them
+  apart from pages (`+N listing pages`).
 - `sitemap.xml`, its child sitemaps and `sitemap.xsl`.
 - `feed.xml`, `atom.xml`, `robots.txt`, `llms.txt`.
 - The knowledge graph at `api/v1/public/knowledge-graph` (an extensionless
@@ -73,6 +82,7 @@ site only).
 ```
 index.html                    the home page
 blog/my-post/index.html       an HTML page at /blog/my-post
+blog/page/2/index.html        page 2 of the listing at /blog (?page=2)
 feed.xml                      files with an extension keep their path
 sitemap.xml
 media/photo.jpg
@@ -139,6 +149,16 @@ opened by the server secret; if the server secret was changed, the key cannot
 be opened and the command says so. The prefix is optional and scopes the export
 to part of the bucket.
 
+A private endpoint is refused: a loopback, private or link-local address or
+`localhost`. The check runs when hosting settings are saved, in the CLI (from
+the environment or the saved settings) with
+`endpoint refused: private or link-local address`, and again each time the
+upload client connects, so a hostname that resolves to a private address
+(DNS rebinding) is refused too. To use a storage service on a private network,
+such as a LAN MinIO, set `HATAMOTO_STATIC_S3_ALLOW_PRIVATE=1` in the
+environment of the server and the CLI. The upload client does not use
+`HTTPS_PROXY`.
+
 Objects are written with:
 
 | Files | Content-Type | Cache-Control |
@@ -146,9 +166,13 @@ Objects are written with:
 | HTML, XML, feeds, text, JSON and JSON-LD, `_redirects`, the manifest | from the live answer | `public, max-age=300` |
 | Fingerprinted theme files (`theme.<hash>.css`, `.js`) and fonts named by hash | from the live answer | `public, max-age=31536000, immutable` |
 | Media and other assets | from the live answer | `public, max-age=86400` |
+| Media whose type is outside the upload allowlist | `application/octet-stream` | `public, max-age=86400`, plus `Content-Disposition: attachment` |
 
 Where the live answer has no usable type, a built-in table by file extension is
 used.
+
+Objects written by an earlier version lack the attachment header: run one full
+export (Rebuild all in Settings > Hosting) after upgrading so they pick it up.
 
 Order of work: upload every changed file (four at a time); if any upload fails,
 stop with no deletes; delete the removed files; write the manifest object last.
@@ -166,10 +190,14 @@ directories, and one that reads `_redirects` or serves the stubs.
 
 ## Known gaps
 
-- **`?page=N` listings and knowledge-graph query URLs** (`?schema=`, `?page=`)
-  are not exported. Each is skipped, counted and reported as a warning (the
-  list is capped). Entities on page N stay reachable through the sitemap and
-  their own addresses.
+- **Other query URLs**, such as the knowledge graph's `?schema=` and a
+  `?page=` combined with another key, are not exported. Each is skipped,
+  counted and reported as a warning (the list is capped). Listing pages
+  (`?page=N` alone) are exported.
+- **Listing page collisions.** If the file of a listing page is taken by a real
+  page, the real page wins and the export warns that the listing page is
+  replaced or not exported. A listing page that redirects is not exported and
+  is reported as a warning.
 - **Computed redirects.** The legacy WordPress patterns and the bare-slug
   redirects have no rule list, so they are not written to `_redirects`. A link
   that is crawled and answers with a redirect still gets a stub and a line. The
@@ -179,9 +207,19 @@ directories, and one that reads `_redirects` or serves the stubs.
   In static mode with a live origin saved in the hosting settings
   (`live_origin`), exported pages send them to that live origin, which answers
   CORS for the site address only and redirects its page GETs to the static
-  site; see [THEMES.md](THEMES.md#static-mode).
-- **Response headers of `/media`** are not carried over. Set caching on the
-  host (the bucket target sets Cache-Control as above).
+  site; see [THEMES.md](THEMES.md#static-mode). The live origin answers the
+  preflight of `hx-post` islands for these request headers: `Content-Type`,
+  `X-Page-URL`, `HX-Request`, `HX-Current-URL`, `HX-Target`, `HX-Trigger`,
+  `HX-Trigger-Name`, `HX-Boosted` and `HX-Prompt`. The new-comment post also
+  answers the static site's CORS preflight (that origin only, no credentials,
+  and only in static mode); comment edit and delete do not.
+  Erasing a commenter anonymises their comments and re-exports the site
+  (trigger `comment`).
+- **Response headers of `/media`** are not carried over, except the types and
+  the attachment disposition above. Set caching on the host. Object metadata
+  cannot hold the rest, so set these as CDN response-header rules for `/media/`:
+  a `Content-Security-Policy: sandbox` header, `X-Content-Type-Options:
+  nosniff`, and `X-Frame-Options` (or `frame-ancestors`) for PDF files.
 - **Wildcard translation** follows Netlify and Cloudflare Pages. How a host
   treats an empty `*` segment can differ; the stubs cover exact rules.
 
@@ -196,6 +234,9 @@ exits 1 when:
 - no site address is set;
 - the install is a demo;
 - another export is running (`another static export is running`);
+- the S3 endpoint is a private or link-local address
+  (`endpoint refused: private or link-local address`; see
+  [S3-compatible target](#s3-compatible-target));
 - the database has pending migrations (run `hatamoto migrate` first).
 
 ## Failures
