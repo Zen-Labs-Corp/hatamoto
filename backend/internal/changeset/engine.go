@@ -23,9 +23,13 @@ type Engine struct {
 	Writers map[Kind]KindWriter
 	Blobs   StagedFiles
 	// Audit records an action after it committed; nil skips it.
-	Audit  func(ctx context.Context, action, target string, detail map[string]any)
-	Now    func() time.Time // clock seam; nil is time.Now
-	Logger *slog.Logger
+	Audit func(ctx context.Context, action, target string, detail map[string]any)
+	// AuditTx records a publish inside the publish transaction; an error from
+	// it rolls the publish back. When nil, publish records through Audit after
+	// the commit.
+	AuditTx func(ctx context.Context, tx pgx.Tx, action, target string, detail map[string]any) error
+	Now     func() time.Time // clock seam; nil is time.Now
+	Logger  *slog.Logger
 }
 
 func (e *Engine) now() time.Time {
