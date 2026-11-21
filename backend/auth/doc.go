@@ -49,7 +49,9 @@
 // be free of side effects. It fails closed: a false answer or an error refuses
 // the sign-in, and the user sees the same neutral message as for a wrong
 // password. It does not apply to command line password resets, to the
-// password re-confirmation of an existing session or to API keys.
+// password re-confirmation of an existing session or to API keys. A policy
+// that refuses passwords therefore leaves sudo on the account's password, which
+// reconfirms an existing session and is not a sign-in.
 //
 // # Provisioning
 //

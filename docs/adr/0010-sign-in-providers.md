@@ -108,7 +108,9 @@ reset, an invite or the first-owner setup. It does not apply to:
   which work on the database directly and must keep working for an owner who
   is locked out;
 - the password re-confirmation that guards a sensitive action, which confirms
-  a session that already exists;
+  a session that already exists. A policy that refuses passwords leaves sudo
+  on the account's password: it reconfirms an existing session and is not a
+  sign-in;
 - API keys, which are not a sign-in method. Ending a user's access revokes
   their keys.
 

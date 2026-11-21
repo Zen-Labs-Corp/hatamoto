@@ -255,7 +255,7 @@ func verifyStored(ctx context.Context, password, stored string) (bool, error) {
 // password alone does not clear the failure state, the second step does.
 // With failMemory, failures are counted in process memory instead of the
 // persisted lockout, which is then only read.
-func (s *Service) authenticate(ctx context.Context, email, password string, mode failureMode) (u *user.User, hasFactor bool, err error) {
+func (s *Service) authenticate(ctx context.Context, email, password string, mode failureMode, signIn bool) (u *user.User, hasFactor bool, err error) {
 	// Use superadmin context for login since we don't know the tenant yet
 	superCtx := database.WithSuperadmin(ctx)
 
@@ -321,8 +321,10 @@ func (s *Service) authenticate(ctx context.Context, email, password string, mode
 
 	// A policy refusal is neutral and is no failed login. It comes before any
 	// counter is touched, so a refused correct password resets nothing.
-	if err := s.allow(ctx, u, viaPassword); err != nil {
-		return nil, false, err
+	if signIn {
+		if err := s.allow(ctx, u, viaPassword); err != nil {
+			return nil, false, err
+		}
 	}
 
 	s.maybeRehash(ctx, superCtx, u, password)
@@ -394,7 +396,7 @@ func (s *Service) maybeRehash(ctx, superCtx context.Context, u *user.User, passw
 // asks the user for a second factor when one exists and then calls
 // IssueVerifiedSession.
 func (s *Service) CheckPassword(ctx context.Context, email, password string) (*user.User, error) {
-	u, _, err := s.authenticate(ctx, email, password, failDB)
+	u, _, err := s.authenticate(ctx, email, password, failDB, true)
 	if err != nil {
 		return nil, err
 	}
@@ -405,7 +407,7 @@ func (s *Service) CheckPassword(ctx context.Context, email, password string) (*u
 // LoginSession authenticates and issues a server-side session. It returns the
 // user and the opaque session token to set as the cookie.
 func (s *Service) LoginSession(ctx context.Context, email, password, userAgent, ip string) (*user.User, string, error) {
-	u, hasFactor, err := s.authenticate(ctx, email, password, failDB)
+	u, hasFactor, err := s.authenticate(ctx, email, password, failDB, true)
 	if err != nil {
 		return nil, "", err
 	}
@@ -431,7 +433,7 @@ func (s *Service) LoginSession(ctx context.Context, email, password, userAgent, 
 // site policy requires to have a factor, and who has none, gets
 // ErrFactorSetupRequired instead of a session.
 func (s *Service) LoginAPISession(ctx context.Context, email, password, code, userAgent, ip string) (*user.User, string, error) {
-	u, hasFactor, err := s.authenticate(ctx, email, password, failMemory)
+	u, hasFactor, err := s.authenticate(ctx, email, password, failMemory, true)
 	if err != nil {
 		return nil, "", err
 	}
