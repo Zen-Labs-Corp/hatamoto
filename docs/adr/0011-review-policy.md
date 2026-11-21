@@ -1,4 +1,4 @@
-# ADR 0007: Review policy
+# ADR 0011: Review policy
 
 Status: accepted (2026-11-22)
 
