@@ -235,12 +235,16 @@ func (p *Provider) Finish(ctx context.Context, req authstate.FinishRequest) (aut
 		EntraVerified any    `json:"xms_edov"`
 		Name          string `json:"name"`
 		Azp           string `json:"azp"`
+		HD            string `json:"hd"`
 	}
 	if err := idt.Claims(&c); err != nil {
 		return authstate.Identity{}, refuse(reasonTokenInvalid, nil)
 	}
 	if (c.Azp != "" || len(idt.Audience) > 1) && c.Azp != s.ClientID {
 		return authstate.Identity{}, refuse(reasonAzpMismatch, nil)
+	}
+	if !googleHostedDomainOK(idt.Issuer, c.HD, c.Email, s.AllowedDomains) {
+		return authstate.Identity{}, refuse(reasonDomainNotAllowed, nil)
 	}
 	return authstate.Identity{
 		Issuer:        idt.Issuer,
@@ -250,6 +254,20 @@ func (p *Provider) Finish(ctx context.Context, req authstate.FinishRequest) (aut
 		Name:          strings.TrimSpace(c.Name),
 		MFA:           false,
 	}, nil
+}
+
+const googleIssuer = "https://accounts.google.com"
+
+// googleHostedDomainOK is true for every issuer but Google. Google verifies
+// any address a person registers, so for Google the hosted-domain claim (hd)
+// must equal the email's domain and be an allowed domain.
+func googleHostedDomainOK(issuer, hd, email string, allowed []string) bool {
+	if issuer != googleIssuer {
+		return true
+	}
+	hd = strings.ToLower(strings.TrimSpace(hd))
+	at := strings.LastIndexByte(email, '@')
+	return hd != "" && at >= 0 && strings.ToLower(email[at+1:]) == hd && domainAllowed("@"+hd, allowed)
 }
 
 // claimTrue accepts a JSON true or the string "true".

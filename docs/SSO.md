@@ -57,8 +57,9 @@ email on their next sign-in; with it off, they are refused.
 1. In the Google Cloud console, create an OAuth client of type **Web application**, with the URL from the card
    as an authorised redirect URI.
 2. Issuer: `https://accounts.google.com`.
-3. Restrict who can sign in with **Allowed domains**. Google's `hd` claim is not trusted; only the email's domain
-   is checked.
+3. Restrict who can sign in with **Allowed domains**. Google verifies any address a person registers, so for
+   Google the `hd` (hosted domain) claim must also be present, equal the email's domain and be an allowed
+   domain. Personal Google accounts with an address in your domain are refused.
 
 ## Test sign-in
 

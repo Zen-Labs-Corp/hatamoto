@@ -273,3 +273,24 @@ func TestAvailableDoesNotCacheCancelledRead(t *testing.T) {
 		t.Fatal("a cancelled read was cached for the next visitor")
 	}
 }
+
+func TestGoogleHostedDomain(t *testing.T) {
+	const g = "https://accounts.google.com"
+	allowed := []string{"acme.com"}
+	for _, tc := range []struct {
+		name, issuer, hd, email string
+		want                    bool
+	}{
+		{"workspace", g, "acme.com", "ana@acme.com", true},
+		{"hd case", g, "ACME.com", "ana@acme.com", true},
+		{"consumer account, no hd", g, "", "ana@acme.com", false},
+		{"hd differs from email", g, "other.org", "ana@acme.com", false},
+		{"hd not allowed", g, "other.org", "ana@other.org", false},
+		{"hd allowed, email elsewhere", g, "acme.com", "ana@example.org", false},
+		{"other issuer ignores hd", "https://idp.example.test", "", "ana@acme.com", true},
+	} {
+		if got := googleHostedDomainOK(tc.issuer, tc.hd, tc.email, allowed); got != tc.want {
+			t.Errorf("%s: got %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
