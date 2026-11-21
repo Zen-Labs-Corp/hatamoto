@@ -374,3 +374,16 @@ func TestEmailSaveInStagingSavesWithoutCheck(t *testing.T) {
 		t.Errorf("flash = %q", f)
 	}
 }
+
+// The test-email button sends nothing in staging and says so.
+func TestEmailTestSendInStagingWarns(t *testing.T) {
+	t.Setenv(runenv.EnvVar, "staging")
+	e := newEmailRig(t, &fakeEmailSettings{view: savedEmailView()})
+	rec := e.do("POST", "/admin/settings/email/test", "owner-token", url.Values{}, nil)
+	if rec.Code != 303 {
+		t.Fatalf("test send = %d", rec.Code)
+	}
+	if f := flashText(t, rec); !strings.Contains(f, "Staging mode") || strings.Contains(f, "Test email sent") {
+		t.Errorf("flash = %q", f)
+	}
+}

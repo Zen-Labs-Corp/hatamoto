@@ -300,6 +300,8 @@ func (a *Admin) handleEmailSettingsTest(w http.ResponseWriter, r *http.Request) 
 		a.SetFlash(w, r, "warning", "Email is switched off by the server (EMAIL_DISABLED), so nothing was sent.")
 	case !a.mailConfigured():
 		a.SetFlash(w, r, "error", "Email is not set up, so nothing was sent.")
+	case runenv.Staging():
+		a.SetFlash(w, r, "warning", "Staging mode: nothing was sent. Email is switched off on this copy.")
 	default:
 		u := userFrom(r.Context())
 		if err := a.deps.Mailer.SendTest(r.Context(), u.Email, a.siteName(r.Context())); err != nil {
