@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 // subnavLink returns the subnav anchor for href, or "".
@@ -536,6 +537,52 @@ func TestPluginOutputCapOffersScriptsGrant(t *testing.T) {
 	page = g.do("GET", "/admin/plugins/plain/permissions", "owner-token", nil, nil).Body.String()
 	if !strings.Contains(page, "asks for <code>site.scripts</code>") {
 		t.Error("no update hint for a plugin that does not ask for site.scripts")
+	}
+}
+
+// Templates the range breaker paused get their own callout: what is skipped,
+// until when, and nothing about site.scripts.
+func TestPluginPausedTemplatesShowCallout(t *testing.T) {
+	t.Parallel()
+
+	g, _, fp := newPackageRig(t)
+	until := time.Date(2026, 11, 21, 14, 32, 0, 0, time.UTC)
+	fp.list = append(fp.list, PluginInfo{Name: "paused", Package: &PackageMeta{Enabled: true, TemplatesPaused: []PausedTemplate{{Kind: "section", Name: "gallery_grid", Until: until}}}})
+	page := g.do("GET", "/admin/plugins/paused/permissions", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{`id="templates-paused"`, "1 template paused", "section gallery_grid", "until 14:32 UTC"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("plugin page lacks %q", want)
+		}
+	}
+	for _, bad := range []string{"site.scripts", `id="needs-attention"`} {
+		if strings.Contains(page, bad) {
+			t.Errorf("plugin page has %q for a paused template", bad)
+		}
+	}
+	a11yOK(t, page)
+}
+
+func TestPluginPausedTemplatesTitlePlural(t *testing.T) {
+	t.Parallel()
+
+	g, _, fp := newPackageRig(t)
+	until := time.Date(2026, 11, 21, 14, 32, 0, 0, time.UTC)
+	fp.list = append(fp.list, PluginInfo{Name: "paused", Package: &PackageMeta{Enabled: true, TemplatesPaused: []PausedTemplate{
+		{Kind: "section", Name: "gallery_grid", Until: until}, {Kind: "partial", Name: "row", Until: until}}}})
+	page := g.do("GET", "/admin/plugins/paused/permissions", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(page, "2 templates paused") {
+		t.Errorf("plugin page has no plural title: %.300s", page)
+	}
+}
+
+func TestPluginNoPausedTemplatesNoCallout(t *testing.T) {
+	t.Parallel()
+
+	g, _, fp := newPackageRig(t)
+	fp.list = append(fp.list, PluginInfo{Name: "calm", Package: &PackageMeta{Enabled: true}})
+	page := g.do("GET", "/admin/plugins/calm/permissions", "owner-token", nil, nil).Body.String()
+	if strings.Contains(page, "templates-paused") {
+		t.Error("a plugin with no paused templates shows the callout")
 	}
 }
 

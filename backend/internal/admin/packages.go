@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
@@ -14,6 +15,23 @@ import (
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/themestrings"
 )
+
+// PausedTemplate is a plugin template the range breaker skips for now.
+type PausedTemplate struct {
+	Kind, Name string
+	Until      time.Time
+}
+
+// UntilText is the until time as the plugin page shows it.
+func (p PausedTemplate) UntilText() string { return p.Until.UTC().Format("15:04 UTC") }
+
+// PausedTitle is the callout title: "1 template paused" / "N templates paused".
+func (m *PackageMeta) PausedTitle() string {
+	if len(m.TemplatesPaused) == 1 {
+		return "1 template paused"
+	}
+	return strconv.Itoa(len(m.TemplatesPaused)) + " templates paused"
+}
 
 // The types and interface below are what the Plugins and Themes pages need of
 // the package manager (internal/packages). The server adapts the manager to
@@ -149,6 +167,9 @@ type PackageMeta struct {
 	// (refused at registration or by the last template compile), each with its
 	// reason.
 	TemplatesRefused []string
+	// TemplatesPaused lists the templates the range breaker skips for now
+	// (their loops kept hitting the limit), each with the time it is tried again.
+	TemplatesPaused []PausedTemplate
 	// AsksScripts: its manifest lists site.scripts, so the owner can grant it.
 	AsksScripts bool
 	// Uninstalling is set while an uninstall is unfinished (retry it).
