@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"hatamoto.dev/core/authz"
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/jsonx"
@@ -31,7 +32,7 @@ func (s *Server) registerBuilderRender() {
 		IDs      []string `json:"ids,omitempty" jsonschema:"render only these nodes (at most 50); omitted renders the whole page"`
 		Ops      []opIn   `json:"ops,omitempty" jsonschema:"ops to try first, as in builder_apply_ops; nothing is stored"`
 	}
-	register(s, toolSpec{name: "builder_render", description: "Render a page's layout, or only some of its nodes, without storing anything; ops are tried first as a dry run. Returns {html, css}. A whole page is a full HTML document (css is its builder stylesheet, already inside it); with ids you get the nodes' markup as the builder canvas draws it and their CSS. Output over 2 MiB is refused.", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "builder_render", description: "Render a page's layout, or only some of its nodes, without storing anything; ops are tried first as a dry run. Returns {html, css}. A whole page is a full HTML document (css is its builder stylesheet, already inside it); with ids you get the nodes' markup as the builder canvas draws it and their CSS. Output over 2 MiB is refused.", scope: readScope, action: authz.ActionEntityRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in renderIn) (any, error) {
 			if s.d.RenderPage == nil {
 				return nil, codedErr(codeUnavailable, "%s", ErrRenderUnavailable)
@@ -88,7 +89,7 @@ func (s *Server) registerBuilderRender() {
 		Description string `json:"description,omitempty"`
 		Kind        string `json:"kind"`
 	}
-	register(s, toolSpec{name: "builder_templates_list", description: "List the saved section templates that hold builder nodes (tree templates), up to 100. Insert one with builder_template_nodes, then builder_apply_ops. Older section templates need the theme's section types and are not listed.", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "builder_templates_list", description: "List the saved section templates that hold builder nodes (tree templates), up to 100. Insert one with builder_template_nodes, then builder_apply_ops. Older section templates need the theme's section types and are not listed.", scope: readScope, action: authz.ActionEntityRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, _ noIn) (any, error) {
 			items := []templateItem{}
 			if s.d.Templates == nil {
@@ -111,7 +112,7 @@ func (s *Server) registerBuilderRender() {
 	type tplIn struct {
 		ID string `json:"id" jsonschema:"template id from builder_templates_list"`
 	}
-	register(s, toolSpec{name: "builder_template_nodes", description: "The nodes of a tree template with fresh ids on every call, ready to use as the node of an insert op in builder_apply_ops (one insert per top-level node).", scope: readScope},
+	register(s, toolSpec{name: "builder_template_nodes", description: "The nodes of a tree template with fresh ids on every call, ready to use as the node of an insert op in builder_apply_ops (one insert per top-level node).", scope: readScope, action: authz.ActionEntityRead},
 		func(ctx context.Context, _ *hmauth.APIKey, in tplIn) (any, error) {
 			if s.d.Templates == nil {
 				return nil, codedErr(codeUnavailable, "section templates are not available on this site")

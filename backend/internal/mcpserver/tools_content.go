@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
@@ -87,7 +88,7 @@ func (s *Server) registerContent() {
 		Page   int    `json:"page,omitempty" jsonschema:"1-based page (default 1)"`
 		Limit  int    `json:"limit,omitempty" jsonschema:"page size (default 20, max 100)"`
 	}
-	register(s, toolSpec{name: "entities_list", description: "List entities (pages, posts, ...), newest first, drafts included.", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "entities_list", description: "List entities (pages, posts, ...), newest first, drafts included.", scope: readScope, action: authz.ActionEntityRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in listIn) (any, error) {
 			f := &entity.ListEntitiesFilter{Search: in.Search}
 			if in.Schema != "" {
@@ -118,7 +119,7 @@ func (s *Server) registerContent() {
 	type idIn struct {
 		ID string `json:"id" jsonschema:"entity id (UUID)"`
 	}
-	register(s, toolSpec{name: "entities_get", description: "Get one entity with its attributes.", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "entities_get", description: "Get one entity with its attributes.", scope: readScope, action: authz.ActionEntityRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in idIn) (any, error) {
 			id, err := parseID("id", in.ID)
 			if err != nil {
@@ -140,7 +141,7 @@ func (s *Server) registerContent() {
 		Page  int    `json:"page,omitempty"`
 		Limit int    `json:"limit,omitempty" jsonschema:"page size (default 10, max 100)"`
 	}
-	register(s, toolSpec{name: "search", description: "Full-text search over published content, best match first (what the site's /search shows).", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "search", description: "Full-text search over published content, best match first (what the site's /search shows).", scope: readScope, action: authz.ActionEntityRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in searchIn) (any, error) {
 			q := strings.TrimSpace(in.Query)
 			if q == "" {
@@ -164,7 +165,7 @@ func (s *Server) registerContent() {
 		Locale     string `json:"locale,omitempty" jsonschema:"BCP 47 language tag such as en or fr; the site language when empty, or all languages (und) for a type shared across languages on a multi-language site"`
 		Attributes object `json:"attributes,omitempty" jsonschema:"content fields as the schema defines them (see schemas_get)"`
 	}
-	register(s, toolSpec{name: "entities_create", description: "Create a DRAFT entity (optionally with a locale, which is the site language when empty, or all languages (und) for a type shared across languages on a multi-language site; a slug is unique per schema and locale). Nothing is public until entities_publish. HTML in rich-text fields is sanitised.", scope: writeScope, write: true},
+	register(s, toolSpec{name: "entities_create", description: "Create a DRAFT entity (optionally with a locale, which is the site language when empty, or all languages (und) for a type shared across languages on a multi-language site; a slug is unique per schema and locale). Nothing is public until entities_publish. HTML in rich-text fields is sanitised.", scope: writeScope, action: authz.ActionEntityCreate, write: true},
 		func(ctx context.Context, key *hmauth.APIKey, in createIn) (any, error) {
 			if strings.TrimSpace(in.Name) == "" {
 				return nil, userErr("name is required")
@@ -184,7 +185,7 @@ func (s *Server) registerContent() {
 			return s.summary(ctx, e, false), nil
 		})
 
-	register(s, toolSpec{name: "entities_duplicate", description: "Copy a page or post into a new DRAFT in the same language and under the same parent, named \"Copy of <name>\" with the slug \"<slug>-copy\" (\"-copy-2\" when taken). Content, SEO fields (not the canonical address), image, byline, metadata and terms are copied; never the status, dates or translation group. People and reusable blocks cannot be duplicated. Nothing is public until entities_publish.", scope: writeScope, write: true},
+	register(s, toolSpec{name: "entities_duplicate", description: "Copy a page or post into a new DRAFT in the same language and under the same parent, named \"Copy of <name>\" with the slug \"<slug>-copy\" (\"-copy-2\" when taken). Content, SEO fields (not the canonical address), image, byline, metadata and terms are copied; never the status, dates or translation group. People and reusable blocks cannot be duplicated. Nothing is public until entities_publish.", scope: writeScope, action: authz.ActionEntityDuplicate, write: true},
 		func(ctx context.Context, key *hmauth.APIKey, in idIn) (any, error) {
 			if s.d.Duplicator == nil {
 				return nil, userErr("duplicating entities is not available on this site")
@@ -210,7 +211,7 @@ func (s *Server) registerContent() {
 		ParentID    *string `json:"parent_id,omitempty" jsonschema:"move under this parent first (nesting types only); the entity lands last, then at position"`
 		ClearParent bool    `json:"clear_parent,omitempty" jsonschema:"make the entity a top-level one"`
 	}
-	register(s, toolSpec{name: "entities_reorder", description: "Set where a page or post sits among its siblings (same type, parent and language), optionally under another parent. A pure reorder is not an edit: no version is stored, updated_at stays and a plugin's entity stays the plugin's. Moving to another parent changes the address (the old one redirects) and counts as an edit. Loops show this order with order \"manual\".", scope: writeScope, write: true},
+	register(s, toolSpec{name: "entities_reorder", description: "Set where a page or post sits among its siblings (same type, parent and language), optionally under another parent. A pure reorder is not an edit: no version is stored, updated_at stays and a plugin's entity stays the plugin's. Moving to another parent changes the address (the old one redirects) and counts as an edit. Loops show this order with order \"manual\".", scope: writeScope, action: authz.ActionEntityReorder, write: true},
 		func(ctx context.Context, key *hmauth.APIKey, in reorderIn) (any, error) {
 			id, err := parseID("id", in.ID)
 			if err != nil {
@@ -246,7 +247,7 @@ func (s *Server) registerContent() {
 		BylineOrg      *bool   `json:"byline_org,omitempty" jsonschema:"true credits the site organisation instead of a person; false clears it"`
 		ClearByline    bool    `json:"clear_byline,omitempty" jsonschema:"remove the person and organisation byline"`
 	}
-	register(s, toolSpec{name: "entities_update", description: "Update an entity's name, slug, locale, attributes and/or byline (a new version is stored). Attributes replace the stored ones, so send the whole object. The byline is byline_person_id (a person entity id), byline_org (true: the site organisation) or clear_byline; omit all three to leave it alone. On a credited entity attributes.author and author_name are overwritten with the credited name; change the author only with these fields.", scope: writeScope, write: true, destructive: true},
+	register(s, toolSpec{name: "entities_update", description: "Update an entity's name, slug, locale, attributes and/or byline (a new version is stored). Attributes replace the stored ones, so send the whole object. The byline is byline_person_id (a person entity id), byline_org (true: the site organisation) or clear_byline; omit all three to leave it alone. On a credited entity attributes.author and author_name are overwritten with the credited name; change the author only with these fields.", scope: writeScope, action: authz.ActionEntityUpdate, write: true, destructive: true},
 		func(ctx context.Context, key *hmauth.APIKey, in updateIn) (any, error) {
 			id, err := parseID("id", in.ID)
 			if err != nil {
@@ -304,7 +305,11 @@ func (s *Server) registerContent() {
 		})
 
 	setStatus := func(name, desc string, to entity.EntityStatus) {
-		register(s, toolSpec{name: name, description: desc, scope: writeScope, write: true, idempotent: true, destructive: to != entity.StatusPublished},
+		action := authz.ActionEntityUnpublish
+		if to == entity.StatusPublished {
+			action = authz.ActionEntityPublish
+		}
+		register(s, toolSpec{name: name, description: desc, scope: writeScope, action: action, write: true, idempotent: true, destructive: to != entity.StatusPublished},
 			func(ctx context.Context, key *hmauth.APIKey, in idIn) (any, error) {
 				id, err := parseID("id", in.ID)
 				if err != nil {
@@ -326,7 +331,7 @@ func (s *Server) registerContent() {
 	setStatus("entities_unpublish", "Take an entity off the site (back to draft).", entity.StatusDraft)
 
 	// Schemas.
-	register(s, toolSpec{name: "schemas_list", description: "List the content types (schemas).", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "schemas_list", description: "List the content types (schemas).", scope: readScope, action: authz.ActionSchemaRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, _ struct{}) (any, error) {
 			list, err := s.d.Entities.ListSchemas(ctx)
 			if err != nil {
@@ -348,7 +353,7 @@ func (s *Server) registerContent() {
 	type schemaIn struct {
 		Slug string `json:"slug" jsonschema:"schema slug"`
 	}
-	register(s, toolSpec{name: "schemas_get", description: "Get a schema: its JSON Schema (the attributes an entity takes) and URL settings.", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "schemas_get", description: "Get a schema: its JSON Schema (the attributes an entity takes) and URL settings.", scope: readScope, action: authz.ActionSchemaRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in schemaIn) (any, error) {
 			return s.d.Entities.GetSchemaBySlug(ctx, in.Slug)
 		})
@@ -367,7 +372,7 @@ func (s *Server) registerMedia() {
 		Caption    string `json:"caption,omitempty"`
 		Folder     string `json:"folder,omitempty" jsonschema:"one-level folder name (letters, digits, spaces, - and _; up to 60 characters); omit for none"`
 	}
-	register(s, toolSpec{name: "media_upload", description: "Upload a file to the media library. The type is sniffed from the bytes (not the name) and must be allowed; size is capped like the API's upload.", scope: hmauth.ScopeWriteMedia, write: true},
+	register(s, toolSpec{name: "media_upload", description: "Upload a file to the media library. The type is sniffed from the bytes (not the name) and must be allowed; size is capped like the API's upload.", scope: hmauth.ScopeWriteMedia, action: authz.ActionMediaUpload, write: true},
 		func(ctx context.Context, key *hmauth.APIKey, in uploadIn) (any, error) {
 			maxBytes := int64(s.d.Media.Config().MaxSizeMB) * 1024 * 1024
 			// Check the encoded length first so an oversized payload is never decoded.
@@ -422,7 +427,7 @@ func (s *Server) registerTerms() {
 		Page    int    `json:"page,omitempty"`
 		PerPage int    `json:"per_page,omitempty"`
 	}
-	register(s, toolSpec{name: "terms_list", description: "List tags and categories with how many entities use each.", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "terms_list", description: "List tags and categories with how many entities use each.", scope: readScope, action: authz.ActionTermRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in listIn) (any, error) {
 			return s.d.Taxonomy.ListTerms(ctx, in.Kind, in.Search, max(in.Page, 1), clampLimit(in.PerPage, 50))
 		})
@@ -431,7 +436,7 @@ func (s *Server) registerTerms() {
 		Name string `json:"name"`
 		Slug string `json:"slug,omitempty"`
 	}
-	register(s, toolSpec{name: "terms_create", description: "Create a tag or category.", scope: hmauth.ScopeWriteTerms, write: true},
+	register(s, toolSpec{name: "terms_create", description: "Create a tag or category.", scope: hmauth.ScopeWriteTerms, action: authz.ActionTermManage, write: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in createIn) (any, error) {
 			t, err := s.d.Taxonomy.CreateTerm(ctx, taxonomy.CreateTermInput{Kind: in.Kind, Name: in.Name, Slug: in.Slug})
 			if err != nil {
@@ -447,7 +452,7 @@ func (s *Server) registerTerms() {
 		ParentID    *string `json:"parent_id,omitempty" jsonschema:"move under this parent term (same kind)"`
 		ClearParent bool    `json:"clear_parent,omitempty" jsonschema:"make the term a top-level one"`
 	}
-	register(s, toolSpec{name: "terms_reorder", description: "Set where a tag or category sits among the terms of its kind and parent, optionally under another parent term. Lists that ask for the manual order show it.", scope: hmauth.ScopeWriteTerms, write: true},
+	register(s, toolSpec{name: "terms_reorder", description: "Set where a tag or category sits among the terms of its kind and parent, optionally under another parent term. Lists that ask for the manual order show it.", scope: hmauth.ScopeWriteTerms, action: authz.ActionTermManage, write: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in termReorderIn) (any, error) {
 			id, err := parseID("id", in.ID)
 			if err != nil {
@@ -506,7 +511,7 @@ type menuUpdateOut struct {
 }
 
 func (s *Server) registerMenus() {
-	register(s, toolSpec{name: "menus_list", description: "List the menus (header, footer, ...).", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "menus_list", description: "List the menus (header, footer, ...).", scope: readScope, action: authz.ActionMenuRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, _ struct{}) (any, error) {
 			ms, err := s.d.Menus.ListMenus(ctx)
 			return object{"menus": ms}, err
@@ -516,7 +521,7 @@ func (s *Server) registerMenus() {
 		Slug     string `json:"slug,omitempty"`
 		Location string `json:"location,omitempty" jsonschema:"header, footer or sidebar"`
 	}
-	register(s, toolSpec{name: "menus_get", description: "Get a menu with its nested items; give one of id, slug or location.", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "menus_get", description: "Get a menu with its nested items; give one of id, slug or location.", scope: readScope, action: authz.ActionMenuRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in getIn) (any, error) {
 			m, err := s.findMenu(ctx, in.ID, in.Slug, in.Location)
 			if err != nil {
@@ -530,7 +535,7 @@ func (s *Server) registerMenus() {
 		Location string       `json:"location,omitempty"`
 		Items    []menuItemIn `json:"items,omitempty" jsonschema:"when present REPLACES every item; array order is the display order"`
 	}
-	register(s, toolSpec{name: "menus_update", description: "Rename a menu, move it to a location and/or replace its items. Items are checked before anything is changed.", scope: hmauth.ScopeWriteMenus, write: true, destructive: true, idempotent: true},
+	register(s, toolSpec{name: "menus_update", description: "Rename a menu, move it to a location and/or replace its items. Items are checked before anything is changed.", scope: hmauth.ScopeWriteMenus, action: authz.ActionMenuManage, write: true, destructive: true, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in updateIn) (any, error) {
 			id, err := parseID("id", in.ID)
 			if err != nil {
@@ -658,7 +663,7 @@ func (s *Server) registerRedirects() {
 		Page    int    `json:"page,omitempty"`
 		PerPage int    `json:"per_page,omitempty"`
 	}
-	register(s, toolSpec{name: "redirects_list", description: "List redirect rules.", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "redirects_list", description: "List redirect rules.", scope: readScope, action: authz.ActionRedirectRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in listIn) (any, error) {
 			items, total, err := s.d.Redirects.ListRedirects(ctx, redirect.RedirectListParams{Search: in.Search, Page: max(in.Page, 1), PerPage: clampLimit(in.PerPage, 50)})
 			return object{"items": items, "total": total}, err
@@ -668,7 +673,7 @@ func (s *Server) registerRedirects() {
 		TargetURL  string `json:"target_url"`
 		StatusCode int    `json:"status_code,omitempty" jsonschema:"301 (default), 302, 307 or 308"`
 	}
-	register(s, toolSpec{name: "redirects_create", description: "Create a redirect.", scope: hmauth.ScopeWriteRedirects, write: true},
+	register(s, toolSpec{name: "redirects_create", description: "Create a redirect.", scope: hmauth.ScopeWriteRedirects, action: authz.ActionRedirectManage, write: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in createIn) (any, error) {
 			if in.SourcePath == "" || in.TargetURL == "" {
 				return nil, userErr("source_path and target_url are required")
@@ -686,7 +691,7 @@ func (s *Server) registerRedirects() {
 	type deleteIn struct {
 		ID string `json:"id"`
 	}
-	register(s, toolSpec{name: "redirects_delete", description: "Delete a redirect.", scope: hmauth.ScopeWriteRedirects, write: true, destructive: true, idempotent: true},
+	register(s, toolSpec{name: "redirects_delete", description: "Delete a redirect.", scope: hmauth.ScopeWriteRedirects, action: authz.ActionRedirectManage, write: true, destructive: true, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in deleteIn) (any, error) {
 			id, err := parseID("id", in.ID)
 			if err != nil {

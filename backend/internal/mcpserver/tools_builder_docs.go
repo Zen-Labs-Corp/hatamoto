@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
@@ -160,7 +161,7 @@ func (s *Server) registerBuilderDocs() {
 	type getIn struct {
 		EntityID string `json:"entity_id" jsonschema:"id of a page, block or layout part"`
 	}
-	register(s, toolSpec{name: "builder_get", description: "Read a page's builder layout: {version, doc}. Pass version back to builder_apply_ops. A page without a layout yet returns an empty doc. Refuses posts, people and pages that still have the legacy page_sections layout (not_builder).", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "builder_get", description: "Read a page's builder layout: {version, doc}. Pass version back to builder_apply_ops. A page without a layout yet returns an empty doc. Refuses posts, people and pages that still have the legacy page_sections layout (not_builder).", scope: readScope, action: authz.ActionEntityRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in getIn) (any, error) {
 			t, err := s.loadTarget(ctx, in.EntityID)
 			if err != nil {
@@ -179,7 +180,7 @@ func (s *Server) registerBuilderDocs() {
 		Code    string `json:"code"`
 		Message string `json:"message"`
 	}
-	register(s, toolSpec{name: "builder_validate", description: "Check a layout without storing anything: a whole doc, or ops tried on a page's stored layout, or (neither given) the stored layout. Returns {ok, errors:[{code,message}], ids} where ids names the node ids generated for ops (as in builder_apply_ops). Uses the same rules as saving.", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "builder_validate", description: "Check a layout without storing anything: a whole doc, or ops tried on a page's stored layout, or (neither given) the stored layout. Returns {ok, errors:[{code,message}], ids} where ids names the node ids generated for ops (as in builder_apply_ops). Uses the same rules as saving.", scope: readScope, action: authz.ActionEntityRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in validateIn) (any, error) {
 			if in.Doc != nil && len(in.Ops) > 0 {
 				return nil, userErr("send either doc or ops, not both")
@@ -250,7 +251,7 @@ func (s *Server) registerBuilderDocs() {
 		Ops      []opIn `json:"ops" jsonschema:"the edits, applied in order; one failing op stores nothing (at most 500)"`
 		Publish  bool   `json:"publish,omitempty" jsonschema:"also publish a draft page after saving"`
 	}
-	register(s, toolSpec{name: "builder_apply_ops", description: "Edit a page's layout by ops (insert remove move setProp setStyle setBind, and wrap unwrap duplicate) and store one new version. version must be the one builder_get returned: a stale version is refused with 'conflict: ... current version is N'; re-read and retry. All ops apply or none. Omitted node ids are generated and returned in ids. The same rules as the admin builder apply (valid nodes, slot and block rules, sanitising). Returns {version, changed, ids, doc_summary, missingBlocks, stored_differs, published}.", scope: writeScope, write: true, destructive: true},
+	register(s, toolSpec{name: "builder_apply_ops", description: "Edit a page's layout by ops (insert remove move setProp setStyle setBind, and wrap unwrap duplicate) and store one new version. version must be the one builder_get returned: a stale version is refused with 'conflict: ... current version is N'; re-read and retry. All ops apply or none. Omitted node ids are generated and returned in ids. The same rules as the admin builder apply (valid nodes, slot and block rules, sanitising). Returns {version, changed, ids, doc_summary, missingBlocks, stored_differs, published}.", scope: writeScope, action: authz.ActionEntityUpdate, write: true, destructive: true},
 		func(ctx context.Context, key *hmauth.APIKey, in applyIn) (any, error) {
 			if err := checkOpLimits(in.Ops); err != nil {
 				return nil, err

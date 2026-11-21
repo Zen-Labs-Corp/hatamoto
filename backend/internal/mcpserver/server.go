@@ -17,10 +17,12 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
 	"hatamoto.dev/core/internal/auditctx"
 	hmauth "hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authzsubject"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
@@ -110,8 +112,9 @@ type Deps struct {
 
 // Server holds the registered tools.
 type Server struct {
-	d   Deps
-	mcp *mcp.Server
+	d     Deps
+	mcp   *mcp.Server
+	specs []toolSpec // every registered tool, for the authz parity test
 }
 
 // New builds the MCP server and returns its HTTP handler (streamable HTTP;
@@ -218,6 +221,9 @@ func keyOf(req *mcp.CallToolRequest) (*hmauth.APIKey, error) {
 type toolSpec struct {
 	name, description string
 	scope             hmauth.APIKeyScope
+	// action is the authz question asked for every call; scope stays for the
+	// refusal text.
+	action            authz.Action
 	write, idempotent bool
 	// destructive marks writes that replace or remove existing content; MCP
 	// clients use it to ask the user first.
@@ -227,6 +233,10 @@ type toolSpec struct {
 // register adds a tool: scope check, rate limit, audit and error mapping wrap
 // h, which returns the JSON-encodable result.
 func register[In any](s *Server, spec toolSpec, h func(ctx context.Context, key *hmauth.APIKey, in In) (any, error)) {
+	if spec.action == "" {
+		panic("mcpserver: tool " + spec.name + " has no action")
+	}
+	s.specs = append(s.specs, spec)
 	destructive := spec.destructive
 	mcp.AddTool(s.mcp, &mcp.Tool{
 		Name:        spec.name,
@@ -238,11 +248,19 @@ func register[In any](s *Server, spec toolSpec, h func(ctx context.Context, key 
 			return nil, nil, err
 		}
 		var out any
+		ok, aerr := authz.Can(ctx, authzsubject.ForKey(key), spec.action, authz.Object{})
 		switch {
-		case hmauth.OwnerOnlyScope(spec.scope) && key.CreatorRole != "owner":
+		case aerr != nil:
+			if s.d.Logger != nil {
+				s.d.Logger.Warn("authz check failed", "tool", spec.name, "err", aerr)
+			}
+			err = userErr("forbidden: the %s tool is not allowed for this key", spec.name)
+		case !ok && hmauth.OwnerOnlyScope(spec.scope) && key.CreatorRole != "owner":
 			err = userErr("forbidden: the %s scope needs a key created by an owner", spec.scope)
-		case !key.HasScope(spec.scope):
+		case !ok && !key.HasScope(spec.scope):
 			err = userErr("forbidden: the API key lacks the %s scope", spec.scope)
+		case !ok:
+			err = userErr("forbidden: the %s tool is not allowed for this key", spec.name)
 		default:
 			hctx := ctx
 			if spec.write {
