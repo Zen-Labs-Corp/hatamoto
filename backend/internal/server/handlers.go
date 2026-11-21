@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/auditlog"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
@@ -136,16 +138,19 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	result, err := s.authService.Login(r.Context(), &input, userAgent, clientIP)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
+			s.restLoginAuditFailed(r, input, "credentials")
 			writeError(w, http.StatusUnauthorized, "invalid email or password")
 			return
 		}
 		if errors.Is(err, auth.ErrFactorSetupRequired) {
+			s.restLoginAuditFailed(r, input, "factor_setup")
 			writeError(w, http.StatusForbidden, "this site requires two-step sign-in: set up an authenticator app or a passkey in the admin, then sign in again")
 			return
 		}
 		if errors.Is(err, auth.ErrSecondFactorRequired) {
 			// A user with a second factor needs a valid "code"; without one the
 			// answer is the same generic 401, never "needs a code".
+			s.restLoginAuditFailed(r, input, "credentials")
 			writeError(w, http.StatusUnauthorized, "invalid email or password")
 			return
 		}
@@ -154,6 +159,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			// not distinguishable from a wrong password or an unknown email
 			// (avoids account enumeration). The lock still blocks auth server-side.
 			s.logger.Warn("login attempt on locked account", "ip", clientIP)
+			s.restLoginAuditFailed(r, input, "locked")
 			writeError(w, http.StatusUnauthorized, "invalid email or password")
 			return
 		}
@@ -165,6 +171,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "login failed")
 		return
 	}
+
+	s.restLoginAuditOK(r, result.User, input.Code != "")
 
 	// The session token is in the body for bearer clients. With cookie-auth
 	// enabled it is also set as an HttpOnly API session cookie (never the admin
@@ -193,6 +201,9 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		for _, token := range tokens {
 			if sess, verr := s.sessionStore.Validate(r.Context(), token); verr == nil {
 				_ = s.sessionStore.Revoke(r.Context(), sess.ID)
+				if sess.UserID != nil {
+					s.restLoginAudit(r, admin.AuditSignOut, sess.UserID.String(), sess.UserID.String(), audit.ResultOK, map[string]any{"all": false})
+				}
 			}
 		}
 	}
@@ -552,4 +563,43 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "user deleted"})
+}
+
+// restLoginAudit writes one session row for a JSON API sign-in or sign-out.
+// The actor is passed in: a sign-in has no authenticated caller yet.
+func (s *Server) restLoginAudit(r *http.Request, action, actorID, actor, result string, detail map[string]any) {
+	detail["via"] = "api"
+	s.adminAudit(r.Context(), admin.AuditEvent{
+		ActorID: actorID, Actor: actor, ActorKind: audit.KindUser, Result: result,
+		Action: action, Target: "session", Detail: detail,
+		IP: middleware.GetClientIP(r), UserAgent: r.UserAgent(), RequestID: r.Header.Get("X-Request-ID"),
+	})
+}
+
+// restLoginAuditOK records a completed sign-in. totp is true when the request
+// carried a second-step code.
+func (s *Server) restLoginAuditOK(r *http.Request, u *user.User, totp bool) {
+	if u == nil {
+		return
+	}
+	method := admin.SignInPassword
+	if totp {
+		method = admin.SignInTOTP
+	}
+	s.restLoginAudit(r, admin.AuditSignIn, u.ID.String(), u.Email, audit.ResultOK, map[string]any{"method": method})
+}
+
+// restLoginAuditFailed records a refused sign-in. The actor is the keyed hash
+// of the typed email, the same for a known and an unknown address; neither the
+// address nor the password or code is stored.
+func (s *Server) restLoginAuditFailed(r *http.Request, in auth.LoginRequest, reason string) {
+	actor := "unknown"
+	if s.cfg != nil && in.Email != "" {
+		actor = auditlog.NewEmailHasher(s.cfg.Secret)(in.Email)
+	}
+	method := admin.SignInPassword
+	if in.Code != "" {
+		method = admin.SignInTOTP
+	}
+	s.restLoginAudit(r, admin.AuditSignInFailed, "", actor, audit.ResultDenied, map[string]any{"reason": reason, "method": method})
 }
