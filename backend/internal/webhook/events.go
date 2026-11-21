@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/sdk"
 )
 
@@ -31,6 +32,9 @@ func Register(h Registrar, q Enqueuer, log *slog.Logger) {
 		sdk.CommentCreated.Name, sdk.CommentApproved.Name, sdk.CommentSpam.Name, sdk.CommentDeleted.Name,
 	} {
 		h.AddAction(name, hookPriority, func(ctx context.Context, p any) {
+			if runenv.Suppress(ctx, log, runenv.Webhooks, "event", name) {
+				return
+			}
 			data, ok := mapPayload(name, p)
 			if !ok {
 				return

@@ -12,6 +12,7 @@ import (
 	"hatamoto.dev/core/internal/backup"
 	"hatamoto.dev/core/internal/idle"
 	"hatamoto.dev/core/internal/offsite"
+	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/worker"
 )
 
@@ -158,6 +159,9 @@ func (o *offsiteService) run(ctx context.Context, set offsite.Settings, kind bac
 
 // begin opens the target and takes the backup lock. Its OnDone uploads.
 func (o *offsiteService) begin(ctx context.Context, set offsite.Settings, kind backup.Kind, actor string) (backup.Info, func(context.Context) (backup.Info, error), error) {
+	if runenv.Suppress(ctx, o.logger, runenv.OffsiteBackup, "kind", kind) {
+		return backup.Info{}, nil, runenv.ErrSuppressed
+	}
 	target, ok := set.Target(o.key)
 	if !ok {
 		return backup.Info{}, nil, errors.New("the saved secret key cannot be read; enter it again")

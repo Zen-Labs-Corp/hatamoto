@@ -18,6 +18,7 @@ import (
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/web"
 )
@@ -205,6 +206,8 @@ type View struct {
 	ExportBanner *ExportBanner
 	// DemoBanner is the public demo notice ("" outside demo mode).
 	DemoBanner string
+	// StagingBanner is the HATAMOTO_ENV=staging notice ("" otherwise).
+	StagingBanner string
 	// DemoPitch is the demo's note for this section (HATAMOTO_DEMO_PITCH_FILE),
 	// nil outside demo mode or when the file has none for it.
 	DemoPitch *DemoPitch
@@ -549,6 +552,9 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 	v := &View{
 		Title: title, SiteName: a.deps.SiteNameFallback, Lang: "en", Theme: themeOf(r), Density: densityOf(r), Path: r.URL.Path, adminPath: a.adminPath, speculation: a.speculation, appVersion: a.appVersion,
 		Nonce: Nonce(ctx), CSRF: csrfToken(ctx), Assets: as, User: userFrom(ctx),
+	}
+	if runenv.Staging() {
+		v.StagingBanner = runenv.Banner
 	}
 	if a.deps.Demo.Enabled {
 		v.DemoBanner = config.DemoBanner

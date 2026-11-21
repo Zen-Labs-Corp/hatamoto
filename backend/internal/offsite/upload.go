@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/backup"
+	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/s3"
 )
 
@@ -29,6 +30,9 @@ func Upload(ctx context.Context, c *s3.Client, prefix, id, path string, keep int
 	fail := func(err error) (Result, error) {
 		res.OK, res.Error = false, err.Error()
 		return res, err
+	}
+	if runenv.Suppress(ctx, nil, runenv.OffsiteBackup, "id", id) {
+		return fail(runenv.ErrSuppressed)
 	}
 	if !backup.ValidID(id) {
 		return fail(fmt.Errorf("invalid backup id %q", id))

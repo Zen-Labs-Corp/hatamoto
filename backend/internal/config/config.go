@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/adminpath"
+	"hatamoto.dev/core/internal/runenv"
 )
 
 // Config holds all application configuration.
@@ -84,6 +85,10 @@ type Config struct {
 
 	// Demo is the public demo mode (HATAMOTO_DEMO=1); see demo.go.
 	Demo DemoConfig
+
+	// RunMode is the HATAMOTO_ENV run mode (production or staging). It is
+	// separate from Environment.
+	RunMode runenv.Mode
 
 	// Environment
 	Environment string
@@ -385,6 +390,9 @@ func Load() (*Config, error) {
 	cfg.Plugins = LoadPluginConfig()
 	cfg.Admin = loadAdminConfig()
 	if cfg.Demo, err = LoadDemoConfig(); err != nil {
+		return nil, err
+	}
+	if cfg.RunMode, err = runenv.Parse(os.Getenv(runenv.EnvVar)); err != nil {
 		return nil, err
 	}
 

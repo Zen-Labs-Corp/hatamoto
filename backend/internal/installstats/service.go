@@ -16,6 +16,7 @@ import (
 
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/release"
+	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/safefetch"
 )
 
@@ -259,6 +260,9 @@ func (s *Service) Run(ctx context.Context) error {
 		return err
 	}
 	if ForcedOff(s.getenv) {
+		return nil
+	}
+	if runenv.Suppress(ctx, s.log, runenv.InstallStats) {
 		return nil
 	}
 	// A development build is not a release; it never reports.

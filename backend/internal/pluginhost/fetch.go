@@ -15,6 +15,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/safefetch"
 )
 
@@ -178,6 +179,9 @@ func (f *Fetcher) dialContext(ctx context.Context, network, addr string) (net.Co
 
 // Do runs req for a plugin whose manifest allows the given hosts.
 func (f *Fetcher) Do(ctx context.Context, plugin string, allowed []string, req FetchRequest) (*FetchResponse, error) {
+	if runenv.Suppress(ctx, nil, runenv.PluginHTTP, "plugin", plugin) {
+		return nil, blockedErr("staging mode: outbound HTTP is off")
+	}
 	method := strings.ToUpper(req.Method)
 	if method == "" {
 		method = http.MethodGet

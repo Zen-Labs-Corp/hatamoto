@@ -10,6 +10,8 @@ import (
 	"net/textproto"
 	"strconv"
 	"time"
+
+	"hatamoto.dev/core/internal/runenv"
 )
 
 // checkTimeout caps Check so a firewalled port cannot hang a request.
@@ -82,6 +84,9 @@ func newCheckError(stage string, c Config, err error) *CheckError {
 // and RSET (never DATA). It gives up after 10 seconds. A failure is a
 // *CheckError.
 func Check(ctx context.Context, c Config) error {
+	if runenv.Suppress(ctx, nil, runenv.Mail, "action", "smtp check") {
+		return runenv.ErrSuppressed
+	}
 	ctx, cancel := context.WithTimeout(ctx, checkTimeout)
 	defer cancel()
 

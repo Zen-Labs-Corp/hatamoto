@@ -43,6 +43,7 @@ Compatibility promises for all of these: [STABILITY.md](../STABILITY.md).
 | --- | --- |
 | [UPGRADES.md](UPGRADES.md) | how an upgrade stays reversible |
 | [BACKUPS.md](BACKUPS.md) | backups from the admin and the command line |
+| [STAGING.md](STAGING.md) | staging mode: a copy that sends nothing out |
 | [EXPORT.md](EXPORT.md) | site export and import |
 | [STATIC_EXPORT.md](STATIC_EXPORT.md) | the public site as plain files in a directory or S3-compatible bucket |
 | [IMPORT-WORDPRESS.md](IMPORT-WORDPRESS.md) | the WordPress importer in detail |

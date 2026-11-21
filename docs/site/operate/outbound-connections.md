@@ -30,6 +30,10 @@ Country lookup for Analytics > Traffic (`HATAMOTO_GEOIP_DB`) makes no connection
 
 Plugin calls, webhooks and the import are checked against private, loopback and link-local addresses before they connect, so they cannot be pointed at your internal network (the command-line import can lift this with `--allow-private-hosts`, and `--audit-url` may be local).
 
+## Staging mode
+
+With `HATAMOTO_ENV=staging` the server makes none of the sends above that it owns: email, webhooks, IndexNow, off-site backup, update checks, plugin HTTP, install stats and static export to S3 are all off. Deleting media objects in object storage is also off. Captcha checks, read-only fetches (registry, fonts, crawler IP ranges, WordPress import) and media uploads stay on; give a staging copy its own media bucket. See [Staging mode](https://github.com/Zen-Labs-Corp/hatamoto/blob/main/docs/STAGING.md).
+
 ## Where each one lives in the code
 
 | Connection | Code |

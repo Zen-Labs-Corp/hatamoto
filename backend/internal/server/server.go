@@ -57,6 +57,7 @@ import (
 	"hatamoto.dev/core/internal/previewlink"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/safefetch"
 	"hatamoto.dev/core/internal/sectiontemplate"
 	"hatamoto.dev/core/internal/seo"
@@ -789,6 +790,10 @@ func (s *Server) buildHandler() http.Handler {
 		// and the mux may change a response.
 		interceptMiddleware(deps),
 	)
+	if runenv.Staging() {
+		// Outermost, so intercept answers and every other response carry it too.
+		chain = append([]httpx.Middleware{stagingNoindex}, chain...)
+	}
 	if s.demoOn() {
 		validate := s.validateSession
 		if validate == nil {

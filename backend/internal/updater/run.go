@@ -15,6 +15,7 @@ import (
 
 	"hatamoto.dev/core/internal/editionstate"
 	"hatamoto.dev/core/internal/release"
+	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/supervisor"
 	"hatamoto.dev/core/internal/worker"
 )
@@ -187,6 +188,9 @@ func (u *Updater) RetryCheck(version string) (oldReason string, err error) {
 // Run does one check and, under policy, the update. It makes exactly one
 // request before a target exists: the channel manifest.
 func (u *Updater) Run(ctx context.Context, o RunOpts) (Status, error) {
+	if runenv.Suppress(ctx, u.env.Log, runenv.Updater, "check_only", o.CheckOnly, "apply", o.Apply) {
+		return Status{LastResult: ResultSkipped, Decision: KindOff, Reason: "staging mode"}, nil
+	}
 	if !u.lock(ctx, o) {
 		return Status{LastResult: ResultSkipped, Decision: KindBusy, Reason: "another update check is running"}, nil
 	}

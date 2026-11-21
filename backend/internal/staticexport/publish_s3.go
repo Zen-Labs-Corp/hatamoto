@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 
 	"hatamoto.dev/core/internal/media"
+	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/s3"
 )
 
@@ -84,6 +85,9 @@ func (t *S3Target) Previous(ctx context.Context) (Manifest, bool, error) {
 // Publish uploads the changed files, then deletes the removed ones, then
 // writes the manifest object. An upload error returns before any delete.
 func (t *S3Target) Publish(ctx context.Context, staged string, d Diff, next Manifest) error {
+	if runenv.Suppress(ctx, nil, runenv.StaticExportS3, "target", t.describe) {
+		return runenv.ErrSuppressed
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	t.puts.Store(0)

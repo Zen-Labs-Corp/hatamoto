@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 
+	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/s3"
 )
 
@@ -126,11 +127,16 @@ func (s *S3Store) GetRange(ctx context.Context, key, byteRange string) (ObjectIn
 }
 
 // Delete removes key. The client treats a missing key as success, so Head
-// first to keep the BlobStore contract.
+// first to keep the BlobStore contract. In staging mode the object stays (a
+// copy of a site may share the production bucket) and Delete reports success,
+// so the caller still removes its own record.
 func (s *S3Store) Delete(ctx context.Context, key string) error {
 	obj, err := s.objectKey(key)
 	if err != nil {
 		return err
+	}
+	if runenv.Suppress(ctx, nil, runenv.MediaDelete, "key", obj) {
+		return nil
 	}
 	if _, err := s.client.Head(ctx, obj); err != nil {
 		return notExist("delete", key, err)
