@@ -10,7 +10,7 @@
 {{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "hosting-target-card" "Title" "Target" "Heading" "h2" "Description" "Where the exported files go. Used in static mode."}}
 {{template "hm/field" dict "ID" "hosting-target" "Name" "target" "Label" "Publish to" "Control" "radio" "Options" .TargetOptions "Error" (index .Errs "hosting-target")}}
-<div data-hosting-only="dir">{{template "hm/field" dict "ID" "hosting-dir" "Name" "dir" "Label" "Directory" "Value" .Form.Dir "Help" "An absolute path, for example /var/www/site. Your web server serves it." "Error" (index .Errs "hosting-dir") "Attrs" (attrmap "autocomplete" "off")}}</div>
+<div data-hosting-only="dir">{{template "hm/field" dict "ID" "hosting-dir" "Name" "dir" "Label" "Directory" "Value" .Form.Dir "Help" "An absolute path, for example /var/www/site. Your web server serves it. Its parent must be writable by the service user." "Error" (index .Errs "hosting-dir") "Attrs" (attrmap "autocomplete" "off")}}</div>
 <div data-hosting-only="s3">
 {{template "hm/field" dict "ID" "hosting-service" "Name" "service" "Label" "Storage service" "Control" "select" "Options" .ServiceOptions "Help" "Only Amazon S3 builds the address from the region. For every other service enter the endpoint." "Error" (index .Errs "hosting-service")}}
 {{template "hm/field" dict "ID" "hosting-endpoint" "Name" "endpoint" "Label" "Endpoint" "Value" .Form.Endpoint "Help" "For example https://<account>.r2.cloudflarestorage.com. Needed for every service except Amazon S3." "Error" (index .Errs "hosting-endpoint") "Attrs" (attrmap "autocomplete" "off")}}

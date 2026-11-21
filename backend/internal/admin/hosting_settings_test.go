@@ -203,6 +203,9 @@ func TestHostingPageStatic(t *testing.T) {
 	if !strings.Contains(body, `aria-describedby="hosting-test-why"`) || !strings.Contains(body, "In static mode, use Export now.") {
 		t.Error("Test export is not disabled with its reason in static mode")
 	}
+	if !strings.Contains(body, "parent must be writable by the service user.") {
+		t.Error("the Directory field lacks the writable-parent help")
+	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}
