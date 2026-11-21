@@ -24,7 +24,7 @@ The sidebar has five primary items: **Entities** (`<admin>/entities`), **Theme**
 (`<admin>/plugins`; it never has children) and **Settings** (`<admin>/settings`). Theme and
 Settings are shown when the signed-in role can reach at least one of their tabs. The footer holds an avatar link to `<admin>/profile`
 and two icon buttons, theme (`POST <admin>/theme`) and sign out (`POST <admin>/logout`), each
-a real form with an `aria-label` and a tooltip. Sign-in lands on `<admin>/entities`. A top bar above the page holds one toggle that hides the sidebar (remembered in the browser) and the breadcrumb. Below 768
+a real form with an `aria-label` and a tooltip. Sign-in lands on `<admin>/entities`. When a compiled-in module has registered sign-in providers, the login page lists each as a "Continue with <name>" button below the password form; a standard build shows none. A top bar above the page holds one toggle that hides the sidebar (remembered in the browser) and the breadcrumb. Below 768
 pixels the sidebar becomes a top bar and the toggle goes; below 640 the section list becomes a horizontal scroller of links. Every nav and template icon name must exist in the icon map
 (`icons.go`); an unknown name is a render error.
 
@@ -222,6 +222,7 @@ sidebar).
 | Path | Served by |
 | --- | --- |
 | `<admin>/login`, `logout`, `forgot`, `reset`, `accept`, `setup/*`, `profile` | Go (v1-10) |
+| `<admin>/login/provider/{id}/start`, `<admin>/login/provider/{id}/callback` (GET only, signed out, rate limited) | Go: shown only when a compiled-in module registered a sign-in provider; see [ADR 0010](adr/0010-sign-in-providers.md) |
 | `<admin>/forms*` (list, `new`, `design/{id}` (Build), `design/{id}/settings`, `design/{id}/share`, `edit/{id}` (303 to Build), `delete/{id}`, `PUT {id}/definition` (JSON save), `design/{id}/submissions` (the tab), `submissions*` (redirects to the tab, bulk, CSV export, per-submission actions, `{sid}/files/{field}` file download), `spam*`) and `<admin>/media*` (library, upload, formats) | Go (main menu since the Settings regroup) |
 | `<admin>/entities*`, `media/{upload,picker,{id}}`, `pick/{entities,terms}` | Go (v1-11, v1-14) |
 | `<admin>/theme/*`: `themes*` (activate, settings, uninstall, install), `colours`, `design-system*`, `presets*`, `parts`, `blocks`, `templates*`, `menus*` (including `POST menus/preview`, the editor's live preview), `strings` (`GET ?locale=<tag>`, `POST`), `contact-button` | Go (the Theme area; the screens date from v1-10 to B6) |

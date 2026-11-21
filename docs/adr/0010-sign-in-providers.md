@@ -1,4 +1,4 @@
-# ADR 0008: Sign-in providers, provisioning and sign-in policy
+# ADR 0010: Sign-in providers, provisioning and sign-in policy
 
 Status: accepted (2026-11-21)
 
