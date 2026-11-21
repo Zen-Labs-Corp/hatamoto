@@ -432,6 +432,10 @@ func (s *Scheduler) execute(ctx context.Context, st *jobState, name string, fn f
 	defer cancel()
 	r := Run{ID: name, Started: time.Now()}
 	err := fn(jobCtx)
+	if errors.Is(err, ErrNotClaimed) {
+		// Another server holds this run: nothing to log or record.
+		return Run{ID: name}
+	}
 	r.Finished = time.Now()
 	r.OK = err == nil
 	r.Err = cleanError(err)
