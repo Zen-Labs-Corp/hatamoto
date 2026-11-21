@@ -136,7 +136,7 @@ What is not in the list:
 
 A module compiled into a custom build can register a purger in code, instead
 of or as well as the webhook. See the `backend/purge` package documentation and
-[adr/0013-cache-purge-hook.md](adr/0013-cache-purge-hook.md).
+[adr/0014-cache-purge-hook.md](adr/0013-cache-purge-hook.md).
 
 ## Previews
 

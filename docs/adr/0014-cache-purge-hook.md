@@ -1,4 +1,4 @@
-# ADR 0013: Cache purge hook
+# ADR 0014: Cache purge hook
 
 Status: accepted (2026-11-21)
 

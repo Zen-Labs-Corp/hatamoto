@@ -82,7 +82,7 @@
 - **Previews.** The one-time tickets behind the builder canvas, draft previews and plugin admin pages are kept in the database, so a ticket minted on one server opens on another. No sticky sessions are needed.
 - **Cache purge.** `HATAMOTO_PURGE_URL` (with `HATAMOTO_PURGE_TOKEN` and `HATAMOTO_PURGE_ALLOW_PRIVATE`) makes the server send changed public URLs to a webhook, so an edge cache can drop them. `off` or unset sends nothing.
 - **Wrapper modules.** A new public Go package, `hatamoto.dev/core/purge`, lets a module that calls `app.Main` register one purger from an `init` function. Each call is limited to 10 seconds.
-- **Docs.** [Scaling](SCALING.md) and the operator pages describe the setup; ADR 0013 records the purge hook.
+- **Docs.** [Scaling](SCALING.md) and the operator pages describe the setup; ADR 0014 records the purge hook.
 - **Migration.** One new table, `hatamoto_frame_tickets`. Scheduled jobs reuse `hatamoto_job_claims`. Expand only. Rollback floor: unchanged.
 
 ## Unreleased: authorization interface
