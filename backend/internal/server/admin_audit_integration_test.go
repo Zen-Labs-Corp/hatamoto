@@ -176,7 +176,7 @@ func TestAdminAuditLogSearchIntegration(t *testing.T) {
 
 	// Agent rows: key name as actor, tool as action, target from args, no args.
 	rows := search(admin.AuditQuery{Source: "agent", Limit: 50}).Rows
-	if r := rows[0]; r.Actor != "ci-bot" || r.Source != "agent" || r.Result != "ok" || r.Target != "blog-x" || r.Detail != nil && len(r.Detail) != 0 {
+	if r := rows[0]; r.Actor != "ci-bot" || r.Source != "agent" || r.Result != "ok" || r.Target != "blog-x" || len(r.Detail) != 0 {
 		t.Errorf("agent ok row = %+v", r)
 	}
 	if r := rows[1]; r.Result != "denied" || r.Error == "" || r.Target != "e-9" {
