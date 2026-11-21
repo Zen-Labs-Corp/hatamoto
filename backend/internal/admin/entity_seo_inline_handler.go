@@ -131,6 +131,9 @@ func (a *Admin) handleEntitySEOInline(w http.ResponseWriter, r *http.Request) {
 			if errors.Is(err, entity.ErrVersionConflict) {
 				continue
 			}
+			if a.refuseNotAllowed(w, r, err) {
+				return
+			}
 			if err != nil {
 				fail(http.StatusUnprocessableEntity, seoFieldsOf(attrsMap(e.Attributes)), entityErrorText(err))
 				return
