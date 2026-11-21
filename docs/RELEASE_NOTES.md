@@ -1,5 +1,12 @@
 # Release notes
 
+## Unreleased: module extension points (commands, migrations, secrets, services)
+
+- **Wrapper modules.** New public Go packages let a module that calls `app.Main` register, from an `init` function: a CLI command (`module/cli`), its own database migrations (`module/migrate`), sealed secrets under its own key domain (`module/secret`) and a background service that runs in `serve` (`module/service`). A standard build registers nothing and behaves as before: same help text, same `migrate status`, same schema.
+- **Migrations.** Module migrations run after core's, in `serve` and `hatamoto migrate`, and are recorded in `module_<name>_goose_db_version`, never in `goose_db_version`. A failed module migration is logged and does not stop `serve`, but `hatamoto migrate` exits non-zero. Once a module registers, `hatamoto migrate status` adds a `module <name>` section per module. Module tables stay after a downgrade.
+- **Docs.** [ADR 0007](adr/0007-module-extension-points.md), a "Go module extension points" section in [Plugin API](PLUGIN_API.md) and module commands in [Command line](CLI.md).
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: refused plugin templates listed at install, in plain words
 
 - **Admin.** A plugin's page lists templates that are not registered as soon as the install, update or enable finishes, one plain sentence each. The 256 KiB output limit is named as its own reason instead of a scripts stop.
