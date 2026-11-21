@@ -67,6 +67,7 @@ func TestExportBannerAbsent(t *testing.T) {
 		{"no run", "/admin", "owner-token", func() *fakeHosting { f := ok(); f.runs = nil; return f }, false},
 		{"no service", "/admin", "owner-token", nil, true},
 		{"editor dashboard", "/admin", "editor-token", failedExportHosting, false},
+		{"served mode", "/admin", "owner-token", func() *fakeHosting { f := failedExportHosting(); f.view.Mode = HostingServed; return f }, false},
 		{"other page", "/admin/settings/backups", "owner-token", failedExportHosting, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -114,4 +115,16 @@ func TestExportBannerGolden(t *testing.T) {
 	p := newHostingRig(t, failedExportHosting())
 	rec := p.do("GET", "/admin", "owner-token", nil, nil)
 	compareGolden(t, "pages/banner-export_failed.html", normalizePage(rec.Body.String()))
+}
+
+// With no successful export ever, nothing is live and the banner must not say so.
+func TestExportBannerNoPreviousExport(t *testing.T) {
+	t.Parallel()
+
+	f := failedExportHosting()
+	f.runs = f.runs[:1]
+	body := newHostingRig(t, f).do("GET", "/admin", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "Last export failed") || strings.Contains(body, "previous export is still live") {
+		t.Errorf("banner wording wrong without an earlier ok run")
+	}
 }
