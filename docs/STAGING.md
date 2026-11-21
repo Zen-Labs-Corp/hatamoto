@@ -34,7 +34,7 @@ Each blocked send also logs one `staging mode: suppressed` line that names the s
 
 | Sender | In staging | What you see |
 |---|---|---|
-| Mail (including the SMTP connection check) | Nothing is sent, and the connection check (which would sign in to the copied SMTP server) is skipped | The email log records the message as suppressed. **Send a test email** shows a warning that nothing was sent. Saving the email settings still works and shows a warning that the connection was not checked |
+| Mail (including the SMTP connection check, and mail from compiled-in modules) | Nothing is sent, and the connection check (which would sign in to the copied SMTP server) is skipped | The email log records the message as suppressed. **Send a test email** shows a warning that nothing was sent. Saving the email settings still works and shows a warning that the connection was not checked |
 | Webhooks | Nothing is queued and the delivery job does nothing; **Send test** is refused | **Send test** shows a warning and returns to the webhook list |
 | IndexNow | Queued URLs are dropped instead of submitted | A log line with the URL count |
 | Off-site backup | The whole run is refused (no local backup is taken for it, no upload, no pruning of the bucket); **Test connection** is refused | The run is recorded as failed with the staging message |
@@ -56,6 +56,7 @@ production backup bucket, or report the production install ID as a second instal
 | Package registry, fonts, bot IP ranges, WordPress import | These only read from other servers |
 | Static export to a local directory | It is local |
 | Media uploads and replacements to S3 | Blocking writes would break uploads. They reach the configured bucket, so use a separate one |
+| Compiled-in module routes and jobs | They are the module's own code; a module's own outbound calls are not stopped by core |
 | Requests the server makes to itself | They never leave the host |
 
 ## Before you start a copy

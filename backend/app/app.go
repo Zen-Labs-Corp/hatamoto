@@ -524,6 +524,9 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	if err := config.CheckPrefixAgainstAdmin(cfg.PublicSite.APIPrefix, adminAddr); err != nil {
 		return err
 	}
+	if err := server.CheckModuleRoutes(adminAddr, cfg.PublicSite.APIPrefix); err != nil {
+		return err
+	}
 	// Once, before any request: neutral cookie names (a rename logs everyone out).
 	useNeutralCookieNames(cfg.AdminCookieSecure)
 	logger.Info("session cookie names set", "secure", cfg.AdminCookieSecure)

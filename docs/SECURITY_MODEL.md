@@ -335,6 +335,8 @@ Residual risks, stated plainly:
 | The JSON API's optional cookie (`ENABLE_COOKIE_AUTH=true`) needs a CSRF token on unsafe methods; API-key calls are exempt and cookie calls are not | `internal/middleware` | `TestCSRF`, `TestCSRFEmptyKeyNeverMatches`, `TestCSRFSkippedForAPIKeyAuthType` |
 | A CSRF token is never read from a URL, including multipart forms, in the `X-CSRF-Token` header or as the first multipart field | `internal/admin`, `internal/admin/designcheck` | `TestMultipartCSRFNeverFromQuery`, `TestImportWizardCSRFNeverFromQuery`, `TestUILintMultipartFormsPutCSRFFirst` |
 
+**Module routes.** A `module/route` mount is anonymous at the core level. The session cookie reaches its handler and core adds no CSRF protection there, so the module must authenticate its own callers and must not trust the core session cookie for state-changing requests. All module mounts share one auth rate limiter (per client address), so one busy mount can exhaust the budget of the others for that client.
+
 **Docker note.** Behind a proxy container, the server sees the proxy's bridge
 address, not loopback. Set `HATAMOTO_TRUSTED_PROXIES` to that address, or the
 server uses the proxy's address as the client address (and the rate limits,
@@ -387,6 +389,8 @@ access rules cover them. Files are checked by size and content type only; there 
 An access end date limits sign-in. It is not a containment boundary against a malicious owner: while their access lasts, an owner with an end date can still create a password reset link for another owner, install plugins and change settings. A password reset does not extend access, and a user whose end date has passed is refused after a reset as well.
 
 A provider sign-in does not satisfy the second step on its own: it counts as a second factor only when the provider asserts that it performed one. Password re-confirmation for sensitive actions asks for a password, so a user created without one needs a password-set link, a password reset or a passkey before they can confirm such an action. A provider must link or create users by email only when the provider marks the address verified and the issuer is trusted; core requires only that the identity is linked to the user the provider returned, so an unverified address would allow account takeover. Provider sign-in is a compiled-in interface ([ADR 0010](adr/0010-sign-in-providers.md)); a standard build has none.
+
+A route mounted by a compiled-in module ([ADR 0012](adr/0012-module-runtime-hooks.md)) carries no core authentication and is not behind the site access gate: the module authenticates its callers. Core applies its sign-in rate limit per client address and a request body cap, and refuses prefixes core serves. A standard build mounts none.
 
 ### Outbound connections of the server itself
 

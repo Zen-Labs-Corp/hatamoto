@@ -61,6 +61,9 @@ func (j jobsService) Snapshot(ctx context.Context) (admin.JobsView, error) {
 		if worker.IsPluginJob(ji.ID) {
 			v.Rows = append(v.Rows, row(ji.ID, pluginJobName(ji.ID), "every "+shortDuration(ji.Every)))
 		}
+		if worker.IsModuleJob(ji.ID) {
+			v.Rows = append(v.Rows, row(ji.ID, moduleJobName(ji.ID), "every "+shortDuration(moduleJobEvery(ji.ID))))
+		}
 	}
 	return v, nil
 }

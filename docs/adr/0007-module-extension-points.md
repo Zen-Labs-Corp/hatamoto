@@ -76,4 +76,4 @@ same name, because core names always win.
 - A module gets its own migrations table, its own secret domain and the
   services it registered. That is a convention, not isolation: see "Trust
   model".
-- HTTP routes, mail, jobs and admin pages for modules are out of scope here.
+- HTTP routes, jobs and mail for modules: ADR 0012. Admin pages: ADR 0008.

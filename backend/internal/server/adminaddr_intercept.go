@@ -40,6 +40,9 @@ type interceptDeps struct {
 	// oldPrefixes lists the addresses an address change retired since this
 	// process started; nil means none.
 	oldPrefixes func() []string
+	// module, when set, reports an escaped path under a mounted module prefix; such a
+	// path is not refused as a scanner probe (/auth/ is one).
+	module func(p string) bool
 }
 
 // interceptMiddleware answers scanner probes and every signed-out request that
@@ -105,7 +108,7 @@ func interceptMiddleware(d interceptDeps) httpx.Middleware {
 			// scanner list also names (/administrator, /manager) must still
 			// reach the admin rules, never be refused as a probe.
 			if !underPrefix(p, prefix) {
-				if name, ok := wellKnownName(p); ok {
+				if name, ok := wellKnownName(p); ok && (d.module == nil || !d.module(r.URL.EscapedPath())) {
 					d.countProbe(name)
 					d.refuse(w, r)
 					return
@@ -481,6 +484,9 @@ func (s *Server) newInterceptDeps() interceptDeps {
 		refuse:      s.writeStandardNotFound,
 		probes:      newProbeCounter(s.logger),
 		oldPrefixes: s.oldAdminPrefixes,
+	}
+	if len(s.modulePrefixes) > 0 {
+		d.module = s.underModulePrefix
 	}
 	if s.cfg != nil {
 		d.throttle = newNFThrottle(s.cfg.Admin.NotFoundPerMin, s.cfg.Admin.NotFoundBlock)

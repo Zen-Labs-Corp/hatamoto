@@ -115,25 +115,31 @@ var (
 // fixedRoutePrefixes is the set of literal first segments of every route the
 // core registers, minus the admin segment. Derived once from RouteTable.
 func fixedRoutePrefixes() map[string]bool {
-	fixedPrefixesOnce.Do(func() {
-		fixedPrefixes = map[string]bool{}
-		table, err := RouteTable()
-		if err != nil {
-			return
-		}
-		for _, rt := range table {
-			p := rt.Pattern
-			if i := strings.IndexByte(p, ' '); i >= 0 {
-				p = p[i+1:]
-			}
-			seg := firstSegment(p)
-			if seg == "" || seg == adminSeg || strings.ContainsAny(seg, "{}") {
-				continue
-			}
-			fixedPrefixes[seg] = true
-		}
-	})
+	fixedPrefixesOnce.Do(func() { fixedPrefixes = computeFixedRoutePrefixes() })
 	return fixedPrefixes
+}
+
+// computeFixedRoutePrefixes builds the set fixedRoutePrefixes caches. Module
+// route prefixes registered at init are in the table, so an address that
+// starts with one is refused.
+func computeFixedRoutePrefixes() map[string]bool {
+	set := map[string]bool{}
+	table, err := RouteTable()
+	if err != nil {
+		return set
+	}
+	for _, rt := range table {
+		p := rt.Pattern
+		if i := strings.IndexByte(p, ' '); i >= 0 {
+			p = p[i+1:]
+		}
+		seg := firstSegment(p)
+		if seg == "" || seg == adminSeg || strings.ContainsAny(seg, "{}") {
+			continue
+		}
+		set[seg] = true
+	}
+	return set
 }
 
 // firstSegment returns the first path segment of "/a/b" ("a"), or "".
