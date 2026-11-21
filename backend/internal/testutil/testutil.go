@@ -339,7 +339,10 @@ func LessOrEqual[T int | int64 | float64 | string](t testing.TB, a, b T, msg ...
 	}
 }
 
-// QueryCounter is a pgx.QueryTracer that records the statements a pool runs.
+// QueryCounter is a pgx.QueryTracer, pgx.BatchTracer and pgx.CopyFromTracer
+// that records the statements a pool runs. The unit is statements, not round
+// trips: each statement queued on a pgx.Batch counts once and a CopyFrom counts
+// once (as its COPY statement), so moving queries into a batch does not hide them.
 // Set it as ConnConfig.Tracer before the pool is created, then compare Count
 // before and after the code under test (Since lists what ran in between).
 type QueryCounter struct {
@@ -357,6 +360,32 @@ func (c *QueryCounter) TraceQueryStart(ctx context.Context, _ *pgx.Conn, d pgx.T
 
 // TraceQueryEnd is part of pgx.QueryTracer.
 func (c *QueryCounter) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
+
+// TraceBatchStart is part of pgx.BatchTracer; the statements are counted in TraceBatchQuery.
+func (c *QueryCounter) TraceBatchStart(ctx context.Context, _ *pgx.Conn, _ pgx.TraceBatchStartData) context.Context {
+	return ctx
+}
+
+// TraceBatchQuery records one statement of a batch.
+func (c *QueryCounter) TraceBatchQuery(_ context.Context, _ *pgx.Conn, d pgx.TraceBatchQueryData) {
+	c.mu.Lock()
+	c.sql = append(c.sql, d.SQL)
+	c.mu.Unlock()
+}
+
+// TraceBatchEnd is part of pgx.BatchTracer.
+func (c *QueryCounter) TraceBatchEnd(context.Context, *pgx.Conn, pgx.TraceBatchEndData) {}
+
+// TraceCopyFromStart records one COPY statement.
+func (c *QueryCounter) TraceCopyFromStart(ctx context.Context, _ *pgx.Conn, d pgx.TraceCopyFromStartData) context.Context {
+	c.mu.Lock()
+	c.sql = append(c.sql, "COPY "+d.TableName.Sanitize())
+	c.mu.Unlock()
+	return ctx
+}
+
+// TraceCopyFromEnd is part of pgx.CopyFromTracer.
+func (c *QueryCounter) TraceCopyFromEnd(context.Context, *pgx.Conn, pgx.TraceCopyFromEndData) {}
 
 // Count is the number of statements started so far.
 func (c *QueryCounter) Count() int {

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/budgetfile"
@@ -143,6 +144,55 @@ func TestBudgetRenderQueries(t *testing.T) {
 			t.Fatalf("with one injected query: %d, want %d", n, want)
 		}
 	})
+}
+
+// This counter is what the budget trusts, so statements sent through a pgx.Batch
+// or CopyFrom must count too (one per statement), or batching would hide queries.
+func TestQueryCounterSeesBatchAndCopy(t *testing.T) {
+	base := os.Getenv("DATABASE_URL")
+	if base == "" {
+		t.Skip("DATABASE_URL not set; needs Postgres")
+	}
+	ctx := context.Background()
+	pcfg, err := pgxpool.ParseConfig(scratchMigratedDB(t, base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var counter testutil.QueryCounter
+	pcfg.ConnConfig.Tracer = &counter
+	pool, err := pgxpool.NewWithConfig(ctx, pcfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	if _, err := pool.Exec(ctx, "CREATE TABLE rq_copy (a int)"); err != nil {
+		t.Fatal(err)
+	}
+
+	mark := counter.Count()
+	b := &pgx.Batch{}
+	b.Queue("SELECT 1")
+	b.Queue("SELECT 2")
+	br := pool.SendBatch(ctx, b)
+	for range 2 {
+		if _, err := br.Exec(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := br.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if n := counter.Count() - mark; n != 2 {
+		t.Errorf("2-statement batch counted %d: %v", n, counter.Since(mark))
+	}
+
+	mark = counter.Count()
+	if _, err := pool.CopyFrom(ctx, pgx.Identifier{"rq_copy"}, []string{"a"}, pgx.CopyFromRows([][]any{{1}, {2}, {3}})); err != nil {
+		t.Fatal(err)
+	}
+	if n := counter.Count() - mark; n != 1 {
+		t.Errorf("CopyFrom counted %d: %v", n, counter.Since(mark))
+	}
 }
 
 // settleQueries waits until no statement has started for 3 polls 50 ms apart
