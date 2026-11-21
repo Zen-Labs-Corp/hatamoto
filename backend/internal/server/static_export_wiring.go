@@ -87,8 +87,8 @@ func (r *staticExportRunner) run(ctx context.Context, full bool, reason string) 
 }
 
 // setupStaticExport builds the trigger (worker process only), the failure
-// notifier and the Hosting adapter. Run it once the admin, the mail service
-// and the site settings exist.
+// notifier and the Hosting adapter. Run it once the mail service and the
+// site settings exist; the admin may not be mounted yet (see hostingSvc).
 func (s *Server) setupStaticExport() {
 	if s.db == nil || s.cfg == nil {
 		return
@@ -129,12 +129,13 @@ func (s *Server) setupStaticExport() {
 	if s.cfg.Server.EnableWorker {
 		s.staticTrigger = statictrigger.New(func() context.Context { return s.lifecycleCtx }, runner.run, runner.modeOn, s.logger)
 	}
-	if s.admin != nil {
-		s.admin.SetHosting(&hostingAdmin{
-			settings: settings, runs: runs, key: key, trigger: s.staticTrigger,
-			refresh: s.refreshStaticHosting, siteURL: pluginEntityPaths{s}.BaseURL, snapshot: s.staticHosting,
-			refuse: s.staticRefusal, dirGuard: guard,
-		})
+	s.hostingSvc = &hostingAdmin{
+		settings: settings, runs: runs, key: key, trigger: s.staticTrigger,
+		refresh: s.refreshStaticHosting, siteURL: pluginEntityPaths{s}.BaseURL, snapshot: s.staticHosting,
+		refuse: s.staticRefusal, dirGuard: guard,
+	}
+	if s.admin != nil { // already mounted: hand it over directly
+		s.admin.SetHosting(s.hostingSvc)
 	}
 }
 
