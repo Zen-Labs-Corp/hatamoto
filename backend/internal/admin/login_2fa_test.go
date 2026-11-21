@@ -32,7 +32,14 @@ func (s stepAuth) CheckPassword(ctx context.Context, email, password string) (*u
 	return u, err
 }
 
-func (s stepAuth) IssueVerifiedSession(ctx context.Context, id uuid.UUID, _ authstate.Via, _, _ string) (string, error) {
+func (s stepAuth) IssueVerifiedSession(ctx context.Context, id uuid.UUID, via authstate.Via, _, _ string) (string, error) {
+	s.fakeAuth.mu.Lock()
+	s.fakeAuth.vias = append(s.fakeAuth.vias, via)
+	err := s.fakeAuth.verifiedErr
+	s.fakeAuth.mu.Unlock()
+	if err != nil {
+		return "", err
+	}
 	return s.fakeAuth.IssueSession(ctx, id, "", "")
 }
 
@@ -425,5 +432,38 @@ func TestTwoStepPagesGolden(t *testing.T) {
 	}
 	if rec := g.do("GET", "/admin/login/2fa", "", nil, nil); rec.Code != 303 {
 		t.Errorf("no pending cookie: %d", rec.Code)
+	}
+}
+
+// The pending sign-in remembers the first step: the session is issued for that
+// method, so the sign-in policy judges the real one. Cookies without it are a
+// password sign-in.
+func TestTwoStepCompletesWithThePendingVia(t *testing.T) {
+	t.Parallel()
+
+	g := newTwoStepRig(t)
+	seal := func(via string) string {
+		p, err := twofactor.NewPending(g.tf.uid, "", time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.Via = via
+		return g.a.deps.PendingKey.Seal(p)
+	}
+	for _, tc := range []struct {
+		via  string
+		want authstate.Via
+	}{
+		{"provider:x", authstate.Via{Method: authstate.MethodProvider, Provider: "x"}},
+		{"", authstate.Via{Method: authstate.MethodPassword}},
+	} {
+		g.tf.totp = "123456"
+		g.auth.vias = nil
+		if rec := g.second(seal(tc.via), "123456", nil); rec.Code != 303 {
+			t.Fatalf("via %q: %d", tc.via, rec.Code)
+		}
+		if len(g.auth.vias) != 1 || g.auth.vias[0] != tc.want {
+			t.Fatalf("via %q: issued for %+v, want %+v", tc.via, g.auth.vias, tc.want)
+		}
 	}
 }

@@ -28,6 +28,9 @@ type Pending struct {
 	Next    string    `json:"n,omitempty"`
 	Expires time.Time `json:"e"`
 	ID      string    `json:"i"`
+	// Via is the first step that led here ("provider:<id>"); empty means a
+	// password, so cookies in flight and the pinned bytes are unchanged.
+	Via string `json:"m,omitempty"`
 }
 
 // PendingKey signs pending tokens.

@@ -205,12 +205,14 @@ func (a *Admin) handleTwoStep(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "We could not sign you in. Try again in a moment.")
 		return
 	}
-	a.completeSignIn(w, r, ps, p.UserID, p.Next)
+	a.completeSignIn(w, r, ps, p.UserID, p.Next, authstate.ParseVia(p.Via))
 }
 
-// completeSignIn issues the session after a verified second factor.
-func (a *Admin) completeSignIn(w http.ResponseWriter, r *http.Request, ps PasswordStep, uid uuid.UUID, next string) {
-	token, err := ps.IssueVerifiedSession(r.Context(), uid, authstate.Via{Method: authstate.MethodPassword}, r.UserAgent(), middleware.GetClientIP(r))
+// completeSignIn issues the session after a verified second factor. via is the
+// first step the user passed (a password unless the pending sign-in says
+// otherwise), so the sign-in policy judges the real method.
+func (a *Admin) completeSignIn(w http.ResponseWriter, r *http.Request, ps PasswordStep, uid uuid.UUID, next string, via authstate.Via) {
+	token, err := ps.IssueVerifiedSession(r.Context(), uid, via, r.UserAgent(), middleware.GetClientIP(r))
 	if err != nil {
 		a.logger().Error("issue session failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "We could not sign you in. Try again in a moment.")
