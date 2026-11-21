@@ -8,8 +8,12 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"regexp"
 	"time"
 
+	"github.com/google/uuid"
+
+	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/authstate"
 	"hatamoto.dev/core/internal/jsonx"
@@ -179,65 +183,68 @@ func (a *Admin) handleProviderCallback(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, a.providerCookie(r, id, "", -1))
 	st, ok := a.openProviderState(r, id)
 	if !ok {
-		a.providerFailed(w, r, "", errors.New("missing, forged, expired or reused state"))
+		a.callbackFailed(w, r, id, "", "state", audit.ResultDenied, errors.New("missing, forged, expired or reused state"))
 		return
 	}
 	a.spentProvider.add(st.I, st.E, time.Now())
 	next := SafeNextFor(a.adminPath, st.N)
 	q := r.URL.Query()
 	if subtle.ConstantTimeCompare([]byte(q.Get("state")), []byte(st.S)) != 1 {
-		a.providerFailed(w, r, next, errors.New("state mismatch"))
+		a.callbackFailed(w, r, id, next, "state", audit.ResultDenied, errors.New("state mismatch"))
 		return
 	}
 	uid, mfa, err := ps.Finish(r.Context(), id, authstate.FinishRequest{
 		CallbackURL: a.providerCallbackURL(r, id), State: st.S, Data: st.D, Query: q,
 	})
 	if err != nil {
-		a.providerFailed(w, r, next, err)
+		reason, result := providerReason("provider", err)
+		a.callbackFailed(w, r, id, next, reason, result, err)
 		return
 	}
 	step, ok := a.deps.Auth.(PasswordStep)
 	if !ok {
-		a.providerFailed(w, r, next, errors.New("sessions are not available"))
+		a.callbackFailed(w, r, id, next, "session", audit.ResultError, errors.New("sessions are not available"))
 		return
 	}
 	via := authstate.Via{Method: authstate.MethodProvider, Provider: id}
 	// Refuse an ended, locked or policy-refused user now, before any prompt
 	// or pending cookie: a refused user gets no code attempts.
 	if err := step.Admit(r.Context(), uid, via); err != nil {
-		a.providerFailed(w, r, next, err)
+		a.callbackFailed(w, r, id, next, "access", audit.ResultDenied, err)
 		return
 	}
 	if !mfa {
 		// Without a way to ask for the second step there is no session: we
 		// cannot tell whether the user has a factor (as the password path).
 		if a.deps.TwoFactor == nil || len(a.deps.PendingKey) == 0 {
-			a.providerFailed(w, r, next, errors.New("the second step is not available"))
+			a.callbackFailed(w, r, id, next, "second_step_unavailable", audit.ResultError, errors.New("the second step is not available"))
 			return
 		}
 		has, err := a.deps.TwoFactor.HasAnyFactor(r.Context(), uid)
 		if err != nil {
 			// Never a session when we cannot tell.
-			a.providerFailed(w, r, next, err)
+			a.callbackFailed(w, r, id, next, "second_step_unavailable", audit.ResultError, err)
 			return
 		}
 		if has {
 			p, err := twofactor.NewPending(uid, next, time.Now())
 			if err != nil {
-				a.providerFailed(w, r, next, err)
+				a.callbackFailed(w, r, id, next, "second_step_unavailable", audit.ResultError, err)
 				return
 			}
 			p.Via = via.String()
 			http.SetCookie(w, a.pendingCookie(r, a.deps.PendingKey.Seal(p), int(twofactor.PendingTTL/time.Second)))
+			a.auditProvider(r, "session.sign_in_second_step", id, audit.ResultOK, "", uid)
 			a.renderTwoStep(w, r, http.StatusOK, p, false, nil)
 			return
 		}
 	}
 	token, err := step.IssueVerifiedSession(r.Context(), uid, via, r.UserAgent(), middleware.GetClientIP(r))
 	if err != nil {
-		a.providerFailed(w, r, next, err)
+		a.callbackFailed(w, r, id, next, "session", audit.ResultError, err)
 		return
 	}
+	a.auditProvider(r, "session.sign_in", id, audit.ResultOK, "", uid)
 	a.continueSignIn(w, r, token, next)
 }
 
@@ -269,4 +276,53 @@ func (a *Admin) providerFailed(w http.ResponseWriter, r *http.Request, next stri
 	v.Data = loginData{Next: next, DemoLogin: a.demoLoginData(), Passkeys: a.passkeysOn(), Providers: a.providerButtons(r.Context(), next),
 		Status: &Flash{Kind: "error", Message: providerMessage}}
 	a.Render(w, r, http.StatusUnprocessableEntity, "auth/login", v)
+}
+
+// auditReasoner is implemented by a provider error that carries a stable,
+// non-identifying reason code for the audit log.
+type auditReasoner interface{ AuditReason() string }
+
+var reasonRE = regexp.MustCompile(`^[a-z_]{1,32}$`)
+
+// providerReason is the audit reason of a Finish error and its result: the
+// error's own code (a refusal, "denied") when it has a valid one, else stage
+// ("error": not a refusal by the provider).
+func providerReason(stage string, err error) (reason, result string) {
+	var r auditReasoner
+	if errors.As(err, &r) && reasonRE.MatchString(r.AuditReason()) {
+		return r.AuditReason(), audit.ResultDenied
+	}
+	return stage, audit.ResultError
+}
+
+// auditProvider records one provider sign-in outcome. The detail holds only
+// the method and a reason code, never an error text, address or token. The
+// actor is set only for a successful step (uid is not Nil).
+func (a *Admin) auditProvider(r *http.Request, action, id, result, reason string, uid uuid.UUID) {
+	if a.deps.Audit == nil {
+		return
+	}
+	detail := map[string]any{"method": "provider:" + id}
+	if reason != "" {
+		detail["reason"] = reason
+	}
+	e := AuditEvent{
+		Action: action, Target: "session", Detail: detail, Result: result,
+		IP: middleware.GetClientIP(r), UserAgent: r.UserAgent(), RequestID: r.Header.Get("X-Request-ID"),
+	}
+	if uid != uuid.Nil {
+		e.ActorID = uid.String()
+		if a.deps.Users != nil {
+			if u, err := a.deps.Users.GetByID(r.Context(), uid); err == nil && u != nil {
+				e.Actor = u.Email
+			}
+		}
+	}
+	a.deps.Audit(r.Context(), e)
+}
+
+// callbackFailed audits a refused callback once, then answers neutrally.
+func (a *Admin) callbackFailed(w http.ResponseWriter, r *http.Request, id, next, reason, result string, err error) {
+	a.auditProvider(r, "session.sign_in_failed", id, result, reason, uuid.Nil)
+	a.providerFailed(w, r, next, err)
 }

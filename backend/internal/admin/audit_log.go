@@ -19,6 +19,9 @@ const (
 // auditLabels are the plain names of the actions the admin writes. Any other
 // action (packages, imports, CLI) shows as stored.
 var auditLabels = map[string]string{
+	"session.sign_in":              "Signed in",
+	"session.sign_in_second_step":  "Signed in with a provider, second step asked",
+	"session.sign_in_failed":       "Sign-in refused",
 	"entity.publish":               "Published",
 	"entity.unpublish":             "Unpublished",
 	"entity.archive":               "Archived",
