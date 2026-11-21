@@ -35,6 +35,7 @@
 <div data-hosting-only="live">{{template "hm/field" dict "ID" "hosting-live-origin" "Name" "live_origin" "Label" "Live origin" "Value" .Form.LiveOrigin "Placeholder" "https://live.example.com" "Help" "Where the live islands answer, on a different host from the static site URL. The admin moves there too." "Error" (index .Errs "hosting-live-origin") "Attrs" (attrmap "autocomplete" "off")}}</div>
 </div></details>
 {{if .IslandsWarning}}{{template "hm/callout" (dict "Kind" "warning" "ID" "hosting-islands-inactive" "Body" (printf "Static mode is saved but islands are off: %s. Pages are served by Hatamoto until this is fixed." .IslandsWarning))}}
+{{end}}{{if .S3SameHost}}{{template "hm/callout" (dict "Kind" "warning" "ID" "hosting-s3-same-host" "Body" "A bucket cannot pass island paths to Hatamoto. Choose a separate live origin unless your CDN routes them.")}}
 {{end}}{{template "hm/table" .Islands}}
 {{with .Stays}}<p class="hm-muted">{{.}}</p>{{end}}
 {{if .CrawlersWarn}}{{template "hm/callout-start" (dict "Kind" "warning" "ID" "hosting-crawlers")}}<p>AI crawler analytics can't see CDN hits. Set up access-log ingest. <a href="{{.IngestDocs}}">How to set up</a></p>{{template "hm/callout-end"}}

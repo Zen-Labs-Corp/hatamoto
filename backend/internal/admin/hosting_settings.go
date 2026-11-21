@@ -57,8 +57,10 @@ type hostingPage struct {
 	IslandsDesc string
 
 	IslandsWarning string
-	CrawlersWarn   bool
-	IngestDocs     string
+	// S3SameHost warns that a bucket cannot pass island paths to Hatamoto.
+	S3SameHost   bool
+	CrawlersWarn bool
+	IngestDocs   string
 
 	Setup hostingSetupView
 
@@ -150,6 +152,7 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 		LiveSameOptions:     []ui.Option{{Value: HostingLiveSame, Label: "Same host", Selected: !separate}},
 		LiveSeparateOptions: []ui.Option{{Value: HostingLiveSeparate, Label: "Use a separate live origin", Selected: separate}},
 		CrawlersWarn:        static && !a.deps.AgentLogIngest,
+		S3SameHost:          f.Mode == HostingStatic && f.Target == HostingTargetS3 && !separate,
 	}
 	for _, s := range offsiteServices {
 		p.ServiceOptions = append(p.ServiceOptions, ui.Option{Value: s.v, Label: s.label, Selected: f.Service == s.v})

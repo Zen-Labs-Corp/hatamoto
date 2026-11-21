@@ -279,6 +279,30 @@ func TestHostingPageLiveMode(t *testing.T) {
 	}
 }
 
+func TestHostingPageS3SameHostWarning(t *testing.T) {
+	t.Parallel()
+
+	const warn = `id="hosting-s3-same-host"`
+	page := func(mut func(*HostingView)) string {
+		f := staticHosting()
+		mut(&f.view)
+		return newHostingRig(t, f).do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+	}
+	body := page(func(v *HostingView) { v.Target, v.LiveOrigin = HostingTargetS3, "" })
+	if !strings.Contains(body, warn) || !strings.Contains(body, "A bucket cannot pass island paths to Hatamoto") {
+		t.Error("S3 + same host has no warning")
+	}
+	for name, mut := range map[string]func(*HostingView){
+		"s3 separate":    func(v *HostingView) { v.Target, v.LiveOrigin = HostingTargetS3, "https://live.example.com" },
+		"dir same host":  func(v *HostingView) { v.Target, v.LiveOrigin = HostingTargetDir, "" },
+		"served mode s3": func(v *HostingView) { v.Mode, v.Target, v.LiveOrigin = HostingServed, HostingTargetS3, "" },
+	} {
+		if strings.Contains(page(mut), warn) {
+			t.Errorf("%s: unexpected warning", name)
+		}
+	}
+}
+
 func dirSetupHosting() *fakeHosting {
 	f := staticHosting()
 	f.view = HostingView{Mode: HostingStatic, Target: HostingTargetDir, Dir: "/srv/site/public"}
