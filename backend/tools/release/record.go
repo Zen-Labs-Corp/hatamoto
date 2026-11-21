@@ -10,10 +10,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"golang.org/x/crypto/ssh/agent"
 
+	"hatamoto.dev/core/internal/editionstate"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/release"
@@ -25,6 +27,7 @@ type facts struct {
 	Commit     string `json:"commit"`
 	SDK        string `json:"sdk"`
 	SchemaHead int64  `json:"schema_head"`
+	Edition    string `json:"edition,omitempty"`
 
 	SDKCompatibleWith  []string `json:"sdk_compatible_with,omitempty"`
 	RemovedPermissions []string `json:"removed_permissions,omitempty"`
@@ -45,7 +48,7 @@ func cmdRecord(args []string, stdout, stderr io.Writer, _ env) error {
 	fs.StringVar(&floor, "rollback-floor", "", "oldest version a rollback may return to")
 	fs.StringVar(&minFrom, "min-from", "", "oldest version that may update straight to this one")
 	fs.StringVar(&notes, "notes-url", "", "release notes URL")
-	fs.StringVar(&dir, "dir", "", "directory holding hatamoto-<platform> files")
+	fs.StringVar(&dir, "dir", "", "directory holding hatamoto-<platform> files (and hatamoto-<edition>-<platform> files)")
 	fs.StringVar(&out, "out", "release.json", "record file to write")
 	fs.StringVar(&check, "check", "", "check an existing record instead of building one")
 	fs.StringVar(&amend, "amend", "", "edit an unsigned record (with --security, --kind, --rollback-floor, --min-from) and re-check it")
@@ -155,6 +158,9 @@ func buildRecord(version, kind string, security bool, factsFile, floor, minFrom,
 	if f.Commit == "" || f.Commit == "unknown" {
 		return rec, errors.New("the binary reports no commit; build with COMMIT set")
 	}
+	if f.Edition != "" && f.Edition != editionstate.Community {
+		return rec, fmt.Errorf("the facts come from a %q build; record the default build's facts", f.Edition)
+	}
 	rec = release.Record{
 		Version: version, Kind: kind, Security: security, SDK: f.SDK, SDKCompatibleWith: f.SDKCompatibleWith, RemovedPermissions: f.RemovedPermissions, SchemaHead: f.SchemaHead,
 		RollbackFloor: floor, MinFrom: minFrom, NotesURL: notes,
@@ -167,10 +173,52 @@ func buildRecord(version, kind string, security bool, factsFile, floor, minFrom,
 		}
 		rec.Artifacts[p] = a
 	}
+	if err := addEditions(&rec, dir); err != nil {
+		return rec, err
+	}
 	if problems := recordProblems(rec, true); len(problems) > 0 {
 		return rec, errors.New(strings.Join(problems, "; "))
 	}
 	return rec, nil
+}
+
+// addEditions records the files of every listed edition found in dir: all
+// platforms or none. Only exact file names are probed, so bundles and other
+// files in dir are never picked up.
+func addEditions(rec *release.Record, dir string) error {
+	for _, ed := range release.Editions {
+		found := 0
+		for _, p := range release.Platforms {
+			if fileExists(filepath.Join(dir, release.ArtifactName(ed, p))) {
+				found++
+			}
+		}
+		if found == 0 {
+			continue
+		}
+		if found != len(release.Platforms) {
+			return fmt.Errorf("found %d of %d %s builds in %s; provide all or none", found, len(release.Platforms), ed, dir)
+		}
+		arts := map[string]release.Artifact{}
+		for _, p := range release.Platforms {
+			a, err := hashFile(filepath.Join(dir, release.ArtifactName(ed, p)))
+			if err != nil {
+				return fmt.Errorf("%s artifact for %s: %w", ed, p, err)
+			}
+			arts[p] = a
+		}
+		if rec.Editions == nil {
+			rec.Editions = map[string]map[string]release.Artifact{}
+		}
+		rec.Editions[ed] = arts
+	}
+	return nil
+}
+
+// fileExists reports whether path is a regular file (not a symlink).
+func fileExists(path string) bool {
+	fi, err := os.Lstat(path)
+	return err == nil && fi.Mode().IsRegular()
 }
 
 // recordProblems lists what is wrong with rec; allowSame accepts a floor or
@@ -239,7 +287,40 @@ func recordProblems(rec release.Record, allowSame bool) []string {
 			add("%s: size %d is outside 1..%d", plat, a.Size, int64(release.MaxArtifactSize))
 		}
 	}
+	for _, ed := range sortedKeys(rec.Editions) {
+		if !contains(release.Editions, ed) {
+			add("unknown edition %q", ed)
+			continue
+		}
+		arts := rec.Editions[ed]
+		for _, plat := range release.Platforms {
+			if _, ok := arts[plat]; !ok {
+				add("%s: no artifact for %s", ed, plat)
+			}
+		}
+		for _, plat := range sortedKeys(arts) {
+			a := arts[plat]
+			if !contains(release.Platforms, plat) {
+				add("%s: unknown platform %q", ed, plat)
+			}
+			if !sha256Hex.MatchString(a.SHA256) {
+				add("%s/%s: sha256 is not 64 lowercase hex characters", ed, plat)
+			}
+			if a.Size <= 0 || a.Size > release.MaxArtifactSize {
+				add("%s/%s: size %d is outside 1..%d", ed, plat, a.Size, int64(release.MaxArtifactSize))
+			}
+		}
+	}
 	return p
+}
+
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
 }
 
 // kindOf names the release kind a canonical version implies: x.0.0 is major,
@@ -289,6 +370,25 @@ func checkRecord(path, dir string, allowSame bool, stdout io.Writer) error {
 			}
 		}
 	}
+	if dir != "" {
+		for _, ed := range sortedKeys(rec.Editions) {
+			if !contains(release.Editions, ed) {
+				continue // reported as an unknown edition; never joined into a path
+			}
+			for _, plat := range sortedKeys(rec.Editions[ed]) {
+				if !contains(release.Platforms, plat) {
+					continue
+				}
+				got, err := hashFile(filepath.Join(dir, release.ArtifactName(ed, plat)))
+				switch {
+				case err != nil:
+					problems = append(problems, fmt.Sprintf("%s/%s: %v", ed, plat, err))
+				case got != rec.Editions[ed][plat]:
+					problems = append(problems, fmt.Sprintf("%s/%s: the file in %s does not match the record", ed, plat, dir))
+				}
+			}
+		}
+	}
 	fmt.Fprintf(stdout, "version        %s (%s%s)\nsdk            %s\nschema_head    %d\nrollback_floor %s\nmin_from       %s\nnotes_url      %s\n",
 		rec.Version, rec.Kind, map[bool]string{true: ", security", false: ""}[rec.Security],
 		rec.SDK, rec.SchemaHead, rec.RollbackFloor, rec.MinFrom, rec.NotesURL)
@@ -298,6 +398,12 @@ func checkRecord(path, dir string, allowSame bool, stdout io.Writer) error {
 	for _, plat := range release.Platforms {
 		if a, ok := rec.Artifacts[plat]; ok {
 			fmt.Fprintf(stdout, "%-14s %s %d\n", plat, a.SHA256, a.Size)
+		}
+	}
+	for _, ed := range sortedKeys(rec.Editions) {
+		for _, plat := range sortedKeys(rec.Editions[ed]) {
+			a := rec.Editions[ed][plat]
+			fmt.Fprintf(stdout, "%-14s %s %d\n", ed+"/"+plat, a.SHA256, a.Size)
 		}
 	}
 	if len(problems) > 0 {
