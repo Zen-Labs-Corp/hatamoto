@@ -59,7 +59,7 @@ handoff material are stale, do not copy them.
 ## Module pages
 
 A compiled-in module adds owner-only Settings pages with `hatamoto.dev/core/adminpages`
-(see `docs/adr/0006-module-extension-points.md`). Its templates follow the same rules as
+(see `docs/adr/0008-module-admin-pages.md`). Its templates follow the same rules as
 core's: the same partials, tokens and copy rules. `hatamoto.dev/core/adminpages/designcheck.Check`
 runs UI-01, UI-02, UI-03, UI-05, UI-07, UI-08, UI-09 and UI-10 on them, plus MOD-01: no
 class that core's admin CSS does not define, no `<style>` element and no `style` attribute.

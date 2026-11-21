@@ -50,5 +50,5 @@
 // methods on Context in a minor release.
 //
 // The types here are aliases of core's internal types. The package is part of
-// core's public API: see docs/adr/0006-module-extension-points.md for the compatibility rules.
+// core's public API: see docs/adr/0008-module-admin-pages.md for the compatibility rules.
 package adminpages

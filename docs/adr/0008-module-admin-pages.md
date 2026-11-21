@@ -1,4 +1,4 @@
-# ADR 0006: Module extension points
+# ADR 0008: Module admin pages
 
 Status: accepted (2026-11-21)
 
