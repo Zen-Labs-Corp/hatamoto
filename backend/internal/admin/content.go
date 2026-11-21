@@ -13,12 +13,13 @@ import (
 	"hatamoto.dev/core/internal/jsonx"
 )
 
-// mountContent registers the entity, schema, taxonomy and media screens.
-func (a *Admin) mountContent(authed *httpx.Group) {
-	a.mountEntities(authed)
+// mountContent registers the entity, schema, taxonomy and media screens. Entities and media sit on the content
+// group (content.write); schemas and taxonomies stay behind site.write.
+func (a *Admin) mountContent(content, authed *httpx.Group) {
+	a.mountEntities(content)
 	a.mountSchemas(authed)
 	a.mountTaxonomies(authed)
-	a.mountMedia(authed)
+	a.mountMedia(content)
 }
 
 // uuidParam reads a path value as a UUID.

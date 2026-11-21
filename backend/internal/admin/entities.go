@@ -798,7 +798,10 @@ func bulkVerb(action string, n int) string {
 
 // entityErrorText turns a service error into a sentence for the editor.
 func entityErrorText(err error) string {
+	var na *entity.NotAllowedError
 	switch {
+	case errors.As(err, &na):
+		return na.Error() + "."
 	case errors.Is(err, entity.ErrHasChildren):
 		return "it has child entities: move or delete them first."
 	case errors.Is(err, entity.ErrEntityNotFound):
