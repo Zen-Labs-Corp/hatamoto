@@ -9,6 +9,14 @@
 - **Docs.** [ADR 0012](adr/0012-module-runtime-hooks.md), the "Go module extension points" section in [Plugin API](PLUGIN_API.md), [Security model](SECURITY_MODEL.md) and [Staging](STAGING.md).
 - **Migration.** New table `hatamoto_job_claims` (`202611221100`), expand-only. Rollback floor: unchanged.
 
+## Unreleased: single sign-on with OpenID Connect
+
+- **Sign-in.** Single sign-on with OpenID Connect (Microsoft Entra ID, Okta, Google Workspace and others) in Settings > Sign-in; off by default. People are created on first sign-in under the owner's rules: verified email, allowed domains, default role, and an optional switch to link an existing account by email. Every sign-in outcome is written to the audit log.
+- **Extension point.** A provider may implement `ProviderAvailability` to hide itself while it is off, and an error may carry an `AuditReason`. Both are additive; see [ADR 0010](adr/0010-sign-in-providers.md).
+- **Dependencies.** `github.com/coreos/go-oidc/v3` (new, direct), `golang.org/x/oauth2` (now direct) and `github.com/go-jose/go-jose/v4` (indirect).
+- **Docs.** [Single sign-on](SSO.md).
+- **Migration.** One new table, `hatamoto_signin_oidc`, added by `hatamoto migrate`; the previous release never reads it. Rollback floor: unchanged, but a person created by single sign-on has no password; see [ADR 0010](adr/0010-sign-in-providers.md) before rolling back.
+
 ## Unreleased: module extension points (commands, migrations, secrets, services)
 
 - **Wrapper modules.** New public Go packages let a module that calls `app.Main` register, from an `init` function: a CLI command (`module/cli`), its own database migrations (`module/migrate`), sealed secrets under its own key domain (`module/secret`) and a background service that runs in `serve` (`module/service`). A standard build registers nothing and behaves as before: same help text, same `migrate status`, same schema.

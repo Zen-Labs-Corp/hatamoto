@@ -161,6 +161,31 @@ of them has a password (`hatamoto user reset-password`).
 Identities are not part of `hatamoto export`, like sessions and API keys; a
 database backup carries them.
 
+## Availability (added 2026-11-22)
+
+A provider may also implement `ProviderAvailability`, with one method,
+`Available(ctx) (label string, ok bool)`. When `ok` is false the provider is
+unavailable: the login page shows no button for it and its start and callback
+routes answer 404, as for an id that is not registered. A non-empty `label`
+replaces the registered name on the button. A provider that does not implement
+it behaves as before.
+
+- `Available` runs on every login page view, so it must not do network I/O
+  and must fail closed: when it cannot tell (no settings, a read error), it
+  answers `ok = false`.
+- An error returned from a provider may implement `AuditReason() string`. If
+  the value matches `[a-z_]` and is at most 32 characters, core stores it as
+  the reason in the audit row; otherwise it stores the stage code (`state`,
+  `provider`, `access`, `second_step_unavailable`, `session`). The error text
+  itself is never stored or shown.
+- Core writes one audit row for every provider callback outcome:
+  `session.sign_in`, `session.sign_in_second_step` or
+  `session.sign_in_failed`, with the method `provider:<id>`.
+- The id `oidc` is used by core's own single sign-on provider, which is
+  compiled into every binary and stays hidden until an owner turns it on in
+  Settings > Sign-in. Modules must not register that id. See
+  [Single sign-on](../SSO.md).
+
 ## Consequences
 
 - A site with no module behaves as before; the registry costs one frozen

@@ -222,7 +222,8 @@ sidebar).
 | Path | Served by |
 | --- | --- |
 | `<admin>/login`, `logout`, `forgot`, `reset`, `accept`, `setup/*`, `profile` | Go (v1-10) |
-| `<admin>/login/provider/{id}/start`, `<admin>/login/provider/{id}/callback` (GET only, signed out, rate limited) | Go: shown only when a compiled-in module registered a sign-in provider; see [ADR 0010](adr/0010-sign-in-providers.md) |
+| `<admin>/login/provider/{id}/start`, `<admin>/login/provider/{id}/callback` (GET only, signed out, rate limited) | Go: shown only when a sign-in provider is registered and available (single sign-on is, once an owner turns it on); see [ADR 0010](adr/0010-sign-in-providers.md) |
+| `POST <admin>/settings/users/sign-in/oidc` (owner, sudo) and `POST <admin>/settings/users/sign-in/oidc/test` (owner) | Go: save the single sign-on settings, and check that the issuer answers; the Sign-in page has a Single sign-on (OIDC) card with the redirect URL to give the identity service; see [Single sign-on](SSO.md) |
 | `<admin>/forms*` (list, `new`, `design/{id}` (Build), `design/{id}/settings`, `design/{id}/share`, `edit/{id}` (303 to Build), `delete/{id}`, `PUT {id}/definition` (JSON save), `design/{id}/submissions` (the tab), `submissions*` (redirects to the tab, bulk, CSV export, per-submission actions, `{sid}/files/{field}` file download), `spam*`) and `<admin>/media*` (library, upload, formats) | Go (main menu since the Settings regroup) |
 | `<admin>/entities*`, `media/{upload,picker,{id}}`, `pick/{entities,terms}` | Go (v1-11, v1-14) |
 | `<admin>/theme/*`: `themes*` (activate, settings, uninstall, install), `colours`, `design-system*`, `presets*`, `parts`, `blocks`, `templates*`, `menus*` (including `POST menus/preview`, the editor's live preview), `strings` (`GET ?locale=<tag>`, `POST`), `contact-button` | Go (the Theme area; the screens date from v1-10 to B6) |
