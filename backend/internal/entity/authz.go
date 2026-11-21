@@ -3,6 +3,7 @@ package entity
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/google/uuid"
 
@@ -68,6 +69,7 @@ func Authorize(ctx context.Context, act authz.Action, obj authz.Object) error {
 	}
 	allowed, err := authz.Can(ctx, s, act, obj)
 	if err != nil {
+		slog.WarnContext(ctx, "authz check failed", "action", act, "err", err)
 		return &NotAllowedError{Action: act, Err: err}
 	}
 	if !allowed {
