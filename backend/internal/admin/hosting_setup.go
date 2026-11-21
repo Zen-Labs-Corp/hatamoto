@@ -103,7 +103,11 @@ func hostingChecks(s HostingSetup, onS3Tab bool, loc *time.Location) []hostingCh
 	}
 	headers := "Static files need the security headers Hatamoto normally sends."
 	if s.Target == HostingTargetS3 || onS3Tab {
-		headers += " Add them at your CDN (see S3 + CDN)."
+		headers += " Add them at your CDN"
+		if !onS3Tab {
+			headers += " (see S3 + CDN)"
+		}
+		headers += "."
 	} else {
 		headers += " They are included in the config below."
 	}
