@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/safefetch"
 )
 
@@ -64,6 +65,9 @@ func NewDeliverer(repo *Repo, log *slog.Logger, o Options) *Deliverer {
 // request failed at the transport (timeout, refused) is left alone for the
 // rest of the run, so one hung receiver cannot starve the others.
 func (d *Deliverer) Run(ctx context.Context) error {
+	if runenv.Staging() {
+		return nil // silent: runs every minute; copied pending rows stay untouched
+	}
 	deadline := d.now().Add(d.budget)
 	if _, err := d.repo.SettleDead(ctx); err != nil {
 		return err
@@ -96,6 +100,9 @@ func (d *Deliverer) Run(ctx context.Context) error {
 // SendTest queues a webhook.test event for one subscription, whatever events it
 // listens to, and attempts it now. It returns the delivery id.
 func (d *Deliverer) SendTest(ctx context.Context, subscriptionID string) (string, error) {
+	if runenv.Suppress(ctx, d.log, runenv.Webhooks, "subscription", subscriptionID) {
+		return "", runenv.ErrSuppressed
+	}
 	if _, err := d.repo.Get(ctx, subscriptionID); err != nil {
 		return "", err
 	}

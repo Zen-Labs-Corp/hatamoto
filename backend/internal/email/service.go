@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/runenv"
 )
 
 // sendTimeout bounds one whole send (connect, TLS, auth and transfer).
@@ -433,6 +434,11 @@ func (s *Service) SendTrackedWith(ctx context.Context, opts SendOptions, to []st
 			slog.String("subject", subject),
 			slog.Int("recipient_count", len(to)),
 		)
+		s.record(ctx, c, opts, to, subject, htmlBody, textBody, "", StatusSuppressed, nil)
+		return "", nil
+	}
+
+	if runenv.Suppress(ctx, s.logger, runenv.Mail, "subject", subject, "recipient_count", len(to)) {
 		s.record(ctx, c, opts, to, subject, htmlBody, textBody, "", StatusSuppressed, nil)
 		return "", nil
 	}
