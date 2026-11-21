@@ -13,9 +13,10 @@ var liveSegments = []string{"-", "api", "auth", "f", "forms", "mcp", "p", "plugi
 func LiveSegment(seg string) bool { return slices.Contains(liveSegments, seg) }
 
 // fallbackSegments are first segments the export folder may hold a copy of
-// (media variants, theme assets, fonts) but Hatamoto must answer when the file
+// (media variants, theme assets, fonts; an ACME challenge a certificate client
+// writes into the folder) but Hatamoto must answer when the file
 // is missing: an upload or a theme update newer than the last export.
-var fallbackSegments = []string{"fonts", "media", "theme"}
+var fallbackSegments = []string{".well-known", "fonts", "media", "theme"}
 
 // liveScriptPath is the comment loader script. It is hard-coded because this
 // leaf cannot import render; a server test pins it to the render constants.
@@ -43,7 +44,6 @@ func ProxyPaths(adminPath, apiPrefix string) []ProxyPath {
 		out = append(out, ProxyPath{Path: "/" + seg + "/", Prefix: true, Fallback: true})
 	}
 	out = append(out,
-		ProxyPath{Path: "/.well-known/", Prefix: true},
 		ProxyPath{Path: "/mcp"},
 		ProxyPath{Path: "/search"},
 		ProxyPath{Path: "/search", Locale: true},

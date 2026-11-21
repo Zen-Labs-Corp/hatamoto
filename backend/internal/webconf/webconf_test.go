@@ -166,7 +166,7 @@ func TestSameHostPassesFallbackPrefixesAndThemePreview(t *testing.T) {
 	for _, want := range []string{
 		"@hatamoto_preview_query query hm_theme_preview=*",
 		"@hatamoto_preview_cookie header_regexp Cookie (^|;\\s*)hm_theme_preview=",
-		"@hatamoto_fallback path /fonts/* /media/* /theme/*",
+		"@hatamoto_fallback path /.well-known/* /fonts/* /media/* /theme/*",
 		"@missing not file",
 		"reverse_proxy @missing 127.0.0.1:8090",
 	} {
@@ -259,5 +259,21 @@ func TestNginxPreviewReachesHatamotoFromFallbackPrefixes(t *testing.T) {
 		if !strings.Contains(got.Nginx, want) {
 			t.Errorf("nginx %s block does not hand a preview to Hatamoto", p)
 		}
+	}
+}
+
+// certbot --webroot writes its token into the folder; Hatamoto must not take
+// /.well-known/acme-challenge/ over.
+func TestACMEChallengeIsServedFromTheFolder(t *testing.T) {
+	t.Parallel()
+	got, _ := Generate(sameHostInput())
+	if !strings.Contains(got.Nginx, "location ^~ /.well-known/ {") || !strings.Contains(got.Nginx, "try_files $uri @hatamoto;") {
+		t.Error("nginx must serve /.well-known/ from the folder first")
+	}
+	if strings.Contains(got.Nginx, "location ^~ /.well-known/ {\n\t\tproxy_pass") {
+		t.Error("nginx proxies all of /.well-known/")
+	}
+	if !strings.Contains(got.Caddy, "/.well-known/*") || strings.Contains(strings.Split(got.Caddy, "@hatamoto_fallback")[0], "/.well-known/*") {
+		t.Error("caddy must list /.well-known/ among the file-first paths")
 	}
 }

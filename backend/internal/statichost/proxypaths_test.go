@@ -10,7 +10,7 @@ func TestProxyPaths(t *testing.T) {
 	t.Parallel()
 	got := ProxyPaths("/admin", "/hm-api")
 	want := []ProxyPath{
-		{Path: "/-/", Prefix: true}, {Path: "/.well-known/", Prefix: true}, {Path: "/admin"}, {Path: "/admin/", Prefix: true},
+		{Path: "/-/", Prefix: true}, {Path: "/.well-known/", Prefix: true, Fallback: true}, {Path: "/admin"}, {Path: "/admin/", Prefix: true},
 		{Path: "/api/", Prefix: true}, {Path: "/auth/", Prefix: true}, {Path: "/f/", Prefix: true},
 		{Path: "/fonts/", Prefix: true, Fallback: true}, {Path: "/forms/", Prefix: true},
 		{Path: "/hm-api"}, {Path: "/hm-api/", Prefix: true}, {Path: "/mcp"}, {Path: "/mcp/", Prefix: true}, {Path: "/media/", Prefix: true, Fallback: true}, {Path: "/p/", Prefix: true},
