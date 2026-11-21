@@ -214,8 +214,11 @@ func GetAuthType(ctx context.Context) AuthType {
 type APIKeyRateLimiter struct {
 	limiters map[uuid.UUID]*keyLimiter
 	mu       sync.RWMutex
-	cleanup  time.Duration
-	stopCh   chan struct{}
+	cleanup  time.Duration // a limiter unseen this long is dropped
+
+	sweepEvery time.Duration // at most one sweep per this interval
+	lastSweep  time.Time
+	now        func() time.Time // time.Now; tests inject a clock
 }
 
 type keyLimiter struct {
@@ -230,10 +233,11 @@ func NewAPIKeyRateLimiter() *APIKeyRateLimiter {
 	rl := &APIKeyRateLimiter{
 		limiters: make(map[uuid.UUID]*keyLimiter),
 		cleanup:  5 * time.Minute,
-		stopCh:   make(chan struct{}),
-	}
 
-	go rl.cleanupRoutine()
+		sweepEvery: time.Minute,
+		lastSweep:  time.Now(),
+		now:        time.Now,
+	}
 	return rl
 }
 
@@ -245,7 +249,17 @@ func (rl *APIKeyRateLimiter) Allow(keyID uuid.UUID, rateLimit int) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
-	now := time.Now()
+	// Stale limiters are swept here, at most once per sweepEvery, so an idle
+	// limiter runs no goroutine and no timer.
+	now := rl.now()
+	if now.Sub(rl.lastSweep) >= rl.sweepEvery {
+		rl.lastSweep = now
+		for id, l := range rl.limiters {
+			if now.Sub(l.lastSeen) > rl.cleanup {
+				delete(rl.limiters, id)
+			}
+		}
+	}
 
 	kl, exists := rl.limiters[keyID]
 	if !exists {
@@ -285,32 +299,8 @@ func (rl *APIKeyRateLimiter) Allow(keyID uuid.UUID, rateLimit int) bool {
 	return true
 }
 
-// cleanupRoutine removes stale limiters. It exits when stopCh is closed.
-func (rl *APIKeyRateLimiter) cleanupRoutine() {
-	ticker := time.NewTicker(time.Minute)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			rl.mu.Lock()
-			now := time.Now()
-			for id, kl := range rl.limiters {
-				if now.Sub(kl.lastSeen) > rl.cleanup {
-					delete(rl.limiters, id)
-				}
-			}
-			rl.mu.Unlock()
-		case <-rl.stopCh:
-			return
-		}
-	}
-}
-
-// Stop terminates the background cleanup goroutine.
-func (rl *APIKeyRateLimiter) Stop() {
-	close(rl.stopCh)
-}
+// Stop is kept for callers; the limiter has no background work to stop.
+func (rl *APIKeyRateLimiter) Stop() {}
 
 // APIKeyAuthMiddleware validates API keys from the X-API-Key header.
 // It sets tenant context similar to session auth, enabling RLS.
