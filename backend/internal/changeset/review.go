@@ -380,7 +380,7 @@ func (e *Engine) List(ctx context.Context, plugin string, limit, offset int) ([]
 		FROM hatamoto_changesets c
 		JOIN hatamoto_runs r ON r.id = c.run_id
 		LEFT JOIN hatamoto_changeset_items i ON i.changeset_id = c.id
-		WHERE $1 = '' OR c.plugin = $1
+		WHERE c.kind <> 'edit' AND ($1 = '' OR c.plugin = $1)
 		GROUP BY c.id, r.name, r.state
 		ORDER BY c.created_at DESC, c.id DESC LIMIT $2 OFFSET $3`, plugin, limit, offset)
 	if err != nil {

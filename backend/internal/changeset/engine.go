@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 )
 
@@ -66,6 +67,41 @@ func (e *Engine) Begin(ctx context.Context, runID uuid.UUID, plugin string) (int
 		return tx.QueryRow(ctx, `
 			INSERT INTO hatamoto_changesets (run_id, plugin, expires_at) VALUES ($1, $2, $3) RETURNING id`,
 			runID, plugin, e.now().Add(TTL)).Scan(&id)
+	})
+	return id, err
+}
+
+// BeginEdit opens a staged changeset for a human edit. It never expires
+// (NoExpiry), and records who asked and the review stages the caller resolved,
+// which publish needs approved in order. Like Begin it creates its own run,
+// born 'finished'.
+func (e *Engine) BeginEdit(ctx context.Context, o EditOptions) (int64, error) {
+	if strings.TrimSpace(o.Requester) == "" {
+		return 0, fmt.Errorf("%w: no requester", ErrInvalidEdit)
+	}
+	stages := o.Stages
+	if stages == nil {
+		stages = []StageSpec{}
+	}
+	for _, s := range stages {
+		if strings.TrimSpace(s.Name) == "" || strings.TrimSpace(s.Group) == "" {
+			return 0, fmt.Errorf("%w: stage without name or group", ErrInvalidEdit)
+		}
+	}
+	raw, err := jsonx.Marshal(stages)
+	if err != nil {
+		return 0, fmt.Errorf("failed to encode stages: %w", err)
+	}
+	runID := uuid.New()
+	var id int64
+	err = e.DB.WithTx(ctx, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `INSERT INTO hatamoto_runs (id, plugin, state) VALUES ($1, '', 'finished')`, runID); err != nil {
+			return fmt.Errorf("failed to create run: %w", err)
+		}
+		return tx.QueryRow(ctx, `
+			INSERT INTO hatamoto_changesets (run_id, plugin, expires_at, kind, requested_by, stages)
+			VALUES ($1, '', $2, 'edit', $3, $4) RETURNING id`,
+			runID, NoExpiry, o.Requester, raw).Scan(&id)
 	})
 	return id, err
 }
@@ -137,8 +173,11 @@ func (e *Engine) Stage(ctx context.Context, csID int64, it Item) error {
 				return err
 			}
 		}
-		if err := e.checkOwnership(ctx, tx, ownerPlugin(cs.Plugin, it), it.Kind, target); err != nil {
-			return err
+		// A person may edit an object of any origin.
+		if cs.Kind != ChangesetEdit {
+			if err := e.checkOwnership(ctx, tx, ownerPlugin(cs.Plugin, it), it.Kind, target); err != nil {
+				return err
+			}
 		}
 		if err := checkBlobKeys(cs.RunID, it); err != nil {
 			return err

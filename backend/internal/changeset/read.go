@@ -18,6 +18,8 @@ type Header struct {
 	State     string
 	ExpiresAt time.Time
 	ItemCount int
+	Kind      ChangesetKind
+	Requester string
 }
 
 // Get reads a changeset and its items ordered by seq. It is a plain SELECT on
@@ -39,8 +41,8 @@ func (e *Engine) Get(ctx context.Context, id int64) (Header, []StoredItem, error
 // the changeset does not exist.
 func (e *Engine) Header(ctx context.Context, id int64) (Header, error) {
 	var h Header
-	err := e.DB.Pool().QueryRow(ctx, `SELECT id, run_id, plugin, state, expires_at, item_count FROM hatamoto_changesets WHERE id = $1`, id).
-		Scan(&h.ID, &h.RunID, &h.Plugin, &h.State, &h.ExpiresAt, &h.ItemCount)
+	err := e.DB.Pool().QueryRow(ctx, `SELECT id, run_id, plugin, state, expires_at, item_count, kind, requested_by FROM hatamoto_changesets WHERE id = $1`, id).
+		Scan(&h.ID, &h.RunID, &h.Plugin, &h.State, &h.ExpiresAt, &h.ItemCount, &h.Kind, &h.Requester)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Header{}, ErrNotFound
 	}
