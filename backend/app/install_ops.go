@@ -17,6 +17,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"hatamoto.dev/core/audit"
+	"hatamoto.dev/core/internal/auditlog"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/jsonx"
@@ -91,10 +93,10 @@ func runThemeActivate(ctx context.Context, args []string, logger *slog.Logger, o
 // auditCLI writes one hatamoto_admin_audit row for a change made from the
 // CLI. The detail must never hold a secret.
 func auditCLI(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger, action, target string, detail map[string]any) {
-	raw, _ := jsonx.Marshal(detail)
-	if _, err := pool.Exec(context.WithoutCancel(ctx),
-		`INSERT INTO hatamoto_admin_audit (actor_id, actor, action, target, detail) VALUES (NULL, 'cli', $1, $2, $3)`,
-		action, target, raw); err != nil {
+	err := auditlog.Recorder{Pool: pool}.Record(ctx, nil, audit.Event{
+		Actor: "cli", ActorKind: audit.KindCLI, Action: action, Target: target, Detail: detail,
+	})
+	if err != nil {
 		logger.Error("audit write failed", "action", action, "error", err)
 	}
 }

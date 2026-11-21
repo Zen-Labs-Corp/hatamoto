@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"hatamoto.dev/core/audit"
+	"hatamoto.dev/core/internal/auditlog"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/session"
@@ -151,8 +153,11 @@ func runUserReset2FA(ctx context.Context, db *database.DB, f *userFlags, out io.
 	if err != nil {
 		return fmt.Errorf("removing second factors: %w", err)
 	}
-	detail := fmt.Sprintf(`{"totp":%t,"passkeys":%d,"recovery_codes":%d}`, rm.TOTP, rm.Passkeys, rm.RecoveryCodes)
-	if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_admin_audit (actor_id, actor, action, target, detail) VALUES (NULL, 'cli', 'user.2fa.reset', $1, $2::jsonb)`, u.Email, detail); err != nil {
+	err = auditlog.Recorder{Pool: db.Pool()}.Record(ctx, nil, audit.Event{
+		Actor: "cli", ActorKind: audit.KindCLI, Action: "user.2fa.reset", Target: u.Email,
+		Detail: map[string]any{"totp": rm.TOTP, "passkeys": rm.Passkeys, "recovery_codes": rm.RecoveryCodes},
+	})
+	if err != nil {
 		return fmt.Errorf("second factors removed but the audit row failed: %w", err)
 	}
 	fmt.Fprintln(out, describeReset2FA(rm, u.Email))

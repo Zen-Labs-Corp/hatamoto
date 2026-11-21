@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/database"
-	"hatamoto.dev/core/internal/jsonx"
 )
 
 // signOutRefusal is printed when `user sign-out-all` runs without --yes.
@@ -85,19 +85,15 @@ func signOutAll(ctx context.Context, db *database.DB, hook func() error) (signOu
 				return err
 			}
 		}
-		raw, err := jsonx.Marshal(map[string]any{
-			"sessions":      c.Sessions,
-			"api_keys":      c.APIKeys,
-			"invite_reset":  c.Tokens,
-			"preview_links": c.Previews,
+		return audit.Record(ctx, tx, audit.Event{
+			Actor: "cli", ActorKind: audit.KindCLI, Action: "user.sign_out_all", Target: "site",
+			Detail: map[string]any{
+				"sessions":      c.Sessions,
+				"api_keys":      c.APIKeys,
+				"invite_reset":  c.Tokens,
+				"preview_links": c.Previews,
+			},
 		})
-		if err != nil {
-			return err
-		}
-		_, err = tx.Exec(ctx,
-			`INSERT INTO hatamoto_admin_audit (actor_id, actor, action, target, detail) VALUES (NULL, 'cli', 'user.sign_out_all', 'site', $1::jsonb)`,
-			raw)
-		return err
 	})
 	return c, err
 }
