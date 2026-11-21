@@ -55,6 +55,15 @@ This product includes third-party software under its own licences:
       wazero
       Copyright 2020-2023 wazero authors
 
+- github.com/coreos/go-oidc/v3 v3.21.0 (Apache-2.0), the OpenID Connect client
+  behind single sign-on. Its NOTICE file, reproduced as the licence asks:
+
+      CoreOS Project
+      Copyright 2014 CoreOS, Inc
+
+      This product includes software developed at CoreOS, Inc.
+      (http://www.coreos.com/).
+
 Every Go module compiled into the hatamoto binary that ships a NOTICE file is
 reproduced above. `cd backend && go run ./tools/licenses -check-notice ../NOTICE`
 checks this (it is part of `make check`); the full list of modules and their
