@@ -170,7 +170,7 @@ func (s *Server) resolveRouteWith(ctx context.Context, deps routeDeps, path stri
 
 	// Scoped delegation: the payload (JSON-LD, breadcrumbs)
 	// is the page loader's.
-	sub := r.Clone(withPublicScope(ctx, publicScope{SchemaSlugs: res.SchemaSlugs, SkipRedirects: true, EntityID: resolvedID(res)}))
+	sub := r.Clone(withPublicScope(ctx, publicScope{SchemaSlugs: res.SchemaSlugs, SkipRedirects: true, EntityID: resolvedID(res), Entity: res.Entity}))
 	u := *sub.URL
 	u.RawQuery = ""
 	sub.URL = &u

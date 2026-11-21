@@ -77,7 +77,12 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 	if staged := stagedByScope(ctx, scope, scoped); staged != nil {
 		ent = staged // changeset preview only: a staged entity has no published row
 	} else if scoped && scope.EntityID != uuid.Nil {
-		ent, err = publicRepo.GetPublishedByID(ctx, scope.EntityID)
+		if e := scope.Entity; e != nil && e.ID == scope.EntityID && stagedFrom(ctx) == nil {
+			cp := *e // the loader rewrites Attributes: never alias the resolver's row
+			ent = &cp
+		} else {
+			ent, err = publicRepo.GetPublishedByID(ctx, scope.EntityID)
+		}
 	} else if scoped {
 		ent, err = publicRepo.GetPublishedBySlugAndSchemas(ctx, slug, scope.SchemaSlugs)
 	} else {
