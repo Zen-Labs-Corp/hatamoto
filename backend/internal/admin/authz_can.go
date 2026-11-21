@@ -8,6 +8,7 @@ import (
 
 	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/authzsubject"
+	"hatamoto.dev/core/internal/user"
 )
 
 // canUser reports whether u may perform act. No user, a deny and an
@@ -49,6 +50,17 @@ func (a *Admin) requireCan(w http.ResponseWriter, r *http.Request, act authz.Act
 		return true
 	}
 	a.forbidden(w, r)
+	return false
+}
+
+// requireOwnerGrant answers 403 and reports false when role is owner and the
+// signed-in user may not grant it (user.owner.grant), as on the REST user paths.
+// Any other role needs no extra check; an authorizer error is a deny.
+func (a *Admin) requireOwnerGrant(w http.ResponseWriter, r *http.Request, role user.Role) bool {
+	if role != user.RoleOwner || a.can(r.Context(), authz.ActionUserOwnerGrant) {
+		return true
+	}
+	a.Error(w, r, http.StatusForbidden, "Not allowed", "Only owners can grant the owner role.")
 	return false
 }
 
