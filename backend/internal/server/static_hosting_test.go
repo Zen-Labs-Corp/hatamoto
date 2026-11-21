@@ -125,6 +125,33 @@ func TestHostingSnapshot(t *testing.T) {
 	}
 }
 
+func TestHostingSnapshotSameHost(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name     string
+		set      staticexport.Settings
+		sameHost bool
+		islands  bool
+	}{
+		{"static, no live origin", staticexport.Settings{Mode: staticexport.ModeStatic}, true, true},
+		{"static, blank live origin", staticexport.Settings{Mode: staticexport.ModeStatic, LiveOrigin: "  "}, true, true},
+		{"invalid live origin stays inactive", staticexport.Settings{Mode: staticexport.ModeStatic, LiveOrigin: "ftp://x"}, false, false},
+		{"served", staticexport.Settings{Mode: staticexport.ModeServed}, false, false},
+	} {
+		var h statichost.Holder
+		h.Store(hostingSnapshot(tc.set, true, testSiteOrigin))
+		got := h.Load()
+		if got.SameHost != tc.sameHost || got.IslandsOn() != tc.islands || got.Active() {
+			t.Errorf("%s: snapshot %+v, islands %v", tc.name, got, got.IslandsOn())
+		}
+	}
+	var h statichost.Holder
+	h.Store(hostingSnapshot(staticexport.Settings{Mode: staticexport.ModeStatic, LiveOrigin: "ftp://x"}, true, testSiteOrigin))
+	if why := h.Load().InactiveReason(); !strings.Contains(why, "live origin") {
+		t.Errorf("reason = %q, want the live origin message", why)
+	}
+}
+
 func TestRefreshStaticHostingFrom(t *testing.T) {
 	t.Parallel()
 	s := &Server{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
@@ -174,10 +201,17 @@ func TestRefreshStaticHostingWarnsWhenInactive(t *testing.T) {
 	s := &Server{logger: slog.New(slog.NewTextHandler(&buf, nil)), cfg: &config.Config{}}
 	s.cfg.PublicSite.BaseURL = testSiteOrigin
 	s.refreshStaticHostingFrom(context.Background(), func(context.Context) (staticexport.Settings, bool, error) {
-		return staticexport.Settings{Mode: staticexport.ModeStatic}, true, nil
+		return staticexport.Settings{Mode: staticexport.ModeStatic, LiveOrigin: "ftp://x"}, true, nil
 	})
 	if !strings.Contains(buf.String(), "live origin is empty") {
 		t.Errorf("no warning naming the reason: %q", buf.String())
+	}
+	buf.Reset()
+	s.refreshStaticHostingFrom(context.Background(), func(context.Context) (staticexport.Settings, bool, error) {
+		return staticexport.Settings{Mode: staticexport.ModeStatic}, true, nil
+	})
+	if buf.Len() != 0 {
+		t.Errorf("same host logged a warning: %q", buf.String())
 	}
 	buf.Reset()
 	s.refreshStaticHostingFrom(context.Background(), func(context.Context) (staticexport.Settings, bool, error) {

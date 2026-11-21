@@ -11,6 +11,9 @@ type hostingKey struct{}
 func WithHosting(ctx context.Context, v StaticHosting) context.Context {
 	v.Live, _ = NormalizeOrigin(v.Live)
 	v.Site, _ = NormalizeOrigin(v.Site)
+	if v.SameHost {
+		v.Live = ""
+	}
 	return context.WithValue(ctx, hostingKey{}, v)
 }
 

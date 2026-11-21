@@ -11,6 +11,7 @@ import (
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/spam"
+	"hatamoto.dev/core/internal/statichost"
 )
 
 const (
@@ -183,5 +184,26 @@ func TestStaticOriginForeignComparesNormalised(t *testing.T) {
 	}
 	if got := do("https://a\"b", "a\"b"); got != http.StatusForbidden {
 		t.Errorf("malformed origin = %d, want 403", got)
+	}
+}
+
+// Same host leans on the ordinary same-origin checks, exactly as served mode:
+// an Origin equal to the Site is not a "static site" post and nothing is
+// refused as foreign (foreignOrigin is gated on a split live origin).
+func TestStaticOriginSameHost(t *testing.T) {
+	t.Parallel()
+	srv, _ := newSpamServer(t, spam.Defaults(), nil)
+	srv.setStaticHosting(statichost.StaticHosting{Static: true, SameHost: true, Site: testStaticSite})
+	for _, o := range []string{testStaticSite, evilOrigin, "null", ""} {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/track", nil)
+		if o != "" {
+			req.Header.Set("Origin", o)
+		}
+		if srv.fromStaticSite(req) {
+			t.Errorf("fromStaticSite(%q) = true on same host", o)
+		}
+		if srv.foreignOrigin(req) {
+			t.Errorf("foreignOrigin(%q) = true on same host", o)
+		}
 	}
 }

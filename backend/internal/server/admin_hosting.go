@@ -56,6 +56,8 @@ type hostingAdmin struct {
 	testing    atomic.Bool         // a Test export is running in this process
 	getenv     func(string) string // nil: no private-endpoint opt-in
 	lookup     safefetch.Lookup    // nil: no save-time DNS lookup
+	setup      hostingSetupDeps
+	finished   func() // after a Test export ends (nil = nothing)
 }
 
 func (h *hostingAdmin) load(ctx context.Context) (staticexport.Settings, error) {
@@ -67,6 +69,14 @@ func (h *hostingAdmin) load(ctx context.Context) (staticexport.Settings, error) 
 		return staticexport.Defaults(), nil
 	}
 	return set, nil
+}
+
+// hostingTargetSaved reports whether the saved target can be exported to.
+func hostingTargetSaved(set staticexport.Settings) bool {
+	if set.Target == staticexport.TargetS3 {
+		return set.Bucket != ""
+	}
+	return set.DirPath != ""
 }
 
 func (h *hostingAdmin) View(ctx context.Context) (admin.HostingView, error) {
@@ -140,7 +150,9 @@ func (h *hostingAdmin) Save(ctx context.Context, in admin.HostingInput) ([]ui.Fi
 }
 
 // staticChecks are the checks a static configuration must pass: the target
-// directory guard and the live origin rule.
+// directory guard and the live origin rule. An empty live origin is the same
+// host (the Site URL above is all it needs); a non-empty one must be a plain
+// origin on another host.
 func (h *hostingAdmin) staticChecks(ctx context.Context, set staticexport.Settings) []ui.FieldError {
 	site := h.siteURL(ctx)
 	if site == "" {
@@ -152,9 +164,11 @@ func (h *hostingAdmin) staticChecks(ctx context.Context, set staticexport.Settin
 			errs = append(errs, ui.FieldError{ID: "hosting-dir", Label: "Directory", Message: capitalize(fullStopText(err.Error()))})
 		}
 	}
-	live := statichost.StaticHosting{Static: true, Live: set.LiveOrigin, Site: site}
-	if why := live.InactiveReason(); why != "" {
-		errs = append(errs, ui.FieldError{ID: "hosting-live-origin", Label: "Live origin", Message: capitalize(fullStopText(why))})
+	if raw := strings.TrimSpace(set.LiveOrigin); raw != "" {
+		live, _ := statichost.NormalizeOrigin(raw) // "" for an invalid origin: the live origin message
+		if why := (statichost.StaticHosting{Static: true, Live: live, Site: site}).InactiveReason(); why != "" {
+			errs = append(errs, ui.FieldError{ID: "hosting-live-origin", Label: "Live origin", Message: capitalize(fullStopText(why))})
+		}
 	}
 	return errs
 }
@@ -234,7 +248,7 @@ func (h *hostingAdmin) TestExport(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if (set.Target == staticexport.TargetS3 && set.Bucket == "") || (set.Target != staticexport.TargetS3 && set.DirPath == "") {
+	if !hostingTargetSaved(set) {
 		return admin.ErrHostingNoTarget
 	}
 	if h.refuse != nil {
@@ -257,14 +271,20 @@ func (h *hostingAdmin) TestExport(ctx context.Context) error {
 	if !h.testing.CompareAndSwap(false, true) {
 		return admin.ErrHostingTestBusy
 	}
-	hs := hostingSnapshot(set, true, h.siteURL(ctx))
-	hs.Static = true
+	// Test export runs as if static, same host included: SameHost comes from the
+	// raw saved live origin, so force the mode on a copy before mapping.
+	asStatic := set
+	asStatic.Mode = staticexport.ModeStatic
+	hs := hostingSnapshot(asStatic, true, h.siteURL(ctx))
 	run := func() {
 		defer h.testing.Store(false)
 		ctx, cancel := context.WithTimeout(h.background(), exportTimeout)
 		defer cancel()
 		if _, err := h.testExport(ctx, t, hs, staticexport.Options{Trigger: admin.HostingTriggerTest}); err != nil && h.log != nil {
 			h.log.Warn("static test export", slog.String("error", err.Error()))
+		}
+		if h.finished != nil {
+			h.finished()
 		}
 	}
 	if h.spawn != nil {
@@ -315,6 +335,10 @@ func (h *hostingAdmin) LastRun(ctx context.Context) (admin.HostingRun, bool, err
 func (h *hostingAdmin) Islands() ([]admin.HostingIsland, []string) {
 	var live []admin.HostingIsland
 	var stays []string
+	status := "live"
+	if hs := h.snapshot(); !hs.Active() && hs.IslandsOn() {
+		status = "via proxy" // same host: the web server passes these paths here
+	}
 	for _, it := range statichost.Inventory() {
 		if it.Where != statichost.Live {
 			stays = append(stays, it.Name)
@@ -324,7 +348,7 @@ func (h *hostingAdmin) Islands() ([]admin.HostingIsland, []string) {
 		if route == "" && len(it.Routes) > 0 {
 			route = it.Routes[0]
 		}
-		live = append(live, admin.HostingIsland{Label: it.Name, Route: route, Status: "live"})
+		live = append(live, admin.HostingIsland{Label: it.Name, Route: route, Status: status})
 	}
 	return live, stays
 }

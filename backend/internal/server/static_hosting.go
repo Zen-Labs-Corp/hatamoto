@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"hatamoto.dev/core/internal/staticexport"
 	"hatamoto.dev/core/internal/statichost"
@@ -60,7 +61,13 @@ func hostingSnapshot(set staticexport.Settings, found bool, site string) statich
 	if !found {
 		return statichost.StaticHosting{}
 	}
-	return statichost.StaticHosting{Static: set.Mode == staticexport.ModeStatic, Live: set.LiveOrigin, Site: site}
+	static := set.Mode == staticexport.ModeStatic
+	return statichost.StaticHosting{
+		Static: static, Live: set.LiveOrigin, Site: site,
+		// Same host is decided on the RAW value: an invalid saved origin is
+		// dropped to "" by the holder and must stay inactive, not become same host.
+		SameHost: static && strings.TrimSpace(set.LiveOrigin) == "",
+	}
 }
 
 // refreshStaticHosting reads the hosting settings once, never per request, and

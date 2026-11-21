@@ -39,9 +39,14 @@ type hostingPage struct {
 	Errs    map[string]string
 	Summary []ui.FieldError
 
-	Static         bool // the saved mode
-	ModeCards      []ui.RadioCardItem
-	TargetOptions  []ui.Option
+	Static        bool // the saved mode
+	ModeCards     []ui.RadioCardItem
+	TargetOptions []ui.Option
+	// Live islands choice: one radio each, in one group (name live_mode).
+	LiveSameOptions     []ui.Option
+	LiveSeparateOptions []ui.Option
+	// AdvancedOpen opens the separate live origin disclosure: it is chosen or its field has an error.
+	AdvancedOpen   bool
 	ServiceOptions []ui.Option
 	Form           HostingView // the saved values, or the posted ones on a refused save
 
@@ -52,8 +57,12 @@ type hostingPage struct {
 	IslandsDesc string
 
 	IslandsWarning string
-	CrawlersWarn   bool
-	IngestDocs     string
+	// S3SameHost warns that a bucket cannot pass island paths to Hatamoto.
+	S3SameHost   bool
+	CrawlersWarn bool
+	IngestDocs   string
+
+	Setup hostingSetupView
 
 	Last string
 	Log  ui.Table
@@ -88,9 +97,15 @@ func (a *Admin) renderHosting(w http.ResponseWriter, r *http.Request, status int
 		}
 		if err == nil {
 			live, stays := svc.Islands()
+			// A setup that cannot be read is not a page error: the card says so.
+			setup, serr := svc.Setup(ctx)
+			if serr != nil {
+				a.logger().Error("hosting setup", "err", serr)
+				setup = HostingSetup{Saved: true, GenError: "The web server setup could not be loaded."}
+			}
 			v := a.NewView(w, r, "Hosting")
 			v.Section, v.Tab, v.Width = "hosting", "hosting", "narrow"
-			v.Data = a.hostingPage(r, saved, form, errs, runs, liveRuns, live, stays)
+			v.Data = a.hostingPage(r, saved, form, errs, runs, liveRuns, live, stays, setup)
 			a.Render(w, r, status, "settings/hosting", v)
 			return
 		}
@@ -99,7 +114,7 @@ func (a *Admin) renderHosting(w http.ResponseWriter, r *http.Request, status int
 	a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The hosting settings could not be loaded.")
 }
 
-func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInput, errs []ui.FieldError, runs, liveRuns []HostingRun, live []HostingIsland, stays []string) hostingPage {
+func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInput, errs []ui.FieldError, runs, liveRuns []HostingRun, live []HostingIsland, stays []string, setup HostingSetup) hostingPage {
 	loc := a.siteLocation(r.Context())
 	f := saved
 	if form != nil {
@@ -119,6 +134,10 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 		f.Service = OffsiteAWS
 	}
 	static := saved.Mode == HostingStatic
+	separate := f.LiveOrigin != ""
+	if form != nil {
+		separate = form.LiveMode == HostingLiveSeparate
+	}
 	p := hostingPage{
 		Errs: map[string]string{}, Summary: errs, Static: static, Form: f,
 		SiteURL: a.siteAddress(r), Zone: loc.String(), IngestDocs: ingestDocsURL,
@@ -130,7 +149,10 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 			{Value: HostingTargetDir, Label: "Local directory", Selected: f.Target == HostingTargetDir},
 			{Value: HostingTargetS3, Label: "S3-compatible storage", Selected: f.Target == HostingTargetS3},
 		},
-		CrawlersWarn: static && !a.deps.AgentLogIngest,
+		LiveSameOptions:     []ui.Option{{Value: HostingLiveSame, Label: "Same host", Selected: !separate}},
+		LiveSeparateOptions: []ui.Option{{Value: HostingLiveSeparate, Label: "Use a separate live origin", Selected: separate}},
+		CrawlersWarn:        static && !a.deps.AgentLogIngest,
+		S3SameHost:          f.Mode == HostingStatic && f.Target == HostingTargetS3 && !separate,
 	}
 	for _, s := range offsiteServices {
 		p.ServiceOptions = append(p.ServiceOptions, ui.Option{Value: s.v, Label: s.label, Selected: f.Service == s.v})
@@ -138,6 +160,7 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 	for _, e := range errs {
 		p.Errs[e.ID] = e.Message
 	}
+	p.AdvancedOpen = separate || p.Errs["hosting-live-origin"] != ""
 	if static {
 		p.IslandsWarning = saved.IslandsWarning
 	}
@@ -173,6 +196,7 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 	if len(stays) > 0 {
 		p.Stays = "Stays on Hatamoto: " + strings.Join(stays, ", ") + "."
 	}
+	p.Setup = hostingSetupFrom(setup, r.URL.Query().Get("setup"), a.adminPath, loc)
 	p.Log = a.hostingLog(runs, loc)
 	p.Last = hostingLast(liveRuns)
 	return p
@@ -270,11 +294,23 @@ func hostingNotes(msg string) []string {
 // hostingInputFrom reads the posted form. The secret key is taken as typed.
 func hostingInputFrom(form url.Values) HostingInput {
 	typed := func(k string) string { return strings.TrimSpace(form.Get(k)) }
-	return HostingInput{
+	in := HostingInput{
 		Mode: typed("mode"), Target: typed("target"), Dir: typed("dir"), Service: typed("service"),
 		Endpoint: typed("endpoint"), Bucket: typed("bucket"), Prefix: typed("prefix"), Region: typed("region"),
 		AccessKey: typed("access_key"), SecretKey: form.Get("secret_key"), LiveOrigin: typed("live_origin"),
+		LiveMode: typed("live_mode"),
 	}
+	if in.LiveMode != HostingLiveSame && in.LiveMode != HostingLiveSeparate {
+		// A form without the choice (an older page) keeps its meaning: an origin means separate.
+		in.LiveMode = HostingLiveSame
+		if in.LiveOrigin != "" {
+			in.LiveMode = HostingLiveSeparate
+		}
+	}
+	if in.LiveMode == HostingLiveSame {
+		in.LiveOrigin = "" // a stale hidden value is never saved
+	}
+	return in
 }
 
 // hostingValidate is the admin-side check against the requested mode. The
@@ -318,7 +354,7 @@ func hostingValidate(in HostingInput, siteURL string) []ui.FieldError {
 	case "":
 		add("hosting-target", "Publish to", "Choose where the files go.")
 	}
-	if in.LiveOrigin == "" {
+	if in.LiveMode == HostingLiveSeparate && in.LiveOrigin == "" {
 		add("hosting-live-origin", "Live origin", "Enter the address where the live islands answer.")
 	}
 	return errs

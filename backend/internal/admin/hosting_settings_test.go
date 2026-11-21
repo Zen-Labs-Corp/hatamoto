@@ -37,6 +37,7 @@ type fakeHosting struct {
 	runs      []HostingRun
 	live      []HostingIsland
 	stays     []string
+	setup     HostingSetup
 }
 
 func (f *fakeHosting) View(context.Context) (HostingView, error) { return f.view, f.viewErr }
@@ -88,7 +89,8 @@ func (f *fakeHosting) LastRun(context.Context) (HostingRun, bool, error) {
 	}
 	return HostingRun{}, false, nil
 }
-func (f *fakeHosting) Islands() ([]HostingIsland, []string) { return f.live, f.stays }
+func (f *fakeHosting) Setup(context.Context) (HostingSetup, error) { return f.setup, nil }
+func (f *fakeHosting) Islands() ([]HostingIsland, []string)        { return f.live, f.stays }
 
 func servedHosting() *fakeHosting {
 	return &fakeHosting{
@@ -201,6 +203,9 @@ func TestHostingPageStatic(t *testing.T) {
 	if !strings.Contains(body, `aria-describedby="hosting-test-why"`) || !strings.Contains(body, "In static mode, use Export now.") {
 		t.Error("Test export is not disabled with its reason in static mode")
 	}
+	if !strings.Contains(body, "parent must be writable by the service user.") {
+		t.Error("the Directory field lacks the writable-parent help")
+	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}
@@ -236,6 +241,165 @@ func TestHostingPageStatic(t *testing.T) {
 	p.a.deps.AgentLogIngest = true
 	if body = p.do("GET", hostingURL, "owner-token", nil, nil).Body.String(); strings.Contains(body, `id="hosting-crawlers"`) {
 		t.Error("crawlers warning with ingest configured")
+	}
+}
+
+func TestHostingPageLiveMode(t *testing.T) {
+	t.Parallel()
+
+	const (
+		sameChecked     = `value="same" checked`
+		separateChecked = `value="separate" checked`
+		closed          = `<details class="hm-disclosure"><summary>Advanced: separate live origin`
+		open            = `<details class="hm-disclosure" open><summary>Advanced: separate live origin`
+	)
+	// Same host: no live origin saved, in served and in static mode.
+	for _, f := range []*fakeHosting{servedHosting(), staticHosting()} {
+		f.view.LiveOrigin = ""
+		f.live = []HostingIsland{{Label: "Forms", Route: "/forms/*", Status: "via proxy"}}
+		body := newHostingRig(t, f).do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+		if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+			t.Errorf("a11y: %v", issues)
+		}
+		if !strings.Contains(body, sameChecked) || strings.Contains(body, separateChecked) || !strings.Contains(body, closed) {
+			t.Errorf("%s: same host is not the selected, closed choice", f.view.Mode)
+		}
+		if f.view.Mode == HostingStatic && !strings.Contains(body, "via proxy") {
+			t.Error("static same host has no via proxy status")
+		}
+	}
+	// A saved live origin keeps working unchanged: separate, disclosure open.
+	body := newHostingRig(t, staticHosting()).do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, separateChecked) || strings.Contains(body, sameChecked) || !strings.Contains(body, open) || !strings.Contains(body, "https://live.example.com") {
+		t.Error("a saved live origin is not shown as the open separate choice")
+	}
+	// A refused save with separate and no origin shows the disclosure open with the error.
+	f := servedHosting()
+	p := newHostingSaveRig(t, f)
+	body = p.do("POST", hostingURL, "owner-token", hostingForm(url.Values{"live_mode": {"separate"}, "live_origin": {""}}), nil).Body.String()
+	if !strings.Contains(body, open) || !strings.Contains(body, separateChecked) || !strings.Contains(body, `href="#hosting-live-origin"`) {
+		t.Error("the refused page hides the live origin error")
+	}
+}
+
+func TestHostingPageS3SameHostWarning(t *testing.T) {
+	t.Parallel()
+
+	const warn = `id="hosting-s3-same-host"`
+	page := func(mut func(*HostingView)) string {
+		f := staticHosting()
+		mut(&f.view)
+		return newHostingRig(t, f).do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+	}
+	body := page(func(v *HostingView) { v.Target, v.LiveOrigin = HostingTargetS3, "" })
+	if !strings.Contains(body, warn) || !strings.Contains(body, "A bucket cannot pass island paths to Hatamoto") {
+		t.Error("S3 + same host has no warning")
+	}
+	for name, mut := range map[string]func(*HostingView){
+		"s3 separate":    func(v *HostingView) { v.Target, v.LiveOrigin = HostingTargetS3, "https://live.example.com" },
+		"dir same host":  func(v *HostingView) { v.Target, v.LiveOrigin = HostingTargetDir, "" },
+		"served mode s3": func(v *HostingView) { v.Mode, v.Target, v.LiveOrigin = HostingServed, HostingTargetS3, "" },
+	} {
+		if strings.Contains(page(mut), warn) {
+			t.Errorf("%s: unexpected warning", name)
+		}
+	}
+}
+
+func dirSetupHosting() *fakeHosting {
+	f := staticHosting()
+	f.view = HostingView{Mode: HostingStatic, Target: HostingTargetDir, Dir: "/srv/site/public"}
+	f.setup = HostingSetup{
+		Saved: true, Target: HostingTargetDir, SameHost: true, Site: "https://example.com", Upstream: "127.0.0.1:8090",
+		Caddy: "example.com {\n\treverse_proxy 127.0.0.1:8090\n}\n", Nginx: "server {\n\tproxy_pass http://127.0.0.1:8090;\n}\n",
+		Folder: HostingCheckOK, Exact: 3, Wildcard: 1, RedirectsSplit: true, RedirectsTotal: 4, Reach: HostingCheckUnknown,
+		HeaderNames: []string{"X-Content-Type-Options", "X-Frame-Options"},
+	}
+	return f
+}
+
+func TestHostingPageSetupCard(t *testing.T) {
+	t.Parallel()
+
+	p := newHostingRig(t, dirSetupHosting())
+	get := func(q string) string {
+		t.Helper()
+		body := p.do("GET", hostingURL+q, "owner-token", nil, nil).Body.String()
+		if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+			t.Errorf("a11y %q: %v", q, issues)
+		}
+		return body
+	}
+	body := get("")
+	for _, want := range []string{`id="hosting-setup"`, "Set up your web server", "Based on saved settings.",
+		`href="/admin/settings/hosting?setup=nginx#hosting-setup"`, `aria-current="page">Caddy`, "S3 &#43; CDN",
+		`id="hosting-setup-config"`, "reverse_proxy 127.0.0.1:8090", `data-hm-copy-field="hosting-setup-config"`, `id="hosting-setup-form"`,
+		"Upstream 127.0.0.1:8090 is this server&#39;s listen address.",
+		"Not checked yet. It runs after the next export on this server.", "The folder exists and the service user can write to it and to its parent.",
+		"3 exact rules become meta-refresh pages and 1 wildcard rule is lost", "included in the config below"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("page lacks %q", want)
+		}
+	}
+	if strings.Contains(body, "Run Test export") {
+		t.Error("the card sends the owner to a Test export that static mode disables")
+	}
+	if strings.Contains(body, `form="hosting-form"`) || strings.Contains(body, `id="hosting-setup-form" method`) {
+		t.Error("the config can post with Save")
+	}
+	if !strings.Contains(body, `readonly`) || !strings.Contains(body, `form="hosting-setup-form"`) {
+		t.Error("the config is not a readonly field of the empty form")
+	}
+
+	nginx := get("?setup=nginx")
+	if !strings.Contains(nginx, "proxy_pass http://127.0.0.1:8090") || strings.Contains(nginx, "reverse_proxy") || !strings.Contains(nginx, `aria-current="page">nginx`) {
+		t.Error("the nginx tab does not show the nginx config")
+	}
+	s3 := get("?setup=s3")
+	if !strings.Contains(s3, "A bucket cannot pass islands to this server") || !strings.Contains(s3, "<code>X-Frame-Options</code>") || strings.Contains(s3, `id="hosting-setup-config"`) {
+		t.Error("the S3 + CDN tab lacks its guidance")
+	}
+	// A directory target on the S3 tab has no folder row and no config to point at.
+	for _, bad := range []string{"The folder exists", "included in the config below", "The config below includes them.", "(see S3 + CDN)"} {
+		if strings.Contains(s3, bad) {
+			t.Errorf("the S3 + CDN tab shows %q", bad)
+		}
+	}
+	if !strings.Contains(s3, "Add them at your CDN") {
+		t.Error("the S3 + CDN tab does not send the headers to the CDN")
+	}
+	if evil := get("?setup=evil%22%3E"); !strings.Contains(evil, `aria-current="page">Caddy`) || strings.Contains(evil, "evil") {
+		t.Error("an unknown tab does not fall back to the default")
+	}
+}
+
+func TestHostingPageSetupCardForS3AndErrors(t *testing.T) {
+	t.Parallel()
+
+	// An S3 target opens on the CDN tab; Caddy says there is nothing to copy.
+	f := staticHosting()
+	f.setup = HostingSetup{Saved: true, Target: HostingTargetS3, RedirectsTotal: 4, Reach: HostingCheckOK, ReachAt: time.Date(2026, 11, 21, 14, 5, 0, 0, time.UTC), Site: "https://example.com"}
+	p := newHostingRig(t, f)
+	body := p.do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `aria-current="page">S3 &#43; CDN`) || !strings.Contains(body, "A bucket cannot pass islands") ||
+		!strings.Contains(body, "The last export has 4 redirect rules.") || !strings.Contains(body, "https://example.com answers. Checked 21 Nov ") {
+		t.Errorf("S3 target card is wrong: %s", body[strings.Index(body, `id="hosting-setup"`):][:3000])
+	}
+	if body = p.do("GET", hostingURL+"?setup=caddy", "owner-token", nil, nil).Body.String(); !strings.Contains(body, "there is no web server config to copy") {
+		t.Error("the Caddy tab of an S3 target has no note")
+	}
+
+	// A refused config shows its reason, never a config.
+	f = dirSetupHosting()
+	f.setup.Caddy, f.setup.Nginx, f.setup.GenError = "", "", "The folder contains characters a web server config cannot hold."
+	body = newHostingRig(t, f).do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `id="hosting-setup-error"`) || strings.Contains(body, `id="hosting-setup-config"`) {
+		t.Error("a refused config is not shown as an error")
+	}
+
+	// Nothing saved: no card.
+	if body = newHostingRig(t, servedHosting()).do("GET", hostingURL, "owner-token", nil, nil).Body.String(); strings.Contains(body, `id="hosting-setup"`) {
+		t.Error("the card shows with no saved target")
 	}
 }
 
@@ -288,7 +452,7 @@ func TestHostingSaveValidation(t *testing.T) {
 		{"relative dir", url.Values{"target": {"dir"}, "dir": {"site/out"}}, "Enter an absolute path"},
 		{"no bucket", url.Values{"bucket": {""}}, "Enter a bucket name."},
 		{"no endpoint", url.Values{"endpoint": {""}}, "Enter the endpoint of the storage service."},
-		{"no live origin", url.Values{"live_origin": {""}}, "Enter the address where the live islands answer."},
+		{"no live origin", url.Values{"live_mode": {"separate"}, "live_origin": {""}}, "Enter the address where the live islands answer."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -309,6 +473,61 @@ func TestHostingSaveValidation(t *testing.T) {
 				t.Errorf("a11y: %v", issues)
 			}
 		})
+	}
+}
+
+func TestHostingSaveSameHostNeedsNoLiveOrigin(t *testing.T) {
+	t.Parallel()
+
+	f := servedHosting()
+	p := newHostingSaveRig(t, f)
+	rec := p.do("POST", hostingURL, "owner-token", hostingForm(url.Values{"live_mode": {"same"}, "live_origin": {""}}), nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != hostingURL+"/mode?to=static" {
+		t.Fatalf("save = %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if len(f.saved) != 1 || f.saved[0].LiveOrigin != "" || f.saved[0].LiveMode != HostingLiveSame {
+		t.Fatalf("saved = %+v", f.saved)
+	}
+}
+
+func TestHostingSaveLiveModeDerivation(t *testing.T) {
+	t.Parallel()
+
+	// An older form posts only the origin: it means a separate live origin.
+	f := servedHosting()
+	p := newHostingSaveRig(t, f)
+	if rec := p.do("POST", hostingURL, "owner-token", hostingForm(nil), nil); rec.Code != 303 {
+		t.Fatalf("save = %d", rec.Code)
+	}
+	if got := f.saved[0]; got.LiveMode != HostingLiveSeparate || got.LiveOrigin != "https://live.example.com" {
+		t.Fatalf("saved = %+v", got)
+	}
+	// Same host drops a stale origin that was still in the form.
+	f = servedHosting()
+	p = newHostingSaveRig(t, f)
+	if rec := p.do("POST", hostingURL, "owner-token", hostingForm(url.Values{"live_mode": {"same"}}), nil); rec.Code != 303 {
+		t.Fatalf("save = %d", rec.Code)
+	}
+	if got := f.saved[0]; got.LiveOrigin != "" {
+		t.Fatalf("a stale origin was saved: %+v", got)
+	}
+}
+
+// A saved static site that goes back to the same host publishes differently,
+// so it asks for the password like any other live origin change.
+func TestHostingSaveStaticToSameHostNeedsSudo(t *testing.T) {
+	t.Parallel()
+
+	f := staticHosting()
+	p := newHostingSaveRig(t, f)
+	form := hostingForm(url.Values{"live_mode": {"same"}, "secret_key": {""}})
+	rec := p.do("POST", hostingURL, "owner-token", form, nil)
+	if rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), p.a.sudoPath()) || len(f.saved) != 0 {
+		t.Fatalf("save = %d %s, saved %d", rec.Code, rec.Header().Get("Location"), len(f.saved))
+	}
+	grantSudo(p.rig)
+	if rec := p.do("POST", hostingURL, "owner-token", form, nil); rec.Code != 303 || len(f.saved) != 1 || f.saved[0].LiveOrigin != "" {
+		t.Fatalf("with sudo = %d, saved %+v", rec.Code, f.saved)
 	}
 }
 

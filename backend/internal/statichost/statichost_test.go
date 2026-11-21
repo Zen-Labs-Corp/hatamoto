@@ -2,6 +2,7 @@ package statichost
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -52,14 +53,14 @@ func TestActive(t *testing.T) {
 		h    StaticHosting
 		want bool
 	}{
-		{"happy", StaticHosting{true, l, s}, true},
-		{"served", StaticHosting{false, l, s}, false},
-		{"unset live", StaticHosting{true, "", s}, false},
-		{"unset site", StaticHosting{true, l, ""}, false},
-		{"same", StaticHosting{true, s, s}, false},
-		{"scheme only", StaticHosting{true, "http://static.example.net", s}, false},
-		{"scheme only with port", StaticHosting{true, "http://a.example.net:8080", "https://a.example.net:8080"}, false},
-		{"other port", StaticHosting{true, "https://static.example.net:8443", s}, true},
+		{"happy", StaticHosting{Static: true, Live: l, Site: s}, true},
+		{"served", StaticHosting{Static: false, Live: l, Site: s}, false},
+		{"unset live", StaticHosting{Static: true, Live: "", Site: s}, false},
+		{"unset site", StaticHosting{Static: true, Live: l, Site: ""}, false},
+		{"same", StaticHosting{Static: true, Live: s, Site: s}, false},
+		{"scheme only", StaticHosting{Static: true, Live: "http://static.example.net", Site: s}, false},
+		{"scheme only with port", StaticHosting{Static: true, Live: "http://a.example.net:8080", Site: "https://a.example.net:8080"}, false},
+		{"other port", StaticHosting{Static: true, Live: "https://static.example.net:8443", Site: s}, true},
 	}
 	for _, tc := range tests {
 		if got := tc.h.Active(); got != tc.want {
@@ -70,7 +71,7 @@ func TestActive(t *testing.T) {
 
 func TestAllowsOriginAndLiveHost(t *testing.T) {
 	t.Parallel()
-	h := StaticHosting{true, "https://live.example.net:8443", "https://static.example.net"}
+	h := StaticHosting{Static: true, Live: "https://live.example.net:8443", Site: "https://static.example.net"}
 	if !h.AllowsOrigin("https://static.example.net") {
 		t.Error("S must be allowed")
 	}
@@ -82,7 +83,7 @@ func TestAllowsOriginAndLiveHost(t *testing.T) {
 	if got := h.LiveHost(); got != "live.example.net:8443" {
 		t.Errorf("LiveHost = %q", got)
 	}
-	off := StaticHosting{false, h.Live, h.Site}
+	off := StaticHosting{Live: h.Live, Site: h.Site}
 	if off.AllowsOrigin(h.Site) || off.LiveHost() != "" {
 		t.Error("inactive snapshot must allow nothing")
 	}
@@ -98,12 +99,12 @@ func TestHolder(t *testing.T) {
 	if got := h.Load(); got != (StaticHosting{}) {
 		t.Errorf("zero Load = %+v", got)
 	}
-	h.Store(StaticHosting{true, "HTTPS://Live.Example.NET:443/", "https://static.example.net/"})
-	want := StaticHosting{true, "https://live.example.net", "https://static.example.net"}
+	h.Store(StaticHosting{Static: true, Live: "HTTPS://Live.Example.NET:443/", Site: "https://static.example.net/"})
+	want := StaticHosting{Static: true, Live: "https://live.example.net", Site: "https://static.example.net"}
 	if got := h.Load(); got != want {
 		t.Errorf("Load = %+v, want %+v", got, want)
 	}
-	h.Store(StaticHosting{true, "ftp://bad", "https://static.example.net"})
+	h.Store(StaticHosting{Static: true, Live: "ftp://bad", Site: "https://static.example.net"})
 	if got := h.Load(); got.Live != "" || got.Active() {
 		t.Errorf("invalid origin must store empty and be inactive: %+v", got)
 	}
@@ -116,5 +117,41 @@ func TestExportFlag(t *testing.T) {
 	}
 	if !IsExport(WithExport(context.Background())) {
 		t.Error("WithExport must round trip")
+	}
+}
+
+func TestSameHost(t *testing.T) {
+	t.Parallel()
+	const site = "https://www.example.com"
+	h := StaticHosting{Static: true, SameHost: true, Site: site}
+	if !h.IslandsOn() || h.Active() || h.LiveHost() != "" || h.AllowsOrigin(site) {
+		t.Errorf("same host: islands=%v active=%v livehost=%q allows=%v", h.IslandsOn(), h.Active(), h.LiveHost(), h.AllowsOrigin(site))
+	}
+	if h.IslandBase() != site || h.InactiveReason() != "" {
+		t.Errorf("same host: base=%q reason=%q", h.IslandBase(), h.InactiveReason())
+	}
+	noSite := StaticHosting{Static: true, SameHost: true}
+	if noSite.IslandsOn() || noSite.IslandBase() != "" || !strings.Contains(noSite.InactiveReason(), "Site URL") {
+		t.Errorf("same host without Site: %+v reason=%q", noSite, noSite.InactiveReason())
+	}
+	served := StaticHosting{SameHost: true, Site: site}
+	if served.IslandsOn() || served.InactiveReason() != "" {
+		t.Error("served mode must stay off")
+	}
+	split := StaticHosting{Static: true, Live: "https://live.example.net", Site: site}
+	if !split.IslandsOn() || split.IslandBase() != split.Live {
+		t.Errorf("split: base=%q", split.IslandBase())
+	}
+	if (StaticHosting{Static: true, Site: site}).IslandBase() != "" {
+		t.Error("no live origin and not same host must have no island base")
+	}
+}
+
+func TestHolderSameHostClearsLive(t *testing.T) {
+	t.Parallel()
+	var h Holder
+	h.Store(StaticHosting{Static: true, SameHost: true, Live: "https://x.example.com", Site: "https://www.example.com"})
+	if got := h.Load(); got.Live != "" || !got.IslandsOn() {
+		t.Errorf("Load = %+v", got)
 	}
 }

@@ -6,9 +6,10 @@ import (
 	"testing"
 )
 
-// Settings > Hosting shows only the chosen target's fields. The rule hides the
-// data-hosting-only wrappers of hosting.html; losing either side brings back
-// both field sets (and the "or" divider) on the page.
+// Settings > Hosting shows only the chosen target's fields, and the live origin
+// field only for a separate live origin. The rules hide the data-hosting-only
+// wrappers of hosting.html; losing either side brings back both field sets (and
+// the "or" divider) or an always-visible live origin on the page.
 func TestHostingTargetHideRule(t *testing.T) {
 	t.Parallel()
 
@@ -22,7 +23,11 @@ func TestHostingTargetHideRule(t *testing.T) {
 	if !strings.Contains(css, hide) {
 		t.Errorf("hostingtarget.css lacks the whole hide rule %q", hide)
 	}
-	for _, kind := range []string{"dir", "s3"} {
+	const hideLive = `form:has(input[name="live_mode"][value="same"]:checked) [data-hosting-only="live"] { display: none; }`
+	if !strings.Contains(css, hideLive) {
+		t.Errorf("hostingtarget.css lacks the whole live origin rule %q", hideLive)
+	}
+	for _, kind := range []string{"dir", "s3", "live"} {
 		if !strings.Contains(string(html), `data-hosting-only="`+kind+`"`) {
 			t.Errorf("hosting.html lacks the data-hosting-only=%q wrapper", kind)
 		}

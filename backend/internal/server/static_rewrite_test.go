@@ -70,6 +70,27 @@ func TestStaticRewritePage(t *testing.T) {
 	}
 }
 
+func TestStaticRewritePageSameHost(t *testing.T) {
+	t.Parallel()
+	x := newTestRewrite(true)
+	x.hs = statichost.StaticHosting{Static: true, SameHost: true, Site: testStaticSite}
+	out := string(x.page([]byte(staticRewriteDoc)))
+	for _, want := range []string{
+		`action="` + testStaticSite + `/forms/contact/submit"`,
+		`action="` + testStaticSite + `/search"`,
+		`<meta name="hm-live-origin" content="` + testStaticSite + `"><script src="` + testStaticSite + render.AssetPrefix + render.LiveScriptName + `" defer></script>`,
+		`<div data-hm-live-form="` + testStaticSite + commentFormLivePrefix + testEntityID + `">`,
+		`<a href="/about">`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, testStaticLive) {
+		t.Errorf("same-host output names another origin:\n%s", out)
+	}
+}
+
 func TestStaticRewriteExportKeepsRelativeLinks(t *testing.T) {
 	t.Parallel()
 	out := string(newTestRewrite(true).page([]byte(staticRewriteDoc)))

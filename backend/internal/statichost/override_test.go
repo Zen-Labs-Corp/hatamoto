@@ -19,3 +19,11 @@ func TestHostingFromFallsBack(t *testing.T) {
 		t.Fatalf("got %+v, want fallback", got)
 	}
 }
+
+func TestWithHostingSameHostClearsLive(t *testing.T) {
+	in := StaticHosting{Static: true, SameHost: true, Live: "https://x.example.com", Site: "https://www.example.com"}
+	got := HostingFrom(WithHosting(context.Background(), in), StaticHosting{})
+	if got.Live != "" || !got.IslandsOn() {
+		t.Fatalf("got %+v", got)
+	}
+}

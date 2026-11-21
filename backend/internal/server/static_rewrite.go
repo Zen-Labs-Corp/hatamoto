@@ -12,8 +12,9 @@ import (
 )
 
 // staticRewrite turns a rendered page into the static-mode variant: every
-// interactive target points at the live origin L and the comment form is
-// replaced by a loader that fetches it from L. It is a pure byte rewrite, so it
+// interactive target points at the island base (the live origin L, or the Site
+// origin S on the same host) and the comment form is replaced by a loader that
+// fetches it from there. It is a pure byte rewrite, so it
 // works for every theme and changes no theme contract.
 type staticRewrite struct {
 	hs     statichost.StaticHosting
@@ -41,7 +42,7 @@ func (x staticRewrite) page(body []byte) []byte {
 	// The search box of a static page must reach the live search.
 	out = bytes.ReplaceAll(out,
 		[]byte(`"`+x.hs.Site+`/search?q={search_term_string}"`),
-		[]byte(`"`+x.hs.Live+`/search?q={search_term_string}"`))
+		[]byte(`"`+x.hs.IslandBase()+`/search?q={search_term_string}"`))
 	return x.insertHead(out, loader)
 }
 
@@ -58,7 +59,7 @@ func (x staticRewrite) liveValue(v string) (string, bool) {
 	if !x.live(p) {
 		return "", false
 	}
-	return html.EscapeString(x.hs.Live) + v, true
+	return html.EscapeString(x.hs.IslandBase()) + v, true
 }
 
 // commentLoader replaces each comment form with a loader placeholder that holds
@@ -80,7 +81,7 @@ func (x staticRewrite) commentLoader(body []byte) ([]byte, bool) {
 		}
 		repl := ""
 		if id, ok := commentSpanEntityID(out[start:end]); ok {
-			url := html.EscapeString(x.hs.Live) + commentFormLivePrefix + id
+			url := html.EscapeString(x.hs.IslandBase()) + commentFormLivePrefix + id
 			// The placeholder has no id: the theme's own wrapper around the form already
 			// carries id="hm-comment-form", and a second one would be a duplicate id.
 			repl = `<div data-hm-live-form="` + url + `"><p><a href="` + url + `">Leave a comment</a></p></div>`
@@ -120,9 +121,9 @@ func (x staticRewrite) insertHead(body []byte, loader bool) []byte {
 	if i < 0 {
 		return body
 	}
-	ins := `<meta name="hm-live-origin" content="` + html.EscapeString(x.hs.Live) + `">`
+	ins := `<meta name="hm-live-origin" content="` + html.EscapeString(x.hs.IslandBase()) + `">`
 	if loader {
-		ins += `<script src="` + html.EscapeString(x.hs.Live) + render.AssetPrefix + render.LiveScriptName + `" defer></script>`
+		ins += `<script src="` + html.EscapeString(x.hs.IslandBase()) + render.AssetPrefix + render.LiveScriptName + `" defer></script>`
 	}
 	out := make([]byte, 0, len(body)+len(ins))
 	out = append(out, body[:i]...)

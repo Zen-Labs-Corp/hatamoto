@@ -31,3 +31,28 @@ func TestStaticPageHonoursContextOverride(t *testing.T) {
 		t.Errorf("process snapshot changed: %+v -> %+v", before, after)
 	}
 }
+
+func TestStaticPageSameHostOverride(t *testing.T) {
+	f := newStaticRenderFixture(t, false)
+	before := f.h.hosting.Load()
+	const site = "https://www.example.com"
+	hs := statichost.StaticHosting{Static: true, SameHost: true, Site: site}
+
+	r := httptest.NewRequest(http.MethodGet, "/about", nil)
+	r = r.WithContext(statichost.WithHosting(context.Background(), hs))
+	out, ok := f.h.staticPage(r, []byte(staticRenderDoc))
+	if !ok {
+		t.Fatal("same-host override not applied")
+	}
+	for _, want := range []string{
+		site + "/forms/contact/submit",
+		`<meta name="hm-live-origin" content="` + site + `">`,
+	} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("missing %q in %s", want, out)
+		}
+	}
+	if after := f.h.hosting.Load(); after != before {
+		t.Errorf("process snapshot changed: %+v -> %+v", before, after)
+	}
+}

@@ -1,0 +1,66 @@
+# Static site published by Hatamoto: /srv/site/public is served from disk.
+# Islands and the admin live on live.example.com, which is passed to Hatamoto on 127.0.0.1:8090.
+server {
+	listen 80;
+	# Add your TLS lines here: listen 443 ssl; ssl_certificate ...; ssl_certificate_key ...;
+	server_name example.com;
+	root /srv/site/public;
+	location = /_redirects {
+		return 404;
+	}
+	location = /.hatamoto-static.json {
+		return 404;
+	}
+	location = /old-page {
+		return 301 /new-page;
+	}
+	location = /promo {
+		return 302 https://example.com/offers?src=old;
+	}
+	location ~ ^/blog/([^/\x5c[:cntrl:]]+)/amp$ {
+		return 301 /articles/$1;
+	}
+	location ~ ^/docs/([^\x5c[:cntrl:]]*)$ {
+		return 308 /help/$1;
+	}
+	# skipped: /gone /elsewhere 410
+	location / {
+		add_header X-Content-Type-Options "nosniff" always;
+		add_header X-Frame-Options "SAMEORIGIN" always;
+		add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+		add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; form-action 'self'" always;
+		try_files $uri $uri/index.html =404;
+	}
+	location = /404.html {
+		add_header X-Content-Type-Options "nosniff" always;
+		add_header X-Frame-Options "SAMEORIGIN" always;
+		add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+		add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; form-action 'self'" always;
+	}
+	error_page 404 /404.html;
+}
+
+server {
+	listen 80;
+	# Add your TLS lines here: listen 443 ssl; ssl_certificate ...; ssl_certificate_key ...;
+	server_name live.example.com;
+	client_max_body_size 15m;
+	location ^~ /admin/ {
+		client_max_body_size 300m;
+		proxy_pass http://127.0.0.1:8090;
+		proxy_http_version 1.1;
+		proxy_set_header Connection "";
+		proxy_set_header Host $host;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_set_header X-Forwarded-Proto $scheme;
+	}
+	location / {
+		proxy_pass http://127.0.0.1:8090;
+		proxy_http_version 1.1;
+		proxy_set_header Connection "";
+		proxy_buffering off;
+		proxy_set_header Host $host;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_set_header X-Forwarded-Proto $scheme;
+	}
+}

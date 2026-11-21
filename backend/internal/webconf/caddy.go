@@ -1,0 +1,126 @@
+package webconf
+
+import (
+	"fmt"
+	"regexp"
+	"strings"
+)
+
+// caddyAddress is a Caddy site address: plain host[:port] for https (Caddy
+// manages the certificate), http:// kept when the site is plain http.
+func caddyAddress(origin string) string {
+	scheme, hp, _ := splitOrigin(origin)
+	if scheme == "http" {
+		return "http://" + hp
+	}
+	return hp
+}
+
+func caddy(in Input, rules []rule) string {
+	var b strings.Builder
+	w := func(format string, a ...any) { fmt.Fprintf(&b, format+"\n", a...) }
+
+	w("# Static site published by Hatamoto: %s is served from disk.", in.Root)
+	if in.Live == "" {
+		w("# Island paths, the admin and previews are passed to Hatamoto on %s.", in.Upstream)
+	} else {
+		w("# Islands and the admin live on %s, which is passed to Hatamoto on %s.", hostOf(in.Live), in.Upstream)
+	}
+	w("%s {", caddyAddress(in.Site))
+	headers := func(indent, matcher string) {
+		if len(in.Headers) > 0 {
+			w(indent + "header " + matcher + "{")
+			for _, h := range in.Headers {
+				w(indent+"\t%s %q", h.Name, h.Value)
+			}
+			w(indent + "}")
+		}
+	}
+	if in.Live == "" {
+		caddyProxyHandles(w, in, func() { headers("\t\t", "@present ") })
+	}
+	w("\thandle {")
+	w("\t\troot * %s", in.Root)
+	w("\t\t@hidden path %s", strings.Join(hiddenFiles, " "))
+	w("\t\trespond @hidden 404")
+	headers("\t\t", "")
+	for _, l := range caddyRedirects(rules) {
+		w("\t\t%s", l)
+	}
+	w("\t\ttry_files {path} {path}/index.html")
+	w("\t\tfile_server")
+	w("\t}")
+	// Only a missing page becomes the 404 page: a proxy failure (Hatamoto
+	// restarting) keeps its own status.
+	w("\thandle_errors {")
+	w("\t\t@notfound expression {err.status_code} == 404")
+	w("\t\thandle @notfound {")
+	w("\t\t\troot * %s", in.Root)
+	w("\t\t\trewrite * /404.html")
+	headers("\t\t\t", "")
+	w("\t\t\tfile_server")
+	w("\t\t}")
+	w("\t}")
+	w("}")
+
+	if in.Live != "" {
+		w("")
+		w("%s {", caddyAddress(in.Live))
+		w("\treverse_proxy %s", in.Upstream)
+		w("}")
+	}
+	return b.String()
+}
+
+// caddyProxyHandles writes the matchers and handles that pass Hatamoto's paths on.
+//
+// The security headers go on a file served from the folder only: Hatamoto sets
+// its own on what it answers.
+func caddyProxyHandles(w func(string, ...any), in Input, presentHeaders func()) {
+	var paths, regexps, fallback []string
+	for _, p := range in.Proxy {
+		switch {
+		case p.Fallback:
+			fallback = append(fallback, p.Path+"*")
+		case p.Locale:
+			regexps = append(regexps, "^/[^/]+"+regexp.QuoteMeta(p.Path)+"$")
+		case p.Prefix:
+			paths = append(paths, p.Path+"*")
+		default:
+			paths = append(paths, p.Path)
+		}
+	}
+	// A theme preview is a query or a cookie on any page: the owner must see the
+	// previewed theme, not the exported one.
+	w("\t@hatamoto_preview_query query %s=*", previewName)
+	w("\thandle @hatamoto_preview_query {")
+	w("\t\treverse_proxy %s", in.Upstream)
+	w("\t}")
+	w("\t@hatamoto_preview_cookie header_regexp Cookie (^|;\\s*)%s=", previewName)
+	w("\thandle @hatamoto_preview_cookie {")
+	w("\t\treverse_proxy %s", in.Upstream)
+	w("\t}")
+	if len(paths) > 0 {
+		w("\t@hatamoto path %s", strings.Join(paths, " "))
+		w("\thandle @hatamoto {")
+		w("\t\treverse_proxy %s", in.Upstream)
+		w("\t}")
+	}
+	if len(fallback) > 0 {
+		w("\t@hatamoto_fallback path %s", strings.Join(fallback, " "))
+		w("\thandle @hatamoto_fallback {")
+		w("\t\troot * %s", in.Root)
+		w("\t\t@missing not file")
+		w("\t\t@present file")
+		presentHeaders()
+		w("\t\treverse_proxy @missing %s", in.Upstream)
+		w("\t\tfile_server")
+		w("\t}")
+	}
+	for i, re := range regexps {
+		w("\t@hatamoto_locale%d path_regexp %s", i+1, re)
+		w("\thandle @hatamoto_locale%d {", i+1)
+		w("\t\treverse_proxy %s", in.Upstream)
+		w("\t}")
+	}
+}

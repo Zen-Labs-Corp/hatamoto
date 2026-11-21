@@ -17,7 +17,7 @@ import (
 // page carries the form itself. The answer is private and no-store, as the
 // token is per visitor. CORS headers come from the handleCORS mount.
 func (s *Server) handleCommentFormLive(w http.ResponseWriter, r *http.Request) {
-	if !s.hosting.Load().Active() || s.commentSubmit == nil || s.renderEngine == nil || s.commentSlot == nil {
+	if !s.hosting.Load().IslandsOn() || s.commentSubmit == nil || s.renderEngine == nil || s.commentSlot == nil {
 		http.NotFound(w, r)
 		return
 	}
@@ -90,7 +90,7 @@ func (s *Server) handleCommentFormLive(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(liveFormActions(body, s.hosting.Load().Live))
+	_, _ = w.Write(liveFormActions(body, s.hosting.Load().IslandBase()))
 }
 
 // liveFormActions points the filled form at the live origin: the relative

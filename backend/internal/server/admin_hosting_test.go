@@ -182,6 +182,11 @@ func TestHostingAdmin_SaveFieldErrors(t *testing.T) {
 		t.Fatalf("live origin on the site host: %v", errs)
 	}
 
+	in.LiveOrigin = "ftp://x"
+	if errs, _ = fx.h.Save(context.Background(), in); len(errs) != 1 || errs[0].ID != "hosting-live-origin" {
+		t.Fatalf("invalid live origin: %v", errs)
+	}
+
 	fx.site = ""
 	in.LiveOrigin = "https://live.example.com"
 	if errs, _ = fx.h.Save(context.Background(), in); len(errs) != 1 || errs[0].ID != "hosting-mode" {
@@ -189,6 +194,26 @@ func TestHostingAdmin_SaveFieldErrors(t *testing.T) {
 	}
 	if fx.store.saves != 0 || fx.refresh != 0 {
 		t.Fatalf("nothing saved: saves %d refresh %d", fx.store.saves, fx.refresh)
+	}
+}
+
+func TestHostingAdmin_SaveSameHost(t *testing.T) {
+	fx := newHostingFixture(t)
+	in := dirInput(filepath.Join(t.TempDir(), "site"), admin.HostingStatic)
+	in.LiveOrigin = ""
+	if errs, err := fx.h.Save(context.Background(), in); err != nil || len(errs) != 0 {
+		t.Fatalf("same host save: %v %v", errs, err)
+	}
+	if fx.store.saves != 1 || fx.store.set.LiveOrigin != "" {
+		t.Fatalf("saves %d live origin %q", fx.store.saves, fx.store.set.LiveOrigin)
+	}
+	fx.store.set.Mode = staticexport.ModeServed
+	if err := fx.h.SetMode(context.Background(), admin.HostingStatic); err != nil {
+		t.Fatalf("mode switch with no live origin: %v", err)
+	}
+	fx.site = ""
+	if errs, _ := fx.h.Save(context.Background(), in); len(errs) != 1 || errs[0].ID != "hosting-mode" {
+		t.Fatalf("same host still needs a site URL: %v", errs)
 	}
 }
 
@@ -347,6 +372,22 @@ func TestHostingAdmin_Islands(t *testing.T) {
 	}
 }
 
+func TestHostingAdmin_IslandsSameHost(t *testing.T) {
+	fx := newHostingFixture(t)
+	fx.h.snapshot = func() statichost.StaticHosting {
+		return statichost.StaticHosting{Static: true, SameHost: true, Site: fx.site}
+	}
+	live, _ := fx.h.Islands()
+	if len(live) == 0 {
+		t.Fatal("no live rows")
+	}
+	for _, l := range live {
+		if l.Status != "via proxy" {
+			t.Fatalf("row = %+v", l)
+		}
+	}
+}
+
 func TestHostingAdmin_ViewIslandsWarning(t *testing.T) {
 	fx := newHostingFixture(t)
 	fx.store.found, fx.store.set = true, staticexport.Defaults()
@@ -444,6 +485,24 @@ func TestHostingAdmin_TestExportServedDir(t *testing.T) {
 	}
 	if fx.h.testing.Load() {
 		t.Error("single-flight flag not released")
+	}
+}
+
+func TestHostingAdmin_TestExportSameHost(t *testing.T) {
+	var calls []testExportCall
+	fx, _ := testExportFixture(t, &calls)
+	fx.store.set.LiveOrigin = ""
+	if err := fx.h.TestExport(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 1 {
+		t.Fatalf("calls = %d", len(calls))
+	}
+	if hs := calls[0].hs; !hs.Static || !hs.SameHost || hs.Live != "" || hs.Site != fx.site {
+		t.Errorf("snapshot = %+v", hs)
+	}
+	if fx.store.set.Mode != staticexport.ModeServed {
+		t.Errorf("saved mode changed to %q", fx.store.set.Mode)
 	}
 }
 

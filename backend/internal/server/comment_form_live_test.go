@@ -83,6 +83,19 @@ func TestCommentFormLiveFragment(t *testing.T) {
 	}
 }
 
+func TestCommentFormLiveSameHost(t *testing.T) {
+	r := newPostRig(t)
+	r.goStatic()
+	r.srv.setStaticHosting(statichost.StaticHosting{Static: true, SameHost: true, Site: testStaticSite})
+	rec := r.liveForm("")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d %s", rec.Code, rec.Body)
+	}
+	if body := rec.Body.String(); !strings.Contains(body, `action="`+testStaticSite+`/-/comments/`+r.entity.String()+`"`) {
+		t.Errorf("action not on the site origin:\n%s", body)
+	}
+}
+
 func TestCommentFormLiveTokenIsSingleUseAndIPBound(t *testing.T) {
 	site := []func(*http.Request){header("Origin", testStaticSite), header("Sec-Fetch-Site", "cross-site")}
 

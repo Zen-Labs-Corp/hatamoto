@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"hatamoto.dev/core/internal/adminpath"
+	"hatamoto.dev/core/internal/statichost"
 )
 
 // isSearchPath reports "/search" or "/<one segment>/search" (a locale-prefixed
@@ -34,12 +35,6 @@ func (s *Server) staticNoRedirect(p string) bool {
 	return a != "" && (p == a || strings.HasPrefix(p, a+"/"))
 }
 
-// staticLivePathSegments are the first segments only the live origin answers.
-var staticLivePathSegments = map[string]bool{
-	"forms": true, "-": true, "f": true, "p": true, "api": true,
-	"preview": true, "auth": true, "mcp": true, "plugin-ui": true,
-}
-
 // staticLivePath reports island targets only the live origin answers. Links
 // and form targets to them point at L in a static page, because the static
 // origin has no handler for them. apiPrefix is the configured public API
@@ -52,5 +47,5 @@ func staticLivePath(p, apiPrefix string) bool {
 		return true
 	}
 	seg, _, _ := strings.Cut(strings.TrimPrefix(p, "/"), "/")
-	return staticLivePathSegments[seg]
+	return statichost.LiveSegment(seg)
 }

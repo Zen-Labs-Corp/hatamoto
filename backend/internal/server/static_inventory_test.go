@@ -7,7 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/adminpath"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/statichost"
 )
 
@@ -151,5 +153,95 @@ func TestStaticIslandDispatcherChain(t *testing.T) {
 	}
 	if rec.Header().Get("Access-Control-Allow-Credentials") != "" {
 		t.Error("credentials must never be allowed")
+	}
+}
+
+// ProxyPaths is what a same-host web server passes to Hatamoto: every
+// inventory island, live or staying, must be covered, or that route would
+// answer from the static folder (404) instead.
+func TestProxyPathsCoverInventory(t *testing.T) {
+	t.Parallel()
+	proxied := statichost.ProxyPaths("/admin", "")
+	covers := func(p string) bool {
+		for _, pp := range proxied {
+			if (pp.Prefix && strings.HasPrefix(p, pp.Path)) || (!pp.Prefix && !pp.Locale && p == pp.Path) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, it := range statichost.Inventory() {
+		paths := []string{}
+		for _, r := range it.Routes {
+			_, p, _ := strings.Cut(r, " ")
+			paths = append(paths, p)
+		}
+		if it.Path != "" {
+			paths = append(paths, it.Path)
+		}
+		for _, p := range paths {
+			if i := strings.Index(p, "{"); i >= 0 {
+				p = p[:i]
+			}
+			if !covers(p) {
+				t.Errorf("island %q path %q is not covered by statichost.ProxyPaths", it.Key, p)
+			}
+		}
+	}
+	if want := render.AssetPrefix + render.LiveScriptName; !covers(want) {
+		t.Errorf("ProxyPaths misses the comment loader %q", want)
+	}
+}
+
+// Every top-level prefix Hatamoto reserves is either passed by a same-host web
+// server (served from the folder first for media, theme, fonts) or listed here
+// as something the export folder holds or an operator probe the web server may
+// leave out. A new reserved prefix must be sorted into one of the two lists.
+func TestProxyPathsCoverReservedPrefixes(t *testing.T) {
+	t.Parallel()
+	proxied := statichost.ProxyPaths("/admin", "")
+	covered := func(seg string) bool {
+		for _, pp := range proxied {
+			if pp.Prefix && pp.Path == "/"+seg+"/" {
+				return true
+			}
+		}
+		return false
+	}
+	// .well-known is answered by Hatamoto (never exported), so it is proxied.
+	notProxied := map[string]string{
+		"sitemap.xml": "exported", "sitemap": "exported", "robots.txt": "exported",
+		"llms.txt": "exported", "ads.txt": "exported", "app-ads.txt": "exported", "feed": "exported",
+		"feed.xml": "exported", "atom.xml": "exported", "favicon.ico": "exported",
+		"health": "operator probe", "ready": "operator probe",
+	}
+	for _, seg := range adminpath.ReservedPrefixes {
+		if _, ok := notProxied[seg]; ok {
+			continue
+		}
+		if !covered(seg) {
+			t.Errorf("reserved prefix /%s/ is neither in statichost.ProxyPaths nor in the not-proxied list", seg)
+		}
+	}
+	for _, seg := range []string{"media", "theme", "fonts"} {
+		fallback := false
+		for _, pp := range proxied {
+			fallback = fallback || pp.Prefix && pp.Fallback && pp.Path == "/"+seg+"/"
+		}
+		if !fallback {
+			t.Errorf("/%s/ must be served from the folder with a fall back to Hatamoto", seg)
+		}
+	}
+}
+
+func TestStaticLivePathUsesLiveSegments(t *testing.T) {
+	t.Parallel()
+	for _, p := range []string{"/forms/x", "/-/comments/form/x", "/p/plug/x", "/preview/t", "/mcp", "/search", "/fr/search"} {
+		if !staticLivePath(p, "") {
+			t.Errorf("%q must be a live path", p)
+		}
+	}
+	if staticLivePath("/about", "") || !staticLivePath("/hm-api/x", "/hm-api") {
+		t.Error("static page or API prefix misclassified")
 	}
 }
