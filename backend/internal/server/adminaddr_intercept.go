@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -269,6 +270,10 @@ func underPrefix(p, prefix string) bool {
 	return p == prefix || strings.HasPrefix(p, prefix+"/")
 }
 
+// providerSignInPath matches the browser legs of provider sign-in: the
+// redirect out and the IdP's redirect back. Both are GET and happen signed out.
+var providerSignInPath = regexp.MustCompile(`^/login/provider/[a-z][a-z0-9-]{0,31}/(start|callback)$`)
+
 // alwaysAllowed says whether the request reaches the admin without a session
 // check: the pages that must answer signed out. rel is the path below the
 // address ("" for the address itself). It is a cheap string test, so these
@@ -284,7 +289,7 @@ func alwaysAllowed(r *http.Request, rel string) bool {
 		// is a session; they reveal nothing beyond <address>/login answering.
 		return true
 	}
-	if isPreviewFramePath(rel) {
+	if isPreviewFramePath(rel) || providerSignInPath.MatchString(rel) {
 		return r.Method == http.MethodGet || r.Method == http.MethodHead
 	}
 	// Static assets; a dot segment is refused (the mux would clean it into a

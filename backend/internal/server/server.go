@@ -27,7 +27,9 @@ import (
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authbridge"
 	"hatamoto.dev/core/internal/author"
+	"hatamoto.dev/core/internal/authstate"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/comment/identity"
@@ -167,6 +169,7 @@ type Server struct {
 	formRates              ipFreeLimiter
 	uploadsInFlight        atomic.Int32 // multipart bodies being read, see maxConcurrentUploads
 	apiKeyService          *auth.APIKeyService
+	provisioner            *authbridge.Provisioner // user provisioning for sign-in providers; published in Start
 	// Test seams for /health and /ready; nil means the database and apiKeyService.
 	pingDB                 func(context.Context) error
 	keyValid               func(ctx context.Context, raw string) bool
@@ -583,6 +586,15 @@ func (s *Server) setupDependencies() {
 	// API key service
 	s.apiKeyService = auth.NewAPIKeyService(s.db, s.logger)
 	s.apiKeyRateLimiter = middleware.NewAPIKeyRateLimiter()
+	s.provisioner = authbridge.NewProvisioner(authbridge.ProvisionerDeps{
+		Users:      user.NewPostgresRepository(s.db),
+		Identities: user.NewIdentityStore(s.db),
+		Sessions:   s.sessionStore,
+		Keys:       s.apiKeyService,
+		Tokens:     s.userTokens,
+		AdminPath:  s.adminPathValue,
+		Now:        time.Now,
+	})
 
 	// Knowledge / segmentation services deleted in Phase 6 along with
 	// the rest of the AI-Visibility platform — see notes above.
@@ -1005,6 +1017,11 @@ func (s *Server) Start() error {
 		return s.renderErr
 	}
 	s.httpServer = s.newHTTPServer()
+	// Compiled-in modules reach user provisioning through this; the CLI
+	// commands never serve, so they never publish it.
+	if s.provisioner != nil {
+		authstate.SetProvisioner(s.provisioner)
+	}
 
 	// Establish the server's lifecycle context. Plugin goroutines watch
 	// its Done channel; Shutdown cancels it to signal clean exit.

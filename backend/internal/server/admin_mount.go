@@ -14,14 +14,18 @@ import (
 	"hatamoto.dev/core/internal/adminpagestate"
 	"hatamoto.dev/core/internal/adminpath"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authbridge"
+	"hatamoto.dev/core/internal/authstate"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/localeconv"
 	"hatamoto.dev/core/internal/mailsettings"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/secretbox"
 	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/siteaccess"
 	"hatamoto.dev/core/internal/siteconfig"
+	"hatamoto.dev/core/internal/user"
 )
 
 // mountAdminRoutes builds the admin's deps once, builds the first admin from
@@ -54,6 +58,16 @@ func (s *Server) mountAdminRoutes(r *httpx.Group) {
 	if s.addrStore != nil {
 		s.refreshAddressState(context.Background())
 	}
+}
+
+// wireProviders hands the admin the provider sign-in bridge. With no provider
+// registered nothing is set, so the login page and routes stay as they were.
+func (s *Server) wireProviders(d *admin.Deps) {
+	if s.provisioner == nil || len(authstate.Providers()) == 0 {
+		return
+	}
+	d.ProviderSignIn = authbridge.NewSignIn(s.provisioner, user.NewIdentityStore(s.db))
+	d.ProviderKey = secretbox.DeriveKey(s.cfg.Secret, "sign-in-provider-state")
 }
 
 // buildAdminDeps is everything that must exist once per process: the services
@@ -94,6 +108,7 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 		d.Hosting = s.hostingSvc
 	}
 	s.wireTwoFactor(&d)
+	s.wireProviders(&d)
 	if s.userTokens != nil {
 		d.Tokens = s.userTokens
 	}
