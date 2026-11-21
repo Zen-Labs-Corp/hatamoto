@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/authstate"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/twofactor"
 )
@@ -134,7 +135,7 @@ func (a *Admin) handleLoginTwoStep(w http.ResponseWriter, r *http.Request, ps Pa
 		return
 	}
 	if !has {
-		token, err := ps.IssueVerifiedSession(ctx, u.ID, r.UserAgent(), ip)
+		token, err := ps.IssueVerifiedSession(ctx, u.ID, authstate.Via{Method: authstate.MethodPassword}, r.UserAgent(), ip)
 		if err != nil {
 			a.loginFailed(w, r, err, email, next)
 			return
@@ -209,7 +210,7 @@ func (a *Admin) handleTwoStep(w http.ResponseWriter, r *http.Request) {
 
 // completeSignIn issues the session after a verified second factor.
 func (a *Admin) completeSignIn(w http.ResponseWriter, r *http.Request, ps PasswordStep, uid uuid.UUID, next string) {
-	token, err := ps.IssueVerifiedSession(r.Context(), uid, r.UserAgent(), middleware.GetClientIP(r))
+	token, err := ps.IssueVerifiedSession(r.Context(), uid, authstate.Via{Method: authstate.MethodPassword}, r.UserAgent(), middleware.GetClientIP(r))
 	if err != nil {
 		a.logger().Error("issue session failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "We could not sign you in. Try again in a moment.")

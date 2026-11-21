@@ -23,6 +23,7 @@ import (
 	"hatamoto.dev/core/internal/admin/starter"
 	"hatamoto.dev/core/internal/adminpagestate"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authstate"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/httpx"
@@ -87,7 +88,7 @@ type Authenticator interface {
 // that factor was verified (or none exists).
 type PasswordStep interface {
 	CheckPassword(ctx context.Context, email, password string) (*user.User, error)
-	IssueVerifiedSession(ctx context.Context, userID uuid.UUID, userAgent, ip string) (string, error)
+	IssueVerifiedSession(ctx context.Context, userID uuid.UUID, via authstate.Via, userAgent, ip string) (string, error)
 }
 
 // TwoFactorService is the second-factor domain (twofactor.Service) as the

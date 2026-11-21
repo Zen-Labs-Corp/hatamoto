@@ -15,6 +15,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authstate"
 	"hatamoto.dev/core/internal/twofactor"
 	"hatamoto.dev/core/internal/user"
 )
@@ -31,7 +32,7 @@ func (s stepAuth) CheckPassword(ctx context.Context, email, password string) (*u
 	return u, err
 }
 
-func (s stepAuth) IssueVerifiedSession(ctx context.Context, id uuid.UUID, _, _ string) (string, error) {
+func (s stepAuth) IssueVerifiedSession(ctx context.Context, id uuid.UUID, _ authstate.Via, _, _ string) (string, error) {
 	return s.fakeAuth.IssueSession(ctx, id, "", "")
 }
 

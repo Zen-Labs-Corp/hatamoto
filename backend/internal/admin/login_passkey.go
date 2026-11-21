@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/authstate"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/twofactor"
 )
@@ -82,7 +83,11 @@ func (a *Admin) handlePasskeyFinish(w http.ResponseWriter, r *http.Request) {
 		a.passkeyError(w, r, twofactor.ErrPasskeyFailed)
 		return
 	}
-	token, err := ps.IssueVerifiedSession(r.Context(), got, r.UserAgent(), middleware.GetClientIP(r))
+	via := authstate.Via{Method: authstate.MethodPassword}
+	if uid == nil {
+		via.Method = authstate.MethodPasskey
+	}
+	token, err := ps.IssueVerifiedSession(r.Context(), got, via, r.UserAgent(), middleware.GetClientIP(r))
 	if err != nil {
 		a.passkeyError(w, r, err)
 		return

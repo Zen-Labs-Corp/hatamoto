@@ -63,7 +63,7 @@ func TestAccessEndedRefusesEverySignIn(t *testing.T) {
 			return err
 		},
 		"IssueSession":         func() error { _, err := svc.IssueSession(ctx, u.ID, "ua", ""); return err },
-		"IssueVerifiedSession": func() error { _, err := svc.IssueVerifiedSession(ctx, u.ID, "ua", ""); return err },
+		"IssueVerifiedSession": func() error { _, err := svc.IssueVerifiedSession(ctx, u.ID, viaPassword, "ua", ""); return err },
 	}
 	for name, call := range calls {
 		err := call()

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/authstate"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/session"
 	"hatamoto.dev/core/internal/twofactor"
@@ -389,6 +390,9 @@ func (s *Service) CheckPassword(ctx context.Context, email, password string) (*u
 	if err != nil {
 		return nil, err
 	}
+	if err := s.allow(ctx, u, viaPassword); err != nil {
+		return nil, err
+	}
 	u.PasswordHash = ""
 	return u, nil
 }
@@ -398,6 +402,9 @@ func (s *Service) CheckPassword(ctx context.Context, email, password string) (*u
 func (s *Service) LoginSession(ctx context.Context, email, password, userAgent, ip string) (*user.User, string, error) {
 	u, hasFactor, err := s.authenticate(ctx, email, password, failDB)
 	if err != nil {
+		return nil, "", err
+	}
+	if err := s.allow(ctx, u, viaPassword); err != nil {
 		return nil, "", err
 	}
 	if hasFactor {
@@ -426,6 +433,9 @@ func (s *Service) LoginAPISession(ctx context.Context, email, password, code, us
 	if err != nil {
 		return nil, "", err
 	}
+	if err := s.allow(ctx, u, viaPassword); err != nil {
+		return nil, "", err
+	}
 	if !hasFactor && s.required != nil {
 		req, err := s.required(ctx, u)
 		if err != nil {
@@ -450,7 +460,7 @@ func (s *Service) LoginAPISession(ctx context.Context, email, password, code, us
 	if s.sessions == nil {
 		return nil, "", errors.New("sessions are not configured")
 	}
-	if err := s.requireActive(ctx, u.ID); err != nil {
+	if err := s.admit(ctx, u.ID, viaPassword); err != nil {
 		return nil, "", err
 	}
 	token, _, err := s.sessions.IssueAPI(database.WithSuperadmin(ctx), u.ID, adminSessionTTL, userAgent, ip)
@@ -477,17 +487,19 @@ func (s *Service) IssueSession(ctx context.Context, userID uuid.UUID, userAgent,
 	if hasFactor {
 		return "", ErrSecondFactorRequired
 	}
-	return s.issueAdmin(ctx, userID, userAgent, ip)
+	return s.issueAdmin(ctx, userID, viaPassword, userAgent, ip)
 }
 
 // IssueVerifiedSession starts an admin session for a user who has just passed
-// every step sign-in requires of them (password plus second factor, or a
-// passkey). It is the only way past the second-factor gate, and only the
-// second-factor completion handlers call it. It skips the checks of
-// authenticate (the passkey sign-in has no password step), so any account-state
-// rule added to authenticate must be added here too.
-func (s *Service) IssueVerifiedSession(ctx context.Context, userID uuid.UUID, userAgent, ip string) (string, error) {
-	token, err := s.issueAdmin(ctx, userID, userAgent, ip)
+// every step sign-in requires of them (password plus second factor, a passkey,
+// or a sign-in provider). It is the only way past the second-factor gate, and
+// only the sign-in completion handlers call it. It skips the checks of
+// authenticate (passkey and provider sign-in have no password step), so any
+// account-state rule added to authenticate must be added here too (admit).
+// via names the method: access end and the registered sign-in policy apply to
+// every method, the persisted lockout also to a provider sign-in.
+func (s *Service) IssueVerifiedSession(ctx context.Context, userID uuid.UUID, via authstate.Via, userAgent, ip string) (string, error) {
+	token, err := s.issueAdmin(ctx, userID, via, userAgent, ip)
 	if err != nil {
 		return "", err
 	}
@@ -500,24 +512,55 @@ func (s *Service) IssueVerifiedSession(ctx context.Context, userID uuid.UUID, us
 	return token, nil
 }
 
-func (s *Service) issueAdmin(ctx context.Context, userID uuid.UUID, userAgent, ip string) (string, error) {
+func (s *Service) issueAdmin(ctx context.Context, userID uuid.UUID, via authstate.Via, userAgent, ip string) (string, error) {
 	if s.sessions == nil {
 		return "", errors.New("sessions are not configured")
 	}
-	if err := s.requireActive(ctx, userID); err != nil {
+	if err := s.admit(ctx, userID, via); err != nil {
 		return "", err
 	}
 	token, _, err := s.sessions.IssueAdmin(database.WithSuperadmin(ctx), userID, adminSessionTTL, userAgent, ip)
 	return token, err
 }
 
-// requireActive refuses to issue a session to a user whose access has ended or
-// who no longer exists, with the same error as a wrong password. Every session
-// issuance funnels through it, including the paths that skip authenticate
-// (reset, invite acceptance, passkey, second-factor completion).
-func (s *Service) requireActive(ctx context.Context, id uuid.UUID) error {
+var viaPassword = authstate.Via{Method: authstate.MethodPassword}
+
+// admit refuses to issue a session to a user whose access has ended, who no
+// longer exists, who signs in through a provider while locked, or whom the
+// registered sign-in policy refuses, with the same error as a wrong password
+// (a lock answers ErrAccountLocked). Every session issuance funnels through
+// it, including the paths that skip authenticate (reset, invite acceptance,
+// passkey, provider, second-factor completion). Password and passkey keep
+// their own lockout handling.
+func (s *Service) admit(ctx context.Context, id uuid.UUID, via authstate.Via) error {
 	u, err := s.userRepo.GetByID(database.WithSuperadmin(ctx), id)
 	if err != nil || u.AccessEnded(time.Now()) {
+		return ErrInvalidCredentials
+	}
+	if via.Method == authstate.MethodProvider && u.LockedUntil != nil && u.LockedUntil.After(time.Now()) && !s.neverLocked(u.Email) {
+		return ErrAccountLocked
+	}
+	return s.allow(ctx, u, via)
+}
+
+// allow asks the registered sign-in policy (none = allow). A refusal or an
+// error is the neutral ErrInvalidCredentials and does not count as a failed
+// login.
+func (s *Service) allow(ctx context.Context, u *user.User, via authstate.Via) error {
+	name := ""
+	if u.Name != nil {
+		name = *u.Name
+	}
+	err := authstate.Allow(ctx, authstate.SignInAttempt{
+		User: authstate.User{
+			ID: u.ID.String(), Email: u.Email, Name: name, Role: string(u.Role),
+			AccessEndsAt: u.AccessEndsAt, HasPassword: u.PasswordHash != "",
+		},
+		Method:     via.Method,
+		ProviderID: via.Provider,
+	})
+	if err != nil {
+		slog.InfoContext(ctx, "sign-in refused by policy", "method", via.String(), "err", err)
 		return ErrInvalidCredentials
 	}
 	return nil
