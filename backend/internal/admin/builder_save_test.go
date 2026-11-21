@@ -546,5 +546,7 @@ func TestBuilderSaveAuditsTakeOver(t *testing.T) {
 	if code != 200 || !out.OK || !strings.Contains(out.Note, "This page is yours now") {
 		t.Fatalf("save: %d %+v", code, out)
 	}
-	wantAudit(t, rows(), "entity.take_over")
+	// The save is recorded by the entity store (entity.update); the take-over
+	// row stays as its own marker.
+	wantAudit(t, rows(), "entity.update", "entity.take_over")
 }

@@ -153,7 +153,7 @@ func (a *Admin) handleBlogLinkSuggest(w http.ResponseWriter, r *http.Request) {
 // handleBlogLinkInsert links one suggested phrase in the live content and
 // answers the new html; the editor applies it and saves it with the post.
 func (a *Admin) handleBlogLinkInsert(w http.ResponseWriter, r *http.Request) {
-	_, html, ls, ok := a.blogLinkSource(w, r)
+	src, html, ls, ok := a.blogLinkSource(w, r)
 	if !ok {
 		return
 	}
@@ -173,6 +173,7 @@ func (a *Admin) handleBlogLinkInsert(w http.ResponseWriter, r *http.Request) {
 		a.writeJSON(w, http.StatusOK, map[string]any{"inserted": false, "reason": linkSkipText(res.SkipReason)})
 		return
 	}
+	a.audit(r, AuditEntityLinksInserted, src.ID.String(), map[string]any{"count": 1})
 	a.writeJSON(w, http.StatusOK, map[string]any{"inserted": true, "html": out})
 }
 
@@ -627,7 +628,7 @@ func (a *Admin) handleBlogSave(w http.ResponseWriter, r *http.Request, e *entity
 		}
 	}
 	a.resolveAuthor(r, sc, p).apply(in)
-	updated, err := c.Entities.UpdateEntity(r.Context(), e.ID, actorID(r), in)
+	updated, err := c.Entities.UpdateEntity(a.entityAuditCtx(r, map[string]any{"schema": sc.Slug}), e.ID, actorID(r), in)
 	if err != nil {
 		if errors.Is(err, entity.ErrEntityNotFound) {
 			a.notFound(w, r, "Entity", a.adminPath+"/entities", "Back to entities")
@@ -642,11 +643,6 @@ func (a *Admin) handleBlogSave(w http.ResponseWriter, r *http.Request, e *entity
 	}
 	updated.PublishedAt = e.PublishedAt
 	a.dropRecovery(r.Context(), actorID(r), e.ID)
-	detail := map[string]any{"schema": sc.Slug}
-	if updated.TookOwnership {
-		detail["took_ownership"] = true
-	}
-	a.auditEntity(r, auditEntityUpdate, e.ID, updated, detail)
 	msg, kind := "Saved.", "success"
 	switch {
 	case e.Status == entity.StatusPublished && p.f.Status == string(entity.StatusPublished):
