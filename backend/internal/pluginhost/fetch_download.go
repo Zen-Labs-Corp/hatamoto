@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"hatamoto.dev/core/internal/runenv"
 )
 
 // ErrDownloadTooLarge means a download went over its size cap.
@@ -103,6 +105,9 @@ func checkPublicURL(u *url.URL, anyPort bool) error {
 // download is the one guarded GET behind Download and DownloadPublic. check
 // vets the first URL's redirect hops; the caller already vetted u itself.
 func (f *Fetcher) download(ctx context.Context, plugin string, u *url.URL, max int64, check func(*url.URL) error, sink func(io.Reader, int64) error) error {
+	if runenv.Suppress(ctx, nil, runenv.PluginHTTP, "plugin", plugin, "host", u.Host) {
+		return blockedErr("staging mode: outbound HTTP is off")
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return err
