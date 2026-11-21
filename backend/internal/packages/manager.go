@@ -2,6 +2,7 @@ package packages
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json/jsontext"
 	"errors"
@@ -164,8 +165,14 @@ type MenuSeeder interface {
 // which only writes the database; a running server applies it within a few
 // seconds (see Run).
 type Options struct {
-	Pool     *pgxpool.Pool
-	Trust    TrustSet
+	Pool  *pgxpool.Pool
+	Trust TrustSet
+	// PluginKey is the only key a plugin with license "commercial" may be signed
+	// with (an edition registers it). Never part of Trust. Nil: every commercial
+	// plugin is refused.
+	PluginKey ed25519.PublicKey
+	// Entitled says whether a commercial plugin may be used. Nil means no.
+	Entitled func(ctx context.Context, plugin string) bool
 	Registry *Registry
 	// DeveloperRegistry reads the developer index. Its Trust holds the listing
 	// key only; nil (or an "off" URL) disables developer packages.
