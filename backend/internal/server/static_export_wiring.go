@@ -43,6 +43,8 @@ type staticExportRunner struct {
 	notify func(ctx context.Context, runID uuid.UUID, ok bool, at time.Time, firstErr string)
 	now    func() time.Time
 	log    *slog.Logger
+	// finished runs after a run ends and is reported (nil = nothing).
+	finished func()
 }
 
 // modeOn is the trigger's mode gate. A restored database reads 'served' here
@@ -82,6 +84,9 @@ func (r *staticExportRunner) run(ctx context.Context, full bool, reason string) 
 		first = err.Error()
 	}
 	r.notify(ctx, res.RunID, err == nil, r.now(), first)
+	if r.finished != nil {
+		r.finished()
+	}
 	if _, perr := r.runs.PruneRuns(ctx, r.now().Add(-exportRunsKeep)); perr != nil {
 		r.log.Warn("static export: prune runs", slog.String("error", perr.Error()))
 	}
@@ -126,8 +131,12 @@ func (s *Server) setupStaticExport() {
 			},
 		}
 	}
+	siteURL := pluginEntityPaths{s}.BaseURL
+	probe := newReachProbe()
+	afterRun := func() { probe.start(s.lifecycleCtx, siteURL) } // not the run's ctx: it is cancelled when the run returns
 	runner := &staticExportRunner{
 		settings: settings.Get, runs: runs, export: s.StaticExport, now: func() time.Time { return time.Now().UTC() }, log: s.logger,
+		finished: afterRun,
 		target: func(set staticexport.Settings) (staticexport.Target, error) {
 			return staticexport.SavedTarget(set, key, guard, os.Getenv)
 		},
@@ -140,12 +149,13 @@ func (s *Server) setupStaticExport() {
 	}
 	s.hostingSvc = &hostingAdmin{
 		settings: settings, runs: runs, key: key, trigger: s.staticTrigger,
-		refresh: s.refreshStaticHosting, siteURL: pluginEntityPaths{s}.BaseURL, snapshot: s.staticHosting,
+		refresh: s.refreshStaticHosting, siteURL: siteURL, snapshot: s.staticHosting,
 		refuse: s.staticRefusal, dirGuard: guard, getenv: os.Getenv, lookup: safefetch.DefaultLookup,
-		testExport: s.StaticTestExport, background: func() context.Context { return s.lifecycleCtx }, log: s.logger,
+		testExport: s.StaticTestExport, background: func() context.Context { return s.lifecycleCtx }, log: s.logger, finished: afterRun,
 		setup: hostingSetupDeps{
 			adminPath: s.adminPathValue, apiPrefix: s.cfg.PublicSite.APIPrefix,
 			upstream: upstreamAddr(s.cfg.Server.Host, s.cfg.Server.Port), headers: s.staticPageHeaders,
+			folder: folderState, reach: probe.result,
 		},
 	}
 	if s.admin != nil { // already mounted: hand it over directly

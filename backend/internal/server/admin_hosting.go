@@ -57,6 +57,7 @@ type hostingAdmin struct {
 	getenv     func(string) string // nil: no private-endpoint opt-in
 	lookup     safefetch.Lookup    // nil: no save-time DNS lookup
 	setup      hostingSetupDeps
+	finished   func() // after a Test export ends (nil = nothing)
 }
 
 func (h *hostingAdmin) load(ctx context.Context) (staticexport.Settings, error) {
@@ -281,6 +282,9 @@ func (h *hostingAdmin) TestExport(ctx context.Context) error {
 		defer cancel()
 		if _, err := h.testExport(ctx, t, hs, staticexport.Options{Trigger: admin.HostingTriggerTest}); err != nil && h.log != nil {
 			h.log.Warn("static test export", slog.String("error", err.Error()))
+		}
+		if h.finished != nil {
+			h.finished()
 		}
 	}
 	if h.spawn != nil {
