@@ -34,8 +34,11 @@ changing behaviour.
   today's rules need. A field added later keeps existing code compiling; a
   field removed does not, so none is added without a use.
 - **Catalogue.** Actions are `<area>.<verb>` strings exported as constants
-  and listed by `Actions()`. A test keeps a checked-in list of every gate in
-  core mapped to an action, so a new route group cannot skip the catalogue.
+  and listed by `Actions()`. A test checks a list of the gates in core against
+  the catalogue: every `RequireRole` group in the admin and REST routers must
+  have a row, and the role checks inside admin and REST handlers are counted
+  per file, so a new one needs a row too. MCP tools, the plugin host and the
+  REST key allowlist are listed but not counted.
 - **Default.** A table of rules per action: owner, editor, and the API key
   scope. The scope rules are copied into the package, so core packages can
   call it later without an import cycle; a test compares them with the

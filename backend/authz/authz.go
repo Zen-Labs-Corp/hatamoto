@@ -9,11 +9,16 @@ import (
 
 // Subject is who asks. A signed-in session fills UserID and Role. A request
 // made with an API key also fills KeyID, Scopes and CreatorRole.
+//
+// A subject with a non-empty KeyID is a key subject: Role is ignored and
+// CreatorRole and Scopes decide. Callers must set KeyID for every request made
+// with a key, including REST requests, which carry synthesised editor claims;
+// a key request described without KeyID is treated as an editor session.
 type Subject struct {
 	// UserID is the signed-in user, or the key's creator.
 	UserID string
-	// Role is the session role ("owner" or "editor"); the default authorizer
-	// ignores it for key subjects.
+	// Role is the session role ("owner" or "editor"). It is ignored for key
+	// subjects (KeyID != ""); leave it empty there and set CreatorRole.
 	Role string
 	// KeyID is non-empty when the request is made with an API key.
 	KeyID string
