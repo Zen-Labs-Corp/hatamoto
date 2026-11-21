@@ -532,7 +532,10 @@ func TestKeyRoutesKeepTheirScopes(t *testing.T) {
 }
 
 func TestKeyRoutesDenyAll(t *testing.T) {
-	authztest.Use(t, authztest.DenyAll)
+	// The creator check passes; the route's own action is what is denied.
+	authztest.Use(t, authztest.Func(func(ctx context.Context, s authz.Subject, a authz.Action, o authz.Object) (bool, error) {
+		return a == authz.ActionAPIKeyCreatorAct, nil
+	}))
 	owner := testKey(auth.ScopeAll)
 	owner.CreatorRole = "owner"
 	h := newKeyHarness(t, true, map[string]*auth.APIKey{"owner": owner})

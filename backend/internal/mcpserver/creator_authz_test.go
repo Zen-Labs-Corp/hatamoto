@@ -1,9 +1,11 @@
 package mcpserver
 
 import (
+	"context"
 	"net/http/httptest"
 	"testing"
 
+	"hatamoto.dev/core/authz"
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/authztest"
 )
@@ -24,5 +26,16 @@ func TestVerifyRefusesCreatorDeniedByAuthz(t *testing.T) {
 	_, err := s.verify(t.Context(), "good", r)
 	if err == nil || goneErr == nil || err.Error() != goneErr.Error() {
 		t.Fatalf("DenyAll verify = %v, gone creator = %v; want the same refusal", err, goneErr)
+	}
+}
+
+// creatorActAllowed lets the creator check through and sends every other
+// question to a, so a test can aim a at the tool's own action.
+func creatorActAllowed(a authz.Authorizer) authztest.Func {
+	return func(ctx context.Context, s authz.Subject, act authz.Action, o authz.Object) (bool, error) {
+		if act == authz.ActionAPIKeyCreatorAct {
+			return true, nil
+		}
+		return a.Can(ctx, s, act, o)
 	}
 }
