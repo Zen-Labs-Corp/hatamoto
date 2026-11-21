@@ -50,6 +50,9 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 	r.HandleFunc("GET /me", s.handleGetMe)
 	r.HandleFunc("PATCH /me", s.handleUpdateMe)
 
+	// Every other route: a user who may not change the site changes nothing.
+	r = r.Group("", middleware.WriteGuard)
+
 	// Cache management (owner only). Flushing the cache is a tenant-wide,
 	// potentially disruptive operation; gate it behind owner like /tenant.
 	{
