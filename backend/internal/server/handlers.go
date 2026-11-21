@@ -202,7 +202,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 			if sess, verr := s.sessionStore.Validate(r.Context(), token); verr == nil {
 				_ = s.sessionStore.Revoke(r.Context(), sess.ID)
 				if sess.UserID != nil {
-					s.restLoginAudit(r, admin.AuditSignOut, sess.UserID.String(), sess.UserID.String(), audit.ResultOK, map[string]any{"all": false})
+					s.restLogoutAudit(r, *sess.UserID)
 				}
 			}
 		}
@@ -613,6 +613,16 @@ func (s *Server) restLoginAuditOK(r *http.Request, u *user.User, totp bool) {
 		method = admin.SignInTOTP
 	}
 	s.restLoginAudit(r, admin.AuditSignIn, u.ID.String(), u.Email, audit.ResultOK, map[string]any{"method": method})
+}
+
+// restLogoutAudit records a sign-out as the user's email, like the sign-in
+// row; an unreadable user falls back to the id.
+func (s *Server) restLogoutAudit(r *http.Request, id uuid.UUID) {
+	actor := id.String()
+	if u, err := s.userRepo.GetByID(r.Context(), id); err == nil && u != nil && u.Email != "" {
+		actor = u.Email
+	}
+	s.restLoginAudit(r, admin.AuditSignOut, id.String(), actor, audit.ResultOK, map[string]any{"all": false})
 }
 
 // restLoginAuditFailed records a refused sign-in. The actor is the keyed hash

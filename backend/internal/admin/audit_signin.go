@@ -4,6 +4,8 @@ import (
 	"maps"
 	"net/http"
 
+	"github.com/google/uuid"
+
 	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/middleware"
 )
@@ -61,6 +63,19 @@ func (a *Admin) auditSignOut(r *http.Request, actorID, actor string, all bool) {
 		return
 	}
 	a.deps.Audit(r.Context(), signInAuditEvent(r, AuditSignOut, actorID, actor, audit.ResultOK, map[string]any{"all": all, "via": "admin"}))
+}
+
+// signInActor is the audit actor of a completed sign-in that knows only the
+// user id (second step, passkey, provider): the user's email, as the password
+// sign-in records it. It runs after the session exists, never on a failure
+// path. An unreadable user falls back to the id.
+func (a *Admin) signInActor(r *http.Request, uid uuid.UUID) string {
+	if a.deps.Users != nil {
+		if u, err := a.deps.Users.GetByID(r.Context(), uid); err == nil && u != nil && u.Email != "" {
+			return u.Email
+		}
+	}
+	return uid.String()
 }
 
 // failedActor is the audit actor of a failed sign-in: the keyed hash of the

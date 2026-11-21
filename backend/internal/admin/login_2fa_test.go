@@ -190,6 +190,7 @@ func newTwoStepRigWith(t *testing.T, mutate ...func(*Deps)) *twoStepRig {
 	g := newRig(t, func(d *Deps) {
 		d.Auth, d.Tokens, d.Finder = stepAuth{fa, tf}, ft, fakeFinder{u}
 		d.TwoFactor = tf
+		d.Users = fakeUsers{u.ID: u}
 		d.PendingKey = twofactor.PendingKeyFor("test-secret")
 		for _, m := range mutate {
 			m(d)

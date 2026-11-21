@@ -190,7 +190,13 @@ func TestLoginAuditTwoStepCodes(t *testing.T) {
 			g.second(g.password(t), tc.code, tc.extra)
 			evs := read()
 			ev := loginAuditOne(t, evs, tc.action)
-			if ev.Detail["method"] != tc.method || ev.ActorID == "" || ev.Actor != ev.ActorID {
+			// A completed sign-in is attributed to the email, like the password
+			// one; a failed second step keeps the user id.
+			wantActor := ev.ActorID
+			if tc.action == AuditSignIn {
+				wantActor = "olga@example.com"
+			}
+			if ev.Detail["method"] != tc.method || ev.ActorID == "" || ev.Actor != wantActor {
 				t.Fatalf("row = %+v", ev)
 			}
 			if tc.action == AuditSignInFailed && (ev.Result != audit.ResultDenied || ev.Detail["reason"] != ReasonSecondFactor) {

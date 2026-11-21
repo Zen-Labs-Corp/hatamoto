@@ -19,7 +19,7 @@ func TestPasskeyAuditSignInFirstFactor(t *testing.T) {
 	}
 	evs := read()
 	ev := loginAuditOne(t, evs, AuditSignIn)
-	if ev.Detail["method"] != SignInPasskey || ev.Detail["step"] != "first_factor" || ev.ActorID != g.tf.uid.String() || ev.Result != audit.ResultOK {
+	if ev.Detail["method"] != SignInPasskey || ev.Detail["step"] != "first_factor" || ev.ActorID != g.tf.uid.String() || ev.Actor != "olga@example.com" || ev.Result != audit.ResultOK {
 		t.Fatalf("row = %+v", ev)
 	}
 	assertAuditSafe(t, evs)
@@ -93,7 +93,7 @@ func TestPasskeyAuditProviderSignIn(t *testing.T) {
 	passkeyAuditCallback(t, g)
 	evs := read()
 	ev := loginAuditOne(t, evs, AuditSignIn)
-	if ev.Detail["method"] != SignInProvider || ev.Detail["provider"] != "example" || ev.ActorID != g.uid.String() {
+	if ev.Detail["method"] != SignInProvider || ev.Detail["provider"] != "example" || ev.ActorID != g.uid.String() || ev.Actor != "olga@example.com" {
 		t.Fatalf("row = %+v", ev)
 	}
 	assertAuditSafe(t, evs)

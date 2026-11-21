@@ -55,6 +55,13 @@ func (r restLoginRepo) GetByEmail(_ context.Context, email string) (*user.User, 
 	c := *r.u
 	return &c, nil
 }
+func (r restLoginRepo) GetByID(_ context.Context, id uuid.UUID) (*user.User, error) {
+	if id != r.u.ID {
+		return nil, user.ErrUserNotFound
+	}
+	c := *r.u
+	return &c, nil
+}
 func (r restLoginRepo) RecordFailedLogin(context.Context, uuid.UUID, int, time.Duration) error {
 	return nil
 }
@@ -76,6 +83,7 @@ func restLoginServer(t *testing.T, locked bool) (*Server, *restLoginLog, *user.U
 	lg := &restLoginLog{}
 	s := &Server{
 		authService: auth.NewService(restLoginRepo{u: u}, nil, nil),
+		userRepo:    restLoginRepo{u: u},
 		logger:      slog.New(lg),
 		cfg:         &config.Config{Secret: restLoginSecret},
 	}
@@ -140,7 +148,7 @@ func TestRestLoginAuditSuccessAndLogoutRows(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
 	s.restLoginAuditOK(r, u, false)
 	s.restLoginAuditOK(r, nil, false) // a response without a user writes nothing
-	s.restLoginAudit(r, admin.AuditSignOut, u.ID.String(), u.ID.String(), "ok", map[string]any{"all": false})
+	s.restLogoutAudit(r, u.ID)
 	if len(lg.recs) != 2 {
 		t.Fatalf("rows = %v", lg.recs)
 	}
@@ -148,7 +156,7 @@ func TestRestLoginAuditSuccessAndLogoutRows(t *testing.T) {
 	if in["action"] != admin.AuditSignIn || in["actor"] != u.Email || !strings.Contains(in["detail"].(string), `"method":"password"`) {
 		t.Fatalf("sign-in = %v", in)
 	}
-	if out["action"] != admin.AuditSignOut || !strings.Contains(out["detail"].(string), `"via":"api"`) {
+	if out["action"] != admin.AuditSignOut || out["actor"] != u.Email || !strings.Contains(out["detail"].(string), `"via":"api"`) {
 		t.Fatalf("sign-out = %v", out)
 	}
 }

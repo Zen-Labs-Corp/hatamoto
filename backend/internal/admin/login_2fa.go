@@ -229,7 +229,7 @@ func (a *Admin) completeSignIn(w http.ResponseWriter, r *http.Request, ps Passwo
 		a.loginFailed(w, r, err, "", SafeNextFor(a.adminPath, next))
 		return
 	}
-	a.auditSignIn(r, uid.String(), uid.String(), method, nil)
+	a.auditSignIn(r, uid.String(), a.signInActor(r, uid), method, nil)
 	a.clearPending(w, r)
 	a.finishSignIn(w, r, token, SafeNextFor(a.adminPath, next))
 }
