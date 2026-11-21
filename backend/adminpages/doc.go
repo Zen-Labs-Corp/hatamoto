@@ -4,6 +4,30 @@
 // A module that wraps app.Main registers from an init function. Registration
 // is frozen when app.Main starts; later calls panic.
 //
+// A wrapper module has its own main package that imports a package whose
+// init function calls Register, then calls app.Main:
+//
+//	package main
+//
+//	import (
+//		_ "example.com/yourmodule/adminpage" // init calls adminpages.Register
+//		"hatamoto.dev/core/app"
+//	)
+//
+//	func main() { app.Main() }
+//
+// and the imported package registers its page:
+//
+//	//go:embed pages
+//	var pages embed.FS
+//
+//	func init() {
+//		adminpages.Register(adminpages.Page{
+//			ID: "example", Label: "Example", Templates: pages,
+//			Routes: []adminpages.Route{{Method: "GET", Handle: show}},
+//		})
+//	}
+//
 // # Pages
 //
 // A page appears in the Settings navigation under "System" and is served at
