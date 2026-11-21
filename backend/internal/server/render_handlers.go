@@ -684,7 +684,7 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 // bytes, so a mode switch needs no purge) and before commentSlot.fill (the
 // loader replaces the form, so no token is issued here).
 func (h *renderHandlers) staticPage(r *http.Request, body []byte) ([]byte, bool) {
-	hs := h.hosting.Load()
+	hs := statichost.HostingFrom(r.Context(), h.hosting.Load())
 	if !hs.Active() || (r.Method != http.MethodGet && r.Method != http.MethodHead) {
 		return nil, false
 	}

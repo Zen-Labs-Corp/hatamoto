@@ -22,6 +22,9 @@ func (a *Admin) mountHostingSettings(owner *httpx.Group) {
 	owner.HandleFunc("POST "+hostingPath, a.handleHostingSave)
 	owner.HandleFunc("GET "+hostingPath+"/mode", a.handleHostingModeConfirm)
 	owner.HandleFunc("POST "+hostingPath+"/export", a.handleHostingExport)
+	// Test export is not behind the password, like Export now: it runs in the
+	// background and never changes what visitors get.
+	owner.HandleFunc("POST "+hostingPath+"/test", a.handleHostingTest)
 	// Switching the mode and rebuilding everything ask for the password. A POST
 	// is never replayed after that page: the owner clicks again on the page
 	// they came from.
@@ -45,6 +48,8 @@ type hostingPage struct {
 	SiteURL string // "" links to the site address setting instead
 	Islands ui.Table
 	Stays   string
+	// IslandsDesc is the islands card text: in served mode nothing is live yet.
+	IslandsDesc string
 
 	IslandsWarning string
 	CrawlersWarn   bool
@@ -52,12 +57,19 @@ type hostingPage struct {
 
 	Last string
 	Log  ui.Table
-	Zone string
+	// TestWhy and ExportWhy say why a button is disabled; "" means it is enabled.
+	TestWhy   string
+	ExportWhy string
+	Zone      string
 }
 
 func (a *Admin) handleHosting(w http.ResponseWriter, r *http.Request) {
 	a.renderHosting(w, r, http.StatusOK, nil, nil)
 }
+
+// hostingTestStaticWhy is why Test export is off in static mode: it would write
+// the live target, which is what Export now does and records as a live run.
+const hostingTestStaticWhy = "In static mode, use Export now."
 
 // renderHosting shows the page. form is the posted input to show again (nil
 // shows the saved values); its secret key is never read.
@@ -70,12 +82,15 @@ func (a *Admin) renderHosting(w http.ResponseWriter, r *http.Request, status int
 	ctx := r.Context()
 	saved, err := svc.View(ctx)
 	if err == nil {
-		var runs []HostingRun
+		var runs, liveRuns []HostingRun
 		if runs, err = svc.Runs(ctx, 20); err == nil {
+			liveRuns, err = svc.LiveRuns(ctx, 20)
+		}
+		if err == nil {
 			live, stays := svc.Islands()
 			v := a.NewView(w, r, "Hosting")
 			v.Section, v.Tab, v.Width = "hosting", "hosting", "narrow"
-			v.Data = a.hostingPage(r, saved, form, errs, runs, live, stays)
+			v.Data = a.hostingPage(r, saved, form, errs, runs, liveRuns, live, stays)
 			a.Render(w, r, status, "settings/hosting", v)
 			return
 		}
@@ -84,7 +99,7 @@ func (a *Admin) renderHosting(w http.ResponseWriter, r *http.Request, status int
 	a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The hosting settings could not be loaded.")
 }
 
-func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInput, errs []ui.FieldError, runs []HostingRun, live []HostingIsland, stays []string) hostingPage {
+func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInput, errs []ui.FieldError, runs, liveRuns []HostingRun, live []HostingIsland, stays []string) hostingPage {
 	loc := a.siteLocation(r.Context())
 	f := saved
 	if form != nil {
@@ -126,34 +141,83 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 	if static {
 		p.IslandsWarning = saved.IslandsWarning
 	}
+	switch {
+	case static:
+		p.TestWhy = hostingTestStaticWhy
+	case !hostingTargetSaved(saved):
+		p.TestWhy = "Save a target first."
+	}
+	switch {
+	case saved.WorkerOff:
+		p.ExportWhy = "The export worker is off on this server."
+	case !static:
+		p.ExportWhy = "Needs static mode. Use Test export first."
+	}
+	p.IslandsDesc = "These apply once the site is in static mode."
 	p.Islands = ui.Table{
 		ID: "hosting-islands", Caption: "Live islands",
-		Columns: []ui.Col{{Key: "island", Label: "Island", Role: "title"}, {Key: "route", Label: "Route"}, {Key: "status", Label: "Status"}},
+		Columns: []ui.Col{{Key: "island", Label: "Island", Role: "title"}, {Key: "route", Label: "Route"}},
 		Empty:   ui.Empty{Icon: "layers", Title: "No live islands.", Compact: true},
 	}
+	if static {
+		p.IslandsDesc = "These parts of the site still call this server."
+		p.Islands.Columns = append(p.Islands.Columns, ui.Col{Key: "status", Label: "Status"})
+	}
 	for _, i := range live {
-		p.Islands.Rows = append(p.Islands.Rows, ui.Row{ID: i.Route, Label: i.Label, Cells: []ui.Cell{
-			{Text: i.Label}, {Text: i.Route, Mono: true}, {Badge: &ui.Badge{Label: i.Status, Kind: "success"}},
-		}})
+		cells := []ui.Cell{{Text: i.Label}, {Text: i.Route, Mono: true}}
+		if static {
+			cells = append(cells, ui.Cell{Badge: &ui.Badge{Label: i.Status, Kind: "success"}})
+		}
+		p.Islands.Rows = append(p.Islands.Rows, ui.Row{ID: i.Route, Label: i.Label, Cells: cells})
 	}
 	if len(stays) > 0 {
 		p.Stays = "Stays on Hatamoto: " + strings.Join(stays, ", ") + "."
 	}
 	p.Log = a.hostingLog(runs, loc)
-	if last, ok := lastFinished(runs); ok {
-		p.Last = hostingSummary(last)
-	}
+	p.Last = hostingLast(liveRuns)
 	return p
 }
 
-// lastFinished is the newest run that is not still running; runs are newest first.
-func lastFinished(runs []HostingRun) (HostingRun, bool) {
-	for _, r := range runs {
-		if r.Result != HostingRunRunning {
-			return r, true
+// hostingLast is the Last export line (without the trailing period). Runs are
+// newest first; running and Test export runs are skipped. A failed newest run
+// never reports its own size.
+func hostingLast(runs []HostingRun) string {
+	var newest *HostingRun
+	for i := range runs {
+		r := &runs[i]
+		if r.Result == HostingRunRunning || r.Trigger == HostingTriggerTest {
+			continue
+		}
+		if newest == nil {
+			if r.Result == HostingRunOK {
+				return hostingSummary(*r)
+			}
+			newest = r
+			continue
+		}
+		if r.Result == HostingRunOK {
+			return hostingFailed(*newest) + " · last good: " + hostingSummary(*r)
 		}
 	}
-	return HostingRun{}, false
+	if newest == nil {
+		return ""
+	}
+	return hostingFailed(*newest)
+}
+
+func hostingFailed(r HostingRun) string {
+	s := "Failed " + agoText(time.Since(r.Started))
+	if e := strings.TrimRight(clip(r.FirstError, 160), ". "); e != "" {
+		s += " · " + e
+	}
+	return s
+}
+
+func hostingTriggerLabel(trigger string) string {
+	if trigger == HostingTriggerTest {
+		return "Test export"
+	}
+	return trigger
 }
 
 // hostingSummary is the Last export line: "214 pages · 38 MB · 9 s · 0 errors · 2 minutes ago".
@@ -188,7 +252,7 @@ func (a *Admin) hostingLog(runs []HostingRun, loc *time.Location) ui.Table {
 		when := fmtDateTime(r.Started.In(loc))
 		t.Rows = append(t.Rows, ui.Row{ID: r.Started.UTC().Format(time.RFC3339Nano), Label: "Export " + when, Cells: []ui.Cell{
 			{Text: when, Nowrap: true},
-			{Text: r.Trigger, Notes: hostingNotes(r.FirstError)},
+			{Text: hostingTriggerLabel(r.Trigger), Notes: hostingNotes(r.FirstError)},
 			{Text: strconv.Itoa(r.Pages), Nowrap: true}, {Text: strconv.Itoa(r.Changed), Nowrap: true},
 			{Badge: &b},
 		}})
@@ -275,6 +339,12 @@ func (a *Admin) handleHostingSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	errs := hostingValidate(in, a.siteAddress(r))
+	if len(errs) == 0 && hostingNeedsSudo(cur, in) {
+		if sess := sessionFrom(r.Context()); sess == nil || !a.sudo.store.Active(sess.ID) {
+			a.toSudo(w, r)
+			return
+		}
+	}
 	if len(errs) == 0 {
 		if errs, err = svc.Save(r.Context(), in); err != nil {
 			a.logger().Error("hosting settings save", "err", err)
@@ -295,6 +365,24 @@ func (a *Admin) handleHostingSave(w http.ResponseWriter, r *http.Request) {
 	}
 	a.SetFlash(w, r, "success", "Hosting settings saved.")
 	http.Redirect(w, r, a.adminPath+hostingPath, http.StatusSeeOther)
+}
+
+// hostingNeedsSudo: a static site publishes from these settings, so changing
+// where or how it publishes asks for the password. Served saves never do, and
+// the mode switch has its own confirm and sudo.
+func hostingNeedsSudo(cur HostingView, in HostingInput) bool {
+	if cur.Mode != HostingStatic {
+		return false
+	}
+	if in.SecretKey != "" {
+		return true
+	}
+	for _, f := range hostingChanged(cur, in) {
+		if f != "mode" {
+			return true
+		}
+	}
+	return false
 }
 
 // hostingChanged names the fields that differ from the stored ones; values

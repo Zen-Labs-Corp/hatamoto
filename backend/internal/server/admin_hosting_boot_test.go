@@ -14,8 +14,9 @@ type stubHosting struct{ admin.HostingService }
 func (stubHosting) View(context.Context) (admin.HostingView, error) {
 	return admin.HostingView{Mode: "served"}, nil
 }
-func (stubHosting) Runs(context.Context, int) ([]admin.HostingRun, error) { return nil, nil }
-func (stubHosting) Islands() ([]admin.HostingIsland, []string)            { return nil, nil }
+func (stubHosting) Runs(context.Context, int) ([]admin.HostingRun, error)     { return nil, nil }
+func (stubHosting) LiveRuns(context.Context, int) ([]admin.HostingRun, error) { return nil, nil }
+func (stubHosting) Islands() ([]admin.HostingIsland, []string)                { return nil, nil }
 
 // setupStaticExport runs inside New, before the admin is mounted. The service
 // it leaves on the server must reach the admin through the mount, or the

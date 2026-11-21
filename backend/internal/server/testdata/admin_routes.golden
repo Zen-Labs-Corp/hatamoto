@@ -411,6 +411,7 @@ POST /admin/settings/hosting -> admin.(*Admin).handleHostingSave-fm
 POST /admin/settings/hosting/export -> admin.(*Admin).handleHostingExport-fm
 POST /admin/settings/hosting/mode -> admin.(*Admin).handleHostingMode-fm
 POST /admin/settings/hosting/rebuild -> admin.(*Admin).handleHostingRebuild-fm
+POST /admin/settings/hosting/test -> admin.(*Admin).handleHostingTest-fm
 POST /admin/settings/import/csv -> admin.(*Admin).handleCSVUpload-fm
 POST /admin/settings/import/csv/{id}/map -> admin.(*Admin).handleCSVMap-fm
 POST /admin/settings/import/csv/{id}/run -> admin.(*Admin).handleCSVRun-fm

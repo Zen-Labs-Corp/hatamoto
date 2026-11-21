@@ -39,12 +39,12 @@ func (a *Admin) exportBanner(r *http.Request, u *CurrentUser) *ExportBanner {
 // hasOKExport reports whether an earlier export succeeded, so a visitor still
 // sees its files. Only the recent runs are checked; a failed read says no.
 func (a *Admin) hasOKExport(ctx context.Context) bool {
-	runs, err := a.deps.Hosting.Runs(ctx, 20)
+	runs, err := a.deps.Hosting.LiveRuns(ctx, 20)
 	if err != nil {
 		return false
 	}
 	for _, r := range runs {
-		if r.Result == HostingRunOK {
+		if r.Result == HostingRunOK && r.Trigger != HostingTriggerTest {
 			return true
 		}
 	}

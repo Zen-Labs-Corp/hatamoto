@@ -93,3 +93,32 @@ func (a *Admin) startHostingExport(w http.ResponseWriter, r *http.Request, full 
 	}
 	http.Redirect(w, r, a.adminPath+hostingPath, http.StatusSeeOther)
 }
+
+// handleHostingTest starts a Test export of the saved target. The service runs
+// it in the background; the run row in the log is the feedback.
+func (a *Admin) handleHostingTest(w http.ResponseWriter, r *http.Request) {
+	svc := a.deps.Hosting
+	if svc == nil {
+		a.unavailable(w, r, "Hosting")
+		return
+	}
+	if v, err := svc.View(r.Context()); err == nil && v.Mode == HostingStatic {
+		a.SetFlash(w, r, "info", hostingTestStaticWhy)
+		http.Redirect(w, r, a.adminPath+hostingPath, http.StatusSeeOther)
+		return
+	}
+	err := svc.TestExport(r.Context())
+	switch {
+	case errors.Is(err, ErrHostingNoTarget):
+		a.SetFlash(w, r, "warning", "Save a target first.")
+	case errors.Is(err, ErrHostingTestBusy):
+		a.SetFlash(w, r, "info", "An export is running. Try the test export again when it finishes.")
+	case err != nil:
+		a.logger().Error("hosting test export", "err", err)
+		a.SetFlash(w, r, "error", "The test export could not be started: "+fullStop(err.Error()))
+	default:
+		a.audit(r, "hosting.test_export", "hosting", nil)
+		a.SetFlash(w, r, "success", "Test export started. It writes the files to the saved target and shows in the log as Test export.")
+	}
+	http.Redirect(w, r, a.adminPath+hostingPath, http.StatusSeeOther)
+}

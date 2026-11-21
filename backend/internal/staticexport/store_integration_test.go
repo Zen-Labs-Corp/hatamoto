@@ -5,6 +5,7 @@ package staticexport
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -123,6 +124,59 @@ func TestRunStore_StaleTakeover(t *testing.T) {
 	}
 	if status != "failed" || !strings.Contains(errs, "abandoned") {
 		t.Fatalf("stale run: %s %s", status, errs)
+	}
+}
+
+func TestRunStore_ClearAbandoned(t *testing.T) {
+	pool := newIntegrationPool(t)
+	ctx := context.Background()
+	rs := NewRunStore(pool)
+	id, err := rs.Start(ctx, "cli", "dir:/srv/x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rs.ClearAbandoned(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var status string
+	q := `SELECT status FROM hatamoto_static_export_runs WHERE id = $1`
+	if err := pool.QueryRow(ctx, q, id).Scan(&status); err != nil || status != "running" {
+		t.Fatalf("fresh run: %s %v", status, err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE hatamoto_static_export_runs SET heartbeat_at = now() - interval '10 minutes' WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	if err := rs.ClearAbandoned(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, q, id).Scan(&status); err != nil || status != "failed" {
+		t.Fatalf("stale run: %s %v", status, err)
+	}
+}
+
+func TestRunStore_ListLiveSkipsTestRuns(t *testing.T) {
+	pool := newIntegrationPool(t)
+	ctx := context.Background()
+	rs := NewRunStore(pool)
+	for i, trig := range []string{"change", "test", "test", "test"} {
+		id, err := rs.Start(ctx, trig, "dir:/srv/x")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := rs.Finish(ctx, id, RunResult{OK: true}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE hatamoto_static_export_runs SET started_at = now() - ($2 || ' minutes')::interval WHERE id = $1`, id, fmt.Sprint(10-i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	all, err := rs.List(ctx, 2)
+	if err != nil || len(all) != 2 || all[0].Trigger != "test" {
+		t.Fatalf("List: %+v %v", all, err)
+	}
+	live, err := rs.ListLive(ctx, 2)
+	if err != nil || len(live) != 1 || live[0].Trigger != "change" {
+		t.Fatalf("ListLive: %+v %v", live, err)
 	}
 }
 

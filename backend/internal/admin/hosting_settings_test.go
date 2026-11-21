@@ -32,6 +32,8 @@ type fakeHosting struct {
 	modeErr   error
 	exports   []hostingExportCall
 	exportErr error
+	tests     int
+	testErr   error
 	runs      []HostingRun
 	live      []HostingIsland
 	stays     []string
@@ -59,10 +61,28 @@ func (f *fakeHosting) Export(_ context.Context, full bool, trigger string) error
 	f.exports = append(f.exports, hostingExportCall{full, trigger})
 	return nil
 }
-func (f *fakeHosting) Runs(context.Context, int) ([]HostingRun, error) { return f.runs, nil }
+func (f *fakeHosting) TestExport(context.Context) error {
+	if f.testErr != nil {
+		return f.testErr
+	}
+	f.tests++
+	return nil
+}
+func (f *fakeHosting) Runs(_ context.Context, limit int) ([]HostingRun, error) {
+	return f.runs[:min(limit, len(f.runs))], nil
+}
+func (f *fakeHosting) LiveRuns(_ context.Context, limit int) ([]HostingRun, error) {
+	var out []HostingRun
+	for _, r := range f.runs {
+		if r.Trigger != HostingTriggerTest && len(out) < limit {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
 func (f *fakeHosting) LastRun(context.Context) (HostingRun, bool, error) {
 	for _, r := range f.runs {
-		if r.Result != HostingRunRunning {
+		if r.Result != HostingRunRunning && r.Trigger != HostingTriggerTest {
 			return r, true, nil
 		}
 	}
@@ -115,15 +135,60 @@ func TestHostingPageServed(t *testing.T) {
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}
-	for _, want := range []string{"Served by Hatamoto", "Static files &#43; live islands", "Forms", "/search", "Stays on Hatamoto: admin, API.", "No exports yet.", `id="hosting-form"`, `value="served" checked`} {
+	for _, want := range []string{"Served by Hatamoto", "Static files &#43; live islands", "Forms", "/search", "Stays on Hatamoto: admin, API.", "No exports yet.", `id="hosting-form"`, `value="served" checked`,
+		"Test export", "Export now", "Rebuild all", `id="test-form"`, `id="export-form"`, `id="rebuild-form"`,
+		"Save a target first.", "Needs static mode. Use Test export first.", "These apply once the site is in static mode."} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
-	for _, not := range []string{"Export now", "Rebuild all", `id="export-form"`, `id="hosting-crawlers"`, `id="hosting-islands-inactive"`} {
+	for _, not := range []string{"Nothing has been exported yet.", ">live<", `id="hosting-crawlers"`, `id="hosting-islands-inactive"`, "These parts of the site still call this server."} {
 		if strings.Contains(body, not) {
 			t.Errorf("served page has %q", not)
 		}
+	}
+	if n := strings.Count(body, "No exports yet."); n != 1 {
+		t.Errorf("No exports yet. appears %d times, want 1", n)
+	}
+	for _, id := range []string{"test-form", "export-form", "rebuild-form"} {
+		if n := strings.Count(body, `disabled="disabled" form="`+id+`"`); n != 1 {
+			t.Errorf("button for %s: %d disabled, want 1", id, n)
+		}
+	}
+}
+
+// With a saved directory the Test export works in served mode; Export now still needs static mode.
+func TestHostingPageServedWithTarget(t *testing.T) {
+	t.Parallel()
+
+	f := servedHosting()
+	f.view.Dir = "/srv/site/public"
+	body := newHostingRig(t, f).do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %v", issues)
+	}
+	if strings.Contains(body, `aria-describedby="hosting-test-why"`) || strings.Contains(body, "Save a target first.") {
+		t.Error("Test export is disabled with a saved target")
+	}
+	if !strings.Contains(body, `aria-describedby="hosting-export-why"`) || !strings.Contains(body, "Needs static mode.") {
+		t.Error("Export now is not disabled in served mode")
+	}
+}
+
+func TestHostingPageWorkerOff(t *testing.T) {
+	t.Parallel()
+
+	f := staticHosting()
+	f.view.WorkerOff = true
+	body := newHostingRig(t, f).do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %v", issues)
+	}
+	if !strings.Contains(body, "The export worker is off on this server.") || strings.Count(body, `aria-describedby="hosting-export-why"`) != 2 {
+		t.Error("Export now and Rebuild all are not disabled with the worker reason")
+	}
+	if strings.Contains(body, `hosting-test-why">The export worker`) {
+		t.Error("Test export carries the worker reason although it needs no worker")
 	}
 }
 
@@ -133,16 +198,22 @@ func TestHostingPageStatic(t *testing.T) {
 	f := staticHosting()
 	p := newHostingRig(t, f)
 	body := p.do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `aria-describedby="hosting-test-why"`) || !strings.Contains(body, "In static mode, use Export now.") {
+		t.Error("Test export is not disabled with its reason in static mode")
+	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}
-	for _, want := range []string{"Export now", "Rebuild all", `id="export-form"`, `id="rebuild-form"`, `id="hosting-crawlers"`, "214 pages", "2 minutes ago", "https://live.example.com", "upload refused"} {
+	for _, want := range []string{"Export now", "Rebuild all", `id="export-form"`, `id="rebuild-form"`, `id="hosting-crawlers"`, "214 pages", "2 minutes ago", "https://live.example.com", "upload refused", "Test export", `id="test-form"`, "These parts of the site still call this server.", ">live<"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
 	if !strings.Contains(body, "Failed") || !strings.Contains(body, "hm-badge--danger") {
 		t.Error("the failed run has no danger badge")
+	}
+	if strings.Contains(body, `aria-describedby="hosting-export-why"`) {
+		t.Error("Export now or Rebuild all is disabled in static mode with a target")
 	}
 	if strings.Contains(body, `id="hosting-islands-inactive"`) {
 		t.Error("islands warning without a reason")
@@ -258,6 +329,7 @@ func TestHostingSaveNeverEchoesOrAuditsTheSecretKey(t *testing.T) {
 
 	f := staticHosting()
 	p := newHostingSaveRig(t, f)
+	grantSudo(p.rig)
 	rec := p.do("POST", hostingURL, "owner-token", hostingForm(nil), nil)
 	if rec.Code != 303 || rec.Header().Get("Location") != hostingURL {
 		t.Fatalf("save = %d %s", rec.Code, rec.Header().Get("Location"))
@@ -287,6 +359,7 @@ func TestHostingSaveRefusedByServiceDropsTheSecret(t *testing.T) {
 	f := staticHosting()
 	f.saveErrs = []ui.FieldError{{ID: "hosting-live-origin", Label: "Live origin", Message: "Use a different address from the site."}}
 	p := newHostingSaveRig(t, f)
+	grantSudo(p.rig)
 	rec := p.do("POST", hostingURL, "owner-token", hostingForm(url.Values{"bucket": {"posted-bucket"}}), nil)
 	body := rec.Body.String()
 	if rec.Code != 422 || !strings.Contains(body, "Use a different address from the site.") || !strings.Contains(body, `href="#hosting-live-origin"`) {
@@ -311,12 +384,59 @@ func TestHostingSaveBlankSecretKeepsTheStoredKey(t *testing.T) {
 
 	f := staticHosting()
 	p := newHostingSaveRig(t, f)
+	grantSudo(p.rig)
 	rec := p.do("POST", hostingURL, "owner-token", hostingForm(url.Values{"secret_key": {""}}), nil)
 	if rec.Code != 303 || len(f.saved) != 1 || f.saved[0].SecretKey != "" {
 		t.Fatalf("code %d, saved %+v", rec.Code, f.saved)
 	}
 	if p.events[0].Detail["secret_changed"] != false {
 		t.Errorf("detail = %v", p.events[0].Detail)
+	}
+}
+
+func TestHostingSaveStaticTargetChangeNeedsSudo(t *testing.T) {
+	t.Parallel()
+
+	for name, extra := range map[string]url.Values{
+		"target":      {"target": {"dir"}, "dir": {"/srv/site"}},
+		"live origin": {"live_origin": {"https://other.example.com"}},
+		"secret":      {},
+	} {
+		f := staticHosting()
+		p := newHostingSaveRig(t, f)
+		form := hostingForm(extra)
+		if name != "secret" {
+			form.Set("secret_key", "")
+		}
+		rec := p.do("POST", hostingURL, "owner-token", form, nil)
+		if rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), p.a.sudoPath()) {
+			t.Fatalf("%s: save = %d %s, want the sudo page", name, rec.Code, rec.Header().Get("Location"))
+		}
+		if len(f.saved) != 0 || len(p.events) != 0 {
+			t.Fatalf("%s: saved %d, audited %d before sudo", name, len(f.saved), len(p.events))
+		}
+		grantSudo(p.rig)
+		if rec := p.do("POST", hostingURL, "owner-token", form, nil); rec.Code != 303 || len(f.saved) != 1 {
+			t.Fatalf("%s: with sudo = %d, saved %d", name, rec.Code, len(f.saved))
+		}
+	}
+}
+
+// Posting the page back unchanged needs no password.
+func TestHostingSaveStaticUnchangedNeedsNoSudo(t *testing.T) {
+	t.Parallel()
+
+	f := staticHosting()
+	p := newHostingSaveRig(t, f)
+	v := f.view
+	form := url.Values{
+		"mode": {v.Mode}, "target": {v.Target}, "dir": {v.Dir}, "service": {v.Service}, "endpoint": {v.Endpoint},
+		"bucket": {v.Bucket}, "prefix": {v.Prefix}, "region": {v.Region}, "access_key": {v.AccessKey},
+		"secret_key": {""}, "live_origin": {v.LiveOrigin},
+	}
+	rec := p.do("POST", hostingURL, "owner-token", form, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != hostingURL || len(f.saved) != 1 {
+		t.Fatalf("unchanged save = %d %s, saved %d", rec.Code, rec.Header().Get("Location"), len(f.saved))
 	}
 }
 
@@ -340,6 +460,7 @@ func TestHostingSaveServiceFailureIsAnErrorPage(t *testing.T) {
 	f := staticHosting()
 	f.saveFatal = errors.New("db down " + testHostingSecret)
 	p := newHostingSaveRig(t, f)
+	grantSudo(p.rig)
 	rec := p.do("POST", hostingURL, "owner-token", hostingForm(nil), nil)
 	if rec.Code != 500 || strings.Contains(rec.Body.String(), testHostingSecret) || strings.Contains(rec.Body.String(), "db down") {
 		t.Fatalf("code %d", rec.Code)

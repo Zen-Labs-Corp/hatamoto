@@ -229,14 +229,20 @@ files + live islands* publishes the pages as files and keeps the interactive
 parts (forms, search, comments, consent, the pageview beacon and plugin public
 routes) on this server, which answers them for the static site. The page lists
 the live islands and the ones that stay on Hatamoto, read from the island
-inventory. Switching the mode asks for your password again. It is refused while
+inventory. On a served site the list shows which islands would stay live once
+the site is static, with no status until then. Switching the mode asks for your password again. It is refused while
 Site access or the demo is on, and while the target is incomplete.
 
 **Target.** A local directory, or S3-compatible storage (service, endpoint,
-region, bucket, folder prefix, access key and secret key). The secret key is
+region, bucket, folder prefix, access key and secret key). The page shows only
+the fields of the chosen target; the fields of the other one keep their saved
+values. The secret key is
 stored sealed with a key derived from the server secret, is never shown again
 and a blank field keeps the saved one. The live origin is the address where the
-islands answer; it must differ from the site address in its host.
+islands answer; it must differ from the site address in its host. While the site is static,
+a Save that changes the target, any of its fields, the secret key or the live
+origin asks for your password. Nothing is kept across the password page, so
+enter the changes again.
 
 **What starts an export.** With the worker running and the mode set to static,
 an export starts about 30 seconds after the last of these changes (at most
@@ -250,10 +256,24 @@ On a served site, or without the worker, nothing runs by itself. Only one
 export runs at a time: if another process holds the run, the export is
 retried after the next window.
 
-**Buttons.** *Export now* starts an export without waiting. *Rebuild all*
-re-publishes every file instead of only the changed ones (removed files are
-still deleted) and asks for your password. Both need static mode and the
-worker.
+**Buttons.** All three are always shown. *Test export* is for a served
+site: it writes the site to the saved target, with islands rewritten as in
+static mode, without changing what visitors get. In static mode it is disabled
+("In static mode, use Export now.") because it would publish to the live
+target; use *Export now* there. It needs a saved target ("Save a target
+first."), does not ask for your password, sends no failure mail, shows no
+failure banner and appears in the log as "Test export". With no live origin
+set, islands keep this site's relative paths. A test export writes real files:
+a directory your web server already serves is published. *Export now* starts an
+export without waiting. *Rebuild all* re-publishes every file instead of only
+the changed ones (removed files are still deleted) and asks for your password.
+Both are disabled with the reason when the site is served ("Needs static mode.
+Use Test export first.") or the worker is off ("The export worker is off on
+this server."). Only one export runs at a time, test exports included.
+
+**Last export.** After a failed run the line reads "Failed <time ago> ·
+<first error>" and, when there is one, "last good:" with that run's pages, size,
+duration and errors. Test exports are not counted.
 
 **Failures.** A failed run shows a banner on the dashboard and on the Hosting
 page, and every owner gets one email when a run fails after a run that did not.

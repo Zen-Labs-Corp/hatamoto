@@ -128,12 +128,12 @@
 <label class="hm-field__check" for="hosting-target-1"><input class="hm-field__box" type="radio" id="hosting-target-1" name="target" value="s3"><span>S3-compatible storage</span></label>
 </fieldset>
 </div>
-<div class="hm-field">
+<div data-hosting-only="dir"><div class="hm-field">
 <label class="hm-field__label" for="hosting-dir">Directory</label>
 <input class="hm-field__control" type="text" id="hosting-dir" name="dir" aria-describedby="hosting-dir-help" autocomplete="off">
 <p class="hm-field__help" id="hosting-dir-help">An absolute path, for example /var/www/site. Your web server serves it.</p>
-</div>
-<p class="hm-muted">or</p>
+</div></div>
+<div data-hosting-only="s3">
 <div class="hm-field">
 <label class="hm-field__label" for="hosting-service">Storage service</label>
 <div class="hm-select" data-hm-select><select class="hm-field__control" id="hosting-service" name="service" aria-describedby="hosting-service-help"><option value="aws" selected>Amazon S3</option><option value="r2">Cloudflare R2</option><option value="b2">Backblaze B2</option><option value="minio">MinIO</option><option value="custom">Other S3-compatible storage</option></select></div>
@@ -168,6 +168,7 @@
 <input class="hm-field__control" type="password" id="hosting-secret-key" name="secret_key" aria-describedby="hosting-secret-key-help" autocomplete="new-password">
 <p class="hm-field__help" id="hosting-secret-key-help">The key stays on the server and is never shown again.</p>
 </div></div>
+</div>
 </div></section>
 <section class="hm-card" id="hosting-addresses" aria-labelledby="hosting-addresses-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="hosting-addresses-title">Addresses</h2></div>
@@ -184,13 +185,13 @@
 </div>
 </div></section>
 <section class="hm-card" id="hosting-islands-card" aria-labelledby="hosting-islands-card-title">
-<div class="hm-card__head"><h2 class="hm-card__title" id="hosting-islands-card-title">Live islands</h2><p class="hm-muted">These parts of the site still call this server.</p></div>
+<div class="hm-card__head"><h2 class="hm-card__title" id="hosting-islands-card-title">Live islands</h2><p class="hm-muted">These apply once the site is in static mode.</p></div>
 <div class="hm-card__body">
 <div class="hm-card hm-tablecard" id="hosting-islands">
 <div class="hm-table__scroll" role="region" aria-label="Live islands" tabindex="0"><table class="hm-table hm-table--cards"><caption class="hm-visually-hidden">Live islands</caption>
-<thead><tr><th scope="col" class="hm-col-title">Island</th><th scope="col">Route</th><th scope="col">Status</th></tr></thead>
-<tbody><tr id="row-/forms/*"><th scope="row" data-label="Island" class="hm-table__rowhead hm-col-title">Forms</th><td data-label="Route"><span class="hm-table__mono">/forms/*</span></td><td data-label="Status"><span class="hm-badge hm-badge--success"><span class="hm-badge__dot" aria-hidden="true"></span>live</span></td></tr>
-<tr id="row-/search"><th scope="row" data-label="Island" class="hm-table__rowhead hm-col-title">Search</th><td data-label="Route"><span class="hm-table__mono">/search</span></td><td data-label="Status"><span class="hm-badge hm-badge--success"><span class="hm-badge__dot" aria-hidden="true"></span>live</span></td></tr>
+<thead><tr><th scope="col" class="hm-col-title">Island</th><th scope="col">Route</th></tr></thead>
+<tbody><tr id="row-/forms/*"><th scope="row" data-label="Island" class="hm-table__rowhead hm-col-title">Forms</th><td data-label="Route"><span class="hm-table__mono">/forms/*</span></td></tr>
+<tr id="row-/search"><th scope="row" data-label="Island" class="hm-table__rowhead hm-col-title">Search</th><td data-label="Route"><span class="hm-table__mono">/search</span></td></tr>
 </tbody></table></div>
 
 </div>
@@ -199,16 +200,21 @@
 <section class="hm-card" id="hosting-exports" aria-labelledby="hosting-exports-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="hosting-exports-title">Exports</h2></div>
 <div class="hm-card__body">
-<p role="status">Nothing has been exported yet.</p>
-<div class="hm-card hm-tablecard" id="hosting-log">
+
 <div class="hm-empty hm-empty--compact"><span class="hm-empty__icon"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg></span>
 <p class="hm-empty__title">No exports yet.</p>
 </div>
-
-</div>
-</div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button>
+<p class="hm-field__help" id="hosting-test-why">Save a target first.</p>
+<p class="hm-field__help" id="hosting-export-why">Needs static mode. Use Test export first.</p>
+</div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--secondary" aria-describedby="hosting-test-why" disabled="disabled" form="test-form"><span>Test export</span></button>
+<button type="submit" class="hm-btn hm-btn--secondary" aria-describedby="hosting-export-why" disabled="disabled" form="export-form"><span>Export now</span></button>
+<button type="submit" class="hm-btn hm-btn--secondary" aria-describedby="hosting-export-why" disabled="disabled" form="rebuild-form"><span>Rebuild all</span></button>
+<button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button>
 </footer></section>
 </form>
+<form id="test-form" method="post" action="/admin/settings/hosting/test"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
+<form id="export-form" method="post" action="/admin/settings/hosting/export"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
+<form id="rebuild-form" method="post" action="/admin/settings/hosting/rebuild"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
 <p class="hm-muted">Dates are in the site time zone: Europe/Paris.</p>
 
 </div>
