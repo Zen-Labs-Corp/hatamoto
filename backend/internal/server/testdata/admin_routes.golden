@@ -137,6 +137,8 @@ GET /admin/settings/general -> admin.(*Admin).handleGeneral-fm
 GET /admin/settings/general/locales/convert -> admin.(*Admin).handleConvert-fm
 GET /admin/settings/general/locales/convert/apply -> admin.(*Admin).handleConvertApplyConfirm-fm
 GET /admin/settings/general/locales/convert/history/{id}/revert -> admin.(*Admin).handleConvertRevertConfirm-fm
+GET /admin/settings/hosting -> admin.(*Admin).handleHosting-fm
+GET /admin/settings/hosting/mode -> admin.(*Admin).handleHostingModeConfirm-fm
 GET /admin/settings/import -> admin.(*Admin).handleImportSource-fm
 GET /admin/settings/import-export -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/import/csv -> admin.(*Admin).handleCSVUploadForm-fm
@@ -405,6 +407,10 @@ POST /admin/settings/general/locales/convert/apply -> admin.(*Admin).handleConve
 POST /admin/settings/general/locales/convert/history/{id}/revert -> admin.(*Admin).handleConvertRevert-fm
 POST /admin/settings/general/locales/convert/report -> admin.(*Admin).handleConvertReport-fm
 POST /admin/settings/general/locales/convert/suggest -> admin.(*Admin).handleConvertSuggest-fm
+POST /admin/settings/hosting -> admin.(*Admin).handleHostingSave-fm
+POST /admin/settings/hosting/export -> admin.(*Admin).handleHostingExport-fm
+POST /admin/settings/hosting/mode -> admin.(*Admin).handleHostingMode-fm
+POST /admin/settings/hosting/rebuild -> admin.(*Admin).handleHostingRebuild-fm
 POST /admin/settings/import/csv -> admin.(*Admin).handleCSVUpload-fm
 POST /admin/settings/import/csv/{id}/map -> admin.(*Admin).handleCSVMap-fm
 POST /admin/settings/import/csv/{id}/run -> admin.(*Admin).handleCSVRun-fm
