@@ -64,6 +64,11 @@ func (e *Engine) publish(ctx context.Context, csID int64, mode publishMode, gate
 			stale = true
 			return ErrExpired
 		}
+		if cs.Kind == ChangesetEdit {
+			if err := stagesApproved(ctx, tx, cs); err != nil {
+				return err
+			}
+		}
 		if gate != nil {
 			if err := gate(tx, cs); err != nil {
 				return err
@@ -96,7 +101,7 @@ func (e *Engine) publish(ctx context.Context, csID int64, mode publishMode, gate
 				continue
 			}
 			n := len(res.Items)
-			if err := e.publishItem(ctx, tx, cs.Plugin, it, &res, &undos); err != nil {
+			if err := e.publishItem(ctx, tx, cs, it, &res, &undos); err != nil {
 				return fmt.Errorf("item %d (%s): %w", it.Seq, it.Kind, err)
 			}
 			if len(res.Items) > n {
@@ -151,7 +156,7 @@ func publishAuditDetail(res Result, mode publishMode, dropped int) map[string]an
 	return detail
 }
 
-func (e *Engine) publishItem(ctx context.Context, tx pgx.Tx, plugin string, it StoredItem, res *Result, undos *[]func(context.Context)) error {
+func (e *Engine) publishItem(ctx context.Context, tx pgx.Tx, cs changesetRow, it StoredItem, res *Result, undos *[]func(context.Context)) error {
 	w, ok := e.Writers[it.Kind]
 	if !ok {
 		return fmt.Errorf("%w: %q", ErrNoWriter, it.Kind)
@@ -159,19 +164,22 @@ func (e *Engine) publishItem(ctx context.Context, tx pgx.Tx, plugin string, it S
 	target := it.TargetID
 	if target == "" {
 		var err error
-		if target, err = mappedTarget(ctx, tx, Origin(plugin), it.Kind, it.SourceKey); err != nil {
+		if target, err = mappedTarget(ctx, tx, Origin(cs.Plugin), it.Kind, it.SourceKey); err != nil {
 			return err
 		}
 	}
-	// The object may have changed hands since the item was staged.
-	if err := e.checkOwnership(ctx, tx, ownerPlugin(plugin, it.Item), it.Kind, target); errors.Is(err, ErrNotOwned) {
-		res.Skipped++
-		res.Conflicts = append(res.Conflicts, ConflictItem{Seq: it.Seq, Kind: it.Kind, SourceKey: it.SourceKey, TargetID: target, Reason: ReasonNotOwned})
-		return recordResult(ctx, tx, it.ID, ResultSkippedOther, ReasonNotOwned, target, nil, "")
-	} else if err != nil {
-		return err
+	// The object may have changed hands since the item was staged. A person
+	// may edit an object of any origin, so an edit skips the check.
+	if cs.Kind != ChangesetEdit {
+		if err := e.checkOwnership(ctx, tx, ownerPlugin(cs.Plugin, it.Item), it.Kind, target); errors.Is(err, ErrNotOwned) {
+			res.Skipped++
+			res.Conflicts = append(res.Conflicts, ConflictItem{Seq: it.Seq, Kind: it.Kind, SourceKey: it.SourceKey, TargetID: target, Reason: ReasonNotOwned})
+			return recordResult(ctx, tx, it.ID, ResultSkippedOther, ReasonNotOwned, target, nil, "")
+		} else if err != nil {
+			return err
+		}
 	}
-	origin := Origin(plugin)
+	origin := Origin(cs.Plugin)
 	beforeTok := ""
 	if target != "" {
 		var err error
