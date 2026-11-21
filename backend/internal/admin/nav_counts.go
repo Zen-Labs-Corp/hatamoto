@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/form"
 )
 
@@ -83,25 +84,25 @@ func (a *Admin) wireNavCounts() {
 	entities := countBadge(navCountTTL, time.Now, navRefreshRun, a.entityDrafts)
 	plugins := countBadge(navCountTTL, time.Now, navRefreshRun, a.pluginTotal)
 	a.nav.update("entities", func(it *NavItem) {
-		it.Badge = func(string) string { return entities() }
-		it.BadgeLabel = func(_, b string) string { return countLabel(b, "draft to review", "drafts to review") }
+		it.Badge = func(viewer) string { return entities() }
+		it.BadgeLabel = func(_ viewer, b string) string { return countLabel(b, "draft to review", "drafts to review") }
 	})
 	forms := countBadge(navCountTTL, time.Now, navRefreshRun, a.newSubmissions)
 	a.nav.update("forms", func(it *NavItem) {
-		it.Badge = func(string) string { return forms() }
-		it.BadgeLabel = func(_, b string) string { return countLabel(b, "new submission", "new submissions") }
+		it.Badge = func(viewer) string { return forms() }
+		it.BadgeLabel = func(_ viewer, b string) string { return countLabel(b, "new submission", "new submissions") }
 	})
 	if a.deps.Comments != nil {
 		a.wireCommentsNav()
 	}
 	a.nav.update(pluginsID, func(it *NavItem) {
-		it.Badge = func(role string) string {
-			if role != "owner" {
+		it.Badge = func(v viewer) string {
+			if !v.Can(authz.ActionPluginManage) {
 				return ""
 			}
 			return plugins()
 		}
-		it.BadgeLabel = func(_, b string) string { return countLabel(b, "plugin installed", "plugins installed") }
+		it.BadgeLabel = func(_ viewer, b string) string { return countLabel(b, "plugin installed", "plugins installed") }
 	})
 }
 
@@ -194,9 +195,9 @@ func (a *Admin) wireCommentsNav() {
 		return pending, shown
 	}
 	a.nav.update("comments", func(it *NavItem) {
-		it.Visible = func(string) bool { _, sh := get(); return sh() != "" }
-		it.Badge = func(string) string { p, _ := get(); return p() }
-		it.BadgeLabel = func(_, b string) string { return countLabel(b, "comment to moderate", "comments to moderate") }
+		it.Visible = func(viewer) bool { _, sh := get(); return sh() != "" }
+		it.Badge = func(viewer) string { p, _ := get(); return p() }
+		it.BadgeLabel = func(_ viewer, b string) string { return countLabel(b, "comment to moderate", "comments to moderate") }
 	})
 }
 

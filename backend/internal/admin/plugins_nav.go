@@ -3,6 +3,8 @@ package admin
 import (
 	"net/url"
 	"strings"
+
+	"hatamoto.dev/core/authz"
 )
 
 // PluginNavEntry is one link of the Plugins subnav. ID is the no-JS select's
@@ -19,13 +21,13 @@ func isPluginsPath(prefix, p string) bool {
 	return p == base || strings.HasPrefix(p, base+"/")
 }
 
-// pluginsNavFor builds the subnav for role on path: "All plugins" and one
+// pluginsNavFor builds the subnav for the viewer on path: "All plugins" and one
 // entry per installed plugin for the owner, only the plugins whose UI admits
 // them for an editor. Off and failed plugins are muted with a marker.
-func (a *Admin) pluginsNavFor(role, path string) []PluginNavEntry {
+func (a *Admin) pluginsNavFor(v viewer, path string) []PluginNavEntry {
 	var out []PluginNavEntry
 	all := -1
-	if role == "owner" {
+	if v.Can(authz.ActionPluginManage) {
 		all = len(out)
 		out = append(out, PluginNavEntry{ID: "", Href: a.url("plugins"), Label: "All plugins", Current: a.isPluginsParentPath(path)})
 	}
@@ -35,7 +37,7 @@ func (a *Admin) pluginsNavFor(role, path string) []PluginNavEntry {
 	}
 	matched := false
 	for _, p := range pa.Plugins() {
-		if role != "owner" && !uiAllows(p, role) {
+		if !v.Can(authz.ActionPluginManage) && !(v.Can(authz.ActionPluginUIAccess) && uiAllows(p, v.Role)) {
 			continue
 		}
 		href := a.url("plugins", url.PathEscape(p.Name))

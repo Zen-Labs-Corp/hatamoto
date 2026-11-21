@@ -153,10 +153,10 @@ func TestPluginsCountIsOwnerOnly(t *testing.T) {
 		if it.ID != pluginsID {
 			continue
 		}
-		if got := it.Badge("owner"); got != "3" {
+		if got := it.Badge(roleViewer("owner")); got != "3" {
 			t.Errorf("owner badge %q, want 3", got)
 		}
-		if got := it.Badge("editor"); got != "" {
+		if got := it.Badge(roleViewer("editor")); got != "" {
 			t.Errorf("editor badge %q, want none", got)
 		}
 	}
@@ -221,7 +221,7 @@ func TestPluginsMarkerIsLabelled(t *testing.T) {
 	for _, it := range a.nav.all() {
 		if it.ID == pluginsID {
 			found = true
-			if got := it.BadgeLabel("owner", "3"); got != "3 plugins installed" {
+			if got := it.BadgeLabel(roleViewer("owner"), "3"); got != "3 plugins installed" {
 				t.Errorf("label %q", got)
 			}
 		}
@@ -256,14 +256,14 @@ func TestFormsMarkerCountsNewSubmissions(t *testing.T) {
 		}
 	}
 	for _, role := range []string{"owner", "editor"} {
-		if got := item.Badge(role); got != "3" {
+		if got := item.Badge(roleViewer(role)); got != "3" {
 			t.Errorf("%s: badge %q, want 3", role, got)
 		}
 	}
-	if got := item.BadgeLabel("owner", "3"); got != "3 new submissions" {
+	if got := item.BadgeLabel(roleViewer("owner"), "3"); got != "3 new submissions" {
 		t.Errorf("label %q", got)
 	}
-	if got := item.BadgeLabel("owner", "1"); got != "1 new submission" {
+	if got := item.BadgeLabel(roleViewer("owner"), "1"); got != "1 new submission" {
 		t.Errorf("label %q", got)
 	}
 }
@@ -304,25 +304,25 @@ func TestCommentsBadge(t *testing.T) {
 	t.Parallel()
 
 	it := commentsNavItem(t, &fakeComments{counts: CommentCounts{Pending: 3}})
-	if !it.Visible("editor") || it.Badge("editor") != "3" {
-		t.Errorf("pending 3: visible %v, badge %q", it.Visible("editor"), it.Badge("editor"))
+	if !it.Visible(roleViewer("editor")) || it.Badge(roleViewer("editor")) != "3" {
+		t.Errorf("pending 3: visible %v, badge %q", it.Visible(roleViewer("editor")), it.Badge(roleViewer("editor")))
 	}
-	if got := it.BadgeLabel("editor", "3"); got != "3 comments to moderate" {
+	if got := it.BadgeLabel(roleViewer("editor"), "3"); got != "3 comments to moderate" {
 		t.Errorf("label %q", got)
 	}
-	if got := it.BadgeLabel("editor", "1"); got != "1 comment to moderate" {
+	if got := it.BadgeLabel(roleViewer("editor"), "1"); got != "1 comment to moderate" {
 		t.Errorf("label %q", got)
 	}
 
-	if it := commentsNavItem(t, &fakeComments{}); it.Visible("owner") {
+	if it := commentsNavItem(t, &fakeComments{}); it.Visible(roleViewer("owner")) {
 		t.Error("off and empty: the item must be hidden")
 	}
 	it = commentsNavItem(t, &fakeComments{settings: CommentSettings{Enabled: true}})
-	if !it.Visible("owner") || it.Badge("owner") != "" {
-		t.Errorf("enabled, none pending: visible %v, badge %q", it.Visible("owner"), it.Badge("owner"))
+	if !it.Visible(roleViewer("owner")) || it.Badge(roleViewer("owner")) != "" {
+		t.Errorf("enabled, none pending: visible %v, badge %q", it.Visible(roleViewer("owner")), it.Badge(roleViewer("owner")))
 	}
 	it = commentsNavItem(t, &fakeComments{counts: CommentCounts{Trash: 2}})
-	if !it.Visible("owner") {
+	if !it.Visible(roleViewer("owner")) {
 		t.Error("off with existing comments: the item must show")
 	}
 }
@@ -332,7 +332,7 @@ func TestCommentsNavHiddenWithoutService(t *testing.T) {
 
 	a := &Admin{nav: defaultNav("/admin")}
 	a.wireNavCounts()
-	for _, it := range a.nav.For("owner", "/admin") {
+	for _, it := range a.nav.For(roleViewer("owner"), "/admin") {
 		if it.Label == "Comments" {
 			t.Error("Comments shows without a service")
 		}
@@ -359,7 +359,7 @@ func TestCommentsNavRefreshAfterSwitch(t *testing.T) {
 	svc.mu.Lock()
 	svc.counts = CommentCounts{}
 	svc.mu.Unlock()
-	if item().Visible("owner") {
+	if item().Visible(roleViewer("owner")) {
 		t.Fatal("off and empty: the item must be hidden")
 	}
 	svc.mu.Lock()
@@ -367,7 +367,7 @@ func TestCommentsNavRefreshAfterSwitch(t *testing.T) {
 	svc.counts = CommentCounts{Pending: 3}
 	svc.mu.Unlock()
 	a.refreshCommentsNav()
-	if it := item(); !it.Visible("owner") || it.Badge("owner") != "3" {
-		t.Errorf("after the switch: visible %v, badge %q", it.Visible("owner"), it.Badge("owner"))
+	if it := item(); !it.Visible(roleViewer("owner")) || it.Badge(roleViewer("owner")) != "3" {
+		t.Errorf("after the switch: visible %v, badge %q", it.Visible(roleViewer("owner")), it.Badge(roleViewer("owner")))
 	}
 }

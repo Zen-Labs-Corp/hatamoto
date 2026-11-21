@@ -597,9 +597,9 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 	v.areas = a.areas
 	v.Section, v.Tab = areaLocateAmong(a.areaSet(), a.adminPath, r.URL.Path)
 	if v.User != nil {
-		v.Nav = a.nav.For(v.User.Role, r.URL.Path)
+		v.Nav = a.nav.For(v.viewer(), r.URL.Path)
 		if v.Section == "" && isPluginsPath(a.adminPath, r.URL.Path) {
-			v.pluginNav = a.pluginsNavFor(v.User.Role, r.URL.Path)
+			v.pluginNav = a.pluginsNavFor(v.viewer(), r.URL.Path)
 		}
 	}
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {

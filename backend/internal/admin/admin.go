@@ -554,13 +554,15 @@ func New(d Deps) (*Admin, error) {
 	a.tickets = &ticketStore{key: deriveTicketKey(a.csrfKey), backend: d.FrameTickets, log: a.logger}
 	// Plugins is the owner's, and an editor's when a plugin UI admits them.
 	d.Nav.update(pluginsID, func(it *NavItem) {
-		it.Roles = nil
-		it.Visible = func(role string) bool { return role == "owner" || a.firstUIPlugin(role) != "" }
-		it.HrefFor = func(role string) string {
-			if role == "owner" {
+		it.Cap = ""
+		it.Visible = func(v viewer) bool {
+			return v.Can(authz.ActionPluginManage) || (v.Can(authz.ActionPluginUIAccess) && a.firstUIPlugin(v.Role) != "")
+		}
+		it.HrefFor = func(v viewer) string {
+			if v.Can(authz.ActionPluginManage) {
 				return a.url("plugins")
 			}
-			return a.url("plugins", url.PathEscape(a.firstUIPlugin(role)), "settings")
+			return a.url("plugins", url.PathEscape(a.firstUIPlugin(v.Role)), "settings")
 		}
 	})
 	a.wireNavCounts()
