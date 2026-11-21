@@ -143,8 +143,8 @@ A user created by the provisioner has no password (the column is NULL). Such a
 user cannot sign in with a password: the attempt takes the same time as a wrong
 password and shows the neutral message. It does not count toward the lockout,
 because there is no password to guess and a lock would only keep the user out
-of provider sign-in. A correct password that the sign-in policy refuses does
-not count either, and does not clear the failure counter. They can
+of provider sign-in. A password the sign-in policy refuses, right or wrong,
+does not count either, and does not clear the failure counter. They can
 get one through a password-set link, a password reset or a passkey. The
 re-confirmation that guards sensitive actions asks for a password, so a user
 who has none needs one of those first.

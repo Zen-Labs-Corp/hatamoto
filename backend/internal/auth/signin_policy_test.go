@@ -60,6 +60,28 @@ func TestSignInPolicyRefusesPasswordEntryPoints(t *testing.T) {
 	}
 }
 
+// A wrong password for a user the policy refuses for password must not count
+// toward the lockout: it would let anyone lock that user out of provider
+// sign-in. Sudo is no sign-in, so a wrong password there still counts.
+func TestWrongPasswordUnderRefusingPolicyIsNotCounted(t *testing.T) {
+	ctx := context.Background()
+	registerPolicy(t, &refuseMethods{refuse: map[authstate.Method]bool{authstate.MethodPassword: true}})
+	svc, repo, u := factorRig(t, fakeGate{}, nil)
+
+	if _, err := svc.CheckPassword(ctx, u.Email, "wrong-password"); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("CheckPassword: %v", err)
+	}
+	if repo.recordFailedCalled {
+		t.Fatal("a wrong password for a policy-refused user counted toward the lockout")
+	}
+	if err := svc.ConfirmPassword(ctx, u.ID, u.Email, "wrong-password"); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("ConfirmPassword: %v", err)
+	}
+	if !repo.recordFailedCalled {
+		t.Fatal("a wrong sudo password no longer counts toward the lockout")
+	}
+}
+
 func TestSignInPolicyAdmitByMethod(t *testing.T) {
 	ctx := context.Background()
 	registerPolicy(t, &refuseMethods{refuse: map[authstate.Method]bool{authstate.MethodPasskey: true}})

@@ -300,7 +300,8 @@ func (s *Service) authenticate(ctx context.Context, email, password string, mode
 		// Best-effort: a bookkeeping error must not change the auth outcome.
 		// A user with no password has nothing to guess: counting would only
 		// let anyone lock them out of provider sign-in.
-		if s.neverLocked(u.Email) || u.PasswordHash == "" {
+		// The same holds for a user the policy refuses password sign-in for.
+		if s.neverLocked(u.Email) || u.PasswordHash == "" || (signIn && s.allow(ctx, u, viaPassword) != nil) {
 			return nil, false, ErrInvalidCredentials
 		}
 		if mode == failMemory {
