@@ -48,7 +48,8 @@ type CommentItem struct {
 // CommentForm feeds the comments/form partial. Name, Email, Body, Honeypot and
 // Token hold the rotated field names and the form token the server issues per
 // request; the cached page carries CommentFormPlaceholders instead, which the
-// server swaps for real values (CommentFormMarker flags such a page).
+// server swaps for real values (CommentFormMarker flags such a page). The
+// value fields echo typed input back after a fixable error, also as placeholders.
 type CommentForm struct {
 	Action   string // "/-/comments/<entity-id>"
 	Token    string
@@ -62,6 +63,16 @@ type CommentForm struct {
 	Captcha  *CommentCaptcha
 	MaxBody  int
 	HX       bool
+
+	// BodyValue, NameValue and EmailValue are set only when a fixable error
+	// sends the form back; they hold CommentValuePlaceholders, which the server
+	// replaces with the escaped typed values. Notify re-checks the reply opt-in.
+	BodyValue, NameValue, EmailValue string
+	Notify                           bool
+
+	// Focus names the field an error is about ("body", "name" or "email"); the
+	// default form puts autofocus on it so the browser lands at the form.
+	Focus string
 }
 
 // CommentCaptcha names the captcha widget the form shows.
@@ -76,4 +87,11 @@ const CommentFormMarker = "data-hm-cform"
 var CommentFormPlaceholders = CommentForm{
 	Token: "__hmcf_tok__", Body: "__hmcf_body__", Name: "__hmcf_name__",
 	Email: "__hmcf_email__", Honeypot: "__hmcf_hp__", Extra: "__hmcf_extra__",
+}
+
+// CommentValuePlaceholders are what the value fields hold on an error render.
+// The server swaps them for the HTML-escaped values in the same single pass as
+// the token and names, so typed text is never rewritten.
+var CommentValuePlaceholders = CommentForm{
+	BodyValue: "__hmcf_vbody__", NameValue: "__hmcf_vname__", EmailValue: "__hmcf_vemail__",
 }

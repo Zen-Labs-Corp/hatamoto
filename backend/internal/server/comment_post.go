@@ -36,8 +36,10 @@ type commentPostHooks struct {
 // handleCommentPost takes a public comment post (POST /-/comments/{entityID}).
 // The route carries its own per-IP limiter (mounted with the route), so the
 // handler does not rate-limit invalid tokens itself; the submit pipeline
-// limits everything behind the token check. Every answer is a redirect or an
-// htmx fragment built from fixed codes: nothing the sender typed is echoed.
+// limits everything behind the token check. An error the sender can fix comes
+// back as the page (or the htmx fragment) with their own values in the response
+// body, private and no-store; the values are never put in a URL or a cookie.
+// Every other answer is a redirect or a fragment built from fixed codes.
 func (s *Server) handleCommentPost(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	p := s.commentSubmit
@@ -122,11 +124,22 @@ func (s *Server) handleCommentPost(w http.ResponseWriter, r *http.Request) {
 	default: // FakeSuccess: the shape of a post the sender cannot see
 		notice, target = "posted", path+"?cnotice=posted#hm-comments"
 	}
+	var echo *commentEcho
+	if out.Kind == commentsubmit.Invalid {
+		e := commentEcho{EntityID: id, Code: out.Code, Typed: out.Typed}
+		if req.ParentID != nil {
+			e.ParentID = req.ParentID.String()
+		}
+		echo = &e
+	}
 	if r.Header.Get("HX-Request") == "true" {
-		if s.writeCommentFragment(w, r, id, path, req, out, notice, errCode) {
+		if s.writeCommentFragment(w, r, id, path, req, out, notice, errCode, echo) {
 			return
 		}
+	} else if echo != nil && s.writeCommentPage(w, r, path, *echo) {
+		return
 	}
+	// The ?cerror= redirect stays as the fallback (page handlers not mounted).
 	http.Redirect(w, r, target, http.StatusSeeOther)
 }
 
@@ -204,7 +217,7 @@ func (s *Server) commentDevice(r *http.Request) (uuid.UUID, bool) {
 // out-of-band insert. It returns false (nothing written) when it cannot, and
 // the caller then redirects like a plain post.
 func (s *Server) writeCommentFragment(w http.ResponseWriter, r *http.Request, id uuid.UUID, path string,
-	req commentsubmit.Request, out commentsubmit.Outcome, notice, errCode string) bool {
+	req commentsubmit.Request, out commentsubmit.Outcome, notice, errCode string, echo *commentEcho) bool {
 	if s.renderEngine == nil || s.commentSlot == nil || s.commentSubmit == nil {
 		return false
 	}
@@ -217,6 +230,22 @@ func (s *Server) writeCommentFragment(w http.ResponseWriter, r *http.Request, id
 		form.MaxBody = commentsubmit.MaxBodyRunes
 		if out.Kind == commentsubmit.Invalid && req.ParentID != nil {
 			form.ParentID = req.ParentID.String() // keep the reply target on a retry
+		}
+		if echo != nil {
+			form.Focus = commentFocus(echo.Code)
+		}
+		if echo != nil && echo.Typed != nil {
+			vp := render.CommentValuePlaceholders
+			if echo.Typed.Body != "" {
+				form.BodyValue = vp.BodyValue
+			}
+			if echo.Typed.Name != "" {
+				form.NameValue = vp.NameValue
+			}
+			if echo.Typed.Email != "" {
+				form.EmailValue = vp.EmailValue
+			}
+			form.Notify = echo.Typed.Notify
 		}
 		if set, err := s.commentSubmit.Comments.Settings(ctx); err == nil && set.Captcha {
 			if cw := s.captchaWidgetFor(ctx); cw.provider != "" {
@@ -246,12 +275,54 @@ func (s *Server) writeCommentFragment(w http.ResponseWriter, r *http.Request, id
 		}
 		return false
 	}
-	body, ok := s.commentSlot.fill(r, buf.Bytes())
+	fr := r
+	if echo != nil {
+		fr = r.WithContext(withCommentEcho(ctx, *echo))
+	}
+	body, ok := s.commentSlot.fill(fr, buf.Bytes())
 	if v.CommentForm != nil && !ok {
 		return false // never send a form that still holds the placeholders
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(body)
+	return true
+}
+
+// writeCommentPage answers a no-JS post the sender can fix with the page
+// itself: 200 on the POST, private and no-store, the form holding the error,
+// their values, a fresh token and new field names. False (nothing written)
+// when the page handlers are not mounted or do not answer 200 (a redirect, a
+// 404 or a failure never answers the post).
+func (s *Server) writeCommentPage(w http.ResponseWriter, r *http.Request, path string, echo commentEcho) bool {
+	h := s.renderHandlers
+	if h == nil || h.engine == nil || s.commentSlot == nil {
+		return false
+	}
+	hp := *h // copy: no 404 log row for a re-render
+	hp.log404 = nil
+	req := r.Clone(withCommentEcho(withUncachedRequest(r.Context()), echo))
+	req.Method, req.URL, req.RequestURI = http.MethodGet, &url.URL{Path: path}, path
+	req.Body, req.ContentLength = http.NoBody, 0
+	req.Form, req.PostForm = nil, nil
+	req.Header.Del("HX-Request")
+	req.Header.Del("Content-Type")
+	// Seeded with the outgoing headers (the security middleware's CSP) so the
+	// page handlers adjust them as they do on a normal GET.
+	bw := &bufferedResponse{h: w.Header().Clone()}
+	if path == "/" {
+		hp.handleRenderHome(bw, req)
+	} else {
+		hp.handleRenderCatchAll(bw, req)
+	}
+	if bw.status != http.StatusOK {
+		return false // a redirect, 404 or 5xx must not answer the post
+	}
+	clear(w.Header())
+	for k, v := range bw.h {
+		w.Header()[k] = v
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(bw.body)
 	return true
 }

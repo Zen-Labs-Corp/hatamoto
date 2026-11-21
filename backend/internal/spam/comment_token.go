@@ -42,23 +42,24 @@ const (
 	TokenReplayed
 )
 
-// IssueCommentToken returns a single-use token bound to a subject and a
-// hashed visitor address: v1.<unix>.<nonce>.<mac>. The random nonce makes two
+// IssueCommentToken returns a single-use token bound to a subject and the
+// hash of the visitor's network (comment.Keys.HashIP's second value: /24 IPv4,
+// /64 IPv6): v1.<unix>.<nonce>.<mac>. The random nonce makes two
 // tokens issued in the same second differ.
-func IssueCommentToken(key []byte, subject, ipHash string, now time.Time) string {
+func IssueCommentToken(key []byte, subject, netHash string, now time.Time) string {
 	nb := make([]byte, commentNonceBytes)
 	if _, err := rand.Read(nb); err != nil {
 		panic("spam: crypto/rand failed: " + err.Error())
 	}
 	nonce := base64.RawURLEncoding.EncodeToString(nb)
 	ts := strconv.FormatInt(now.Unix(), 10)
-	return "v1." + ts + "." + nonce + "." + commentTokenMAC(key, subject, ipHash, nonce, ts)
+	return "v1." + ts + "." + nonce + "." + commentTokenMAC(key, subject, netHash, nonce, ts)
 }
 
 // CheckCommentToken verifies tok and marks it used. It returns when the token
 // was issued so the caller can score the dwell time. A store failure is
 // TokenInvalid (fail closed). The minimum dwell is not checked here.
-func CheckCommentToken(ctx context.Context, key []byte, store TokenStore, subject, ipHash, tok string, now time.Time) (issued time.Time, res TokenResult) {
+func CheckCommentToken(ctx context.Context, key []byte, store TokenStore, subject, netHash, tok string, now time.Time) (issued time.Time, res TokenResult) {
 	if len(tok) > commentTokenMaxLen {
 		return time.Time{}, TokenInvalid
 	}
@@ -67,7 +68,7 @@ func CheckCommentToken(ctx context.Context, key []byte, store TokenStore, subjec
 		return time.Time{}, TokenInvalid
 	}
 	ts, nonce := parts[1], parts[2]
-	if !hmac.Equal([]byte(commentTokenMAC(key, subject, ipHash, nonce, ts)), []byte(parts[3])) {
+	if !hmac.Equal([]byte(commentTokenMAC(key, subject, netHash, nonce, ts)), []byte(parts[3])) {
 		return time.Time{}, TokenInvalid
 	}
 	sec, err := strconv.ParseInt(ts, 10, 64)
@@ -92,8 +93,8 @@ func CheckCommentToken(ctx context.Context, key []byte, store TokenStore, subjec
 	return issued, TokenOK
 }
 
-func commentTokenMAC(key []byte, subject, ipHash, nonce, ts string) string {
+func commentTokenMAC(key []byte, subject, netHash, nonce, ts string) string {
 	m := hmac.New(sha256.New, key)
-	m.Write([]byte("c|" + subject + "|" + ipHash + "|" + nonce + "|" + ts))
+	m.Write([]byte("c|" + subject + "|" + netHash + "|" + nonce + "|" + ts))
 	return base64.RawURLEncoding.EncodeToString(m.Sum(nil))
 }

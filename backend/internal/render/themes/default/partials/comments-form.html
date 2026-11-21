@@ -6,14 +6,14 @@
 <input type="hidden" name="parent" value="{{.ParentID}}">
 {{if .ReplyTo}}<p class="hm-comments__replying">{{t $ "comment_reply"}}: <strong>{{.ReplyTo}}</strong> <a href="#hm-comments">{{t $ "comment_cancel_reply"}}</a></p>
 {{end}}<div class="hm-form__field"><label class="hm-form__label" for="{{.Name}}">{{t $ "comment_name"}}</label>
-<input id="{{.Name}}" name="{{.Name}}" type="text" autocomplete="name" maxlength="80" required></div>
+<input id="{{.Name}}" name="{{.Name}}" type="text" autocomplete="name" maxlength="80"{{if eq .Focus "name"}} autofocus{{end}}{{with .NameValue}} value="{{.}}"{{end}} required></div>
 <div class="hm-form__field"><label class="hm-form__label" for="{{.Email}}">{{t $ "comment_email"}}</label>
-<input id="{{.Email}}" name="{{.Email}}" type="email" autocomplete="email" maxlength="254" required>
+<input id="{{.Email}}" name="{{.Email}}" type="email" autocomplete="email" maxlength="254"{{if eq .Focus "email"}} autofocus{{end}}{{with .EmailValue}} value="{{.}}"{{end}} required>
 <small class="hm-form__help">{{t $ "comment_email_hint"}}</small></div>
 <div class="hm-form__field"><label class="hm-form__label" for="{{.Body}}">{{t $ "comment_body"}}</label>
-<textarea id="{{.Body}}" name="{{.Body}}" rows="5"{{if .MaxBody}} maxlength="{{.MaxBody}}"{{end}} required></textarea>
+<textarea id="{{.Body}}" name="{{.Body}}" rows="5"{{if .MaxBody}} maxlength="{{.MaxBody}}"{{end}}{{if eq .Focus "body"}} autofocus{{end}} required>{{.BodyValue}}</textarea>
 <small class="hm-form__help">{{t $ "comment_links_note"}}</small></div>
-{{block "comments/form-extra" .}}<div class="hm-form__field"><label class="hm-form__check"><input type="checkbox" id="{{.Extra}}" name="{{.Extra}}" value="1"> <span>{{t $ "comment_notify_replies"}}</span></label></div>
+{{block "comments/form-extra" .}}<div class="hm-form__field"><label class="hm-form__check"><input type="checkbox" id="{{.Extra}}" name="{{.Extra}}" value="1"{{if .Notify}} checked{{end}}> <span>{{t $ "comment_notify_replies"}}</span></label></div>
 {{end}}<div class="hm-form__hp" aria-hidden="true"><label>{{t $ "comment_hp_label"}}<input type="text" name="{{.Honeypot}}" tabindex="-1" autocomplete="off"></label></div>
 {{with .Captcha}}<div class="hm-form__captcha" data-hm-captcha="{{.Provider}}" data-sitekey="{{.SiteKey}}"></div>{{end}}<button class="hm-btn hm-form__submit" type="submit">{{t $ "comment_submit"}}</button>
 </form>{{end}}{{else if $.Comments}}<p class="hm-comments__closed">{{t $ "comments_closed"}}</p>{{end}}</div>{{end}}

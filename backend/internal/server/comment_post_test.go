@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -132,8 +133,8 @@ func newPostRig(t *testing.T) *postRig {
 
 // form returns a valid post issued issuedAgo ago for the rig's address.
 func (r *postRig) form(issuedAgo time.Duration) url.Values {
-	ipHash, _ := r.c.keys.HashIP(postIP)
-	tok := spam.IssueCommentToken(spam.CommentTokenKey(postSecret), spam.CommentSubject(r.entity.String()), ipHash, time.Now().Add(-issuedAgo))
+	_, netHash := r.c.keys.HashIP(postIP)
+	tok := spam.IssueCommentToken(spam.CommentTokenKey(postSecret), spam.CommentSubject(r.entity.String()), netHash, time.Now().Add(-issuedAgo))
 	n := spam.FieldNames(spam.FieldNameKey(postSecret), tok)
 	return url.Values{
 		commentsubmit.TokenField: {tok}, n.Body: {"A thoughtful remark."}, n.Name: {"Ada"}, n.Email: {"ada@example.test"},
@@ -145,6 +146,12 @@ func (r *postRig) names(v url.Values) spam.Names {
 }
 
 func (r *postRig) do(v url.Values, mut ...func(*http.Request)) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	r.doTo(rec, v, mut...)
+	return rec
+}
+
+func (r *postRig) doTo(rec *httptest.ResponseRecorder, v url.Values, mut ...func(*http.Request)) {
 	req := httptest.NewRequest(http.MethodPost, "/-/comments/"+r.entity.String(), strings.NewReader(v.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.RemoteAddr = postIP + ":4711"
@@ -152,9 +159,7 @@ func (r *postRig) do(v url.Values, mut ...func(*http.Request)) *httptest.Respons
 	for _, m := range mut {
 		m(req)
 	}
-	rec := httptest.NewRecorder()
 	r.srv.handleCommentPost(rec, req)
-	return rec
 }
 
 func header(k, v string) func(*http.Request) { return func(r *http.Request) { r.Header.Set(k, v) } }
@@ -244,6 +249,21 @@ func TestCommentPostReplayedTokenStoresOnce(t *testing.T) {
 	}
 	if len(r.c.stored) != 1 || r.ident.mails != 1 {
 		t.Fatalf("stored %d mails %d, want 1 each", len(r.c.stored), r.ident.mails)
+	}
+}
+
+func TestCommentPostTokenFollowsNetwork(t *testing.T) {
+	r := newPostRig(t)
+	from := func(addr string) func(*http.Request) {
+		return func(q *http.Request) { q.RemoteAddr = addr }
+	}
+	rec := r.do(r.form(time.Minute), from("203.0.113.99:4711"))
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != postPath+"?cnotice=check_email#hm-comments" || len(r.c.stored) != 1 {
+		t.Fatalf("same /24: %d %q stored %d", rec.Code, rec.Header().Get("Location"), len(r.c.stored))
+	}
+	rec = r.do(r.form(time.Minute), from("198.51.100.9:4711"))
+	if rec.Header().Get("Location") != postFake || len(r.c.stored) != 1 {
+		t.Fatalf("other network: %q stored %d", rec.Header().Get("Location"), len(r.c.stored))
 	}
 }
 
@@ -379,13 +399,268 @@ func TestCommentPostClosedStoresNothing(t *testing.T) {
 	}
 }
 
-func TestCommentPostInvalidRedirectsWithCode(t *testing.T) {
+// Without the page handlers there is nothing to re-render: the 303 with the
+// fixed code stays, and it holds nothing the sender typed.
+func TestCommentPostInvalidFallsBackToRedirect(t *testing.T) {
 	r := newPostRig(t)
 	v := r.form(time.Minute)
 	v.Set(r.names(v).Body, "   ")
 	rec := r.do(v)
-	if rec.Header().Get("Location") != postPath+"?cerror=body_empty#hm-comment-form" || len(r.c.stored) != 0 {
-		t.Fatalf("Location %q stored %d", rec.Header().Get("Location"), len(r.c.stored))
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != postPath+"?cerror=body_empty#hm-comment-form" || len(r.c.stored) != 0 {
+		t.Fatalf("%d Location %q stored %d", rec.Code, rec.Header().Get("Location"), len(r.c.stored))
+	}
+	v = r.form(time.Minute)
+	v.Set(r.names(v).Body, strings.Repeat("a", commentsubmit.MaxBodyRunes+1))
+	if loc := r.do(v).Header().Get("Location"); strings.Contains(loc, "aaaa") || strings.Contains(loc, "Ada") || strings.Contains(loc, "ada") {
+		t.Fatalf("typed text in Location %q", loc)
+	}
+}
+
+// echoEngine renders the real comments fragment inside a page, so the no-JS
+// re-render shows the same form markup a theme does.
+type echoEngine struct {
+	pageRenderer
+	frag *render.Engine
+}
+
+func (e echoEngine) RenderPage(w io.Writer, v *render.PageView) error {
+	if _, err := io.WriteString(w, "<html><body>"); err != nil {
+		return err
+	}
+	if err := e.frag.RenderCommentsFragment(w, v, nil); err != nil {
+		return err
+	}
+	_, err := io.WriteString(w, "</body></html>")
+	return err
+}
+
+// mountPage wires the rig's server to render handlers that serve the rig's
+// entity at postPath through the real commentView.
+func (r *postRig) mountPage(t *testing.T) *renderFixture {
+	t.Helper()
+	f := newRenderFixture(t)
+	f.h.slot = r.srv.commentSlot
+	f.next = func() (*routeResult, pageOutcome, error) {
+		p := pageResponse("Hello")
+		p.Entity.ID = r.entity
+		return &routeResult{Page: p, Kind: resolveKindEntity}, pageOutcome{Status: 200}, nil
+	}
+	f.h.engine = echoEngine{pageRenderer: f.h.engine, frag: r.srv.renderEngine}
+	cv := &commentView{
+		reader: &fakeCommentReader{
+			set: comment.Settings{MaxDepth: 2, PageSize: 50}, mode: comment.ModeOpen,
+			thread: comment.ThreadPage{Page: 1},
+		},
+		now: time.Now, logf: func(context.Context, string, error) {},
+	}
+	build := f.h.buildView
+	f.h.buildView = func(ctx context.Context, req *http.Request, rr *routeResult) (*render.PageView, error) {
+		v, err := build(ctx, req, rr)
+		if err != nil {
+			return nil, err
+		}
+		v.Uncacheable = new(bool)
+		cv.fill(ctx, req, v)
+		return v, nil
+	}
+	r.srv.renderHandlers = f.h
+	return f
+}
+
+// longPost is a post the sender can fix: a body over the limit.
+func (r *postRig) longPost() (url.Values, string) {
+	v := r.form(time.Minute)
+	long := strings.Repeat("a", commentsubmit.MaxBodyRunes+1)
+	v.Set(r.names(v).Body, long)
+	v.Set(r.names(v).Extra, "on")
+	return v, long
+}
+
+func (r *postRig) checkRerender(t *testing.T, body, long, sentTok string) {
+	t.Helper()
+	if !strings.Contains(body, "hm-form__error") {
+		t.Errorf("no error shown")
+	}
+	for _, want := range []string{`value="Ada"`, `value="ada@example.test"`, ">" + long + "</textarea>", " checked"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %.40q", want)
+		}
+	}
+	if strings.Contains(body, "__hmcf_") {
+		t.Errorf("placeholders left")
+	}
+	if strings.Count(body, "autofocus") != 1 || !regexp.MustCompile(`<textarea[^>]* autofocus[ >]`).MatchString(body) {
+		t.Errorf("want autofocus on the body field only")
+	}
+	m := slotTokRe.FindStringSubmatch(body)
+	if m == nil || m[1] == sentTok {
+		t.Fatalf("token %v, want a fresh one", m)
+	}
+	_, netHash := r.c.keys.HashIP(postIP)
+	if _, res := spam.CheckCommentToken(context.Background(), spam.CommentTokenKey(postSecret), r.c, spam.CommentSubject(r.entity.String()), netHash, m[1], time.Now().Add(time.Minute)); res != spam.TokenOK {
+		t.Errorf("fresh token = %v", res)
+	}
+	if !strings.Contains(body, `name="`+spam.FieldNames(spam.FieldNameKey(postSecret), m[1]).Body+`"`) {
+		t.Errorf("field names do not derive from the fresh token")
+	}
+}
+
+func TestCommentPostNoJSInvalidRerendersPage(t *testing.T) {
+	r := newPostRig(t)
+	f := r.mountPage(t)
+	v, long := r.longPost()
+	rec := r.do(v)
+	if rec.Code != http.StatusOK || rec.Header().Get("Location") != "" {
+		t.Fatalf("status %d Location %q, want a 200 page", rec.Code, rec.Header().Get("Location"))
+	}
+	cc := rec.Header().Get("Cache-Control")
+	if !strings.Contains(cc, "private") || !strings.Contains(cc, "no-store") {
+		t.Fatalf("Cache-Control = %q", cc)
+	}
+	if !strings.Contains(rec.Body.String(), "<html>") {
+		t.Fatalf("not the full page: %.200s", rec.Body)
+	}
+	r.checkRerender(t, rec.Body.String(), long, v.Get(commentsubmit.TokenField))
+	if len(f.cache.sets) != 0 || len(r.c.stored) != 0 {
+		t.Fatalf("cache sets %v stored %d, want none", f.cache.sets, len(r.c.stored))
+	}
+	if len(f.notFound) != 0 {
+		t.Fatalf("404 rows: %v", f.notFound)
+	}
+}
+
+// The security middleware sets the global policy before the handler runs; the
+// re-rendered page must carry the page policy, as a normal GET does.
+func TestCommentPostNoJSRerenderCarriesPageCSP(t *testing.T) {
+	r := newPostRig(t)
+	r.mountPage(t)
+	v, _ := r.longPost()
+	rec := httptest.NewRecorder()
+	rec.Header().Set("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none'")
+	r.doTo(rec, v)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d, want 200", rec.Code)
+	}
+	if csp := rec.Header().Get("Content-Security-Policy"); !strings.Contains(csp, "frame-src 'self' https:") {
+		t.Fatalf("CSP = %q, want the page policy", csp)
+	}
+	if rec.Header().Get("X-Frame-Options") != "SAMEORIGIN" || !strings.Contains(rec.Header().Get("Cache-Control"), "no-store") {
+		t.Fatalf("headers = %v", rec.Header())
+	}
+}
+
+func TestCommentFocus(t *testing.T) {
+	for code, want := range map[string]string{
+		commentsubmit.CodeName:        "name",
+		commentsubmit.CodeEmail:       "email",
+		commentsubmit.CodeEmailDomain: "email",
+		commentsubmit.CodeBodyLong:    "body",
+	} {
+		if got := commentFocus(code); got != want {
+			t.Errorf("commentFocus(%q) = %q, want %q", code, got, want)
+		}
+	}
+}
+
+func TestCommentPostNoJSNon200PageFallsBackTo303(t *testing.T) {
+	for name, set := range map[string]func(f *renderFixture){
+		"failure": func(f *renderFixture) {
+			f.next = func() (*routeResult, pageOutcome, error) { return nil, pageOutcome{}, errors.New("boom") }
+		},
+		"not found": func(f *renderFixture) {
+			f.next = func() (*routeResult, pageOutcome, error) {
+				return &routeResult{NotFound: true}, pageOutcome{Status: 404, NotFound: true}, nil
+			}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := newPostRig(t)
+			set(r.mountPage(t))
+			v, long := r.longPost()
+			rec := r.do(v)
+			loc := rec.Header().Get("Location")
+			if rec.Code != http.StatusSeeOther || !strings.Contains(loc, "?cerror=body_long#hm-comment-form") {
+				t.Fatalf("status %d Location %q, want the 303 ?cerror= fallback", rec.Code, loc)
+			}
+			if strings.Contains(loc+rec.Body.String(), long[:50]) || strings.Contains(rec.Header().Get("Cache-Control"), "public") {
+				t.Fatalf("typed text or a public cache header leaked: %v", rec.Header())
+			}
+		})
+	}
+}
+
+func TestCommentPostHTMXInvalidKeepsValues(t *testing.T) {
+	r := newPostRig(t)
+	hx := header("HX-Request", "true")
+	v, long := r.longPost()
+	rec := r.do(v, hx)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Header().Get("Cache-Control"), "no-store") {
+		t.Fatalf("%d Cache-Control %q", rec.Code, rec.Header().Get("Cache-Control"))
+	}
+	if strings.Contains(rec.Body.String(), "<html") || !strings.Contains(rec.Body.String(), `id="hm-comment-form"`) {
+		t.Fatalf("not the fragment: %.200s", rec.Body)
+	}
+	r.checkRerender(t, rec.Body.String(), long, v.Get(commentsubmit.TokenField))
+
+	// A reply keeps its target.
+	pid := uuid.New()
+	r.c.parents = map[uuid.UUID]bool{pid: true}
+	v, _ = r.longPost()
+	v.Set("parent", pid.String())
+	if body := r.do(v, hx).Body.String(); !strings.Contains(body, `name="parent" value="`+pid.String()+`"`) {
+		t.Fatalf("reply target lost: %s", body)
+	}
+
+	// Typed text that looks like a placeholder is shown literally.
+	v = r.form(time.Minute)
+	v.Set(r.names(v).Name, "")
+	v.Set(r.names(v).Body, "keep __hmcf_tok__ __hmcf_vbody__ literally")
+	body := r.do(v, hx).Body.String()
+	if !strings.Contains(body, ">keep __hmcf_tok__ __hmcf_vbody__ literally</textarea>") {
+		t.Fatalf("typed placeholder rewritten: %s", body)
+	}
+	if m := slotTokRe.FindStringSubmatch(body); m == nil || strings.Contains(m[1], "__hmcf_") {
+		t.Fatalf("token %v", m)
+	}
+
+	// The same through the no-JS page (a fresh rig: the limits are spent).
+	r = newPostRig(t)
+	r.mountPage(t)
+	v = r.form(time.Minute)
+	v.Set(r.names(v).Name, "")
+	v.Set(r.names(v).Body, "keep __hmcf_tok__ literally")
+	rec = r.do(v)
+	if body := rec.Body.String(); !strings.Contains(body, ">keep __hmcf_tok__ literally</textarea>") {
+		t.Fatalf("page: typed placeholder rewritten: %d %s", rec.Code, body)
+	}
+}
+
+// Only a fixable error comes back with values: a bot or a closed thread never does.
+func TestCommentPostNoValuesOnBotOrClosed(t *testing.T) {
+	const typed = "TYPED-SECRET-BODY"
+	cases := map[string]func(r *postRig, v url.Values){
+		"honeypot": func(r *postRig, v url.Values) { v.Set(r.names(v).Honeypot, "x") },
+		"closed":   func(r *postRig, v url.Values) { r.c.mode = comment.ModeClosed },
+	}
+	for name, mut := range cases {
+		t.Run(name, func(t *testing.T) {
+			r := newPostRig(t)
+			r.mountPage(t)
+			v := r.form(time.Minute)
+			v.Set(r.names(v).Body, typed)
+			mut(r, v)
+			rec := r.do(v, header("HX-Request", "true"))
+			if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), typed) {
+				t.Fatalf("htmx: %d, typed text in the fragment", rec.Code)
+			}
+			v = r.form(time.Minute)
+			v.Set(r.names(v).Body, typed)
+			mut(r, v)
+			rec = r.do(v)
+			if rec.Code != http.StatusSeeOther || strings.Contains(rec.Header().Get("Location"), typed) || strings.Contains(rec.Body.String(), typed) {
+				t.Fatalf("plain: %d Location %q", rec.Code, rec.Header().Get("Location"))
+			}
+		})
 	}
 }
 
@@ -432,8 +707,8 @@ func TestCommentPostHTMXFragment(t *testing.T) {
 
 	// A fresh form from the fragment is accepted once the dwell has passed:
 	// its token verifies for this address and entity.
-	ipHash, _ := r.c.keys.HashIP(postIP)
-	if _, res := spam.CheckCommentToken(context.Background(), spam.CommentTokenKey(postSecret), r.c, spam.CommentSubject(r.entity.String()), ipHash, m[1], time.Now().Add(time.Minute)); res != spam.TokenOK {
+	_, netHash := r.c.keys.HashIP(postIP)
+	if _, res := spam.CheckCommentToken(context.Background(), spam.CommentTokenKey(postSecret), r.c, spam.CommentSubject(r.entity.String()), netHash, m[1], time.Now().Add(time.Minute)); res != spam.TokenOK {
 		t.Fatalf("fragment token = %v", res)
 	}
 }

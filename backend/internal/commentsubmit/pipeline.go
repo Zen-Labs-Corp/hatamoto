@@ -82,6 +82,14 @@ type Outcome struct {
 	Kind    OutcomeKind
 	Comment comment.Comment // Posted and CheckEmail
 	Code    string          // Invalid
+	Typed   *Typed          // Invalid only
+}
+
+// Typed is what the sender typed. Submit returns it only with Invalid (an
+// error a person can fix) so the form can come back filled; never on a drop.
+type Typed struct {
+	Body, Name, Email string
+	Notify            bool
 }
 
 // Comments is the part of *comment.Service the pipeline uses.
@@ -133,8 +141,6 @@ func (p *Pipeline) drop(ctx context.Context, reason string) (Outcome, error) {
 	return Outcome{Kind: FakeSuccess}, nil
 }
 
-func invalid(code string) (Outcome, error) { return Outcome{Kind: Invalid, Code: code}, nil }
-
 // Submit runs the checks cheapest first. Nothing is stored for FakeSuccess,
 // Invalid, Closed and NotFound.
 func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
@@ -170,7 +176,7 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	ipHash, netHash := keys.HashIP(req.IP)
 	entityID := req.EntityID.String()
 	tok := req.Post.Get(TokenField)
-	issued, res := spam.CheckCommentToken(ctx, p.TokenKey, p.Comments, spam.CommentSubject(entityID), ipHash, tok, now)
+	issued, res := spam.CheckCommentToken(ctx, p.TokenKey, p.Comments, spam.CommentSubject(entityID), netHash, tok, now)
 	if res != spam.TokenOK {
 		return p.drop(ctx, "token")
 	}
@@ -193,6 +199,15 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	notify := req.Post.Get(names.Extra) != ""
 	if admin {
 		name, email = strings.TrimSpace(req.AdminName), ""
+	}
+	typedEmail := req.Post.Get(names.Email)
+	if admin {
+		typedEmail = ""
+	}
+	fixable := func(code string) (Outcome, error) {
+		return Outcome{Kind: Invalid, Code: code, Typed: &Typed{
+			Body: body, Name: req.Post.Get(names.Name), Email: typedEmail, Notify: notify,
+		}}, nil
 	}
 
 	// 5. Limits. An admin is keyed by account, not by an email.
@@ -242,19 +257,19 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	// 8. Field limits and the address.
 	switch n := utf8.RuneCountInString(strings.TrimSpace(body)); {
 	case n == 0:
-		return invalid(CodeBodyEmpty)
+		return fixable(CodeBodyEmpty)
 	case n > MaxBodyRunes:
-		return invalid(CodeBodyLong)
+		return fixable(CodeBodyLong)
 	}
 	if n := utf8.RuneCountInString(name); n < 1 || n > MaxNameRunes {
-		return invalid(CodeName)
+		return fixable(CodeName)
 	}
 	if !admin {
 		switch err := p.Identity.CheckEmail(ctx, email); {
 		case errors.Is(err, identity.ErrEmailInvalid):
-			return invalid(CodeEmail)
+			return fixable(CodeEmail)
 		case errors.Is(err, identity.ErrEmailNotAccepted):
-			return invalid(CodeEmailDomain)
+			return fixable(CodeEmailDomain)
 		case err != nil:
 			return Outcome{}, err
 		}
@@ -264,9 +279,9 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	rendered, err := commentfmt.Render(body)
 	switch {
 	case errors.Is(err, commentfmt.ErrEmpty):
-		return invalid(CodeBodyEmpty)
+		return fixable(CodeBodyEmpty)
 	case errors.Is(err, commentfmt.ErrTooLong):
-		return invalid(CodeBodyLong)
+		return fixable(CodeBodyLong)
 	case err != nil:
 		return Outcome{}, err
 	}

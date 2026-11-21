@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -126,8 +127,8 @@ func newHarness(t *testing.T) *harness {
 
 // fresh issues a token at issuedAt and fills a valid form under its field names.
 func (h *harness) fresh(issuedAt time.Time) {
-	ipHash, _ := h.c.keys.HashIP(h.req.IP)
-	h.tok = spam.IssueCommentToken(h.p.TokenKey, spam.CommentSubject(h.req.EntityID.String()), ipHash, issuedAt)
+	_, netHash := h.c.keys.HashIP(h.req.IP)
+	h.tok = spam.IssueCommentToken(h.p.TokenKey, spam.CommentSubject(h.req.EntityID.String()), netHash, issuedAt)
 	n := spam.FieldNames(h.p.NameKey, h.tok)
 	h.post = url.Values{
 		TokenField: {h.tok}, n.Body: {"A thoughtful remark."}, n.Name: {"Ada"}, n.Email: {"ada@example.test"},
@@ -165,10 +166,11 @@ func TestSubmitBranches(t *testing.T) {
 		{name: "entity closed", setup: func(h *harness) { h.c.mode = comment.ModeClosed }, kind: Closed},
 		{name: "bad token", setup: func(h *harness) { h.post.Set(TokenField, "v1.1.x.y") }, kind: FakeSuccess},
 		{name: "replayed token", setup: func(h *harness) {
-			ipHash, _ := h.c.keys.HashIP(h.req.IP)
-			_, _ = spam.CheckCommentToken(context.Background(), h.p.TokenKey, h.c, spam.CommentSubject(h.req.EntityID.String()), ipHash, h.tok, t0)
+			_, netHash := h.c.keys.HashIP(h.req.IP)
+			_, _ = spam.CheckCommentToken(context.Background(), h.p.TokenKey, h.c, spam.CommentSubject(h.req.EntityID.String()), netHash, h.tok, t0)
 		}, kind: FakeSuccess},
 		{name: "token of another address", setup: func(h *harness) { h.req.IP = "198.51.100.9" }, kind: FakeSuccess},
+		{name: "same /24, other address", setup: func(h *harness) { h.req.IP = "203.0.113.99" }, kind: CheckEmail, stored: 1, status: comment.StatusDraft, verdict: "allow"},
 		{name: "honeypot filled", setup: func(h *harness) { h.post.Set(h.names().Honeypot, "x") }, kind: FakeSuccess},
 		{name: "cross site", setup: func(h *harness) { h.req.CrossSite = true }, kind: FakeSuccess},
 		{name: "fixed field names are ignored", setup: func(h *harness) {
@@ -478,5 +480,70 @@ func TestHoldEditDuplicateOnlyWhenBodyChanged(t *testing.T) {
 	e.BodyChanged = true
 	if hold, _ := h.p.HoldEdit(context.Background(), e); !hold {
 		t.Error("a duplicate edit was not held")
+	}
+}
+
+func TestSubmitTokenFollowsIPv6Prefix(t *testing.T) {
+	for _, tc := range []struct {
+		ip   string
+		kind OutcomeKind
+	}{
+		{"2001:db8:1:2::ffff", CheckEmail},
+		{"2001:db8:1:3::1", FakeSuccess},
+	} {
+		h := newHarness(t)
+		h.req.IP = "2001:db8:1:2::1"
+		h.fresh(t0.Add(-time.Minute))
+		h.req.IP = tc.ip
+		if out := h.submit(t); out.Kind != tc.kind {
+			t.Errorf("from %s: kind %v, want %v", tc.ip, out.Kind, tc.kind)
+		}
+	}
+}
+
+func TestSubmitTypedOnlyOnInvalid(t *testing.T) {
+	invalid := []struct {
+		name  string
+		setup func(h *harness)
+		code  string
+		body  string
+		who   string
+	}{
+		{"body_empty", func(h *harness) { h.post.Set(h.names().Body, "") }, CodeBodyEmpty, "", "Ada"},
+		{"body_long", func(h *harness) { h.post.Set(h.names().Body, strings.Repeat("x", MaxBodyRunes+1)) }, CodeBodyLong, strings.Repeat("x", MaxBodyRunes+1), "Ada"},
+		{"name", func(h *harness) { h.post.Set(h.names().Name, "") }, CodeName, "A thoughtful remark.", ""},
+		{"email", func(h *harness) { h.id.checkErr = identity.ErrEmailInvalid }, CodeEmail, "A thoughtful remark.", "Ada"},
+	}
+	for _, tc := range invalid {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+			h.post.Set(h.names().Extra, "1")
+			tc.setup(h)
+			out := h.submit(t)
+			if out.Kind != Invalid || out.Code != tc.code {
+				t.Fatalf("got %v %q", out.Kind, out.Code)
+			}
+			want := Typed{Body: tc.body, Name: tc.who, Email: "ada@example.test", Notify: true}
+			if out.Typed == nil || *out.Typed != want {
+				t.Fatalf("Typed = %+v, want %+v", out.Typed, want)
+			}
+		})
+	}
+	for _, tc := range []struct {
+		name  string
+		setup func(h *harness)
+	}{
+		{"honeypot", func(h *harness) { h.post.Set(h.names().Honeypot, "x") }},
+		{"bad token", func(h *harness) { h.post.Set(TokenField, "v1.1.x.y") }},
+		{"cross site", func(h *harness) { h.req.CrossSite = true }},
+		{"closed", func(h *harness) { h.c.mode = comment.ModeClosed }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+			tc.setup(h)
+			if out := h.submit(t); out.Typed != nil {
+				t.Fatalf("Typed = %+v, want nil", out.Typed)
+			}
+		})
 	}
 }
