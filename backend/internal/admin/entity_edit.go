@@ -623,7 +623,7 @@ func (a *Admin) fill(r *http.Request, f *entityForm, sc *entity.EntitySchema, se
 			}
 		}
 	}
-	if c.Terms != nil {
+	if c.Terms != nil && a.can(ctx, authz.ActionEntityTermsUpdate) {
 		if nodes, err := a.termNodes(ctx); err == nil {
 			f.ShowTerms = true
 			kinds := map[string]bool{"tag": true, "category": true}
@@ -1326,7 +1326,7 @@ func (a *Admin) afterSave(r *http.Request, p *posted, e *entity.Entity, sc *enti
 			notes = append(notes, note)
 		}
 	}
-	if c.Terms != nil && p.termsSet {
+	if c.Terms != nil && p.termsSet && a.can(ctx, authz.ActionEntityTermsUpdate) {
 		ids := make([]uuid.UUID, 0, len(p.picked))
 		for raw := range p.picked {
 			if id, err := uuid.Parse(raw); err == nil {
