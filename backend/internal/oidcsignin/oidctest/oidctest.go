@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
-	"encoding/json"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +16,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const authCode = "c1"
@@ -86,7 +87,11 @@ func b64(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }
 
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(v)
+	b, err := jsonx.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	_, _ = w.Write(b)
 }
 
 func (s *Server) discovery(w http.ResponseWriter, _ *http.Request) {
@@ -195,8 +200,8 @@ func (s *Server) idToken(nonce string) string {
 	s.mu.Lock()
 	key, kid := s.Key, s.KID
 	s.mu.Unlock()
-	header, _ := json.Marshal(map[string]string{"alg": "RS256", "kid": kid, "typ": "JWT"})
-	payload, _ := json.Marshal(claims)
+	header, _ := jsonx.Marshal(map[string]string{"alg": "RS256", "kid": kid, "typ": "JWT"})
+	payload, _ := jsonx.Marshal(claims)
 	input := b64(header) + "." + b64(payload)
 	if s.Sign != nil {
 		return input + "." + b64(s.Sign([]byte(input)))

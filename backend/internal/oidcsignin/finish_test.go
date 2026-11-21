@@ -6,11 +6,12 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
-	"encoding/json"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Wrong STATE is checked by core before Finish (the callback route and the
@@ -60,9 +61,9 @@ func TestFinishRefuses(t *testing.T) {
 		{name: "no code", mutate: func(_ *rig, q url.Values, _ *string) { q.Del("code") }, want: reasonNoCode},
 		{name: "wrong verifier", mutate: func(_ *rig, _ url.Values, data *string) {
 			var d startData
-			_ = json.Unmarshal([]byte(*data), &d)
+			_ = jsonx.Unmarshal([]byte(*data), &d)
 			d.Verifier = "another-verifier-another-verifier-another-verifier"
-			b, _ := json.Marshal(d)
+			b, _ := jsonx.Marshal(d)
 			*data = string(b)
 		}, want: reasonExchangeFailed},
 		{name: "unreadable data", mutate: func(_ *rig, _ url.Values, data *string) { *data = "not json" }, want: reasonConfigChanged},

@@ -5,12 +5,13 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"math/big"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const verifier = "v-0123456789012345678901234567890123456789012"
@@ -22,7 +23,7 @@ func get(t *testing.T, s *Server, path string, v any) {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
-	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
+	if err := jsonx.UnmarshalRead(resp.Body, v); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -61,7 +62,7 @@ func exchange(t *testing.T, s *Server, secret, code, ver string) (int, map[strin
 	}
 	defer resp.Body.Close()
 	var out map[string]any
-	_ = json.NewDecoder(resp.Body).Decode(&out)
+	_ = jsonx.UnmarshalRead(resp.Body, &out)
 	return resp.StatusCode, out
 }
 
@@ -111,11 +112,20 @@ func TestJWTVerifiesWithPublishedKey(t *testing.T) {
 	if len(parts) != 3 {
 		t.Fatalf("token = %v", out["id_token"])
 	}
-	var jwks struct{ Keys []struct{ Kid, N, E string } }
+	var jwks struct {
+		Keys []struct {
+			Kid string `json:"kid"`
+			N   string `json:"n"`
+			E   string `json:"e"`
+		} `json:"keys"`
+	}
 	get(t, s, "/jwks", &jwks)
-	var hdr struct{ Alg, Kid string }
+	var hdr struct {
+		Alg string `json:"alg"`
+		Kid string `json:"kid"`
+	}
 	raw, _ := base64.RawURLEncoding.DecodeString(parts[0])
-	_ = json.Unmarshal(raw, &hdr)
+	_ = jsonx.Unmarshal(raw, &hdr)
 	if hdr.Alg != "RS256" || len(jwks.Keys) != 1 || jwks.Keys[0].Kid != hdr.Kid {
 		t.Fatalf("header %+v, keys %+v", hdr, jwks.Keys)
 	}
@@ -129,13 +139,17 @@ func TestJWTVerifiesWithPublishedKey(t *testing.T) {
 	}
 	var claims map[string]any
 	raw, _ = base64.RawURLEncoding.DecodeString(parts[1])
-	_ = json.Unmarshal(raw, &claims)
+	_ = jsonx.Unmarshal(raw, &claims)
 	if claims["iss"] != s.URL || claims["aud"] != "cid" || claims["nonce"] != "n1" || claims["sub"] != "sub-1" {
 		t.Fatalf("claims = %v", claims)
 	}
 
 	s.RotateKey()
-	var after struct{ Keys []struct{ Kid string } }
+	var after struct {
+		Keys []struct {
+			Kid string `json:"kid"`
+		} `json:"keys"`
+	}
 	get(t, s, "/jwks", &after)
 	if after.Keys[0].Kid == hdr.Kid {
 		t.Fatal("RotateKey kept the key ID")

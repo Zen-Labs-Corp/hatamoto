@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +20,7 @@ import (
 
 	"hatamoto.dev/core/internal/auditstate"
 	"hatamoto.dev/core/internal/authstate"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const (
@@ -169,7 +169,7 @@ func (p *Provider) Start(ctx context.Context, req authstate.StartRequest) (auths
 		return authstate.StartResult{}, err
 	}
 	verifier := oauth2.GenerateVerifier()
-	data, err := json.Marshal(startData{Verifier: verifier, Nonce: nonce, Issuer: s.Issuer, ClientID: s.ClientID})
+	data, err := jsonx.Marshal(startData{Verifier: verifier, Nonce: nonce, Issuer: s.Issuer, ClientID: s.ClientID})
 	if err != nil {
 		return authstate.StartResult{}, err
 	}
@@ -188,7 +188,7 @@ func (p *Provider) Finish(ctx context.Context, req authstate.FinishRequest) (aut
 		return authstate.Identity{}, refuse(reasonDisabled, nil)
 	}
 	var d startData
-	if err := json.Unmarshal([]byte(req.Data), &d); err != nil || d.Verifier == "" || d.Nonce == "" ||
+	if err := jsonx.Unmarshal([]byte(req.Data), &d); err != nil || d.Verifier == "" || d.Nonce == "" ||
 		d.Issuer != s.Issuer || d.ClientID != s.ClientID {
 		return authstate.Identity{}, refuse(reasonConfigChanged, nil)
 	}
@@ -226,12 +226,12 @@ func (p *Provider) Finish(ctx context.Context, req authstate.FinishRequest) (aut
 		return authstate.Identity{}, refuse(reasonNonceMismatch, nil)
 	}
 	var c struct {
-		Subject       string          `json:"sub"`
-		Email         string          `json:"email"`
-		EmailVerified json.RawMessage `json:"email_verified"`
-		EntraVerified json.RawMessage `json:"xms_edov"`
-		Name          string          `json:"name"`
-		Azp           string          `json:"azp"`
+		Subject       string `json:"sub"`
+		Email         string `json:"email"`
+		EmailVerified any    `json:"email_verified"`
+		EntraVerified any    `json:"xms_edov"`
+		Name          string `json:"name"`
+		Azp           string `json:"azp"`
 	}
 	if err := idt.Claims(&c); err != nil {
 		return authstate.Identity{}, refuse(reasonTokenInvalid, nil)
@@ -250,13 +250,14 @@ func (p *Provider) Finish(ctx context.Context, req authstate.FinishRequest) (aut
 }
 
 // claimTrue accepts a JSON true or the string "true".
-func claimTrue(raw json.RawMessage) bool {
-	var b bool
-	if json.Unmarshal(raw, &b) == nil {
-		return b
+func claimTrue(v any) bool {
+	switch v := v.(type) {
+	case bool:
+		return v
+	case string:
+		return v == "true"
 	}
-	var s string
-	return json.Unmarshal(raw, &s) == nil && s == "true"
+	return false
 }
 
 func randomToken() (string, error) {
@@ -361,9 +362,9 @@ func (p *Provider) Check(ctx context.Context, s Settings) error {
 	}
 	defer resp.Body.Close()
 	var keys struct {
-		Keys []json.RawMessage `json:"keys"`
+		Keys []any `json:"keys"`
 	}
-	if resp.StatusCode != http.StatusOK || json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&keys) != nil || len(keys.Keys) == 0 {
+	if resp.StatusCode != http.StatusOK || jsonx.UnmarshalRead(io.LimitReader(resp.Body, 1<<20), &keys) != nil || len(keys.Keys) == 0 {
 		return errors.New("the key set address did not return any keys")
 	}
 	return nil
