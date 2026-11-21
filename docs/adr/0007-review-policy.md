@@ -1,0 +1,86 @@
+# ADR 0007: Review policy
+
+Status: accepted (2026-11-22)
+
+## The rules in plain words
+
+1. A human edit can be staged as a changeset and published only after every
+   review stage it was given has been approved, in order.
+2. Which stages an edit gets is decided by a review policy. A build that
+   registers none uses the free default.
+3. A policy that fails holds the edit. It is never published on a doubtful
+   answer.
+4. An edit waits for its reviewers however long it takes. It never expires.
+5. A default install behaves as before. Nothing is staged and no setting
+   changes until something asks for an edit to be staged.
+
+## Context
+
+[ADR 0004](0004-plugin-changesets.md) made the changeset the unit of review
+for plugin runs: staged, previewed, published or discarded, with a 72 hour
+limit. Edits made by people have no such step. A site that wants a second pair
+of eyes on an edit needs the same staging, but with a person's pace: no
+deadline, and an ordered list of stages that can differ from site to site.
+
+The core should not hard-code those lists. A wrapper module that builds its own
+binary around `app.Main` (the same way it registers an edition) can supply the
+rule.
+
+## Decision
+
+### 1. The open interface
+
+The public package `hatamoto.dev/core/review` has:
+
+- `Edit`: what is about to be staged, with the site's review switch
+  (`ReviewEnabled`).
+- `Stage`: one ordered step, a `Name` and the `Group` that may decide it.
+- `Policy`: `Stages(ctx, Edit) ([]Stage, error)`. No stages means no review.
+- `Register(Policy)`: called from an `init` function. It panics when called a
+  second time, with a nil policy, or after `app.Main` has frozen the
+  registration.
+- `StagesFor(ctx, Edit)`: the stages of an edit. An error, a nil result from a
+  failing policy, or a stage without a name or group returns `ErrPolicy`, which
+  means: hold the edit.
+
+### 2. The free default
+
+With no policy registered: review off gives no stages (an empty list, so the
+edit may publish at once); review on gives one stage, "Review", for the group
+`reviewers`, which is the Owner, Editor and Reviewer roles.
+
+### 3. The data model
+
+- `hatamoto_changesets` gets `kind` (`run` or `edit`, default `run`),
+  `requested_by` and `stages`, a snapshot of the resolved stages taken when the
+  edit was staged. Later policy changes do not alter an edit already staged.
+- `hatamoto_changeset_stage_decisions` holds one row per stage: reviewer,
+  `approved` or `rejected`, comment and time. A stage has one decision.
+- Decisions are ordered. A stage can be decided only when all earlier stages
+  are approved, and nothing is accepted after a rejection.
+- Publish of an edit needs every stage approved. An edit with no stages may
+  publish at once.
+- An edit has `expires_at` set far in the future, so the column stays NOT NULL
+  and every expiry check works unchanged. The hourly sweeper expires only
+  changesets past their time, so it never touches an edit. The 72 hour rule of
+  ADR 0004 applies to run changesets.
+- A person may edit an object of any origin, so staging and publishing an edit
+  skip the plugin ownership check. Run changesets keep it.
+- Existing rows are plain run changesets with no stages. The previous release
+  never reads the new columns or table, so a rollback is safe.
+
+## Not decided here
+
+- The takeover at publish: what happens to an object that changed after the
+  edit was staged.
+- The reviewer-group check. The engine records a decision for the reviewer it
+  is given; that the reviewer belongs to the stage's group is the caller's
+  check.
+- Any screen or API that stages an edit or records a decision.
+
+## Consequences
+
+- A standard build is unchanged: it registers nothing and stages nothing.
+- A broken policy blocks edits instead of letting them through. The fix is in
+  the policy, not a way around it.
+- An edit that nobody reviews stays staged until someone discards it.

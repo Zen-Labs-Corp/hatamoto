@@ -223,6 +223,8 @@ These are binding; tests pin each one.
    the run's buffer and every staged media record and blob tagged with its
    `run_id` that was not attached by a published changeset. A sweeper removes
    anything a crash left behind.
+   This applies to run changesets; human edit changesets
+   ([ADR 0007](0007-review-policy.md)) do not expire.
 4. **Phase isolation.** No host function is available in both phases if it reads
    site state in one and reaches the network in the other; no plugin `kv`/`db` in
    either phase. The exception is the public content reads (`entities.get`,
