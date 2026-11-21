@@ -25,6 +25,10 @@ const rangeBudgetFunc = "hmRangeBudget"
 type rangeBudget struct {
 	left  int64
 	noted bool // NoteDegraded already called for this budget
+	// drainedBy is the plugin|template whose iteration took left to zero. Only
+	// that template is charged with the breach: the others that meet the empty
+	// budget later stop their ranges but are not to blame.
+	drainedBy string
 	// marks is the breaker's bookkeeping of this render, by plugin|template.
 	// It stays nil unless the breaker was involved, so a page without plugin
 	// ranges, or on a healthy site, never allocates it.
@@ -216,6 +220,9 @@ func (h *rangeHandle) Spend() bool {
 		return true
 	}
 	h.b.left--
+	if h.b.left == 0 {
+		h.b.drainedBy = breakKey(h.plugin, h.tmpl)
+	}
 	return false
 }
 
@@ -227,7 +234,9 @@ func (h *rangeHandle) exhausted() {
 		h.b.noted = true
 		NoteDegraded()
 	}
-	h.feedBreaker()
+	if h.b.drainedBy == breakKey(h.plugin, h.tmpl) {
+		h.feedBreaker()
+	}
 	if !h.warned {
 		h.warned = true
 		if rangeWarns.allow(h.plugin+"|"+h.tmpl, time.Now()) {

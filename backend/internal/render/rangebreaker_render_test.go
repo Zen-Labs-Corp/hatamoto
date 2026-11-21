@@ -226,3 +226,25 @@ func TestPluginRangeRewriteWrapKeepsEscaping(t *testing.T) { //nolint:parallelte
 		t.Errorf("want %s in\n%s", want, mainInner(t, out))
 	}
 }
+
+// A template that meets a budget another template emptied stops its ranges but
+// is not counted: only the one that drained the budget is paused.
+func TestPluginRangeBreakerBlamesOnlyTheDrainer(t *testing.T) { //nolint:paralleltest // process-wide degraded counter and breaker
+	swapRangeBreaker(t)
+	e, _ := breakerEngine(t)
+	for i := 0; i < rangeBreakLimit+2; i++ {
+		v := countView(smallN, "twin")
+		v.Sections[0].Content = map[string]any{"n": 2}
+		v.Sections = append([]Section{{ID: "id-loop", Type: "loop", Content: map[string]any{"n": hugeN}}}, v.Sections...)
+		renderToString(t, e, v)
+	}
+	if got := PluginTemplatesPaused("acme-brk"); len(got) != 1 || got[0].Name != "loop" {
+		t.Errorf("drainer not paused: %v", got)
+	}
+	if got := PluginTemplatesPaused("acme-two"); got != nil {
+		t.Errorf("innocent template paused: %v", got)
+	}
+	if out := renderToString(t, e, countView(3, "twin")); !strings.Contains(out, `<p id="twin">ttt</p>`) {
+		t.Errorf("innocent section does not render:\n%s", mainInner(t, out))
+	}
+}
