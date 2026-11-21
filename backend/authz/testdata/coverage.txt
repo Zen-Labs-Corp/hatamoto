@@ -118,6 +118,7 @@ internal/admin/seo_robots.go flag robots.policy.write roles=owner n=1  # :180
 internal/admin/analytics_traffic.go flag analytics.settings.manage roles=owner n=1  # :390
 internal/admin/comments_settings.go flag comment.settings.manage roles=owner n=1  # :303 csetIsOwner
 internal/admin/dashboard.go flag dashboard.owner.read roles=owner n=2  # :567,:568 owner-only cards and stores
+internal/admin/modulebanners.go flag dashboard.owner.read roles=owner n=1  # :33 module banners shown to owners only
 internal/admin/entities.go flag schema.manage roles=owner n=1  # :550 "manage types" link, owner only
 internal/admin/entities.go flag entity.export roles=owner,editor n=1  # :565 owner or editor
 internal/admin/entity_edit.go flag term.manage,schema.manage roles=owner n=2  # :620,:952
