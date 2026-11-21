@@ -124,6 +124,8 @@ type Crumb = ui.Crumb
 type View struct {
 	// areas is the area set of the Admin that built the view; nil means the shared one.
 	areas []*adminArea
+	// vw answers what the signed-in user may do; viewer() falls back for test-built Views.
+	vw    viewer
 	Title string
 	// ContinueTo, when set, is a same-origin address the page opens by itself
 	// (a meta refresh, which the content security policy does not govern).
@@ -554,7 +556,7 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 	ctx := r.Context()
 	v := &View{
 		Title: title, SiteName: a.deps.SiteNameFallback, Lang: "en", Theme: themeOf(r), Density: densityOf(r), Path: r.URL.Path, adminPath: a.adminPath, speculation: a.speculation, appVersion: a.appVersion,
-		Nonce: Nonce(ctx), CSRF: csrfToken(ctx), Assets: as, User: userFrom(ctx),
+		Nonce: Nonce(ctx), CSRF: csrfToken(ctx), Assets: as, User: userFrom(ctx), vw: a.viewerOf(ctx),
 	}
 	if runenv.Staging() {
 		v.StagingBanner = runenv.Banner
