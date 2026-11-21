@@ -119,12 +119,6 @@ type APIKey struct {
 	CreatorRole string `json:"-"`
 }
 
-// CreatorCanAct reports whether the key's creator still holds a role that may
-// edit content (owner or editor). An unknown or empty role fails closed.
-func (k *APIKey) CreatorCanAct() bool {
-	return k.CreatorRole == "owner" || k.CreatorRole == "editor"
-}
-
 // APIKeyWithSecret is returned only when creating a new key.
 // The plain key is shown once and never stored.
 type APIKeyWithSecret struct {
