@@ -9,9 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"hatamoto.dev/core/authz"
+	"hatamoto.dev/core/internal/authzuser"
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/standing"
-	"hatamoto.dev/core/internal/user"
 )
 
 // standingDigestJob is the WORKER_DISABLE_JOBS name of the daily mail that
@@ -111,22 +112,10 @@ func (s *Server) digestSite(ctx context.Context) (name, base, adminPath string) 
 	return name, base, s.adminPathValue()
 }
 
-// ownerEmails lists every owner's address, paging through the user list.
+// ownerEmails lists the address of every account that receives owner notices.
+// It keeps owners with an empty address or ended access, as before; callers skip
+// those.
 func (s *Server) ownerEmails(ctx context.Context) ([]string, error) {
-	const page = 200
-	var out []string
-	for offset := 0; ; offset += page {
-		users, err := s.userRepo.List(ctx, page, offset)
-		if err != nil {
-			return out, err
-		}
-		for _, u := range users {
-			if u.Role == user.RoleOwner {
-				out = append(out, u.Email)
-			}
-		}
-		if len(users) < page {
-			return out, nil
-		}
-	}
+	us, err := authzuser.Allowed(ctx, s.logger, s.userRepo.List, authz.ActionSiteReceiveOwnerMail, nil)
+	return authzuser.Emails(us), err
 }

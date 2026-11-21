@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"hatamoto.dev/core/authz"
+	"hatamoto.dev/core/internal/authzuser"
 	"hatamoto.dev/core/internal/commentsubmit"
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/user"
@@ -95,12 +97,12 @@ func (n *commentSurgeNotifier) async(ctx context.Context) {
 	}()
 }
 
-// commentOwners lists owners with an address whose access has not ended.
+// commentOwners lists the moderators that also receive owner notices.
 func (s *Server) commentOwners(ctx context.Context) ([]*user.User, error) {
 	all, err := s.commentModerators(ctx)
 	var out []*user.User
 	for _, u := range all {
-		if u.Role == user.RoleOwner {
+		if authzuser.Can(ctx, s.logger, u, authz.ActionSiteReceiveOwnerMail) {
 			out = append(out, u)
 		}
 	}
