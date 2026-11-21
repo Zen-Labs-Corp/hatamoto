@@ -2,6 +2,8 @@ package adminpages_test
 
 import (
 	"context"
+	"reflect"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -69,4 +71,28 @@ func TestRegisterPanicsThroughFacade(t *testing.T) {
 	mustPanic(t, func() {
 		adminpages.RegisterBanner("late", func(context.Context) ([]adminpages.Banner, error) { return nil, nil })
 	})
+}
+
+// TestDangerTypesFieldSet pins the fields of the re-exported UI types: they are
+// public API, so a rename or removal in core's UI package must fail here.
+func TestDangerTypesFieldSet(t *testing.T) {
+	cases := []struct {
+		typ  reflect.Type
+		want string
+	}{
+		{reflect.TypeOf(adminpages.DangerConfirm{}), "ID:string Title:string Phrase:string Prompt:string Action:string Back:string Label:string CancelLabel:string Tone:string CSRF:string Error:string Body:[]ui.DangerText Hidden:[]ui.ConfirmHidden"},
+		{reflect.TypeOf(adminpages.DangerText{}), "Parts:[]ui.DangerPart"},
+		{reflect.TypeOf(adminpages.DangerPart{}), "Text:string Code:bool Strong:bool"},
+		{reflect.TypeOf(adminpages.ConfirmHidden{}), "Name:string Value:string"},
+	}
+	for _, c := range cases {
+		var fields []string
+		for i := range c.typ.NumField() {
+			f := c.typ.Field(i)
+			fields = append(fields, f.Name+":"+f.Type.String())
+		}
+		if got := strings.Join(fields, " "); got != c.want {
+			t.Errorf("%s fields changed:\n got %s\nwant %s", c.typ.Name(), got, c.want)
+		}
+	}
 }

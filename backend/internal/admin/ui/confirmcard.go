@@ -10,5 +10,6 @@ type Confirmcard struct {
 	Hidden                                        []ConfirmHidden
 }
 
-// ConfirmHidden is one hidden input of a confirm form.
+// ConfirmHidden is one hidden input of a confirm form. It is re-exported by
+// hatamoto.dev/core/adminpages: a public contract.
 type ConfirmHidden struct{ Name, Value string }
