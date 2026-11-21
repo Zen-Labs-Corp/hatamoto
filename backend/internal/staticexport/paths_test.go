@@ -52,6 +52,12 @@ func TestExcluded(t *testing.T) {
 		"/blog":                          false,
 		"/":                              false,
 		"/pages":                         false,
+		"/%61uth/x":                      true,
+		"/%61pi/v1/x":                    true,
+		"/%66orms/x":                     true,
+		"/k3x9%2dadmin/login":            true,
+		"/%zz":                           true,
+		"/bl%6fg":                        false,
 	} {
 		if got := Excluded(p, admin); got != want {
 			t.Errorf("Excluded(%q) = %v, want %v", p, got, want)

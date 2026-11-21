@@ -49,10 +49,22 @@ func underPrefix(p, prefix string) bool {
 // Excluded reports whether a URL path is never exported: the admin address,
 // authentication, plugin and API surfaces, previews, forms and search. The
 // knowledge graph and a plugin's own assets are the exceptions.
+//
+// The path is tested as written and percent-decoded, because the router
+// matches the decoded form (/%61dmin is /admin). A path that does not decode
+// is excluded.
 func Excluded(p, adminPrefix string) bool {
 	if i := strings.IndexAny(p, "?#"); i >= 0 {
 		p = p[:i]
 	}
+	decoded, err := url.PathUnescape(p)
+	if err != nil {
+		return true
+	}
+	return decoded != p && excluded(decoded, adminPrefix) || excluded(p, adminPrefix)
+}
+
+func excluded(p, adminPrefix string) bool {
 	if p == KnowledgeGraphPath {
 		return false
 	}
