@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/safefetch"
 	"hatamoto.dev/core/internal/staticexport"
 	"hatamoto.dev/core/internal/statichost"
 	"hatamoto.dev/core/internal/statictrigger"
@@ -533,5 +535,53 @@ func TestPreviousLiveFailedIgnoresTestRuns(t *testing.T) {
 	list[2].Status = "failed"
 	if !previousLiveFailed(list, cur) {
 		t.Error("previous live failure missed")
+	}
+}
+
+func TestHostingAdmin_SavePrivateEndpoint(t *testing.T) {
+	const secret = "very-secret-value"
+	for _, mode := range []string{admin.HostingServed, admin.HostingStatic} {
+		for _, ep := range []string{"https://127.0.0.1", "http://10.0.0.5", "http://169.254.169.254", "https://[::1]"} {
+			fx := newHostingFixture(t)
+			in := s3Input(secret)
+			in.Mode, in.Endpoint = mode, ep
+			errs, err := fx.h.Save(context.Background(), in)
+			if err != nil || len(errs) != 1 || errs[0].ID != "hosting-endpoint" ||
+				!strings.Contains(errs[0].Message, "This address is on a private network.") || !strings.Contains(errs[0].Message, staticexport.EnvS3AllowPrivate) {
+				t.Fatalf("%s %s: errs %v err %v", mode, ep, errs, err)
+			}
+			if fx.store.saves != 0 || fx.refresh != 0 || strings.Contains(errs[0].Message, secret) {
+				t.Fatalf("%s %s: saved or leaked", mode, ep)
+			}
+		}
+	}
+
+	lookupTo := func(ip string, err error) safefetch.Lookup {
+		return func(context.Context, string) ([]netip.Addr, error) {
+			if err != nil {
+				return nil, err
+			}
+			return []netip.Addr{netip.MustParseAddr(ip)}, nil
+		}
+	}
+	fx := newHostingFixture(t)
+	fx.h.lookup = lookupTo("192.168.1.2", nil)
+	if errs, _ := fx.h.Save(context.Background(), s3Input(secret)); len(errs) != 1 || errs[0].ID != "hosting-endpoint" || fx.store.saves != 0 {
+		t.Fatalf("hostname resolving private: %v", errs)
+	}
+	fx.h.lookup = lookupTo("", errors.New("no dns"))
+	if errs, err := fx.h.Save(context.Background(), s3Input(secret)); err != nil || len(errs) != 0 || fx.store.saves != 1 {
+		t.Fatalf("lookup error must not refuse: %v %v", errs, err)
+	}
+	fx = newHostingFixture(t)
+	fx.h.lookup = lookupTo("192.168.1.2", nil)
+	fx.h.getenv = func(k string) string {
+		if k == staticexport.EnvS3AllowPrivate {
+			return "1"
+		}
+		return ""
+	}
+	if errs, err := fx.h.Save(context.Background(), s3Input(secret)); err != nil || len(errs) != 0 || fx.store.saves != 1 {
+		t.Fatalf("opt-in: %v %v", errs, err)
 	}
 }

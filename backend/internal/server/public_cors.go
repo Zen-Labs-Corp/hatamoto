@@ -7,6 +7,10 @@ import (
 	"hatamoto.dev/core/internal/statichost"
 )
 
+// corsAllowHeaders are the request headers a cross-origin public request may
+// carry: the form and beacon headers, and those htmx sends with hx-post islands.
+const corsAllowHeaders = "Content-Type, X-Page-URL, HX-Request, HX-Current-URL, HX-Target, HX-Trigger, HX-Trigger-Name, HX-Boosted, HX-Prompt"
+
 // originNull reports a sandboxed (opaque origin) caller. Browsers send the
 // literal "null" as the Origin of a page served with a CSP sandbox that lacks
 // allow-same-origin.
@@ -41,7 +45,7 @@ func preflight(hp *statichost.Holder, methods string) http.HandlerFunc {
 			h.Set("Access-Control-Allow-Origin", "null")
 			h.Add("Vary", "Origin")
 			h.Set("Access-Control-Allow-Methods", methods)
-			h.Set("Access-Control-Allow-Headers", "Content-Type, X-Page-URL")
+			h.Set("Access-Control-Allow-Headers", corsAllowHeaders)
 			h.Set("Access-Control-Max-Age", "600")
 		} else if hs := hp.Load(); hs.Active() {
 			staticPreflight(w.Header(), hs, r.Header.Get("Origin"), methods)
@@ -55,6 +59,35 @@ func preflight(hp *statichost.Holder, methods string) http.HandlerFunc {
 func handleCORS(r *httpx.Group, hp *statichost.Holder, method, path string, h http.HandlerFunc, mw ...httpx.Middleware) {
 	r.HandleFunc("OPTIONS "+path, preflight(hp, method+", OPTIONS"))
 	r.Group("", append([]httpx.Middleware{publicCORS(hp)}, mw...)...).HandleFunc(method+" "+path, h)
+}
+
+// staticOnlyCORS is publicCORS without the opaque-origin answer: only exactly
+// the static origin S is answered, and only in static mode. Credentials are
+// never allowed.
+func staticOnlyCORS(hp *statichost.Holder) httpx.Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if hs := hp.Load(); hs.Active() {
+				staticCORS(w.Header(), hs, r.Header.Get("Origin"))
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// handleStaticCORS mounts a route whose cross-origin caller can only be the
+// static site S: OPTIONS answers S's preflight (a bare 204 for anyone else, and
+// in served mode), and the response carries ACAO only for exactly S. No opaque
+// origin, never credentials. The handler keeps its own cross-site checks. mw
+// are applied inside the CORS wrapper.
+func handleStaticCORS(r *httpx.Group, hp *statichost.Holder, method, path string, h http.HandlerFunc, mw ...httpx.Middleware) {
+	r.HandleFunc("OPTIONS "+path, func(w http.ResponseWriter, q *http.Request) {
+		if hs := hp.Load(); hs.Active() {
+			staticPreflight(w.Header(), hs, q.Header.Get("Origin"), method+", OPTIONS")
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	r.Group("", append([]httpx.Middleware{staticOnlyCORS(hp)}, mw...)...).HandleFunc(method+" "+path, h)
 }
 
 // timingTokenOK reports whether tok is a valid, unexpired form timing token

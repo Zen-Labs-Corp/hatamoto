@@ -126,6 +126,44 @@ func TestResolveStaticTarget(t *testing.T) {
 		}
 	})
 
+	t.Run("s3 private endpoint refused", func(t *testing.T) {
+		for _, ep := range []string{"http://169.254.169.254", "https://127.0.0.1"} {
+			env := map[string]string{
+				staticexport.EnvBucket: "my-site", staticexport.EnvEndpoint: ep, staticexport.EnvRegion: "us-east-1",
+				staticexport.EnvAccessKey: "AKIAEXAMPLE", staticexport.EnvSecretKey: "topsecret",
+			}
+			_, err := resolveStaticTarget(ctx, staticArgs{target: "s3"}, staticTargetDeps{getenv: func(k string) string { return env[k] }, settings: noSettings, secret: secret})
+			if err == nil || !strings.Contains(err.Error(), "endpoint refused: private or link-local address") {
+				t.Errorf("%s: err = %v", ep, err)
+			}
+		}
+	})
+
+	t.Run("s3 private endpoint allowed by opt-in", func(t *testing.T) {
+		env := map[string]string{
+			staticexport.EnvBucket: "my-site", staticexport.EnvEndpoint: "http://10.0.0.5", staticexport.EnvRegion: "us-east-1",
+			staticexport.EnvAccessKey: "AKIAEXAMPLE", staticexport.EnvSecretKey: "topsecret", staticexport.EnvS3AllowPrivate: "1",
+		}
+		if _, err := resolveStaticTarget(ctx, staticArgs{target: "s3"}, staticTargetDeps{getenv: func(k string) string { return env[k] }, settings: noSettings, secret: secret}); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("saved s3 private endpoint refused", func(t *testing.T) {
+		sealed, err := staticexport.SealSecret(staticexport.SecretKey("server-secret"), "topsecret")
+		if err != nil {
+			t.Fatal(err)
+		}
+		saved := func(context.Context) (staticexport.Settings, bool, error) {
+			return staticexport.Settings{Mode: staticexport.ModeStatic, Target: staticexport.TargetS3, Service: "minio", Endpoint: "https://10.1.2.3",
+				Region: "us-east-1", Bucket: "my-site", AccessKey: "AKIAEXAMPLE", SecretSealed: sealed}, true, nil
+		}
+		_, err = resolveStaticTarget(ctx, staticArgs{}, staticTargetDeps{getenv: noEnv, settings: saved, secret: func() (string, error) { return "server-secret", nil }})
+		if err == nil || !strings.Contains(err.Error(), "endpoint refused: private or link-local address") || strings.Contains(err.Error(), "topsecret") {
+			t.Fatalf("err = %v", err)
+		}
+	})
+
 	t.Run("saved dir", func(t *testing.T) {
 		dir := filepath.Join(t.TempDir(), "saved")
 		saved := func(context.Context) (staticexport.Settings, bool, error) {

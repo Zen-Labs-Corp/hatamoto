@@ -224,7 +224,7 @@ fields and rules as `.Related`; `Author` and `AuthorURL` are empty), `Total`
 its `author_entity_slug` equals the entity's slug; else when `author` is an
 object whose `slug` equals the slug or `name` equals the entity's name; else
 (no author object) when `author` is a string, or `author_name`, equals the
-entity's name. Pagination links are yours to build (`?page=2`). It is lazy and
+entity's name. Pagination links are yours to build (`?page=2`); in a static export a link whose only query key is `page` is mapped to the exported listing page. It is lazy and
 memoised per (limit, page) per render; a failed query serves the page uncached.
 A page past the last one gets empty `Items`. Only the call whose
 page is the request's own `.PageNum` (2 or more) makes `?page=N` a cache key,
@@ -1574,6 +1574,8 @@ With static hosting on, the engine renders pages for a static host (see [STATIC_
 - The JSON-LD `SearchAction` points at the live search.
 
 A theme with its own JavaScript must prefix island calls with the content of that meta tag, and match form actions with `new URL(action, location.href)` instead of a regular expression on the raw attribute.
+
+A hand-built `?page=N` link in `<a href>` or `<link rel="prev|next">` is rewritten to the exported listing page (`/blog/page/2/`), so use `page` as the only query key. An `hx-post` island may send these htmx request headers to the live origin: `HX-Request`, `HX-Current-URL`, `HX-Target`, `HX-Trigger`, `HX-Trigger-Name`, `HX-Boosted`, `HX-Prompt`.
 
 If the static host sets a Content Security Policy, it must allow the live origin in `connect-src`, `form-action` and `script-src`.
 

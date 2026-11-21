@@ -290,7 +290,7 @@ func TestPutWithOptionsSendsContentHeaders(t *testing.T) {
 		srv := s3test.NewServer(t)
 		c := newTestClient(t, srv)
 		err := c.PutWithOptions(context.Background(), "a", bytes.NewReader(randBytes(size)), int64(size),
-			PutOptions{ContentType: "text/html; charset=utf-8", CacheControl: "max-age=60", Meta: map[string]string{"k": "v"}})
+			PutOptions{ContentType: "text/html; charset=utf-8", CacheControl: "max-age=60", ContentDisposition: "attachment", Meta: map[string]string{"k": "v"}})
 		if err != nil {
 			t.Fatalf("size %d: %v", size, err)
 		}
@@ -299,6 +299,7 @@ func TestPutWithOptionsSendsContentHeaders(t *testing.T) {
 			if r.Method == http.MethodPut && r.Query == "" || r.Method == http.MethodPost && r.Query == "uploads=" {
 				puts++
 				if r.Header.Get("Content-Type") != "text/html; charset=utf-8" || r.Header.Get("Cache-Control") != "max-age=60" ||
+					r.Header.Get("Content-Disposition") != "attachment" ||
 					r.Header.Get("X-Amz-Meta-K") != "v" {
 					t.Fatalf("size %d: %s %s headers %v", size, r.Method, r.Path, r.Header)
 				}
@@ -326,7 +327,7 @@ func TestPutWithoutOptionsSendsNoContentHeaders(t *testing.T) {
 func TestPutWithOptionsRejectsHeaderInjection(t *testing.T) {
 	srv := s3test.NewServer(t)
 	c := newTestClient(t, srv)
-	for _, o := range []PutOptions{{ContentType: "a\r\nX: y"}, {CacheControl: "a\nb"}} {
+	for _, o := range []PutOptions{{ContentType: "a\r\nX: y"}, {CacheControl: "a\nb"}, {ContentDisposition: "a\r\nb"}} {
 		if err := c.PutWithOptions(context.Background(), "a", bytes.NewReader(nil), 0, o); err == nil {
 			t.Fatalf("accepted %+v", o)
 		}

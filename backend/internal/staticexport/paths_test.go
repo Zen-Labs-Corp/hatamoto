@@ -81,3 +81,48 @@ func TestQueryKind(t *testing.T) {
 		}
 	}
 }
+
+func TestListingPage(t *testing.T) {
+	for q, want := range map[string]int{"page=2": 2, "page=1": 1, "page=10000": 10000} {
+		if n, ok := ListingPage(q); !ok || n != want {
+			t.Errorf("ListingPage(%q) = %d, %v", q, n, ok)
+		}
+	}
+	for _, q := range []string{"", "page=0", "page=02", "page=+2", "page=2&x=1", "page=2&page=3", "page=", "page=10001", "schema=a", "page=-1", "page=2x"} {
+		if n, ok := ListingPage(q); ok {
+			t.Errorf("ListingPage(%q) = %d, want not ok", q, n)
+		}
+	}
+}
+
+func TestListingFilePath(t *testing.T) {
+	for in, want := range map[string]string{
+		"/blog":    "blog/page/2/index.html",
+		"/blog/":   "blog/page/2/index.html",
+		"/":        "page/2/index.html",
+		"/fr/blog": "fr/blog/page/2/index.html",
+	} {
+		got, err := ListingFilePath(in, 2)
+		if err != nil || got != want {
+			t.Errorf("ListingFilePath(%q) = %q, %v; want %q", in, got, err, want)
+		}
+	}
+}
+
+func TestListingHref(t *testing.T) {
+	for _, c := range []struct {
+		path string
+		n    int
+		want string
+	}{
+		{"/blog", 2, "/blog/page/2/"},
+		{"/blog/", 3, "/blog/page/3/"},
+		{"/", 2, "/page/2/"},
+		{"/blog", 1, "/blog"},
+		{"/a%20b", 2, "/a%20b/page/2/"},
+	} {
+		if got := listingHref(c.path, c.n); got != c.want {
+			t.Errorf("listingHref(%q, %d) = %q, want %q", c.path, c.n, got, c.want)
+		}
+	}
+}

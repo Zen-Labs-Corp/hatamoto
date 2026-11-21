@@ -1,10 +1,17 @@
 package staticexport
 
 import (
+	"context"
+	"errors"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/offsite"
+	"hatamoto.dev/core/internal/s3/s3test"
+	"hatamoto.dev/core/internal/safefetch"
 )
 
 func TestSavedTarget_Dir(t *testing.T) {
@@ -73,5 +80,72 @@ func TestSavedTarget_UnknownTarget(t *testing.T) {
 	set.Target = "ftp"
 	if _, err := SavedTarget(set, nil, DirGuard{}, nil); err == nil {
 		t.Fatal("unknown target must fail")
+	}
+}
+
+func guardTarget(endpoint string) offsite.Target {
+	return offsite.Target{Endpoint: endpoint, Region: s3test.Region, Bucket: s3test.Bucket,
+		AccessKey: s3test.AccessKey, SecretKey: s3test.SecretKey}
+}
+
+func TestS3TargetChecked_Literal(t *testing.T) {
+	none := func(string) string { return "" }
+	optIn := func(k string) string {
+		if k == EnvS3AllowPrivate {
+			return "1"
+		}
+		return ""
+	}
+	for _, ep := range []string{"https://169.254.169.254", "http://127.0.0.1:9000"} {
+		if _, err := S3TargetChecked(guardTarget(ep), none); !errors.Is(err, ErrPrivateEndpoint) {
+			t.Errorf("%s: err = %v, want refusal", ep, err)
+		}
+		if _, err := S3TargetChecked(guardTarget(ep), optIn); err != nil {
+			t.Errorf("%s with opt-in: %v", ep, err)
+		}
+	}
+}
+
+func TestS3TargetChecked_DialGuard(t *testing.T) {
+	lookup := safefetch.Lookup(func(context.Context, string) ([]netip.Addr, error) {
+		return []netip.Addr{netip.MustParseAddr("10.0.0.7")}, nil
+	})
+	tgt, err := s3TargetChecked(guardTarget("https://s3.internal.test"), func(string) string { return "" }, lookup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := tgt.(*S3Target).Previous(context.Background()); !errors.Is(err, safefetch.ErrBlocked) {
+		t.Fatalf("Previous err = %v, want ErrBlocked", err)
+	}
+}
+
+func TestS3TargetChecked_AllowPrivateReachesLoopback(t *testing.T) {
+	srv := s3test.NewServer(t)
+	optIn := func(k string) string {
+		if k == EnvS3AllowPrivate {
+			return "1"
+		}
+		return ""
+	}
+	tgt, err := S3TargetChecked(guardTarget(srv.URL), optIn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, found, err := tgt.(*S3Target).Previous(context.Background()); err != nil || found {
+		t.Fatalf("Previous: found=%v err=%v", found, err)
+	}
+}
+
+func TestS3TargetChecked_DialRefusalNamesOptIn(t *testing.T) {
+	lookup := safefetch.Lookup(func(context.Context, string) ([]netip.Addr, error) {
+		return []netip.Addr{netip.MustParseAddr("10.0.0.7")}, nil
+	})
+	tgt, err := s3TargetChecked(guardTarget("https://s3.internal.test"), func(string) string { return "" }, lookup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = tgt.(*S3Target).Previous(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "endpoint refused: private or link-local address") || !strings.Contains(err.Error(), EnvS3AllowPrivate) {
+		t.Fatalf("err = %v, want the refusal naming %s", err, EnvS3AllowPrivate)
 	}
 }

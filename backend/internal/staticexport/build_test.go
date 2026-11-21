@@ -2,6 +2,8 @@ package staticexport
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"net/http"
 	"net/url"
@@ -190,18 +192,98 @@ func TestBuild_ExcludesAdminAndPrivate(t *testing.T) {
 	}
 }
 
-func TestBuild_PaginationSkipped(t *testing.T) {
-	f := newFake("/admin", "/")
-	f.html("/", `<a href="/blog?page=2">next</a>`)
-	_, rep, _, err := build(t, f)
+func TestBuild_ListingPages(t *testing.T) {
+	f := newFake("/admin", "/blog")
+	f.html("/blog", `<a href="/blog?page=2">next</a><link rel="next" href="https://example.com/blog?page=2">`)
+	f.html("/blog?page=2", `<a href="?page=3">n</a><a href="/blog">first</a>`)
+	f.html("/blog?page=3", `<link rel="canonical" href="https://example.com/blog?page=3"><a href="/blog?page=2">p</a>`)
+	m, rep, dir, err := build(t, f)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rep.Skipped != 1 || f.called("/blog?page=2") || f.called("/blog") {
-		t.Errorf("skipped=%d", rep.Skipped)
+	mustHave(t, m, "blog/index.html", "blog/page/2/index.html", "blog/page/3/index.html")
+	if rep.ListingPages != 2 || rep.Skipped != 0 || rep.Pages != 1 {
+		t.Errorf("listing=%d skipped=%d pages=%d (warnings %v)", rep.ListingPages, rep.Skipped, rep.Pages, rep.Warnings)
 	}
-	if !strings.Contains(strings.Join(rep.Warnings, "\n"), "?page=N") {
+	if strings.Contains(strings.Join(rep.Warnings, "\n"), "?page=N") {
 		t.Errorf("warnings = %v", rep.Warnings)
+	}
+	if !f.called("/blog?page=2") {
+		t.Error("the query did not reach the source")
+	}
+	read := func(p string) string {
+		b, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(p)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	if got := read("blog/index.html"); !strings.Contains(got, `href="/blog/page/2/"`) || !strings.Contains(got, `href="https://example.com/blog/page/2/"`) {
+		t.Errorf("blog/index.html = %q", got)
+	}
+	if got := read("blog/page/2/index.html"); !strings.Contains(got, `href="/blog/page/3/"`) {
+		t.Errorf("page 2 = %q", got)
+	}
+	if got := read("blog/page/3/index.html"); !strings.Contains(got, `rel="canonical" href="https://example.com/blog?page=3"`) {
+		t.Errorf("page 3 lost its canonical: %q", got)
+	}
+	for p, e := range m.Files {
+		sum := sha256.Sum256([]byte(read(p)))
+		if hex.EncodeToString(sum[:]) != e.SHA256 || e.Size != int64(len(read(p))) {
+			t.Errorf("%s: manifest does not match the staged bytes", p)
+		}
+	}
+}
+
+func TestBuild_ListingCollision(t *testing.T) {
+	f := newFake("/admin", "/blog", "/blog/page/2")
+	f.html("/blog", `<a href="/blog?page=2">next</a>`)
+	f.html("/blog?page=2", "<p>listing</p>")
+	f.html("/blog/page/2", "<p>entity</p>")
+	m, rep, dir, err := build(t, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "blog", "page", "2", "index.html")); string(b) != "<p>entity</p>" {
+		t.Errorf("file = %q", b)
+	}
+	if rep.ListingPages != 0 || len(rep.Warnings) == 0 {
+		t.Errorf("listing=%d warnings=%v", rep.ListingPages, rep.Warnings)
+	}
+	if e := m.Files["blog/page/2/index.html"]; e.Size != int64(len("<p>entity</p>")) {
+		t.Errorf("entry = %+v", e)
+	}
+}
+
+func TestBuild_ListingRedirectNoStub(t *testing.T) {
+	f := newFake("/admin", "/blog")
+	f.html("/blog", `<a href="/blog?page=2">next</a>`)
+	f.pages["/blog?page=2"] = fakeResp{status: 301, loc: "/blog"}
+	m, rep, _, err := build(t, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Stubs != 0 || rep.ListingPages != 0 || len(m.Files) != 2 {
+		t.Errorf("stubs=%d listing=%d files=%v", rep.Stubs, rep.ListingPages, keys(m))
+	}
+	if !strings.Contains(strings.Join(rep.Warnings, "\n"), "redirects (301)") {
+		t.Errorf("warnings = %v", rep.Warnings)
+	}
+}
+
+func TestBuild_ListingPageOneIsListing(t *testing.T) {
+	f := newFake("/admin", "/blog")
+	f.html("/blog", `<a href="/blog?page=1">first</a>`)
+	m, rep, dir, err := build(t, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.called("/blog?page=1") || rep.Skipped != 0 || len(rep.Warnings) != 0 || rep.ListingPages != 0 {
+		t.Errorf("fetched=%v skipped=%d warnings=%v", f.called("/blog?page=1"), rep.Skipped, rep.Warnings)
+	}
+	mustHave(t, m, "blog/index.html")
+	if b, _ := os.ReadFile(filepath.Join(dir, "blog", "index.html")); string(b) != `<a href="/blog">first</a>` {
+		t.Errorf("body = %q", b)
 	}
 }
 
@@ -215,8 +297,8 @@ func TestBuild_AssetCacheBusterExportedByPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustHave(t, m, "theme/assets/consent.js", "fonts/a.woff2")
-	if rep.Skipped != 1 {
-		t.Errorf("skipped = %d, want only the ?page=2 link (warnings %v)", rep.Skipped, rep.Warnings)
+	if rep.Skipped != 0 || !f.called("/blog?page=2") {
+		t.Errorf("skipped = %d, ?page=2 fetched = %v (warnings %v)", rep.Skipped, f.called("/blog?page=2"), rep.Warnings)
 	}
 }
 
@@ -317,5 +399,70 @@ func TestBuild_SiteWarningsReachReport(t *testing.T) {
 	}
 	if !slices.Contains(r.Warnings, "note from the source") {
 		t.Errorf("warnings = %v", r.Warnings)
+	}
+}
+
+// A listing page and a real page that map to the same file are stored at
+// the same time: the file left on disk must be the one the manifest describes.
+func TestStore_ListingCollisionKeepsManifestAndFileInStep(t *testing.T) {
+	base, _ := url.Parse("https://example.test")
+	dir := t.TempDir()
+	b := &builder{
+		site: Site{Base: base}, dir: dir, tmp: filepath.Join(dir, stagingTmp),
+		manifest:   Manifest{Version: manifestVersion, Files: map[string]Entry{}},
+		listingOut: map[string]bool{},
+	}
+	if err := os.MkdirAll(b.tmp, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	put := func(name, body string) (string, string) {
+		f := filepath.Join(b.tmp, name)
+		if err := os.WriteFile(f, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		h := sha256.Sum256([]byte(body))
+		return f, hex.EncodeToString(h[:])
+	}
+	lf, ls := put("listing", "<p>listing</p>")
+	rf, rs := put("real", "<p>real page</p>")
+
+	// The listing page pauses in its placement until the real page has been
+	// stored, or a moment passes when the real page has to wait for it.
+	inPlace, realDone := make(chan struct{}), make(chan struct{})
+	b.placeFn = func(from, to string) error {
+		if from == lf {
+			close(inPlace)
+			select {
+			case <-realDone:
+			case <-time.After(300 * time.Millisecond):
+			}
+		}
+		return place(from, to)
+	}
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		b.store("/blog", "/blog?page=2", lf, 14, ls, "text/html", "text/html", true, 2)
+	}()
+	go func() {
+		defer wg.Done()
+		<-inPlace
+		b.store("/blog/page/2", "/blog/page/2", rf, 16, rs, "text/html", "text/html", true, 0)
+		close(realDone)
+	}()
+	wg.Wait()
+	if len(b.manifest.Files) != 1 {
+		t.Fatalf("manifest = %v, want one file", b.manifest.Files)
+	}
+	for out, e := range b.manifest.Files {
+		got, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(out)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		h := sha256.Sum256(got)
+		if hex.EncodeToString(h[:]) != e.SHA256 {
+			t.Fatalf("%s holds %q but the manifest sha is %s", out, got, e.SHA256)
+		}
 	}
 }

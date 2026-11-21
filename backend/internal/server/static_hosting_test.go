@@ -70,7 +70,7 @@ func TestStaticPreflight(t *testing.T) {
 		t.Fatal("S must be answered")
 	}
 	if hd.Get("Access-Control-Allow-Methods") != "POST, OPTIONS" ||
-		hd.Get("Access-Control-Allow-Headers") != "Content-Type, X-Page-URL" ||
+		hd.Get("Access-Control-Allow-Headers") != corsAllowHeaders ||
 		hd.Get("Access-Control-Max-Age") != "600" ||
 		hd.Get("Access-Control-Allow-Origin") != testSiteOrigin {
 		t.Errorf("headers = %v", hd)

@@ -104,7 +104,11 @@ func Export(ctx context.Context, src Source, runs RunRecorder, t Target, o Optio
 	if err != nil {
 		return fail(err, rep)
 	}
-	say("static: %d pages, %d assets, %d media files  (%.1f MB)", rep.Pages, rep.Assets, rep.Media, float64(rep.Bytes)/(1<<20))
+	pages := fmt.Sprintf("%d pages", rep.Pages)
+	if rep.ListingPages > 0 {
+		pages += fmt.Sprintf(" (+%d listing pages)", rep.ListingPages)
+	}
+	say("static: %s, %d assets, %d media files  (%.1f MB)", pages, rep.Assets, rep.Media, float64(rep.Bytes)/(1<<20))
 
 	prev, found, err := t.Previous(ctx)
 	if err != nil {

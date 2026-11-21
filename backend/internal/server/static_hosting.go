@@ -44,7 +44,7 @@ func staticPreflight(hd http.Header, hs statichost.StaticHosting, origin, method
 		return false
 	}
 	hd.Set("Access-Control-Allow-Methods", methods)
-	hd.Set("Access-Control-Allow-Headers", "Content-Type, X-Page-URL")
+	hd.Set("Access-Control-Allow-Headers", corsAllowHeaders)
 	hd.Set("Access-Control-Max-Age", "600")
 	return true
 }

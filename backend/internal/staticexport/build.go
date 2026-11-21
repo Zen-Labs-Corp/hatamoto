@@ -1,6 +1,7 @@
 package staticexport
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -40,8 +41,10 @@ type BuildOptions struct {
 // Report counts what Build wrote.
 type Report struct {
 	Pages, Assets, Media, Redirects, Stubs, Skipped int
-	Bytes                                           int64
-	Warnings, Errors                                []string
+	// ListingPages counts exported ?page=N listing pages (<listing>/page/N/).
+	ListingPages     int
+	Bytes            int64
+	Warnings, Errors []string
 }
 
 // retrySleep waits between sitemap retries; tests replace it.
@@ -62,12 +65,13 @@ var retrySleep = func(ctx context.Context, d time.Duration) {
 func Build(ctx context.Context, src Source, site Site, dir string, o BuildOptions) (Manifest, Report, error) {
 	b := &builder{
 		src: src, site: site, dir: dir, o: o,
-		tmp:       filepath.Join(dir, stagingTmp),
-		seen:      map[string]bool{},
-		seeds:     map[string]bool{},
-		ruleSrc:   map[string]bool{},
-		manifest:  Manifest{Version: manifestVersion, Files: map[string]Entry{}},
-		skipTypes: map[string]int{},
+		tmp:        filepath.Join(dir, stagingTmp),
+		seen:       map[string]bool{},
+		seeds:      map[string]bool{},
+		ruleSrc:    map[string]bool{},
+		manifest:   Manifest{Version: manifestVersion, Files: map[string]Entry{}},
+		skipTypes:  map[string]int{},
+		listingOut: map[string]bool{},
 	}
 	if err := os.MkdirAll(b.tmp, 0o755); err != nil {
 		return Manifest{}, Report{}, err
@@ -130,9 +134,13 @@ type builder struct {
 	next      []string
 	errs      []string
 	skipTypes map[string]int
-	skipLog   int
-	tmpN      int
-	fetched   int
+	// listingOut holds the output files written for ?page=N listing pages.
+	listingOut map[string]bool
+	skipLog    int
+	tmpN       int
+	fetched    int
+	// placeFn replaces place in tests.
+	placeFn func(from, to string) error
 }
 
 func (b *builder) warn(format string, a ...any) {
@@ -210,6 +218,15 @@ func (b *builder) process(ctx context.Context, p string) {
 		// hosts ignore it, so the file is exported without it.
 		rawQuery = ""
 	}
+	if n, ok := ListingPage(rawQuery); ok {
+		if n == 1 {
+			// Page 1 is the listing itself.
+			b.enqueue(urlPath)
+			return
+		}
+		b.listing(ctx, p, urlPath, n)
+		return
+	}
 	if skip, why := QueryKind(rawQuery); skip {
 		b.skip(p, why)
 		return
@@ -236,7 +253,7 @@ func (b *builder) process(ctx context.Context, p string) {
 			b.fail("%s: want a 404 HTML page, got status %d type %q", p, status, ct)
 			return
 		}
-		b.store(urlPath, file, size, sum, ct, mt, false)
+		b.store(urlPath, urlPath, file, size, sum, ct, mt, false, 0)
 		return
 	}
 
@@ -245,7 +262,7 @@ func (b *builder) process(ctx context.Context, p string) {
 		if b.ruleSrc[urlPath] {
 			b.warn("redirect rule %s is shadowed by a page and is not exported", urlPath)
 		}
-		b.store(urlPath, file, size, sum, ct, mt, true)
+		b.store(urlPath, urlPath, file, size, sum, ct, mt, true, 0)
 	case status >= 300 && status < 400:
 		b.redirected(urlPath, resp)
 	case status == http.StatusNotFound || status == http.StatusGone:
@@ -256,6 +273,39 @@ func (b *builder) process(ctx context.Context, p string) {
 		default:
 			b.warn("%s answers %d (broken link on the live site)", p, status)
 		}
+	default:
+		b.fail("%s: render %d", p, status)
+	}
+}
+
+// listing fetches page n (n>=2) of the listing at urlPath, query included, and
+// stores it as <listing>/page/<n>/index.html.
+func (b *builder) listing(ctx context.Context, p, urlPath string, n int) {
+	file, size, sum, resp, err := b.fetch(ctx, p)
+	if err != nil {
+		if ctx.Err() == nil {
+			b.fail("%s: %v", p, err)
+		}
+		return
+	}
+	if file != "" {
+		defer os.Remove(file)
+	}
+	b.countFetched()
+
+	ct := resp.Header.Get("Content-Type")
+	mt, _, _ := mime.ParseMediaType(ct)
+	switch status := resp.Status; {
+	case status >= 200 && status < 300:
+		if mt != "text/html" {
+			b.skip(p, "?page=N")
+			return
+		}
+		b.store(urlPath, p, file, size, sum, ct, mt, true, n)
+	case status >= 300 && status < 400:
+		b.warn("listing page %s redirects (%d) and is not exported", p, status)
+	case status == http.StatusNotFound || status == http.StatusGone:
+		b.warn("%s answers %d (broken link on the live site)", p, status)
 	default:
 		b.fail("%s: render %d", p, status)
 	}
@@ -347,9 +397,17 @@ func isTextType(mt string) bool {
 
 // store moves a fetched body into place, records it in the manifest and
 // enqueues the links it contains. count says whether it counts as a page,
-// asset or media file.
-func (b *builder) store(urlPath, tmpFile string, size int64, sum, ct, mt string, count bool) {
-	out, err := FilePath(urlPath, mt == "text/html")
+// asset or media file. doc is the fetched URL (path and query); page is N for
+// page N of the listing at urlPath, else 0. HTML is stored with its listing
+// page links rewritten; the links to crawl come from the original bytes.
+func (b *builder) store(urlPath, doc, tmpFile string, size int64, sum, ct, mt string, count bool, page int) {
+	var out string
+	var err error
+	if page > 0 {
+		out, err = ListingFilePath(urlPath, page)
+	} else {
+		out, err = FilePath(urlPath, mt == "text/html")
+	}
 	if err != nil {
 		b.fail("%s: %v", urlPath, err)
 		return
@@ -368,6 +426,18 @@ func (b *builder) store(urlPath, tmpFile string, size int64, sum, ct, mt string,
 			b.fail("%s: the body contains the admin address", urlPath)
 			return
 		}
+		if mt == "text/html" {
+			if docURL, perr := b.site.Base.Parse(doc); perr == nil {
+				if nb := RewriteListingLinks(docURL, b.site.AdminPrefix, text); !bytes.Equal(nb, text) {
+					if err := os.WriteFile(tmpFile, nb, 0o644); err != nil {
+						b.fail("%s: %v", urlPath, err)
+						return
+					}
+					h := sha256.Sum256(nb)
+					sum, size = hex.EncodeToString(h[:]), int64(len(nb))
+				}
+			}
+		}
 	}
 	if ct == "" {
 		ct = ContentType(out)
@@ -376,23 +446,45 @@ func (b *builder) store(urlPath, tmpFile string, size int64, sum, ct, mt string,
 
 	b.mu.Lock()
 	if old, ok := b.manifest.Files[out]; ok {
-		b.mu.Unlock()
-		if old.SHA256 != sum {
-			b.fail("%s: two URLs map to %s with different content", urlPath, out)
+		switch {
+		case page > 0:
+			b.mu.Unlock()
+			b.warn("listing page %s not exported: %s is taken by another page", doc, out)
+			return
+		case b.listingOut[out]:
+			// A real page wins over a listing page.
+			delete(b.listingOut, out)
+			b.report.ListingPages--
+			b.report.Bytes -= old.Size
+			b.report.Warnings = append(b.report.Warnings, fmt.Sprintf("listing page at %s is replaced by the page %s", out, urlPath))
+		default:
+			b.mu.Unlock()
+			if old.SHA256 != sum {
+				b.fail("%s: two URLs map to %s with different content", urlPath, out)
+			}
+			return
 		}
-		return
 	}
 	b.manifest.Files[out] = entry
-	b.mu.Unlock()
-
-	if err := place(tmpFile, filepath.Join(b.dir, filepath.FromSlash(out))); err != nil {
+	if page > 0 {
+		b.listingOut[out] = true
+	}
+	// Placed under the lock that decided the collision, so the file on disk
+	// is always the one the manifest entry describes.
+	placeFile := place
+	if b.placeFn != nil {
+		placeFile = b.placeFn
+	}
+	if err := placeFile(tmpFile, filepath.Join(b.dir, filepath.FromSlash(out))); err != nil {
+		b.mu.Unlock()
 		b.fail("%s: %v", urlPath, err)
 		return
 	}
 
-	b.mu.Lock()
 	if count {
 		switch {
+		case page > 0:
+			b.report.ListingPages++
 		case strings.HasPrefix(out, "media/"):
 			b.report.Media++
 		case path.Ext(out) == ".html":
@@ -405,7 +497,7 @@ func (b *builder) store(urlPath, tmpFile string, size int64, sum, ct, mt string,
 	b.mu.Unlock()
 
 	if text != nil {
-		base, err := b.site.Base.Parse(urlPath)
+		base, err := b.site.Base.Parse(doc)
 		if err != nil {
 			return
 		}

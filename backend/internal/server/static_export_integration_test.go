@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"io"
@@ -13,8 +14,10 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -252,36 +255,7 @@ func TestStaticExport_A1_EqualsLive(t *testing.T) {
 		t.Fatal(err)
 	}
 	files := xpFiles(t, out)
-	checked := 0
-	for _, f := range files {
-		if f == staticexport.ManifestFile || f == staticexport.RedirectsFile || f == "404.html" {
-			continue
-		}
-		got, err := os.ReadFile(filepath.Join(out, filepath.FromSlash(f)))
-		if err != nil {
-			t.Fatal(err)
-		}
-		p := urlOf(f)
-		live := x.liveGet(p)
-		if live.Code >= 300 && live.Code < 400 {
-			if !bytes.Contains(got, []byte(`http-equiv="refresh"`)) {
-				t.Errorf("%s: live answers %d but the file is not a redirect stub", f, live.Code)
-			}
-			continue
-		}
-		if live.Code != http.StatusOK {
-			t.Errorf("%s: live answers %d", p, live.Code)
-			continue
-		}
-		checked++
-		if want := live.Body.Bytes(); !bytes.Equal(got, want) {
-			off := 0
-			for off < len(got) && off < len(want) && got[off] == want[off] {
-				off++
-			}
-			t.Errorf("%s differs from the live body (%d vs %d bytes), first difference at byte %d", p, len(got), len(want), off)
-		}
-	}
+	checked := xpCheckEqualsLive(t, x, out, files)
 	if checked < 10 {
 		t.Fatalf("only %d files compared: %v", checked, files)
 	}
@@ -337,6 +311,114 @@ func TestStaticExport_A1_EqualsLive(t *testing.T) {
 	pat := strings.Index(string(rd), "/legacy-"+x.sfx+"/:p1 "+x.base+"/:p1 301")
 	if exact < 0 || pat < 0 || exact > pat {
 		t.Errorf("_redirects = %q (exact at %d, pattern at %d)", rd, exact, pat)
+	}
+}
+
+var listingFileRe = regexp.MustCompile(`^(.+/)?page/(\d+)/index\.html$`)
+
+// xpCheckEqualsLive compares every exported file with what the live site
+// answers and returns how many pages it compared. A listing page file is
+// compared with its ?page=N page, and every body with the pager links
+// rewritten, the only change an export makes to a page.
+func xpCheckEqualsLive(t *testing.T, x *xpSite, out string, files []string) (checked int) {
+	t.Helper()
+	for _, f := range files {
+		if f == staticexport.ManifestFile || f == staticexport.RedirectsFile || f == "404.html" {
+			continue
+		}
+		got, err := os.ReadFile(filepath.Join(out, filepath.FromSlash(f)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		p := urlOf(f)
+		live := x.liveGet(p)
+		if m := listingFileRe.FindStringSubmatch(f); m != nil && live.Code == http.StatusNotFound {
+			p = urlOf(m[1]+"index.html") + "?page=" + m[2]
+			live = x.liveGet(p)
+		}
+		if live.Code >= 300 && live.Code < 400 {
+			if !bytes.Contains(got, []byte(`http-equiv="refresh"`)) {
+				t.Errorf("%s: live answers %d but the file is not a redirect stub", f, live.Code)
+			}
+			continue
+		}
+		if live.Code != http.StatusOK {
+			t.Errorf("%s: live answers %d", p, live.Code)
+			continue
+		}
+		checked++
+		doc, err := url.Parse("https://" + x.host + p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := staticexport.RewriteListingLinks(doc, x.admin, live.Body.Bytes()); !bytes.Equal(got, want) {
+			off := 0
+			for off < len(got) && off < len(want) && got[off] == want[off] {
+				off++
+			}
+			t.Errorf("%s differs from the live body (%d vs %d bytes), first difference at byte %d", p, len(got), len(want), off)
+		}
+	}
+	return checked
+}
+
+func TestStaticExport_A4_ListingPages(t *testing.T) {
+	x := newXPSite(t, "open")
+	ctx := context.Background()
+	var schemaID uuid.UUID
+	if err := x.db.Pool().QueryRow(ctx, `SELECT id FROM hatamoto_entity_schemas WHERE slug=$1`, "xp-"+x.sfx).Scan(&schemaID); err != nil {
+		t.Fatal(err)
+	}
+	// 2 posts exist; 25 more make 27, three pages of 12.
+	for i := range 25 {
+		if _, err := x.db.Pool().Exec(ctx, `INSERT INTO hatamoto_entities (id,schema_id,name,slug,status,published_at,attributes)
+			VALUES ($1,$2,$3,$4,'published', now() - make_interval(mins => $5), '{"content":"<p>x</p>"}'::jsonb)`,
+			uuid.New(), schemaID, fmt.Sprintf("Listing post %d", i), fmt.Sprintf("lp-%d", i), 10+i); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if live := x.liveGet(x.base); !strings.Contains(live.Body.String(), "?page=2") {
+		t.Fatalf("the live listing has no ?page=2 link (status %d)", live.Code)
+	}
+
+	out, res, err := x.export(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := xpFiles(t, out)
+	dir := strings.TrimPrefix(x.base, "/")
+	for _, want := range []string{dir + "/page/2/index.html", dir + "/page/3/index.html"} {
+		if !has(files, want) {
+			t.Errorf("output misses %s", want)
+		}
+	}
+	if has(files, dir+"/page/4/index.html") {
+		t.Error("output has a page 4")
+	}
+	first, err := os.ReadFile(filepath.Join(out, dir, "index.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(first, []byte(`href="`+x.base+`/page/2/"`)) {
+		t.Errorf("the first page does not link /page/2/:\n%s", first)
+	}
+	second, err := os.ReadFile(filepath.Join(out, dir, "page", "2", "index.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !regexp.MustCompile(`<link[^>]*rel="canonical"[^>]*\?page=2|<link[^>]*\?page=2[^>]*rel="canonical"`).Match(second) {
+		t.Errorf("page 2 lost its live canonical:\n%s", second)
+	}
+	if res.Report.ListingPages != 2 {
+		t.Errorf("ListingPages = %d, want 2", res.Report.ListingPages)
+	}
+	for _, w := range res.Report.Warnings {
+		if strings.Contains(w, "?page=N") {
+			t.Errorf("warning %q", w)
+		}
+	}
+	if n := xpCheckEqualsLive(t, x, out, files); n < 10 {
+		t.Errorf("only %d files compared", n)
 	}
 }
 

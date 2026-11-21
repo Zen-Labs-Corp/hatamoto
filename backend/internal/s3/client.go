@@ -289,14 +289,18 @@ func hashRange(r io.ReaderAt, off, n int64) (string, error) {
 type PutOptions struct {
 	ContentType  string
 	CacheControl string
-	Meta         map[string]string // user metadata
+	// ContentDisposition is e.g. "attachment".
+	ContentDisposition string
+	Meta               map[string]string // user metadata
 }
 
 // header returns the request headers the options stand for. The values are
 // signed with the request; CR and LF are refused.
 func (o PutOptions) header() (http.Header, error) {
 	h := metaHeader(o.Meta)
-	for name, v := range map[string]string{"Content-Type": o.ContentType, "Cache-Control": o.CacheControl} {
+	for name, v := range map[string]string{
+		"Content-Type": o.ContentType, "Cache-Control": o.CacheControl, "Content-Disposition": o.ContentDisposition,
+	} {
 		if strings.ContainsAny(v, "\r\n") {
 			return nil, fmt.Errorf("s3 put: invalid %s", name)
 		}
@@ -314,7 +318,7 @@ func (c *Client) Put(ctx context.Context, key string, r io.ReaderAt, size int64,
 }
 
 // PutWithOptions stores size bytes of r under key with the Content-Type,
-// Cache-Control and user metadata of o. Objects up to one part go in a single
+// Cache-Control, Content-Disposition and user metadata of o. Objects up to one part go in a single
 // request, larger ones as a multipart upload that is aborted on any error.
 // Memory use is bounded: the body is streamed from r, hashed in a first pass
 // so the server can verify the bytes.
