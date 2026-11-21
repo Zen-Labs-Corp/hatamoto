@@ -225,23 +225,23 @@ func TestDeveloperRowIsVerifiedWithItsStoredKey(t *testing.T) {
 	devKey := newKey(t)
 	m := NewManager(Options{})
 	row := Row{Kind: KindPlugin, Name: "acme", SignerKeyID: devKey.ID, Developer: true, DeveloperKey: devKey.Public}
-	if err := m.usable(row); err != nil {
+	if err := m.usable(context.Background(), row); err != nil {
 		t.Fatalf("developer row with its key: %v (the switch and the index must not matter)", err)
 	}
 	row.DeveloperKey = newKey(t).Public
-	if err := m.usable(row); !errors.Is(err, ErrUntrustedKey) {
+	if err := m.usable(context.Background(), row); !errors.Is(err, ErrUntrustedKey) {
 		t.Errorf("wrong stored key: %v", err)
 	}
 	row.DeveloperKey = ""
-	if err := m.usable(row); !errors.Is(err, ErrUntrustedKey) {
+	if err := m.usable(context.Background(), row); !errors.Is(err, ErrUntrustedKey) {
 		t.Errorf("no stored key: %v", err)
 	}
 	row = Row{Kind: KindPlugin, Name: "acme", SignerKeyID: devKey.ID, Developer: true, DeveloperKey: devKey.Public, DisabledReason: "revoked: key leaked"}
-	if err := m.usable(row); err == nil || err.Error() != "revoked: key leaked" {
+	if err := m.usable(context.Background(), row); err == nil || err.Error() != "revoked: key leaked" {
 		t.Errorf("disabled row: %v", err)
 	}
 	// A non-developer row signed by an untrusted key is still refused.
-	if err := m.usable(Row{SignerKeyID: devKey.ID}); !errors.Is(err, ErrUntrustedKey) {
+	if err := m.usable(context.Background(), Row{SignerKeyID: devKey.ID}); !errors.Is(err, ErrUntrustedKey) {
 		t.Errorf("untrusted non-developer: %v", err)
 	}
 }

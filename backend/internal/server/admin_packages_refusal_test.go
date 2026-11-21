@@ -119,3 +119,12 @@ func TestRefusalCommercial(t *testing.T) {
 		}
 	}
 }
+
+// Turning a commercial plugin on without the entitlement is a refusal too.
+func TestEnableRefusalCommercial(t *testing.T) {
+	var r *admin.Refusal
+	err := enableRefusal(fmt.Errorf("audit-x: %w", packages.ErrCommercialNotEntitled))
+	if !errors.As(err, &r) || !strings.Contains(r.Msg, "commercial plugin") {
+		t.Errorf("got %v, want a refusal containing %q", err, "commercial plugin")
+	}
+}

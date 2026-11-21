@@ -44,3 +44,28 @@ func (m *Manager) commercialPolicy(ctx context.Context, p *Package, src Source) 
 	}
 	return nil
 }
+
+// commercialUsable reports whether r is a commercial plugin row (handled) and
+// why it must not run. A plugin row whose manifest does not decode is refused,
+// never treated as free.
+func (m *Manager) commercialUsable(ctx context.Context, r Row) (bool, error) {
+	if r.Kind != KindPlugin {
+		return false, nil
+	}
+	var man sdk.Manifest
+	if err := decodeManifest(r.Manifest, &man); err != nil {
+		return true, err
+	}
+	if man.License != sdk.LicenseCommercial {
+		return false, nil
+	}
+	switch {
+	case r.Source == SourceDev, r.Developer, r.SignerKeyID == "", len(m.PluginKey) == 0:
+		return true, fmt.Errorf("%s: %w", r.Name, ErrCommercialNotEntitled)
+	case r.SignerKeyID != KeyID(m.PluginKey):
+		return true, fmt.Errorf("%s: %w", r.Name, ErrCommercialSigner)
+	case m.Entitled == nil || !m.Entitled(ctx, r.Name):
+		return true, fmt.Errorf("%s: %w", r.Name, ErrCommercialNotEntitled)
+	}
+	return true, nil
+}

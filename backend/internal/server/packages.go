@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/editionstate"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
@@ -35,13 +36,16 @@ func (s *Server) setupPackages() {
 		s.logger.Error("packages: HATAMOTO_TRUSTED_KEYS is not valid; no signer is trusted", slog.Any("error", err))
 		trust = packages.TrustSet{}
 	}
+	pluginKey, _ := editionstate.PluginKey()
 	opts := packages.Options{
-		Pool:     s.db.Pool(),
-		Idle:     s.idle,
-		Trust:    trust,
-		AllowDev: s.cfg.Environment != "production",
-		OnChange: s.onThemeChange,
-		Logger:   s.logger,
+		Pool:      s.db.Pool(),
+		Idle:      s.idle,
+		Trust:     trust,
+		PluginKey: pluginKey,
+		Entitled:  editionstate.Plugin,
+		AllowDev:  s.cfg.Environment != "production",
+		OnChange:  s.onThemeChange,
+		Logger:    s.logger,
 	}
 	if s.tagsStore != nil {
 		opts.DropTagSettings = s.tagsStore.DropPack

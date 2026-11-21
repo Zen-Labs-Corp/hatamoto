@@ -951,6 +951,13 @@ func (m *Manager) SetEnabled(ctx context.Context, name string, on bool) error {
 		if err := m.checkNotRevoked(ctx, KindPlugin, name); err != nil {
 			return err
 		}
+		row, err := m.store.Get(ctx, KindPlugin, name)
+		if err != nil {
+			return err
+		}
+		if commercial, err := m.commercialUsable(ctx, row); commercial && err != nil {
+			return err
+		}
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1204,7 +1211,10 @@ func (m *Manager) themeLayers(ctx context.Context, name string) ([]fs.FS, Row, e
 // package when this process does not allow them (production), or one signed by
 // a key that is no longer trusted. A package marked unsigned stays usable: the
 // owner allowed that when installing it.
-func (m *Manager) usable(r Row) error {
+func (m *Manager) usable(ctx context.Context, r Row) error {
+	if ok, err := m.commercialUsable(ctx, r); ok {
+		return err
+	}
 	if r.Source == SourceDev && !m.AllowDev {
 		return ErrDevDisabled
 	}
@@ -1225,7 +1235,7 @@ func (m *Manager) usable(r Row) error {
 
 // Usable is usable's exported form: nil when the stored row
 // would be loaded by this instance's trust policy, the reason otherwise.
-func (m *Manager) Usable(r Row) error { return m.usable(r) }
+func (m *Manager) Usable(r Row) error { return m.usable(context.Background(), r) }
 
 // loadUsable loads a package whose row is usable and whose signature still
 // verifies against the trusted keys.
@@ -1234,7 +1244,7 @@ func (m *Manager) loadUsable(ctx context.Context, kind Kind, name string) (*Pack
 	if err != nil {
 		return nil, row, err
 	}
-	if err := m.usable(row); err != nil {
+	if err := m.usable(ctx, row); err != nil {
 		return nil, row, err
 	}
 	p, row, err := m.store.Load(ctx, kind, name)
@@ -1242,7 +1252,9 @@ func (m *Manager) loadUsable(ctx context.Context, kind Kind, name string) (*Pack
 		return nil, row, err
 	}
 	trust := m.Trust
-	if row.Developer {
+	if commercial, _ := m.commercialUsable(ctx, row); commercial {
+		trust = TrustSet{KeyID(m.PluginKey): m.PluginKey}
+	} else if row.Developer {
 		if trust, err = developerRowTrust(row); err != nil {
 			return nil, row, err
 		}
@@ -1536,7 +1548,7 @@ func (m *Manager) reconcile(ctx context.Context) {
 		m.Logger.Error("packages: list", "error", err)
 		return
 	}
-	m.markBlocked(rows)
+	m.markBlocked(ctx, rows)
 	m.refreshOrigins(rows)
 	changed := false
 	if m.Plugins != nil {
@@ -1566,10 +1578,10 @@ func (m *Manager) refreshTemplates() {
 
 // markBlocked records which installed packages policy keeps from running, and
 // logs each one once when it becomes blocked.
-func (m *Manager) markBlocked(rows []Row) {
+func (m *Manager) markBlocked(ctx context.Context, rows []Row) {
 	now := map[string]string{}
 	for _, r := range rows {
-		if err := m.usable(r); err != nil {
+		if err := m.usable(ctx, r); err != nil {
 			key := string(r.Kind) + "/" + r.Name
 			now[key] = err.Error()
 			if m.blocked[key] != now[key] {
@@ -1802,6 +1814,10 @@ func (m *Manager) LoadDevDir(ctx context.Context, dir string) {
 		}
 		if err != nil {
 			m.Logger.Error("packages: plugin dir", "plugin", e.Name(), "error", err)
+			continue
+		}
+		if isCommercial(p) {
+			m.Logger.Error("packages: plugin dir: commercial plugins are not loaded from the plugin dir", "plugin", p.Name)
 			continue
 		}
 		m.loadPlugin(ctx, p)

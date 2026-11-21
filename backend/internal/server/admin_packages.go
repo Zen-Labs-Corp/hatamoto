@@ -408,7 +408,8 @@ func (p *packageAdmin) SetEnabled(ctx context.Context, name string, on bool) err
 // redirect path another plugin holds) into readable ones; anything else is
 // left as it is.
 func enableRefusal(err error) error {
-	if errors.Is(err, packages.ErrRevoked) || errors.Is(err, packages.ErrRedirectPathTaken) {
+	if errors.Is(err, packages.ErrRevoked) || errors.Is(err, packages.ErrRedirectPathTaken) ||
+		errors.Is(err, packages.ErrCommercialNotEntitled) || errors.Is(err, packages.ErrCommercialSigner) {
 		return refusal(err)
 	}
 	return err
