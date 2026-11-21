@@ -222,24 +222,20 @@ func (s *Server) commentDevice(r *http.Request) (uuid.UUID, bool) {
 	return s.commentIdentity.Device(r.Context(), c.Value)
 }
 
-// writeCommentFragment answers an htmx post: the form partial with a fresh
-// token and, for a post the sender may see, the new comment as an
-// out-of-band insert. It returns false (nothing written) when it cannot, and
-// the caller then redirects like a plain post.
-func (s *Server) writeCommentFragment(w http.ResponseWriter, r *http.Request, id uuid.UUID, path string,
-	req commentsubmit.Request, out commentsubmit.Outcome, notice, errCode string, echo *commentEcho) bool {
-	if s.renderEngine == nil || s.commentSlot == nil || s.commentSubmit == nil {
-		return false
-	}
-	ctx := r.Context()
-	v := &render.PageView{Path: path, Locale: req.Locale, EntityID: id.String()}
+// commentFormView builds the view the comments fragment renders: the thread
+// notice/error and, unless closed, the form with placeholders (filled later by
+// commentSlot.fill). Callers must have checked that renderEngine, commentSlot
+// and commentSubmit are wired.
+func (s *Server) commentFormView(ctx context.Context, id uuid.UUID, path, locale string, parent *uuid.UUID,
+	notice, errCode string, echo *commentEcho) *render.PageView {
+	v := &render.PageView{Path: path, Locale: locale, EntityID: id.String()}
 	v.Comments = &render.CommentThread{Notice: notice, Error: errCode}
 	if errCode != "closed" {
 		form := render.CommentFormPlaceholders
 		form.Action = "/-/comments/" + id.String()
 		form.MaxBody = commentsubmit.MaxBodyRunes
-		if out.Kind == commentsubmit.Invalid && req.ParentID != nil {
-			form.ParentID = req.ParentID.String() // keep the reply target on a retry
+		if parent != nil {
+			form.ParentID = parent.String()
 		}
 		if echo != nil {
 			form.Focus = commentFocus(echo.Code)
@@ -266,6 +262,24 @@ func (s *Server) writeCommentFragment(w http.ResponseWriter, r *http.Request, id
 		v.CommentsOpen = true
 	}
 	s.applyStrings(ctx, v)
+	return v
+}
+
+// writeCommentFragment answers an htmx post: the form partial with a fresh
+// token and, for a post the sender may see, the new comment as an
+// out-of-band insert. It returns false (nothing written) when it cannot, and
+// the caller then redirects like a plain post.
+func (s *Server) writeCommentFragment(w http.ResponseWriter, r *http.Request, id uuid.UUID, path string,
+	req commentsubmit.Request, out commentsubmit.Outcome, notice, errCode string, echo *commentEcho) bool {
+	if s.renderEngine == nil || s.commentSlot == nil || s.commentSubmit == nil {
+		return false
+	}
+	ctx := r.Context()
+	var parent *uuid.UUID
+	if out.Kind == commentsubmit.Invalid {
+		parent = req.ParentID // keep the reply target on a retry
+	}
+	v := s.commentFormView(ctx, id, path, req.Locale, parent, notice, errCode, echo)
 
 	var item *render.CommentItem
 	if out.Kind == commentsubmit.Posted && out.Comment.ParentID == nil && req.ParentID == nil {
