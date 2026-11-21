@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -143,6 +144,19 @@ func (s *RunStore) Heartbeat(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+// truncateError caps e at maxErrorLen bytes without splitting a UTF-8 rune,
+// which the JSON encoder would reject.
+func truncateError(e string) string {
+	if len(e) <= maxErrorLen {
+		return e
+	}
+	n := maxErrorLen
+	for n > 0 && !utf8.RuneStart(e[n]) {
+		n--
+	}
+	return e[:n]
+}
+
 // Finish closes the run. Errors are capped at 50 entries of 500 characters.
 func (s *RunStore) Finish(ctx context.Context, id uuid.UUID, r RunResult) error {
 	errs := make([]string, 0, len(r.Errors))
@@ -150,10 +164,7 @@ func (s *RunStore) Finish(ctx context.Context, id uuid.UUID, r RunResult) error 
 		if len(errs) == maxStoredError {
 			break
 		}
-		if len(e) > maxErrorLen {
-			e = e[:maxErrorLen]
-		}
-		errs = append(errs, e)
+		errs = append(errs, truncateError(e))
 	}
 	raw, err := jsonx.Marshal(errs)
 	if err != nil {
