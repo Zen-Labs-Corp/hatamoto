@@ -37,6 +37,7 @@ func New(ctx context.Context, cfg config.DatabaseConfig) (*DB, error) {
 	}
 
 	opts := socketOptions(cfg)
+	mainTCP := poolConfig.ConnConfig.Copy()
 	mainOut := preferUnixSocket(ctx, &poolConfig.ConnConfig.Config, opts)
 
 	poolConfig.MaxConns = int32(cfg.MaxConnections)
@@ -52,6 +53,9 @@ func New(ctx context.Context, cfg config.DatabaseConfig) (*DB, error) {
 	if err != nil {
 		db.Close()
 		return nil, err
+	}
+	if direct.tcp == nil {
+		direct.tcp = mainTCP // no separate direct endpoint: plugins follow the main URL
 	}
 	db.direct = direct
 	for _, n := range []string{mainOut.note("db"), directOut.note("db direct")} {

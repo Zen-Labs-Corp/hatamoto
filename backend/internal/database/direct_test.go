@@ -129,3 +129,26 @@ func TestDirectPoolUsesProbedConfig(t *testing.T) {
 		t.Fatalf("MaxConns = %d, want 2", pool.Config().MaxConns)
 	}
 }
+
+// Plugin roles must not inherit the socket the core role was probed on: peer
+// rules there can refuse them.
+func TestDirectPluginConnConfigStaysOnTCP(t *testing.T) {
+	dir := shortDir(t)
+	fakePG(t, dir, 54399, "ok")
+	d, out, err := newDirect(context.Background(), "postgres://u:p@127.0.0.1:54399/db", "postgres://u:p@127.0.0.1:54398/db", nil, SocketOptions{Dirs: []string{dir}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out.Used || d.ConnConfig().Host != dir {
+		t.Fatalf("setup: the core path must use the socket (used=%v host=%q)", out.Used, d.ConnConfig().Host)
+	}
+	pc := d.PluginConnConfig()
+	if pc.Host != "127.0.0.1" || pc.Port != 54399 {
+		t.Fatalf("plugin base = %s:%d, want the original tcp endpoint", pc.Host, pc.Port)
+	}
+	for _, fb := range pc.Fallbacks {
+		if fb.Host == dir {
+			t.Fatalf("plugin base falls back to the socket %q", fb.Host)
+		}
+	}
+}

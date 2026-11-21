@@ -41,8 +41,9 @@ func (s *Server) setupPlugins() {
 	}
 	s.mailQuotas = quotas
 	pdb := pluginhost.NewPluginDB(s.db.Pool(), s.logger)
-	// Plugin roles connect to the direct database config, past any pooler.
-	pdb.SetBaseConfig(s.db.Direct().ConnConfig)
+	// Plugin roles connect to the direct database config, past any pooler,
+	// over TCP (never the core role's unix socket).
+	pdb.SetBaseConfig(s.db.Direct().PluginConnConfig)
 	pdb.AllowPublicObjects = s.cfg.Plugins.AllowPublicDBObjects
 	s.pluginDB = pdb
 	pdb.WarnPublicObjects(ctx)

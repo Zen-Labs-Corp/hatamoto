@@ -19,6 +19,7 @@ type Direct struct {
 	url      string          // empty: use the fallback pool
 	cfg      *pgx.ConnConfig // parsed url, pool_* keys stripped; nil with the fallback
 	fallback *pgxpool.Pool
+	tcp      *pgx.ConnConfig // settings before the socket choice; nil in bare Direct values
 }
 
 // newDirect builds a Direct for url. An empty url, or one equal to mainURL,
@@ -44,6 +45,7 @@ func newDirect(ctx context.Context, url, mainURL string, fallback *pgxpool.Pool,
 	if pc.ConnConfig.User != mc.ConnConfig.User || pc.ConnConfig.Database != mc.ConnConfig.Database {
 		return nil, socketOutcome{}, fmt.Errorf("DATABASE_DIRECT_URL must use the same user and database name as DATABASE_URL")
 	}
+	d.tcp = pc.ConnConfig.Copy()
 	out := preferUnixSocket(ctx, &pc.ConnConfig.Config, opts)
 	d.url = url
 	d.cfg = pc.ConnConfig
@@ -105,6 +107,17 @@ func (d *Direct) ConnConfig() *pgx.ConnConfig {
 		return d.fallback.Config().ConnConfig.Copy()
 	}
 	return d.cfg.Copy()
+}
+
+// PluginConnConfig returns a copy of the direct endpoint's settings as
+// configured, before any unix-socket choice. Plugin roles use it: the socket
+// was only proven for the core role, and `local` rules (peer) can refuse the
+// plugin roles, so they stay on TCP.
+func (d *Direct) PluginConnConfig() *pgx.ConnConfig {
+	if d.tcp != nil {
+		return d.tcp.Copy()
+	}
+	return d.ConnConfig()
 }
 
 // Direct returns the direct-connection source for this database.
