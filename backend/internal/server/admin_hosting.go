@@ -10,6 +10,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/admin/ui"
+	"hatamoto.dev/core/internal/safefetch"
 	"hatamoto.dev/core/internal/staticexport"
 	"hatamoto.dev/core/internal/statichost"
 	"hatamoto.dev/core/internal/statictrigger"
@@ -53,6 +54,8 @@ type hostingAdmin struct {
 	spawn      func(func())           // nil = go f(); tests run inline
 	log        *slog.Logger
 	testing    atomic.Bool // a Test export is running in this process
+	getenv   func(string) string // nil: no private-endpoint opt-in
+	lookup   safefetch.Lookup    // nil: no save-time DNS lookup
 }
 
 func (h *hostingAdmin) load(ctx context.Context) (staticexport.Settings, error) {
@@ -109,6 +112,14 @@ func (h *hostingAdmin) Save(ctx context.Context, in admin.HostingInput) ([]ui.Fi
 	}
 	check := next
 	check.Mode = in.Mode
+	// Before Validate: a link-local http endpoint would otherwise fail with the
+	// generic https message. Built by hand, hostingFieldError would misroute it.
+	if check.Target == staticexport.TargetS3 && !staticexport.AllowPrivateS3(h.getenv) {
+		if err := staticexport.ResolveS3Endpoint(ctx, check.EffectiveEndpoint(), h.lookup); err != nil {
+			return []ui.FieldError{{ID: "hosting-endpoint", Label: "Endpoint",
+				Message: "This address is on a private network. Use the storage service's public endpoint."}}, nil
+		}
+	}
 	if err := check.Validate(); err != nil {
 		return []ui.FieldError{hostingFieldError(err)}, nil
 	}
