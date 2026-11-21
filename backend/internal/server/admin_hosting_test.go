@@ -59,6 +59,16 @@ func (f *fakeHostingRuns) ClearAbandoned(context.Context) error {
 	return nil
 }
 
+func (f *fakeHostingRuns) ListLive(_ context.Context, limit int) ([]staticexport.Run, error) {
+	var out []staticexport.Run
+	for _, r := range f.runs {
+		if r.Trigger != admin.HostingTriggerTest && len(out) < limit {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+
 func (f *fakeHostingRuns) List(_ context.Context, limit int) ([]staticexport.Run, error) {
 	if limit < len(f.runs) {
 		return f.runs[:limit], nil
@@ -491,6 +501,22 @@ func TestHostingAdmin_LastRunSkipsTestRuns(t *testing.T) {
 	fx.runs.runs = fx.runs.runs[:1]
 	if _, ok, _ := fx.h.LastRun(context.Background()); ok {
 		t.Error("only a test run: LastRun must be empty")
+	}
+}
+
+func TestHostingAdmin_LastRunSeesLiveRunUnderManyTestRuns(t *testing.T) {
+	fx := newHostingFixture(t)
+	for range 6 {
+		fx.runs.runs = append(fx.runs.runs, staticexport.Run{Trigger: admin.HostingTriggerTest, Status: admin.HostingRunOK})
+	}
+	fx.runs.runs = append(fx.runs.runs, staticexport.Run{Trigger: "change", Status: admin.HostingRunFailed})
+	r, ok, err := fx.h.LastRun(context.Background())
+	if err != nil || !ok || r.Trigger != "change" || r.Result != admin.HostingRunFailed {
+		t.Fatalf("last = %+v %v %v", r, ok, err)
+	}
+	live, err := fx.h.LiveRuns(context.Background(), 1)
+	if err != nil || len(live) != 1 || live[0].Trigger != "change" {
+		t.Fatalf("LiveRuns = %+v %v", live, err)
 	}
 }
 

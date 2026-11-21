@@ -27,6 +27,7 @@ type hostingSettingsStore interface {
 
 type hostingRunLister interface {
 	List(ctx context.Context, limit int) ([]staticexport.Run, error)
+	ListLive(ctx context.Context, limit int) ([]staticexport.Run, error)
 	ClearAbandoned(ctx context.Context) error
 }
 
@@ -275,8 +276,20 @@ func (h *hostingAdmin) Runs(ctx context.Context, limit int) ([]admin.HostingRun,
 	return out, nil
 }
 
+func (h *hostingAdmin) LiveRuns(ctx context.Context, limit int) ([]admin.HostingRun, error) {
+	runs, err := h.runs.ListLive(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]admin.HostingRun, 0, len(runs))
+	for _, r := range runs {
+		out = append(out, hostingRun(r))
+	}
+	return out, nil
+}
+
 func (h *hostingAdmin) LastRun(ctx context.Context) (admin.HostingRun, bool, error) {
-	runs, err := h.runs.List(ctx, 5)
+	runs, err := h.runs.ListLive(ctx, 5)
 	if err != nil {
 		return admin.HostingRun{}, false, err
 	}

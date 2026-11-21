@@ -209,10 +209,20 @@ func (s *RunStore) PruneRuns(ctx context.Context, before time.Time) (int64, erro
 
 // List returns the latest runs, newest first.
 func (s *RunStore) List(ctx context.Context, limit int) ([]Run, error) {
+	return s.list(ctx, "", limit)
+}
+
+// ListLive returns the latest runs that are not Test export runs, newest
+// first, however many test runs are newer.
+func (s *RunStore) ListLive(ctx context.Context, limit int) ([]Run, error) {
+	return s.list(ctx, "WHERE trigger <> 'test'", limit)
+}
+
+func (s *RunStore) list(ctx context.Context, where string, limit int) ([]Run, error) {
 	rows, err := s.db.Query(ctx, `
 		SELECT id, trigger, target, status, pages, assets, media, redirects, bytes, changed,
 		       unchanged, removed, warnings, duration_ms, errors, started_at, finished_at
-		FROM hatamoto_static_export_runs ORDER BY started_at DESC LIMIT $1`, limit)
+		FROM hatamoto_static_export_runs `+where+` ORDER BY started_at DESC LIMIT $1`, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list static export runs: %w", err)
 	}

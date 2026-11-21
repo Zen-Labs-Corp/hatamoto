@@ -140,3 +140,25 @@ func TestExportBannerTestRunIsNotLive(t *testing.T) {
 		t.Errorf("a test run counted as a live export")
 	}
 }
+
+// Many newer Test export runs must not push the live runs out of view.
+func TestExportBannerAndLastLineSeeLiveRunsUnderTestRuns(t *testing.T) {
+	t.Parallel()
+
+	f := failedExportHosting()
+	var tests []HostingRun
+	for range 25 {
+		tests = append(tests, HostingRun{Started: time.Now(), Trigger: HostingTriggerTest, Pages: 1, Result: HostingRunOK})
+	}
+	f.runs = append(tests, f.runs...)
+	for _, path := range []string{"/admin", hostingURL} {
+		body := newHostingRig(t, f).do("GET", path, "owner-token", nil, nil).Body.String()
+		if !strings.Contains(body, "Last export failed") || !strings.Contains(body, "Your previous export is still live.") {
+			t.Errorf("%s: banner lost the live runs behind test runs", path)
+		}
+	}
+	body := newHostingRig(t, f).do("GET", hostingURL, "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "upload refused") || !strings.Contains(body, "last good") {
+		t.Error("Last export line lost the live runs behind test runs")
+	}
+}

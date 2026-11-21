@@ -68,7 +68,18 @@ func (f *fakeHosting) TestExport(context.Context) error {
 	f.tests++
 	return nil
 }
-func (f *fakeHosting) Runs(context.Context, int) ([]HostingRun, error) { return f.runs, nil }
+func (f *fakeHosting) Runs(_ context.Context, limit int) ([]HostingRun, error) {
+	return f.runs[:min(limit, len(f.runs))], nil
+}
+func (f *fakeHosting) LiveRuns(_ context.Context, limit int) ([]HostingRun, error) {
+	var out []HostingRun
+	for _, r := range f.runs {
+		if r.Trigger != HostingTriggerTest && len(out) < limit {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
 func (f *fakeHosting) LastRun(context.Context) (HostingRun, bool, error) {
 	for _, r := range f.runs {
 		if r.Result != HostingRunRunning && r.Trigger != HostingTriggerTest {

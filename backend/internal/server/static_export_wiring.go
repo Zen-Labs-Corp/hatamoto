@@ -117,7 +117,7 @@ func (s *Server) setupStaticExport() {
 			configured: s.emailService.IsConfigured, owners: s.ownerEmails, site: liveAdminSite(s.digestSite, settings.Get),
 			location: s.siteLocation, send: s.emailService.SendStaticExportFailed, log: s.logger,
 			previousFailed: func(ctx context.Context, cur uuid.UUID) (bool, error) {
-				list, err := runs.List(ctx, 5)
+				list, err := runs.ListLive(ctx, 5)
 				if err != nil {
 					return false, err
 				}

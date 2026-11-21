@@ -114,7 +114,11 @@ type HostingService interface {
 	// ErrHostingNoTarget, ErrHostingTestBusy or a safe refusal error when it
 	// cannot start.
 	TestExport(ctx context.Context) error
+	// Runs is the log: the newest runs of every trigger, Test export included.
 	Runs(ctx context.Context, limit int) ([]HostingRun, error)
+	// LiveRuns is the newest runs that are not Test export runs, however many
+	// test runs are newer.
+	LiveRuns(ctx context.Context, limit int) ([]HostingRun, error)
 	// LastRun is the newest FINISHED run (ok or failed); a running row is skipped.
 	LastRun(ctx context.Context) (HostingRun, bool, error)
 	// Islands: live = islands answered by the live origin, stays = names of

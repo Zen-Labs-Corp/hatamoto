@@ -5,6 +5,7 @@ package staticexport
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -150,6 +151,32 @@ func TestRunStore_ClearAbandoned(t *testing.T) {
 	}
 	if err := pool.QueryRow(ctx, q, id).Scan(&status); err != nil || status != "failed" {
 		t.Fatalf("stale run: %s %v", status, err)
+	}
+}
+
+func TestRunStore_ListLiveSkipsTestRuns(t *testing.T) {
+	pool := newIntegrationPool(t)
+	ctx := context.Background()
+	rs := NewRunStore(pool)
+	for i, trig := range []string{"change", "test", "test", "test"} {
+		id, err := rs.Start(ctx, trig, "dir:/srv/x")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := rs.Finish(ctx, id, RunResult{OK: true}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE hatamoto_static_export_runs SET started_at = now() - ($2 || ' minutes')::interval WHERE id = $1`, id, fmt.Sprint(10-i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	all, err := rs.List(ctx, 2)
+	if err != nil || len(all) != 2 || all[0].Trigger != "test" {
+		t.Fatalf("List: %+v %v", all, err)
+	}
+	live, err := rs.ListLive(ctx, 2)
+	if err != nil || len(live) != 1 || live[0].Trigger != "change" {
+		t.Fatalf("ListLive: %+v %v", live, err)
 	}
 }
 

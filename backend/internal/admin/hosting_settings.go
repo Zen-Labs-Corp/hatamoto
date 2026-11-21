@@ -78,12 +78,15 @@ func (a *Admin) renderHosting(w http.ResponseWriter, r *http.Request, status int
 	ctx := r.Context()
 	saved, err := svc.View(ctx)
 	if err == nil {
-		var runs []HostingRun
+		var runs, liveRuns []HostingRun
 		if runs, err = svc.Runs(ctx, 20); err == nil {
+			liveRuns, err = svc.LiveRuns(ctx, 20)
+		}
+		if err == nil {
 			live, stays := svc.Islands()
 			v := a.NewView(w, r, "Hosting")
 			v.Section, v.Tab, v.Width = "hosting", "hosting", "narrow"
-			v.Data = a.hostingPage(r, saved, form, errs, runs, live, stays)
+			v.Data = a.hostingPage(r, saved, form, errs, runs, liveRuns, live, stays)
 			a.Render(w, r, status, "settings/hosting", v)
 			return
 		}
@@ -92,7 +95,7 @@ func (a *Admin) renderHosting(w http.ResponseWriter, r *http.Request, status int
 	a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The hosting settings could not be loaded.")
 }
 
-func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInput, errs []ui.FieldError, runs []HostingRun, live []HostingIsland, stays []string) hostingPage {
+func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInput, errs []ui.FieldError, runs, liveRuns []HostingRun, live []HostingIsland, stays []string) hostingPage {
 	loc := a.siteLocation(r.Context())
 	f := saved
 	if form != nil {
@@ -164,7 +167,7 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 		p.Stays = "Stays on Hatamoto: " + strings.Join(stays, ", ") + "."
 	}
 	p.Log = a.hostingLog(runs, loc)
-	p.Last = hostingLast(runs)
+	p.Last = hostingLast(liveRuns)
 	return p
 }
 
