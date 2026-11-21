@@ -57,6 +57,7 @@ A manifest that uses most fields:
 | `ui` | no | An admin page shipped in `ui/`; `allow: ["camera"]` asks for the camera (SDK 0.22.2). |
 | `runs` | no | Runs the owner can start, at most 8 (SDK 0.17 and later); see [Runs](#runs). |
 | `builder_sources` | no | Data sources the plugin offers to the page builder, at most 8 (SDK 0.11 and later); items sources can declare `params` (0.20). |
+| `license` | no | `""` (default) or `"commercial"` (SDK 0.26). A commercial plugin runs only on a host whose edition holds a plugin key, is signed by that key and is entitled to the plugin. Declare `^0.26` or later; see [The sdk range](#the-sdk-range). |
 | `limits` | no | Resource limits; every field is optional. |
 | `settings_schema` | no | JSON Schema (draft 2020-12) for the plugin's settings. |
 
@@ -68,7 +69,7 @@ A plugin that uses `csp`, `request_headers`, `translation_of`, `changeset.media.
 
 A plugin that uses `redirect_paths`, the `request.redirect` filter or its `limits.hook_timeouts_ms` key must declare `^0.22`, so that an older host refuses it instead of silently dropping the redirects.
 
-The server serves SDK `0.25.0` (`sdk.Version` in `backend/pkg/sdk/version.go`) and also plugins built for `0.5.0` to `0.24.0` (`sdk.CompatibleWith`). It refuses a plugin whose range contains neither the current version nor one in that list. So `"sdk": "^0.8"` loads because `0.8.0` is in the list. A new plugin declares `^0.11` until your users run Hatamoto `v0.31.0` (the release that ships SDK 0.12.0), then `^0.12`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. Declare `^0.22.2` for the camera: `^0.22` also matches a 0.22.1 host. A plugin that asks for `entities.filter` declares `^0.23`, because an older host refuses the unknown permission name. A plugin that asks for `comments.read` declares `^0.25` for the same reason. (SDK releases are plain `vX.Y.Z` tags in the public SDK repository.)
+The server serves SDK `0.26.0` (`sdk.Version` in `backend/pkg/sdk/version.go`) and also plugins built for `0.5.0` to `0.25.0` (`sdk.CompatibleWith`). It refuses a plugin whose range contains neither the current version nor one in that list. So `"sdk": "^0.8"` loads because `0.8.0` is in the list. A new plugin declares `^0.11` until your users run Hatamoto `v0.31.0` (the release that ships SDK 0.12.0), then `^0.12`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. Declare `^0.22.2` for the camera: `^0.22` also matches a 0.22.1 host. A plugin that asks for `entities.filter` declares `^0.23`, because an older host refuses the unknown permission name. A plugin that asks for `comments.read` declares `^0.25` for the same reason. A plugin with `"license": "commercial"` declares `^0.26` or later: a host older than 0.26 ignores the field, so install refuses a commercial plugin whose range admits one. (SDK releases are plain `vX.Y.Z` tags in the public SDK repository.)
 
 ## Permissions
 
