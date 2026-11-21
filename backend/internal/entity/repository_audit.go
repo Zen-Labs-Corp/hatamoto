@@ -2,9 +2,12 @@ package entity
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/auditctx"
 	"hatamoto.dev/core/internal/auditstate"
@@ -68,4 +71,55 @@ func auditStatusAction(st EntityStatus) string {
 		return auditArchive
 	}
 	return auditUnpublish
+}
+
+// rowQuerier is what a single-statement write needs; both a connection and a
+// transaction satisfy it.
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
+// auditedWrite finishes a single-statement write: it commits the transaction
+// opened by auditedQuerier after recording the audit row, or does nothing when
+// the write is not audited.
+type auditedWrite struct {
+	r     *PostgresEntityRepository
+	tx    pgx.Tx
+	actor auditctx.Actor
+}
+
+func (w auditedWrite) audited() bool { return w.tx != nil }
+
+func (w auditedWrite) rollback() {
+	if w.tx != nil {
+		_ = w.tx.Rollback(context.Background()) // no-op after commit
+	}
+}
+
+func (w auditedWrite) commit(ctx context.Context, action string, id uuid.UUID, detail map[string]any) error {
+	if w.tx == nil {
+		return nil
+	}
+	if err := w.r.recordTx(ctx, w.tx, w.actor, action, id, detail); err != nil {
+		return err
+	}
+	if err := w.tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	return nil
+}
+
+// auditedQuerier returns conn itself for an unaudited write (no extra round
+// trips) and a fresh transaction when ctx carries an actor and the hook is set.
+func (r *PostgresEntityRepository) auditedQuerier(ctx context.Context, conn *pgxpool.Conn) (rowQuerier, auditedWrite, error) {
+	a, ok := r.auditActor(ctx)
+	if !ok {
+		return conn, auditedWrite{}, nil
+	}
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return nil, auditedWrite{}, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	return tx, auditedWrite{r: r, tx: tx, actor: a}, nil
 }

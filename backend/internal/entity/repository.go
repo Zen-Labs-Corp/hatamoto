@@ -713,8 +713,14 @@ func (r *PostgresEntityRepository) UpdateStatus(ctx context.Context, id uuid.UUI
 		          version, created_by, updated_by, created_at, updated_at, published_at
 	`
 
+	q, finish, err := r.auditedQuerier(ctx, conn)
+	if err != nil {
+		return nil, err
+	}
+	defer finish.rollback()
+
 	var e Entity
-	err = conn.QueryRow(ctx, query, id, status, userID, publishedAt).Scan(
+	err = q.QueryRow(ctx, query, id, status, userID, publishedAt).Scan(
 		&e.ID, &e.SchemaID, &e.Name, &e.Slug, &e.Locale, &e.Status, &e.Attributes, &e.Metadata,
 		&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt,
 	)
@@ -726,6 +732,9 @@ func (r *PostgresEntityRepository) UpdateStatus(ctx context.Context, id uuid.UUI
 		return nil, fmt.Errorf("failed to update entity status: %w", err)
 	}
 
+	if err := finish.commit(ctx, auditStatusAction(status), id, map[string]any{"name": e.Name, "slug": e.Slug, "to": string(status)}); err != nil {
+		return nil, err
+	}
 	return &e, nil
 }
 
@@ -738,8 +747,14 @@ func (r *PostgresEntityRepository) Schedule(ctx context.Context, id uuid.UUID, u
 	}
 	defer conn.Release()
 
+	q, finish, err := r.auditedQuerier(ctx, conn)
+	if err != nil {
+		return nil, err
+	}
+	defer finish.rollback()
+
 	var e Entity
-	err = conn.QueryRow(ctx, `
+	err = q.QueryRow(ctx, `
 		UPDATE hatamoto_entities
 		SET status = 'scheduled', published_at = $2, updated_by = $3, updated_at = NOW()
 		WHERE id = $1
@@ -755,6 +770,9 @@ func (r *PostgresEntityRepository) Schedule(ctx context.Context, id uuid.UUID, u
 	if err != nil {
 		return nil, fmt.Errorf("failed to schedule entity: %w", err)
 	}
+	if err := finish.commit(ctx, auditSchedule, id, map[string]any{"name": e.Name, "slug": e.Slug, "publish_at": at.UTC().Format(time.RFC3339)}); err != nil {
+		return nil, err
+	}
 	return &e, nil
 }
 
@@ -766,8 +784,26 @@ func (r *PostgresEntityRepository) Delete(ctx context.Context, id uuid.UUID) err
 	}
 	defer conn.Release()
 
-	result, err := conn.Exec(ctx, `DELETE FROM hatamoto_entities WHERE id = $1`, id)
+	q, finish, err := r.auditedQuerier(ctx, conn)
 	if err != nil {
+		return err
+	}
+	defer finish.rollback()
+
+	// The audited path reads name and slug back so the row outlives the entity.
+	var name, slug string
+	if finish.audited() {
+		err = q.QueryRow(ctx, `DELETE FROM hatamoto_entities WHERE id = $1 RETURNING name, slug`, id).Scan(&name, &slug)
+	} else {
+		var result pgconn.CommandTag
+		if result, err = q.Exec(ctx, `DELETE FROM hatamoto_entities WHERE id = $1`, id); err == nil && result.RowsAffected() == 0 {
+			return ErrEntityNotFound
+		}
+	}
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrEntityNotFound
+		}
 		if isPgUniqueViolation(err) {
 			// Children created since the check would be re-rooted onto a taken slug.
 			return ErrHasChildren
@@ -775,11 +811,7 @@ func (r *PostgresEntityRepository) Delete(ctx context.Context, id uuid.UUID) err
 		return fmt.Errorf("failed to delete entity: %w", err)
 	}
 
-	if result.RowsAffected() == 0 {
-		return ErrEntityNotFound
-	}
-
-	return nil
+	return finish.commit(ctx, auditDelete, id, map[string]any{"name": name, "slug": slug})
 }
 
 // List retrieves entities with filtering and keyset pagination.
