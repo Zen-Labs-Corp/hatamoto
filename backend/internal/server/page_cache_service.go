@@ -45,6 +45,7 @@ type pageCacheService struct {
 	runtime    *pageCacheRuntime
 	preloader  *pagePreloader
 	invalidate func(context.Context)
+	cleared    func()           // called after Clear; nil-safe (cache purge for the edge)
 	scheduler  preloadScheduler // nil when the worker is off
 	serverTTL  time.Duration
 	ttlFromEnv bool
@@ -304,6 +305,9 @@ func (p *pageCacheService) Clear(ctx context.Context) (int, error) {
 	if p.invalidate != nil {
 		p.invalidate(ctx)
 	}
+	if p.cleared != nil {
+		p.cleared()
+	}
 	return pages, nil
 }
 
@@ -343,6 +347,7 @@ func (s *Server) newPageCacheService() *pageCacheService {
 		cache:      s.infra.Cache,
 		runtime:    s.pageRuntime,
 		invalidate: s.purgeRendered,
+		cleared:    s.notifyPurgeAll,
 		serverTTL:  s.cfg.PageCacheTTL,
 		ttlFromEnv: s.cfg.PageCacheTTLFromEnv,
 		baseURL:    s.preloadBase,

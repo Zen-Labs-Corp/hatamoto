@@ -30,6 +30,7 @@ import (
 	"hatamoto.dev/core/internal/authbridge"
 	"hatamoto.dev/core/internal/author"
 	"hatamoto.dev/core/internal/authstate"
+	"hatamoto.dev/core/internal/cdnpurge"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/comment/identity"
@@ -147,6 +148,8 @@ type Server struct {
 	seoLogOnce        sync.Once
 	indexNow          *indexnow.Runner // nil in demo mode
 	indexNowBaseWarn  sync.Once
+	purge             *cdnpurge.Runner // nil when no purge target is set, and in demo mode
+	purgeBaseWarn     sync.Once
 	spamVerifier      *spam.HTTPVerifier
 	emailService      *email.Service
 	// comments is the comment store (nil without a database or server secret).
@@ -571,6 +574,9 @@ func (s *Server) setupDependencies() {
 	if !s.demoOn() {
 		s.indexNow = indexnow.New(s.newIndexNowResolver(), s.logger, indexnow.Options{})
 		sinks = append(sinks, indexNowSink{r: s.indexNow})
+		if s.purge = s.newPurgeRunner(); s.purge != nil {
+			sinks = append(sinks, purgeSink{r: s.purge})
+		}
 	}
 	s.entityService.SetEvents(sinks)
 	s.entitySink.SetLocaleLookup(func(ctx context.Context, id uuid.UUID) string {
@@ -1099,6 +1105,9 @@ func (s *Server) Start() error {
 	if s.indexNow != nil {
 		go s.indexNow.Run(s.lifecycleCtx)
 	}
+	if s.purge != nil {
+		go s.purge.Run(s.lifecycleCtx)
+	}
 
 	// The supervisor's loopback probe, only when it asked for one.
 	s.startSmokeFromEnv(os.Getenv("HATAMOTO_SMOKE_ADDR"), os.Getenv("HATAMOTO_SMOKE_TOKEN"))
@@ -1147,6 +1156,9 @@ func (s *Server) Shutdown() error {
 	// The IndexNow runner flushes what is queued once the context ends.
 	if s.indexNow != nil {
 		s.indexNow.Wait(ctx)
+	}
+	if s.purge != nil {
+		s.purge.Wait(ctx)
 	}
 	if s.uploadCache != nil {
 		s.uploadCache.closeAll()
