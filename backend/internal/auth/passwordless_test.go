@@ -19,8 +19,8 @@ func TestPasswordlessUserCannotSignInWithPassword(t *testing.T) {
 	if _, err := svc.CheckPassword(ctx, u.Email, "anything-at-all"); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("CheckPassword err = %v, want ErrInvalidCredentials", err)
 	}
-	if !repo.recordFailedCalled {
-		t.Fatal("the wrong password was not recorded as a failed login")
+	if repo.recordFailedCalled {
+		t.Fatal("a wrong password against a user with no password was counted: anyone could lock them out")
 	}
 	if _, _, err := svc.LoginAPISession(ctx, u.Email, "anything-at-all", "", "ua", ""); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("LoginAPISession err = %v, want ErrInvalidCredentials", err)

@@ -48,6 +48,9 @@ func TestSignInPolicyRefusesPasswordEntryPoints(t *testing.T) {
 	if repo.recordFailedCalled {
 		t.Fatal("a policy refusal counted as a failed login")
 	}
+	if repo.resetFailedCalled {
+		t.Fatal("a correct password refused by the policy reset the failure counter")
+	}
 	// Sudo re-confirmation takes a password too: the policy covers it.
 	if err := svc.ConfirmPassword(ctx, u.ID, u.Email, "correct-password"); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("ConfirmPassword: %v, want ErrInvalidCredentials", err)

@@ -298,7 +298,9 @@ func (s *Service) authenticate(ctx context.Context, email, password string, mode
 	if !valid {
 		// Record the failure (increments counter, locks at the threshold).
 		// Best-effort: a bookkeeping error must not change the auth outcome.
-		if s.neverLocked(u.Email) {
+		// A user with no password has nothing to guess: counting would only
+		// let anyone lock them out of provider sign-in.
+		if s.neverLocked(u.Email) || u.PasswordHash == "" {
 			return nil, false, ErrInvalidCredentials
 		}
 		if mode == failMemory {
@@ -315,6 +317,12 @@ func (s *Service) authenticate(ctx context.Context, email, password string, mode
 	// was verified so the timing matches. It does not count against the lockout.
 	if u.AccessEnded(time.Now()) {
 		return nil, false, ErrInvalidCredentials
+	}
+
+	// A policy refusal is neutral and is no failed login. It comes before any
+	// counter is touched, so a refused correct password resets nothing.
+	if err := s.allow(ctx, u, viaPassword); err != nil {
+		return nil, false, err
 	}
 
 	s.maybeRehash(ctx, superCtx, u, password)
@@ -390,9 +398,6 @@ func (s *Service) CheckPassword(ctx context.Context, email, password string) (*u
 	if err != nil {
 		return nil, err
 	}
-	if err := s.allow(ctx, u, viaPassword); err != nil {
-		return nil, err
-	}
 	u.PasswordHash = ""
 	return u, nil
 }
@@ -402,9 +407,6 @@ func (s *Service) CheckPassword(ctx context.Context, email, password string) (*u
 func (s *Service) LoginSession(ctx context.Context, email, password, userAgent, ip string) (*user.User, string, error) {
 	u, hasFactor, err := s.authenticate(ctx, email, password, failDB)
 	if err != nil {
-		return nil, "", err
-	}
-	if err := s.allow(ctx, u, viaPassword); err != nil {
 		return nil, "", err
 	}
 	if hasFactor {
@@ -431,9 +433,6 @@ func (s *Service) LoginSession(ctx context.Context, email, password, userAgent, 
 func (s *Service) LoginAPISession(ctx context.Context, email, password, code, userAgent, ip string) (*user.User, string, error) {
 	u, hasFactor, err := s.authenticate(ctx, email, password, failMemory)
 	if err != nil {
-		return nil, "", err
-	}
-	if err := s.allow(ctx, u, viaPassword); err != nil {
 		return nil, "", err
 	}
 	if !hasFactor && s.required != nil {
