@@ -209,6 +209,8 @@ type View struct {
 	// nil outside demo mode or when the file has none for it.
 	DemoPitch *DemoPitch
 	Data      any // page-specific data
+	// ModuleBanners are the owner notices of compiled-in modules (GET only).
+	ModuleBanners []ModuleBanner
 }
 
 // DemoPitch is a demo note as the shell renders it.
@@ -596,6 +598,7 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 		v.StatsBanner = a.statsBanner(r, v.User, v.SetupPending)
 		v.AccessBanner = a.accessBanner(r, v.User)
 		v.ExportBanner = a.exportBanner(r, v.User)
+		v.ModuleBanners = a.moduleBanners(r, v.User)
 	}
 	return v
 }
