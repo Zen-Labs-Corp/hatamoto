@@ -29,6 +29,24 @@ func (db *DB) TransportNotes() []string {
 	return db.notes
 }
 
+// warmPoolHealthCheck is how often pgx checks a pool that keeps warm
+// connections. pgx's default (1 min) wakes an idle process every minute for
+// nothing: acquire already pings a connection idle for over a second.
+const warmPoolHealthCheck = 5 * time.Minute
+
+// applyPoolConfig copies the pool settings from cfg. A pool that may drain
+// (MinConnections 0, the idle-gated setup) keeps pgx's health-check period, so
+// idle connections still close promptly between idle beats.
+func applyPoolConfig(pc *pgxpool.Config, cfg config.DatabaseConfig) {
+	pc.MaxConns = int32(cfg.MaxConnections)
+	pc.MinConns = int32(cfg.MinConnections)
+	pc.MaxConnLifetime = cfg.MaxConnLifetime
+	pc.MaxConnIdleTime = cfg.MaxConnIdleTime
+	if cfg.MinConnections > 0 {
+		pc.HealthCheckPeriod = warmPoolHealthCheck
+	}
+}
+
 // New creates a new database connection pool.
 func New(ctx context.Context, cfg config.DatabaseConfig) (*DB, error) {
 	poolConfig, err := pgxpool.ParseConfig(cfg.URL)
@@ -40,10 +58,7 @@ func New(ctx context.Context, cfg config.DatabaseConfig) (*DB, error) {
 	mainTCP := poolConfig.ConnConfig.Copy()
 	mainOut := preferUnixSocket(ctx, &poolConfig.ConnConfig.Config, opts)
 
-	poolConfig.MaxConns = int32(cfg.MaxConnections)
-	poolConfig.MinConns = int32(cfg.MinConnections)
-	poolConfig.MaxConnLifetime = cfg.MaxConnLifetime
-	poolConfig.MaxConnIdleTime = cfg.MaxConnIdleTime
+	applyPoolConfig(poolConfig, cfg)
 
 	db, err := NewWithConfig(ctx, poolConfig)
 	if err != nil {
