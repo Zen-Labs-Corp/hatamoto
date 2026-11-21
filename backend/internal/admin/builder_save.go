@@ -173,6 +173,8 @@ type savedPage struct {
 	Note string
 	// TookOwnership is true when the save took the page from its plugin.
 	TookOwnership bool
+	// PublishRefused is the authorizer's refusal when the draft was saved but the user may not publish it.
+	PublishRefused error
 }
 
 // saveBuilderDoc stores doc as e's page_doc for op (autosave, save or publish)
@@ -257,6 +259,8 @@ func (a *Admin) saveBuilderDocSEO(ctx context.Context, actor *uuid.UUID, e *enti
 	if err != nil {
 		var vc *entity.VersionConflictError
 		switch {
+		case errors.Is(err, entity.ErrNotAllowed):
+			return nil, &saveProblem{http.StatusForbidden, "not_allowed", sentence(err.Error()), 0}
 		case errors.As(err, &vc):
 			return nil, &saveProblem{http.StatusConflict, "conflict", staleMessage(e.Version, vc.Current), vc.Current}
 		case errors.Is(err, entity.ErrEntityNotFound):
@@ -278,6 +282,9 @@ func (a *Admin) saveBuilderDocSEO(ctx context.Context, actor *uuid.UUID, e *enti
 	switch {
 	case res.PublishSkipped != "":
 		out.Note = strings.TrimSpace("Saved, but not published. The page still has its generated address. Change it under Details to publish. " + out.Note)
+	case errors.Is(res.PublishErr, entity.ErrNotAllowed):
+		out.PublishRefused = res.PublishErr
+		out.Note = "Saved, but the page could not be published: " + entityErrorText(res.PublishErr)
 	case res.PublishErr != nil:
 		out.Note = "Saved, but the page could not be published: " + entityErrorText(res.PublishErr)
 	}
@@ -367,6 +374,13 @@ func (a *Admin) handleBuilderSave(w http.ResponseWriter, r *http.Request) {
 	if saved.TookOwnership {
 		a.auditEntity(r, auditEntityTakeOver, e.ID, saved.Entity, nil)
 		saved.Note = strings.TrimSpace(saved.Note + " " + a.tookOverNote(r, e.ID))
+	}
+	if saved.PublishRefused != nil {
+		reply(http.StatusForbidden, builderSaveReply{
+			Code: "not_allowed", Error: "Saved as a draft. " + sentence(saved.PublishRefused.Error()),
+			Version: saved.Entity.Version, SavedAt: saved.Entity.UpdatedAt.UTC().Format(time.RFC3339), Status: string(saved.Entity.Status),
+		})
+		return
 	}
 	rep := builderSaveReply{
 		OK:      true,

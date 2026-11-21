@@ -21,7 +21,7 @@
 {{template "hm/foot"}}
 {{template "hm/button" (dict "Label" "Page details" "Variant" "ghost" "Href" .DetailsHref)}}
 {{if not .Published}}{{template "hm/button" (dict "Label" "Save draft" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "save"))}}
-{{if .CanPublish}}{{template "hm/button" (dict "Label" "Publish" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "publish"))}}{{end}}
+{{if .HidePublish}}{{template "hm/button" (dict "Label" "Send for review" "Attrs" (attrmap "aria-disabled" "true" "aria-describedby" "bo-review-why" "data-hm-review-placeholder" ""))}}<span class="hm-visually-hidden" id="bo-review-why">Reviews are not available yet. An editor or reviewer publishes this draft.</span>{{else if .CanPublish}}{{template "hm/button" (dict "Label" "Publish" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "publish"))}}{{end}}
 {{else}}{{template "hm/button" (dict "Label" "Update" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "save"))}}{{end}}
 {{template "hm/foot-end"}}
 </div>

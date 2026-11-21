@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/json/jsontext"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/builder"
@@ -78,6 +80,7 @@ type outlineData struct {
 	Kinds                     []outlineOption
 	Plain                     bool // rendered as the page itself, not inside noscript
 	Published, CanPublish     bool
+	HidePublish               bool // CanPublish, but the signed-in user may not publish this page: Send for review stands in
 	DetailsHref               string
 	Notice, Conflict          string
 	Summary                   []ui.FieldError
@@ -503,18 +506,20 @@ func outlineProperty(n *builder.Node, p builder.PropInfo, nodeLabel string, st *
 }
 
 // outlineData assembles the template data for e with the working doc.
-func (a *Admin) outlineData(e *entity.Entity, doc *builder.Doc, st *outlineState, plain bool, name string) (*outlineData, error) {
+func (a *Admin) outlineData(ctx context.Context, e *entity.Entity, doc *builder.Doc, st *outlineState, plain bool, name string) (*outlineData, error) {
 	raw, err := jsonx.Marshal(doc)
 	if err != nil {
 		return nil, err
 	}
-	return &outlineData{
+	d := &outlineData{
 		ID: e.ID.String(), Name: name, Status: string(e.Status), Version: strconv.Itoa(e.Version), Doc: string(raw),
 		Nodes: a.buildOutline(doc, st), Kinds: a.outlineKinds(), Plain: plain,
 		Published: e.Status == entity.StatusPublished, CanPublish: e.Status == entity.StatusDraft && !(e.Schema != nil && entity.IsReuseSchema(e.Schema)),
 		DetailsHref: a.adminPath + "/entities/" + e.ID.String(),
 		Summary:     st.summary,
-	}, nil
+	}
+	d.HidePublish = d.CanPublish && !a.canEntity(ctx, authz.ActionEntityPublish, e)
+	return d, nil
 }
 
 func (a *Admin) renderOutline(w http.ResponseWriter, r *http.Request, status int, d *outlineData) {
@@ -644,7 +649,7 @@ func (a *Admin) handleBuilderPost(w http.ResponseWriter, r *http.Request, e *ent
 	}
 
 	rerender := func(status int, conflict bool) {
-		d, err := a.outlineData(e, doc, st, plain, title)
+		d, err := a.outlineData(r.Context(), e, doc, st, plain, title)
 		if err != nil {
 			a.serverError(w, r, "The page outline could not be built", err)
 			return
@@ -709,6 +714,18 @@ func (a *Admin) handleBuilderPost(w http.ResponseWriter, r *http.Request, e *ent
 			return
 		}
 		a.serverError(w, r, "The page could not be saved", err)
+		return
+	}
+	if saved.PublishRefused != nil {
+		// The draft is saved; only the publish was refused. Show the page as stored, with the reason.
+		st.summary = append(st.summary, ui.FieldError{ID: "bo-name", Label: "Page", Message: "Saved as a draft. " + sentence(saved.PublishRefused.Error())})
+		d, err := a.outlineData(r.Context(), saved.Entity, doc, st, plain, title)
+		if err != nil {
+			a.serverError(w, r, "The page outline could not be built", err)
+			return
+		}
+		d.Outline = r.PostFormValue("outline") == "1"
+		a.renderOutline(w, r, http.StatusForbidden, d)
 		return
 	}
 	msg, kind := "Saved.", "success"
