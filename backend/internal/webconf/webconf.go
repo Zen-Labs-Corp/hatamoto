@@ -101,6 +101,9 @@ func (in Input) validate() error {
 	if in.MaxBodyMB < 0 || in.MaxBodyMB > 4096 || in.AdminBodyMB < 0 || in.AdminBodyMB > 4096 {
 		return fmt.Errorf("%w: upload limit", ErrUnsafe)
 	}
+	if in.AdminBodyMB > 0 && (!pathChars.MatchString(in.AdminPath) || strings.TrimRight(in.AdminPath, "/") == "") {
+		return fmt.Errorf("%w: admin path", ErrUnsafe)
+	}
 	for _, p := range in.Proxy {
 		if !pathChars.MatchString(p.Path) {
 			return fmt.Errorf("%w: proxy path", ErrUnsafe)
