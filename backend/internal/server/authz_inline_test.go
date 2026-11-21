@@ -4,9 +4,11 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/authztest"
 	"hatamoto.dev/core/internal/middleware"
@@ -52,4 +54,20 @@ func TestAuthzInline_FormAdminLinkAsksAuthorizer(t *testing.T) {
 	testutil.True(t, s.isAdminAccountEmail(context.Background(), "a@example.test"), "default allows an owner")
 	authztest.Use(t, authztest.DenyAll)
 	testutil.True(t, !s.isAdminAccountEmail(context.Background(), "a@example.test"), "deny means no admin link")
+}
+
+// Changing a role to owner needs the owner grant, not only user management.
+func TestAuthzInline_UpdateUserToOwnerAsksOwnerGrant(t *testing.T) {
+	s := &Server{logger: quietLogger()}
+	owner := &auth.Claims{UserID: uuid.New(), Role: "owner"}
+	authztest.Use(t, authztest.Func(func(_ context.Context, _ authz.Subject, act authz.Action, _ authz.Object) (bool, error) {
+		return act == authz.ActionUserManage, nil
+	}))
+	r := httptest.NewRequest(http.MethodPatch, "/api/v1/users/x", strings.NewReader(`{"Role":"owner"}`))
+	r.SetPathValue("id", uuid.NewString())
+	r = r.WithContext(middleware.ContextWithClaims(r.Context(), owner))
+	w := httptest.NewRecorder()
+	s.handleUpdateUser(w, r)
+	testutil.Equal(t, http.StatusForbidden, w.Code, "user.manage without user.owner.grant")
+	testutil.Contains(t, w.Body.String(), "only owners can grant the owner role")
 }

@@ -89,7 +89,7 @@ internal/admin/entities.go inline entity.read roles=owner,editor  # any signed-i
 
 # --- inline gates in REST handlers ---
 internal/server/comment_post.go inline comment.reply_as_staff roles=owner,editor  # :195
-internal/server/handlers.go inline user.owner.grant,user.delete,user.manage roles=owner n=3  # :320,:422,:443 target-role checks; the caller check asks authz
+internal/server/handlers.go inline user.owner.grant,user.delete,user.manage roles=owner n=4  # :320,:419,:428,:449 target-role checks; the caller check asks authz
 internal/auth/usertokens.go inline user.owner.grant roles=owner  # :208,:275
 internal/server/server_core.go inline profile.update,link.insert,link.suggest,redirect.read,redirect.manage,analytics.read roles=owner,editor  # routes open to any signed-in user or a key
 internal/pluginhost/routes.go inline plugin.route.invoke roles=owner,editor  # :166-186 manifest roles, then authz.Can; a manifest role outside owner/editor (e.g. viewer) passes the manifest check but the default authorizer refuses plugin.route.invoke

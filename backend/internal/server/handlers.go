@@ -415,6 +415,12 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Making an owner is the owner grant, as on create.
+	if input.Role != nil && *input.Role == user.RoleOwner && !middleware.Can(r.Context(), authz.ActionUserOwnerGrant, authz.Object{}) {
+		writeError(w, http.StatusForbidden, "only owners can grant the owner role")
+		return
+	}
+
 	// Someone whose own access ends cannot change an end date, nor make a user
 	// without a date, or with a later one, an owner. UpdateUserInput.Role has
 	// no json tag, so it decodes under its Go name ("Role"; the decoder is case
