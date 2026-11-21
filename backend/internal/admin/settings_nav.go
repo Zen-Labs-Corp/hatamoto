@@ -55,7 +55,7 @@ var settingsLive = map[string]bool{
 	"themes": true, "blocks": true, "colours": true, "fonts": true, "additional-css": true, "design-system": true, "presets": true, "parts": true,
 	"import": true, "general": true, "branding": true, "export": true, "performance": true, "memory": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
-	"admin-address": true, "site-access": true, "versions": true, "api": true, "updates": true, "jobs": true, "backups": true, "changes": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
+	"admin-address": true, "site-access": true, "versions": true, "api": true, "updates": true, "jobs": true, "hosting": true, "backups": true, "changes": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
 	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-ads-txt": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
 	"privacy": true, "tracking": true, "contact-button": true, "theme-strings": true,
 	"user-sign-in": true, "locales": true, "locale-addresses": true, "locale-business": true, "search-replace": true,
@@ -142,6 +142,9 @@ var settingsRegistry = []settingsSectionDef{
 	}},
 	{ID: "jobs", Label: "Jobs", Icon: "refresh", Desc: "Scheduled jobs, when they last ran and when they run next.", Group: "System", Tabs: []settingsTabDef{
 		{ID: "jobs", Label: "Jobs", Final: "/settings/jobs", Roles: ownerOnly},
+	}},
+	{ID: "hosting", Label: "Hosting", Icon: "layers", Desc: "Serve pages from this server or publish them as static files.", Group: "System", Tabs: []settingsTabDef{
+		{ID: "hosting", Label: "Hosting", Final: "/settings/hosting", Roles: ownerOnly},
 	}},
 	{ID: "backups-recovery", Label: "Backups & recovery", Icon: "archive", Desc: "Download a full copy of your site, how many earlier versions are kept, and undo imports.", Group: "System", Tabs: []settingsTabDef{
 		{ID: "backups", Label: "Backups", Final: "/settings/backups", Roles: ownerOnly},

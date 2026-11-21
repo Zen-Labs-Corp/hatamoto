@@ -27,7 +27,7 @@ func TestSettingsForRoles(t *testing.T) {
 	for id, want := range map[string]string{
 		"general": "general", "privacy-tracking": "tracking privacy", "locales": "locales locale-addresses locale-business", "entity-models": "types taxonomies",
 		"seo": "seo-general seo-titles seo-social seo-schema seo-kg seo-robots seo-ads-txt seo-verification seo-sitemap seo-breadcrumbs seo-indexnow seo-404", "redirects": "redirects", "linking": "linking", "comments": "comments comment-blocklists commenters", "users": "users user-sign-in", "integrations": "api subscriptions deliveries",
-		"tools": "import export search-replace", "performance": "performance memory", "updates": "updates", "backups-recovery": "backups versions changes", "access-security": "site-access admin-address",
+		"tools": "import export search-replace", "performance": "performance memory", "updates": "updates", "hosting": "hosting", "backups-recovery": "backups versions changes", "access-security": "site-access admin-address",
 	} {
 		if got := strings.Join(owner[id], " "); got != want {
 			t.Errorf("owner %s tabs %q, want %q", id, got, want)
@@ -44,7 +44,7 @@ func TestSettingsForRoles(t *testing.T) {
 			t.Errorf("Settings still has the section %s, which moved to Theme", id)
 		}
 	}
-	for _, id := range []string{"general", "locales", "seo", "entity-models", "users", "integrations", "tools", "performance", "updates", "backups-recovery", "access-security", "privacy-tracking"} {
+	for _, id := range []string{"general", "locales", "seo", "entity-models", "users", "integrations", "tools", "performance", "updates", "hosting", "backups-recovery", "access-security", "privacy-tracking"} {
 		if _, ok := editor[id]; ok {
 			t.Errorf("editor sees section %s", id)
 		}
@@ -282,7 +282,7 @@ func TestSettingsNavGroups(t *testing.T) {
 	for g, want := range map[string]string{
 		"Site":    "general branding locales users access-security email privacy-tracking",
 		"Content": "entity-models seo redirects linking comments",
-		"System":  "integrations performance updates jobs backups-recovery tools",
+		"System":  "integrations performance updates jobs hosting backups-recovery tools",
 	} {
 		if got := strings.Join(members[g], " "); got != want {
 			t.Errorf("owner %s sections %q, want %q", g, got, want)
@@ -389,12 +389,12 @@ func TestBrandingSectionIsOwnerOnly(t *testing.T) {
 	}
 }
 
-// Media lives in the main menu, so Settings keeps 18 sections (the 15 of the
-// regrouping plus Branding, Jobs and Comments).
+// Media lives in the main menu, so Settings keeps 19 sections (the 15 of the
+// regrouping plus Branding, Jobs, Comments and Hosting).
 func TestSettingsSectionCount(t *testing.T) {
 	t.Parallel()
 
-	if got := len(settingsFor("/admin", "owner")); got != 18 {
-		t.Errorf("owner Settings sections = %d, want 18", got)
+	if got := len(settingsFor("/admin", "owner")); got != 19 {
+		t.Errorf("owner Settings sections = %d, want 19", got)
 	}
 }
