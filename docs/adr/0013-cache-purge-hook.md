@@ -67,6 +67,8 @@ leave an old copy at the edge until its lifetime ends, and the log shows it.
   tool send no purge, and settings, theme, media and forms changes send none.
   An operator who needs those uses the cache's lifetime or treats any purge as
   a purge of everything.
+- In a staging copy (`HATAMOTO_ENV=staging`) no purge is sent, neither the
+  webhook nor a registered purger.
 - With several servers, the server that made the change sends the request. The
   other servers send nothing for it.
 - A purge that is queued when a process stops can be lost. The final flush has

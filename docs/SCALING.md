@@ -42,6 +42,7 @@ Each server runs its own scheduler. A job is one of three kinds:
 | `webhook_prune` | claimed |
 | `comment_drafts_purge` | claimed |
 | plugin cron jobs | claimed |
+| `module:*` jobs | claimed through the same table; a failed claim skips the run |
 | `publish` | own claims |
 | `agent_verify` | own claims |
 | `agent_attribution_backfill` | own claims |
@@ -68,6 +69,11 @@ How a claim works:
 - If the claim query fails, the job runs anyway and a warning is logged. A
   database error never stops scheduled work, at the cost of a possible double
   run for that tick.
+- After a restart, a claimed job that ran within its last lease skips its
+  startup run and waits for its next tick. Shortening a plugin cron interval
+  can wait out the old lease once.
+- `module:*` jobs are claimed in the same table, but a failed claim query
+  refuses the run for them; core jobs run anyway.
 - Run now in Settings > Jobs is not claimed. It runs on the server that
   received the click.
 - `HATAMOTO_WORKER=off` still works: a server with it off runs no jobs and

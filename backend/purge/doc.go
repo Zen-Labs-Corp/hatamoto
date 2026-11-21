@@ -34,6 +34,9 @@
 // most 500 URLs, and a failed call is retried up to 3 attempts in total. An
 // error is logged and never blocks or undoes the change.
 //
+// In a staging copy (HATAMOTO_ENV=staging) no purge is sent, neither the
+// webhook nor a registered purger.
+//
 // Register must run before app.Main (from an init function); app.Main
 // freezes the registration and a later Register panics.
 //
