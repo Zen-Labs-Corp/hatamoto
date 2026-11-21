@@ -62,7 +62,7 @@ func (r *PostgresRepository) Create(ctx context.Context, input *CreateUserInput,
 	query := `
 		INSERT INTO hatamoto_users (
 			id, email, password_hash, role, name, access_ends_at, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		) VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7, $8)
 		RETURNING id, email, role, name, access_ends_at, created_at, updated_at
 	`
 	insert := func(q Queryer) (*User, error) {
@@ -108,7 +108,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*User, 
 	defer conn.Release()
 
 	query := `
-		SELECT id, email, password_hash, role, name, avatar_url,
+		SELECT id, email, COALESCE(password_hash, '') AS password_hash, role, name, avatar_url,
 		       last_login_at, failed_login_attempts, locked_until,
 		       access_ends_at, created_at, updated_at
 		FROM hatamoto_users
@@ -141,7 +141,7 @@ func (r *PostgresRepository) GetByEmail(ctx context.Context, email string) (*Use
 	defer conn.Release()
 
 	query := `
-		SELECT id, email, password_hash, role, name, avatar_url,
+		SELECT id, email, COALESCE(password_hash, '') AS password_hash, role, name, avatar_url,
 		       last_login_at, failed_login_attempts, locked_until,
 		       access_ends_at, created_at, updated_at
 		FROM hatamoto_users
@@ -165,6 +165,56 @@ func (r *PostgresRepository) GetByEmail(ctx context.Context, email string) (*Use
 	return &u, nil
 }
 
+// ErrEmailAmbiguous means more than one user has the email once case and
+// surrounding space are ignored.
+var ErrEmailAmbiguous = errors.New("more than one user has this email in another case")
+
+// GetByEmailFold finds a user by email ignoring case and surrounding space;
+// two matches give ErrEmailAmbiguous.
+func (r *PostgresRepository) GetByEmailFold(ctx context.Context, email string) (*User, error) {
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+
+	rows, err := conn.Query(ctx, `
+		SELECT id, email, COALESCE(password_hash, '') AS password_hash, role, name, avatar_url,
+		       last_login_at, failed_login_attempts, locked_until,
+		       access_ends_at, created_at, updated_at
+		FROM hatamoto_users
+		WHERE lower(btrim(email)) = lower(btrim($1))
+		LIMIT 2
+	`, email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
+	}
+	defer rows.Close()
+
+	var found []*User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(
+			&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.Name,
+			&u.AvatarURL, &u.LastLoginAt, &u.FailedLoginAttempts, &u.LockedUntil,
+			&u.AccessEndsAt, &u.CreatedAt, &u.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan user: %w", err)
+		}
+		found = append(found, &u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
+	}
+	switch len(found) {
+	case 0:
+		return nil, ErrUserNotFound
+	case 1:
+		return found[0], nil
+	}
+	return nil, ErrEmailAmbiguous
+}
+
 // ListByEmail retrieves all users with the given email. Pre-Path-B this
 // scanned across tenants for the multi-tenant cross-account login feature;
 // post-strip the result set is at most 1 row but the API contract stays
@@ -177,7 +227,7 @@ func (r *PostgresRepository) ListByEmail(ctx context.Context, email string) ([]*
 	defer conn.Release()
 
 	query := `
-		SELECT id, email, password_hash, role, name, avatar_url,
+		SELECT id, email, COALESCE(password_hash, '') AS password_hash, role, name, avatar_url,
 		       last_login_at, access_ends_at, created_at, updated_at
 		FROM hatamoto_users
 		WHERE email = $1
