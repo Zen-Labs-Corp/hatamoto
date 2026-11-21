@@ -104,6 +104,7 @@ type Server struct {
 	sessionStore *session.Store
 	userTokens   *auth.UserTokens
 	siteConfig   *siteconfig.Store
+	siteDerived  atomic.Pointer[siteDerived] // buildSiteView's decodes, per site config pointer
 	// accessSettings replaces the site-config read behind the site access gate
 	// (tests); lastAccess is the last settings read, kept for a failed read.
 	accessSettings func(context.Context) (siteaccess.Settings, error)

@@ -89,6 +89,7 @@ func New(ctx context.Context, cfg config.DatabaseConfig) (*DB, error) {
 // NewWithConfig creates the pool from a ready pgx config, for callers that
 // need a custom one (tests attach a pgx.QueryTracer to count statements).
 func NewWithConfig(ctx context.Context, poolConfig *pgxpool.Config) (*DB, error) {
+	poolConfig.AfterConnect = withJSONTypes(poolConfig.AfterConnect)
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create connection pool: %w", err)

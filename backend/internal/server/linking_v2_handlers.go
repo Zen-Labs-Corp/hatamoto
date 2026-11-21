@@ -59,7 +59,7 @@ func (a *entityLinkSyncAdapter) ResolveCanonical(ent *entity.Entity) (string, er
 	if serr != nil {
 		return "", serr
 	}
-	url, err := linkingv2.ResolveWithAttrs(snap, ent.Schema.Slug, snap.VarsFor(ent, ancestorSlugs(context.Background(), snap, entity.NewPostgresPublicRepository(a.db), ent, ent.Schema.Slug)), entity.FlattenAttributes(ent.Attributes))
+	url, err := linkingv2.ResolveWithAttrs(snap, ent.Schema.Slug, snap.VarsFor(ent, ancestorSlugs(context.Background(), snap, entity.NewPostgresPublicRepository(a.db), ent, ent.Schema.Slug)), ent.FlatAttributes())
 	if err != nil {
 		// Schema-not-linkable / unknown-schema both mean
 		// "nothing to rewrite" — swallow rather than propagating into the
@@ -112,7 +112,7 @@ func (s *Server) handleLinkingV2Resolve(w http.ResponseWriter, r *http.Request) 
 	}
 
 	snap := s.urlSnapshot(r.Context())
-	url, err := linkingv2.ResolveWithAttrs(snap, ent.Schema.Slug, snap.VarsFor(ent, ancestorSlugs(r.Context(), snap, entity.NewPostgresPublicRepository(s.db), ent, ent.Schema.Slug)), entity.FlattenAttributes(ent.Attributes))
+	url, err := linkingv2.ResolveWithAttrs(snap, ent.Schema.Slug, snap.VarsFor(ent, ancestorSlugs(r.Context(), snap, entity.NewPostgresPublicRepository(s.db), ent, ent.Schema.Slug)), ent.FlatAttributes())
 	if err != nil {
 		switch {
 		case errors.Is(err, linkingv2.ErrSchemaNotLinkable):
@@ -193,7 +193,7 @@ func (s *Server) handleLinkingV2Insert(w http.ResponseWriter, r *http.Request) {
 	}
 
 	snap := s.urlSnapshot(r.Context())
-	canonical, err := linkingv2.ResolveWithAttrs(snap, target.Schema.Slug, snap.VarsFor(target, ancestorSlugs(r.Context(), snap, entity.NewPostgresPublicRepository(s.db), target, target.Schema.Slug)), entity.FlattenAttributes(target.Attributes))
+	canonical, err := linkingv2.ResolveWithAttrs(snap, target.Schema.Slug, snap.VarsFor(target, ancestorSlugs(r.Context(), snap, entity.NewPostgresPublicRepository(s.db), target, target.Schema.Slug)), target.FlatAttributes())
 	if err != nil {
 		switch {
 		case errors.Is(err, linkingv2.ErrSchemaNotLinkable):

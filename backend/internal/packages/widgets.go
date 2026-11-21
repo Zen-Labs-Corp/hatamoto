@@ -1,7 +1,9 @@
 package packages
 
 import (
+	"bytes"
 	"context"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -183,6 +185,17 @@ type widgetState struct {
 	schemas []builder.PackWidgetSchema
 	views   []render.PackWidget
 	cache   map[string]widgetEntry // plugin name -> entry
+
+	islands       map[string]islandMemo // plugin name -> memo (under m.mu, like cache)
+	islandDecodes int                   // manifests islandPlugins decoded (tests)
+}
+
+// islandMemo is whether a stored plugin manifest asks for builder.island,
+// kept while the package hash and manifest bytes are unchanged.
+type islandMemo struct {
+	sha      string
+	manifest jsontext.Value
+	island   bool
 }
 
 // widgetCount is how many widgets the stored package of a plugin ships.
@@ -259,6 +272,11 @@ func (m *Manager) reconcileWidgets(ctx context.Context, rows []Row) bool {
 		keys = append(keys, key)
 	}
 	m.widgets.cache = cache
+	for n := range m.widgets.islands {
+		if _, ok := cache[n]; !ok {
+			delete(m.widgets.islands, n)
+		}
+	}
 	counts := make(map[string]int, len(cache))
 	for name, e := range cache {
 		counts[name] = len(e.schemas)
@@ -345,13 +363,22 @@ func (m *Manager) islandPlugins(rows []Row) bool {
 	if m.Grants == nil {
 		return false
 	}
-	for _, r := range rows {
-		var man sdk.Manifest
-		if decodeManifest(r.Manifest, &man) == nil && slices.Contains(man.Permissions, sdk.PermBuilderIsland) {
-			return true
-		}
+	if m.widgets.islands == nil {
+		m.widgets.islands = map[string]islandMemo{}
 	}
-	return false
+	found := false
+	for _, r := range rows {
+		e, ok := m.widgets.islands[r.Name]
+		if !ok || e.sha != r.SHA256 || !bytes.Equal(e.manifest, r.Manifest) {
+			var man sdk.Manifest
+			m.widgets.islandDecodes++
+			e = islandMemo{sha: r.SHA256, manifest: r.Manifest,
+				island: decodeManifest(r.Manifest, &man) == nil && slices.Contains(man.Permissions, sdk.PermBuilderIsland)}
+			m.widgets.islands[r.Name] = e
+		}
+		found = found || e.island
+	}
+	return found
 }
 
 // SetGrants replaces the grants of an installed plugin the runtime does not

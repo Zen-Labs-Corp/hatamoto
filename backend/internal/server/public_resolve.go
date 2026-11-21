@@ -175,7 +175,7 @@ func resolveEntity(ctx context.Context, repo resolveRepo, snap *entity.URLSnapsh
 // (after attribute overrides), so an entity with an override is not also
 // reachable at its schema's base pattern.
 func servesAt(router *urlpattern.Router, ent *entity.Entity, cand urlpattern.Candidate) bool {
-	target, ok := router.Lookup(ent.Schema.Slug, entity.FlattenAttributes(ent.Attributes))
+	target, ok := router.Lookup(ent.Schema.Slug, ent.FlatAttributes())
 	return ok && target.Pattern.String() == cand.Pattern.String()
 }
 

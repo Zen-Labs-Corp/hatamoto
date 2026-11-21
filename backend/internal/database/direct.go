@@ -70,6 +70,7 @@ func (d *Direct) Session(ctx context.Context) (*pgx.Conn, func(), error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to connect to direct database: %w", err)
 	}
+	registerJSONTypes(conn.TypeMap())
 	return conn, func() {
 		cctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
@@ -93,6 +94,7 @@ func (d *Direct) Pool(ctx context.Context, maxConns int32) (*pgxpool.Pool, func(
 	pc.ConnConfig = d.cfg.Copy()
 	pc.MaxConns = maxConns
 	pc.MinConns = 0
+	pc.AfterConnect = withJSONTypes(pc.AfterConnect)
 	pool, err := pgxpool.NewWithConfig(ctx, pc)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create direct connection pool: %w", err)

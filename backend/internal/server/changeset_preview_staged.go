@@ -145,7 +145,7 @@ func newStagedChangeset(ctx context.Context, h changeset.Header, items []changes
 		}
 		se := &stagedEntity{Seq: it.Seq, Ent: ent, Live: live}
 		if sc := src.snapshot; sc != nil && ent.Schema != nil {
-			if loc, found, err := sc.Locate(ent.Schema.Slug, entity.FlattenAttributes(ent.Attributes),
+			if loc, found, err := sc.Locate(ent.Schema.Slug, ent.FlatAttributes(),
 				sc.VarsFor(ent, o.ancestorSlugs(ctx, src, ent))); err == nil && found {
 				se.Path = loc.Path
 			}
@@ -157,6 +157,7 @@ func newStagedChangeset(ctx context.Context, h changeset.Header, items []changes
 		o.items = append(o.items, se)
 	}
 	o.stageOthers(ctx, src, origin, items)
+	o.warmFlat()
 	return o
 }
 
@@ -254,7 +255,7 @@ func localeSetOf(snap *entity.URLSnapshot) *entity.LocaleSet {
 
 // ancestorSlugs are the slugs above ent, through staged parents first.
 func (o *stagedChangeset) ancestorSlugs(ctx context.Context, src stagedSource, ent *entity.Entity) []string {
-	if ent.ParentID == nil || ent.Schema == nil || !src.snapshot.NeedsAncestors(ent.Schema.Slug, entity.FlattenAttributes(ent.Attributes)) {
+	if ent.ParentID == nil || ent.Schema == nil || !src.snapshot.NeedsAncestors(ent.Schema.Slug, ent.FlatAttributes()) {
 		return nil
 	}
 	if p, ok := o.ents[*ent.ParentID]; ok {
@@ -271,12 +272,24 @@ func (o *stagedChangeset) livePath(ctx context.Context, src stagedSource, live *
 	if src.snapshot == nil || live.Schema == nil {
 		return ""
 	}
-	loc, found, err := src.snapshot.Locate(live.Schema.Slug, entity.FlattenAttributes(live.Attributes),
+	loc, found, err := src.snapshot.Locate(live.Schema.Slug, live.FlatAttributes(),
 		src.snapshot.VarsFor(live, o.ancestorSlugs(ctx, src, live)))
 	if err != nil || !found {
 		return ""
 	}
 	return loc.Path
+}
+
+// warmFlat fills every entity's FlatAttributes memo before the set is shared
+// (it is cached across requests): entityByID copies the entities by value, which
+// must not race with a memo store from another request.
+func (o *stagedChangeset) warmFlat() {
+	for _, se := range o.items {
+		se.Ent.FlatAttributes()
+		if se.Live != nil {
+			se.Live.FlatAttributes()
+		}
+	}
 }
 
 // entityByID is the staged entity with id, a copy the loader may modify.

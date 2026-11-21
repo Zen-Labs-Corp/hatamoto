@@ -5,6 +5,7 @@ import (
 	"encoding/json/jsontext"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -110,6 +111,13 @@ type Entity struct {
 
 	// Joined fields (not stored in DB)
 	Schema *EntitySchema `json:"schema,omitempty"`
+
+	// flat memoises FlatAttributes (*flatMemo). atomic.Value, not
+	// atomic.Pointer: Entity is copied by value, and a copy sharing the memo
+	// is still right because the memo is keyed to the Attributes slice. A copy
+	// reads the field, so an entity shared between goroutines must have its memo
+	// filled (call FlatAttributes) before it is shared and then copied.
+	flat atomic.Value
 }
 
 // AutosaveSummary is the change summary of a background save; versions with it

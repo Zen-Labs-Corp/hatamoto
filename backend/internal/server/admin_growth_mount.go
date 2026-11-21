@@ -312,7 +312,7 @@ func (l linkingAdmin) linkTarget(ctx context.Context, target uuid.UUID) (*entity
 		return nil, "", false, errors.New("target entity schema missing")
 	}
 	snap := l.s.urlSnapshot(ctx)
-	canonical, err := linkingv2.ResolveWithAttrs(snap, tgt.Schema.Slug, snap.VarsFor(tgt, ancestorSlugs(ctx, snap, entity.NewPostgresPublicRepository(l.s.db), tgt, tgt.Schema.Slug)), entity.FlattenAttributes(tgt.Attributes))
+	canonical, err := linkingv2.ResolveWithAttrs(snap, tgt.Schema.Slug, snap.VarsFor(tgt, ancestorSlugs(ctx, snap, entity.NewPostgresPublicRepository(l.s.db), tgt, tgt.Schema.Slug)), tgt.FlatAttributes())
 	if err != nil {
 		if errors.Is(err, linkingv2.ErrSchemaNotLinkable) || errors.Is(err, linkingv2.ErrUnknownSchema) {
 			return tgt, "", false, nil

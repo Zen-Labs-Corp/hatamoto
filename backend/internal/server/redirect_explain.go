@@ -61,7 +61,7 @@ func (s *Server) lookupBlogSlug(ctx context.Context, slug string) string {
 // bare slug. It is false when that path is the bare slug itself (pages and
 // section landing pages already live there) or the schema is unknown.
 func bareSlugCanonical(ent *entity.Entity, snap *entity.URLSnapshot) (string, bool) {
-	loc, found, err := snap.Locate(ent.Schema.Slug, entity.FlattenAttributes(ent.Attributes), snap.VarsFor(ent, nil))
+	loc, found, err := snap.Locate(ent.Schema.Slug, ent.FlatAttributes(), snap.VarsFor(ent, nil))
 	if err != nil || !found || loc.Section || loc.Path == "/"+ent.Slug {
 		return "", false
 	}

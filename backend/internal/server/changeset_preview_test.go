@@ -5,6 +5,7 @@ import (
 	"encoding/json/jsontext"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -305,4 +306,39 @@ func TestChangesetPreviewCachesStagedSet(t *testing.T) {
 	if len(c.entries) > stagedCacheEntries {
 		t.Errorf("cache holds %d entries, want at most %d", len(c.entries), stagedCacheEntries)
 	}
+}
+
+// A built staged set is shared between requests: copying an entity out of it
+// must not race with FlatAttributes on the shared one.
+func TestStagedEntityCopyRacesNoMemoStore(t *testing.T) {
+	liveID := uuid.New()
+	live := map[uuid.UUID]*entity.Entity{liveID: liveEntity(liveID, "About", "about")}
+	src := testSource(live, nil)
+	src.snapshot = nil // no path lookup at build, so nothing else warms the memo
+	o := newStagedChangeset(context.Background(), changeset.Header{ID: 1, RunID: testRunID}, []changeset.StoredItem{
+		item(1, changeset.OpUpsert, liveID.String(), "", `{"attributes":{"meta_title":"New"}}`),
+	}, src)
+	if len(o.items) != 1 {
+		t.Fatalf("staged items = %d, want 1", len(o.items))
+	}
+	shared := o.items[0].Ent
+	var wg sync.WaitGroup
+	for range 2 {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			for range 200 {
+				_ = shared.FlatAttributes()
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			for range 200 {
+				if o.entityByID(liveID) == nil {
+					t.Error("entityByID = nil")
+				}
+			}
+		}()
+	}
+	wg.Wait()
 }
