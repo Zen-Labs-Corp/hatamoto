@@ -250,6 +250,41 @@ func TestTwoStepPasswordThenCodeSignsIn(t *testing.T) {
 	}
 }
 
+// A signed-in browser can be shown the sign-in form: the SameSite=Strict session
+// cookie is withheld on a navigation from another site, so the form and the
+// second step carry the pre-session token while the code is submitted with the
+// session cookie back. The second step must check the code, not answer 403.
+func TestTwoStepWhileSignedInChecksTheCode(t *testing.T) {
+	t.Parallel()
+
+	g := newTwoStepRig(t)
+	g.realTokens()
+	pre := g.a.newPreID(time.Now().Add(time.Hour))
+	submit := func(pending, code string, withPre bool) *httptest.ResponseRecorder {
+		cookie := "hatamoto_session=owner-token; hm_2fa=" + pending
+		if withPre {
+			cookie += "; hm_pre=" + pre
+		}
+		return g.browserForm("/admin/login/2fa", "", pre, url.Values{"code": {code}}, map[string]string{"Cookie": cookie})
+	}
+
+	p := g.password(t)
+	if rec := submit(p, "000000", true); rec.Code != 422 || !strings.Contains(rec.Body.String(), loginMessage2FA) || cookieNamed(rec, "hatamoto_session") != nil {
+		t.Fatalf("wrong code while signed in: %d", rec.Code)
+	}
+	// The pre-session token is worth nothing without its cookie.
+	if rec := submit(p, "123456", false); rec.Code != 403 || g.tf.verifies != 1 {
+		t.Fatalf("pre-session token without hm_pre: %d (verifies %d)", rec.Code, g.tf.verifies)
+	}
+	rec := submit(p, "123456", true)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/users" {
+		t.Fatalf("right code while signed in: %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if c := cookieNamed(rec, "hatamoto_session"); c == nil || c.Value != "owner-token" {
+		t.Fatalf("session cookie: %+v", c)
+	}
+}
+
 func TestTwoStepPendingCookieIsSingleUse(t *testing.T) {
 	t.Parallel()
 
