@@ -378,10 +378,12 @@ func (a *Admin) handleRuleSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if created != nil {
+		a.audit(r, AuditLinkRuleSaved, created.ID.String(), map[string]any{"enabled": f.Active})
 		a.SetFlash(w, r, "success", "Linking rule created.")
 		http.Redirect(w, r, a.adminPath+"/settings/linking/rules/"+created.ID.String(), http.StatusSeeOther)
 		return
 	}
+	a.audit(r, AuditLinkRuleSaved, cur.ID.String(), map[string]any{"enabled": f.Active})
 	a.SetFlash(w, r, "success", "Linking rule saved.")
 	http.Redirect(w, r, a.adminPath+"/settings/linking", http.StatusSeeOther)
 }
@@ -397,6 +399,7 @@ func (a *Admin) handleRuleToggle(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The rule could not be changed.")
 		return
 	}
+	a.audit(r, AuditLinkRuleToggled, rl.ID.String(), map[string]any{"enabled": on})
 	msg := "Rule turned off."
 	if on {
 		msg = "Rule turned on."
@@ -424,6 +427,7 @@ func (a *Admin) handleRuleDelete(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The rule could not be deleted.")
 		return
 	}
+	a.audit(r, AuditLinkRuleDeleted, rl.ID.String(), nil)
 	a.SetFlash(w, r, "success", "Rule deleted.")
 	Redirect(w, r, a.adminPath+"/settings/linking")
 }
@@ -472,8 +476,16 @@ func (a *Admin) handleRulesBulk(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The rules could not be deleted.")
 		return
 	}
+	a.auditRulesChanged(r, "bulk", n)
 	a.SetFlash(w, r, "success", strconv.Itoa(n)+" "+plural(n, "rule", "rules")+" deleted.")
 	http.Redirect(w, r, a.adminPath+"/settings/linking", http.StatusSeeOther)
+}
+
+// auditRulesChanged records a change of many rules at once; nothing changed, no row.
+func (a *Admin) auditRulesChanged(r *http.Request, op string, n int) {
+	if n > 0 {
+		a.audit(r, AuditLinkRulesChanged, "linking", map[string]any{"op": op, "count": n})
+	}
 }
 
 func (a *Admin) handleRulesDeleteAllForm(w http.ResponseWriter, r *http.Request) {
@@ -495,6 +507,7 @@ func (a *Admin) handleRulesDeleteAll(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The rules could not be deleted.")
 		return
 	}
+	a.auditRulesChanged(r, "delete_all", n)
 	a.SetFlash(w, r, "success", strconv.Itoa(n)+" "+plural(n, "rule", "rules")+" deleted.")
 	http.Redirect(w, r, a.adminPath+"/settings/linking", http.StatusSeeOther)
 }
@@ -524,6 +537,7 @@ func (a *Admin) handleRulesDeleteSource(w http.ResponseWriter, r *http.Request) 
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The rules could not be deleted.")
 		return
 	}
+	a.auditRulesChanged(r, "delete_source", n)
 	a.SetFlash(w, r, "success", strconv.Itoa(n)+" "+plural(n, "rule", "rules")+" deleted.")
 	http.Redirect(w, r, a.adminPath+"/settings/linking", http.StatusSeeOther)
 }
@@ -617,6 +631,7 @@ func (a *Admin) handleImport(w http.ResponseWriter, r *http.Request) {
 			f.Skipped = append(f.Skipped, "Line "+strconv.Itoa(rw.line)+": the rule could not be created")
 		}
 	}
+	a.auditRulesChanged(r, "import", created)
 	f.Result = strconv.Itoa(created) + " " + plural(created, "rule", "rules") + " created"
 	if dup > 0 {
 		f.Result += ", " + strconv.Itoa(dup) + " already existed"
@@ -767,6 +782,7 @@ func (a *Admin) handleSuggestionInsert(w http.ResponseWriter, r *http.Request) {
 	if out.Inserted {
 		// Insert rewrote the page's saved content: rendered pages are stale.
 		a.invalidate(r.Context())
+		a.audit(r, AuditEntityLinksInserted, src.String(), map[string]any{"count": 1})
 		a.SetFlash(w, r, "success", "Link inserted. It is part of the page's saved content now.")
 	} else {
 		a.SetFlash(w, r, "error", "No link was inserted: "+strings.ToLower(skipReason(out.SkipReason))+".")
