@@ -15,8 +15,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
+	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/auditstate"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
@@ -457,11 +460,22 @@ func TestChangesetReviewCountsRedirectsDroppedWithPage(t *testing.T) {
 	}
 }
 
-// A publish through the review flow writes exactly one changeset.publish row,
-// from the engine, inside the publish transaction. The actor is the user (id
-// and email) so the history still names who published it. The pool has a
-// single connection, so the actor lookup must run on the publish transaction.
-func TestChangesetReviewPublishWritesOneAuditRow(t *testing.T) {
+// reviewPublishFixture is a staged changeset ready to publish through the
+// review service, wired like production (s.changesetAuditTx).
+type reviewPublishFixture struct {
+	ctx    context.Context
+	db     *database.DB
+	rev    *changesetReviewer
+	runs   *plugrun.Store
+	runID  uuid.UUID
+	cs     int64
+	uid    uuid.UUID
+	email  string
+	schema *entity.EntitySchema
+}
+
+func newReviewPublishFixture(t *testing.T) *reviewPublishFixture {
+	t.Helper()
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		t.Skip("DATABASE_URL not set")
@@ -516,8 +530,17 @@ func TestChangesetReviewPublishWritesOneAuditRow(t *testing.T) {
 	if err := eng.Stage(ctx, cs, changeset.Item{Kind: changeset.KindEntity, Op: changeset.OpUpsert, SourceKey: "a-" + tag, Payload: p}); err != nil {
 		t.Fatal(err)
 	}
+	return &reviewPublishFixture{ctx: ctx, db: db, rev: rev, runs: runs, runID: run.ID, cs: cs, uid: uid, email: email, schema: sc}
+}
 
-	if err := runs.Finish(ctx, run.ID, jsontext.Value(`{}`)); err != nil {
+// A publish through the review flow writes exactly one changeset.publish row,
+// from the engine, inside the publish transaction. The actor is the user (id
+// and email) so the history still names who published it. The pool has a
+// single connection, so the actor lookup must run on the publish transaction.
+func TestChangesetReviewPublishWritesOneAuditRow(t *testing.T) {
+	f := newReviewPublishFixture(t)
+	ctx, db, rev, runs, cs, uid, email := f.ctx, f.db, f.rev, f.runs, f.cs, f.uid, f.email
+	if err := runs.Finish(ctx, f.runID, jsontext.Value(`{}`)); err != nil {
 		t.Fatal(err)
 	}
 	// The pool has one connection: reading the actor email on a second one
@@ -551,3 +574,37 @@ func TestChangesetReviewPublishWritesOneAuditRow(t *testing.T) {
 		t.Fatalf("history by = %+v, %v", h, err)
 	}
 }
+
+// A registered sink that refuses must fail the publish through the production
+// wiring (s.changesetAuditTx): swallowing the sink error there would commit
+// the entity and write the row.
+func TestChangesetReviewPublishRefusedBySink(t *testing.T) {
+	f := newReviewPublishFixture(t)
+	auditstate.Register(refusingSink{})
+	t.Cleanup(auditstate.Reset)
+	if err := f.runs.Finish(f.ctx, f.runID, jsontext.Value(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := f.rev.Publish(database.WithUser(f.ctx, f.uid), f.cs); !errors.Is(err, audit.ErrSink) {
+		t.Fatalf("Publish err = %v, want ErrSink", err)
+	}
+	var ents, rows int
+	var state string
+	q := func(dst *int, sql string, args ...any) {
+		if err := f.db.Pool().QueryRow(f.ctx, sql, args...).Scan(dst); err != nil {
+			t.Fatal(err)
+		}
+	}
+	q(&ents, `SELECT count(*) FROM hatamoto_entities WHERE schema_id = $1`, f.schema.ID)
+	q(&rows, `SELECT count(*) FROM hatamoto_admin_audit WHERE action = 'changeset.publish' AND target = $1`, changesetTarget(f.cs))
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT state FROM hatamoto_changesets WHERE id = $1`, f.cs).Scan(&state); err != nil {
+		t.Fatal(err)
+	}
+	if ents != 0 || rows != 0 || state != "staged" {
+		t.Fatalf("entities %d, publish rows %d, state %q: want 0, 0, staged (rolled back)", ents, rows, state)
+	}
+}
+
+type refusingSink struct{}
+
+func (refusingSink) Record(context.Context, pgx.Tx, audit.Event) error { return errors.New("refused") }
