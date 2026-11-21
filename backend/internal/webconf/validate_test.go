@@ -2,9 +2,12 @@ package webconf
 
 import (
 	"context"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -53,6 +56,37 @@ func TestCaddyValidate(t *testing.T) {
 	}
 }
 
+// loopbackListen rewrites every `listen` directive to 127.0.0.1:port so that
+// `nginx -t`, which binds its sockets, works without root. Comments are left alone.
+func loopbackListen(conf string, port int) string {
+	lines := strings.Split(conf, "\n")
+	for i, l := range lines {
+		if t := strings.TrimSpace(l); strings.HasPrefix(t, "listen ") {
+			lines[i] = "\tlisten 127.0.0.1:" + strconv.Itoa(port) + ";"
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func TestLoopbackListen(t *testing.T) {
+	t.Parallel()
+	in := "\tlisten 80;\n\tlisten [::]:443 ssl;\n\t# Add: listen 443 ssl;\n"
+	want := "\tlisten 127.0.0.1:18080;\n\tlisten 127.0.0.1:18080;\n\t# Add: listen 443 ssl;\n"
+	if got := loopbackListen(in, 18080); got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func freePort(t *testing.T) int {
+	t.Helper()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port
+}
+
 func TestNginxConfig(t *testing.T) {
 	t.Parallel()
 	nginx, err := exec.LookPath("nginx")
@@ -63,6 +97,7 @@ func TestNginxConfig(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "public"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	port := freePort(t)
 	for name, in := range validateInputs(dir) {
 		out, err := Generate(in)
 		if err != nil {
@@ -72,7 +107,7 @@ func TestNginxConfig(t *testing.T) {
 			"access_log off;\n" +
 			"client_body_temp_path " + dir + "/body;\nproxy_temp_path " + dir + "/proxy;\n" +
 			"fastcgi_temp_path " + dir + "/fastcgi;\nuwsgi_temp_path " + dir + "/uwsgi;\nscgi_temp_path " + dir + "/scgi;\n" +
-			out.Nginx + "}\n"
+			loopbackListen(out.Nginx, port) + "}\n"
 		file := filepath.Join(dir, "nginx.conf")
 		if err := os.WriteFile(file, []byte(conf), 0o600); err != nil {
 			t.Fatal(err)
