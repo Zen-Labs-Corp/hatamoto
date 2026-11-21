@@ -275,11 +275,11 @@ func (a *Admin) handleAuditLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	facetFrom, facetTo := from, to
-	if facetFrom.IsZero() {
-		facetFrom = now.AddDate(0, 0, -auditFacetDays)
-	}
 	if facetTo.IsZero() {
 		facetTo = now.Add(24 * time.Hour)
+	}
+	if facetFrom.IsZero() {
+		facetFrom = facetTo.AddDate(0, 0, -auditFacetDays)
 	}
 	facets, err := a.deps.AuditLog.Facets(ctx, facetFrom, facetTo)
 	if err != nil {

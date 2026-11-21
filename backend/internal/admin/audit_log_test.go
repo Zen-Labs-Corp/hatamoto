@@ -20,6 +20,8 @@ type fakeAuditLog struct {
 	lastQuery     AuditQuery
 	facets        AuditFacets
 	facetsErr     error
+	facetFrom     time.Time
+	facetTo       time.Time
 }
 
 // Search filters rows in Go the way the stored reader filters in SQL and
@@ -81,7 +83,8 @@ func fakeOlder(r AuditRow, src string, c AuditCursor) bool {
 	return r.ID < c.ID
 }
 
-func (f *fakeAuditLog) Facets(_ context.Context, _, _ time.Time) (AuditFacets, error) {
+func (f *fakeAuditLog) Facets(_ context.Context, from, to time.Time) (AuditFacets, error) {
+	f.facetFrom, f.facetTo = from, to
 	return f.facets, f.facetsErr
 }
 
@@ -222,6 +225,17 @@ func TestAuditLogSearchAlwaysHasARange(t *testing.T) {
 	g.do("GET", "/admin/audit?from=2026-10-05&to=2026-10-01", "owner-token", nil, nil)
 	if !f.lastQuery.From.Before(f.lastQuery.To) {
 		t.Errorf("reversed range not swapped: %+v", f.lastQuery)
+	}
+}
+
+func TestAuditLogFacetWindowFollowsTheEndDate(t *testing.T) {
+	t.Parallel()
+
+	f := &fakeAuditLog{rows: auditRows(2)}
+	g := newRig(t, func(d *Deps) { d.AuditLog = f })
+	g.do("GET", "/admin/audit?to=2026-04-30", "owner-token", nil, nil)
+	if !f.facetFrom.Before(f.facetTo) {
+		t.Errorf("facet window inverted: %v to %v", f.facetFrom, f.facetTo)
 	}
 }
 
