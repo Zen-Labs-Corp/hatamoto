@@ -174,3 +174,46 @@ func TestCommercialUsable(t *testing.T) {
 		}
 	})
 }
+
+// Existing plugins may carry any license member (older hosts ignored it): Parse
+// reads them, only ParseNew refuses a value other than "" or "commercial".
+func TestLicenseValueIsStrictOnlyForNewInstalls(t *testing.T) {
+	for _, tc := range []struct {
+		name, license string
+		new           bool
+	}{
+		{"empty", `""`, true},
+		{"commercial", `"commercial"`, true},
+		{"case variant", `"Commercial"`, false},
+		{"spdx id", `"MIT"`, false},
+		{"npm object", `{"type":"MIT"}`, false},
+		{"array", `["MIT"]`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			files := map[string][]byte{
+				PluginManifest: []byte(`{"name":"hello","version":"1.0.0","sdk":"^0.26","license":` + tc.license + `}`),
+				PluginWasm:     []byte("\x00asm\x01\x00\x00\x00"),
+			}
+			raw, err := PackFiles(files, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			p, err := Parse(raw, DefaultLimits)
+			if err != nil {
+				t.Fatalf("Parse must keep reading it: %v", err)
+			}
+			if got := isCommercial(p); got != (tc.license == `"commercial"`) {
+				t.Errorf("isCommercial = %v", got)
+			}
+			var pe *ParseError
+			_, err = ParseNew(raw, DefaultLimits)
+			if tc.new && err != nil || !tc.new && !errors.As(err, &pe) {
+				t.Errorf("ParseNew err = %v, want ok=%v", err, tc.new)
+			}
+			row := Row{Kind: KindPlugin, Name: "hello", Manifest: p.Manifest}
+			if handled, err := (&Manager{}).commercialUsable(context.Background(), row); handled != (tc.license == `"commercial"`) {
+				t.Errorf("commercialUsable handled=%v err=%v", handled, err)
+			}
+		})
+	}
+}

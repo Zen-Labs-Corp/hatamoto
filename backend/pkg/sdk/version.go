@@ -131,7 +131,9 @@ package sdk
 // comment), the comments.thread and comments.counts host functions and the
 // comments.read permission.
 //
-// 0.26.0 is additive over 0.25: Manifest.License ("" or "commercial"). A
+// 0.26.0 is additive over 0.25: Manifest.License ("" or "commercial" for a new install; when loaded,
+// anything but exact "commercial" is a normal plugin, and a non-string value
+// reads as LicenseNotString instead of failing to decode). A
 // commercial plugin is installed and run only by a host whose edition holds a
 // plugin key and entitles it. An older host ignores the field, so a commercial
 // plugin declares ^0.26 to keep those hosts from loading it.

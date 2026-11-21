@@ -110,3 +110,34 @@ func TestCommercialIgnoresUnsignedAndDeveloperRoutes(t *testing.T) {
 		t.Fatalf("developer-listed key: %v", err)
 	}
 }
+
+// A plugin installed before the license member existed may carry any value in
+// plugin.json; it must still load, as a normal plugin.
+func TestStoredPluginWithOtherLicenseValueStillLoads(t *testing.T) {
+	for name, license := range map[string]string{"spdx id": `"MIT"`, "npm object": `{"type":"MIT"}`} {
+		t.Run(name, func(t *testing.T) {
+			c := newCommercialRig(t)
+			ctx := context.Background()
+			files := c.devRig.plugin("1.0.0")
+			man := string(files[PluginManifest])
+			files[PluginManifest] = []byte(man[:len(man)-1] + `,"license":` + license + `}`)
+			raw, err := PackFiles(files, &c.devRig.rig.key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := c.mgr.Install(ctx, raw, InstallRequest{Source: SourceUpload, Grant: capaGrant}); err == nil {
+				t.Fatal("a new install with this license value must be refused")
+			}
+			if err := c.mgr.Store().Put(ctx, parse(t, raw), SourceUpload, true); err != nil {
+				t.Fatal(err)
+			}
+			if err := c.mgr.Grants.Set(ctx, "capa", []sdk.Permission{sdk.PermKV, sdk.PermDB}); err != nil {
+				t.Fatal(err)
+			}
+			c.mgr.Reconcile(ctx)
+			if !c.loaded("capa") || c.mgr.Blocked(KindPlugin, "capa") != "" {
+				t.Fatalf("loaded=%v blocked=%q err=%v", c.loaded("capa"), c.mgr.Blocked(KindPlugin, "capa"), c.mgr.LoadError("capa"))
+			}
+		})
+	}
+}

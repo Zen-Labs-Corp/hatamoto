@@ -65,7 +65,7 @@ func TestCommercialRangeRefusal(t *testing.T) {
 		{sdk.LicenseCommercial, ">=0.25.0", true},
 		{"", "^0.5", false},
 	} {
-		err := CommercialRangeRefusal(sdk.Manifest{Name: "pro", SDK: tc.rng, License: tc.license})
+		err := CommercialRangeRefusal(sdk.Manifest{Name: "pro", SDK: tc.rng, License: sdk.License(tc.license)})
 		if (err != nil) != tc.refuse {
 			t.Errorf("license %q sdk %q: err = %v, refuse want %v", tc.license, tc.rng, err, tc.refuse)
 		}

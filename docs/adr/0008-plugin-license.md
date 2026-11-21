@@ -5,7 +5,7 @@ Status: accepted (2026-11-21).
 ## The rules in plain words
 
 1. A plugin manifest may declare `license: "commercial"`. Empty is the default
-   and means a normal plugin. Any other value is a manifest error.
+   and means a normal plugin. A new install refuses any other value; a plugin already installed with one keeps loading as a normal plugin (older hosts ignored the member).
 2. A host runs a commercial plugin only when its edition registered one plugin
    key with `edition.RegisterPluginKey`, the package is signed by that key and
    the edition's `PluginEntitled` says yes for the plugin name.
