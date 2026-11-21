@@ -224,7 +224,7 @@ func TestDeveloperOffMessage(t *testing.T) {
 func TestDeveloperRowIsVerifiedWithItsStoredKey(t *testing.T) {
 	devKey := newKey(t)
 	m := NewManager(Options{})
-	row := Row{Kind: KindPlugin, Name: "acme", SignerKeyID: devKey.ID, Developer: true, DeveloperKey: devKey.Public}
+	row := Row{Kind: KindPlugin, Name: "acme", Manifest: []byte(pluginJSON), SignerKeyID: devKey.ID, Developer: true, DeveloperKey: devKey.Public}
 	if err := m.usable(context.Background(), row); err != nil {
 		t.Fatalf("developer row with its key: %v (the switch and the index must not matter)", err)
 	}
@@ -236,7 +236,7 @@ func TestDeveloperRowIsVerifiedWithItsStoredKey(t *testing.T) {
 	if err := m.usable(context.Background(), row); !errors.Is(err, ErrUntrustedKey) {
 		t.Errorf("no stored key: %v", err)
 	}
-	row = Row{Kind: KindPlugin, Name: "acme", SignerKeyID: devKey.ID, Developer: true, DeveloperKey: devKey.Public, DisabledReason: "revoked: key leaked"}
+	row = Row{Kind: KindPlugin, Name: "acme", Manifest: []byte(pluginJSON), SignerKeyID: devKey.ID, Developer: true, DeveloperKey: devKey.Public, DisabledReason: "revoked: key leaked"}
 	if err := m.usable(context.Background(), row); err == nil || err.Error() != "revoked: key leaked" {
 		t.Errorf("disabled row: %v", err)
 	}
