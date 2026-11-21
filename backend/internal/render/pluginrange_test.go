@@ -160,9 +160,7 @@ func TestPluginRangeFieldShapesRender(t *testing.T) { //nolint:paralleltest // r
 }
 
 func TestPluginRangeBudgetStopsAndDegrades(t *testing.T) { //nolint:paralleltest // reads the process-wide degraded counter and warn limiter
-	old := rangeWarns
-	rangeWarns = &warnLimiter{last: map[string]time.Time{}}
-	t.Cleanup(func() { rangeWarns = old })
+	swapRangeBreaker(t) // also a fresh warn limiter
 	reg := newPluginRegistry()
 	mustRegister(t, reg, "acme-stops", nil, map[string]string{
 		"huge":   rangeSection("huge", `{{range 1000000000}}`+mark+`{{end}}`),
@@ -200,6 +198,7 @@ func TestPluginRangeBudgetStopsAndDegrades(t *testing.T) { //nolint:paralleltest
 
 // Two partials on one page draw from one budget; the next render starts fresh.
 func TestPluginRangeBudgetSharedPerRender(t *testing.T) { //nolint:paralleltest // reads the process-wide budget through the probe func
+	swapRangeBreaker(t) // the second partial runs the budget dry on every render
 	reg := newPluginRegistry()
 	mustRegister(t, reg, "acme", map[string]string{
 		"a": `{{range 60000}}` + mark + `{{end}}`,

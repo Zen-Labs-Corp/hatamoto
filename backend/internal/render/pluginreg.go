@@ -188,6 +188,7 @@ func PluginSectionOwner(typ string) (string, bool) {
 // plugin registered.
 func RemovePlugin(plugin string) {
 	defaultPlugins.removePlugin(plugin)
+	rangeBreaks.forget(plugin)
 	SetPluginAssets(plugin, "", "")
 }
 
