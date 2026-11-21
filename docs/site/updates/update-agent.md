@@ -39,7 +39,7 @@ The scheduled job is named `update_check`. It runs every 6 hours with up to 30 m
 
 A check makes one request before it has a target: an anonymous GET of the signed channel manifest, `<base>/channels/<channel>.json`. The default base URL is `https://hatamoto.dev/releases`, so the default check fetches `https://hatamoto.dev/releases/channels/stable.json`. The request carries no query string, no cookie and no identifier of your install, and its only headers are the ones Go adds itself (its default `User-Agent` and `Accept-Encoding`). The [install stats](../operate/install-stats.md) are a separate request, on by default once setup is finished; they never ride on the check.
 
-In `notify` mode that is the whole check: it reports the newest release your box is inside the rollout for and fetches nothing else. In `auto` mode, only when the manifest names a target does the agent fetch the signed record (`<base>/<version>/release.json` and `release.json.sig`) and the binary (`<base>/<version>/hatamoto-<platform>`). Records are kept under `releases/.records/` and verified again on every use, so a box that is waiting is not asking again.
+In `notify` mode that is the whole check: it reports the newest release your box is inside the rollout for and fetches nothing else. In `auto` mode, only when the manifest names a target does the agent fetch the signed record (`<base>/<version>/release.json` and `release.json.sig`) and the binary (`<base>/<version>/hatamoto-<platform>`, or `hatamoto-<edition>-<platform>` for a build of another edition). Records are kept under `releases/.records/` and verified again on every use, so a box that is waiting is not asking again.
 
 Fetch limits: the manifest is capped at 1 MiB with a 30 second timeout, a record at 64 KiB, a signature at 4 KiB, and any artifact at 256 MiB or the size its record states. A download is abandoned after two minutes without bytes or 30 minutes in total. Redirects may not leave the original host or fall back from https to http.
 
@@ -121,7 +121,7 @@ The commands are described in [The update CLI](manual-update-cli.md).
 
 Before switching, the agent checks that:
 
-- the release has a build for your platform;
+- the release has a build for your platform and edition;
 - the enabled plugins and the active theme declare an SDK range that the new release meets (its `sdk` or any `sdk_compatible_with` version); an unparsable range blocks;
 - there is at least three times the binary size free under the data directory;
 - no content import is running.
