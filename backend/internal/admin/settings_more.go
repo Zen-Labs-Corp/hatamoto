@@ -72,6 +72,7 @@ func (a *Admin) handleHomepageSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.invalidate(r.Context())
+	a.audit(r, AuditSettingsUpdated, "homepage", map[string]any{"changed": []string{"homepage"}})
 	a.SetFlash(w, r, "success", "Homepage saved.")
 	http.Redirect(w, r, a.adminPath+"/settings/general#homepage", http.StatusSeeOther)
 }

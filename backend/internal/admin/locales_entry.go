@@ -125,6 +125,7 @@ func (a *Admin) handleVisitorEntrySave(w http.ResponseWriter, r *http.Request) {
 	if a.deps.Invalidate != nil {
 		a.deps.Invalidate(r.Context())
 	}
+	a.audit(r, AuditSettingsUpdated, "visitor-entry", map[string]any{"changed": postedFields(r, "enabled", "keep_locale", "entry_path", "legacy_cookie")})
 	a.SetFlash(w, r, "success", "Visitor entry saved.")
 	http.Redirect(w, r, a.url("settings", "locales"), http.StatusSeeOther)
 }

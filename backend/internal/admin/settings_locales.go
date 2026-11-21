@@ -345,6 +345,7 @@ func (a *Admin) handleBusinessSave(w http.ResponseWriter, r *http.Request) {
 	if a.deps.Invalidate != nil {
 		a.deps.Invalidate(r.Context())
 	}
+	a.audit(r, AuditSettingsUpdated, "business:"+tag, map[string]any{"changed": postedBusinessFields(r)})
 	a.SetFlash(w, r, "success", "Saved "+localeDisplayName(tag)+".")
 	http.Redirect(w, r, a.url("settings", "locales", "business")+"#locale-"+localeAnchor(entry), http.StatusSeeOther)
 }
@@ -391,6 +392,19 @@ type businessData struct {
 // handleOrgAddressSave stores which address the Organization prints on locale
 // pages. It rewrites the default business like the default card does, so
 // every other field of it stays as stored.
+// postedBusinessFields lists the posted field names of a business details
+// card, without the form token.
+func postedBusinessFields(r *http.Request) []string {
+	out := []string{}
+	for k := range r.PostForm {
+		if k != "_csrf" {
+			out = append(out, k)
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
 func (a *Admin) handleOrgAddressSave(w http.ResponseWriter, r *http.Request) {
 	cfg, err := a.loadSite(r.Context())
 	if err != nil {
@@ -425,6 +439,7 @@ func (a *Admin) handleOrgAddressSave(w http.ResponseWriter, r *http.Request) {
 	if a.deps.Invalidate != nil {
 		a.deps.Invalidate(r.Context())
 	}
+	a.audit(r, AuditSettingsUpdated, "organisation", map[string]any{"changed": []string{"org_address"}})
 	a.SetFlash(w, r, "success", "Organisation address saved.")
 	http.Redirect(w, r, a.url("settings", "locales", "business")+"#organisation-address", http.StatusSeeOther)
 }

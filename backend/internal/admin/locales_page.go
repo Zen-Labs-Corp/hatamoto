@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -381,12 +382,12 @@ func (a *Admin) handleLocaleOrder(w http.ResponseWriter, r *http.Request) {
 	if moved, dir := r.PostFormValue("moved"), r.PostFormValue("dir"); (dir == "up" || dir == "down") && slices.ContainsFunc(entries, func(e siteconfig.LocaleEntry) bool { return e.Tag == moved }) {
 		done = "Moved " + localeDisplayName(moved) + " " + dir + "."
 	}
-	a.saveLocaleList(w, r, cfg, entries, done)
+	a.saveLocaleList(w, r, cfg, entries, done, "locales", map[string]any{"op": "order"})
 }
 
 // saveLocaleList stores entries and answers the Locales tab: a flash and a
 // redirect on success, an error page when the list is rejected or not saved.
-func (a *Admin) saveLocaleList(w http.ResponseWriter, r *http.Request, cfg *siteconfig.Config, entries []siteconfig.LocaleEntry, done string) {
+func (a *Admin) saveLocaleList(w http.ResponseWriter, r *http.Request, cfg *siteconfig.Config, entries []siteconfig.LocaleEntry, done, target string, detail map[string]any) {
 	errs, err := a.saveLocales(r.Context(), cfg, entries, cfg.PrefixAll, cfg.XDefaultLocale, nil)
 	if err != nil {
 		a.logger().Error("save locales failed", "err", err)
@@ -397,6 +398,7 @@ func (a *Admin) saveLocaleList(w http.ResponseWriter, r *http.Request, cfg *site
 		a.Error(w, r, http.StatusUnprocessableEntity, "Not saved", msg)
 		return
 	}
+	a.audit(r, AuditSettingsUpdated, target, detail)
 	a.SetFlash(w, r, "success", done)
 	http.Redirect(w, r, a.url("settings", "locales"), http.StatusSeeOther)
 }
@@ -497,6 +499,7 @@ func (a *Admin) handleLocaleUpdate(w http.ResponseWriter, r *http.Request) {
 		a.renderLocaleEdit(w, r, http.StatusUnprocessableEntity, f)
 		return
 	}
+	a.audit(r, AuditSettingsUpdated, "locale:"+e.Tag, map[string]any{"op": "update", "changed": postedFields(r, "name", "segment", "countries", "public")})
 	a.SetFlash(w, r, "success", "Saved "+localeDisplayName(e.Tag)+".")
 	http.Redirect(w, r, a.url("settings", "locales"), http.StatusSeeOther)
 }
@@ -549,7 +552,7 @@ func (a *Admin) handleLocaleRemove(w http.ResponseWriter, r *http.Request) {
 	if len(entries) < 2 {
 		entries = nil
 	}
-	a.saveLocaleList(w, r, cfg, entries, "Removed "+localeDisplayName(tag)+".")
+	a.saveLocaleList(w, r, cfg, entries, "Removed "+localeDisplayName(tag)+".", "locale:"+tag, map[string]any{"op": "remove"})
 }
 
 // addressesData is the Addresses and search engines tab.
@@ -642,6 +645,10 @@ func (a *Admin) handleAddressesSave(w http.ResponseWriter, r *http.Request) {
 		a.renderAddresses(w, r, http.StatusUnprocessableEntity, cfg, prefixAll, xdef, naming, errs)
 		return
 	}
+	a.audit(r, AuditSettingsUpdated, "addresses", map[string]any{"changed": changedFields(
+		settingChange{"prefix_all", strconv.FormatBool(cfg.PrefixAll), strconv.FormatBool(prefixAll)},
+		settingChange{"xdefault", cfg.XDefaultLocale, xdef},
+		settingChange{"sitemap_naming", cmp.Or(cfg.SitemapNaming, "group"), naming})})
 	a.SetFlash(w, r, "success", "Address settings saved.")
 	http.Redirect(w, r, a.url("settings", "locales", "addresses"), http.StatusSeeOther)
 }

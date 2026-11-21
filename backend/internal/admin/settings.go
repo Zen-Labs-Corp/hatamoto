@@ -86,6 +86,33 @@ func validLogoURL(s string) bool {
 // which knows which setting it rejected.
 type localeFielder interface{ LocaleField() string }
 
+// settingChange is one form field with its stored and its submitted value.
+type settingChange struct{ name, was, now string }
+
+// changedFields lists the names of the fields whose value differs. Only names
+// reach the audit row, never values.
+func changedFields(fields ...settingChange) []string {
+	out := []string{}
+	for _, f := range fields {
+		if f.was != f.now {
+			out = append(out, f.name)
+		}
+	}
+	return out
+}
+
+// postedFields lists the names of the posted fields, for saves with no stored
+// value to compare against.
+func postedFields(r *http.Request, names ...string) []string {
+	out := []string{}
+	for _, n := range names {
+		if r.PostForm.Has(n) {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
 func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 	f := siteForm{Name: r.PostFormValue("name"), URL: r.PostFormValue("url"), Language: r.PostFormValue("language"), Timezone: r.PostFormValue("timezone")}
 	d := settingsData{LogoURL: strings.TrimSpace(r.PostFormValue("logo")), FaviconURL: strings.TrimSpace(r.PostFormValue("favicon")), Tagline: strings.TrimSpace(r.PostFormValue("tagline")), Domain: strings.TrimSpace(r.PostFormValue("domain"))}
@@ -121,6 +148,14 @@ func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 		a.renderSiteSettings(w, r, http.StatusUnprocessableEntity, d)
 		return
 	}
+	changed := []string{"name", "url", "language", "timezone", "logo", "favicon", "tagline", "domain"}
+	if prev, perr := a.loadSite(r.Context()); perr == nil {
+		changed = changedFields(
+			settingChange{"name", prev.CompanyName, f.Name}, settingChange{"url", prev.PublicBaseURL, f.URL},
+			settingChange{"language", prev.Language, f.Language}, settingChange{"timezone", prev.Timezone, f.Timezone},
+			settingChange{"logo", prev.LogoURL, d.LogoURL}, settingChange{"favicon", prev.FaviconURL, d.FaviconURL},
+			settingChange{"tagline", prev.Tagline, d.Tagline}, settingChange{"domain", prev.CustomDomain, d.Domain})
+	}
 	in := siteconfig.UpdateInput{CompanyName: &f.Name, PublicBaseURL: &f.URL, Language: &f.Language, Timezone: &f.Timezone, LogoURL: &d.LogoURL, FaviconURL: &d.FaviconURL, Tagline: &d.Tagline, CustomDomain: &d.Domain}
 	if _, err := a.deps.Site.Update(r.Context(), in); err != nil {
 		a.logger().Error("save site settings failed", "err", err)
@@ -130,6 +165,7 @@ func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 	if a.deps.Invalidate != nil {
 		a.deps.Invalidate(r.Context())
 	}
+	a.audit(r, AuditSettingsUpdated, "identity", map[string]any{"changed": changed})
 	a.SetFlash(w, r, "success", "Site settings saved.")
 	http.Redirect(w, r, a.adminPath+"/settings/general#identity", http.StatusSeeOther)
 }
@@ -204,6 +240,10 @@ func (a *Admin) handleNotifySave(w http.ResponseWriter, r *http.Request) {
 			Summary: []ui.FieldError{{ID: "notify", Label: "Notification email", Message: "Enter a valid email address"}}}})
 		return
 	}
+	changed := []string{"notify"}
+	if prev, perr := a.loadSite(r.Context()); perr == nil {
+		changed = changedFields(settingChange{"notify", prev.NotificationEmail, value})
+	}
 	if _, err := a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{NotificationEmail: &value}); err != nil {
 		a.logger().Error("save notification email failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The notification email could not be saved.")
@@ -212,6 +252,7 @@ func (a *Admin) handleNotifySave(w http.ResponseWriter, r *http.Request) {
 	if a.deps.Invalidate != nil {
 		a.deps.Invalidate(r.Context())
 	}
+	a.audit(r, AuditSettingsUpdated, "notifications", map[string]any{"changed": changed})
 	a.SetFlash(w, r, "success", "Notification email saved.")
 	http.Redirect(w, r, a.adminPath+"/settings/general#email", http.StatusSeeOther)
 }

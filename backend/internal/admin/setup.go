@@ -246,6 +246,7 @@ func (a *Admin) handleSetupSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.invalidate(r.Context())
+	a.audit(r, AuditSettingsUpdated, "site", map[string]any{"changed": []string{"name", "url", "language", "timezone"}})
 	http.Redirect(w, r, a.adminPath+"/setup/email", http.StatusSeeOther)
 }
 
