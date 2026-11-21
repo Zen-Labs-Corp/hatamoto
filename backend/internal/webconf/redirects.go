@@ -60,6 +60,14 @@ var (
 	ruleUnsafe = "{};#\"'\\$` \t\r\n"
 )
 
+// The capture classes leave out control characters: nginx matches the decoded
+// URI and writes $N into Location unescaped, so a CR or LF in a capture would
+// split the response.
+const (
+	segCapture   = "([^/[:cntrl:]]+)"
+	splatCapture = "([^[:cntrl:]]*)"
+)
+
 // part is a piece of a redirect target: a literal or a capture group.
 type part struct {
 	lit   string
@@ -128,14 +136,14 @@ func compileRedirect(r Redirect) (rule, bool) {
 			if seg != ":p"+strconv.Itoa(groups) || splat != 0 {
 				return rule{}, false
 			}
-			re.WriteString("([^/]+)")
+			re.WriteString(segCapture)
 		case seg == "*":
 			if i != len(segs)-1 {
 				return rule{}, false
 			}
 			groups++
 			splat = groups
-			re.WriteString("(.*)")
+			re.WriteString(splatCapture)
 		case strings.Contains(seg, "*") || strings.Contains(seg, ":p") && placeholderRef.MatchString(seg):
 			return rule{}, false // a placeholder glued to text
 		default:

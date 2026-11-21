@@ -2,6 +2,7 @@ package webconf
 
 import (
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -43,9 +44,9 @@ func TestRedirectTranslation(t *testing.T) {
 	}
 	wantCaddy := []string{
 		"redir /old /new 301",
-		"@r1 path_regexp r1 ^/blog/([^/]+)/x/([^/]+)$",
+		"@r1 path_regexp r1 ^/blog/([^/[:cntrl:]]+)/x/([^/[:cntrl:]]+)$",
 		"redir @r1 /b/{re.r1.2}/{re.r1.1} 302",
-		"@r2 path_regexp r2 ^/docs/(.*)$",
+		"@r2 path_regexp r2 ^/docs/([^[:cntrl:]]*)$",
 		"redir @r2 /help/{re.r2.1} 308",
 	}
 	if got := caddyRedirects(rules); !reflect.DeepEqual(got, wantCaddy) {
@@ -53,8 +54,8 @@ func TestRedirectTranslation(t *testing.T) {
 	}
 	wantNginx := []string{
 		"location = /old {", "\treturn 301 /new;", "}",
-		"location ~ ^/blog/([^/]+)/x/([^/]+)$ {", "\treturn 302 /b/$2/$1;", "}",
-		"location ~ ^/docs/(.*)$ {", "\treturn 308 /help/$1;", "}",
+		"location ~ ^/blog/([^/[:cntrl:]]+)/x/([^/[:cntrl:]]+)$ {", "\treturn 302 /b/$2/$1;", "}",
+		"location ~ ^/docs/([^[:cntrl:]]*)$ {", "\treturn 308 /help/$1;", "}",
 	}
 	if got := nginxRedirects(rules); !reflect.DeepEqual(got, wantNginx) {
 		t.Errorf("nginx:\n%q\nwant\n%q", got, wantNginx)
@@ -103,7 +104,7 @@ func TestRedirectSkipped(t *testing.T) {
 func TestRedirectLiteralsAreEscaped(t *testing.T) {
 	t.Parallel()
 	rules, _ := planRedirects([]Redirect{{"/a.b/:p1", "/c", 301}})
-	if got := caddyRedirects(rules); !strings.Contains(got[0], `^/a\.b/([^/]+)$`) {
+	if got := caddyRedirects(rules); !strings.Contains(got[0], `^/a\.b/([^/[:cntrl:]]+)$`) {
 		t.Errorf("literal dot not escaped: %q", got)
 	}
 }
@@ -120,6 +121,37 @@ func TestGenerateReportsSkipped(t *testing.T) {
 	for name, cfg := range map[string]string{"caddy": out.Caddy, "nginx": out.Nginx} {
 		if !strings.Contains(cfg, "# skipped: /gone /elsewhere 410") {
 			t.Errorf("%s config lacks the skipped comment", name)
+		}
+	}
+}
+
+func TestRedirectCapturesRejectControlChars(t *testing.T) {
+	t.Parallel()
+	rules, skipped := planRedirects([]Redirect{
+		{"/blog/:p1/amp", "/articles/:p1", 301},
+		{"/docs/*", "/help/:splat", 308},
+	})
+	if len(skipped) != 0 {
+		t.Fatalf("skipped %v", skipped)
+	}
+	cases := []struct {
+		rule int
+		path string
+		want bool
+	}{
+		{0, "/blog/ok/amp", true},
+		{0, "/blog/x\r/amp", false},
+		{0, "/blog/x\n/amp", false},
+		{0, "/blog/x\r\nSet-Cookie: a=b/amp", false},
+		{0, "/blog/\x7f/amp", false},
+		{1, "/docs/a/b", true},
+		{1, "/docs/a\r", false},
+		{1, "/docs/a\nb", false},
+		{1, "/docs/a\r\nb", false},
+	}
+	for _, c := range cases {
+		if got := regexp.MustCompile(rules[c.rule].from).MatchString(c.path); got != c.want {
+			t.Errorf("%s on %q = %v, want %v", rules[c.rule].from, c.path, got, c.want)
 		}
 	}
 }
