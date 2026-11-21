@@ -72,6 +72,9 @@ func SitemapFileSegment(entries []LocaleEntry) string {
 
 // Config is the in-memory shape of the singleton row.
 type Config struct {
+	// ReviewEnabled is the site's review switch: changes to published content
+	// by people without the bypass right wait for a reviewer.
+	ReviewEnabled bool
 	// EntityVersionsKeep is how many earlier versions of each item the daily
 	// prune keeps (10 to 500).
 	EntityVersionsKeep int
@@ -757,6 +760,43 @@ func (s *Store) SetEntityVersionsKeep(ctx context.Context, n int) error {
 	return nil
 }
 
+// SetReviewEnabled stores the review switch and drops the cached settings.
+func (s *Store) SetReviewEnabled(ctx context.Context, on bool) error {
+	conn, err := s.db.GetConn(database.WithSuperadmin(ctx))
+	if err != nil {
+		return fmt.Errorf("acquire db conn: %w", err)
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, `
+		UPDATE hatamoto_site_config SET review_enabled = $1, updated_at = NOW()
+		WHERE id = TRUE`, on); err != nil {
+		return fmt.Errorf("set review enabled: %w", err)
+	}
+	s.Invalidate()
+	return nil
+}
+
+// ReviewEnabled reads the switch from the database, bypassing the 60 s cache:
+// the review gate must not let a change through on a server whose cache is
+// stale.
+func (s *Store) ReviewEnabled(ctx context.Context) (bool, error) {
+	conn, err := s.db.GetConn(database.WithSuperadmin(ctx))
+	if err != nil {
+		return false, fmt.Errorf("acquire db conn: %w", err)
+	}
+	defer conn.Release()
+
+	var on bool
+	if err := conn.QueryRow(ctx, `SELECT review_enabled FROM hatamoto_site_config WHERE id = TRUE`).Scan(&on); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, ErrNotConfigured
+		}
+		return false, fmt.Errorf("read review enabled: %w", err)
+	}
+	return on, nil
+}
+
 // SetAuditRetention stores how many days the daily prune keeps admin audit
 // entries and agent (MCP) calls.
 func (s *Store) SetAuditRetention(ctx context.Context, admin, agent int) error {
@@ -863,7 +903,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		       entity_versions_keep, audit_retention_days, agent_audit_retention_days,
 		       admin_brand_name, admin_logo_url, admin_accent,
 		       admin_managed_by_text, admin_managed_by_url,
-		       visitor_entry, favicon_url
+		       visitor_entry, favicon_url, review_enabled
 		FROM hatamoto_site_config
 		WHERE id = TRUE
 		LIMIT 1
@@ -883,7 +923,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		&cfg.EntityVersionsKeep, &cfg.AuditRetentionDays, &cfg.AgentAuditRetentionDays,
 		&cfg.AdminBrand.Name, &cfg.AdminBrand.LogoURL, &cfg.AdminBrand.Accent,
 		&cfg.AdminBrand.ManagedText, &cfg.AdminBrand.ManagedURL,
-		&visitorEntry, &cfg.FaviconURL,
+		&visitorEntry, &cfg.FaviconURL, &cfg.ReviewEnabled,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotConfigured
