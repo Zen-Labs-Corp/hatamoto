@@ -586,7 +586,7 @@ keyword, SEO title and description, canonical, social image, noindex, include in
   ticket and answers `{url}`; the iframe (`sandbox="allow-scripts"`, never
   `allow-same-origin`) loads it at 1100 px or 390 px. The URL carries a one-time ticket valid
   60 seconds, bound to the signed-in session and to the entity (`frameticket.go`); a request
-  without one, with a reused or expired one, or from another session gets the admin 404. Tickets and staged previews live in the serving process's memory, so with more than one replica admin traffic needs sticky sessions. Without JavaScript the button posts the
+  without one, with a reused or expired one, or from another session gets the admin 404. Tickets are stored in the database (`hatamoto_frame_tickets`, 60 seconds, deleted on first use), so any replica can serve the frame. Without JavaScript the button posts the
   form and the server answers the rendered page (`formtarget=_blank`).
 * **Tests.** `go test ./internal/admin` (render goldens `blogedit`, saves, conflicts, publish,
   schedule, autosave, panel checks, preview, JSON upload), `go test -tags integration
@@ -905,7 +905,7 @@ Services reach the admin through `Deps.Growth.Packages` (`PackageAdmin`, `packag
   `<admin>/plugins/{name}/ui` redirects (301) there. The sandboxed document is served
   outside `<admin>` (`/plugin-ui/{plugin}/{file}`) with its own strict CSP; see PLUGIN_API.md "Admin page".
   The document URL carries a one-time ticket (`?t=`, 60 seconds, bound to the session and the
-  file) minted when the page renders (held in the serving process's memory: with more than one replica admin traffic needs sticky sessions); scripts, styles and images stay public. A page that
+  file) minted when the page renders (stored in the database, `hatamoto_frame_tickets`, 60 seconds, deleted on first use, so any replica can serve the frame); scripts, styles and images stay public. A page that
   navigates itself or reloads in its frame is blanked and shows the "Plugin page disconnected" notice.
 * **Theme preview** is `GET <admin>/preview/theme/{name}` (owner or editor), which redirects to the
   public site with a signed token; see THEMES.md.

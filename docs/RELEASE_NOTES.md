@@ -76,6 +76,15 @@
 - **Docs.** [ADR 0011](adr/0011-review-policy.md).
 - **Migration.** Three columns on `hatamoto_changesets` (`kind`, `requested_by`, `stages`, all with defaults) and one new table, `hatamoto_changeset_stage_decisions`. Expand only. Rollback floor: unchanged. Existing changesets stay plain run changesets.
 
+## Unreleased: run one site on several servers
+
+- **Scheduled jobs.** With several servers on one database, housekeeping jobs and plugin cron jobs now run on one server per interval; the others skip that tick. A failed claim query runs the job anyway and logs a warning. A server that restarts skips its startup run of a claimed job that ran within its last lease.
+- **Previews.** The one-time tickets behind the builder canvas, draft previews and plugin admin pages are kept in the database, so a ticket minted on one server opens on another. No sticky sessions are needed.
+- **Cache purge.** `HATAMOTO_PURGE_URL` (with `HATAMOTO_PURGE_TOKEN` and `HATAMOTO_PURGE_ALLOW_PRIVATE`) makes the server send changed public URLs to a webhook, so an edge cache can drop them. `off` or unset sends nothing.
+- **Wrapper modules.** A new public Go package, `hatamoto.dev/core/purge`, lets a module that calls `app.Main` register one purger from an `init` function. Each call is limited to 10 seconds.
+- **Docs.** [Scaling](SCALING.md) and the operator pages describe the setup; ADR 0014 records the purge hook.
+- **Migration.** One new table, `hatamoto_frame_tickets`. Scheduled jobs reuse `hatamoto_job_claims`. Expand only. Rollback floor: unchanged.
+
 ## Unreleased: authorization interface
 
 - **Authorization.** A new public Go package, `hatamoto.dev/core/authz`, lets a wrapper module that calls `app.Main` register an authorizer from an `init` function. It answers whether a signed-in user or an API key may perform a named action on an object. With nothing registered the answers equal today's owner, editor and API key rules. A registered authorizer replaces the default and can call `authz.Default()` for the rest; an error denies.

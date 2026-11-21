@@ -26,6 +26,7 @@ import (
 	"hatamoto.dev/core/internal/authstate"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/email"
+	"hatamoto.dev/core/internal/frameticket"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/localeconv"
 	"hatamoto.dev/core/internal/seo"
@@ -216,10 +217,14 @@ type Deps struct {
 	// Sessions, Users and Site may be nil only in route-table builds: the
 	// handlers are never invoked there.
 	Sessions SessionStore
-	Users    UserReader
-	Site     SiteStore
-	Nav      *Nav
-	Auth     Authenticator
+	// FrameTickets keeps unspent frame tickets; nil keeps them in this
+	// process (tests, route builds). The server passes the database store so
+	// a ticket minted on one server opens on another.
+	FrameTickets frameticket.Backend
+	Users        UserReader
+	Site         SiteStore
+	Nav          *Nav
+	Auth         Authenticator
 	// TwoFactor, with an Auth that is also a PasswordStep and a PendingKey,
 	// turns on two-step sign-in. nil means password-only sign-in.
 	TwoFactor TwoFactorService
@@ -542,7 +547,7 @@ func New(d Deps) (*Admin, error) {
 		a.areas = []*adminArea{a.settings, themeArea, analyticsArea}
 	}
 	a.sudo.store = &d.Sudo.s
-	a.tickets = &ticketStore{key: deriveTicketKey(a.csrfKey)}
+	a.tickets = &ticketStore{key: deriveTicketKey(a.csrfKey), backend: d.FrameTickets, log: a.logger}
 	// Plugins is the owner's, and an editor's when a plugin UI admits them.
 	d.Nav.update(pluginsID, func(it *NavItem) {
 		it.Roles = nil

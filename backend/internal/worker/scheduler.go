@@ -72,6 +72,8 @@ type Scheduler struct {
 	// Every job the scheduler knows, fixed and dynamic, by id.
 	jobsMu sync.Mutex
 	jobs   map[string]*jobState
+
+	claims jobClaimer // nil: every tick runs (no database)
 }
 
 // jobState is the bookkeeping of one job id. It outlives a re-Schedule of the
@@ -109,11 +111,39 @@ var jitterRand = func(n int64) int64 { return rand.Int64N(n) }
 
 // NewScheduler creates a new scheduler instance.
 func NewScheduler(db *database.DB, logger *slog.Logger) *Scheduler {
-	return &Scheduler{
+	s := &Scheduler{
 		db:     db,
 		logger: logger,
 		stopCh: make(chan struct{}),
 	}
+	if db != nil {
+		s.claims = NewClaimer(db)
+	}
+	return s
+}
+
+// jobClaimer decides whether this server may run a job now.
+type jobClaimer interface {
+	Claim(ctx context.Context, jobID string, window time.Duration) (bool, error)
+}
+
+// claimLease is how long one claimed run keeps the job: just under the
+// shortest wait between two ticks, so the next interval is claimable again.
+func claimLease(every, jitter time.Duration) time.Duration {
+	ms := (every - jitter).Milliseconds() * 9 / 10
+	return max(time.Second, time.Duration(ms)*time.Millisecond)
+}
+
+// SetClaimer replaces the claimer (tests; nil turns claims off).
+func (s *Scheduler) SetClaimer(c jobClaimer) { s.claims = c }
+
+// claimed reports whether id runs on one server per interval.
+func claimed(id string) bool {
+	if IsPluginJob(id) {
+		return true
+	}
+	d, ok := Lookup(id)
+	return ok && d.Claim
 }
 
 // SetIdle sets the gate that stretches opted-in jobs (see OnIdle) to a shared
@@ -397,6 +427,10 @@ func (s *Scheduler) runEvery(ctx context.Context, first, interval time.Duration,
 	}
 }
 
+// claimTimeout bounds one claim query, so a stalled database falls into the
+// warn-and-run path instead of holding the job lock. A variable for tests.
+var claimTimeout = 10 * time.Second
+
 type jobParentKey struct{}
 
 // WithJobParent records parent, the scheduler's uncapped context, on a job's
@@ -420,6 +454,21 @@ func (s *Scheduler) runJob(ctx context.Context, name string, fn func(context.Con
 	st := s.state(name)
 	st.run.Lock()
 	defer st.run.Unlock()
+	if s.claims != nil && claimed(name) {
+		s.jobsMu.Lock()
+		every, jitter := st.every, st.jitter
+		s.jobsMu.Unlock()
+		cctx, cancel := context.WithTimeout(ctx, claimTimeout)
+		won, err := s.claims.Claim(cctx, name, claimLease(every, jitter))
+		cancel()
+		switch {
+		case err != nil:
+			s.logger.Warn("job claim failed; running anyway", slog.String("job", name), slog.Any("error", err))
+		case !won:
+			s.logger.Debug("job claimed by another server", slog.String("job", name))
+			return
+		}
+	}
 	s.execute(ctx, st, name, fn)
 }
 

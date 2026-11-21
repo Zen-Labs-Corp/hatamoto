@@ -45,6 +45,7 @@ Compatibility promises for all of these: [STABILITY.md](../STABILITY.md).
 | [BACKUPS.md](BACKUPS.md) | backups from the admin and the command line |
 | [STAGING.md](STAGING.md) | staging mode: a copy that sends nothing out |
 | [SSO.md](SSO.md) | single sign-on with OpenID Connect: setup for Entra ID, Okta and Google Workspace |
+| [SCALING.md](SCALING.md) | running one site on several servers behind a load balancer |
 | [EXPORT.md](EXPORT.md) | site export and import |
 | [STATIC_EXPORT.md](STATIC_EXPORT.md) | the public site as plain files in a directory or S3-compatible bucket |
 | [IMPORT-WORDPRESS.md](IMPORT-WORDPRESS.md) | the WordPress importer in detail |
