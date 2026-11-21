@@ -5,28 +5,16 @@ import (
 	"net/http"
 	"time"
 
+	"hatamoto.dev/core/authz"
+	"hatamoto.dev/core/internal/authzuser"
 	"hatamoto.dev/core/internal/email"
-	"hatamoto.dev/core/internal/user"
 )
 
-// ownerEmails lists every owner's address, paging through the user list.
+// ownerEmails lists the address of every user who may receive owner mail,
+// paging through the user list.
 func (a *Admin) ownerEmails(ctx context.Context) ([]string, error) {
-	const page = 200
-	var out []string
-	for offset := 0; ; offset += page {
-		users, err := a.deps.Manager.List(ctx, page, offset)
-		if err != nil {
-			return out, err
-		}
-		for _, u := range users {
-			if u.Role == user.RoleOwner {
-				out = append(out, u.Email)
-			}
-		}
-		if len(users) < page {
-			return out, nil
-		}
-	}
+	us, err := authzuser.Allowed(ctx, a.logger(), a.deps.Manager.List, authz.ActionSiteReceiveOwnerMail, nil)
+	return authzuser.Emails(us), err
 }
 
 // notifyOwnersAddressChanged emails every owner the new admin address, in the
