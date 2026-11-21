@@ -88,7 +88,10 @@ type renderHandlers struct {
 	engine pageRenderer
 	// hosting is the per-Server static hosting snapshot; nil means served mode.
 	hosting *statichost.Holder
-	cache   htmlCache
+	// liveFn tells which paths only the live origin answers (static mode);
+	// nil means the paths that need no API prefix.
+	liveFn func(path string) bool
+	cache  htmlCache
 	// flight lets concurrent misses on one page key share one render. Nil
 	// disables it; a pointer because the handlers are copied (preview, preload).
 	flight *renderFlight
@@ -163,8 +166,15 @@ func (s *Server) newRenderHandlers(engine pageRenderer, pageCache *cache.Cache) 
 	h := &renderHandlers{
 		engine:  engine,
 		hosting: &s.hosting,
-		flight:  &renderFlight{},
-		logger:  s.logger,
+		liveFn: func(p string) bool {
+			prefix := ""
+			if s.cfg != nil {
+				prefix = s.cfg.PublicSite.APIPrefix
+			}
+			return staticLivePath(p, prefix)
+		},
+		flight: &renderFlight{},
+		logger: s.logger,
 		// Without PUBLIC_BASE_URL the canonical URLs come from the request
 		// Host, so such pages must never be cached (see renderHandlers).
 		baseURLPinned: s.cfg != nil && strings.TrimSpace(s.cfg.PublicSite.BaseURL) != "",
@@ -641,6 +651,12 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		h.flight.finish(key, call, flightResult{body: buf.Bytes(), stored: stored})
 	}
 	pluginhost.WriteSetCookies(w, r, cookies)
+	// Static mode: the page is rewritten for the static site and carries no
+	// comment token, so it is written here, without validators or variants.
+	if out, ok := h.staticPage(r, buf.Bytes()); ok {
+		h.writeHTML(w, r, http.StatusOK, out, private)
+		return
+	}
 	// The stored and shared bytes stay the template; only this response is
 	// personalised (private, no validators, never a 304).
 	if out, personal := h.slot.fill(r, buf.Bytes()); personal {
@@ -663,12 +679,34 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 	}
 }
 
+// staticPage returns the static-mode body of a public GET/HEAD response; false
+// in served mode. It runs after the page cache (the cache keeps the template
+// bytes, so a mode switch needs no purge) and before commentSlot.fill (the
+// loader replaces the form, so no token is issued here).
+func (h *renderHandlers) staticPage(r *http.Request, body []byte) ([]byte, bool) {
+	hs := h.hosting.Load()
+	if !hs.Active() || (r.Method != http.MethodGet && r.Method != http.MethodHead) {
+		return nil, false
+	}
+	live := h.liveFn
+	if live == nil {
+		live = func(p string) bool { return staticLivePath(p, "") }
+	}
+	return staticRewrite{hs: hs, export: statichost.IsExport(r.Context()), live: live}.page(body), true
+}
+
 // serveCached answers from a cached page body: a redirect created after the
 // page was cached wins, then validators (304) and the encoded variant. hitGen
 // is the cache token read before the page itself.
 func (h *renderHandlers) serveCached(w http.ResponseWriter, r *http.Request, path, key string, body []byte, hitGen uint64) {
 	// The redirect lookup is cheap (cached in the redirect service).
 	if h.redirectIfMatched(w, r, path) {
+		return
+	}
+	// Static mode: rewrite for the static site before the comment slot, so no
+	// token is ever issued; no validators, never a 304, no stored variant.
+	if out, ok := h.staticPage(r, body); ok {
+		h.writeHTML(w, r, http.StatusOK, out, false)
 		return
 	}
 	// A page with the comment form is filled per request: private, no validators,
@@ -773,7 +811,11 @@ func (h *renderHandlers) writeNotFoundQuiet(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	h.writeHTML(w, r, http.StatusNotFound, buf.Bytes(), true)
+	body := buf.Bytes()
+	if out, ok := h.staticPage(r, body); ok {
+		body = out
+	}
+	h.writeHTML(w, r, http.StatusNotFound, body, true)
 }
 
 // writeFailure maps a loader error to a themed error page.
@@ -813,7 +855,11 @@ func (h *renderHandlers) writeError(w http.ResponseWriter, r *http.Request, stat
 		http.Error(w, http.StatusText(status), status)
 		return
 	}
-	h.writeHTML(w, r, status, buf.Bytes(), true)
+	body := buf.Bytes()
+	if out, ok := h.staticPage(r, body); ok {
+		body = out
+	}
+	h.writeHTML(w, r, status, body, true)
 }
 
 // errorView builds the site chrome for an error page; if even that fails the
