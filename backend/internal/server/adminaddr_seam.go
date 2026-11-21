@@ -139,7 +139,7 @@ func (s *Server) dispatcher() http.Handler {
 			b.h.ServeHTTP(w, r)
 			return
 		}
-		if len(s.modulePrefixes) > 0 && s.underModulePrefix(r.URL.Path) {
+		if len(s.modulePrefixes) > 0 && s.underModulePrefix(r.URL.EscapedPath()) {
 			moduleH.ServeHTTP(w, r)
 			return
 		}

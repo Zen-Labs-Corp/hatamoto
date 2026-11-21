@@ -42,10 +42,16 @@ func limitBody(n int64) httpx.Middleware {
 	}
 }
 
-// underModulePrefix reports whether p is under a mounted module prefix.
-func (s *Server) underModulePrefix(p string) bool {
+// underModulePrefix reports whether escaped, a request's escaped path (the one
+// the mux routes on), is under a mounted module prefix. A path with an encoded
+// slash or one the mux would redirect (dot segments, double slashes) is never
+// the module's: it takes the public chain, where the site gate applies.
+func (s *Server) underModulePrefix(escaped string) bool {
+	if hasEncodedSlash(escaped) || !isCleanPath(escaped) {
+		return false
+	}
 	for _, pre := range s.modulePrefixes {
-		if strings.HasPrefix(p, pre) {
+		if strings.HasPrefix(escaped, pre) {
 			return true
 		}
 	}
