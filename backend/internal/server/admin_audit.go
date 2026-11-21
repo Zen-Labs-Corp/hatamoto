@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/auditlog"
 	"hatamoto.dev/core/internal/jsonx"
 )
 
@@ -18,13 +19,12 @@ import (
 func (s *Server) adminAudit(ctx context.Context, e admin.AuditEvent) {
 	raw, _ := jsonx.Marshal(e.Detail)
 	if s.db != nil {
-		var actorID *uuid.UUID
-		if id, err := uuid.Parse(e.ActorID); err == nil {
-			actorID = &id
-		}
-		if _, err := s.db.Pool().Exec(context.WithoutCancel(ctx),
-			`INSERT INTO hatamoto_admin_audit (actor_id, actor, action, target, detail) VALUES ($1, $2, $3, $4, $5)`,
-			actorID, e.Actor, e.Action, e.Target, raw); err != nil {
+		err := auditlog.Recorder{Pool: s.db.Pool()}.Record(ctx, nil, audit.Event{
+			ActorID: e.ActorID, Actor: e.Actor, ActorKind: auditlog.KindFor(e.ActorID, e.Actor),
+			Action: e.Action, Target: e.Target, Detail: e.Detail,
+			IP: e.IP, UserAgent: e.UserAgent, RequestID: e.RequestID,
+		})
+		if err != nil {
 			s.logger.Error("admin audit write failed", "action", e.Action, "error", err)
 		}
 	}

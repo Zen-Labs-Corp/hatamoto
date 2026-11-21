@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"time"
+
+	"hatamoto.dev/core/internal/middleware"
 )
 
 // AuditEvent is one owner action for the admin audit log. Detail must carry
@@ -11,6 +13,7 @@ import (
 type AuditEvent struct {
 	ActorID, Actor, Action, Target string
 	Detail                         map[string]any
+	IP, UserAgent, RequestID       string // set from the admin request
 }
 
 // audit records an action by the signed-in user; it does nothing when no sink
@@ -19,7 +22,10 @@ func (a *Admin) audit(r *http.Request, action, target string, detail map[string]
 	if a.deps.Audit == nil {
 		return
 	}
-	e := AuditEvent{Action: action, Target: target, Detail: detail}
+	e := AuditEvent{
+		Action: action, Target: target, Detail: detail,
+		IP: middleware.GetClientIP(r), UserAgent: r.UserAgent(), RequestID: r.Header.Get("X-Request-ID"),
+	}
 	if u := userFrom(r.Context()); u != nil {
 		e.ActorID, e.Actor = u.ID, u.Email
 	}
