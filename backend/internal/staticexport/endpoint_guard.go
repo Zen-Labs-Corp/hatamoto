@@ -84,6 +84,10 @@ func s3HTTPClient(allowPrivate bool, lookup safefetch.Lookup) *http.Client {
 	c := safefetch.NewClient(safefetch.ClientOptions{AllowPrivate: allowPrivate, Lookup: lookup, Timeout: s3RequestTimeout})
 	if tr, ok := c.Transport.(*http.Transport); ok {
 		tr.ResponseHeaderTimeout = s3HeaderTimeout
+		if allowPrivate {
+			// The address guard is off already, so a proxy cannot bypass it.
+			tr.Proxy = http.ProxyFromEnvironment
+		}
 	}
 	return c
 }

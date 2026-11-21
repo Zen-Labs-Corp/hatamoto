@@ -3,7 +3,9 @@ package staticexport
 import (
 	"context"
 	"errors"
+	"net/http"
 	"net/netip"
+	"net/url"
 	"testing"
 
 	"hatamoto.dev/core/internal/safefetch"
@@ -71,5 +73,17 @@ func TestAllowPrivateS3(t *testing.T) {
 	}
 	if !AllowPrivateS3(env("1")) {
 		t.Fatal("1 did not opt in")
+	}
+}
+
+func TestS3HTTPClientProxy(t *testing.T) {
+	proxyOf := func(allow bool) func(*http.Request) (*url.URL, error) {
+		return s3HTTPClient(allow, nil).Transport.(*http.Transport).Proxy
+	}
+	if proxyOf(false) != nil {
+		t.Fatal("the proxy must stay off without the opt-in")
+	}
+	if proxyOf(true) == nil {
+		t.Fatal("the opt-in must honour the environment proxy")
 	}
 }
