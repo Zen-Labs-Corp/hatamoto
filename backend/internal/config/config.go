@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -183,6 +184,39 @@ type DatabaseConfig struct {
 	// publicAcquireInvalid holds an unparsable DATABASE_PUBLIC_ACQUIRE_TIMEOUT
 	// so Validate can reject it instead of silently using the default.
 	publicAcquireInvalid string
+	// UnixSocketOff (DATABASE_UNIX_SOCKET=off) stops a loopback URL from being
+	// tried over the local unix socket first. Zero value: enabled.
+	UnixSocketOff bool
+	// SocketDirs (DATABASE_SOCKET_DIRS, colon- or comma-separated) replaces the
+	// default socket directories. Nil: the defaults.
+	SocketDirs []string
+	// unixSocketInvalid holds an unparsable DATABASE_UNIX_SOCKET so Validate
+	// can reject it.
+	unixSocketInvalid string
+}
+
+// parseUnixSocket reads DATABASE_UNIX_SOCKET: on/true/1/yes or unset keep the
+// socket preference, off/false/0/no turn it off, anything else is invalid.
+func parseUnixSocket(v string) (off bool, invalid string) {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "", "on", "true", "1", "yes":
+		return false, ""
+	case "off", "false", "0", "no":
+		return true, ""
+	}
+	return false, v
+}
+
+// splitSocketDirs splits DATABASE_SOCKET_DIRS on colons and commas. Nil when
+// no directory is given.
+func splitSocketDirs(v string) []string {
+	var dirs []string
+	for _, f := range strings.FieldsFunc(v, func(r rune) bool { return r == ':' || r == ',' }) {
+		if f = strings.TrimSpace(f); f != "" {
+			dirs = append(dirs, f)
+		}
+	}
+	return dirs
 }
 
 // EffectiveDirectURL is the URL for work that needs real server sessions:
@@ -206,6 +240,14 @@ func (d DatabaseConfig) Validate() error {
 	}
 	if d.PublicAcquireTimeout < 0 {
 		return fmt.Errorf("DATABASE_PUBLIC_ACQUIRE_TIMEOUT must not be negative, got %s", d.PublicAcquireTimeout)
+	}
+	if d.unixSocketInvalid != "" {
+		return fmt.Errorf("DATABASE_UNIX_SOCKET %q is not on or off", d.unixSocketInvalid)
+	}
+	for _, dir := range d.SocketDirs {
+		if !filepath.IsAbs(dir) {
+			return fmt.Errorf("DATABASE_SOCKET_DIRS entry %q is not an absolute path", dir)
+		}
 	}
 	return nil
 }
@@ -368,6 +410,9 @@ func Load() (*Config, error) {
 			cfg.Database.publicAcquireInvalid = v
 		}
 	}
+
+	cfg.Database.UnixSocketOff, cfg.Database.unixSocketInvalid = parseUnixSocket(os.Getenv("DATABASE_UNIX_SOCKET"))
+	cfg.Database.SocketDirs = splitSocketDirs(os.Getenv("DATABASE_SOCKET_DIRS"))
 
 	cfg.Secret = getEnv("HATAMOTO_SECRET", getEnv("JWT_SECRET", ""))
 
