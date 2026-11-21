@@ -1,8 +1,10 @@
 package admin
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"regexp"
 	"strings"
 	"testing"
@@ -268,5 +270,24 @@ func TestTicketBackendErrorRefuses(t *testing.T) {
 	}
 	if _, _, ok := s.consumeBound(ticketPreview, good, "e"); ok {
 		t.Error("consumeBound succeeded on a failing backend")
+	}
+}
+
+func TestTicketBackendErrorIsLoggedOnce(t *testing.T) {
+	var buf bytes.Buffer
+	l := slog.New(slog.NewTextHandler(&buf, nil))
+	s, _ := newTestTickets()
+	s.log = func() *slog.Logger { return l }
+	s.backend = failingBackend{}
+	sess := uuid.New()
+	s.mint(ticketPreview, sess, "e", nil)
+	s.consume(ticketPreview, strings.Repeat("A", ticketLen), sess, "e")
+	s.consumeBound(ticketPreview, strings.Repeat("A", ticketLen), "e")
+	out := buf.String()
+	if !strings.Contains(out, "level=WARN") || !strings.Contains(out, "down") {
+		t.Errorf("backend error not logged: %q", out)
+	}
+	if n := strings.Count(out, "level=WARN"); n != 1 {
+		t.Errorf("got %d warnings in one minute, want 1", n)
 	}
 }

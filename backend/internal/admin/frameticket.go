@@ -8,9 +8,11 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -60,6 +62,24 @@ type ticketStore struct {
 	now     func() time.Time    // nil: time.Now (tests set it)
 	backend frameticket.Backend // nil: an in-process frameticket.Memory, made on first use
 	once    sync.Once
+
+	log      func() *slog.Logger // nil: slog.Default
+	lastWarn atomic.Int64        // unix nanos of the last backend warning
+}
+
+// backendFailed warns about a backend error, at most once a minute. The caller
+// still refuses the ticket.
+func (s *ticketStore) backendFailed(op string, err error) {
+	now := s.clock().UnixNano()
+	last := s.lastWarn.Load()
+	if last != 0 && now-last < int64(time.Minute) || !s.lastWarn.CompareAndSwap(last, now) {
+		return
+	}
+	l := slog.Default()
+	if s.log != nil {
+		l = s.log()
+	}
+	l.Warn("frame ticket backend failed, refusing the ticket", "op", op, "error", err)
 }
 
 func (s *ticketStore) store() frameticket.Backend {
@@ -124,6 +144,7 @@ func (s *ticketStore) mint(purpose string, sess uuid.UUID, target string, payloa
 	ctx, cancel := context.WithTimeout(context.Background(), ticketStoreTimeout)
 	defer cancel()
 	if err := s.store().Put(ctx, frameticket.Ticket{Nonce: key, Purpose: purpose, Session: sess, Target: target, Expiry: expiry, Payload: payload}, now); err != nil {
+		s.backendFailed("put", err)
 		return ""
 	}
 	return base64.RawURLEncoding.EncodeToString(raw)
@@ -146,7 +167,11 @@ func (s *ticketStore) consume(purpose, tok string, sess uuid.UUID, target string
 	ctx, cancel := context.WithTimeout(context.Background(), ticketStoreTimeout)
 	defer cancel()
 	rec, ok, err := s.store().Take(ctx, key, s.clock())
-	if err != nil || !ok {
+	if err != nil {
+		s.backendFailed("take", err)
+		return nil, false
+	}
+	if !ok {
 		return nil, false
 	}
 	if rec.Purpose != purpose || rec.Session != sess || rec.Target != target {
@@ -178,7 +203,11 @@ func (s *ticketStore) consumeBound(purpose, tok, target string) (uuid.UUID, []by
 	ctx, cancel := context.WithTimeout(context.Background(), ticketStoreTimeout)
 	defer cancel()
 	rec, ok, err := s.store().Take(ctx, key, s.clock())
-	if err != nil || !ok {
+	if err != nil {
+		s.backendFailed("take", err)
+		return uuid.Nil, nil, false
+	}
+	if !ok {
 		return uuid.Nil, nil, false
 	}
 	if rec.Purpose != purpose || rec.Target != target || rec.Session == uuid.Nil {
