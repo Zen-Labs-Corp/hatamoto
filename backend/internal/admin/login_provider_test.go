@@ -1,7 +1,9 @@
 package admin
 
 import (
+	"context"
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -296,6 +298,21 @@ func TestProviderRoutes404(t *testing.T) {
 	}
 }
 
+func TestProviderRoutes404WhenProviderUnavailable(t *testing.T) {
+	t.Parallel()
+
+	g := newProviderRig(t)
+	g.fp.infos = nil
+	for _, target := range []string{"/admin/login/provider/example/start", cbPath} {
+		if rec := g.nav(target); rec.Code != 404 {
+			t.Errorf("%s: %d", target, rec.Code)
+		}
+	}
+	if g.finished != 0 {
+		t.Error("Finish called for an unavailable provider")
+	}
+}
+
 func TestProviderStartWithoutSiteAddressFailsNeutrally(t *testing.T) {
 	t.Parallel()
 
@@ -411,4 +428,73 @@ func TestProviderCallbackFailsClosedWithoutSecondStep(t *testing.T) {
 			t.Errorf("%s: %d", name, rec.Code)
 		}
 	}
+}
+
+// reasonErr is a provider refusal with a stable audit reason code.
+type reasonErr struct{ reason string }
+
+func (e reasonErr) Error() string       { return "refused for a@example.com" }
+func (e reasonErr) AuditReason() string { return e.reason }
+
+func TestProviderCallbackAuditsEveryOutcome(t *testing.T) {
+	t.Parallel()
+
+	type want struct{ action, result, reason string }
+	for name, tc := range map[string]struct {
+		setup func(g *providerRig)
+		// target builds the callback URL from the real state; "" uses a good one.
+		target func(state string) string
+		cookie bool
+		want   want
+	}{
+		"no cookie":       {func(*providerRig) {}, nil, false, want{"session.sign_in_failed", "denied", "state"}},
+		"state mismatch":  {func(*providerRig) {}, func(string) string { return cbPath + "?state=nope" }, true, want{"session.sign_in_failed", "denied", "state"}},
+		"finish reason":   {func(g *providerRig) { g.finErr = reasonErr{"nonce_mismatch"} }, nil, true, want{"session.sign_in_failed", "denied", "nonce_mismatch"}},
+		"finish no code":  {func(g *providerRig) { g.finErr = errors.New("boom a@example.com") }, nil, true, want{"session.sign_in_failed", "error", "provider"}},
+		"finish bad code": {func(g *providerRig) { g.finErr = reasonErr{"Has Caps@"} }, nil, true, want{"session.sign_in_failed", "error", "provider"}},
+		"admit refused":   {func(g *providerRig) { g.auth.verifiedErr = auth.ErrAccountLocked }, nil, true, want{"session.sign_in_failed", "denied", "access"}},
+		"second step":     {func(*providerRig) {}, nil, true, want{"session.sign_in_second_step", "ok", ""}},
+		"success":         {func(g *providerRig) { g.mfa = true }, nil, true, want{"session.sign_in", "ok", ""}},
+	} {
+		var events []AuditEvent
+		g := newProviderRig(t, func(d *Deps) {
+			d.Audit = func(_ context.Context, e AuditEvent) { events = append(events, e) }
+		})
+		tc.setup(g)
+		c, state := g.start(t, "/admin/login/provider/example/start")
+		target := cbPath + "?code=abc&state=" + url.QueryEscape(state)
+		if tc.target != nil {
+			target = tc.target(state)
+		}
+		if tc.cookie {
+			g.nav(target, c)
+		} else {
+			g.nav(target)
+		}
+		if len(events) != 1 {
+			t.Fatalf("%s: %d audit events, want 1: %+v", name, len(events), events)
+		}
+		e := events[0]
+		if e.Action != tc.want.action || e.Result != tc.want.result || e.Detail["reason"] != anyOrNil(tc.want.reason) || e.Detail["method"] != "provider:example" || e.Target != "session" {
+			t.Errorf("%s: event = %+v", name, e)
+		}
+		for k, v := range e.Detail {
+			if s, _ := v.(string); strings.Contains(s, "@") {
+				t.Errorf("%s: detail %s holds an address", name, k)
+			}
+		}
+		if strings.HasPrefix(tc.want.action, "session.sign_in") && tc.want.result == "ok" && e.ActorID != g.uid.String() {
+			t.Errorf("%s: actor id %q, want %s", name, e.ActorID, g.uid)
+		}
+		if tc.want.result != "ok" && e.ActorID != "" {
+			t.Errorf("%s: a refused callback names an actor", name)
+		}
+	}
+}
+
+func anyOrNil(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }

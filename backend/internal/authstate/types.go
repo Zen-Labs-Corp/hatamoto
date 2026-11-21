@@ -107,6 +107,14 @@ type Provider interface {
 	MapUser(ctx context.Context, req MapRequest) (User, error)
 }
 
+// ProviderAvailability is optionally implemented by a Provider that can be
+// switched off or renamed at run time. Available is called on every login page
+// and start/callback request: it must be fast (no network) and fail closed
+// (ok=false on error). A non-empty label replaces the registered name.
+type ProviderAvailability interface {
+	Available(ctx context.Context) (label string, ok bool)
+}
+
 // ProviderInfo is a registered provider as listed on the login page.
 type ProviderInfo struct {
 	ID   string

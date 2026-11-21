@@ -84,7 +84,8 @@ type Authenticator interface {
 
 // ProviderSignIn is sign-in through the registered providers (authbridge).
 type ProviderSignIn interface {
-	Providers() []authstate.ProviderInfo
+	// Providers lists the providers available now, with their current labels.
+	Providers(ctx context.Context) []authstate.ProviderInfo
 	Start(ctx context.Context, id, callbackURL, state string) (redirectURL, data string, err error)
 	Finish(ctx context.Context, id string, req authstate.FinishRequest) (uid uuid.UUID, mfa bool, err error)
 }
@@ -230,9 +231,12 @@ type Deps struct {
 	ProviderSignIn ProviderSignIn
 	// ProviderKey seals the provider sign-in state cookie.
 	ProviderKey []byte
-	Tokens      TokenService
-	Finder      UserFinder
-	Mailer      Mailer
+	// SignInSettings is the OIDC sign-in configuration on Settings > Sign-in;
+	// nil hides its card.
+	SignInSettings SignInSettingsService
+	Tokens         TokenService
+	Finder         UserFinder
+	Mailer         Mailer
 	// BaseURL returns the site address the owner or operator configured
 	// (PUBLIC_BASE_URL, else the Site address setting); "" when none is set.
 	// Emailed links use only this, never the request's headers.

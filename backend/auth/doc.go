@@ -30,6 +30,9 @@
 // it is at most MaxDataLen bytes. A site address must be configured so core
 // can build the callback URL.
 //
+// A provider may implement ProviderAvailability to hide itself (no button,
+// start and callback answer 404) or to change its label at run time.
+//
 // Finish returns the Identity the provider asserts. MapUser then decides which
 // user that identity is. Core links an identity to a user only when the module
 // asks for it with Provisioner.LinkIdentity, and after MapUser core checks

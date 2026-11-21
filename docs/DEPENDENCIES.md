@@ -39,9 +39,11 @@ tests are the acceptance test for the runtime.
 | `github.com/microcosm-cc/bluemonday` | v1.0.27 | BSD-3-Clause | HTML sanitiser for editor content and plugin output | `go get github.com/microcosm-cc/bluemonday@latest` |
 | `github.com/modelcontextprotocol/go-sdk` | v1.8.0 | Apache-2.0 | MCP server for AI agents | `go get github.com/modelcontextprotocol/go-sdk@latest` |
 | `github.com/santhosh-tekuri/jsonschema/v5` | v5.3.1 | Apache-2.0 | JSON Schema validation (entity schemas, plugin settings) | `go get github.com/santhosh-tekuri/jsonschema/v5@latest` |
+| `github.com/coreos/go-oidc/v3` | v3.21.0 | Apache-2.0 | OIDC sign-in: discovery, key set and ID token checks | `go get github.com/coreos/go-oidc/v3@latest` |
 | `golang.org/x/crypto` | v0.58.0 | BSD-3-Clause | argon2 password hashing | `go get golang.org/x/crypto@latest` |
 | `golang.org/x/image` | v0.47.0 | BSD-3-Clause | WebP decoding and resizing for media variants | `go get golang.org/x/image@latest` |
 | `golang.org/x/net` | v0.61.0 | BSD-3-Clause | HTML parsing and tokenising (`x/net/html`) | `go get golang.org/x/net@latest` |
+| `golang.org/x/oauth2` | v0.38.0 | BSD-3-Clause | OIDC sign-in token exchange; also used by the MCP go-sdk | `go get golang.org/x/oauth2@latest` |
 | `golang.org/x/text` | v0.43.0 | BSD-3-Clause | Unicode normalisation, language tags and names, slugs | `go get golang.org/x/text@latest` |
 | `golang.org/x/time` | v0.16.0 | BSD-3-Clause | Rate limiters | `go get golang.org/x/time@latest` |
 | `github.com/oschwald/maxminddb-golang` | v1.13.1 | ISC | GeoIP country lookup from an owner-supplied .mmdb (read into memory by default; opt-in read-only mmap with `HATAMOTO_GEOIP_MMAP`; no cgo) | `go get github.com/oschwald/maxminddb-golang@latest` |
@@ -68,7 +70,7 @@ tests are the acceptance test for the runtime.
 | `github.com/segmentio/asm` | v1.2.1 | MIT | MCP go-sdk (via segmentio/encoding) |
 | `github.com/segmentio/encoding` | v0.5.4 | MIT | MCP go-sdk |
 | `github.com/yosida95/uritemplate/v3` | v3.0.2 | BSD-3-Clause | MCP go-sdk |
-| `golang.org/x/oauth2` | v0.37.0 | BSD-3-Clause | MCP go-sdk |
+| `github.com/go-jose/go-jose/v4` | v4.1.4 | Apache-2.0 | go-oidc (JSON Web Key and signature handling) |
 | `golang.org/x/sync` | v0.24.0 | BSD-3-Clause | goose, MCP go-sdk |
 | `github.com/ebitengine/purego` | v0.8.3 | Apache-2.0 | gen2brain/webp and avif (system library loader; disabled by the `nodynamic` build tag) |
 | `golang.org/x/sys` | v0.49.0 | BSD-3-Clause | wazero, pgx, x/crypto |

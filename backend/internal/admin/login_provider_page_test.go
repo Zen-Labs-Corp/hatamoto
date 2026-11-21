@@ -18,7 +18,7 @@ type fakeProviderSignIn struct {
 	finish func(id string, req authstate.FinishRequest) (uuid.UUID, bool, error)
 }
 
-func (f *fakeProviderSignIn) Providers() []authstate.ProviderInfo { return f.infos }
+func (f *fakeProviderSignIn) Providers(context.Context) []authstate.ProviderInfo { return f.infos }
 
 func (f *fakeProviderSignIn) Start(_ context.Context, id, callbackURL, state string) (string, string, error) {
 	return f.start(id, callbackURL, state)
@@ -50,4 +50,18 @@ func TestLoginPageWithoutProvidersHasNoProviderBlock(t *testing.T) {
 	if body := g.do("GET", "/admin/login", "", nil, nil).Body.String(); strings.Contains(body, "Continue with") {
 		t.Fatal("provider block rendered with no provider registered")
 	}
+}
+
+// With every provider unavailable the login page is the page of an install
+// with no provider at all.
+func TestLoginPageWithUnavailableProvidersIsUnchanged(t *testing.T) {
+	t.Parallel()
+
+	plain := newRig(t).do("GET", "/admin/login", "", nil, nil).Body.String()
+	g := newRig(t, func(d *Deps) { d.ProviderSignIn = &fakeProviderSignIn{} })
+	body := g.do("GET", "/admin/login", "", nil, nil).Body.String()
+	if normalizePage(body) != normalizePage(plain) {
+		t.Fatal("login page differs when every provider is unavailable")
+	}
+	compareGolden(t, "pages/auth-login.html", normalizePage(body))
 }

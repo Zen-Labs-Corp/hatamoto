@@ -54,6 +54,7 @@ production backup bucket, or report the production install ID as a second instal
 |---|---|
 | Captcha checks on forms | Forms must keep working in a rehearsal, and a check changes nothing at the provider |
 | Package registry, fonts, bot IP ranges, WordPress import | These only read from other servers |
+| Single sign-on (OIDC) discovery, key and token calls | They only read from the identity service and change nothing there. The identity service must list the copy's own redirect URL |
 | Static export to a local directory | It is local |
 | Media uploads and replacements to S3 | Blocking writes would break uploads. They reach the configured bucket, so use a separate one |
 | Compiled-in module routes and jobs | They are the module's own code; a module's own outbound calls are not stopped by core |

@@ -1008,6 +1008,9 @@ func (s *Server) Start() error {
 	if s.provisioner != nil {
 		authstate.SetProvisioner(s.provisioner)
 	}
+	if s.db != nil {
+		s.setOIDCRuntime()
+	}
 
 	// Establish the server's lifecycle context. Plugin goroutines watch
 	// its Done channel; Shutdown cancels it to signal clean exit.

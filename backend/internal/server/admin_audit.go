@@ -19,16 +19,21 @@ import (
 func (s *Server) adminAudit(ctx context.Context, e admin.AuditEvent) {
 	raw, _ := jsonx.Marshal(e.Detail)
 	if s.db != nil {
-		err := auditlog.Recorder{Pool: s.db.Pool()}.Record(ctx, nil, audit.Event{
-			ActorID: e.ActorID, Actor: e.Actor, ActorKind: auditlog.KindFor(e.ActorID, e.Actor),
-			Action: e.Action, Target: e.Target, Detail: e.Detail,
-			IP: e.IP, UserAgent: e.UserAgent, RequestID: e.RequestID,
-		})
+		err := auditlog.Recorder{Pool: s.db.Pool()}.Record(ctx, nil, auditEventFor(e))
 		if err != nil {
 			s.logger.Error("admin audit write failed", "action", e.Action, "error", err)
 		}
 	}
 	s.logger.Info("admin audit", "action", e.Action, "actor", e.Actor, "target", e.Target, "detail", string(raw))
+}
+
+// auditEventFor maps an admin event to the stored shape.
+func auditEventFor(e admin.AuditEvent) audit.Event {
+	return audit.Event{
+		ActorID: e.ActorID, Actor: e.Actor, ActorKind: auditlog.KindFor(e.ActorID, e.Actor),
+		Action: e.Action, Target: e.Target, Detail: e.Detail, Result: e.Result,
+		IP: e.IP, UserAgent: e.UserAgent, RequestID: e.RequestID,
+	}
 }
 
 // adminAuditLog reads hatamoto_admin_audit back for the Audit log page and the

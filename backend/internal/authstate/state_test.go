@@ -169,3 +169,53 @@ func TestViaRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+type availProvider struct {
+	fakeProvider
+	label string
+	ok    bool
+}
+
+func (p *availProvider) Available(context.Context) (string, bool) { return p.label, p.ok }
+
+func TestAvailableProviders(t *testing.T) {
+	reset(t)
+	ctx := context.Background()
+	authstate.RegisterProvider("plain", "Plain", &fakeProvider{})
+	authstate.RegisterProvider("off", "Off", &availProvider{ok: false})
+	authstate.RegisterProvider("renamed", "Renamed", &availProvider{label: "  Acme SSO ", ok: true})
+	authstate.RegisterProvider("blank", "Blank", &availProvider{label: "  ", ok: true})
+	authstate.RegisterProvider("long", "Long", &availProvider{label: strings.Repeat("é", 100), ok: true})
+
+	got := authstate.AvailableProviders(ctx)
+	want := []authstate.ProviderInfo{
+		{ID: "plain", Name: "Plain"},
+		{ID: "renamed", Name: "Acme SSO"},
+		{ID: "blank", Name: "Blank"},
+		{ID: "long", Name: strings.Repeat("é", 64)},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("[%d] got %v, want %v", i, got[i], want[i])
+		}
+	}
+	if n := len(authstate.Providers()); n != 5 {
+		t.Errorf("Providers() lists %d, want 5 (unchanged behaviour)", n)
+	}
+}
+
+func TestLookupAvailable(t *testing.T) {
+	reset(t)
+	ctx := context.Background()
+	authstate.RegisterProvider("plain", "Plain", &fakeProvider{})
+	authstate.RegisterProvider("off", "Off", &availProvider{ok: false})
+	authstate.RegisterProvider("on", "On", &availProvider{ok: true})
+	for id, want := range map[string]bool{"plain": true, "off": false, "on": true, "missing": false} {
+		if _, ok := authstate.LookupAvailable(ctx, id); ok != want {
+			t.Errorf("LookupAvailable(%q) = %v, want %v", id, ok, want)
+		}
+	}
+}

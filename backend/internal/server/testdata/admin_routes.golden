@@ -498,6 +498,8 @@ POST /admin/settings/users -> admin.(*Admin).handleUserCreate-fm
 POST /admin/settings/users/invite -> admin.(*Admin).handleInvite-fm
 POST /admin/settings/users/invites/{id}/resend -> admin.(*Admin).handleInviteResend-fm
 POST /admin/settings/users/invites/{id}/revoke -> admin.(*Admin).handleInviteRevoke-fm
+POST /admin/settings/users/sign-in/oidc -> admin.(*Admin).handleSignInOIDCSave-fm
+POST /admin/settings/users/sign-in/oidc/test -> admin.(*Admin).handleSignInOIDCTest-fm
 POST /admin/settings/users/two-factor -> admin.(*Admin).handleTwoFactorPolicy-fm
 POST /admin/settings/users/{id} -> admin.(*Admin).handleUserUpdate-fm
 POST /admin/settings/users/{id}/delete -> admin.(*Admin).handleUserDelete-fm

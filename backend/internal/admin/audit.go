@@ -13,6 +13,7 @@ import (
 type AuditEvent struct {
 	ActorID, Actor, Action, Target string
 	Detail                         map[string]any
+	Result                         string // ok, denied or error; "" means ok
 	IP, UserAgent, RequestID       string // set from the admin request
 }
 

@@ -33,12 +33,15 @@ func NewSignIn(p authstate.Provisioner, idents *user.IdentityStore) *SignIn {
 	return &SignIn{prov: p, idents: idents}
 }
 
-// Providers lists the registered providers in registration order.
-func (b *SignIn) Providers() []authstate.ProviderInfo { return authstate.Providers() }
+// Providers lists the registered providers that are available now, in
+// registration order.
+func (b *SignIn) Providers(ctx context.Context) []authstate.ProviderInfo {
+	return authstate.AvailableProviders(ctx)
+}
 
 // Start asks provider id where to send the browser.
 func (b *SignIn) Start(ctx context.Context, id, callbackURL, state string) (redirectURL, data string, err error) {
-	p, ok := authstate.LookupProvider(id)
+	p, ok := authstate.LookupAvailable(ctx, id)
 	if !ok {
 		return "", "", errUnknownProvider
 	}
@@ -53,7 +56,7 @@ func (b *SignIn) Start(ctx context.Context, id, callbackURL, state string) (redi
 // whether the provider asserted a second factor. Core never links an identity
 // to a user on its own: MapUser must have linked it, or Finish fails closed.
 func (b *SignIn) Finish(ctx context.Context, id string, req authstate.FinishRequest) (uuid.UUID, bool, error) {
-	p, ok := authstate.LookupProvider(id)
+	p, ok := authstate.LookupAvailable(ctx, id)
 	if !ok {
 		return uuid.Nil, false, errUnknownProvider
 	}

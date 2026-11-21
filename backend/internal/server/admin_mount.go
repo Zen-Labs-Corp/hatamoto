@@ -19,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/localeconv"
 	"hatamoto.dev/core/internal/mailsettings"
+	"hatamoto.dev/core/internal/oidcsignin"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/secretbox"
@@ -184,6 +185,13 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 			key:     mailsettings.PasswordKey(s.cfg.Secret),
 			apply:   s.applyEmail,
 			current: s.currentEmailResolution,
+		}
+	}
+	if s.db != nil {
+		d.SignInSettings = signInAdmin{
+			store: oidcsignin.NewStore(s.db.Pool()),
+			key:   oidcsignin.SecretKey(s.cfg.Secret),
+			prov:  oidcsignin.Default(),
 		}
 	}
 	if s.emailLog != nil {

@@ -20,6 +20,9 @@ type (
 	FinishRequest = authstate.FinishRequest
 	// MapRequest is passed to Provider.MapUser.
 	MapRequest = authstate.MapRequest
+	// ProviderAvailability is optionally implemented by a Provider that can
+	// hide itself or change its label at run time.
+	ProviderAvailability = authstate.ProviderAvailability
 	// ProviderInfo is a registered provider as listed on the login page.
 	ProviderInfo = authstate.ProviderInfo
 	// Method is how a user proved who they are.
