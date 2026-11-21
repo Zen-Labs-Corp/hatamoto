@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/adminpath"
 	"hatamoto.dev/core/internal/httpx"
@@ -36,7 +37,7 @@ func (a *Admin) onSecurityPage(r *http.Request) bool {
 // addressBanner is the banner for a page view: owners only, never charged to
 // editors or to pages that are not a plain GET.
 func (a *Admin) addressBanner(r *http.Request, u *CurrentUser) *AddressBanner {
-	if a.deps.Address == nil || u == nil || u.Role != "owner" || a.onSecurityPage(r) {
+	if a.deps.Address == nil || !canUser(r.Context(), a.logger(), u, authz.ActionSettingsManage) || a.onSecurityPage(r) {
 		return nil
 	}
 	st := a.deps.Address.State()

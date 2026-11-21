@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"hatamoto.dev/core/authz"
 )
 
 // Install stats levels, as the service and the forms name them.
@@ -159,7 +161,7 @@ type StatsBanner struct {
 // pages already show the choice as their Usage stats card. Got it is a POST
 // (see handleStatsDismiss), not a browser-side dismissal.
 func (a *Admin) statsBanner(r *http.Request, u *CurrentUser, setupPending bool) *StatsBanner {
-	if a.deps.Stats == nil || a.deps.Demo.Enabled || u == nil || u.Role != "owner" || setupPending {
+	if a.deps.Stats == nil || a.deps.Demo.Enabled || !canUser(r.Context(), a.logger(), u, authz.ActionSettingsManage) || setupPending {
 		return nil
 	}
 	if strings.HasPrefix(r.URL.Path, a.adminPath+updatesPath) {

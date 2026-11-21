@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
 )
@@ -1135,7 +1136,7 @@ func updatesHistoryTableFor(prefix string, rows []UpdatesHistoryRow, loc *time.L
 // updateBanner is the owner banner for a page view. Editors never reach the
 // service; a service error or a missing service means no banner.
 func (a *Admin) updateBanner(r *http.Request, u *CurrentUser) *UpdateBanner {
-	if a.deps.Updates == nil || u == nil || u.Role != "owner" || r.URL.Path == a.adminPath+updatesPath {
+	if a.deps.Updates == nil || !canUser(r.Context(), a.logger(), u, authz.ActionSettingsManage) || r.URL.Path == a.adminPath+updatesPath {
 		return nil
 	}
 	b, err := a.deps.Updates.Banner(r.Context())

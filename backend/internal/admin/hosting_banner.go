@@ -3,6 +3,8 @@ package admin
 import (
 	"context"
 	"net/http"
+
+	"hatamoto.dev/core/authz"
 )
 
 // ExportBanner is the owner's notice that the last static export failed.
@@ -13,7 +15,7 @@ type ExportBanner struct{ Message, Href string }
 // finished export failed. It reads the last run on those two pages only; a failed read shows
 // no banner.
 func (a *Admin) exportBanner(r *http.Request, u *CurrentUser) *ExportBanner {
-	if a.deps.Hosting == nil || u == nil || u.Role != "owner" {
+	if a.deps.Hosting == nil || !canUser(r.Context(), a.logger(), u, authz.ActionSettingsManage) {
 		return nil
 	}
 	p := r.URL.Path

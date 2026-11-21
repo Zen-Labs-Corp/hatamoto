@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"hatamoto.dev/core/authz"
 )
 
 // ModuleBanner is a notice a compiled-in module shows to owners above every
@@ -30,7 +32,7 @@ const moduleBannerTimeout = 300 * time.Millisecond
 // nothing; the page renders regardless. Fragment requests render no shell, so
 // they skip the providers.
 func (a *Admin) moduleBanners(r *http.Request, u *CurrentUser) []ModuleBanner {
-	if u == nil || u.Role != "owner" || len(a.deps.ModuleBanners) == 0 || isFragment(r) || r.Context().Value(bannersDoneKey{}) != nil {
+	if !canUser(r.Context(), a.logger(), u, authz.ActionDashboardOwnerRead) || len(a.deps.ModuleBanners) == 0 || isFragment(r) || r.Context().Value(bannersDoneKey{}) != nil {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), moduleBannerTimeout)
