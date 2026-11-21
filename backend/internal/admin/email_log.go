@@ -69,6 +69,8 @@ func emailKindLabel(kind, plugin string) string {
 		return "Comment replies summary"
 	case email.KindCommentSurge:
 		return "Comment surge"
+	case email.KindStaticExportFailed:
+		return "Static export failed"
 	case email.KindPlugin:
 		return "Plugin: " + plugin
 	}
