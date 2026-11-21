@@ -2,11 +2,12 @@ package database
 
 import (
 	"bytes"
-	"encoding/json"
 	"encoding/json/jsontext"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type scanCase struct {
@@ -63,7 +64,7 @@ func scanValue(t *testing.T, m *pgtype.Map, c scanCase) jsontext.Value {
 
 func TestJSONFastPathSkipsUnmarshal(t *testing.T) {
 	calls := 0
-	m := fastMap(func(b []byte, v any) error { calls++; return json.Unmarshal(b, v) })
+	m := fastMap(func(b []byte, v any) error { calls++; return jsonx.UnmarshalPinned(b, v) })
 	for _, c := range jsonScanCases() {
 		scanValue(t, m, c)
 	}
@@ -73,7 +74,7 @@ func TestJSONFastPathSkipsUnmarshal(t *testing.T) {
 }
 
 func TestJSONFastPathMatchesDefault(t *testing.T) {
-	def, fast := pgtype.NewMap(), fastMap(json.Unmarshal)
+	def, fast := pgtype.NewMap(), fastMap(jsonx.UnmarshalPinned)
 	for _, c := range jsonScanCases() {
 		want, got := scanValue(t, def, c), scanValue(t, fast, c)
 		if !bytes.Equal(want, got) || (want == nil) != (got == nil) {
@@ -94,7 +95,7 @@ func TestJSONFastPathMatchesDefault(t *testing.T) {
 }
 
 func TestJSONFastPathCopies(t *testing.T) {
-	m := fastMap(json.Unmarshal)
+	m := fastMap(jsonx.UnmarshalPinned)
 	for _, oid := range []uint32{pgtype.JSONOID, pgtype.JSONBOID} {
 		src := []byte(`{"a":1}`)
 		var v jsontext.Value
@@ -110,7 +111,7 @@ func TestJSONFastPathCopies(t *testing.T) {
 
 func TestJSONOtherTargetsUseUnmarshal(t *testing.T) {
 	calls := 0
-	m := fastMap(func(b []byte, v any) error { calls++; return json.Unmarshal(b, v) })
+	m := fastMap(func(b []byte, v any) error { calls++; return jsonx.UnmarshalPinned(b, v) })
 	src := []byte(`{"A":1}`)
 	var (
 		mp map[string]any
