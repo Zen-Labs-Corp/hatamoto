@@ -21,6 +21,12 @@ type StaticHosting struct {
 	Static bool   // the site is published as static files
 	Live   string // live origin L, "" = unset
 	Site   string // static origin S, "" = unset
+	// SameHost: static mode with no live origin. The site's web server serves the
+	// files and passes island paths and the admin to this server on the site
+	// address. Set only by the server from the raw saved setting (never inferred
+	// from Live == "", which is also what an invalid origin becomes). Store and
+	// WithHosting clear Live when it is set, so SameHost never carries a live origin.
+	SameHost bool
 }
 
 // Active reports whether static-mode island behaviour applies. Both origins
@@ -31,12 +37,32 @@ func (h StaticHosting) Active() bool {
 	return h.Static && h.Live != "" && h.Site != "" && originHost(h.Live) != originHost(h.Site)
 }
 
-// InactiveReason names why a static-mode snapshot is not active, or "" when it
-// is active or the site is served.
+// IslandsOn reports whether static pages get the island rewrite: a split live
+// origin, or the same host with a known Site.
+func (h StaticHosting) IslandsOn() bool {
+	return h.Active() || (h.Static && h.SameHost && h.Site != "")
+}
+
+// IslandBase is the origin island targets point at: the live origin when
+// split, the Site origin on the same host, "" otherwise.
+func (h StaticHosting) IslandBase() string {
+	switch {
+	case h.Active():
+		return h.Live
+	case h.IslandsOn():
+		return h.Site
+	}
+	return ""
+}
+
+// InactiveReason names why a static-mode snapshot has no island rewrite, or ""
+// when it has one or the site is served.
 func (h StaticHosting) InactiveReason() string {
 	switch {
-	case !h.Static || h.Active():
+	case !h.Static || h.IslandsOn():
 		return ""
+	case h.SameHost:
+		return "the Site URL is unset or not a plain origin (no path allowed)"
 	case h.Live == "":
 		return "the live origin is empty or not a plain origin (scheme://host[:port])"
 	case h.Site == "":
@@ -158,6 +184,9 @@ func (h *Holder) Load() StaticHosting {
 func (h *Holder) Store(v StaticHosting) {
 	v.Live, _ = NormalizeOrigin(v.Live)
 	v.Site, _ = NormalizeOrigin(v.Site)
+	if v.SameHost {
+		v.Live = ""
+	}
 	h.p.Store(&v)
 }
 
