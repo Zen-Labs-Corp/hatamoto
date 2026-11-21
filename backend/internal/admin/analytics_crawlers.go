@@ -47,9 +47,12 @@ type crawlersPage struct {
 	Lede string
 	// Verify is the verification banner above the chart; nil shows none.
 	Verify *verifyBanner
-	KPIs   []ui.Stat
-	Hero   ui.AiaChart
-	Agents ui.AiaAgents
+	// StaticNote warns that a statically served site hides crawler hits from
+	// Hatamoto; nil shows none.
+	StaticNote *staticNote
+	KPIs       []ui.Stat
+	Hero       ui.AiaChart
+	Agents     ui.AiaAgents
 	// Owner and Return feed the one policy form around the agents table.
 	Owner  bool
 	Return string
@@ -220,7 +223,8 @@ func (a *Admin) buildCrawlers(ctx context.Context, q url.Values, rg agents.Range
 	}
 
 	return &crawlersPage{
-		Verify: a.verifyBanner(ctx, q, rg),
+		Verify:     a.verifyBanner(ctx, q, rg),
+		StaticNote: a.staticNote(ctx),
 		Lede: strconv.Itoa(fetched) + " of " + strconv.Itoa(known) + " known AI agents and " + strconv.Itoa(len(searchRows)) + " " + plural(len(searchRows), "search engine", "search engines") + " fetched your site " + rangeWords(rg) +
 			". Allow or block a whole purpose at the top of each group.",
 		KPIs: []ui.Stat{

@@ -190,6 +190,8 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	if s.apiKeyService != nil {
 		d.APIKeys = s.apiKeyService
 	}
+	ai := s.cfg.AgentAnalytics
+	d.AgentLogIngest = ai.LogIngestActive() || (ai.LogIngestEnabled && ai.CaddyLogPath != "")
 	if s.webhooks != nil {
 		d.Webhooks = adminWebhooks{Service: s.webhooks, deliverer: s.webhookDeliverer}
 		d.WebhookDeliveryOn = s.webhookDeliveryOn
