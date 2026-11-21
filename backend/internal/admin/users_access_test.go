@@ -13,13 +13,18 @@ import (
 )
 
 // accessRigWith is an owner rig whose site is in Sydney, so a date entered in
-// the form is not the same instant in UTC, with the audit events captured.
+// the form is not the same instant in UTC, with the access-end audit events captured
+// (the user and invite rows have their own tests in users_audit_test.go).
 func accessRigWith(t *testing.T) (*ownerRig, *[]AuditEvent) {
 	t.Helper()
 	g := newOwnerRig(t, true)
 	g.a.deps.Site.(*fakeSite).cfg.Timezone = "Australia/Sydney"
 	var events []AuditEvent
-	g.a.deps.Audit = func(_ context.Context, e AuditEvent) { events = append(events, e) }
+	g.a.deps.Audit = func(_ context.Context, e AuditEvent) {
+		if e.Action == "user.access_changed" {
+			events = append(events, e)
+		}
+	}
 	return g, &events
 }
 
