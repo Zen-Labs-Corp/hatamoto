@@ -118,7 +118,7 @@ func TestArticleAuthorJSONLD_Integration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		r.srv.applyAuthorName(r.ctx, ent)
+		r.srv.applyAuthorNameFrom(r.ctx, ent, r.srv.bylinesOf(r.ctx, e.ID))
 		doc, _ := entity.GenerateJSONLD(ent, "http://example.test")
 		r.srv.bylinesOf(r.ctx, e.ID).applyJSONLD(r.ctx, e.ID, "http://example.test", doc)
 		b, _ := jsonx.Marshal(doc["author"])

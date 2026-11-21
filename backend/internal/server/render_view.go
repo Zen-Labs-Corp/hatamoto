@@ -576,14 +576,6 @@ func socialLinks(raw jsontext.Value) []render.Link {
 	return out
 }
 
-// headerNav is the header menu: exactly its items, none when it is empty or
-// when no header menu exists. Entity links are built through the URL registry
-// (see navLinks).
-func (s *Server) headerNav(ctx context.Context, links *navLinks) []render.NavItem {
-	nav, _ := s.menuNavFound(ctx, "header", links)
-	return nav
-}
-
 // menuNav returns the menu at location as render nav items; a missing menu or
 // a lookup error yields no items (the page still renders).
 func (s *Server) menuNav(ctx context.Context, location string, links *navLinks) []render.NavItem {

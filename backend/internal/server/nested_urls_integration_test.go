@@ -544,7 +544,7 @@ func TestAuthors_Integration(t *testing.T) {
 	// An entity credited to a person but with no plain byline gets the name in JSON-LD.
 	r.exec(`UPDATE hatamoto_entities SET attributes = '{}' WHERE id = $1`, e.ID)
 	ent, _ = pub.GetPublishedByID(r.ctx, e.ID)
-	r.srv.applyAuthorName(r.ctx, ent)
+	r.srv.applyAuthorNameFrom(r.ctx, ent, r.srv.bylinesOf(r.ctx, e.ID))
 	ld, _ = entity.GenerateJSONLD(ent, "http://example.test")
 	if got, _ := jsonx.Marshal(ld["author"]); string(got) != `{"@type":"Person","name":"Jane Q. Guest"}` {
 		t.Errorf("filled-in JSON-LD author = %s", got)
