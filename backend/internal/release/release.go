@@ -5,8 +5,11 @@
 package release
 
 import (
+	"fmt"
 	"regexp"
+	"slices"
 
+	"hatamoto.dev/core/internal/editionstate"
 	"hatamoto.dev/core/internal/jsonx"
 )
 
@@ -43,6 +46,10 @@ type Record struct {
 	MinFrom            string              `json:"min_from"`
 	NotesURL           string              `json:"notes_url"`
 	Artifacts          map[string]Artifact `json:"artifacts"` // by platform, e.g. "linux-amd64"
+	// Editions holds the builds of other editions, by edition name then
+	// platform; omitted when empty, so older records stay byte-identical.
+	// Older binaries ignore it and take Artifacts.
+	Editions map[string]map[string]Artifact `json:"editions,omitempty"`
 }
 
 // Channels lists the channel names a manifest may carry.
@@ -50,6 +57,39 @@ var Channels = []string{"stable", "edge", "canary"}
 
 // Platforms lists the targets every record must carry.
 var Platforms = []string{"linux-amd64", "linux-arm64", "darwin-amd64", "darwin-arm64"}
+
+// Editions lists the edition names a record may carry besides the default build.
+var Editions = []string{"enterprise"}
+
+func isDefaultEdition(e string) bool { return e == "" || e == editionstate.Community }
+
+// ArtifactName is the published file name of the build for edition and platform.
+func ArtifactName(edition, platform string) string {
+	if isDefaultEdition(edition) {
+		return "hatamoto-" + platform
+	}
+	return "hatamoto-" + edition + "-" + platform
+}
+
+// ArtifactFor returns the build an edition's binary must install. A
+// non-default edition never falls back to the default build.
+func (r *Record) ArtifactFor(edition, platform string) (Artifact, error) {
+	if isDefaultEdition(edition) {
+		a, ok := r.Artifacts[platform]
+		if !ok {
+			return Artifact{}, fmt.Errorf("%w: no artifact for %s", ErrRecordMismatch, platform)
+		}
+		return a, nil
+	}
+	if !slices.Contains(Editions, edition) {
+		return Artifact{}, fmt.Errorf("%w: %q is not a release edition", ErrRecordMismatch, edition)
+	}
+	a, ok := r.Editions[edition][platform]
+	if !ok {
+		return Artifact{}, fmt.Errorf("%w: no %s artifact for %s", ErrRecordMismatch, edition, platform)
+	}
+	return a, nil
+}
 
 // RampStep raises the share of installs offered a release to Pct from At.
 type RampStep struct {
