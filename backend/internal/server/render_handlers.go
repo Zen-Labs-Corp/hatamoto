@@ -833,7 +833,7 @@ func (h *renderHandlers) writeNotFoundQuiet(w http.ResponseWriter, r *http.Reque
 			(v.Uncacheable != nil && *v.Uncacheable) ||
 			render.DegradedCount() != before ||
 			(h.dataFailures != nil && h.dataFailures() != failuresBefore)
-		if storeOK && built && !degraded && !database.PoolBusyHit(r.Context()) {
+		if storeOK && built && !degraded && !v.Preview && !v.Dynamic && !database.PoolBusyHit(r.Context()) {
 			h.notFound.put(key, body, gen, now.Add(h.pageTTLFor(v)))
 		}
 	}
@@ -859,7 +859,7 @@ func (h *renderHandlers) notFoundKey(r *http.Request) (key string, gen uint64, o
 	if r.URL.RawQuery != "" || len(path) > maxNotFoundPath ||
 		h.uncached || uncachedRequest(ctx) || h.commentBypass.applies(r) ||
 		isSmokeRequest(ctx) || refreshRequested(ctx) || hiddenLocalesServed(ctx) ||
-		h.pageFilter.Applies(path) {
+		h.pageFilter.Applies(path) || h.snapshotDegraded(ctx) {
 		return "", 0, false
 	}
 	return h.engine.Version() + "\x00" + path, h.cache.Generation(), true

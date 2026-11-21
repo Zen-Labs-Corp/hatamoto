@@ -1,7 +1,11 @@
 package server
 
 import (
+	"errors"
+	"time"
+
 	"context"
+	"hatamoto.dev/core/internal/entity"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -211,5 +215,25 @@ func TestNotFoundStoreBypass(t *testing.T) {
 				t.Fatalf("store holds %d entries, want 0", n)
 			}
 		})
+	}
+}
+
+// TestNotFoundStoreSkipsDegradedSnapshot: while the URL snapshot cannot be
+// read the locale setup is unknown, so a 404 is neither served from nor kept
+// in the store (a recovered snapshot would not purge a frozen wrong-locale body).
+func TestNotFoundStoreSkipsDegradedSnapshot(t *testing.T) {
+	f := newRenderFixture(t)
+	f.h.notFound = newNotFoundCache()
+	f.h.snapshot = func(context.Context) (*entity.URLSnapshot, error) { return nil, errors.New("db down") }
+	req := httptest.NewRequest(http.MethodGet, "/nope", nil)
+	key := f.h.engine.Version() + "\x00/nope"
+	f.h.notFound.put(key, []byte("STORED-SENTINEL"), f.cache.Generation(), time.Now().Add(time.Hour))
+	rec := httptest.NewRecorder()
+	f.h.writeNotFoundQuiet(rec, req)
+	if strings.Contains(rec.Body.String(), "STORED-SENTINEL") {
+		t.Fatal("a degraded snapshot was served the stored body")
+	}
+	if n := len(f.h.notFound.m); n != 1 {
+		t.Fatalf("store holds %d entries, want only the sentinel", n)
 	}
 }
