@@ -33,11 +33,18 @@
 // change only a few answers, delegate the rest to Default:
 //
 //	func (policy) Can(ctx context.Context, s authz.Subject, a authz.Action, o authz.Object) (bool, error) {
-//		if a == authz.ActionEntityPublish && o.Schema == "page" {
+//		// Only a session is narrowed here; a key falls through to the default
+//		// rules, which check its scopes.
+//		if a == authz.ActionEntityPublish && o.Schema == "page" && s.KeyID == "" {
 //			return s.Role == "owner", nil
 //		}
 //		return authz.Default().Can(ctx, s, a, o)
 //	}
+//
+// For a key subject (KeyID is not empty) Role is ignored: CreatorRole and
+// Scopes decide. Whoever builds a Subject must set KeyID for every request made
+// with an API key, and a policy that answers for key subjects itself must
+// check Scopes (or delegate to Default) instead of looking at Role.
 //
 // Register must run before app.Main (from an init function); app.Main
 // freezes the registration, and a later, second, nil or typed-nil Register
