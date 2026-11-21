@@ -41,7 +41,23 @@ func (f *fakeHostingStore) Save(_ context.Context, s staticexport.Settings) erro
 	return nil
 }
 
-type fakeHostingRuns struct{ runs []staticexport.Run }
+type fakeHostingRuns struct {
+	runs []staticexport.Run
+	// stale marks running rows as abandoned: ClearAbandoned then fails them.
+	stale bool
+}
+
+func (f *fakeHostingRuns) ClearAbandoned(context.Context) error {
+	if !f.stale {
+		return nil
+	}
+	for i := range f.runs {
+		if f.runs[i].Status == admin.HostingRunRunning {
+			f.runs[i].Status = admin.HostingRunFailed
+		}
+	}
+	return nil
+}
 
 func (f *fakeHostingRuns) List(_ context.Context, limit int) ([]staticexport.Run, error) {
 	if limit < len(f.runs) {
@@ -449,6 +465,16 @@ func TestHostingAdmin_TestExportRefusals(t *testing.T) {
 	}
 	if len(calls) != 0 {
 		t.Errorf("export ran %d times", len(calls))
+	}
+}
+
+func TestHostingAdmin_TestExportIgnoresAbandonedRun(t *testing.T) {
+	var calls []testExportCall
+	fx, _ := testExportFixture(t, &calls)
+	fx.runs.runs = []staticexport.Run{{Status: admin.HostingRunRunning}}
+	fx.runs.stale = true
+	if err := fx.h.TestExport(context.Background()); err != nil {
+		t.Fatalf("abandoned running row blocked Test export: %v", err)
 	}
 }
 

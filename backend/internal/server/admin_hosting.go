@@ -27,6 +27,7 @@ type hostingSettingsStore interface {
 
 type hostingRunLister interface {
 	List(ctx context.Context, limit int) ([]staticexport.Run, error)
+	ClearAbandoned(ctx context.Context) error
 }
 
 // hostingAdmin implements admin.HostingService over the engine's settings and
@@ -231,6 +232,11 @@ func (h *hostingAdmin) TestExport(ctx context.Context) error {
 	}
 	t, err := staticexport.SavedTarget(set, h.key, h.dirGuard, os.Getenv)
 	if err != nil {
+		return err
+	}
+	// A crashed run keeps its running row until something reaps it; a served
+	// site never calls Start, so reap here or Test export stays blocked.
+	if err := h.runs.ClearAbandoned(ctx); err != nil {
 		return err
 	}
 	if runs, err := h.runs.List(ctx, 1); err == nil && len(runs) > 0 && runs[0].Status == admin.HostingRunRunning {

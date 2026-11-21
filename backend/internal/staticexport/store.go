@@ -118,11 +118,8 @@ func NewRunStore(db Querier) *RunStore { return &RunStore{db: db} }
 // taken as crashed and marked failed first. ErrBusy means another run is
 // active; no row is written then.
 func (s *RunStore) Start(ctx context.Context, trigger, target string) (uuid.UUID, error) {
-	if _, err := s.db.Exec(ctx, `
-		UPDATE hatamoto_static_export_runs
-		SET status = 'failed', errors = '["abandoned"]'::jsonb, finished_at = now()
-		WHERE status = 'running' AND heartbeat_at < now() - interval '`+staleAfter+`'`); err != nil {
-		return uuid.Nil, fmt.Errorf("clear abandoned static export runs: %w", err)
+	if err := s.ClearAbandoned(ctx); err != nil {
+		return uuid.Nil, err
 	}
 	var id uuid.UUID
 	err := s.db.QueryRow(ctx, `
@@ -136,6 +133,18 @@ func (s *RunStore) Start(ctx context.Context, trigger, target string) (uuid.UUID
 		return uuid.Nil, fmt.Errorf("start static export run: %w", err)
 	}
 	return id, nil
+}
+
+// ClearAbandoned marks a running row whose heartbeat is older than five
+// minutes as failed, so a crashed run stops looking live. Start does it too.
+func (s *RunStore) ClearAbandoned(ctx context.Context) error {
+	if _, err := s.db.Exec(ctx, `
+		UPDATE hatamoto_static_export_runs
+		SET status = 'failed', errors = '["abandoned"]'::jsonb, finished_at = now()
+		WHERE status = 'running' AND heartbeat_at < now() - interval '`+staleAfter+`'`); err != nil {
+		return fmt.Errorf("clear abandoned static export runs: %w", err)
+	}
+	return nil
 }
 
 // Heartbeat tells other callers the run is alive.

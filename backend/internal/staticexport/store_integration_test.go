@@ -126,6 +126,33 @@ func TestRunStore_StaleTakeover(t *testing.T) {
 	}
 }
 
+func TestRunStore_ClearAbandoned(t *testing.T) {
+	pool := newIntegrationPool(t)
+	ctx := context.Background()
+	rs := NewRunStore(pool)
+	id, err := rs.Start(ctx, "cli", "dir:/srv/x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rs.ClearAbandoned(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var status string
+	q := `SELECT status FROM hatamoto_static_export_runs WHERE id = $1`
+	if err := pool.QueryRow(ctx, q, id).Scan(&status); err != nil || status != "running" {
+		t.Fatalf("fresh run: %s %v", status, err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE hatamoto_static_export_runs SET heartbeat_at = now() - interval '10 minutes' WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	if err := rs.ClearAbandoned(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, q, id).Scan(&status); err != nil || status != "failed" {
+		t.Fatalf("stale run: %s %v", status, err)
+	}
+}
+
 func TestRunStore_FinishCapsErrors(t *testing.T) {
 	pool := newIntegrationPool(t)
 	ctx := context.Background()
