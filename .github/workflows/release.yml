@@ -2,7 +2,8 @@ name: release
 
 # A v* tag builds the four release artifacts, their bundles, an SBOM per binary
 # and an unsigned record into a DRAFT release. Signing happens offline (RUNBOOK
-# section 2); no key or secret is used here. Each job holds only the permission
+# section 2); no signing key is used here, and the only secret is the token that
+# starts another edition's build, held by that one step. Each job holds only the permission
 # it needs: build reads, attest signs build provenance and SBOM attestations with
 # the job's OIDC identity (public repositories only: GitHub does not offer
 # attestations to private repositories on every plan, and the private flow must
@@ -89,6 +90,19 @@ jobs:
       - name: Read build facts
         run: dist/hatamoto-linux-amd64 version --json > dist/facts.json
 
+      # Another edition's build, when the repository opts in (repository variable
+      # RELEASE_EDITIONS). Dispatched to the edition build repository for this tag,
+      # waited for with a deadline, checked against its SHA256SUMS and copied into
+      # dist/, where `record` adds it. Any failure stops the build: no draft.
+      - name: Fetch the edition builds
+        if: ${{ vars.RELEASE_EDITIONS != '' }}
+        timeout-minutes: 60
+        env:
+          RELEASE_EDITIONS: ${{ vars.RELEASE_EDITIONS }}
+          EDITION_REPO: ${{ vars.EDITION_REPO }}
+          GH_TOKEN: ${{ secrets.EDITION_DISPATCH_TOKEN }}
+        run: bash scripts/edition-artifacts.sh fetch --tag "$GITHUB_REF_NAME" --sha "$GITHUB_SHA" --dist dist
+
       # rollback_floor and min_from are placeholders; `record --check` flags
       # them for review before the record is signed. The kind follows the
       # version: x.0.0 major, x.y.0 minor, otherwise patch.
@@ -104,6 +118,12 @@ jobs:
             --rollback-floor "$GITHUB_REF_NAME" --min-from "$GITHUB_REF_NAME" \
             --notes-url "https://hatamoto.dev/releases/$GITHUB_REF_NAME" \
             --dir ../dist --out ../dist/release.json
+
+      - name: Require the opted-in editions
+        if: ${{ vars.RELEASE_EDITIONS != '' }}
+        env:
+          RELEASE_EDITIONS: ${{ vars.RELEASE_EDITIONS }}
+        run: bash scripts/edition-artifacts.sh require --record dist/release.json
 
       # One SPDX and one CycloneDX document per binary, read from the Go build
       # info embedded in it. They ride in the release next to the binary, and the

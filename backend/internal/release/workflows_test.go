@@ -142,7 +142,43 @@ func TestWorkflowsStatic(t *testing.T) {
 	}
 	// The kind comes from the tag, never a fixed word.
 	mustContain(t, "release.yml", rel, `--kind "$kind"`, `kind="major"`, `kind="minor"`, `kind="patch"`)
-	mustNotContain(t, "release.yml", rel, "--kind patch", "secrets.", "branches:", "go build", "-ldflags", "schedule:")
+	mustNotContain(t, "release.yml", rel, "--kind patch", "branches:", "go build", "-ldflags", "schedule:")
+	// One secret only: the token that dispatches another edition's build, read by
+	// the fetch step alone, after the tag is verified and the binaries are built
+	// and before the record is made.
+	if strings.Count(rel, "secrets.") != 1 || strings.Count(rel, "secrets.EDITION_DISPATCH_TOKEN") != 1 {
+		t.Error("release.yml may use one secret only: EDITION_DISPATCH_TOKEN")
+	}
+	build := workflowJob(t, rel, "build")
+	sigAt, makeAt := strings.Index(build, "Verify the tag signature"), strings.Index(build, "make release-build")
+	fetchAt, recordAt := strings.Index(build, "name: Fetch the edition builds"), strings.Index(build, "tools/release record")
+	tokAt, reqAt := strings.Index(build, "secrets.EDITION_DISPATCH_TOKEN"), strings.Index(build, "name: Require the opted-in editions")
+	if !(0 <= sigAt && sigAt < makeAt && makeAt < fetchAt && fetchAt < tokAt && tokAt < recordAt && recordAt < reqAt) {
+		t.Errorf("build steps out of order: signature %d, build %d, fetch %d, token %d, record %d, require %d", sigAt, makeAt, fetchAt, tokAt, recordAt, reqAt)
+	}
+	if fetchAt >= 0 {
+		step := build[fetchAt:]
+		if end := strings.Index(step, "\n      - "); end >= 0 {
+			step = step[:end]
+		}
+		mustContain(t, "release.yml (fetch step)", step, "if: ${{ vars.RELEASE_EDITIONS != '' }}", "timeout-minutes:", "bash scripts/edition-artifacts.sh fetch", "secrets.EDITION_DISPATCH_TOKEN")
+	}
+	if reqAt >= 0 {
+		step := build[reqAt:]
+		if end := strings.Index(step, "\n      - "); end >= 0 {
+			step = step[:end]
+		}
+		mustContain(t, "release.yml (require step)", step, "if: ${{ vars.RELEASE_EDITIONS != '' }}", "bash scripts/edition-artifacts.sh require")
+		mustNotContain(t, "release.yml (require step)", step, "secrets.")
+	}
+	for _, job := range []string{"attest", "draft"} {
+		if strings.Contains(workflowJob(t, rel, job), "secrets.") {
+			t.Errorf("release.yml job %s must not read a secret", job)
+		}
+	}
+	if draft := workflowJob(t, rel, "draft"); !strings.Contains(draft, "needs: build\n") || strings.Contains(draft, "always()") {
+		t.Error("the draft job must need build alone and never run after a failed build")
+	}
 	// Only the v* tag trigger.
 	if strings.Count(rel, "\n  push:") != 1 || strings.Contains(rel, "pull_request") {
 		t.Error("release.yml must trigger only on a pushed v* tag")
