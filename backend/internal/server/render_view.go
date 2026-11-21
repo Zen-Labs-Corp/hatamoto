@@ -483,36 +483,29 @@ func (s *Server) buildSiteView(ctx context.Context) (render.SiteView, error) {
 	if err != nil {
 		return render.SiteView{}, fmt.Errorf("site config: %w", err)
 	}
-	theme := effectiveTheme(cfg)
+	d := s.siteDerivedFor(cfg)
+	theme := d.themeCopy()
 	links := s.newNavLinks(ctx)
 	site := render.SiteView{
-		Name:         cfg.CompanyName,
-		Tagline:      cfg.Tagline,
-		LogoURL:      cfg.LogoURL,
-		FaviconURL:   cfg.FaviconURL,
-		Tokens:       themeTokens(theme),
-		SocialLinks:  socialLinks(cfg.ThemeExtra),
-		Nav:          s.headerNav(ctx, links),
-		FooterNav:    s.menuNav(ctx, "footer", links),
-		Language:     siteLanguage(cfg),
-		Phone:        cfg.Phone,
-		Hours:        cfg.BusinessHours,
-		ContactFloat: contactFloat(cfg),
-		Address:      postalAddress(cfg.PostalAddress),
-		OrgAddress:   orgAddressMode(cfg),
+		Name:       cfg.CompanyName,
+		Tagline:    cfg.Tagline,
+		LogoURL:    cfg.LogoURL,
+		FaviconURL: cfg.FaviconURL,
+		Tokens:     themeTokens(theme),
+		Nav:        s.headerNav(ctx, links),
+		FooterNav:  s.menuNav(ctx, "footer", links),
+		Language:   siteLanguage(cfg),
+		Phone:      cfg.Phone,
+		Hours:      cfg.BusinessHours,
 	}
-	var oerr error
-	if site.Org, oerr = orgView(cfg); oerr != nil {
-		s.logger.Warn("render: invalid business profile dropped from the organization", "error", oerr)
+	d.apply(&site)
+	if d.orgErr != nil {
+		s.logger.Warn("render: invalid business profile dropped from the organization", "error", d.orgErr)
 	}
 	site.LogoWidth, site.LogoHeight = s.logoSizes.size(ctx, site.Org.LogoObject, s.logoSearch(), site.LogoURL)
 	site.Fonts, site.FontPreload = s.fontFaces(ctx, theme)
-	site.Settings = siteSettings(cfg.ThemeExtra)
-	site.CustomCSSName = render.CustomCSSName(render.AdditionalCSS(cfg.ThemeExtra))
-	site.EmailPlain = !siteconfig.ParseProtectEmail(cfg.ThemeExtra)
-	var derr error
-	if site.Design, derr = builder.ParseDesign(cfg.ThemeExtra); derr != nil {
-		s.logger.Warn("render: invalid builder design settings dropped", "error", derr)
+	if d.designErr != nil {
+		s.logger.Warn("render: invalid builder design settings dropped", "error", d.designErr)
 	}
 	if _, ok := s.urlSnapshot(ctx).Config(feedPostSchema); ok {
 		site.Feeds = []render.FeedLink{
