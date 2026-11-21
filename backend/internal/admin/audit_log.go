@@ -114,6 +114,7 @@ const (
 	auditSearchDefaultDays = 30
 	auditSearchMaxDays     = 366
 	auditFacetDays         = 90
+	auditErrorClip         = 200 // runes of an agent call's error shown in the Result cell
 )
 
 // auditParams is the URL state of the page: everything but the cursor.
@@ -293,7 +294,7 @@ func (a *Admin) handleAuditLog(w http.ResponseWriter, r *http.Request) {
 		result := auditResultLabel(e.Result)
 		cell := ui.Cell{Text: result}
 		if e.Error != "" {
-			cell.Notes = []string{e.Error}
+			cell.Notes = []string{clip(e.Error, auditErrorClip)}
 		}
 		t.Rows = append(t.Rows, ui.Row{ID: e.Src + strconv.FormatInt(e.ID, 10), Label: auditLabel(e.Action) + " at " + when, Cells: []ui.Cell{
 			{Text: when, Nowrap: true}, {Text: e.Actor}, {Text: auditSourceLabel(e.Source)}, {Text: auditLabel(e.Action)}, {Text: auditTarget(e), Clip: true}, cell,
