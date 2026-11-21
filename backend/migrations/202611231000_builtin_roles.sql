@@ -16,7 +16,9 @@ ALTER TABLE public.hatamoto_user_tokens ADD CONSTRAINT chk_user_tokens_role
     CHECK (role IN ('owner', 'editor', 'author', 'contributor', 'reviewer', 'read-only'));
 
 -- +goose Down
--- Rows with the new roles are kept; the old checks apply to new writes only.
+-- Rows with the new roles are kept. The old checks are NOT VALID, so they are not
+-- scanned now, but Postgres still enforces them whenever such a row is updated:
+-- until a user with a new role is moved to owner or editor, updating that row fails.
 ALTER TABLE public.hatamoto_user_tokens DROP CONSTRAINT IF EXISTS chk_user_tokens_role;
 ALTER TABLE public.hatamoto_user_tokens ADD CONSTRAINT hatamoto_user_tokens_role_check CHECK (role IN ('owner', 'editor')) NOT VALID;
 ALTER TABLE public.hatamoto_users DROP CONSTRAINT IF EXISTS chk_users_role;
