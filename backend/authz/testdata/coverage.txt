@@ -1,7 +1,7 @@
 # Every authorization gate in core and the catalogue action(s) it maps to.
 # Checked by coverage_test.go: every action exists, every catalogue action is
 # cited, every file exists, and each file has one "group" row per
-# RequireRole( / RequireOwnerOrKeyScope( line in internal/admin and
+# RequireRole( / RequireCan( / RequireOwnerOrKeyScope( line in internal/admin and
 # internal/server (a new gate needs a row, and an action if none fits).
 #
 # <backend-relative path> group|inline|flag|other <action>[,<action>...] [roles=<owner|owner,editor>] [n=<count>]   # <note, with line numbers as hints>
@@ -12,7 +12,7 @@
 #          coverage_test.go). Where a plugin's own role list narrows editors,
 #          roles is the widest answer and the note says so.
 #
-# group  = a RequireRole / RequireOwnerOrKeyScope line (counted by the test)
+# group  = a RequireRole / RequireCan / RequireOwnerOrKeyScope line (counted by the test)
 # inline = any other gate: an owner/editor check in a handler, a key scope
 #          check, or a route open to every signed-in user
 # flag   = an owner/editor check that only changes what a screen shows
