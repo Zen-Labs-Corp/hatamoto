@@ -171,3 +171,29 @@ func TestRunFlushesOnCancel(t *testing.T) {
 		t.Errorf("calls = %d, want 1", n)
 	}
 }
+
+func TestHungTargetIsBoundedByTimeout(t *testing.T) {
+	blocker := blockTarget{}
+	ok := &fakeTarget{name: "ok"}
+	r := New(fakeRes{}, []Target{blocker, ok}, slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Options{Backoff: []time.Duration{}, SendTimeout: 20 * time.Millisecond})
+	r.Notify(Item{Paths: []string{"https://example.com/a"}})
+	done := make(chan struct{})
+	go func() { r.Flush(context.Background()); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Flush stalled on a purger that waits for its context")
+	}
+	if len(ok.calls()) != 1 {
+		t.Errorf("second target got %d calls, want 1", len(ok.calls()))
+	}
+}
+
+type blockTarget struct{}
+
+func (blockTarget) Name() string { return "block" }
+func (blockTarget) Send(ctx context.Context, _ Request) error {
+	<-ctx.Done()
+	return ctx.Err()
+}

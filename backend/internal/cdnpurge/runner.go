@@ -24,7 +24,9 @@ const (
 	// BatchCap is the most URLs one Request carries.
 	BatchCap   = 500
 	finalFlush = 5 * time.Second
-	warnEvery  = time.Minute
+	// sendTimeout bounds one Send, the same limit as the webhook client.
+	sendTimeout = 10 * time.Second
+	warnEvery   = time.Minute
 )
 
 // Item is one thing that changed. Only the Resolver interprets Kind, ID,
@@ -64,6 +66,8 @@ type Options struct {
 	// Backoff lists the waits between attempts (default 2s, 10s: three
 	// attempts in total). Tests pass {0, 0}.
 	Backoff []time.Duration
+	// SendTimeout bounds each Send call (default 10s).
+	SendTimeout time.Duration
 	// Sleep waits d or until ctx ends; test seam.
 	Sleep func(ctx context.Context, d time.Duration) error
 }
@@ -93,6 +97,9 @@ func New(res Resolver, targets []Target, log *slog.Logger, opt Options) *Runner 
 	}
 	if opt.MaxPending <= 0 {
 		opt.MaxPending = defaultMaxItems
+	}
+	if opt.SendTimeout <= 0 {
+		opt.SendTimeout = sendTimeout
 	}
 	if opt.Backoff == nil {
 		opt.Backoff = []time.Duration{2 * time.Second, 10 * time.Second}
@@ -246,5 +253,7 @@ func (r *Runner) try(ctx context.Context, t Target, req Request) (err error) {
 			err = fmt.Errorf("target panicked: %v", p)
 		}
 	}()
+	ctx, cancel := context.WithTimeout(ctx, r.opt.SendTimeout)
+	defer cancel()
 	return t.Send(ctx, req)
 }
