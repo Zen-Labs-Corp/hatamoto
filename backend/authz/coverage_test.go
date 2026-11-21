@@ -190,7 +190,7 @@ func TestCoverageRolesMatchDefaults(t *testing.T) {
 	}
 }
 
-var gateLine = regexp.MustCompile(`RequireRole\(|RequireOwnerOrKeyScope\(`)
+var gateLine = regexp.MustCompile(`RequireRole\(|RequireCan\(|RequireOwnerOrKeyScope\(`)
 
 // TestCoverageGroupRowsMatchGates fails when a RequireRole group is added or
 // removed in the admin or server without a matching row.

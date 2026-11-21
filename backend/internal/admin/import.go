@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/entitycsv"
 	"hatamoto.dev/core/internal/httpx"
@@ -91,7 +92,7 @@ func limitImportBody(prefix string) func(http.Handler) http.Handler {
 }
 
 func (a *Admin) mountImport(authed *httpx.Group) {
-	owner := authed.Group("", a.RequireRole("owner"))
+	owner := authed.Group("", a.RequireCan(authz.ActionImportRun))
 	// The tab URL and the wizard base show the same source page.
 	owner.HandleFunc("GET /settings/import", a.handleImportSource)
 	owner.HandleFunc("GET /settings/import/wordpress", a.handleImportSource)

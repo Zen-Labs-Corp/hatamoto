@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/entity"
@@ -143,7 +144,7 @@ func canonicalLanguage(v string) (string, bool) {
 
 func mountSiteSettings(r *httpx.Group, h *siteSettingsHandlers) {
 	{
-		r := r.Group("/settings/site", middleware.RequireRole("owner"))
+		r := r.Group("/settings/site", middleware.RequireCan(authz.ActionSettingsManage))
 		r.HandleFunc("GET /", h.handleGet)
 		r.HandleFunc("PATCH /", h.handlePatch)
 		r.HandleFunc("GET /theme", h.handleGetTheme)

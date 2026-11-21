@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"golang.org/x/time/rate"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/database"
 )
@@ -115,55 +115,45 @@ func ContextWithClaims(ctx context.Context, claims *auth.Claims) context.Context
 	return context.WithValue(ctx, claimsContextKey, claims)
 }
 
-// RequireRole middleware ensures the user has one of the specified roles.
-func RequireRole(roles ...string) func(http.Handler) http.Handler {
+// RequireCan lets the request through when authz allows its subject to
+// perform act. The trace tag names the roles the built-in authorizer admits.
+func RequireCan(act authz.Action) func(http.Handler) http.Handler {
+	tag := fmt.Sprint("role", defaultRoles(act))
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			trace(r, fmt.Sprint("role", roles))
-			claims, ok := GetClaims(r.Context())
-			if !ok {
-				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			trace(r, tag)
+			subj, status := requestSubject(r.Context())
+			if status != 0 {
+				deny(w, status)
 				return
 			}
-
-			if slices.Contains(roles, claims.Role) {
-				next.ServeHTTP(w, r)
+			if !allowed(r, subj, act) {
+				deny(w, http.StatusForbidden)
 				return
 			}
-
-			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			next.ServeHTTP(w, r)
 		})
 	}
 }
 
-// RequireOwnerOrKeyScope admits an API key holding read (GET/HEAD) or write
-// (any other method) scope, or a session whose role is owner. Keys carry
-// synthesised editor claims, so the claims are not consulted for a key; the
-// scope check itself requires an owner creator for owner-only scopes.
-func RequireOwnerOrKeyScope(read, write auth.APIKeyScope) func(http.Handler) http.Handler {
+// RequireOwnerOrKeyScope admits an API key allowed read (GET/HEAD) or write
+// (any other method), or an owner session, as decided by authz. Keys carry
+// synthesised editor claims, so the claims are not consulted for a key.
+func RequireOwnerOrKeyScope(read, write authz.Action) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			trace(r, "ownerOrKey")
-			key, hasKey := GetAPIKey(r.Context())
-			if hasKey || GetAuthType(r.Context()) == AuthTypeAPIKey {
-				need := write
-				if r.Method == http.MethodGet || r.Method == http.MethodHead {
-					need = read
-				}
-				if !hasKey || !key.HasScope(need) {
-					http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
-					return
-				}
-				next.ServeHTTP(w, r)
+			subj, status := requestSubject(r.Context())
+			if status != 0 {
+				deny(w, status)
 				return
 			}
-			claims, ok := GetClaims(r.Context())
-			if !ok {
-				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-				return
+			act := write
+			if r.Method == http.MethodGet || r.Method == http.MethodHead {
+				act = read
 			}
-			if claims.Role != "owner" {
-				http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			if !allowed(r, subj, act) {
+				deny(w, http.StatusForbidden)
 				return
 			}
 			next.ServeHTTP(w, r)

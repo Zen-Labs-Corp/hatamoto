@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
 	hmauth "hatamoto.dev/core/internal/auth"
@@ -72,7 +73,7 @@ func (s *Server) registerInsight() {
 		EntityID string `json:"entity_id,omitempty" jsonschema:"also report this one page: last fetch per AI agent, first crawl, user fetches"`
 		Limit    int    `json:"limit,omitempty" jsonschema:"pages to return (default 20, max 100)"`
 	}
-	register(s, toolSpec{name: "analytics_crawler_hits", description: "AI-crawler fetches of the site: per page and per agent over a date range (served responses only for pages). With entity_id, also that page's per-agent last fetch and first crawl.", scope: reportScope, idempotent: true},
+	register(s, toolSpec{name: "analytics_crawler_hits", description: "AI-crawler fetches of the site: per page and per agent over a date range (served responses only for pages). With entity_id, also that page's per-agent last fetch and first crawl.", scope: reportScope, action: authz.ActionAnalyticsRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in hitsIn) (any, error) {
 			rg, err := dateRange(in.From, in.To)
 			if err != nil {
@@ -105,7 +106,7 @@ func (s *Server) registerInsight() {
 		rangeIn
 		Limit int `json:"limit,omitempty" jsonschema:"rows (default 20, max 100)"`
 	}
-	register(s, toolSpec{name: "analytics_first_crawls", description: "Pages whose first AI crawl happened in the range: which agent, and how long after publishing.", scope: reportScope, idempotent: true},
+	register(s, toolSpec{name: "analytics_first_crawls", description: "Pages whose first AI crawl happened in the range: which agent, and how long after publishing.", scope: reportScope, action: authz.ActionAnalyticsRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in firstIn) (any, error) {
 			rg, err := dateRange(in.From, in.To)
 			if err != nil {
@@ -123,7 +124,7 @@ func (s *Server) registerInsight() {
 		Filter string `json:"filter,omitempty" jsonschema:"page rows to return: all (default), not-crawled, errors or stale"`
 		Limit  int    `json:"limit,omitempty" jsonschema:"page rows (default 20, max 100)"`
 	}
-	register(s, toolSpec{name: "analytics_google", description: "Googlebot crawling over a date range: crawls, verified share, pages crawled of published, median publish to first crawl, and per-page rows (crawls, last crawl day, last status, stale). Spoofed fetches are left out of the page numbers.", scope: reportScope, idempotent: true},
+	register(s, toolSpec{name: "analytics_google", description: "Googlebot crawling over a date range: crawls, verified share, pages crawled of published, median publish to first crawl, and per-page rows (crawls, last crawl day, last status, stale). Spoofed fetches are left out of the page numbers.", scope: reportScope, action: authz.ActionAnalyticsRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in googleIn) (any, error) {
 			rg, err := dateRange(in.From, in.To)
 			if err != nil {
@@ -132,7 +133,7 @@ func (s *Server) registerInsight() {
 			return googleSummary(ctx, s.d.Crawlers, rg, in.Filter, clampLimit(in.Limit, 20))
 		})
 
-	register(s, toolSpec{name: "analytics_ai_referrals", description: "Visits sent by AI assistants (ChatGPT, Perplexity, ...) per day. Counted per assistant and day only: the site keeps no per-page or per-visitor referral data.", scope: reportScope, idempotent: true},
+	register(s, toolSpec{name: "analytics_ai_referrals", description: "Visits sent by AI assistants (ChatGPT, Perplexity, ...) per day. Counted per assistant and day only: the site keeps no per-page or per-visitor referral data.", scope: reportScope, action: authz.ActionAnalyticsRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in rangeIn) (any, error) {
 			rg, err := dateRange(in.From, in.To)
 			if err != nil {
@@ -154,7 +155,7 @@ func (s *Server) registerInsight() {
 		By    string `json:"by,omitempty" jsonschema:"grouping: channel (default), source, campaign, page, device or country"`
 		Limit int    `json:"limit,omitempty" jsonschema:"rows (default 20, max 100)"`
 	}
-	register(s, toolSpec{name: "analytics_traffic", description: "Human visits to the public site over a date range, grouped by channel, source, campaign, landing page, device or country: visits, pageviews and engaged share. Counts only; the site keeps no per-visitor, IP or user agent data. Bots are not counted here (see analytics_crawler_hits).", scope: reportScope, idempotent: true},
+	register(s, toolSpec{name: "analytics_traffic", description: "Human visits to the public site over a date range, grouped by channel, source, campaign, landing page, device or country: visits, pageviews and engaged share. Counts only; the site keeps no per-visitor, IP or user agent data. Bots are not counted here (see analytics_crawler_hits).", scope: reportScope, action: authz.ActionAnalyticsRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in trafficIn) (any, error) {
 			rg, err := dateRange(in.From, in.To)
 			if err != nil {
@@ -169,7 +170,7 @@ func (s *Server) registerInsight() {
 		By    string `json:"by,omitempty" jsonschema:"grouping: channel (default), source, campaign, page or form"`
 		Limit int    `json:"limit,omitempty" jsonschema:"rows (default 20, max 100)"`
 	}
-	register(s, toolSpec{name: "analytics_conversions", description: "Form submissions (leads) over a date range, grouped by channel, source, campaign, landing page or form, by the first or last touch of the submitter's tab. Counts only: no submitter emails, field values, IP or user agent. Spam is not counted; submissions stored before attribution was recorded count as channel unknown.", scope: reportScope, idempotent: true},
+	register(s, toolSpec{name: "analytics_conversions", description: "Form submissions (leads) over a date range, grouped by channel, source, campaign, landing page or form, by the first or last touch of the submitter's tab. Counts only: no submitter emails, field values, IP or user agent. Spam is not counted; submissions stored before attribution was recorded count as channel unknown.", scope: reportScope, action: authz.ActionAnalyticsRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in conversionsIn) (any, error) {
 			rg, err := dateRange(in.From, in.To)
 			if err != nil {
@@ -178,7 +179,7 @@ func (s *Server) registerInsight() {
 			return conversionsSummary(ctx, s.d.Conversions, rg, in.Touch, in.By, clampLimit(in.Limit, 20))
 		})
 
-	register(s, toolSpec{name: "analytics_crawler_verification", description: "How well AI-crawler IP verification works over a date range: verified, spoofed and unverifiable fetches from agents that publish IP ranges, the spoofed share, distinct spoofed addresses, and the header client IPs are read from. level is ok, bad (misconfigured proxy or CDN) or unknown (too few fetches to judge).", scope: reportScope, idempotent: true},
+	register(s, toolSpec{name: "analytics_crawler_verification", description: "How well AI-crawler IP verification works over a date range: verified, spoofed and unverifiable fetches from agents that publish IP ranges, the spoofed share, distinct spoofed addresses, and the header client IPs are read from. level is ok, bad (misconfigured proxy or CDN) or unknown (too few fetches to judge).", scope: reportScope, action: authz.ActionAnalyticsRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in rangeIn) (any, error) {
 			rg, err := dateRange(in.From, in.To)
 			if err != nil {
@@ -190,7 +191,7 @@ func (s *Server) registerInsight() {
 	type sitemapIn struct {
 		Sub string `json:"sub,omitempty" jsonschema:"child sitemap name (e.g. posts); empty = the sitemap index"`
 	}
-	register(s, toolSpec{name: "sitemap_preview", description: "The sitemap XML as crawlers get it now (index, or one child sitemap).", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "sitemap_preview", description: "The sitemap XML as crawlers get it now (index, or one child sitemap).", scope: readScope, action: authz.ActionEntityRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in sitemapIn) (any, error) {
 			path := "/sitemap.xml"
 			if in.Sub != "" {
@@ -203,7 +204,7 @@ func (s *Server) registerInsight() {
 				return object{"urls": strings.Count(body, "<url>"), "sitemaps": strings.Count(body, "<sitemap>")}
 			})
 		})
-	register(s, toolSpec{name: "llms_txt_preview", description: "The /llms.txt manifest as AI crawlers get it now.", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "llms_txt_preview", description: "The /llms.txt manifest as AI crawlers get it now.", scope: readScope, action: authz.ActionEntityRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, _ struct{}) (any, error) {
 			return s.preview(ctx, "/llms.txt", nil)
 		})
@@ -211,7 +212,7 @@ func (s *Server) registerInsight() {
 	type ldIn struct {
 		EntityID string `json:"entity_id"`
 	}
-	register(s, toolSpec{name: "jsonld_validate", description: "Render a page's JSON-LD (the live page when published, otherwise generated from the draft) and check it: valid JSON, @context, @type, and the fields Google expects per type.", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "jsonld_validate", description: "Render a page's JSON-LD (the live page when published, otherwise generated from the draft) and check it: valid JSON, @context, @type, and the fields Google expects per type.", scope: readScope, action: authz.ActionEntityRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in ldIn) (any, error) {
 			id, err := parseID("entity_id", in.EntityID)
 			if err != nil {

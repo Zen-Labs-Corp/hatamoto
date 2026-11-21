@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
 	hmauth "hatamoto.dev/core/internal/auth"
 )
 
@@ -76,7 +77,7 @@ func (s *Server) registerComments() {
 		Page     int    `json:"page,omitempty" jsonschema:"1-based page"`
 		Limit    int    `json:"limit,omitempty" jsonschema:"page size, default 20, max 100"`
 	}
-	register(s, toolSpec{name: "comments_list", description: "List comments by status (default pending, the moderation queue), with why each was held. Shows commenter names and comment text, never email addresses.", scope: commentsRead, idempotent: true},
+	register(s, toolSpec{name: "comments_list", description: "List comments by status (default pending, the moderation queue), with why each was held. Shows commenter names and comment text, never email addresses.", scope: commentsRead, action: authz.ActionCommentRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in listIn) (any, error) {
 			sv, err := svc()
 			if err != nil {
@@ -120,7 +121,7 @@ func (s *Server) registerComments() {
 	type idIn struct {
 		ID string `json:"id" jsonschema:"comment id (UUID)"`
 	}
-	register(s, toolSpec{name: "comments_approve", description: "Approve a comment so it shows on the page. Approving an approved comment does nothing.", scope: commentsWrite, write: true, idempotent: true},
+	register(s, toolSpec{name: "comments_approve", description: "Approve a comment so it shows on the page. Approving an approved comment does nothing.", scope: commentsWrite, action: authz.ActionCommentModerate, write: true, idempotent: true},
 		func(ctx context.Context, key *hmauth.APIKey, in idIn) (any, error) {
 			sv, err := svc()
 			if err != nil {
@@ -132,7 +133,7 @@ func (s *Server) registerComments() {
 			}
 			return sv.Approve(ctx, id, key.CreatedBy)
 		})
-	register(s, toolSpec{name: "comments_spam", description: "Marks a comment as spam: hides it and blocks its commenter.", scope: commentsWrite, write: true, idempotent: true, destructive: true},
+	register(s, toolSpec{name: "comments_spam", description: "Marks a comment as spam: hides it and blocks its commenter.", scope: commentsWrite, action: authz.ActionCommentModerate, write: true, idempotent: true, destructive: true},
 		func(ctx context.Context, key *hmauth.APIKey, in idIn) (any, error) {
 			sv, err := svc()
 			if err != nil {
@@ -149,7 +150,7 @@ func (s *Server) registerComments() {
 		ID   string `json:"id" jsonschema:"comment to reply to (UUID)"`
 		Body string `json:"body" jsonschema:"reply text"`
 	}
-	register(s, toolSpec{name: "comments_reply", description: "Reply to a comment as the key's creator.", scope: commentsWrite, write: true},
+	register(s, toolSpec{name: "comments_reply", description: "Reply to a comment as the key's creator.", scope: commentsWrite, action: authz.ActionCommentReplyAsStaff, write: true},
 		func(ctx context.Context, key *hmauth.APIKey, in replyIn) (any, error) {
 			sv, err := svc()
 			if err != nil {

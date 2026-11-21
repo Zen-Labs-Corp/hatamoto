@@ -9,7 +9,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/authzsubject"
+	"hatamoto.dev/core/internal/authztest"
 	"hatamoto.dev/core/internal/database"
 )
 
@@ -450,5 +453,91 @@ func TestAPIKeyCreatorCanAct(t *testing.T) {
 		if got := (&auth.APIKey{CreatorRole: role}).CreatorCanAct(); got != want {
 			t.Errorf("role %q: got %v want %v", role, got, want)
 		}
+	}
+}
+
+// TestKeyRoutesKeepTheirScopes pins the scope each allow-list row needed before
+// the rows named authz actions: the built-in authorizer must admit a key with
+// exactly that scope and refuse one without scopes.
+func TestKeyRoutesKeepTheirScopes(t *testing.T) {
+	wantScope := map[string]auth.APIKeyScope{
+		"GET ^/api/v1/entities/?$":                         auth.ScopeReadEntities,
+		"GET ^/api/v1/entities/[^/]+/?$":                   auth.ScopeReadEntities,
+		"GET ^/api/v1/entities/[^/]+/versions(/[^/]+)?/?$": auth.ScopeReadEntities,
+		"GET ^/api/v1/render/theme/?$":                     auth.ScopeReadEntities,
+		"POST ^/api/v1/render/preview/?$":                  auth.ScopeReadEntities,
+		"POST ^/api/v1/entities/?$":                        auth.ScopeWriteEntities,
+		"PATCH ^/api/v1/entities/[^/]+/status/?$":          auth.ScopeWriteEntities,
+		"PUT ^/api/v1/entities/[^/]+/?$":                   auth.ScopeWriteEntities,
+		"PATCH ^/api/v1/entities/[^/]+/?$":                 auth.ScopeWriteEntities,
+		"POST ^/api/v1/entities/[^/]+/restore/[^/]+/?$":    auth.ScopeWriteEntities,
+		"POST ^/api/v1/linking/suggest/[^/]+/?$":           auth.ScopeReadEntities,
+		"POST ^/api/v1/linking/insert/?$":                  auth.ScopeWriteEntities,
+		"GET ^/api/v1/settings/seo/?$":                     auth.ScopeReadSEO,
+		"PATCH ^/api/v1/settings/seo/?$":                   auth.ScopeWriteSEO,
+		"GET ^/api/v1/media/?$":                            auth.ScopeReadMedia,
+		"POST ^/api/v1/media/upload/?$":                    auth.ScopeWriteMedia,
+		"GET ^/api/v1/forms/?$":                            auth.ScopeReadForms,
+		"GET ^/api/v1/forms/" + formID + "/?$":             auth.ScopeReadForms,
+		"GET ^/api/v1/forms/" + formID + "/submissions/?$": auth.ScopeReadForms,
+	}
+	if len(keyRoutes) != len(wantScope) {
+		t.Fatalf("%d allow-list rows, %d pinned scopes", len(keyRoutes), len(wantScope))
+	}
+	creator := uuid.New()
+	subject := func(scopes ...auth.APIKeyScope) authz.Subject {
+		return authzsubject.ForKey(&auth.APIKey{ID: uuid.New(), CreatedBy: &creator, CreatorRole: "owner", Scopes: scopes})
+	}
+	for _, kr := range keyRoutes {
+		id := kr.method + " " + kr.re.String()
+		scope, ok := wantScope[id]
+		if !ok {
+			t.Errorf("row %q has no pinned scope", id)
+			continue
+		}
+		if kr.action == "" {
+			t.Errorf("row %q has no action", id)
+			continue
+		}
+		if got, err := authz.Default().Can(context.Background(), subject(scope), kr.action, authz.Object{}); err != nil || !got {
+			t.Errorf("row %q: key with %s denied (%v)", id, scope, err)
+		}
+		if got, err := authz.Default().Can(context.Background(), subject(), kr.action, authz.Object{}); err != nil || got {
+			t.Errorf("row %q: key without scopes allowed (%v)", id, err)
+		}
+	}
+}
+
+func TestKeyRoutesDenyAll(t *testing.T) {
+	authztest.Use(t, authztest.DenyAll)
+	owner := testKey(auth.ScopeAll)
+	owner.CreatorRole = "owner"
+	h := newKeyHarness(t, true, map[string]*auth.APIKey{"owner": owner})
+	if rec := do(h.handler, "GET", "/api/v1/entities", "owner"); rec.Code != http.StatusForbidden {
+		t.Fatalf("owner * key under deny-all: got %d want 403", rec.Code)
+	}
+	if h.reachedKey.Load() != 0 {
+		t.Fatal("denied request reached the handler")
+	}
+}
+
+// An editor-created "*" key must not reach owner-only data: the SEO settings
+// scopes need an owner creator, and users are not on the allow-list at all.
+func TestEditorCreatedAllKeyIsRefused(t *testing.T) {
+	h := newKeyHarness(t, true, map[string]*auth.APIKey{"all": testKey(auth.ScopeAll)})
+	for _, c := range []struct{ method, path string }{
+		{"GET", "/api/v1/settings/seo"},
+		{"PATCH", "/api/v1/settings/seo"},
+		{"GET", "/api/v1/users"},
+	} {
+		if rec := do(h.handler, c.method, c.path, "all"); rec.Code != http.StatusForbidden {
+			t.Errorf("%s %s: got %d want 403", c.method, c.path, rec.Code)
+		}
+	}
+	if h.reachedKey.Load() != 0 {
+		t.Fatal("refused request reached the handler")
+	}
+	if rec := do(h.handler, "GET", "/api/v1/entities", "all"); rec.Code != http.StatusOK {
+		t.Errorf("editor-created * key on entities: got %d want 200", rec.Code)
 	}
 }

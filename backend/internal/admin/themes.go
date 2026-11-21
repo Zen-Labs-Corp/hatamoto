@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
@@ -22,7 +23,7 @@ import (
 // Browsing, installing, activating and settings are owner only; previewing is
 // also open to editors.
 func (a *Admin) mountThemes(authed *httpx.Group) {
-	owner := authed.Group("", a.RequireRole("owner"))
+	owner := authed.Group("", a.RequireCan(authz.ActionThemeManage))
 	owner.HandleFunc("GET /theme/themes", a.handleThemes)
 	a.mountThemeBrowse(owner)
 	owner.HandleFunc("POST /theme/themes/fetch", a.handleThemeFetch)
@@ -47,7 +48,7 @@ func (a *Admin) mountThemes(authed *httpx.Group) {
 	owner.HandleFunc("POST /theme/themes/{name}/settings", a.handleThemeSettingsSave)
 	owner.HandleFunc("GET /theme/themes/{name}/uninstall", a.handleThemeUninstallForm)
 	owner.HandleFunc("POST /theme/themes/{name}/uninstall", a.handleThemeUninstall)
-	both := authed.Group("", a.RequireRole("owner", "editor"))
+	both := authed.Group("", a.RequireCan(authz.ActionThemePreview))
 	both.HandleFunc("GET /preview/theme/{name}", a.handleThemePreview)
 }
 

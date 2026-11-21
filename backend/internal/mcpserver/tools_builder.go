@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 
+	"hatamoto.dev/core/authz"
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/builder"
 )
@@ -64,7 +65,7 @@ func (s *Server) registerBuilder() {
 	type kindsIn struct {
 		Kind string `json:"kind,omitempty" jsonschema:"only this node kind (for example container)"`
 	}
-	register(s, toolSpec{name: "builder_kinds", description: "List the page builder's node kinds: props with types and limits, whether the kind takes children, the one parent kind it must sit in (onlyIn), whether it is interactive (not allowed inside a linked container), and which universal props it takes (universal; their limits are in universalProps). Read this before building a page with builder_apply_ops.", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "builder_kinds", description: "List the page builder's node kinds: props with types and limits, whether the kind takes children, the one parent kind it must sit in (onlyIn), whether it is interactive (not allowed inside a linked container), and which universal props it takes (universal; their limits are in universalProps). Read this before building a page with builder_apply_ops.", scope: readScope, action: authz.ActionEntityRead, idempotent: true},
 		func(_ context.Context, _ *hmauth.APIKey, in kindsIn) (any, error) {
 			all := kindsOut()
 			if in.Kind == "" {
@@ -79,12 +80,12 @@ func (s *Server) registerBuilder() {
 		})
 
 	type noIn struct{}
-	register(s, toolSpec{name: "builder_stylespec", description: "The style vocabulary of a node's s map: every style key with its value rules, plus the breakpoints and states a style map key (bp or bp:state) is made of.", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "builder_stylespec", description: "The style vocabulary of a node's s map: every style key with its value rules, plus the breakpoints and states a style map key (bp or bp:state) is made of.", scope: readScope, action: authz.ActionEntityRead, idempotent: true},
 		func(context.Context, *hmauth.APIKey, noIn) (any, error) {
 			return object{"keys": builder.StyleSpecTable(), "breakpoints": builder.Breakpoints(), "states": builder.States()}, nil
 		})
 
-	register(s, toolSpec{name: "builder_design", description: "The site's design tokens and presets, read only: tokens are the names a style value takes (space-4, primary, lg), the palette (colour names, spacing steps and font sizes with their resolved values, usable as style values) and the named style presets.", scope: readScope, idempotent: true},
+	register(s, toolSpec{name: "builder_design", description: "The site's design tokens and presets, read only: tokens are the names a style value takes (space-4, primary, lg), the palette (colour names, spacing steps and font sizes with their resolved values, usable as style values) and the named style presets.", scope: readScope, action: authz.ActionEntityRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, _ noIn) (any, error) {
 			di := defaultDesign()
 			if s.d.Design != nil {

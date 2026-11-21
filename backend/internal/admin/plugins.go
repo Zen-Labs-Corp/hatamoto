@@ -14,6 +14,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
@@ -30,8 +31,8 @@ var (
 )
 
 func (a *Admin) mountPlugins(authed *httpx.Group) {
-	owner := authed.Group("", a.RequireRole("owner"))
-	both := authed.Group("", a.RequireRole("owner", "editor"))
+	owner := authed.Group("", a.RequireCan(authz.ActionPluginManage))
+	both := authed.Group("", a.RequireCan(authz.ActionPluginView))
 	a.mountMoreSettings(owner)
 	owner.HandleFunc("GET /plugins", a.handlePlugins)
 	a.mountPluginInstall(owner)

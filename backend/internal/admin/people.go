@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/person"
@@ -22,7 +23,7 @@ const peoplePerPage = 50
 // entity form (grouped fields, and any field a site adds to the type), so the
 // list links there; only the list and "Add person" live here.
 func (a *Admin) mountPeople(authed *httpx.Group) {
-	g := authed.Group("", a.RequireRole("owner", "editor"))
+	g := authed.Group("", a.RequireCan(authz.ActionPersonManage))
 	g.HandleFunc("GET /people", a.handlePeople)
 	g.HandleFunc("GET /people/new", a.handlePersonNew)
 	g.HandleFunc("GET /people/duplicates", a.handlePeopleDuplicates)

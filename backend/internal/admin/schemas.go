@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/entity"
@@ -23,7 +24,7 @@ import (
 )
 
 func (a *Admin) mountSchemas(authed *httpx.Group) {
-	owner := authed.Group("", a.RequireRole("owner"))
+	owner := authed.Group("", a.RequireCan(authz.ActionSchemaManage))
 	owner.HandleFunc("GET /settings/types", a.handleSchemas)
 	owner.HandleFunc("GET /settings/types/new", a.handleSchemaNew)
 	owner.HandleFunc("POST /settings/types", a.handleSchemaCreate)

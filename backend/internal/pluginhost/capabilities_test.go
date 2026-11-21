@@ -155,8 +155,8 @@ func capaManifest(mutate func(*sdk.Manifest)) sdk.Manifest {
 			{Method: "POST", Path: "/echo", Roles: []string{"owner", "editor"}},
 			{Method: "GET", Path: "/who/{name}", Public: true},
 			{Method: "GET", Path: "/redirect"},
-			{Method: "GET", Path: "/cache", Roles: []string{"viewer"}},
-			{Method: "GET", Path: "/open", Roles: []string{"viewer"}},
+			{Method: "GET", Path: "/cache", Roles: []string{"editor"}},
+			{Method: "GET", Path: "/open", Roles: []string{"editor"}},
 			{Method: "GET", Path: "/admin/{rest...}"},
 			{Method: "GET", Path: "/items/{id}/"},
 		}}
@@ -374,17 +374,17 @@ func TestRoutesAuthorisedPathIsTheDispatchedPath(t *testing.T) {
 	r := newCapaRig(t)
 	r.load(t, nil)
 	admin := r.rt.AdminRoutes()
-	viewer := &sdk.HTTPUser{ID: "u3", Role: "viewer"}
+	viewer := &sdk.HTTPUser{ID: "u3", Role: "editor"}
 	serve := func(rest string) *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()
 		admin.Serve(rec, httptest.NewRequest("GET", "/x/", nil), "capa", rest, viewer)
 		return rec
 	}
 	if rec := serve("open"); rec.Code != 200 || rec.Body.String() != "open" {
-		t.Fatalf("a viewer on /open: %d %s", rec.Code, rec.Body)
+		t.Fatalf("an editor on /open: %d %s", rec.Code, rec.Body)
 	}
 	if rec := serve("admin/x"); rec.Code != http.StatusForbidden {
-		t.Fatalf("a viewer on the owner-only /admin/...: %d", rec.Code)
+		t.Fatalf("an editor on the owner-only /admin/...: %d", rec.Code)
 	}
 	// "admin/../open" is what r.PathValue("rest") yields for admin%2F..%2Fopen.
 	for _, rest := range []string{"admin/../open", "admin/./x", "open/", "/open", "items//1/", "items/1", "x/../open"} {
@@ -429,7 +429,7 @@ func TestRouteResponseHeaders(t *testing.T) {
 		}
 	}
 	// An authenticated response is never shared-cacheable, whatever the plugin says.
-	viewer := &sdk.HTTPUser{ID: "u3", Role: "viewer"}
+	viewer := &sdk.HTTPUser{ID: "u3", Role: "editor"}
 	rec := httptest.NewRecorder()
 	admin.Serve(rec, httptest.NewRequest("GET", "/x/", nil), "capa", "cache", viewer)
 	cc := rec.Header().Get("Cache-Control")
@@ -549,7 +549,7 @@ func TestRouteSwapUnderLoad(t *testing.T) {
 				default:
 				}
 				rec := httptest.NewRecorder()
-				admin.Serve(rec, httptest.NewRequest("GET", "/", nil), "capa", "echo", &sdk.HTTPUser{Role: "owner"})
+				admin.Serve(rec, httptest.NewRequest("GET", "/", nil), "capa", "echo", &sdk.HTTPUser{ID: "u1", Role: "owner"})
 				if rec.Code != 201 && rec.Code != 404 {
 					t.Errorf("status during swap = %d", rec.Code)
 					return

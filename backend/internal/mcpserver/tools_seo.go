@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"hatamoto.dev/core/authz"
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/redirect"
@@ -56,7 +57,7 @@ func (s *Server) registerSEO() {
 	}
 
 	type none struct{}
-	register(s, toolSpec{name: "seo_get", description: "The site's SEO settings: every section (separator, home, types, taxonomy, archives, variables, social, index, robots, verification, sitemap, breadcrumbs, indexnow, monitor404), type_settings per content type and ai_crawlers. Values are stored values (monitor404.disabled, not enabled). The IndexNow key is never shown.", scope: seoRead, idempotent: true},
+	register(s, toolSpec{name: "seo_get", description: "The site's SEO settings: every section (separator, home, types, taxonomy, archives, variables, social, index, robots, verification, sitemap, breadcrumbs, indexnow, monitor404), type_settings per content type and ai_crawlers. Values are stored values (monitor404.disabled, not enabled). The IndexNow key is never shown.", scope: seoRead, action: authz.ActionSettingsSEORead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, _ none) (any, error) {
 			sv, err := svc()
 			if err != nil {
@@ -68,7 +69,7 @@ func (s *Server) registerSEO() {
 	type updateIn struct {
 		Patch object `json:"patch" jsonschema:"sections to change, keyed like seo_get's result (a section name, type_settings or ai_crawlers)"`
 	}
-	register(s, toolSpec{name: "seo_update", description: "Change SEO settings with a partial patch: only the keys you send change, and each section named is merged into the stored one (send a field to set it, null on a map entry deletes it, ai_crawlers.denied_purposes replaces the list). Send the keys as seo_get returns them. A refused patch (field errors) changes nothing. Returns the whole document.", scope: seoWrite, write: true, idempotent: true},
+	register(s, toolSpec{name: "seo_update", description: "Change SEO settings with a partial patch: only the keys you send change, and each section named is merged into the stored one (send a field to set it, null on a map entry deletes it, ai_crawlers.denied_purposes replaces the list). Send the keys as seo_get returns them. A refused patch (field errors) changes nothing. Returns the whole document.", scope: seoWrite, action: authz.ActionSettingsSEOWrite, write: true, idempotent: true},
 		func(ctx context.Context, key *hmauth.APIKey, in updateIn) (any, error) {
 			sv, err := svc()
 			if err != nil {
@@ -92,7 +93,7 @@ func (s *Server) registerSEO() {
 	type entityIn struct {
 		EntityID string `json:"entity_id" jsonschema:"id of the entity"`
 	}
-	register(s, toolSpec{name: "seo_preview", description: "The SEO tags a published entry's public page carries: title, description, canonical, robots, Open Graph and Twitter tags, as a visitor's page emits them. Drafts are not found.", scope: seoRead, idempotent: true},
+	register(s, toolSpec{name: "seo_preview", description: "The SEO tags a published entry's public page carries: title, description, canonical, robots, Open Graph and Twitter tags, as a visitor's page emits them. Drafts are not found.", scope: seoRead, action: authz.ActionSettingsSEORead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in entityIn) (any, error) {
 			sv, err := svc()
 			if err != nil {
@@ -109,7 +110,7 @@ func (s *Server) registerSEO() {
 			return p, nil
 		})
 
-	register(s, toolSpec{name: "seo_analyze", description: "The SEO checks of an entry as stored (search and answer checks, without keyword or llms.txt checks): each check's status and message, the 0-100 score, its tone (pass, warn, fail) and how many checks need fixing.", scope: seoRead, idempotent: true},
+	register(s, toolSpec{name: "seo_analyze", description: "The SEO checks of an entry as stored (search and answer checks, without keyword or llms.txt checks): each check's status and message, the 0-100 score, its tone (pass, warn, fail) and how many checks need fixing.", scope: seoRead, action: authz.ActionSettingsSEORead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in entityIn) (any, error) {
 			sv, err := svc()
 			if err != nil {
@@ -137,7 +138,7 @@ func (s *Server) registerSEO() {
 		Page    int    `json:"page,omitempty" jsonschema:"page number from 1"`
 		PerPage int    `json:"per_page,omitempty" jsonschema:"rows per page (default 20, max 100)"`
 	}
-	register(s, toolSpec{name: "seo_404_list", description: "The 404 log: addresses visitors asked for that did not exist, with hits, last seen, referrer and whether a redirect covers them.", scope: seoRead, idempotent: true},
+	register(s, toolSpec{name: "seo_404_list", description: "The 404 log: addresses visitors asked for that did not exist, with hits, last seen, referrer and whether a redirect covers them.", scope: seoRead, action: authz.ActionSettingsSEORead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in notFoundIn) (any, error) {
 			if s.d.NotFound == nil {
 				return nil, userErr("seo tools are not available")

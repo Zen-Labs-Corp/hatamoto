@@ -15,6 +15,8 @@ import (
 	"sync/atomic"
 	"unicode/utf8"
 
+	"hatamoto.dev/core/authz"
+	"hatamoto.dev/core/internal/authzsubject"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/logutil"
 	"hatamoto.dev/core/internal/wasmhost"
@@ -170,6 +172,17 @@ func (g *RouteRegistry) Serve(w http.ResponseWriter, r *http.Request, plugin, re
 			roles = []string{"owner"}
 		}
 		if user == nil || !slices.Contains(roles, user.Role) {
+			writeJSONError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		// The manifest list narrows who may call this route; the authorizer
+		// must agree as well.
+		ok, err := authz.Can(r.Context(), authzsubject.ForSession(user.ID, user.Role),
+			authz.ActionPluginRouteInvoke, authz.Object{Kind: "plugin", ID: plugin})
+		if err != nil || !ok {
+			if err != nil {
+				slog.WarnContext(r.Context(), "authz check failed", "plugin", plugin, "err", err)
+			}
 			writeJSONError(w, http.StatusForbidden, "forbidden")
 			return
 		}
