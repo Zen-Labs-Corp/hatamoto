@@ -191,6 +191,194 @@ A bucket does not turn `blog/my-post/index.html` into `/blog/my-post` by
 itself. Use a host or CDN setting that serves an index document for
 directories, and one that reads `_redirects` or serves the stubs.
 
+## Hosting setups
+
+There are three ways to publish the static files. Settings > Hosting shows a
+"Set up your web server" card for the saved settings, with the exact
+configuration for your folder; the examples below show its shape.
+
+### Same host (default)
+
+One host serves everything. Your web server serves the export folder and passes
+the paths only Hatamoto answers to Hatamoto. There is no live origin, so there
+is no CORS and no second hostname: pages, forms, search and comments all use the
+site address. In the hosting settings this is the *Same host* choice, which
+saves an empty live origin.
+
+The web server passes these paths to Hatamoto:
+
+- `/forms/`, `/-/` (for example the comment form), `/f/`, `/p/`, `/api/`,
+  `/auth/`, `/plugin-ui/` and `/preview/`, and `/mcp`;
+- `/search` and `/<locale>/search`;
+- the admin path (`/admin` here, or the path you configured);
+- the public API prefix, when it is set and not already under `/api/`;
+- `/theme/assets/hm-live.js`, the script that loads the comment form.
+
+Everything else is a file from the export folder. A missing file answers with
+`/404.html`. `/_redirects` and `/.hatamoto-static.json` are answered with 404.
+
+The upstream address is the one Hatamoto listens on (`127.0.0.1:8090` here). A
+listen address of `0.0.0.0`, `::` or none is shown as `127.0.0.1`; change it in
+the config if your web server reaches Hatamoto differently. Loopback is a
+trusted proxy by default, so the forwarded address and scheme headers work
+without further setup.
+
+#### Caddy
+
+```
+example.com {
+	@hatamoto {
+		path /admin /admin/* /api/* /auth/* /f/* /forms/* /mcp /p/* /plugin-ui/* /preview/* /search /-/* /theme/assets/hm-live.js
+	}
+	@hatamoto_search path_regexp ^/[^/]+/search$
+	handle @hatamoto {
+		reverse_proxy 127.0.0.1:8090
+	}
+	handle @hatamoto_search {
+		reverse_proxy 127.0.0.1:8090
+	}
+	handle {
+		root * /srv/site/public
+		@hidden path /_redirects /.hatamoto-static.json
+		respond @hidden 404
+		header {
+			X-Content-Type-Options "nosniff"
+			X-Frame-Options "SAMEORIGIN"
+			Referrer-Policy "strict-origin-when-cross-origin"
+		}
+		redir /old-page /new-page 301
+		try_files {path} {path}/index.html
+		file_server
+	}
+	handle_errors {
+		root * /srv/site/public
+		rewrite * /404.html
+		file_server
+	}
+}
+```
+
+#### nginx
+
+```
+server {
+	listen 80;
+	# Add your TLS lines here: listen 443 ssl; ssl_certificate ...;
+	server_name example.com;
+	root /srv/site/public;
+
+	location ^~ /forms/ {
+		proxy_pass http://127.0.0.1:8090;
+		proxy_set_header Host $host;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_set_header X-Forwarded-Proto $scheme;
+	}
+	# ... the same block for /-/, /f/, /p/, /api/, /auth/, /plugin-ui/,
+	# /preview/, the admin path, and exact locations for /mcp, /search
+	# and /theme/assets/hm-live.js
+	location ~ ^/[^/]+/search$ {
+		proxy_pass http://127.0.0.1:8090;
+		proxy_set_header Host $host;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_set_header X-Forwarded-Proto $scheme;
+	}
+
+	location = /_redirects { return 404; }
+	location = /.hatamoto-static.json { return 404; }
+	location = /old-page { return 301 /new-page; }
+
+	location / {
+		add_header X-Content-Type-Options "nosniff" always;
+		add_header X-Frame-Options "SAMEORIGIN" always;
+		add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+		try_files $uri $uri/index.html =404;
+	}
+	error_page 404 /404.html;
+}
+```
+
+The generated config is longer: it lists every path, adds the full header set
+and translates your redirects (see [Redirects](#redirects-on-a-plain-web-server)
+and [Security headers](#security-headers)). Security headers are set only on
+the files your web server serves. Hatamoto sets its own on what it answers, and
+the admin has its own policy.
+
+### Separate live origin
+
+The files are served from the site address and the islands answer on a second
+hostname, the live origin. Use it when the site address cannot reach Hatamoto,
+for example a bucket behind a CDN. Choose it under *Advanced: separate live
+origin* in the hosting settings.
+
+- The live origin needs its own DNS name and a proxy to Hatamoto. It must differ
+  from the site address in its host.
+- The admin moves to the live origin.
+- The live origin answers CORS for the site address only, and redirects page
+  GETs to the static site.
+- The Content Security Policy of the static site must allow the live origin in
+  `script-src`, `connect-src` and `form-action`. The generated config does this.
+
+The generated Caddy and nginx configs then have two sites: one serving the
+files without a proxy, and one for the live host that proxies everything to
+Hatamoto (`reverse_proxy 127.0.0.1:8090` in Caddy, `proxy_pass` in nginx).
+
+### S3 + CDN
+
+For an S3-compatible bucket the card shows guidance instead of a web server
+config, because a bucket cannot pass requests to Hatamoto.
+
+- **Headers.** Add the security headers at the CDN (see
+  [Security headers](#security-headers)): `X-Content-Type-Options`,
+  `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and the
+  Content-Security-Policy. Cloudflare uses Transform Rules (response header
+  modification); CloudFront uses a response headers policy.
+- **Redirects.** Netlify and Cloudflare Pages read `_redirects`. A plain bucket
+  does not: exact rules fall back to the meta-refresh pages the export writes,
+  and wildcard rules are lost. See
+  [Redirects](#redirects-on-a-plain-web-server).
+- **Islands.** Use a separate live origin, unless the CDN routes the island
+  paths listed under [Same host](#same-host-default) to Hatamoto.
+- **Admin.** With a separate live origin the admin is on the live host. If the
+  CDN routes the paths to Hatamoto, it stays on the site address.
+- **Directories.** Serve an index document for directories, as described under
+  [S3-compatible target](#s3-compatible-target).
+
+### Security headers
+
+Static pages should get what public pages get from Hatamoto: `X-Frame-Options:
+SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy:
+strict-origin-when-cross-origin`, `X-XSS-Protection: 0`, a `Permissions-Policy`
+and the page Content-Security-Policy. The policy follows the server's
+`CSP_ENFORCE` setting (report-only until enforced), and
+`Strict-Transport-Security` is added only in production. The setup card lists
+the header names it includes.
+
+### Redirects on a plain web server
+
+`_redirects` is read by Netlify and Cloudflare Pages, not by Caddy, nginx or a
+bucket. The setup card counts the exact and the wildcard rules in the last
+export's `_redirects` (for a directory target) and translates them:
+
+- Caddy: an exact rule becomes `redir <from> <to> <status>`; a wildcard rule
+  becomes a `path_regexp` matcher and a `redir` that uses the captures.
+- nginx: an exact rule becomes `location = <from> { return <status> <to>; }`; a
+  wildcard rule becomes a regular-expression `location` that returns with the
+  captures.
+
+Rules the generator cannot express safely (a status other than 301, 302, 307 or
+308, unusual characters, a placeholder inside text) are left out as a
+`# skipped:` comment and listed on the card. For an S3 target the card shows
+only the total from the last run.
+
+### Checklist
+
+- The parent of the export folder is writable by the service user (the card
+  checks it).
+- The security headers are set where the files are served.
+- `/_redirects` and `/.hatamoto-static.json` are not served.
+- The site address answers; the card tests it after an export and shows "Not
+  checked yet" until then.
+
 ## Known gaps
 
 - **Other query URLs**, such as the knowledge graph's `?schema=` and a
@@ -207,15 +395,17 @@ directories, and one that reads `_redirects` or serves the stubs.
   export warns once when the WordPress toggle is on.
 - **Forms, comments, search and the tracking beacon** still post to the live
   site. A static host does not run them.
-  In static mode with a live origin saved in the hosting settings
-  (`live_origin`), exported pages send them to that live origin, which answers
-  CORS for the site address only and redirects its page GETs to the static
-  site; see [THEMES.md](THEMES.md#static-mode). The live origin answers the
-  preflight of `hx-post` islands for these request headers: `Content-Type`,
-  `X-Page-URL`, `HX-Request`, `HX-Current-URL`, `HX-Target`, `HX-Trigger`,
-  `HX-Trigger-Name`, `HX-Boosted` and `HX-Prompt`. The new-comment post also
-  answers the static site's CORS preflight (that origin only, no credentials,
-  and only in static mode); comment edit and delete do not.
+  In static mode they stay on the site address when the web server passes their
+  paths to Hatamoto (see [Same host](#same-host-default)), or, with a live
+  origin saved in the hosting settings (`live_origin`), exported pages send
+  them to that live origin, which answers CORS for the site address only and
+  redirects its page GETs to the static site; see
+  [THEMES.md](THEMES.md#static-mode). The live origin answers the preflight of
+  `hx-post` islands for these request headers: `Content-Type`, `X-Page-URL`,
+  `HX-Request`, `HX-Current-URL`, `HX-Target`, `HX-Trigger`, `HX-Trigger-Name`,
+  `HX-Boosted` and `HX-Prompt`. The new-comment post also answers the static
+  site's CORS preflight (that origin only, no credentials, and only in static
+  mode); comment edit and delete do not.
   Erasing a commenter anonymises their comments and re-exports the site
   (trigger `comment`).
 - **Response headers of `/media`** are not carried over, except the types and
@@ -285,10 +475,14 @@ region, bucket, folder prefix, access key and secret key). The page shows only
 the fields of the chosen target; the fields of the other one keep their saved
 values. The secret key is
 stored sealed with a key derived from the server secret, is never shown again
-and a blank field keeps the saved one. The live origin is the address where the
-islands answer; it must differ from the site address in its host. While the site is static,
+and a blank field keeps the saved one. The live islands card offers *Same host*
+(the default: your web server passes the island paths to Hatamoto, and the live
+origin stays empty) or, under *Advanced: separate live origin*, an address where
+the islands answer; that one must differ from the site address in its host.
+The *Set up your web server* card shows the config for the saved settings (see
+[Hosting setups](#hosting-setups)). While the site is static,
 a Save that changes the target, any of its fields, the secret key or the live
-origin asks for your password. Nothing is kept across the password page, so
+origin, including switching to Same host, asks for your password. Nothing is kept across the password page, so
 enter the changes again.
 
 **What starts an export.** With the worker running and the mode set to static,
@@ -310,7 +504,8 @@ static mode, without changing what visitors get. In static mode it is disabled
 target; use *Export now* there. It needs a saved target ("Save a target
 first."), does not ask for your password, sends no failure mail, shows no
 failure banner and appears in the log as "Test export". With no live origin
-set, islands keep this site's relative paths. A test export writes real files:
+(Same host), a test export points islands at the site address, as static mode
+does; without a Site URL they keep this site's relative paths. A test export writes real files:
 a directory your web server already serves is published. *Export now* starts an
 export without waiting. *Rebuild all* re-publishes every file instead of only
 the changed ones (removed files are still deleted) and asks for your password.

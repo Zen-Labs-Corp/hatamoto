@@ -1577,7 +1577,7 @@ A theme with its own JavaScript must prefix island calls with the content of tha
 
 A hand-built `?page=N` link in `<a href>` or `<link rel="prev|next">` is rewritten to the exported listing page (`/blog/page/2/`), so use `page` as the only query key. An `hx-post` island may send these htmx request headers to the live origin: `HX-Request`, `HX-Current-URL`, `HX-Target`, `HX-Trigger`, `HX-Trigger-Name`, `HX-Boosted`, `HX-Prompt`.
 
-If the static host sets a Content Security Policy, it must allow the live origin in `connect-src`, `form-action` and `script-src`.
+If the static host sets a Content Security Policy, it must allow the live origin in `connect-src`, `form-action` and `script-src`. On the same host, island URLs point at the site address, and the policy needs the live origin only for a separate live origin (see [Hosting setups](STATIC_EXPORT.md#hosting-setups)).
 
 Search results on the live origin link to the static site. The static export renders requests that are marked as export: no redirect, and links stay relative.
 
