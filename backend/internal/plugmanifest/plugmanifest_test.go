@@ -14,12 +14,14 @@ func TestDecode(t *testing.T) {
 		want func(sdk.Manifest) any
 		val  any
 	}{
-		"case variant name":   {`{"NAME":"hello","version":"1.0.0"}`, func(m sdk.Manifest) any { return m.Name }, "hello"},
-		"underscore variant":  {`{` + base + `,"allowedHosts":["evil.example"]}`, func(m sdk.Manifest) any { return len(m.AllowedHosts) }, 0},
-		"dash variant":        {`{` + base + `,"request-headers":["x-a"]}`, func(m sdk.Manifest) any { return len(m.RequestHeaders) }, 0},
-		"exact spelling":      {`{` + base + `,"allowed_hosts":["a.example"]}`, func(m sdk.Manifest) any { return m.AllowedHosts }, []string{"a.example"}},
-		"case duplicate wins": {`{` + base + `,"allowed_hosts":["a.example"],"ALLOWED_HOSTS":["b.example"]}`, func(m sdk.Manifest) any { return m.AllowedHosts }, []string{"b.example"}},
-		"invalid utf8":        {"{" + base + ",\"description\":\"caf\xe9\"}", func(m sdk.Manifest) any { return m.Description }, "caf\ufffd"},
+		"case variant name":    {`{"NAME":"hello","version":"1.0.0"}`, func(m sdk.Manifest) any { return m.Name }, "hello"},
+		"underscore variant":   {`{` + base + `,"allowedHosts":["evil.example"]}`, func(m sdk.Manifest) any { return len(m.AllowedHosts) }, 0},
+		"dash variant":         {`{` + base + `,"request-headers":["x-a"]}`, func(m sdk.Manifest) any { return len(m.RequestHeaders) }, 0},
+		"exact spelling":       {`{` + base + `,"allowed_hosts":["a.example"]}`, func(m sdk.Manifest) any { return m.AllowedHosts }, []string{"a.example"}},
+		"case duplicate wins":  {`{` + base + `,"allowed_hosts":["a.example"],"ALLOWED_HOSTS":["b.example"]}`, func(m sdk.Manifest) any { return m.AllowedHosts }, []string{"b.example"}},
+		"license":              {`{` + base + `,"license":"commercial"}`, func(m sdk.Manifest) any { return m.License }, "commercial"},
+		"license case variant": {`{` + base + `,"License":"commercial"}`, func(m sdk.Manifest) any { return m.License }, "commercial"},
+		"invalid utf8":         {"{" + base + ",\"description\":\"caf\xe9\"}", func(m sdk.Manifest) any { return m.Description }, "caf\ufffd"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			var m sdk.Manifest

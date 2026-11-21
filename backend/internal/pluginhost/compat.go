@@ -2,6 +2,7 @@ package pluginhost
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"hatamoto.dev/core/internal/adminpath"
@@ -36,6 +37,21 @@ func sdkRefusal(name, rng, version string, list []string, ok bool, err error) er
 
 // minor shortens "0.11.0" to "0.11".
 func minor(v string) string { return strings.TrimSuffix(v, ".0") }
+
+// commercialSince is the first SDK version whose hosts read Manifest.License.
+const commercialSince = "0.26.0"
+
+// CommercialRangeRefusal is nil unless m is commercial and its sdk range admits a host
+// older than 0.26, which ignores the license field. Install reports it.
+func CommercialRangeRefusal(m sdk.Manifest) error {
+	if m.License != sdk.LicenseCommercial {
+		return nil
+	}
+	if rangeRequires(m.SDK, append(slices.Clone(sdk.CompatibleWith), sdk.Version), commercialSince) {
+		return nil
+	}
+	return fmt.Errorf("plugin %q declares a commercial license, so its sdk range must exclude hosts before 0.26 (for example \"^0.26\")", m.Name)
+}
 
 // RedirectPathsRefusal is nil when none of the manifest's redirect_paths is
 // owned by core (admin, API, assets, well-known and verification files, ...).

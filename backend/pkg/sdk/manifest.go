@@ -51,12 +51,19 @@ const (
 	MaxOutputBytes      = 4 << 20 // 4 MiB
 )
 
+// LicenseCommercial marks a plugin that needs an edition's plugin key and entitlement (SDK 0.26).
+const LicenseCommercial = "commercial"
+
 // Manifest is the content of a plugin's plugin.json.
 type Manifest struct {
 	Name        string `json:"name"`
 	Version     string `json:"version"` // the plugin's own semver
 	SDK         string `json:"sdk"`     // SDK range the plugin was built against, e.g. "^0.5"
 	Description string `json:"description,omitempty"`
+
+	// License is "" (default) or LicenseCommercial (SDK 0.26). A commercial plugin is
+	// installed and run only by a host whose edition holds a plugin key and entitles it.
+	License string `json:"license,omitempty"`
 
 	// Config is handed to the guest (pdk.GetConfig).
 	Config map[string]string `json:"config,omitempty"`
@@ -562,6 +569,9 @@ func (m Manifest) Validate() error {
 		if h == "" {
 			return fmt.Errorf("sdk: plugin %q: empty allowed_hosts entry", m.Name)
 		}
+	}
+	if m.License != "" && m.License != LicenseCommercial {
+		return fmt.Errorf("sdk: plugin %q: license %q (want \"\" or %q)", m.Name, m.License, LicenseCommercial)
 	}
 	if err := m.validateCapabilities(); err != nil {
 		return err
