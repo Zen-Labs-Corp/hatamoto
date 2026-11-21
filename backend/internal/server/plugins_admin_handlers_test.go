@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json/jsontext"
 	"net/http"
 	"net/http/httptest"
@@ -79,6 +80,42 @@ func TestListPlugins_OmitsTemplatesPausedWhenNone(t *testing.T) {
 	if _, ok := body.Plugins[0]["templates_paused"]; ok {
 		t.Error("a plugin without paused templates lists the field")
 	}
+}
+
+func TestListPlugins_ListsTemplatesPaused(t *testing.T) {
+	// The render plugin registry and range breaker are process-wide: the name
+	// is unique to this test and removed afterwards, which clears the breaker.
+	const plugin = "acme-paused"
+	testutil.RequireNoError(t, render.RegisterPluginSection(plugin, "loop", `{{define "section-loop"}}<p>{{range $i := .Content.n}}x{{end}}</p>{{end}}`))
+	t.Cleanup(func() { render.RemovePlugin(plugin) })
+	e, err := render.New(render.Options{})
+	testutil.RequireNoError(t, err)
+	for range 4 {
+		v := &render.PageView{Site: render.SiteView{Name: "Test Site"}, Page: render.PageMeta{Title: "Fixture"}, BaseURL: "https://example.test", Path: "/fixture"}
+		v.Sections = []render.Section{{ID: "id-loop", Type: "loop", Content: map[string]any{"n": 1000000000}}}
+		testutil.RequireNoError(t, e.RenderPage(&bytes.Buffer{}, v))
+	}
+	s := &Server{pluginStatusFn: func() []pluginhost.Status {
+		return []pluginhost.Status{{Name: plugin, Loaded: true, Manifest: sdk.Manifest{Name: plugin}}}
+	}}
+	rec := httptest.NewRecorder()
+	s.handleListPlugins(rec, httptest.NewRequest(http.MethodGet, "/plugins", nil))
+
+	testutil.RequireEqual(t, http.StatusOK, rec.Code)
+	var body struct {
+		Plugins []map[string]jsontext.Value `json:"plugins"`
+	}
+	testutil.RequireNoError(t, jsonx.Unmarshal(rec.Body.Bytes(), &body))
+	testutil.RequireLen(t, body.Plugins, 1)
+	raw, ok := body.Plugins[0]["templates_paused"]
+	if !ok {
+		t.Fatal("a plugin with a paused template omits templates_paused")
+	}
+	var paused []pausedTemplateView
+	testutil.RequireNoError(t, jsonx.Unmarshal(raw, &paused))
+	testutil.RequireLen(t, paused, 1)
+	testutil.RequireEqual(t, "section", paused[0].Kind)
+	testutil.RequireEqual(t, "loop", paused[0].Name)
 }
 
 func TestPausedViewsMapsKindNameUntilUTC(t *testing.T) {
