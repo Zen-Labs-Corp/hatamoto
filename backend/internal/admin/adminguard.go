@@ -268,10 +268,11 @@ func (a *Admin) tokenRule(w http.ResponseWriter, r *http.Request) (*http.Request
 }
 
 // preSessionRoute is a form that is served before any session exists, so its
-// token may be a pre-session one: sign-in, recovery, invitation and the first
-// setup step (the later setup steps need the owner's session).
+// token may be a pre-session one: sign-in (with its second step and passkey
+// calls), recovery, invitation and the first setup step (the later setup steps
+// need the owner's session).
 func (a *Admin) preSessionRoute(r *http.Request) bool {
-	for _, p := range []string{"login", "forgot", "reset", "accept", "setup"} {
+	for _, p := range []string{"login", "login/2fa", "login/passkey/begin", "login/passkey/finish", "forgot", "reset", "accept", "setup"} {
 		if r.URL.Path == a.url(p) {
 			return true
 		}
