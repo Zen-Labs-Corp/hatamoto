@@ -34,18 +34,6 @@ const (
 	auditEntityReorder        = "entity.reorder"
 )
 
-// auditStatusAction names the audit action of a move to st: published is a
-// publish, archived an archive, anything else (draft) an unpublish.
-func auditStatusAction(st entity.EntityStatus) string {
-	switch st {
-	case entity.StatusPublished:
-		return auditEntityPublish
-	case entity.StatusArchived:
-		return auditEntityArchive
-	}
-	return auditEntityUnpublish
-}
-
 // auditEntity records an action on an entity. The target is the entity id;
 // name, slug and schema are added when the entity is known, so the log stays
 // readable after a delete. Call it only after the store call succeeded.
