@@ -202,6 +202,11 @@ func (b *builder) process(ctx context.Context, p string) {
 	if Excluded(urlPath, b.site.AdminPrefix) {
 		return
 	}
+	if isAssetPath(urlPath) {
+		// A cache-busting query (?v=hash) names the file at the path; static
+		// hosts ignore it, so the file is exported without it.
+		rawQuery = ""
+	}
 	if skip, why := QueryKind(rawQuery); skip {
 		b.skip(p, why)
 		return

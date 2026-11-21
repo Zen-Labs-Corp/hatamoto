@@ -204,6 +204,21 @@ func TestBuild_PaginationSkipped(t *testing.T) {
 	}
 }
 
+func TestBuild_AssetCacheBusterExportedByPath(t *testing.T) {
+	f := newFake("/admin", "/")
+	f.html("/", `<script src="/theme/assets/consent.js?v=abc"></script><link href="/fonts/a.woff2?v=1"><a href="/blog?page=2">n</a>`)
+	f.put("/theme/assets/consent.js", "application/javascript", "console.log(1)")
+	f.put("/fonts/a.woff2", "font/woff2", "font")
+	m, rep, _, err := build(t, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustHave(t, m, "theme/assets/consent.js", "fonts/a.woff2")
+	if rep.Skipped != 1 {
+		t.Errorf("skipped = %d, want only the ?page=2 link (warnings %v)", rep.Skipped, rep.Warnings)
+	}
+}
+
 func TestBuild_RedirectStubsAndLines(t *testing.T) {
 	f := newFake("/admin", "/")
 	f.html("/", `<a href="/old">o</a>`)

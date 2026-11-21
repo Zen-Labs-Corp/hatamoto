@@ -71,9 +71,24 @@ func Excluded(p, adminPrefix string) bool {
 	return false
 }
 
+// assetPrefixes are the directories of files that core links with a
+// cache-busting query.
+var assetPrefixes = []string{"/theme/assets", "/fonts", "/media"}
+
+// isAssetPath reports whether a URL path is a static file under one of the
+// asset directories.
+func isAssetPath(p string) bool {
+	for _, x := range assetPrefixes {
+		if strings.HasPrefix(p, x+"/") {
+			return true
+		}
+	}
+	return false
+}
+
 // QueryKind says whether a URL with this raw query is skipped, and why. A
 // file path cannot carry a query, so every query URL is skipped; the reason
-// names the known cases.
+// names the known cases. Asset URLs are exported by path before this is asked.
 func QueryKind(rawQuery string) (skip bool, reason string) {
 	if rawQuery == "" {
 		return false, ""
