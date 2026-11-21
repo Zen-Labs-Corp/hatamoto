@@ -211,3 +211,37 @@ func TestMapUserErrors(t *testing.T) {
 	_, err = r.mapUser("bob@acme.com", true, nil)
 	wantReason(t, err, reasonLinkFailed)
 }
+
+// cancelUsers cancels the request context right after Create, like a client
+// that disconnects between the two steps; LinkIdentity then honours its ctx.
+type cancelUsers struct {
+	memUsers
+	cancel context.CancelFunc
+	ctx    context.Context
+}
+
+func (c *cancelUsers) Create(ctx context.Context, n authstate.NewUser) (authstate.User, error) {
+	u, err := c.memUsers.Create(ctx, n)
+	c.cancel()
+	return u, err
+}
+
+func (c *cancelUsers) LinkIdentity(ctx context.Context, id, issuer, subject string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return c.memUsers.LinkIdentity(ctx, id, issuer, subject)
+}
+
+func TestMapUserCreateAndLinkSurviveCancel(t *testing.T) {
+	r := newMapRig()
+	ctx, cancel := context.WithCancel(context.Background())
+	users := &cancelUsers{memUsers: *r.users, cancel: cancel}
+	_, err := r.p.MapUser(ctx, authstate.MapRequest{
+		Identity: authstate.Identity{Issuer: "https://idp.example.test", Subject: "sub-9", Email: "ana@acme.com", EmailVerified: true},
+		Users:    users,
+	})
+	if err != nil || len(users.memUsers.linked) != 1 {
+		t.Fatalf("err = %v, linked = %v", err, users.memUsers.linked)
+	}
+}

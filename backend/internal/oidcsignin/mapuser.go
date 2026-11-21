@@ -47,14 +47,18 @@ func (p *Provider) MapUser(ctx context.Context, req authstate.MapRequest) (auths
 		return authstate.User{}, refuse(reasonCreateFailed, err)
 	}
 
-	u, err = req.Users.Create(ctx, authstate.NewUser{Email: id.Email, Name: nameOr(id), Role: s.DefaultRole})
+	// Create and link must both happen or neither is useful: an unlinked
+	// account is refused forever. Do not let a disconnect split them.
+	wctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), fetchTimeout)
+	defer cancel()
+	u, err = req.Users.Create(wctx, authstate.NewUser{Email: id.Email, Name: nameOr(id), Role: s.DefaultRole})
 	if errors.Is(err, authstate.ErrEmailTaken) {
 		return authstate.User{}, refuse(reasonAccountExists, nil)
 	}
 	if err != nil {
 		return authstate.User{}, refuse(reasonCreateFailed, err)
 	}
-	if err := req.Users.LinkIdentity(ctx, u.ID, id.Issuer, id.Subject); err != nil {
+	if err := req.Users.LinkIdentity(wctx, u.ID, id.Issuer, id.Subject); err != nil {
 		return authstate.User{}, linkRefusal(err)
 	}
 	audit(ctx, rt, "signin.user_created", u, map[string]any{"role": u.Role})
