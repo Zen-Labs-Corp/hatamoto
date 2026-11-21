@@ -1,0 +1,30 @@
+# Static site published by Hatamoto: /srv/site/public is served from disk.
+# Island paths, the admin and previews are passed to Hatamoto on 127.0.0.1:8090.
+example.com {
+	@hatamoto path /-/* /admin /admin/* /api-public /api-public/* /api/* /auth/* /f/* /forms/* /mcp /mcp/* /p/* /plugin-ui/* /preview/* /search /theme/assets/hm-live.js
+	handle @hatamoto {
+		reverse_proxy 127.0.0.1:8090
+	}
+	@hatamoto_locale1 path_regexp ^/[^/]+/search$
+	handle @hatamoto_locale1 {
+		reverse_proxy 127.0.0.1:8090
+	}
+	handle {
+		root * /srv/site/public
+		@hidden path /_redirects /.hatamoto-static.json
+		respond @hidden 404
+		header {
+			X-Content-Type-Options "nosniff"
+			X-Frame-Options "SAMEORIGIN"
+			Referrer-Policy "strict-origin-when-cross-origin"
+			Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; form-action 'self'"
+		}
+		try_files {path} {path}/index.html
+		file_server
+	}
+	handle_errors {
+		root * /srv/site/public
+		rewrite * /404.html
+		file_server
+	}
+}
