@@ -73,6 +73,7 @@ func TestStaticTriggerHooks(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, clock, runs := newTriggerServer(t)
+			s.packagesBooted.Store(true)
 			tc.call(s)
 			if got := clock.fire(t, runs); got.full != tc.full || got.reason != tc.want {
 				t.Errorf("run = %+v, want full=%v reason=%q", got, tc.full, tc.want)
@@ -94,4 +95,19 @@ func TestStaticTriggerHooksWithoutTrigger(t *testing.T) {
 	s.notifyRedirectsChanged()
 	s.onThemeChange(ctx)
 	scheduledPublishSink{s: s, next: noopPublished{}}.EntityPublished(ctx, uuid.New(), "page", "p", "P", 1)
+}
+
+// The boot-time package reconcile reports the installed theme as a change. That
+// must not arm an export, or every restart of a static site rebuilds it all.
+func TestThemeChangeAtBootDoesNotArmExport(t *testing.T) {
+	s, clock, runs := newTriggerServer(t)
+	s.onThemeChange(context.Background()) // boot reconcile
+	if len(clock.timers) != 0 {
+		t.Fatal("the boot reconcile armed an export window")
+	}
+	s.packagesBooted.Store(true)
+	s.onThemeChange(context.Background()) // a real change after boot
+	if got := clock.fire(t, runs); !got.full || got.reason != "change,theme" {
+		t.Errorf("run after boot = %+v, want a full theme run", got)
+	}
 }

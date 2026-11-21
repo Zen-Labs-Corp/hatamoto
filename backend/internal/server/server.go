@@ -301,6 +301,9 @@ type Server struct {
 	// exportNotify mails the owners when an export starts failing. Nil
 	// without a mail service.
 	exportNotify *exportFailNotifier
+	// packagesBooted is set once setupPackages applied what is installed; a
+	// package change before that is the boot reconcile, not an edit.
+	packagesBooted atomic.Bool
 	// hostingSvc is the Hosting page's service. setupStaticExport runs before
 	// the admin exists, so buildAdminDeps copies it into the admin's deps.
 	hostingSvc admin.HostingService
