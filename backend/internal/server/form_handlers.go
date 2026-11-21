@@ -811,6 +811,10 @@ func honeypotFilled(v interface{}) bool {
 
 // handlePublicFormSubmit handles public form submissions (no auth required).
 func (s *Server) handlePublicFormSubmit(w http.ResponseWriter, r *http.Request) {
+	if s.foreignOrigin(r) {
+		writeError(w, http.StatusForbidden, "origin not allowed")
+		return
+	}
 	slug := r.PathValue("slug")
 	if slug == "" {
 		writeError(w, http.StatusBadRequest, "form slug is required")
@@ -856,9 +860,9 @@ func (s *Server) handlePublicFormSubmit(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	// A sandboxed page has no session; its proof of a real page load is the
-	// timing token.
-	if originNull(r) && !s.timingTokenOK(slug, ctl.Timing) {
+	// A sandboxed page, or the static site in static mode, has no session; its
+	// proof of a real page load is the timing token.
+	if (originNull(r) || s.fromStaticSite(r)) && !s.timingTokenOK(slug, ctl.Timing) {
 		writeError(w, http.StatusForbidden, "form token required")
 		return
 	}

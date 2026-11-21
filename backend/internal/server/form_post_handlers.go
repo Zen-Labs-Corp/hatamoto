@@ -54,9 +54,14 @@ func (s *Server) handlePublicFormPost(w http.ResponseWriter, r *http.Request) {
 		post = r.PostForm
 	}
 	back := safeLocalPath(post.Get("_redirect"))
-	// A sandboxed page needs a valid timing token; without one nothing is
-	// stored and the visitor gets the same answer as any rejected submission.
-	if originNull(r) && !s.timingTokenOK(slug, controlFromValues(post).Timing) {
+	if s.foreignOrigin(r) {
+		http.Redirect(w, r, formPostRedirect(back, "form_error"), http.StatusSeeOther)
+		return
+	}
+	// A sandboxed page, or the static site in static mode, needs a valid timing
+	// token; without one nothing is stored and the visitor gets the same answer
+	// as any rejected submission.
+	if (originNull(r) || s.fromStaticSite(r)) && !s.timingTokenOK(slug, controlFromValues(post).Timing) {
 		http.Redirect(w, r, formPostRedirect(back, "form_error"), http.StatusSeeOther)
 		return
 	}

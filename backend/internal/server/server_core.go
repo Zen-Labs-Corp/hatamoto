@@ -34,7 +34,7 @@ func (s *Server) mountCoreUnauthedAPIRoutes(r *httpx.Group) {
 // there is no cookie, lead or session to protect.
 func (s *Server) mountTrack(r *httpx.Group) {
 	trackLimiter := middleware.NewRateLimiter(20, 50)
-	handleCORS(r, &s.hosting, http.MethodPost, "/track", s.analyticsHandlers.Track, trackLimiter.Middleware)
+	handleCORS(r, &s.hosting, http.MethodPost, "/track", s.analyticsHandlers.Track, trackLimiter.Middleware, s.refuseForeignOrigin)
 }
 
 // mountCoreProtectedRoutes mounts the CMS-core route subset that sits
@@ -312,7 +312,7 @@ func (s *Server) mountCorePublicCMSRoutes(r *httpx.Group) {
 	// counter beacon stores only a daily total, limited per IP like the forms.
 	handleCORS(r, &s.hosting, http.MethodGet, "/consent/region", s.handleConsentRegion)
 	consentLimiter := middleware.NewRateLimiter(1, 10)
-	handleCORS(r, &s.hosting, http.MethodPost, "/consent", s.handleConsentLog, consentLimiter.Middleware)
+	handleCORS(r, &s.hosting, http.MethodPost, "/consent", s.handleConsentLog, consentLimiter.Middleware, s.refuseForeignOrigin)
 
 	// Public taxonomy archive (Phase 2): list published
 	// entities tagged with {kind}/{slug}. Rate-limited per
