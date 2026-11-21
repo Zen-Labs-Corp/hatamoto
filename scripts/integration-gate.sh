@@ -142,7 +142,7 @@ run_pkg() { # run_pkg <dsn> <package>
     */pluginhost|*/backup) ;;
     *) [[ -n $pport ]] && pooled=${1/:$port\//:$pport/} ;;
   esac
-  DATABASE_URL=$pooled HATAMOTO_TEST_DB_URL=$1 DATABASE_DIRECT_URL=${pport:+$1} HATAMOTO_POOLER_TERMINATE=${pport:+1} EMAIL_DISABLED=true \
+  DATABASE_URL=$pooled HATAMOTO_TEST_DB_URL=$1 HATAMOTO_TEST_PG_SOCKDIR=$S DATABASE_DIRECT_URL=${pport:+$1} HATAMOTO_POOLER_TERMINATE=${pport:+1} EMAIL_DISABLED=true \
     bash "$root/scripts/go-test-flaky.sh" "-tags=integration -p 1" "$2"
 }
 
@@ -152,7 +152,7 @@ run_must() { # run_must <dsn>: the INTEGRATION_MUST_RUN entries, in order
     [[ -n ${pkg:-} ]] || continue
     echo "== must-run $pkg: $names"
     read -ra tests <<<"$names"; re=$(IFS="|"; echo "${tests[*]}")
-    DATABASE_URL=$d HATAMOTO_TEST_DB_URL=$d EMAIL_DISABLED=true \
+    DATABASE_URL=$d HATAMOTO_TEST_DB_URL=$d HATAMOTO_TEST_PG_SOCKDIR=$S EMAIL_DISABLED=true \
       go test -count=1 -timeout "${GO_TEST_TIMEOUT:-30m}" -v -tags=integration -p 1 -run "^($re)\$" "$pkg" 2>&1 | tee "$log"
     bash "$root/scripts/must-run-check.sh" "$log" $names || rc=1
   done <<<"${INTEGRATION_MUST_RUN:-}"

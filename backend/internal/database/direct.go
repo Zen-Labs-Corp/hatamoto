@@ -19,33 +19,37 @@ type Direct struct {
 	url      string          // empty: use the fallback pool
 	cfg      *pgx.ConnConfig // parsed url, pool_* keys stripped; nil with the fallback
 	fallback *pgxpool.Pool
+	tcp      *pgx.ConnConfig // settings before the socket choice; nil in bare Direct values
 }
 
 // newDirect builds a Direct for url. An empty url, or one equal to mainURL,
-// means "no separate direct endpoint".
-func newDirect(url, mainURL string, fallback *pgxpool.Pool) (*Direct, error) {
+// means "no separate direct endpoint". A loopback url is tried over the local
+// unix socket once, here; Pool and Session reuse that decision.
+func newDirect(ctx context.Context, url, mainURL string, fallback *pgxpool.Pool, opts SocketOptions) (*Direct, socketOutcome, error) {
 	d := &Direct{fallback: fallback}
 	if url == "" || url == mainURL {
-		return d, nil
+		return d, socketOutcome{}, nil
 	}
 	// pgxpool.ParseConfig consumes the pool_* keys, so they never reach the server.
 	pc, err := pgxpool.ParseConfig(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse direct database URL: %w", err)
+		return nil, socketOutcome{}, fmt.Errorf("failed to parse direct database URL: %w", err)
 	}
 	mc, err := pgxpool.ParseConfig(mainURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse database URL: %w", err)
+		return nil, socketOutcome{}, fmt.Errorf("failed to parse database URL: %w", err)
 	}
 	// Migrations, backups and plugin grants run over this URL and assume the
 	// same role and database as the pooled one. Hosts and ports may differ.
 	// The message carries no URL, so no password.
 	if pc.ConnConfig.User != mc.ConnConfig.User || pc.ConnConfig.Database != mc.ConnConfig.Database {
-		return nil, fmt.Errorf("DATABASE_DIRECT_URL must use the same user and database name as DATABASE_URL")
+		return nil, socketOutcome{}, fmt.Errorf("DATABASE_DIRECT_URL must use the same user and database name as DATABASE_URL")
 	}
+	d.tcp = pc.ConnConfig.Copy()
+	out := preferUnixSocket(ctx, &pc.ConnConfig.Config, opts)
 	d.url = url
 	d.cfg = pc.ConnConfig
-	return d, nil
+	return d, out, nil
 }
 
 // Session returns a dedicated connection that stays on one server session
@@ -84,6 +88,9 @@ func (d *Direct) Pool(ctx context.Context, maxConns int32) (*pgxpool.Pool, func(
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse direct database URL: %w", err)
 	}
+	// The transport was decided once in newDirect; pool_* settings still come
+	// from the URL.
+	pc.ConnConfig = d.cfg.Copy()
 	pc.MaxConns = maxConns
 	pc.MinConns = 0
 	pool, err := pgxpool.NewWithConfig(ctx, pc)
@@ -100,6 +107,17 @@ func (d *Direct) ConnConfig() *pgx.ConnConfig {
 		return d.fallback.Config().ConnConfig.Copy()
 	}
 	return d.cfg.Copy()
+}
+
+// PluginConnConfig returns a copy of the direct endpoint's settings as
+// configured, before any unix-socket choice. Plugin roles use it: the socket
+// was only proven for the core role, and `local` rules (peer) can refuse the
+// plugin roles, so they stay on TCP.
+func (d *Direct) PluginConnConfig() *pgx.ConnConfig {
+	if d.tcp != nil {
+		return d.tcp.Copy()
+	}
+	return d.ConnConfig()
 }
 
 // Direct returns the direct-connection source for this database.

@@ -16,6 +16,17 @@ import (
 type DB struct {
 	pool   *pgxpool.Pool
 	direct *Direct
+	notes  []string
+}
+
+func socketOptions(cfg config.DatabaseConfig) SocketOptions {
+	return SocketOptions{Disabled: cfg.UnixSocketOff, Dirs: cfg.SocketDirs}
+}
+
+// TransportNotes returns one boot log line per endpoint whose unix socket was
+// used or refused; empty when nothing was tried.
+func (db *DB) TransportNotes() []string {
+	return db.notes
 }
 
 // New creates a new database connection pool.
@@ -24,6 +35,10 @@ func New(ctx context.Context, cfg config.DatabaseConfig) (*DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse database URL: %w", err)
 	}
+
+	opts := socketOptions(cfg)
+	mainTCP := poolConfig.ConnConfig.Copy()
+	mainOut := preferUnixSocket(ctx, &poolConfig.ConnConfig.Config, opts)
 
 	poolConfig.MaxConns = int32(cfg.MaxConnections)
 	poolConfig.MinConns = int32(cfg.MinConnections)
@@ -34,12 +49,20 @@ func New(ctx context.Context, cfg config.DatabaseConfig) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	direct, err := newDirect(cfg.EffectiveDirectURL(), cfg.URL, db.pool)
+	direct, directOut, err := newDirect(ctx, cfg.EffectiveDirectURL(), cfg.URL, db.pool, opts)
 	if err != nil {
 		db.Close()
 		return nil, err
 	}
+	if direct.tcp == nil {
+		direct.tcp = mainTCP // no separate direct endpoint: plugins follow the main URL
+	}
 	db.direct = direct
+	for _, n := range []string{mainOut.note("db"), directOut.note("db direct")} {
+		if n != "" {
+			db.notes = append(db.notes, n)
+		}
+	}
 	return db, nil
 }
 
