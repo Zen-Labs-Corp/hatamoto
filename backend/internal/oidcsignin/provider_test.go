@@ -281,6 +281,8 @@ func TestGoogleHostedDomain(t *testing.T) {
 		name, issuer, hd, email string
 		want                    bool
 	}{
+		{"bare issuer, no hd", "accounts.google.com", "", "ana@acme.com", false},
+		{"bare issuer, workspace", "accounts.google.com", "acme.com", "ana@acme.com", true},
 		{"workspace", g, "acme.com", "ana@acme.com", true},
 		{"hd case", g, "ACME.com", "ana@acme.com", true},
 		{"consumer account, no hd", g, "", "ana@acme.com", false},
@@ -289,9 +291,12 @@ func TestGoogleHostedDomain(t *testing.T) {
 		{"hd allowed, email elsewhere", g, "acme.com", "ana@example.org", false},
 		{"other issuer ignores hd", "https://idp.example.test", "", "ana@acme.com", true},
 	} {
-		if got := googleHostedDomainOK(tc.issuer, tc.hd, tc.email, allowed); got != tc.want {
+		if got := googleHostedDomainOK(tc.issuer, "", tc.hd, tc.email, allowed); got != tc.want {
 			t.Errorf("%s: got %v, want %v", tc.name, got, tc.want)
 		}
+	}
+	if googleHostedDomainOK("https://other.example.test", g, "", "ana@acme.com", allowed) {
+		t.Error("configured Google issuer ignored")
 	}
 }
 

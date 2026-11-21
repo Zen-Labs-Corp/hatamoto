@@ -243,7 +243,7 @@ func (p *Provider) Finish(ctx context.Context, req authstate.FinishRequest) (aut
 	if (c.Azp != "" || len(idt.Audience) > 1) && c.Azp != s.ClientID {
 		return authstate.Identity{}, refuse(reasonAzpMismatch, nil)
 	}
-	if !googleHostedDomainOK(idt.Issuer, c.HD, c.Email, s.AllowedDomains) {
+	if !googleHostedDomainOK(idt.Issuer, s.Issuer, c.HD, c.Email, s.AllowedDomains) {
 		return authstate.Identity{}, refuse(reasonDomainNotAllowed, nil)
 	}
 	return authstate.Identity{
@@ -258,11 +258,16 @@ func (p *Provider) Finish(ctx context.Context, req authstate.FinishRequest) (aut
 
 const googleIssuer = "https://accounts.google.com"
 
+// isGoogleIssuer matches both issuer spellings Google tokens carry.
+func isGoogleIssuer(iss string) bool {
+	return iss == googleIssuer || iss == "accounts.google.com"
+}
+
 // googleHostedDomainOK is true for every issuer but Google. Google verifies
 // any address a person registers, so for Google the hosted-domain claim (hd)
 // must equal the email's domain and be an allowed domain.
-func googleHostedDomainOK(issuer, hd, email string, allowed []string) bool {
-	if issuer != googleIssuer {
+func googleHostedDomainOK(tokenIssuer, configuredIssuer, hd, email string, allowed []string) bool {
+	if !isGoogleIssuer(tokenIssuer) && !isGoogleIssuer(configuredIssuer) {
 		return true
 	}
 	hd = strings.ToLower(strings.TrimSpace(hd))
