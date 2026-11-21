@@ -483,7 +483,6 @@ func (r *changesetReviewer) Publish(ctx context.Context, id int64) (applied, dro
 	if err := r.applyApproved(ctx, h.RunID); err != nil {
 		return res.Applied, res.Dropped, fmt.Errorf("published, but the approved suggestions could not be applied: %w", err)
 	}
-	r.audit(ctx, "changeset.publish", changesetTarget(id), map[string]any{"applied": res.Applied, "skipped": res.Skipped, "dropped": res.Dropped})
 	return res.Applied, res.Dropped, nil
 }
 

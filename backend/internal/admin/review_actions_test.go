@@ -94,7 +94,8 @@ func TestReviewPublishAndDiscard(t *testing.T) {
 	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/changes" {
 		t.Fatalf("publish: %d %s", rec.Code, rec.Header().Get("Location"))
 	}
-	if len(events) != 1 || events[0].Action != "changeset.publish" {
+	// The engine writes changeset.publish inside the publish transaction.
+	if len(events) != 0 {
 		t.Errorf("audit = %+v", events)
 	}
 	// Choices posted with Publish are saved first, so a Drop that was never saved is not published.
