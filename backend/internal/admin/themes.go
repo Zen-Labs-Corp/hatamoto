@@ -6,7 +6,9 @@ import (
 	"errors"
 	"html/template"
 	"net/http"
+	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 
 	"hatamoto.dev/core/internal/admin/schemaform"
@@ -309,6 +311,14 @@ func (a *Admin) handleThemeSettingsSave(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	a.invalidate(r.Context())
+	changed := []string{}
+	for k, v := range values {
+		if !reflect.DeepEqual(v, prev[k]) {
+			changed = append(changed, k)
+		}
+	}
+	slices.Sort(changed)
+	a.audit(r, AuditSettingsUpdated, "theme:"+name, map[string]any{"changed": changed})
 	a.SetFlash(w, r, "success", "Settings saved for "+name+".")
 	http.Redirect(w, r, a.adminPath+"/theme/themes/"+name+"/settings", http.StatusSeeOther)
 }

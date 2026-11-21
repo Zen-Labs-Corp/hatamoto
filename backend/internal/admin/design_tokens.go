@@ -189,16 +189,17 @@ func (a *Admin) handleTokensSave(w http.ResponseWriter, r *http.Request) {
 		a.renderTokens(w, r, http.StatusUnprocessableEntity, tokensView(builder.Tokens{}, posted, errs))
 		return
 	}
-	a.writeTokens(w, r, tokens, "Design tokens saved.")
+	a.writeTokens(w, r, tokens, "Design tokens saved.", "")
 }
 
 func (a *Admin) handleTokensReset(w http.ResponseWriter, r *http.Request) {
-	a.writeTokens(w, r, builder.Tokens{}, "Design tokens reset to the defaults.")
+	a.writeTokens(w, r, builder.Tokens{}, "Design tokens reset to the defaults.", "reset")
 }
 
 // writeTokens stores tokens under theme_extra.builder.tokens (every other key
-// and the presets stay as stored), purges the rendered pages and redirects.
-func (a *Admin) writeTokens(w http.ResponseWriter, r *http.Request, tokens builder.Tokens, flash string) {
+// and the presets stay as stored), purges the rendered pages and redirects. op
+// is "reset" for the reset route; a save records the token names that changed.
+func (a *Admin) writeTokens(w http.ResponseWriter, r *http.Request, tokens builder.Tokens, flash, op string) {
 	cfg, err := a.loadSite(r.Context())
 	if err != nil {
 		a.fetchOrError(w, r, http.StatusInternalServerError, "The settings could not be loaded.")
@@ -214,12 +215,34 @@ func (a *Admin) writeTokens(w http.ResponseWriter, r *http.Request, tokens build
 		return
 	}
 	a.invalidate(r.Context())
+	detail := map[string]any{"changed": changedTokens(cfg, tokens)}
+	if op != "" {
+		detail = map[string]any{"op": op}
+	}
+	a.audit(r, AuditSettingsUpdated, "design-system", detail)
 	if fetchMode(r) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	a.SetFlash(w, r, "success", flash)
 	http.Redirect(w, r, a.adminPath+"/theme/design-system", http.StatusSeeOther)
+}
+
+// changedTokens lists the form names of the tokens whose stored value differs
+// from the new ones. Only names are returned, never values.
+func changedTokens(cfg *siteconfig.Config, next builder.Tokens) []string {
+	old, _ := builder.ParseDesign(cfg.ThemeExtra)
+	out := []string{}
+	for _, l := range tokenLayout {
+		was, _ := tokenValues(old.Tokens, l.class)
+		now, _ := tokenValues(next, l.class)
+		for _, name := range l.names {
+			if was[name] != now[name] {
+				out = append(out, tokenFieldName(l.class, name))
+			}
+		}
+	}
+	return out
 }
 
 func setToken(t *builder.Tokens, class, name, v string) {

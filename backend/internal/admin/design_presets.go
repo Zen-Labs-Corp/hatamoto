@@ -365,7 +365,12 @@ func (a *Admin) handlePresetsSave(w http.ResponseWriter, r *http.Request) {
 		a.renderPresets(w, r, http.StatusUnprocessableEntity, d)
 		return
 	}
-	a.writePresets(w, r, cfg, updates, "Style presets saved.")
+	names := make([]string, 0, len(updates))
+	for n := range updates {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	a.writePresets(w, r, cfg, updates, "Style presets saved.", map[string]any{"changed": names})
 }
 
 func (a *Admin) handlePresetAdd(w http.ResponseWriter, r *http.Request) {
@@ -410,7 +415,7 @@ func (a *Admin) handlePresetAdd(w http.ResponseWriter, r *http.Request) {
 		a.renderPresets(w, r, http.StatusUnprocessableEntity, d)
 		return
 	}
-	a.storePresets(w, r, raw, "Preset added. Open it below to set more styles.")
+	a.storePresets(w, r, raw, "Preset added. Open it below to set more styles.", map[string]any{"op": "add", "changed": []string{posted["new_name"]}})
 }
 
 func (a *Admin) handlePresetDeleteForm(w http.ResponseWriter, r *http.Request) {
@@ -434,7 +439,7 @@ func (a *Admin) handlePresetDelete(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be loaded.")
 		return
 	}
-	a.writePresets(w, r, cfg, map[string]*builder.Preset{name: nil}, "Preset "+name+" deleted.")
+	a.writePresets(w, r, cfg, map[string]*builder.Preset{name: nil}, "Preset "+name+" deleted.", map[string]any{"op": "delete", "changed": []string{name}})
 }
 
 func (a *Admin) presetExists(w http.ResponseWriter, r *http.Request, name string) bool {
@@ -452,24 +457,25 @@ func (a *Admin) presetExists(w http.ResponseWriter, r *http.Request, name string
 	return false
 }
 
-func (a *Admin) writePresets(w http.ResponseWriter, r *http.Request, cfg *siteconfig.Config, updates map[string]*builder.Preset, flash string) {
+func (a *Admin) writePresets(w http.ResponseWriter, r *http.Request, cfg *siteconfig.Config, updates map[string]*builder.Preset, flash string, detail map[string]any) {
 	raw, err := builder.MergePresets(cfg.ThemeExtra, updates)
 	if err != nil {
 		a.logger().Error("save presets failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The presets could not be saved.")
 		return
 	}
-	a.storePresets(w, r, raw, flash)
+	a.storePresets(w, r, raw, flash, detail)
 }
 
 // storePresets writes the theme settings JSON, purges the rendered pages and redirects.
-func (a *Admin) storePresets(w http.ResponseWriter, r *http.Request, raw []byte, flash string) {
+func (a *Admin) storePresets(w http.ResponseWriter, r *http.Request, raw []byte, flash string, detail map[string]any) {
 	if _, err := a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{ThemeExtra: jsontext.Value(raw)}); err != nil {
 		a.logger().Error("save presets failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The presets could not be saved.")
 		return
 	}
 	a.invalidate(r.Context())
+	a.audit(r, AuditSettingsUpdated, "presets", detail)
 	a.SetFlash(w, r, "success", flash)
 	http.Redirect(w, r, a.adminPath+"/theme/presets", http.StatusSeeOther)
 }

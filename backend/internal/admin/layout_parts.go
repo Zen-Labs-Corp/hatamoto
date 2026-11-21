@@ -220,6 +220,14 @@ func (a *Admin) handlePartsSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.invalidate(r.Context())
+	old, _ := builder.ParseDesign(cfg.ThemeExtra)
+	changed := []string{}
+	for _, slot := range builder.PartSlots() {
+		if old.Parts[slot] != posted[slot] {
+			changed = append(changed, slot)
+		}
+	}
+	a.audit(r, AuditSettingsUpdated, "layout-parts", map[string]any{"changed": changed})
 	a.SetFlash(w, r, "success", "Layout parts saved.")
 	http.Redirect(w, r, a.adminPath+"/theme/parts", http.StatusSeeOther)
 }
