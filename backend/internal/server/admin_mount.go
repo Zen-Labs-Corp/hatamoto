@@ -16,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/authbridge"
 	"hatamoto.dev/core/internal/authstate"
+	"hatamoto.dev/core/internal/frameticket"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/localeconv"
 	"hatamoto.dev/core/internal/mailsettings"
@@ -138,6 +139,7 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	d.Audit = s.adminAudit
 	if s.db != nil {
 		d.AuditLog = adminAuditLog{pool: s.db.Pool()}
+		d.FrameTickets = frameticket.NewStore(s.db)
 		d.LocaleConvert = localeconv.NewService(s.db.Pool(), s.logger)
 		d.LocaleConvertCandidates = regionTreeCandidates(s.db.Pool())
 	}
