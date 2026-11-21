@@ -118,8 +118,24 @@ func TestHostingSetupUnsafeDirIsRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.GenError == "" || got.Caddy != "" || got.Nginx != "" {
+	if got.GenError != "The folder contains characters a web server config cannot hold." || got.Caddy != "" || got.Nginx != "" {
 		t.Fatalf("setup = %+v", got)
+	}
+}
+
+// The refusal names the value that was unsafe, not always the folder.
+func TestHostingSetupUnsafeHeaderNamesTheHeader(t *testing.T) {
+	t.Parallel()
+	fx := setupFixture(t, t.TempDir())
+	fx.h.setup.headers = func(context.Context, string) []secHeader {
+		return []secHeader{{"Content-Security-Policy", "default-src ${evil}"}}
+	}
+	got, err := fx.h.Setup(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `The header "Content-Security-Policy" contains characters a web server config cannot hold.`; got.GenError != want || got.Caddy != "" {
+		t.Fatalf("GenError = %q, want %q", got.GenError, want)
 	}
 }
 

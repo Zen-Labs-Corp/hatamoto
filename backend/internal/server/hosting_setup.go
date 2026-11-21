@@ -101,7 +101,8 @@ func (h *hostingAdmin) Setup(ctx context.Context) (admin.HostingSetup, error) {
 			Headers: headers, Redirects: rules,
 		})
 		if errors.Is(err, webconf.ErrUnsafe) {
-			out.GenError = "The saved directory contains characters a web server config cannot hold."
+			what := strings.TrimPrefix(err.Error(), webconf.ErrUnsafe.Error()+": ") // generator text, safe to show
+			out.GenError = "The " + what + " contains characters a web server config cannot hold."
 		} else if err == nil {
 			out.Caddy, out.Nginx, out.Skipped = gen.Caddy, gen.Nginx, gen.Skipped
 		}

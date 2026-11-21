@@ -379,7 +379,7 @@ func TestHostingPageSetupCardForS3AndErrors(t *testing.T) {
 
 	// A refused config shows its reason, never a config.
 	f = dirSetupHosting()
-	f.setup.Caddy, f.setup.Nginx, f.setup.GenError = "", "", "The saved directory contains characters a web server config cannot hold."
+	f.setup.Caddy, f.setup.Nginx, f.setup.GenError = "", "", "The folder contains characters a web server config cannot hold."
 	body = newHostingRig(t, f).do("GET", hostingURL, "owner-token", nil, nil).Body.String()
 	if !strings.Contains(body, `id="hosting-setup-error"`) || strings.Contains(body, `id="hosting-setup-config"`) {
 		t.Error("a refused config is not shown as an error")
