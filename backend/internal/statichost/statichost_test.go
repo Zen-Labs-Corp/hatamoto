@@ -23,6 +23,18 @@ func TestNormalizeOrigin(t *testing.T) {
 		{"https://a?x=1", "", false},
 		{"https://a#f", "", false},
 		{"", "", false},
+		{"https://a\"x", "", false},
+		{"https://a'b", "", false},
+		{"https://a<b>.com", "", false},
+		{"https://a(b)", "", false},
+		{"https://a=b", "", false},
+		{"https://a_b.com", "", false},
+		{"https://a..b", "", false},
+		{"https://a'\"tabindex='0'autofocus='1'onfocus='alert(1)'x='", "", false},
+		{"https://bücher.example.net", "https://xn--bcher-kva.example.net", true},
+		{"http://127.0.0.1:8080", "http://127.0.0.1:8080", true},
+		{"https://[::1]:8443", "https://[::1]:8443", true},
+		{"https://[::1%25eth0]", "", false},
 	}
 	for _, tc := range tests {
 		got, ok := NormalizeOrigin(tc.in)

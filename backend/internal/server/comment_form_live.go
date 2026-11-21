@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"errors"
+	"html"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -98,6 +99,6 @@ func (s *Server) handleCommentFormLive(w http.ResponseWriter, r *http.Request) {
 // it); the form posts natively. It runs AFTER commentSlot.fill, which reads
 // the relative action to find the entity.
 func liveFormActions(body []byte, live string) []byte {
-	body = bytes.ReplaceAll(body, []byte(commentActionPrefix), []byte(`action="`+live+`/-/comments/`))
+	body = bytes.ReplaceAll(body, []byte(commentActionPrefix), []byte(`action="`+html.EscapeString(live)+`/-/comments/`))
 	return bytes.ReplaceAll(body, []byte(` hx-post=`), []byte(` data-hm-hxpost=`))
 }

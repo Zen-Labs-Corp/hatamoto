@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"html"
 	"strings"
 
 	"github.com/google/uuid"
@@ -33,7 +34,7 @@ func (x staticRewrite) page(body []byte) []byte {
 			return nv, true
 		}
 		if !x.export {
-			return x.hs.Site + v, true
+			return html.EscapeString(x.hs.Site) + v, true
 		}
 		return "", false
 	})
@@ -57,7 +58,7 @@ func (x staticRewrite) liveValue(v string) (string, bool) {
 	if !x.live(p) {
 		return "", false
 	}
-	return x.hs.Live + v, true
+	return html.EscapeString(x.hs.Live) + v, true
 }
 
 // commentLoader replaces each comment form with a loader placeholder that holds
@@ -79,7 +80,7 @@ func (x staticRewrite) commentLoader(body []byte) ([]byte, bool) {
 		}
 		repl := ""
 		if id, ok := commentSpanEntityID(out[start:end]); ok {
-			url := x.hs.Live + commentFormLivePrefix + id
+			url := html.EscapeString(x.hs.Live) + commentFormLivePrefix + id
 			// The placeholder has no id: the theme's own wrapper around the form already
 			// carries id="hm-comment-form", and a second one would be a duplicate id.
 			repl = `<div data-hm-live-form="` + url + `"><p><a href="` + url + `">Leave a comment</a></p></div>`
@@ -119,9 +120,9 @@ func (x staticRewrite) insertHead(body []byte, loader bool) []byte {
 	if i < 0 {
 		return body
 	}
-	ins := `<meta name="hm-live-origin" content="` + x.hs.Live + `">`
+	ins := `<meta name="hm-live-origin" content="` + html.EscapeString(x.hs.Live) + `">`
 	if loader {
-		ins += `<script src="` + x.hs.Live + render.AssetPrefix + render.LiveScriptName + `" defer></script>`
+		ins += `<script src="` + html.EscapeString(x.hs.Live) + render.AssetPrefix + render.LiveScriptName + `" defer></script>`
 	}
 	out := make([]byte, 0, len(body)+len(ins))
 	out = append(out, body[:i]...)

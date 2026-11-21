@@ -2,14 +2,17 @@
 // whether the site is published as static files, the live origin L that keeps
 // answering islands, and the static origin S (the Site URL origin).
 //
-// It is a stdlib-only leaf so both the server and the admin can import it.
+// It is a small leaf (stdlib plus x/net/idna) so both the server and the admin can import it.
 package statichost
 
 import (
 	"context"
+	"net/netip"
 	"net/url"
 	"strings"
 	"sync/atomic"
+
+	"golang.org/x/net/idna"
 )
 
 // StaticHosting is one immutable snapshot. Origins are normalised (see
@@ -71,12 +74,9 @@ func NormalizeOrigin(raw string) (string, bool) {
 	if u.Path != "" && u.Path != "/" {
 		return "", false
 	}
-	host := strings.ToLower(u.Hostname())
-	if host == "" {
+	host, ok := normalizeHost(u.Hostname())
+	if !ok {
 		return "", false
-	}
-	if strings.Contains(host, ":") { // IPv6 literal
-		host = "[" + host + "]"
 	}
 	port := u.Port()
 	if (scheme == "https" && port == "443") || (scheme == "http" && port == "80") {
@@ -86,6 +86,36 @@ func NormalizeOrigin(raw string) (string, bool) {
 		host += ":" + port
 	}
 	return scheme + "://" + host, true
+}
+
+// normalizeHost accepts a DNS name (letters, digits, hyphens, dots; a Unicode
+// name is converted to punycode) or an IP literal, and returns it lowercased,
+// with an IPv6 address in brackets. Anything else is rejected, because the
+// value is later written into HTML attributes and headers.
+func normalizeHost(h string) (string, bool) {
+	h = strings.ToLower(h)
+	if strings.Contains(h, ":") {
+		a, err := netip.ParseAddr(h)
+		if err != nil || a.Zone() != "" {
+			return "", false
+		}
+		return "[" + a.String() + "]", true
+	}
+	ascii, err := idna.Lookup.ToASCII(h)
+	if err != nil || ascii == "" {
+		return "", false
+	}
+	for _, label := range strings.Split(strings.TrimSuffix(ascii, "."), ".") {
+		if label == "" {
+			return "", false
+		}
+		for _, c := range label {
+			if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' {
+				return "", false
+			}
+		}
+	}
+	return ascii, true
 }
 
 // Holder is the per-Server atomic slot for the snapshot. The zero value (and a
