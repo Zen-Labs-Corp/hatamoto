@@ -40,7 +40,7 @@
 - **Sign-in providers.** A new public Go package, `hatamoto.dev/core/auth`, lets a wrapper module that calls `app.Main` register sign-in providers and one sign-in policy from an `init` function, and gives it a provisioning API for users and linked identities. Provider sign-in ends in the same session code as a password sign-in, so the access end date, the lockout, the sign-in policy and the second step apply. A registered policy that errors refuses the sign-in. See [ADR 0010](adr/0010-sign-in-providers.md).
 - **Login page.** Each registered provider shows as a "Continue with <name>" button; the routes are `<admin>/login/provider/<id>/start` and `/callback`. A standard build registers nothing and nothing changes.
 - **Users without a password.** The user store accepts a user with no password. Such a user signs in through a provider, a passkey or a password-set link.
-- **Migration.** One new table, `hatamoto_user_identities`. Expand only. Rollback floor: unchanged.
+- **Migration.** One new table, `hatamoto_user_identities`. Expand only. Rollback floor: the schema is unchanged, but a user created without a password is stored with a NULL password hash that the previous release cannot read. Roll back only while no such user exists, or after each has a password (`hatamoto user reset-password`).
 
 ## Unreleased: more time zones in the site settings
 

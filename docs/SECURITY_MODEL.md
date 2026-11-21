@@ -386,7 +386,7 @@ access rules cover them. Files are checked by size and content type only; there 
 
 An access end date limits sign-in. It is not a containment boundary against a malicious owner: while their access lasts, an owner with an end date can still create a password reset link for another owner, install plugins and change settings. A password reset does not extend access, and a user whose end date has passed is refused after a reset as well.
 
-A provider sign-in does not satisfy the second step on its own: it counts as a second factor only when the provider asserts that it performed one. Password re-confirmation for sensitive actions asks for a password, so a user created without one needs a password-set link, a password reset or a passkey before they can confirm such an action. Provider sign-in is a compiled-in interface ([ADR 0010](adr/0010-sign-in-providers.md)); a standard build has none.
+A provider sign-in does not satisfy the second step on its own: it counts as a second factor only when the provider asserts that it performed one. Password re-confirmation for sensitive actions asks for a password, so a user created without one needs a password-set link, a password reset or a passkey before they can confirm such an action. A provider must link or create users by email only when the provider marks the address verified and the issuer is trusted; core requires only that the identity is linked to the user the provider returned, so an unverified address would allow account takeover. Provider sign-in is a compiled-in interface ([ADR 0010](adr/0010-sign-in-providers.md)); a standard build has none.
 
 ### Outbound connections of the server itself
 

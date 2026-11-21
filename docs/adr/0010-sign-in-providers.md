@@ -18,6 +18,13 @@ Status: accepted (2026-11-21)
 5. Core never links an identity to an existing account on its own. The module
    asks for it, and may do so for an existing account only on a verified email
    in a domain the site owner has allowed.
+
+   Core does not check this rule: it only requires that the identity ends up
+   linked to the user the module returned. A module must never link an
+   identity to, or find or create a user by, an email address unless the
+   provider marks it verified (`Identity.EmailVerified`) and the issuer is one
+   it trusts. An unverified address lets anyone who registers at the provider
+   with another person's email take over that person's account.
 6. Core implements user provisioning. A module calls it and does not replace
    it.
 
@@ -132,7 +139,10 @@ issue a password-set link.
 
 A user created by the provisioner has no password (the column is NULL). Such a
 user cannot sign in with a password: the attempt takes the same time as a wrong
-password, counts toward the lockout, and shows the neutral message. They can
+password and shows the neutral message. It does not count toward the lockout,
+because there is no password to guess and a lock would only keep the user out
+of provider sign-in. A correct password that the sign-in policy refuses does
+not count either, and does not clear the failure counter. They can
 get one through a password-set link, a password reset or a passkey. The
 re-confirmation that guards sensitive actions asks for a password, so a user
 who has none needs one of those first.
@@ -141,7 +151,11 @@ who has none needs one of those first.
 
 Linked identities live in `hatamoto_user_identities` (issuer and subject are
 unique together; deleting the user deletes the rows). The migration only adds
-a table that the previous release never reads, so rolling back stays possible.
+a table that the previous release never reads. The data is another matter: a
+user created without a password is stored with a NULL password hash, which the
+previous release cannot read (it fails to load that user, so a password sign-in
+answers with an error). Roll back only while no such user exists, or after each
+of them has a password (`hatamoto user reset-password`).
 Identities are not part of `hatamoto export`, like sessions and API keys; a
 database backup carries them.
 
