@@ -19,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/editionstate"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/middleware"
+	"hatamoto.dev/core/internal/modhost"
 	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/server"
@@ -257,6 +258,7 @@ func newLogger() *slog.Logger {
 func Main() {
 	// Registration by a wrapper module happens in init; nothing registers after this.
 	editionstate.Freeze()
+	modhost.Freeze()
 	logger := newLogger()
 	slog.SetDefault(logger)
 
