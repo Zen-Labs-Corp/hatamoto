@@ -114,7 +114,7 @@
 <div class="hm-card hm-tablecard" id="users">
 <form class="hm-table__filters" role="search" method="get" action="/admin/settings/users" hx-get="/admin/settings/users" hx-trigger="input changed delay:300ms from:#users-q, change" hx-target="#users" hx-select="#users" hx-swap="outerHTML" hx-push-url="true" hx-indicator="#users-busy">
 <label class="hm-visually-hidden" for="users-q">Search users</label><input class="hm-field__control hm-table__search" type="search" id="users-q" name="q" value="" placeholder="Search users">
-<label class="hm-visually-hidden" for="users-f0">Role</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="users-f0" name="role"><option value="" selected>All roles</option><option value="owner">Owners</option><option value="editor">Editors</option></select></div>
+<label class="hm-visually-hidden" for="users-f0">Role</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="users-f0" name="role"><option value="" selected>All roles</option><option value="owner">Owners</option><option value="editor">Editors</option><option value="author">Authors</option><option value="contributor">Contributors</option><option value="reviewer">Reviewers</option><option value="read-only">Read-only</option></select></div>
 <input type="hidden" name="sort" value="name"><input type="hidden" name="dir" value="asc"><button type="submit" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-apply=""><span>Apply filters</span></button>
 <span class="hm-indicator" id="users-busy" role="status" data-hm-busy-text="Loading results"><span class="hm-visually-hidden" data-hm-busy-label></span></span></form>
 <div class="hm-table__scroll" role="region" aria-label="Users" tabindex="0"><table class="hm-table hm-table--cards"><caption class="hm-visually-hidden">Users</caption>
@@ -144,8 +144,8 @@
 </div>
 <div class="hm-field">
 <label class="hm-field__label" for="invite-role">Role</label>
-<div class="hm-select" data-hm-select><select class="hm-field__control" id="invite-role" name="role" aria-describedby="invite-role-help"><option value="editor" selected>Editor: manages content</option><option value="owner">Owner: manages content, users and settings</option></select></div>
-<p class="hm-field__help" id="invite-role-help">Editors manage content. Owners also manage users and settings.</p>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="invite-role" name="role" aria-describedby="invite-role-help"><option value="editor" selected>Editor: manages content</option><option value="owner">Owner: manages content, users and settings</option><option value="author">Author: writes and publishes own content</option><option value="contributor">Contributor: writes, sends for review</option><option value="reviewer">Reviewer: approves others&#39; changes</option><option value="read-only">Read-only: sees the admin, changes nothing</option></select></div>
+<p class="hm-field__help" id="invite-role-help">Each role lists what it can do. You can change it later.</p>
 </div>
 <div class="hm-field">
 <label class="hm-field__label" for="invite-access-ends">Access ends on</label>

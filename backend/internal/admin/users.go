@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -165,11 +166,40 @@ func (a *Admin) mountUsers(authed *httpx.Group) {
 	owner.HandleFunc("POST /settings/users/{id}/delete", a.handleUserDelete)
 }
 
+// roleDescriptions are the one-line role summaries shown in role selects.
+var roleDescriptions = map[user.Role]string{
+	user.RoleOwner:       "manages content, users and settings",
+	user.RoleEditor:      "manages content",
+	user.RoleAuthor:      "writes and publishes own content",
+	user.RoleContributor: "writes, sends for review",
+	user.RoleReviewer:    "approves others' changes",
+	user.RoleReadOnly:    "sees the admin, changes nothing",
+}
+
+// roleOptions lists the roles for a select: Editor first and the default, then the others in user.Roles() order.
 func roleOptions(selected string) []ui.Option {
-	return []ui.Option{
-		{Value: "editor", Label: "Editor: manages content", Selected: selected == "editor" || selected == ""},
-		{Value: "owner", Label: "Owner: manages content, users and settings", Selected: selected == "owner"},
+	roles := append([]user.Role{user.RoleEditor}, slices.DeleteFunc(user.Roles(), func(r user.Role) bool { return r == user.RoleEditor })...)
+	opts := make([]ui.Option, 0, len(roles))
+	for _, r := range roles {
+		opts = append(opts, ui.Option{
+			Value: string(r), Label: r.Label() + ": " + roleDescriptions[r],
+			Selected: string(r) == selected || (selected == "" && r == user.RoleEditor),
+		})
 	}
+	return opts
+}
+
+// roleFilterOptions is the users list role filter: all roles, then one per role.
+func roleFilterOptions(selected string) []ui.Option {
+	opts := []ui.Option{{Value: "", Label: "All roles", Selected: selected == ""}}
+	for _, r := range user.Roles() {
+		label := r.Label() + "s"
+		if r == user.RoleReadOnly {
+			label = r.Label()
+		}
+		opts = append(opts, ui.Option{Value: string(r), Label: label, Selected: string(r) == selected})
+	}
+	return opts
 }
 
 // roleBadgeKind gives each role its own badge colour so a list reads at a glance.
@@ -301,13 +331,9 @@ func (a *Admin) usersTable(r *http.Request, all []*user.User, self string, facto
 		ID: "users", Caption: "Users", BaseURL: a.adminPath + "/settings/users", CSRF: csrfToken(r.Context()),
 		Columns: []ui.Col{{Key: "name", Label: "Name", Sortable: true}, {Key: "email", Label: "Email", Sortable: true}, {Key: "role", Label: "Role", Sortable: true}, {Key: "last", Label: "Last sign-in", Sortable: true}, {Key: "access", Label: "Access"}},
 		SortKey: sortKey, SortDir: dir, Query: q, SearchLabel: "Search users",
-		Filters: []ui.Filter{{Name: "role", Label: "Role", Options: []ui.Option{
-			{Value: "", Label: "All roles", Selected: roleFilter == ""},
-			{Value: "owner", Label: "Owners", Selected: roleFilter == "owner"},
-			{Value: "editor", Label: "Editors", Selected: roleFilter == "editor"},
-		}}},
-		Page:  ui.Pagination{Page: page, PerPage: usersPerPage, Total: total, BaseURL: a.adminPath + "/settings/users", Query: query},
-		Empty: ui.Empty{Icon: "users", Title: "No users match", Body: "Try another search or filter."},
+		Filters: []ui.Filter{{Name: "role", Label: "Role", Options: roleFilterOptions(roleFilter)}},
+		Page:    ui.Pagination{Page: page, PerPage: usersPerPage, Total: total, BaseURL: a.adminPath + "/settings/users", Query: query},
+		Empty:   ui.Empty{Icon: "users", Title: "No users match", Body: "Try another search or filter."},
 	}
 	if showFactors {
 		t.Columns = append(t.Columns, ui.Col{Key: "twostep", Label: "2-step"})
@@ -321,7 +347,7 @@ func (a *Admin) usersTable(r *http.Request, all []*user.User, self string, facto
 		row := ui.Row{ID: u.ID.String(), Label: displayName(u), Cells: []ui.Cell{
 			{Text: displayName(u), Link: a.adminPath + "/settings/users/" + u.ID.String(), Initials: initialsOf(displayName(u)), Suffix: you},
 			{Text: u.Email, Mono: true},
-			{Badge: &ui.Badge{Label: strings.ToUpper(string(u.Role)[:1]) + string(u.Role)[1:], Kind: roleBadgeKind(string(u.Role))}},
+			{Badge: &ui.Badge{Label: u.Role.Label(), Kind: roleBadgeKind(string(u.Role))}},
 			lastSignInCell(u),
 			a.accessCell(r.Context(), u, now),
 		}, Actions: []ui.Action{
@@ -365,7 +391,7 @@ func (a *Admin) invitesTable(r *http.Request) (ui.Table, bool) {
 	for _, inv := range invs {
 		id := inv.ID.String()
 		t.Rows = append(t.Rows, ui.Row{ID: id, Label: inv.Email, Cells: []ui.Cell{
-			{Text: inv.Email}, {Text: string(inv.Role)}, a.inviteAccessCell(r.Context(), inv), {Text: fmtDate(inv.ExpiresAt)},
+			{Text: inv.Email}, {Text: inv.Role.Label()}, a.inviteAccessCell(r.Context(), inv), {Text: fmtDate(inv.ExpiresAt)},
 		}, Actions: []ui.Action{
 			{Label: "Send a new link", Post: a.adminPath + "/settings/users/invites/" + id + "/resend"},
 			{Label: "Revoke", Href: a.adminPath + "/settings/users/invites/" + id + "/revoke", Post: a.adminPath + "/settings/users/invites/" + id + "/revoke", Danger: true, ConfirmLabel: "Revoke invitation",
