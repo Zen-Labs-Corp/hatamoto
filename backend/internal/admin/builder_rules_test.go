@@ -3,6 +3,7 @@ package admin
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -126,5 +127,38 @@ func TestBuilderRulesAuthorCannotSaveOthersPage(t *testing.T) {
 	own := builderRulesPage(c, users[user.RoleAuthor], entity.StatusDraft)
 	if rec := builderRulesSave(c, tok, own, "publish"); rec.Code != http.StatusOK {
 		t.Errorf("author publish of own draft: %d %s", rec.Code, rec.Body)
+	}
+}
+
+const builderRulesOldDoc = `{"v":2,"nodes":[{"id":"c1","t":"container","c":[{"id":"h1","t":"heading","p":{"text":"Old","level":2}},{"id":"t1","t":"text","p":{"text":"gone"}}]}]}`
+
+func TestBuilderRulesNodeRestoreRefusedForOthersPage(t *testing.T) {
+	t.Parallel()
+
+	c, users := newRolesRig(t)
+	author, other := users[user.RoleAuthor], users[user.RoleReviewer]
+	tok := c.freshToken(author.ID)
+
+	restore := func(e *entity.Entity) *httptest.ResponseRecorder {
+		c.ents.mu.Lock()
+		c.ents.versions[e.ID] = []*entity.EntityVersion{{EntityID: e.ID, Version: 1, Attributes: []byte(`{"title":"T","page_doc":` + builderRulesOldDoc + `}`)}}
+		c.ents.ents[e.ID].Version = 2
+		v := c.ents.ents[e.ID].Version
+		c.ents.mu.Unlock()
+		return c.do("POST", "/admin/entities/"+e.ID.String()+"/versions/1/nodes/t1/restore", tok,
+			url.Values{"base_version": {strconv.Itoa(v)}}, nil)
+	}
+
+	theirs := builderRulesPage(c, other, entity.StatusDraft)
+	if rec := restore(theirs); rec.Code != http.StatusForbidden {
+		t.Errorf("author restores a node on another's page = %d, want 403: %s", rec.Code, rec.Body)
+	}
+	if v := builderRulesVersion(c, theirs); v != 2 {
+		t.Errorf("refused restore changed the page: version %d, want 2", v)
+	}
+
+	mine := builderRulesPage(c, author, entity.StatusDraft)
+	if rec := restore(mine); rec.Code != http.StatusSeeOther {
+		t.Errorf("author restores a node on own page = %d, want 303: %s", rec.Code, rec.Body)
 	}
 }
