@@ -35,7 +35,11 @@ func (s *Server) relatedFunc(ctx context.Context, selfID, schema string, uncache
 			slugs = sl
 		}
 		// One spare row so excluding the page itself still fills maxRelated.
-		return entity.NewPostgresPublicRepository(s.db).ListPublishedBySchemasNoCount(ctx, slugs, maxRelated+1)
+		rows, err := entity.NewPostgresPublicRepository(s.db).ListPublishedBySchemasNoCount(ctx, slugs, maxRelated+1)
+		if err == nil {
+			s.prefetchRelatedImages(rows)
+		}
+		return rows, err
 	}
 	return memoRelated(selfID, fetch,
 		relatedLocator(ctx, snap, entity.NewPostgresPublicRepository(s.db), schema),
@@ -45,6 +49,26 @@ func (s *Server) relatedFunc(ctx context.Context, selfID, schema string, uncache
 				*uncacheable = true
 			}
 		})
+}
+
+// prefetchRelatedImages loads the variants of the related cards' images in one
+// lookup, so the srcset calls that render them hit the cache.
+func (s *Server) prefetchRelatedImages(rows []*entity.Entity) {
+	if s.renderData == nil {
+		return
+	}
+	var urls []string
+	for _, e := range rows {
+		if e == nil || e.Status != entity.StatusPublished {
+			continue // as relatedItems: only cards that render
+		}
+		if u := strAttr(attrsForView(e.Attributes), "featured_image"); u != "" {
+			urls = append(urls, u)
+		}
+	}
+	if len(urls) > 0 {
+		s.renderData.PrefetchVariants(urls)
+	}
 }
 
 // memoRelated fetches at most once (on the first call, for the largest
