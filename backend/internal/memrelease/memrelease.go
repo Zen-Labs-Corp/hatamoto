@@ -24,6 +24,7 @@ type Config struct {
 	Idle        time.Duration // required quiet time before a release, default 10s
 	MinInterval time.Duration // minimum time between releases, default 30s
 	MinReclaim  uint64        // free bytes, or heap growth, worth a release; default 8 MiB
+	Park        time.Duration // longest sleep while idle with nothing to release, default 30s
 
 	Now          func() time.Time // default time.Now
 	LastActivity func() time.Time // nil means always idle
@@ -49,6 +50,12 @@ func (c *Config) fill() {
 	}
 	if c.MinInterval <= 0 {
 		c.MinInterval = 30 * time.Second
+	}
+	if c.Park <= 0 {
+		c.Park = 30 * time.Second
+	}
+	if c.Park < c.Tick {
+		c.Park = c.Tick
 	}
 	if c.MinReclaim == 0 {
 		c.MinReclaim = defaultMinReclaim
@@ -83,22 +90,54 @@ func Run(ctx context.Context, c Config) {
 	}
 }
 
+// outcome says what stopped a step, or that it released.
+type outcome int
+
+const (
+	belowThreshold outcome = iota // not enough to reclaim
+	busy                          // activity within Idle
+	tooSoon                       // released less than MinInterval ago
+	released
+)
+
 // step takes one sample and releases when the conditions hold.
-func (r *releaser) step(now time.Time) {
+func (r *releaser) step(now time.Time) outcome {
 	s := r.c.Sample()
 	if s.FreeUnreleased < r.c.MinReclaim && s.InUse < r.baseline+r.c.MinReclaim {
-		return
+		return belowThreshold
 	}
 	if r.c.LastActivity != nil && now.Sub(r.c.LastActivity()) < r.c.Idle {
-		return
+		return busy
 	}
 	if r.freed && now.Sub(r.lastFree) < r.c.MinInterval {
-		return
+		return tooSoon
 	}
 	r.c.Free()
 	r.baseline = r.c.Sample().InUse
 	r.lastFree = now
 	r.freed = true
+	return released
+}
+
+// next is how long Run sleeps after a step with outcome o. A release needs
+// the process idle for Idle, so a busy process is next sampled when that can
+// first be true; an idle one with nothing to do is sampled every Park.
+// Without LastActivity it keeps the plain Tick. Never below Tick.
+func (r *releaser) next(now time.Time, o outcome) time.Duration {
+	c := r.c
+	if c.LastActivity == nil {
+		return c.Tick
+	}
+	var d time.Duration
+	switch idleAt := c.LastActivity().Add(c.Idle); {
+	case now.Before(idleAt):
+		d = idleAt.Sub(now) // busy, or below threshold while busy
+	case o == tooSoon:
+		d = r.lastFree.Add(c.MinInterval).Sub(now)
+	default:
+		d = c.Park // idle: released, or nothing to reclaim
+	}
+	return max(d, c.Tick)
 }
 
 var metricNames = []string{

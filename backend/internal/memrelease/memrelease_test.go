@@ -113,11 +113,83 @@ func TestReleaserNilActivityIsIdle(t *testing.T) {
 func TestConfigDefaults(t *testing.T) {
 	var c Config
 	c.fill()
-	if c.Tick != 2*time.Second || c.Idle != 10*time.Second || c.MinInterval != 30*time.Second || c.MinReclaim != 8*mib {
+	if c.Tick != 2*time.Second || c.Idle != 10*time.Second || c.MinInterval != 30*time.Second || c.MinReclaim != 8*mib || c.Park != 30*time.Second {
 		t.Fatalf("defaults = %+v", c)
 	}
 	if c.Now == nil || c.Sample == nil || c.Free == nil {
 		t.Fatal("func defaults missing")
+	}
+}
+
+func TestStepOutcomes(t *testing.T) {
+	f := newFixture()
+	f.sample = Sample{FreeUnreleased: 7 * mib, InUse: 40*mib + 7*mib}
+	f.now = f.now.Add(time.Minute)
+	if got := f.r.step(f.now); got != belowThreshold {
+		t.Fatalf("got %v, want belowThreshold", got)
+	}
+	f.sample = Sample{FreeUnreleased: 20 * mib, InUse: 40 * mib}
+	f.activity = f.now.Add(-3 * time.Second)
+	if got := f.r.step(f.now); got != busy {
+		t.Fatalf("got %v, want busy", got)
+	}
+	f.activity = f.now.Add(-time.Hour)
+	if got := f.r.step(f.now); got != released {
+		t.Fatalf("got %v, want released", got)
+	}
+	f.now = f.now.Add(10 * time.Second)
+	f.sample.FreeUnreleased = 20 * mib
+	if got := f.r.step(f.now); got != tooSoon {
+		t.Fatalf("got %v, want tooSoon", got)
+	}
+}
+
+func TestNextSleepsUntilIdleDeadline(t *testing.T) {
+	f := newFixture()
+	f.activity = f.now.Add(-3 * time.Second)
+	if got := f.r.next(f.now, busy); got != 7*time.Second {
+		t.Fatalf("next = %v, want 7s", got)
+	}
+}
+
+func TestNextTooSoonWaitsForMinInterval(t *testing.T) {
+	f := newFixture()
+	f.sample.FreeUnreleased = 20 * mib
+	f.step(time.Minute)
+	f.sample.FreeUnreleased = 20 * mib
+	f.now = f.now.Add(10 * time.Second)
+	o := f.r.step(f.now)
+	if o != tooSoon {
+		t.Fatalf("outcome = %v, want tooSoon", o)
+	}
+	if got := f.r.next(f.now, o); got != 20*time.Second {
+		t.Fatalf("next = %v, want 20s", got)
+	}
+}
+
+func TestNextParksWhenIdle(t *testing.T) {
+	f := newFixture()
+	if got := f.r.next(f.now, belowThreshold); got != 30*time.Second {
+		t.Fatalf("next = %v, want Park", got)
+	}
+	if got := f.r.next(f.now, released); got != 30*time.Second {
+		t.Fatalf("next after release = %v, want Park", got)
+	}
+}
+
+func TestNextNeverBelowTick(t *testing.T) {
+	f := newFixture()
+	f.activity = f.now.Add(-f.r.c.Idle + time.Millisecond)
+	if got := f.r.next(f.now, busy); got != f.r.c.Tick {
+		t.Fatalf("next = %v, want Tick", got)
+	}
+}
+
+func TestNextNilActivityKeepsTick(t *testing.T) {
+	f := newFixture()
+	f.r.c.LastActivity = nil
+	if got := f.r.next(f.now, belowThreshold); got != f.r.c.Tick {
+		t.Fatalf("next = %v, want Tick", got)
 	}
 }
 
