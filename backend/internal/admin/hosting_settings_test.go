@@ -308,7 +308,7 @@ func TestHostingPageSetupCard(t *testing.T) {
 		`href="/admin/settings/hosting?setup=nginx#hosting-setup"`, `aria-current="page">Caddy`, "S3 &#43; CDN",
 		`id="hosting-setup-config"`, "reverse_proxy 127.0.0.1:8090", `data-hm-copy-field="hosting-setup-config"`, `id="hosting-setup-form"`,
 		"Upstream 127.0.0.1:8090 is this server&#39;s listen address.",
-		"Not checked yet. It runs after the next export on this server.", "The folder exists and the service user can write to it.",
+		"Not checked yet. It runs after the next export on this server.", "The folder exists and the service user can write to it and to its parent.",
 		"3 exact rules become meta-refresh pages and 1 wildcard rule is lost", "included in the config below"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page lacks %q", want)

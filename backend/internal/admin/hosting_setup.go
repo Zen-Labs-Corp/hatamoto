@@ -90,11 +90,11 @@ func hostingChecks(s HostingSetup, loc *time.Location) []hostingCheck {
 	if s.Target != HostingTargetS3 {
 		switch s.Folder {
 		case HostingCheckOK:
-			out = append(out, hostingCheck{"Folder", "The folder exists and the service user can write to it.", setupBadge("success", "OK")})
+			out = append(out, hostingCheck{"Folder", "The folder exists and the service user can write to it and to its parent.", setupBadge("success", "OK")})
 		case HostingCheckMissing:
 			out = append(out, hostingCheck{"Folder", "The folder does not exist yet. The first export creates it.", setupBadge("info", "Missing")})
 		case HostingCheckNotWritable:
-			out = append(out, hostingCheck{"Folder", "The service user cannot write to the folder or its parent.", setupBadge("warning", "Check")})
+			out = append(out, hostingCheck{"Folder", "The service user cannot write to the folder's parent, where each export is built and swapped in, or to the folder itself.", setupBadge("warning", "Check")})
 		default:
 			out = append(out, hostingCheck{"Folder", "The folder is not checked on this system.", setupBadge("info", "Not checked")})
 		}

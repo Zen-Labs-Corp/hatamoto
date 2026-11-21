@@ -124,3 +124,27 @@ func TestFolderState(t *testing.T) {
 		t.Errorf("missing dir under a read-only parent = %q", got)
 	}
 }
+
+// The export stages in the parent and renames, so a writable folder under a
+// read-only parent still fails.
+func TestFolderStateExistingWritableDirUnderReadOnlyParent(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("folder check is not available here")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root can write everywhere")
+	}
+	parent := t.TempDir()
+	dir := filepath.Join(parent, "public")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(parent, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(parent, 0o755) })
+	if got := folderState(dir); got != admin.HostingCheckNotWritable {
+		t.Errorf("writable dir under a read-only parent = %q, want not writable", got)
+	}
+}
