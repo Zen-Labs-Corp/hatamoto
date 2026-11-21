@@ -29,12 +29,9 @@ import (
 // page: one discarded warm-up GET, then the second GET of the same path is
 // counted. Zero tolerance: a render that gains a query must say so.
 //
-//	DATABASE_URL=... go test -tags integration -run TestBudgetRenderQueries ./internal/server -v
+//	HATAMOTO_TEST_DB_URL=... go test -tags integration -run TestBudgetRenderQueries ./internal/server -v
 func TestBudgetRenderQueries(t *testing.T) {
-	base := os.Getenv("DATABASE_URL")
-	if base == "" {
-		t.Skip("DATABASE_URL not set; needs Postgres")
-	}
+	base := budgetDBURL(t)
 	dsn := scratchMigratedDB(t, base)
 	t.Setenv("DATABASE_URL", dsn)
 	t.Setenv("JWT_SECRET", strings.Repeat("q", 40))
@@ -149,10 +146,7 @@ func TestBudgetRenderQueries(t *testing.T) {
 // This counter is what the budget trusts, so statements sent through a pgx.Batch
 // or CopyFrom must count too (one per statement), or batching would hide queries.
 func TestQueryCounterSeesBatchAndCopy(t *testing.T) {
-	base := os.Getenv("DATABASE_URL")
-	if base == "" {
-		t.Skip("DATABASE_URL not set; needs Postgres")
-	}
+	base := budgetDBURL(t)
 	ctx := context.Background()
 	pcfg, err := pgxpool.ParseConfig(scratchMigratedDB(t, base))
 	if err != nil {
@@ -193,6 +187,19 @@ func TestQueryCounterSeesBatchAndCopy(t *testing.T) {
 	if n := counter.Count() - mark; n != 1 {
 		t.Errorf("CopyFrom counted %d: %v", n, counter.Since(mark))
 	}
+}
+
+// budgetDBURL is DATABASE_URL, else HATAMOTO_TEST_DB_URL (make budgets passes the latter on as
+// the former); the test skips without either.
+func budgetDBURL(t *testing.T) string {
+	t.Helper()
+	for _, k := range []string{"DATABASE_URL", "HATAMOTO_TEST_DB_URL"} {
+		if v := os.Getenv(k); v != "" {
+			return v
+		}
+	}
+	t.Skip("DATABASE_URL and HATAMOTO_TEST_DB_URL not set; needs Postgres")
+	return ""
 }
 
 // settleQueries waits until no statement has started for 3 polls 50 ms apart

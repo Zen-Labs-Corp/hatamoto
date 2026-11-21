@@ -284,17 +284,17 @@ docs-publish-test:
 # budget (internal/idlemem) boots the built binary against a scratch database and so
 # needs HATAMOTO_TEST_DB_URL and Linux (about 1 minute, 30 s of it idle wait); without them it skips and
 # the recipe says so. The render query-count budget (TestBudgetRenderQueries, integration
-# tag) needs HATAMOTO_TEST_DB_URL or DATABASE_URL and skips with a warning without one.
+# tag) needs HATAMOTO_TEST_DB_URL (passed on as DATABASE_URL) and skips with a warning without it.
 # The recipe prints one table row per metric and exits non-zero on any failure.
 budgets:
 	@cd backend && CGO_ENABLED=0 go build -tags nodynamic -trimpath -o bin/hatamoto-idlemem ./cmd/hatamoto
 	@HATAMOTO_IDLEMEM_BIN="$(CURDIR)/backend/bin/hatamoto-idlemem" bash -o pipefail -c 'out=$$(cd backend && go test -count=1 -v -run "TestBudget" ./internal/admin ./internal/render ./internal/server ./internal/idlemem ./internal/budgetfile 2>&1); rc=$$?; \
-	  db=$${HATAMOTO_TEST_DB_URL:-$$DATABASE_URL}; \
-	  if [ -n "$$db" ]; then out2=$$(cd backend && DATABASE_URL="$$db" go test -count=1 -v -tags integration -run "^TestBudgetRenderQueries$$" ./internal/server 2>&1) || rc=1; out="$$out"$$'\n'"$$out2"; fi; \
+	  db="$$HATAMOTO_TEST_DB_URL"; \
+	  if [ -n "$$db" ]; then out2=$$(cd backend && DATABASE_URL="$$db" go test -count=1 -v -tags integration -run "^TestBudgetRenderQueries$$" ./internal/server 2>&1) || rc=1; out=$$(printf "%s\n%s" "$$out" "$$out2"); fi; \
 	  rows=$$(printf "%s\n" "$$out" | sed -n "s/^.*\(BUDGET [^ ]* .*\)$$/\1/p"); \
 	  if command -v column >/dev/null 2>&1; then printf "%s\n" "$$rows" | column -t; else printf "%s\n" "$$rows"; fi; \
 	  if [ $$rc -ne 0 ]; then printf "%s\n" "$$out" | grep -E "^(--- FAIL|FAIL|panic)|\.go:[0-9]+:" >&2; echo "make budgets: FAILED" >&2; fi; \
-	  printf "%s\n" "$$rows" | grep -q "^BUDGET server/render_queries_" || echo "make budgets: render queries SKIPPED (needs HATAMOTO_TEST_DB_URL or DATABASE_URL); its budget was NOT checked" >&2; \
+	  printf "%s\n" "$$rows" | grep -q "^BUDGET server/render_queries_" || echo "make budgets: render queries SKIPPED (needs HATAMOTO_TEST_DB_URL); its budget was NOT checked" >&2; \
 	  printf "%s\n" "$$rows" | grep -q "^BUDGET idlemem/" || echo "make budgets: idlemem SKIPPED (needs Linux and HATAMOTO_TEST_DB_URL); its budget was NOT checked" >&2; \
 	  exit $$rc'
 
@@ -309,7 +309,7 @@ budgets-update:
 	@test -n "$$HATAMOTO_TEST_DB_URL" && test "$$(uname -s)" = Linux || { echo "budgets-update needs Linux and HATAMOTO_TEST_DB_URL: without them the idlemem baseline would not be refreshed" >&2; exit 1; }
 	cd backend && CGO_ENABLED=0 go build -tags nodynamic -trimpath -o bin/hatamoto-idlemem ./cmd/hatamoto
 	cd backend && HATAMOTO_IDLEMEM_BIN="$(CURDIR)/backend/bin/hatamoto-idlemem" HM_BUDGETS_UPDATE=1 HM_BUDGETS_REASON="$$REASON" go test -count=1 -run TestBudget ./internal/admin ./internal/render ./internal/idlemem
-	cd backend && DATABASE_URL="$${HATAMOTO_TEST_DB_URL:-$$DATABASE_URL}" HM_BUDGETS_UPDATE=1 HM_BUDGETS_REASON="$$REASON" go test -count=1 -tags integration -run TestBudget ./internal/server
+	cd backend && DATABASE_URL="$$HATAMOTO_TEST_DB_URL" HM_BUDGETS_UPDATE=1 HM_BUDGETS_REASON="$$REASON" go test -count=1 -tags integration -run TestBudget ./internal/server
 
 # check: design-check, then every suite in scripts/check-suites.txt (the pre-push hook runs
 # only the suites whose paths changed: scripts/check-suites.sh --changed <range>).
