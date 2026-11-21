@@ -12,6 +12,9 @@ import (
 	"hatamoto.dev/core/internal/database"
 )
 
+// sweepGrace is how long past its expiry a row survives the sweep in Put.
+const sweepGrace = 60 * time.Second
+
 // Store keeps tickets in hatamoto_frame_tickets, shared by every server.
 type Store struct{ db *database.DB }
 
@@ -19,10 +22,12 @@ type Store struct{ db *database.DB }
 func NewStore(db *database.DB) *Store { return &Store{db: db} }
 
 // Put sweeps expired rows, inserts t, then drops whatever exceeds the count
-// or byte bound, oldest first. Expiry is judged against the caller's now.
+// or byte bound, oldest first. The sweep leaves sweepGrace of margin so a
+// server with a fast clock cannot delete tickets another server just minted;
+// Take still enforces the TTL.
 func (s *Store) Put(ctx context.Context, t Ticket, now time.Time) error {
 	err := pgx.BeginFunc(ctx, s.db.Pool(), func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_frame_tickets WHERE expires_at < $1`, now); err != nil {
+		if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_frame_tickets WHERE expires_at < $1`, now.Add(-sweepGrace)); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx,

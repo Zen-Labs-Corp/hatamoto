@@ -142,3 +142,26 @@ func TestStoreCaps_Integration(t *testing.T) {
 		t.Error("the newest ticket did not survive")
 	}
 }
+
+func TestStoreSweepKeepsRowsWithinGrace_Integration(t *testing.T) {
+	db := openDB(t)
+	s, p, ctx, now := NewStore(db), prefix(t, db), context.Background(), time.Now()
+	mk := func(name string, exp time.Time) Ticket {
+		return Ticket{Nonce: p + name, Purpose: "preview", Session: uuid.New(), Target: "e", Expiry: exp}
+	}
+	// "recent" looks expired only to a clock a little ahead; "old" is long gone.
+	for _, tk := range []Ticket{mk("recent", now.Add(-30*time.Second)), mk("old", now.Add(-5*time.Minute))} {
+		if err := s.Put(ctx, tk, now.Add(-time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.Put(ctx, mk("new", now.Add(time.Minute)), now); err != nil {
+		t.Fatal(err)
+	}
+	if n := count(t, db, p); n != 2 {
+		t.Fatalf("%d rows, want 2 (recent and new)", n)
+	}
+	if _, ok, _ := s.Take(ctx, p+"old", now); ok {
+		t.Error("old row survived the sweep")
+	}
+}
