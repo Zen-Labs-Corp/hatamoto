@@ -15,9 +15,12 @@ type RateLimiter struct {
 	mu       sync.RWMutex
 	rate     rate.Limit
 	burst    int
-	cleanup  time.Duration
-	stopCh   chan struct{}
+	cleanup  time.Duration // a visitor unseen this long is dropped
 	slash64  bool
+
+	sweepEvery time.Duration // at most one sweep per this interval
+	lastSweep  time.Time
+	now        func() time.Time // time.Now; tests inject a clock
 }
 
 type visitor struct {
@@ -34,12 +37,11 @@ func NewRateLimiter(rps float64, burst int) *RateLimiter {
 		rate:     rate.Limit(rps),
 		burst:    burst,
 		cleanup:  3 * time.Minute,
-		stopCh:   make(chan struct{}),
+
+		sweepEvery: time.Minute,
+		lastSweep:  time.Now(),
+		now:        time.Now,
 	}
-
-	// Start cleanup goroutine
-	go rl.cleanupVisitors()
-
 	return rl
 }
 
@@ -62,44 +64,36 @@ func (rl *RateLimiter) ByIPv6Prefix() *RateLimiter {
 	return rl
 }
 
-// getVisitor retrieves or creates a rate limiter for an IP.
+// getVisitor retrieves or creates a rate limiter for an IP. Stale visitors
+// are swept here, at most once per sweepEvery, so an idle limiter runs no
+// goroutine and no timer; the map cannot grow without requests.
 func (rl *RateLimiter) getVisitor(ip string) *rate.Limiter {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
+	now := rl.now()
+	if now.Sub(rl.lastSweep) >= rl.sweepEvery {
+		rl.lastSweep = now
+		for k, v := range rl.visitors {
+			if now.Sub(v.lastSeen) > rl.cleanup {
+				delete(rl.visitors, k)
+			}
+		}
+	}
+
 	v, exists := rl.visitors[ip]
 	if !exists {
 		limiter := rate.NewLimiter(rl.rate, rl.burst)
-		rl.visitors[ip] = &visitor{limiter: limiter, lastSeen: time.Now()}
+		rl.visitors[ip] = &visitor{limiter: limiter, lastSeen: now}
 		return limiter
 	}
 
-	v.lastSeen = time.Now()
+	v.lastSeen = now
 	return v.limiter
 }
 
-// cleanupVisitors removes stale entries. It exits when stopCh is closed.
-func (rl *RateLimiter) cleanupVisitors() {
-	for {
-		select {
-		case <-time.After(time.Minute):
-			rl.mu.Lock()
-			for ip, v := range rl.visitors {
-				if time.Since(v.lastSeen) > rl.cleanup {
-					delete(rl.visitors, ip)
-				}
-			}
-			rl.mu.Unlock()
-		case <-rl.stopCh:
-			return
-		}
-	}
-}
-
-// Stop terminates the background cleanup goroutine.
-func (rl *RateLimiter) Stop() {
-	close(rl.stopCh)
-}
+// Stop is kept for callers; the limiter has no background work to stop.
+func (rl *RateLimiter) Stop() {}
 
 // Allow reports whether key may make a request now; it is the limiter's own
 // bucket logic for callers that choose the key themselves (a session, say).
