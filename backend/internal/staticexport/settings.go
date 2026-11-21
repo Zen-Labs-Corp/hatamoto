@@ -177,6 +177,11 @@ func S3TargetFromEnv(getenv func(string) string) (t offsite.Target, ok bool, err
 	if len(missing) > 0 {
 		return offsite.Target{}, true, errors.New("S3 target is incomplete, set " + strings.Join(missing, ", "))
 	}
+	if !AllowPrivateS3(getenv) {
+		if err := CheckS3Endpoint(t.Endpoint); err != nil {
+			return offsite.Target{}, true, fmt.Errorf("%w (set %s=1 to allow a private storage service)", err, EnvS3AllowPrivate)
+		}
+	}
 	if err := t.Validate(); err != nil {
 		return offsite.Target{}, true, err
 	}

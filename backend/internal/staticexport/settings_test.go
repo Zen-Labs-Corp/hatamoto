@@ -113,3 +113,21 @@ func TestS3TargetFromEnv(t *testing.T) {
 		t.Fatalf("bad bucket err = %v", err)
 	}
 }
+
+func TestS3TargetFromEnv_PrivateEndpoint(t *testing.T) {
+	env := map[string]string{EnvBucket: "my-site", EnvRegion: "eu-west-1", EnvAccessKey: "AKIAEXAMPLE",
+		EnvSecretKey: "topsecret", EnvEndpoint: "http://169.254.169.254"}
+	get := func(k string) string { return env[k] }
+	_, ok, err := S3TargetFromEnv(get)
+	if !ok || err == nil || !strings.HasPrefix(err.Error(), "endpoint refused: private or link-local address") {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	env[EnvS3AllowPrivate] = "1" // reaches Validate, which wants https for a link-local address
+	if _, _, err := S3TargetFromEnv(get); err == nil || strings.Contains(err.Error(), "endpoint refused") {
+		t.Fatalf("opt-in err = %v", err)
+	}
+	env[EnvEndpoint] = "https://10.0.0.5"
+	if _, _, err := S3TargetFromEnv(get); err != nil {
+		t.Fatalf("opt-in private https: %v", err)
+	}
+}
