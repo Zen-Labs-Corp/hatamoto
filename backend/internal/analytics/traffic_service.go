@@ -89,6 +89,7 @@ func (s *Service) RecordTraffic(ev Event, channel, source string) {
 	s.bump(day, DimDevice, ev.Device, "", c)
 	s.bump(day, DimCountry, country, "", c)
 	s.mu.Unlock()
+	s.signal()
 }
 
 // bump adds c to a row; s.mu must be held.

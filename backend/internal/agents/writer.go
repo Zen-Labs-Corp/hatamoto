@@ -78,6 +78,8 @@ type Writer struct {
 
 	drainTimeout  time.Duration // bounds the whole shutdown drain, flushes included
 	resolveBudget time.Duration // resolver time per flush
+	flushEvery    time.Duration // flush delay after the first buffered hit; flushInterval outside tests
+	fires         atomic.Uint64 // flush timer fires (tests: no timer runs while the batch is empty)
 }
 
 // NewWriter starts the background flush goroutine. resolve may be nil (page
@@ -94,6 +96,7 @@ func NewWriter(store Store, reg *Registry, resolve ResolveFunc, logger *slog.Log
 
 		drainTimeout:  drainTimeout,
 		resolveBudget: resolveBudget,
+		flushEvery:    flushInterval,
 	}
 	go w.run()
 	return w
@@ -202,11 +205,21 @@ func (w *Writer) Close() {
 
 func (w *Writer) run() {
 	defer close(w.done)
-	ticker := time.NewTicker(flushInterval)
-	defer ticker.Stop()
+	// The flush timer runs only while hits are buffered: armed by the first
+	// hit of a batch, so an idle writer has no timer at all. A hit is stored
+	// at most flushEvery after it was queued, as with the old ticker.
+	var timer *time.Timer
+	var timerC <-chan time.Time
+	disarm := func() {
+		if timer != nil {
+			timer.Stop()
+		}
+		timerC = nil
+	}
 	batch := make([]queued, 0, flushBatch)
 	ctx := context.Background()
 	flush := func() {
+		disarm()
 		if len(batch) > 0 {
 			w.flush(ctx, batch)
 			batch = batch[:0]
@@ -218,10 +231,20 @@ func (w *Writer) run() {
 			batch = append(batch, it)
 			if len(batch) >= flushBatch {
 				flush()
+			} else if timerC == nil {
+				if timer == nil {
+					timer = time.NewTimer(w.flushEvery)
+				} else {
+					timer.Reset(w.flushEvery)
+				}
+				timerC = timer.C
 			}
-		case <-ticker.C:
+		case <-timerC:
+			w.fires.Add(1)
+			timerC = nil
 			flush()
 		case <-w.stop:
+			disarm()
 			var cancel context.CancelFunc
 			ctx, cancel = context.WithTimeout(context.Background(), w.drainTimeout)
 			defer cancel()

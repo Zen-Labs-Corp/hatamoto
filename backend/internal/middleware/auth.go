@@ -214,8 +214,47 @@ func GetAuthType(ctx context.Context) AuthType {
 type APIKeyRateLimiter struct {
 	limiters map[uuid.UUID]*keyLimiter
 	mu       sync.RWMutex
-	cleanup  time.Duration
-	stopCh   chan struct{}
+	cleanup  time.Duration // a limiter unseen this long is dropped
+
+	sweepEvery time.Duration // at most one sweep per this interval
+	lastSweep  time.Time
+	now        func() time.Time // time.Now; tests inject a clock
+	timer      sweepTimer       // sweeps after a burst, once requests stop
+}
+
+// clock is now(), or time.Now for a zero-value limiter.
+func (rl *APIKeyRateLimiter) clock() time.Time {
+	if rl.now == nil {
+		return time.Now()
+	}
+	return rl.now()
+}
+
+// sweepLocked drops limiters unseen for cleanup. Caller holds mu.
+func (rl *APIKeyRateLimiter) sweepLocked(now time.Time) {
+	rl.lastSweep = now
+	for id, l := range rl.limiters {
+		if now.Sub(l.lastSeen) > rl.cleanup {
+			delete(rl.limiters, id)
+		}
+	}
+}
+
+// armLocked arms the cleanup timer while limiters remain. Caller holds mu.
+func (rl *APIKeyRateLimiter) armLocked() {
+	if len(rl.limiters) > 0 {
+		rl.timer.arm(rl.cleanup+rl.sweepEvery, rl.timerSweep)
+	}
+}
+
+// timerSweep frees stale limiters when no request came to do it, and re-arms
+// only if some remain.
+func (rl *APIKeyRateLimiter) timerSweep() {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	rl.timer.armed = false
+	rl.sweepLocked(rl.clock())
+	rl.armLocked()
 }
 
 type keyLimiter struct {
@@ -230,10 +269,11 @@ func NewAPIKeyRateLimiter() *APIKeyRateLimiter {
 	rl := &APIKeyRateLimiter{
 		limiters: make(map[uuid.UUID]*keyLimiter),
 		cleanup:  5 * time.Minute,
-		stopCh:   make(chan struct{}),
-	}
 
-	go rl.cleanupRoutine()
+		sweepEvery: time.Minute,
+		lastSweep:  time.Now(),
+		now:        time.Now,
+	}
 	return rl
 }
 
@@ -245,7 +285,12 @@ func (rl *APIKeyRateLimiter) Allow(keyID uuid.UUID, rateLimit int) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
-	now := time.Now()
+	// Stale limiters are swept here, at most once per sweepEvery; a one-shot
+	// timer, armed only while the map is non-empty, frees them when requests stop.
+	now := rl.clock()
+	if now.Sub(rl.lastSweep) >= rl.sweepEvery {
+		rl.sweepLocked(now)
+	}
 
 	kl, exists := rl.limiters[keyID]
 	if !exists {
@@ -261,6 +306,7 @@ func (rl *APIKeyRateLimiter) Allow(keyID uuid.UUID, rateLimit int) bool {
 			hourStart:  now,
 		}
 		rl.limiters[keyID] = kl
+		rl.armLocked()
 	}
 
 	kl.lastSeen = now
@@ -285,31 +331,11 @@ func (rl *APIKeyRateLimiter) Allow(keyID uuid.UUID, rateLimit int) bool {
 	return true
 }
 
-// cleanupRoutine removes stale limiters. It exits when stopCh is closed.
-func (rl *APIKeyRateLimiter) cleanupRoutine() {
-	ticker := time.NewTicker(time.Minute)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			rl.mu.Lock()
-			now := time.Now()
-			for id, kl := range rl.limiters {
-				if now.Sub(kl.lastSeen) > rl.cleanup {
-					delete(rl.limiters, id)
-				}
-			}
-			rl.mu.Unlock()
-		case <-rl.stopCh:
-			return
-		}
-	}
-}
-
-// Stop terminates the background cleanup goroutine.
+// Stop cancels the pending cleanup timer, if any.
 func (rl *APIKeyRateLimiter) Stop() {
-	close(rl.stopCh)
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	rl.timer.stop()
 }
 
 // APIKeyAuthMiddleware validates API keys from the X-API-Key header.

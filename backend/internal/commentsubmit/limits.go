@@ -76,7 +76,7 @@ func (l *Limits) MarkPosted(commenterKey, entityID string) {
 // Surge returns the site-wide surge window.
 func (l *Limits) Surge() *Surge { return l.surge }
 
-// Stop ends the limiters' background cleanup.
+// Stop cancels the limiters' pending cleanup timers.
 func (l *Limits) Stop() {
 	l.ip.Stop()
 	l.net.Stop()

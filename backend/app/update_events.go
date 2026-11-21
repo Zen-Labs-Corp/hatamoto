@@ -63,9 +63,26 @@ func importUpdateEvents(ctx context.Context, db execer, dataDir string, log *slo
 // success would wait for the next restart.
 const updateEventsEvery = time.Minute
 
-// watchUpdateEvents imports new events every interval until ctx ends. The
-// import is idempotent; a failure is logged and retried on the next tick.
+// eventsSig identifies one version of events.jsonl (nil: missing file).
+func eventsSig(path string) os.FileInfo {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return nil
+	}
+	return fi
+}
+
+func sameEvents(a, b os.FileInfo) bool {
+	return a != nil && b != nil && os.SameFile(a, b) && a.Size() == b.Size() && a.ModTime().Equal(b.ModTime())
+}
+
+// watchUpdateEvents imports new events every interval until ctx ends. A tick
+// whose events file is unchanged since the last successful import does
+// nothing (no read, no query). The import is idempotent; a failure is logged
+// and retried on the next tick.
 func watchUpdateEvents(ctx context.Context, db execer, dataDir string, log *slog.Logger, every time.Duration) {
+	path := supervisor.NewLayout(dataDir).EventsPath()
+	var done os.FileInfo // file version of the last successful import
 	t := time.NewTicker(every)
 	defer t.Stop()
 	for {
@@ -73,9 +90,19 @@ func watchUpdateEvents(ctx context.Context, db execer, dataDir string, log *slog
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			if err := importUpdateEvents(ctx, db, dataDir, log); err != nil && ctx.Err() == nil {
-				log.Warn("cannot import update events", "error", err)
+			// Stat before the import: a write racing it leaves a newer
+			// signature, so the next tick imports again.
+			sig := eventsSig(path)
+			if sig == nil || sameEvents(sig, done) {
+				continue
 			}
+			if err := importUpdateEvents(ctx, db, dataDir, log); err != nil {
+				if ctx.Err() == nil {
+					log.Warn("cannot import update events", "error", err)
+				}
+				continue
+			}
+			done = sig
 		}
 	}
 }

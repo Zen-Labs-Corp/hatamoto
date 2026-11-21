@@ -62,7 +62,7 @@ type bucket struct {
 }
 
 // Service records pageviews and AI referrals. Counts are buffered in memory and
-// written by Flush (every flushInterval once Start is called, and on Close), so
+// written by Flush (flushInterval after the first count once Start is called, and on Close), so
 // a busy site does not hammer one hot rollup row per request.
 type Service struct {
 	repo   Repository
@@ -78,6 +78,10 @@ type Service struct {
 	trafficKeys   map[dayDim]map[[2]string]struct{}
 	engagementOff atomic.Bool
 
+	flushEvery time.Duration // flush delay after the first buffered count; flushInterval outside tests
+	kick       chan struct{} // cap 1: "something was buffered"
+	fires      atomic.Uint64 // flush timer fires (tests)
+
 	stop chan struct{}
 	done chan struct{}
 }
@@ -88,7 +92,23 @@ func NewService(repo Repository, logger *slog.Logger) *Service {
 		logger = slog.Default()
 	}
 	return &Service{repo: repo, logger: logger, now: time.Now, pending: map[bucket]int64{},
-		traffic: map[trafficKey]Counts{}, trafficKeys: map[dayDim]map[[2]string]struct{}{}}
+		traffic: map[trafficKey]Counts{}, trafficKeys: map[dayDim]map[[2]string]struct{}{},
+		flushEvery: flushInterval, kick: make(chan struct{}, 1)}
+}
+
+// signal tells the flush loop that counts are buffered. Never blocks.
+func (s *Service) signal() {
+	select {
+	case s.kick <- struct{}{}:
+	default:
+	}
+}
+
+// hasPending reports whether anything is buffered.
+func (s *Service) hasPending() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.pending) > 0 || len(s.traffic) > 0
 }
 
 func (s *Service) today() time.Time {
@@ -103,6 +123,7 @@ func (s *Service) add(kind, key string, n int64) {
 	s.mu.Lock()
 	s.pending[bucket{s.today(), kind, key}] += n
 	s.mu.Unlock()
+	s.signal()
 }
 
 // RecordPageViews buffers n pageviews for today.
@@ -137,21 +158,36 @@ func (s *Service) Flush(ctx context.Context) error {
 	return firstErr
 }
 
-// Start runs the periodic flush until Close.
+// Start runs the flush loop until Close. The loop sleeps on kick, so an idle
+// service has no timer; counts are written at most flushEvery after the
+// first one was buffered. A failed write is put back and retried flushEvery later.
 func (s *Service) Start() {
 	s.stop, s.done = make(chan struct{}), make(chan struct{})
 	go func() {
 		defer close(s.done)
-		t := time.NewTicker(flushInterval)
-		defer t.Stop()
 		for {
 			select {
-			case <-t.C:
-				if err := s.Flush(context.Background()); err != nil {
-					s.logger.Warn("analytics: flush failed", slog.String("error", err.Error()))
-				}
+			case <-s.kick:
 			case <-s.stop:
 				return
+			}
+			t := time.NewTimer(s.flushEvery)
+			select {
+			case <-t.C:
+			case <-s.stop:
+				t.Stop()
+				return
+			}
+			s.fires.Add(1)
+			select { // counts added from here on signal again
+			case <-s.kick:
+			default:
+			}
+			if err := s.Flush(context.Background()); err != nil {
+				s.logger.Warn("analytics: flush failed", slog.String("error", err.Error()))
+			}
+			if s.hasPending() { // a failed write was put back: retry later
+				s.signal()
 			}
 		}
 	}()
