@@ -2,6 +2,7 @@ package memrelease
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -211,5 +212,84 @@ func TestRunStopsOnCancel(t *testing.T) {
 	case <-done:
 	case <-time.After(5 * time.Second):
 		t.Fatal("Run did not return after cancel")
+	}
+}
+
+// runCounting runs Run with a fixed LastActivity and counts Sample and Free calls.
+func runCounting(t *testing.T, c Config, free uint64) (samples, frees *atomic.Int64, stop func()) {
+	t.Helper()
+	samples, frees = new(atomic.Int64), new(atomic.Int64)
+	c.Sample = func() Sample {
+		samples.Add(1)
+		if frees.Load() > 0 {
+			return Sample{InUse: 40 * mib}
+		}
+		return Sample{FreeUnreleased: free, InUse: 40 * mib}
+	}
+	c.Free = func() { frees.Add(1) }
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { Run(ctx, c); close(done) }()
+	return samples, frees, func() {
+		cancel()
+		<-done
+	}
+}
+
+func TestRunReleasesAfterIdleDeadline(t *testing.T) {
+	start := time.Now()
+	_, frees, stop := runCounting(t, Config{
+		Tick: time.Millisecond, Idle: 40 * time.Millisecond, MinInterval: time.Hour, Park: time.Hour,
+		LastActivity: func() time.Time { return start },
+	}, 20*mib)
+	defer stop()
+	for frees.Load() == 0 {
+		if time.Since(start) > time.Second {
+			t.Fatal("no release within 1s")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if el := time.Since(start); el < 40*time.Millisecond {
+		t.Fatalf("released after %v, before the idle deadline", el)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if n := frees.Load(); n != 1 {
+		t.Fatalf("frees = %d, want 1", n)
+	}
+}
+
+func TestRunParksWhenIdle(t *testing.T) {
+	start := time.Now()
+	samples, frees, stop := runCounting(t, Config{
+		Tick: time.Millisecond, Idle: 40 * time.Millisecond, MinInterval: time.Hour, Park: time.Hour,
+		LastActivity: func() time.Time { return start },
+	}, 20*mib)
+	defer stop()
+	for frees.Load() == 0 {
+		if time.Since(start) > time.Second {
+			t.Fatal("no release within 1s")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	time.Sleep(10 * time.Millisecond)
+	after := samples.Load()
+	if after > 5 {
+		t.Fatalf("%d samples by the release, polling every Tick", after)
+	}
+	time.Sleep(100 * time.Millisecond)
+	if got := samples.Load(); got != after {
+		t.Fatalf("samples grew from %d to %d while parked", after, got)
+	}
+}
+
+func TestRunBusyDoesNotPollEveryTick(t *testing.T) {
+	samples, _, stop := runCounting(t, Config{
+		Tick: time.Millisecond, Idle: 50 * time.Millisecond, MinInterval: time.Hour, Park: time.Hour,
+		LastActivity: time.Now,
+	}, 20*mib)
+	time.Sleep(120 * time.Millisecond)
+	stop()
+	if n := samples.Load(); n > 5 {
+		t.Fatalf("%d samples in 120ms while busy, want <= 5", n)
 	}
 }

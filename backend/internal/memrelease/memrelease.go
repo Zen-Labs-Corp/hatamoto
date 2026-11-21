@@ -74,18 +74,21 @@ func (c *Config) fill() {
 // Run releases memory until ctx ends. It releases when the heap holds
 // MinReclaim of free memory or has grown by that much since the last release,
 // the process has had no activity for Idle, and MinInterval has passed since
-// the previous release.
+// the previous release. It samples only when a release could be due: at the
+// end of the activity's Idle window, at the end of MinInterval, or every
+// Park while idle with nothing to release (Tick without LastActivity).
 func Run(ctx context.Context, c Config) {
 	c.fill()
 	r := &releaser{c: c, baseline: c.Sample().InUse}
-	t := time.NewTicker(c.Tick)
+	t := time.NewTimer(r.next(c.Now(), busy))
 	defer t.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			r.step(c.Now())
+			now := c.Now()
+			t.Reset(r.next(now, r.step(now)))
 		}
 	}
 }
