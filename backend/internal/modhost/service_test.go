@@ -9,9 +9,9 @@ func TestRegisterService(t *testing.T) {
 	t.Cleanup(Reset)
 	run := func(context.Context) error { return nil }
 	RegisterService(Service{Name: "a", Run: run})
-	RegisterService(Service{Name: "a", Run: run}) // several per module are fine
 	RegisterService(Service{Name: "b", Run: run})
-	if s := Services(); len(s) != 3 || s[2].Name != "b" {
+	mustPanic(t, "duplicate", func() { RegisterService(Service{Name: "a", Run: run}) })
+	if s := Services(); len(s) != 2 || s[1].Name != "b" {
 		t.Fatalf("services: %+v", s)
 	}
 	mustPanic(t, "bad name", func() { RegisterService(Service{Name: "A", Run: run}) })

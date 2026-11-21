@@ -16,7 +16,7 @@ var services []Service
 func init() { onReset(func() { services = nil }) }
 
 // RegisterService adds a background service. It panics after Freeze, on an
-// invalid module name and on a nil Run.
+// invalid or duplicate module name and on a nil Run.
 func RegisterService(s Service) {
 	register("service: Register", func() {
 		switch {
@@ -24,6 +24,11 @@ func RegisterService(s Service) {
 			panic(fmt.Sprintf("service: invalid module name %q", s.Name))
 		case isNil(s.Run):
 			panic(fmt.Sprintf("service: module %q has a nil run function", s.Name))
+		}
+		for _, have := range services {
+			if have.Name == s.Name {
+				panic(fmt.Sprintf("service: module %q registered twice", s.Name))
+			}
 		}
 		services = append(services, s)
 	})

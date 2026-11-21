@@ -20,6 +20,9 @@ func TestRegister(t *testing.T) {
 	if s := service.ServicesForTest(); len(s) != 1 || s[0].Name != "reports" {
 		t.Fatalf("services: %+v", s)
 	}
+	if !panics(func() { service.Register("reports", run) }) {
+		t.Error("duplicate did not panic")
+	}
 	if !panics(func() { service.Register("Bad", run) }) {
 		t.Error("invalid name did not panic")
 	}
