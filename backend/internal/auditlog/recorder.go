@@ -40,7 +40,7 @@ type Recorder struct{ Pool *pgxpool.Pool }
 // Record redacts ev, writes the default table row (through tx under a
 // savepoint when tx is non-nil, else through Pool without the caller's
 // cancellation) and then calls the registered sink synchronously with the
-// same tx (which may be nil). It returns nil, an error wrapping ErrTable
+// same tx (which may be nil; the sink's ctx is then not cancelled either). It returns nil, an error wrapping ErrTable
 // (the row failed; the caller keeps its own handling) or an error wrapping
 // ErrSink (the registered sink failed; the caller must fail the write).
 // With neither tx nor Pool the table write is skipped.
@@ -57,7 +57,13 @@ func (r Recorder) Record(ctx context.Context, tx pgx.Tx, ev auditstate.Event) er
 		_, terr = r.Pool.Exec(context.WithoutCancel(ctx), insertSQL, args(ev, raw)...)
 	}
 	if s := auditstate.Registered(); s != nil {
-		if err := s.Record(ctx, tx, ev); err != nil {
+		sctx := ctx
+		if tx == nil {
+			// The change is already committed: a client that went away must
+			// not cut the sink off, like the table row above.
+			sctx = context.WithoutCancel(ctx)
+		}
+		if err := s.Record(sctx, tx, ev); err != nil {
 			return fmt.Errorf("%w: %w", ErrSink, err)
 		}
 	}

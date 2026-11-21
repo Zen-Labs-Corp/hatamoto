@@ -1,10 +1,13 @@
 package auditlog
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/internal/auditstate"
 )
@@ -62,5 +65,28 @@ func TestClamp(t *testing.T) {
 func TestMustFail(t *testing.T) {
 	if !MustFail(fmt.Errorf("%w: boom", ErrSink)) || MustFail(fmt.Errorf("%w: boom", ErrTable)) || MustFail(errors.New("x")) {
 		t.Error("MustFail mismatch")
+	}
+}
+
+type ctxSink struct{ err *error }
+
+func (c ctxSink) Record(ctx context.Context, _ pgx.Tx, _ auditstate.Event) error {
+	*c.err = ctx.Err()
+	return nil
+}
+
+// With no tx the change is already committed, so a cancelled request ctx must
+// not reach the sink.
+func TestRecordNoTxSinkIgnoresCancellation(t *testing.T) {
+	var got error
+	auditstate.Register(ctxSink{&got})
+	t.Cleanup(auditstate.Reset)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := (Recorder{}).Record(ctx, nil, auditstate.Event{Action: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	if got != nil {
+		t.Fatalf("sink ctx err = %v, want nil", got)
 	}
 }
