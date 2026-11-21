@@ -1,16 +1,20 @@
 package server
 
 import (
-	"errors"
-	"time"
-
 	"context"
-	"hatamoto.dev/core/internal/entity"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/comment/identity"
+	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -25,6 +29,8 @@ func TestNotFoundStoreBytesMatchUncached(t *testing.T) {
 	}
 	paths := []string{"/no-such-page-q7x2", "/wp-login.php", "/a/b/c", "/a/b/c?x=1"}
 	for _, m := range []string{http.MethodGet, http.MethodHead} {
+		rh.notFound = newNotFoundCache() // each method starts cold
+		store = rh.notFound
 		for _, p := range paths {
 			rh.notFound = nil
 			want := serveDump(full, m, p) // uncached reference
@@ -139,7 +145,11 @@ func TestNotFoundStoreLogsEveryHit(t *testing.T) {
 	}
 }
 
-// TestNotFoundStoreBypass: none of these reads or fills the store.
+// TestNotFoundStoreBypass: none of these reads or fills the store. Cases that
+// are decided before the render start with a sentinel body stored under the
+// request's key, which must not be served; the others (decided from what the
+// render produced) must leave the store empty.
+
 func TestNotFoundStoreBypass(t *testing.T) {
 	long := "/" + strings.Repeat("a", maxNotFoundPath)
 	cases := []struct {
@@ -147,7 +157,10 @@ func TestNotFoundStoreBypass(t *testing.T) {
 		method string
 		target string
 		ctx    func(context.Context) context.Context
+		req    func(*http.Request)
 		setup  func(f *renderFixture)
+		// afterRender: decided from the render, so no sentinel can be seeded.
+		afterRender bool
 	}{
 		{name: "query", target: "/nope?x=1"},
 		{name: "post", method: http.MethodPost, target: "/nope"},
@@ -162,12 +175,12 @@ func TestNotFoundStoreBypass(t *testing.T) {
 			f.h.runtime.enabled.Store(false)
 		}},
 		{name: "no page cache", target: "/nope", setup: func(f *renderFixture) { f.h.cache = nil }},
-		{name: "view build error", target: "/nope", setup: func(f *renderFixture) {
+		{name: "view build error", target: "/nope", afterRender: true, setup: func(f *renderFixture) {
 			f.h.buildView = func(context.Context, *http.Request, *routeResult) (*render.PageView, error) {
 				return nil, context.DeadlineExceeded
 			}
 		}},
-		{name: "uncacheable view", target: "/nope", setup: func(f *renderFixture) {
+		{name: "uncacheable view", target: "/nope", afterRender: true, setup: func(f *renderFixture) {
 			base := f.h.buildView
 			f.h.buildView = func(ctx context.Context, r *http.Request, rr *routeResult) (*render.PageView, error) {
 				v, err := base(ctx, r, rr)
@@ -176,18 +189,49 @@ func TestNotFoundStoreBypass(t *testing.T) {
 				return v, err
 			}
 		}},
-		{name: "degraded render", target: "/nope", setup: func(f *renderFixture) {
+		{name: "degraded render", target: "/nope", afterRender: true, setup: func(f *renderFixture) {
 			base := f.h.buildView
 			f.h.buildView = func(ctx context.Context, r *http.Request, rr *routeResult) (*render.PageView, error) {
 				render.NoteDegraded()
 				return base(ctx, r, rr)
 			}
 		}},
-		{name: "data failure", target: "/nope", setup: func(f *renderFixture) {
+		{name: "data failure", target: "/nope", afterRender: true, setup: func(f *renderFixture) {
 			var n int64
 			f.h.dataFailures = func() int64 { n++; return n }
 		}},
 		{name: "long path", target: long},
+		{name: "degraded snapshot", target: "/nope", setup: func(f *renderFixture) {
+			f.h.snapshot = func(context.Context) (*entity.URLSnapshot, error) { return nil, errors.New("db down") }
+		}},
+		{name: "page filter", target: "/members", setup: func(f *renderFixture) {
+			_, s := bootRoutes(t)
+			capaRuntime(t, s)
+			f.h.pageFilter = pluginhost.NewPageFilter(s.plugins, s.hooks)
+		}},
+		{name: "comment bypass", target: "/nope", setup: func(f *renderFixture) {
+			key := identity.DeviceKey("bypass-secret")
+			f.h.commentBypass = newCommentBypass(
+				func(val string, now time.Time) (identity.DeviceClaims, bool) {
+					return identity.VerifyDevice(key, val, now)
+				},
+				func(context.Context, uuid.UUID) (bool, error) { return true, nil },
+				nil)
+		}, req: func(r *http.Request) {
+			val := identity.SignDevice(identity.DeviceKey("bypass-secret"), identity.DeviceClaims{CommenterID: uuid.New(), TokenVersion: 1, Expires: time.Now().Add(time.Hour)})
+			r.AddCookie(&http.Cookie{Name: identity.CookieName, Value: val})
+		}},
+		{name: "busy pool", target: "/nope", afterRender: true,
+			ctx: func(ctx context.Context) context.Context {
+				return database.WithPoolBusyScope(database.WithAcquireBound(ctx, time.Second))
+			},
+			setup: func(f *renderFixture) {
+				base := f.h.buildView
+				f.h.buildView = func(ctx context.Context, r *http.Request, rr *routeResult) (*render.PageView, error) {
+					database.NotePoolBusy(ctx)
+					return base(ctx, r, rr)
+				}
+			}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -200,19 +244,35 @@ func TestNotFoundStoreBypass(t *testing.T) {
 			if method == "" {
 				method = http.MethodGet
 			}
+			seeded := 0
+			if !tc.afterRender {
+				req := httptest.NewRequest(method, tc.target, nil)
+				key := f.h.engine.Version() + "\x00" + requestPath(req)
+				f.h.notFound.put(key, []byte("STORED-SENTINEL"), f.cache.Generation(), time.Now().Add(time.Hour))
+				seeded = 1
+			}
 			for i := 0; i < 2; i++ {
 				req := httptest.NewRequest(method, tc.target, nil)
+				if tc.req != nil {
+					tc.req(req)
+				}
 				if tc.ctx != nil {
 					req = req.WithContext(tc.ctx(req.Context()))
 				}
 				rec := httptest.NewRecorder()
 				f.h.writeNotFoundQuiet(rec, req)
+				if tc.name == "busy pool" {
+					continue // the caller maps a busy pool to 503
+				}
 				if rec.Code != http.StatusNotFound {
 					t.Fatalf("status %d", rec.Code)
 				}
+				if strings.Contains(rec.Body.String(), "STORED-SENTINEL") {
+					t.Fatal("the stored body was served to a bypassing request")
+				}
 			}
-			if n := len(f.h.notFound.m); n != 0 {
-				t.Fatalf("store holds %d entries, want 0", n)
+			if n := len(f.h.notFound.m); n != seeded {
+				t.Fatalf("store holds %d entries, want %d", n, seeded)
 			}
 		})
 	}

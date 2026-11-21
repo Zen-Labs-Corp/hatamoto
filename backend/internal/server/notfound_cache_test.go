@@ -78,6 +78,35 @@ func TestNotFoundCacheByteCap(t *testing.T) {
 	}
 }
 
+func TestNotFoundCacheByteCapIsLRU(t *testing.T) {
+	c := newNotFoundCache()
+	c.maxBytes = 20
+	exp := nfT0.Add(time.Minute)
+	c.put("a", bytes.Repeat([]byte("x"), 6), 1, exp)
+	c.put("b", bytes.Repeat([]byte("y"), 6), 1, exp)
+	c.get("a", 1, nfT0) // a is now the most recent
+	c.put("c", bytes.Repeat([]byte("z"), 6), 1, exp)
+	if _, ok := c.get("b", 1, nfT0); ok {
+		t.Fatal("least recently used entry kept")
+	}
+	for _, k := range []string{"a", "c"} {
+		if _, ok := c.get(k, 1, nfT0); !ok {
+			t.Fatalf("%s evicted", k)
+		}
+	}
+}
+
+func TestNotFoundCacheReplaceOversize(t *testing.T) {
+	c := newNotFoundCache()
+	c.maxBytes = 10
+	exp := nfT0.Add(time.Minute)
+	c.put("k", []byte("ab"), 1, exp)
+	c.put("k", bytes.Repeat([]byte("x"), 10), 1, exp) // 11 with the key: never fits
+	if c.bytes != 0 || len(c.m) != 0 || c.ll.Len() != 0 {
+		t.Fatalf("bytes=%d entries=%d list=%d, want an empty store", c.bytes, len(c.m), c.ll.Len())
+	}
+}
+
 func TestNotFoundCacheReplace(t *testing.T) {
 	c := newNotFoundCache()
 	exp := nfT0.Add(time.Minute)

@@ -83,6 +83,9 @@ func serveDump(h http.Handler, method, target string) string {
 func TestStandardNotFoundMatchesRandom404(t *testing.T) {
 	full, s := bootThemed404(t)
 	s.registerNotFound()
+	// No store: the refusal must be compared with its own render, not with
+	// the body the public request just stored.
+	s.renderHandlers.notFound = nil
 	for _, target := range []string{"/no-such-page-q7x2", "/wp-login.php", "/a/b/c?x=1"} {
 		public := serveDump(full, "GET", target)
 		if !strings.HasPrefix(public, "404\n") || !strings.Contains(public, "<html") {
