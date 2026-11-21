@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -40,6 +41,38 @@ func TestStaticCORSPreflightFromSite(t *testing.T) {
 		t.Errorf("Vary = %q", hd.Get("Vary"))
 	}
 	assertNoCredentials(t, rec)
+}
+
+func corsPreflightHTMX(srv *Server, origin string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodOptions, "/forms/contact/submit", nil)
+	req.Header.Set("Origin", origin)
+	req.Header.Set("Access-Control-Request-Method", "POST")
+	req.Header.Set("Access-Control-Request-Headers", "hx-request, hx-current-url, hx-target, hx-trigger")
+	rec := httptest.NewRecorder()
+	corsMux(srv).ServeHTTP(rec, req)
+	return rec
+}
+
+func TestStaticCORSPreflightHTMX(t *testing.T) {
+	t.Parallel()
+	srv, _ := newSpamServer(t, spam.Defaults(), nil)
+	setStaticForTest(srv)
+	rec := corsPreflightHTMX(srv, testStaticSite)
+	if rec.Code != http.StatusNoContent || rec.Header().Get("Access-Control-Allow-Origin") != testStaticSite {
+		t.Fatalf("site: %d ACAO=%q", rec.Code, rec.Header().Get("Access-Control-Allow-Origin"))
+	}
+	allowed := strings.ToLower(rec.Header().Get("Access-Control-Allow-Headers"))
+	for _, name := range []string{"hx-request", "hx-current-url", "hx-target", "hx-trigger"} {
+		if !strings.Contains(allowed, name) {
+			t.Errorf("Allow-Headers %q lacks %s", allowed, name)
+		}
+	}
+	assertNoCredentials(t, rec)
+
+	rec = corsPreflightHTMX(srv, "https://evil.example")
+	if v := rec.Header().Get("Access-Control-Allow-Headers"); v != "" {
+		t.Errorf("evil origin Allow-Headers = %q", v)
+	}
 }
 
 func TestStaticCORSPreflightEvilOrigin(t *testing.T) {

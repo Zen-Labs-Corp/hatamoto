@@ -54,7 +54,7 @@ func TestPublicCORSPreflight(t *testing.T) {
 		if rec.Code != http.StatusNoContent || rec.Header().Get("Access-Control-Allow-Origin") != "null" {
 			t.Errorf("%s null: %d ACAO=%q", path, rec.Code, rec.Header().Get("Access-Control-Allow-Origin"))
 		}
-		if !strings.Contains(rec.Header().Get("Access-Control-Allow-Headers"), "Content-Type") {
+		if got := rec.Header().Get("Access-Control-Allow-Headers"); !strings.Contains(got, "Content-Type") || !strings.Contains(got, "HX-Request") {
 			t.Errorf("%s: Allow-Headers = %q", path, rec.Header().Get("Access-Control-Allow-Headers"))
 		}
 		assertNoCredentials(t, rec)

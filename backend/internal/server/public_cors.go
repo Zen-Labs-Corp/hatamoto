@@ -7,6 +7,10 @@ import (
 	"hatamoto.dev/core/internal/statichost"
 )
 
+// corsAllowHeaders are the request headers a cross-origin public request may
+// carry: the form and beacon headers, and those htmx sends with hx-post islands.
+const corsAllowHeaders = "Content-Type, X-Page-URL, HX-Request, HX-Current-URL, HX-Target, HX-Trigger, HX-Trigger-Name, HX-Boosted, HX-Prompt"
+
 // originNull reports a sandboxed (opaque origin) caller. Browsers send the
 // literal "null" as the Origin of a page served with a CSP sandbox that lacks
 // allow-same-origin.
@@ -41,7 +45,7 @@ func preflight(hp *statichost.Holder, methods string) http.HandlerFunc {
 			h.Set("Access-Control-Allow-Origin", "null")
 			h.Add("Vary", "Origin")
 			h.Set("Access-Control-Allow-Methods", methods)
-			h.Set("Access-Control-Allow-Headers", "Content-Type, X-Page-URL")
+			h.Set("Access-Control-Allow-Headers", corsAllowHeaders)
 			h.Set("Access-Control-Max-Age", "600")
 		} else if hs := hp.Load(); hs.Active() {
 			staticPreflight(w.Header(), hs, r.Header.Get("Origin"), methods)
