@@ -226,6 +226,10 @@ func TestAuditLogSearchAlwaysHasARange(t *testing.T) {
 	if !f.lastQuery.From.Before(f.lastQuery.To) {
 		t.Errorf("reversed range not swapped: %+v", f.lastQuery)
 	}
+	body = g.do("GET", "/admin/audit?from=2026-10-05&to=2026-10-01", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "From 1 Oct 2026") || !strings.Contains(body, "To 5 Oct 2026") || !strings.Contains(body, `value="2026-10-01"`) || !strings.Contains(body, `value="2026-10-05"`) {
+		t.Error("inputs and chips do not show the swapped range")
+	}
 }
 
 func TestAuditLogFacetWindowFollowsTheEndDate(t *testing.T) {
