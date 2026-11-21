@@ -13,10 +13,18 @@ import (
 // canUser reports whether u may perform act. No user, a deny and an
 // authorizer error all answer false; the error is logged.
 func canUser(ctx context.Context, log *slog.Logger, u *CurrentUser, act authz.Action) bool {
+	return canUserObj(ctx, log, u, act, authz.Object{})
+}
+
+// pluginObject is the object of an action on the plugin called name.
+func pluginObject(name string) authz.Object { return authz.Object{Kind: "plugin", ID: name} }
+
+// canUserObj is canUser for an action on obj.
+func canUserObj(ctx context.Context, log *slog.Logger, u *CurrentUser, act authz.Action, obj authz.Object) bool {
 	if u == nil {
 		return false
 	}
-	ok, err := authz.Can(ctx, authzsubject.ForSession(u.ID, u.Role), act, authz.Object{})
+	ok, err := authz.Can(ctx, authzsubject.ForSession(u.ID, u.Role), act, obj)
 	if err != nil {
 		log.WarnContext(ctx, "authz check failed", "action", string(act), "err", err)
 		return false
@@ -27,6 +35,11 @@ func canUser(ctx context.Context, log *slog.Logger, u *CurrentUser, act authz.Ac
 // can reports whether the signed-in user of the request may perform act.
 func (a *Admin) can(ctx context.Context, act authz.Action) bool {
 	return canUser(ctx, a.logger(), userFrom(ctx), act)
+}
+
+// canObj is can for an action on obj.
+func (a *Admin) canObj(ctx context.Context, act authz.Action, obj authz.Object) bool {
+	return canUserObj(ctx, a.logger(), userFrom(ctx), act, obj)
 }
 
 // requireCan answers 403 (the same page as forbidden) and reports false
@@ -43,28 +56,37 @@ func (a *Admin) requireCan(w http.ResponseWriter, r *http.Request, act authz.Act
 // for SDK plugin allow-lists (uiAllows); every core decision uses Can.
 type viewer struct {
 	Role string
-	can  func(authz.Action) bool
+	can  func(authz.Action, authz.Object) bool
 }
 
 // Can reports whether the viewer may perform act; the zero viewer may not.
-func (v viewer) Can(act authz.Action) bool { return v.can != nil && v.can(act) }
+func (v viewer) Can(act authz.Action) bool { return v.CanObj(act, authz.Object{}) }
 
-// newViewer builds the viewer of u. It asks authz once per action: nav asks
+// CanObj reports whether the viewer may perform act on obj.
+func (v viewer) CanObj(act authz.Action, obj authz.Object) bool {
+	return v.can != nil && v.can(act, obj)
+}
+
+// newViewer builds the viewer of u. It asks authz once per action and object: nav asks
 // the same actions many times per render. A nil u gives the zero viewer.
 func newViewer(ctx context.Context, log *slog.Logger, u *CurrentUser) viewer {
 	if u == nil {
 		return viewer{}
 	}
 	var mu sync.Mutex
-	memo := map[authz.Action]bool{}
-	return viewer{Role: u.Role, can: func(act authz.Action) bool {
+	type key struct {
+		act authz.Action
+		obj authz.Object
+	}
+	memo := map[key]bool{}
+	return viewer{Role: u.Role, can: func(act authz.Action, obj authz.Object) bool {
 		mu.Lock()
 		defer mu.Unlock()
-		if ok, seen := memo[act]; seen {
+		if ok, seen := memo[key{act, obj}]; seen {
 			return ok
 		}
-		ok := canUser(ctx, log, u, act)
-		memo[act] = ok
+		ok := canUserObj(ctx, log, u, act, obj)
+		memo[key{act, obj}] = ok
 		return ok
 	}}
 }

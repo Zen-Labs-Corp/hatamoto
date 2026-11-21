@@ -462,7 +462,7 @@ type pluginPageData struct {
 // settings schema).
 func (a *Admin) renderPlugin(w http.ResponseWriter, r *http.Request, pa PluginAdmin, status int, p PluginInfo, values map[string]any, errs schemaform.Errors, openPath string) {
 	role := userFrom(r.Context()).Role
-	owner := a.can(r.Context(), authz.ActionPluginManage)
+	owner := a.canObj(r.Context(), authz.ActionPluginManage, pluginObject(p.Name))
 	d := pluginPageData{pluginHead: a.newPluginHead(p, "settings", owner), Owner: owner, UI: a.pluginUIFor(r, p, role), Inactive: !p.Loaded && (p.Package == nil || (!p.Package.WidgetOnly && !p.Package.TagPack))}
 	setCameraPolicy(w, d.UI)
 	title := p.Name + " settings"
@@ -515,7 +515,8 @@ func (a *Admin) handlePluginsGo(w http.ResponseWriter, r *http.Request) {
 		to = a.adminPath + "/plugins"
 	}
 	if pa := a.deps.Growth.Plugins; pa != nil {
-		if p, found := a.findPlugin(pa, r.URL.Query().Get("plugin")); found && (manage || (a.can(r.Context(), authz.ActionPluginUIAccess) && uiAllows(p, role))) {
+		if p, found := a.findPlugin(pa, r.URL.Query().Get("plugin")); found && (a.canObj(r.Context(), authz.ActionPluginManage, pluginObject(p.Name)) ||
+			(a.canObj(r.Context(), authz.ActionPluginUIAccess, pluginObject(p.Name)) && uiAllows(p, role))) {
 			to = a.pluginURL(p.Name, "settings")
 		}
 	}
@@ -656,8 +657,9 @@ func (a *Admin) handlePluginSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	role := userFrom(r.Context()).Role
 	p, found := a.findPlugin(pa, r.PathValue("name"))
-	manage := a.can(r.Context(), authz.ActionPluginManage)
-	if !found || (!manage && !(a.can(r.Context(), authz.ActionPluginUIAccess) && uiAllows(p, role))) {
+	obj := pluginObject(r.PathValue("name"))
+	manage := a.canObj(r.Context(), authz.ActionPluginManage, obj)
+	if !found || (!manage && !(a.canObj(r.Context(), authz.ActionPluginUIAccess, obj) && uiAllows(p, role))) {
 		if manage {
 			a.ErrorBack(w, r, http.StatusNotFound, "Plugin not found", "That plugin is not installed, or it is not available to you.", a.adminPath+"/plugins", "Back to plugins")
 			return

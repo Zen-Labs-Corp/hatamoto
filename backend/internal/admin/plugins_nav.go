@@ -37,7 +37,8 @@ func (a *Admin) pluginsNavFor(v viewer, path string) []PluginNavEntry {
 	}
 	matched := false
 	for _, p := range pa.Plugins() {
-		if !v.Can(authz.ActionPluginManage) && !(v.Can(authz.ActionPluginUIAccess) && uiAllows(p, v.Role)) {
+		obj := pluginObject(p.Name)
+		if !v.CanObj(authz.ActionPluginManage, obj) && !(v.CanObj(authz.ActionPluginUIAccess, obj) && uiAllows(p, v.Role)) {
 			continue
 		}
 		href := a.url("plugins", url.PathEscape(p.Name))

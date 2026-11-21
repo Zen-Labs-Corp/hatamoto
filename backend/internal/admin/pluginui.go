@@ -143,7 +143,7 @@ func (a *Admin) pluginUIFor(r *http.Request, p PluginInfo, role string) *pluginU
 		return nil
 	}
 	d := &pluginUIData{Camera: p.UI.Camera, Name: p.Name, Title: p.UI.Title, Src: "/plugin-ui/" + p.Name + "/" + entry + "?t=" + tok, Bridge: a.adminPath + "/plugins/" + p.Name + "/bridge"}
-	if a.can(r.Context(), authz.ActionPluginUIHost) { // host functions are the owner's (see handlePluginBridge)
+	if a.canObj(r.Context(), authz.ActionPluginUIHost, pluginObject(p.Name)) { // host functions are the owner's (see handlePluginBridge)
 		d.Functions = strings.Join(p.UI.Functions, ",")
 	}
 	return d
@@ -282,7 +282,7 @@ func (a *Admin) handlePluginBridge(w http.ResponseWriter, r *http.Request) {
 		}
 		a.writeJSON(w, http.StatusOK, rep)
 	case "host":
-		if !a.can(r.Context(), authz.ActionPluginUIHost) {
+		if !a.canObj(r.Context(), authz.ActionPluginUIHost, pluginObject(p.Name)) {
 			a.writeJSON(w, http.StatusForbidden, map[string]any{"ok": false, "error": map[string]string{"code": "permission_denied", "message": "host functions are available to the owner only; use the plugin's own routes"}})
 			return
 		}

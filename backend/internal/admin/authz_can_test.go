@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -101,5 +102,22 @@ func TestRequireCanDenyMatchesForbidden(t *testing.T) {
 	}
 	if got.Code != http.StatusForbidden || got.Body.String() != want.Body.String() {
 		t.Errorf("got %d %q, want 403 %q", got.Code, got.Body.String(), want.Body.String())
+	}
+}
+
+// A registered authorizer sees the plugin as the object of a plugin decision,
+// so a per-plugin deny applies to the plugin subnav.
+func TestPluginNavAsksWithPluginObject(t *testing.T) {
+	authztest.Use(t, authztest.Func(func(_ context.Context, _ authz.Subject, act authz.Action, o authz.Object) (bool, error) {
+		return !(act == authz.ActionPluginManage && o.Kind == "plugin" && o.ID == "untrusted"), nil
+	}))
+	a := &Admin{adminPath: "/admin"}
+	a.deps.Growth.Plugins = &fakePlugins{list: []PluginInfo{{Name: "trusted"}, {Name: "untrusted"}}}
+	var ids []string
+	for _, e := range a.pluginsNavFor(roleViewer("owner"), "/admin/plugins") {
+		ids = append(ids, e.ID)
+	}
+	if got := fmt.Sprint(ids); got != "[ trusted]" {
+		t.Errorf("subnav ids = %q, want the list and trusted only", got)
 	}
 }
