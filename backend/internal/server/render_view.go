@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -729,8 +730,13 @@ func formView(f *form.Form) render.FormView {
 // navLinks builds nav hrefs through the URL registry. The homepage entity
 // links to "/".
 type navLinks struct {
-	snap   *entity.URLSnapshot
-	homeID uuid.UUID
+	snap *entity.URLSnapshot
+	// homeID is the homepage id. When loadHome is set it is read on first use
+	// through home(), so a render whose menus never link an entity pays no
+	// homepage lookup.
+	homeID   uuid.UUID
+	loadHome func() uuid.UUID
+	homeOnce sync.Once
 	// ctx and repo load the target of a menu item whose pattern needs more
 	// than the slug (ancestors, publication date). repo may be nil.
 	ctx  context.Context
@@ -757,15 +763,28 @@ func (s *Server) newNavLinksWith(ctx context.Context, snap *entity.URLSnapshot) 
 	if s.renderEngine != nil {
 		l.decl = s.renderEngine.MenuDecl()
 	}
-	if home, err := repo.GetHomepage(ctx); err == nil && home != nil {
-		l.homeID = home.ID
+	l.loadHome = func() uuid.UUID {
+		if home, err := repo.GetHomepage(ctx); err == nil && home != nil {
+			return home.ID
+		}
+		return uuid.Nil
 	}
 	return l
 }
 
+// home is the homepage id, loaded on first use.
+func (l *navLinks) home() uuid.UUID {
+	l.homeOnce.Do(func() {
+		if l.loadHome != nil {
+			l.homeID = l.loadHome()
+		}
+	})
+	return l.homeID
+}
+
 // page is the link for a published "page" entity; false leaves it out.
 func (l *navLinks) page(p *entity.Entity) (string, bool) {
-	return pageNavHref(l.ctx, l.snap, l.repo, l.homeID, p)
+	return pageNavHref(l.ctx, l.snap, l.repo, l.home(), p)
 }
 
 // items maps menu items; entity links resolve through the registry.
@@ -837,7 +856,7 @@ func (l *navLinks) menuHref(it *menu.MenuItem) string {
 	if it.URL != nil && *it.URL != "" || it.EntitySlug == nil || *it.EntitySlug == "" {
 		return getMenuItemHref(it)
 	}
-	if it.EntityID != nil && *it.EntityID == l.homeID {
+	if it.EntityID != nil && *it.EntityID == l.home() {
 		return "/"
 	}
 	schema := "page"
