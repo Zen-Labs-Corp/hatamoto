@@ -149,7 +149,7 @@ func TestImportUpdateEventsMissingFileAndDBError(t *testing.T) {
 func TestWatchUpdateEventsImportsLaterEvents(t *testing.T) {
 	log, _ := warnLog()
 	dir := eventsDir(t, evLine("boot-time"))
-	fx := &syncExec{fakeExec{rows: map[string][]any{}}}
+	fx := &syncExec{fakeExec: fakeExec{rows: map[string][]any{}}}
 	if err := importUpdateEvents(context.Background(), fx, dir, log); err != nil {
 		t.Fatal(err)
 	}
@@ -173,13 +173,17 @@ func TestWatchUpdateEventsImportsLaterEvents(t *testing.T) {
 	<-done
 }
 
-type syncExec struct{ fakeExec }
+type syncExec struct {
+	fakeExec
+	calls int // Exec calls, under execMu
+}
 
 var execMu sync.Mutex
 
 func (s *syncExec) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
 	execMu.Lock()
 	defer execMu.Unlock()
+	s.calls++
 	return s.fakeExec.Exec(ctx, sql, args...)
 }
 
@@ -188,4 +192,74 @@ func (s *syncExec) has(id string) bool {
 	defer execMu.Unlock()
 	_, ok := s.rows[id]
 	return ok
+}
+
+func (s *syncExec) callCount() int {
+	execMu.Lock()
+	defer execMu.Unlock()
+	return s.calls
+}
+
+func appendEvent(t *testing.T, dir, id string) {
+	t.Helper()
+	f, err := os.OpenFile(filepath.Join(dir, "releases", "events.jsonl"), os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.WriteString(evLine(id))
+	f.Close()
+}
+
+func waitFor(t *testing.T, what string, ok func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for !ok() {
+		if time.Now().After(deadline) {
+			t.Fatal(what)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func runWatcher(t *testing.T, fx *syncExec, dir string) {
+	t.Helper()
+	log, _ := warnLog()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { watchUpdateEvents(ctx, fx, dir, log, 10*time.Millisecond); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+}
+
+func TestWatchUpdateEventsSkipsUnchangedFile(t *testing.T) {
+	dir := eventsDir(t, evLine("first"))
+	fx := &syncExec{fakeExec: fakeExec{rows: map[string][]any{}}}
+	runWatcher(t, fx, dir)
+	waitFor(t, "first never imported", func() bool { return fx.has("first") })
+	calls := fx.callCount()
+	time.Sleep(80 * time.Millisecond)
+	if got := fx.callCount(); got != calls {
+		t.Fatalf("Exec calls grew from %d to %d on an unchanged file", calls, got)
+	}
+	appendEvent(t, dir, "second")
+	waitFor(t, "changed file never imported", func() bool { return fx.has("second") })
+}
+
+func TestWatchUpdateEventsRetriesAfterFailure(t *testing.T) {
+	dir := eventsDir(t, evLine("retry"))
+	fx := &syncExec{fakeExec: fakeExec{rows: map[string][]any{}, fail: fmt.Errorf("db down")}}
+	runWatcher(t, fx, dir)
+	waitFor(t, "failed import not retried", func() bool { return fx.callCount() >= 2 })
+	execMu.Lock()
+	fx.fail = nil
+	execMu.Unlock()
+	waitFor(t, "event not imported after recovery", func() bool { return fx.has("retry") })
+}
+
+func TestWatchUpdateEventsMissingFileNoQuery(t *testing.T) {
+	fx := &syncExec{fakeExec: fakeExec{rows: map[string][]any{}}}
+	runWatcher(t, fx, t.TempDir())
+	time.Sleep(50 * time.Millisecond)
+	if n := fx.callCount(); n != 0 {
+		t.Fatalf("%d Exec calls with no events file", n)
+	}
 }
