@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/runenv"
 )
 
 const (
@@ -200,6 +202,9 @@ func (r *Runner) Flush(ctx context.Context) {
 	items := r.pend
 	r.pend = nil
 	if len(items) == 0 {
+		return
+	}
+	if runenv.Suppress(ctx, r.log, runenv.Purge, "items", len(items)) {
 		return
 	}
 	var urls []string

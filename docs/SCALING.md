@@ -120,6 +120,7 @@ Authorization: Bearer <HATAMOTO_PURGE_TOKEN>
 - The URL is fetched through the outbound fetch guard, so a private or loopback
   address is refused unless `HATAMOTO_PURGE_ALLOW_PRIVATE=true`.
 - Redirects are not followed. The timeout is 10 seconds.
+- With `HATAMOTO_ENV=staging` no purge is sent (see [STAGING.md](STAGING.md)).
 
 What is in the list:
 

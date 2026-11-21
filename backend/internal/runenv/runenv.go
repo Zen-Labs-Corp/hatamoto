@@ -51,6 +51,7 @@ const (
 	Mail           Family = "mail"
 	Webhooks       Family = "webhooks"
 	IndexNow       Family = "IndexNow"
+	Purge          Family = "cache purge"
 	OffsiteBackup  Family = "off-site backup"
 	Updater        Family = "updater"
 	PluginHTTP     Family = "plugin outbound HTTP"
@@ -61,7 +62,7 @@ const (
 
 // Families lists every sender family in boot-line order.
 func Families() []Family {
-	return []Family{Mail, Webhooks, IndexNow, OffsiteBackup, Updater, PluginHTTP, InstallStats, StaticExportS3, MediaDelete}
+	return []Family{Mail, Webhooks, IndexNow, Purge, OffsiteBackup, Updater, PluginHTTP, InstallStats, StaticExportS3, MediaDelete}
 }
 
 // ErrSuppressed is returned by a sender that staging mode stopped.
