@@ -82,6 +82,10 @@ func (h *hostingAdmin) Setup(ctx context.Context) (admin.HostingSetup, error) {
 		rules, exact, wild := webconf.ParseRedirects(body)
 		out.Exact, out.Wildcard, out.RedirectsSplit = exact, wild, true
 		out.RedirectsTotal = exact + wild
+		if site == "" {
+			out.GenError = "Set the site address in Site settings first."
+			return out, nil
+		}
 		gen, err := webconf.Generate(webconf.Input{
 			Site: site, Live: live, Root: set.DirPath, Upstream: d.upstream,
 			Proxy:   statichost.ProxyPaths(d.adminPath(), d.apiPrefix),

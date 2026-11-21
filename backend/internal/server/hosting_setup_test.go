@@ -122,6 +122,19 @@ func TestHostingSetupUnsafeDirIsRefused(t *testing.T) {
 	}
 }
 
+func TestHostingSetupNeedsSiteAddress(t *testing.T) {
+	t.Parallel()
+	fx := setupFixture(t, t.TempDir())
+	fx.site = ""
+	got, err := fx.h.Setup(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.GenError != "Set the site address in Site settings first." || got.Caddy != "" {
+		t.Fatalf("setup = %+v", got)
+	}
+}
+
 func TestHostingSetupS3HasNoConfig(t *testing.T) {
 	t.Parallel()
 	fx := setupFixture(t, "")
