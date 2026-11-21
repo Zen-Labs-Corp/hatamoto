@@ -155,3 +155,41 @@ func TestCaddyLiveOriginSplitsBlocks(t *testing.T) {
 		t.Errorf("live origin must split the proxy from the files:\n%s", live.Caddy)
 	}
 }
+
+// Hatamoto's media, theme assets and fonts are served from the folder when the
+// file is there; a theme preview (query or cookie) always goes to Hatamoto.
+func TestSameHostPassesFallbackPrefixesAndThemePreview(t *testing.T) {
+	t.Parallel()
+	same, _ := Generate(sameHostInput())
+	live, _ := Generate(liveOriginInput())
+	for _, want := range []string{
+		"@hatamoto_preview_query query hm_theme_preview=*",
+		"@hatamoto_preview_cookie header_regexp Cookie (^|;\\s*)hm_theme_preview=",
+		"@hatamoto_fallback path /fonts/* /media/* /theme/*",
+		"@missing not file",
+		"reverse_proxy @missing 127.0.0.1:8090",
+	} {
+		if !strings.Contains(same.Caddy, want) {
+			t.Errorf("caddy same host lacks %q", want)
+		}
+	}
+	for _, want := range []string{
+		"location ^~ /media/ {\n\t\ttry_files $uri @hatamoto;",
+		"location ^~ /theme/ {\n\t\ttry_files $uri @hatamoto;",
+		"location ^~ /fonts/ {\n\t\ttry_files $uri @hatamoto;",
+		"location @hatamoto {",
+		"if ($arg_hm_theme_preview != \"\") {",
+		"if ($cookie_hm_theme_preview != \"\") {",
+		"error_page 418 = @hatamoto;",
+	} {
+		if !strings.Contains(same.Nginx, want) {
+			t.Errorf("nginx same host lacks %q", want)
+		}
+	}
+	// The static origin of a split install never sees these paths.
+	for _, bad := range []string{"hm_theme_preview", "@hatamoto", "/media/"} {
+		if strings.Contains(live.Caddy, bad) || strings.Contains(live.Nginx, bad) {
+			t.Errorf("live origin config must not mention %q", bad)
+		}
+	}
+}

@@ -47,6 +47,12 @@ func nginx(in Input, rules []rule) string {
 	if in.Live == "" {
 		for _, p := range in.Proxy {
 			switch {
+			case p.Fallback:
+				// The file when the folder has it, else Hatamoto.
+				w("\tlocation ^~ %s {", p.Path)
+				w("\t\ttry_files $uri @hatamoto;")
+				w("\t}")
+				continue
 			case p.Locale:
 				w("\tlocation ~ ^/[^/]+%s$ {", regexp.QuoteMeta(p.Path))
 			case p.Prefix:
@@ -57,6 +63,9 @@ func nginx(in Input, rules []rule) string {
 			proxy("\t\t")
 			w("\t}")
 		}
+		w("\tlocation @hatamoto {")
+		proxy("\t\t")
+		w("\t}")
 	}
 	for _, f := range hiddenFiles {
 		w("\tlocation = %s {", f)
@@ -67,6 +76,15 @@ func nginx(in Input, rules []rule) string {
 		w("\t%s", l)
 	}
 	w("\tlocation / {")
+	if in.Live == "" {
+		// A theme preview is a query or a cookie on any page: pass it to Hatamoto.
+		w("\t\tif ($arg_%s != \"\") {", previewName)
+		w("\t\t\treturn 418;")
+		w("\t\t}")
+		w("\t\tif ($cookie_%s != \"\") {", previewName)
+		w("\t\t\treturn 418;")
+		w("\t\t}")
+	}
 	headers()
 	w("\t\ttry_files $uri $uri/index.html =404;")
 	w("\t}")
@@ -74,6 +92,9 @@ func nginx(in Input, rules []rule) string {
 	headers()
 	w("\t}")
 	w("\terror_page 404 /404.html;")
+	if in.Live == "" {
+		w("\terror_page 418 = @hatamoto;")
+	}
 	w("}")
 
 	if in.Live != "" {

@@ -10,12 +10,13 @@ func TestProxyPaths(t *testing.T) {
 	t.Parallel()
 	got := ProxyPaths("/admin", "/hm-api")
 	want := []ProxyPath{
-		{Path: "/-/", Prefix: true}, {Path: "/admin"}, {Path: "/admin/", Prefix: true},
+		{Path: "/-/", Prefix: true}, {Path: "/.well-known/", Prefix: true}, {Path: "/admin"}, {Path: "/admin/", Prefix: true},
 		{Path: "/api/", Prefix: true}, {Path: "/auth/", Prefix: true}, {Path: "/f/", Prefix: true},
-		{Path: "/forms/", Prefix: true}, {Path: "/hm-api"}, {Path: "/hm-api/", Prefix: true},
-		{Path: "/mcp"}, {Path: "/mcp/", Prefix: true}, {Path: "/p/", Prefix: true},
+		{Path: "/fonts/", Prefix: true, Fallback: true}, {Path: "/forms/", Prefix: true},
+		{Path: "/hm-api"}, {Path: "/hm-api/", Prefix: true}, {Path: "/mcp"}, {Path: "/mcp/", Prefix: true}, {Path: "/media/", Prefix: true, Fallback: true}, {Path: "/p/", Prefix: true},
 		{Path: "/plugin-ui/", Prefix: true}, {Path: "/preview/", Prefix: true},
-		{Path: "/search"}, {Path: "/search", Locale: true}, {Path: "/theme/assets/hm-live.js"},
+		{Path: "/search"}, {Path: "/search", Locale: true}, {Path: "/theme/", Prefix: true, Fallback: true},
+		{Path: "/theme/assets/hm-live.js"},
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("ProxyPaths =\n%v\nwant\n%v", got, want)

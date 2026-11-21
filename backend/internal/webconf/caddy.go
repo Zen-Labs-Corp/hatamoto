@@ -65,9 +65,11 @@ func caddy(in Input, rules []rule) string {
 
 // caddyProxyHandles writes the matchers and handles that pass Hatamoto's paths on.
 func caddyProxyHandles(w func(string, ...any), in Input) {
-	var paths, regexps []string
+	var paths, regexps, fallback []string
 	for _, p := range in.Proxy {
 		switch {
+		case p.Fallback:
+			fallback = append(fallback, p.Path+"*")
 		case p.Locale:
 			regexps = append(regexps, "^/[^/]+"+regexp.QuoteMeta(p.Path)+"$")
 		case p.Prefix:
@@ -76,10 +78,29 @@ func caddyProxyHandles(w func(string, ...any), in Input) {
 			paths = append(paths, p.Path)
 		}
 	}
+	// A theme preview is a query or a cookie on any page: the owner must see the
+	// previewed theme, not the exported one.
+	w("\t@hatamoto_preview_query query %s=*", previewName)
+	w("\thandle @hatamoto_preview_query {")
+	w("\t\treverse_proxy %s", in.Upstream)
+	w("\t}")
+	w("\t@hatamoto_preview_cookie header_regexp Cookie (^|;\\s*)%s=", previewName)
+	w("\thandle @hatamoto_preview_cookie {")
+	w("\t\treverse_proxy %s", in.Upstream)
+	w("\t}")
 	if len(paths) > 0 {
 		w("\t@hatamoto path %s", strings.Join(paths, " "))
 		w("\thandle @hatamoto {")
 		w("\t\treverse_proxy %s", in.Upstream)
+		w("\t}")
+	}
+	if len(fallback) > 0 {
+		w("\t@hatamoto_fallback path %s", strings.Join(fallback, " "))
+		w("\thandle @hatamoto_fallback {")
+		w("\t\troot * %s", in.Root)
+		w("\t\t@missing not file")
+		w("\t\treverse_proxy @missing %s", in.Upstream)
+		w("\t\tfile_server")
 		w("\t}")
 	}
 	for i, re := range regexps {

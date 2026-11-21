@@ -133,5 +133,8 @@ func hostOf(origin string) string {
 	return hp
 }
 
+// previewName is the query parameter and cookie of a theme preview.
+const previewName = "hm_theme_preview"
+
 // hiddenFiles are the files the web server must never serve.
 var hiddenFiles = []string{"/_redirects", "/.hatamoto-static.json"}
