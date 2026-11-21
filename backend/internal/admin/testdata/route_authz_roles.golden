@@ -66,11 +66,11 @@ GET /admin/forms/design/{id}/{tab} anon=303 read-only=404 author=404 contributor
 GET /admin/forms/edit/{id} anon=303 read-only=503 author=503 contributor=503 reviewer=503
 GET /admin/forms/new anon=303 read-only=503 author=503 contributor=503 reviewer=503
 GET /admin/forms/spam anon=303 read-only=403 author=403 contributor=403 reviewer=403
-GET /admin/forms/submissions anon=303 read-only=503 author=503 contributor=503 reviewer=503
-GET /admin/forms/submissions/export.csv anon=303 read-only=503 author=503 contributor=503 reviewer=503
-GET /admin/forms/submissions/{sid} anon=303 read-only=503 author=503 contributor=503 reviewer=503
-GET /admin/forms/submissions/{sid}/delete anon=303 read-only=503 author=503 contributor=503 reviewer=503
-GET /admin/forms/submissions/{sid}/files/{field} anon=303 read-only=503 author=503 contributor=503 reviewer=503
+GET /admin/forms/submissions anon=303 read-only=403 author=403 contributor=403 reviewer=403
+GET /admin/forms/submissions/export.csv anon=303 read-only=403 author=403 contributor=403 reviewer=403
+GET /admin/forms/submissions/{sid} anon=303 read-only=403 author=403 contributor=403 reviewer=403
+GET /admin/forms/submissions/{sid}/delete anon=303 read-only=403 author=403 contributor=403 reviewer=403
+GET /admin/forms/submissions/{sid}/files/{field} anon=303 read-only=403 author=403 contributor=403 reviewer=403
 GET /admin/login anon=200 read-only=303 author=303 contributor=303 reviewer=303
 GET /admin/login/2fa anon=303 read-only=303 author=303 contributor=303 reviewer=303
 GET /admin/login/provider/{id}/callback anon=404 read-only=404 author=404 contributor=404 reviewer=404

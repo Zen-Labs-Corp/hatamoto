@@ -36,8 +36,8 @@ GET /api/v1/entities/{id}/versions anon=401:invalid_token read-only=reached auth
 GET /api/v1/entities/{id}/versions/{version} anon=401:invalid_token read-only=400:invalid_version_number author=400:invalid_version_number contributor=400:invalid_version_number reviewer=400:invalid_version_number
 GET /api/v1/forms/{$} anon=401:invalid_token read-only=reached author=reached contributor=reached reviewer=reached
 GET /api/v1/forms/{id} anon=401:invalid_token read-only=reached author=reached contributor=reached reviewer=reached
-GET /api/v1/forms/{id}/submissions anon=401:invalid_token read-only=reached author=reached contributor=reached reviewer=reached
-GET /api/v1/forms/{id}/submissions/{submissionId} anon=401:invalid_token read-only=reached author=reached contributor=reached reviewer=reached
+GET /api/v1/forms/{id}/submissions anon=401:invalid_token read-only=403:forbidden author=403:forbidden contributor=403:forbidden reviewer=403:forbidden
+GET /api/v1/forms/{id}/submissions/{submissionId} anon=401:invalid_token read-only=403:forbidden author=403:forbidden contributor=403:forbidden reviewer=403:forbidden
 GET /api/v1/linking/equity anon=401:invalid_token read-only=reached author=reached contributor=reached reviewer=reached
 GET /api/v1/linking/inbound/{id} anon=401:invalid_token read-only=reached author=reached contributor=reached reviewer=reached
 GET /api/v1/linking/resolve anon=401:invalid_token read-only=400:entity_id_is_required author=400:entity_id_is_required contributor=400:entity_id_is_required reviewer=400:entity_id_is_required

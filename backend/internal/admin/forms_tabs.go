@@ -43,6 +43,10 @@ func (a *Admin) handleFormTab(w http.ResponseWriter, r *http.Request) {
 		a.ErrorBack(w, r, http.StatusNotFound, "Page not found", "That form page does not exist.", a.adminPath+"/forms", "Back to forms")
 		return
 	}
+	if tab == "submissions" && !a.can(r.Context(), authz.ActionFormSubmissionRead) {
+		a.Error(w, r, http.StatusForbidden, "Not allowed", "Your role does not have access to this page.")
+		return
+	}
 	f, ok := a.loadForm(w, r)
 	if !ok {
 		return

@@ -73,3 +73,33 @@ func TestRESTRolesRouteMatrix(t *testing.T) {
 
 	assertNoWrites(t, lines, roles, restWriteAllow)
 }
+
+// Form submissions are personal data: the restricted roles are refused on both
+// REST reads, while an editor and an owner still reach them.
+func TestRESTFormSubmissionReadsNeedTheReadAction(t *testing.T) {
+	ps := []principal{{"editor", []string{"Authorization", "Bearer test-session-editor"}}, {"owner", []string{"Authorization", "Bearer test-session-owner"}}}
+	roles := []string{"read-only", "author", "contributor", "reviewer"}
+	for _, r := range roles {
+		ps = append(ps, principal{r, []string{"Authorization", "Bearer test-session-" + r}})
+	}
+	seen := 0
+	for _, l := range routeAuthzMatrixFor(t, ps) {
+		if !strings.HasPrefix(l, "GET /api/v1/forms/{id}/submissions") {
+			continue
+		}
+		seen++
+		for _, r := range roles {
+			if !strings.Contains(l, " "+r+"=403") {
+				t.Errorf("%s is not refused for %s: %s", strings.Fields(l)[1], r, l)
+			}
+		}
+		for _, r := range []string{"editor", "owner"} {
+			if !strings.Contains(l, " "+r+"=reached") {
+				t.Errorf("%s no longer reaches %s: %s", r, strings.Fields(l)[1], l)
+			}
+		}
+	}
+	if seen != 2 {
+		t.Fatalf("found %d submission read routes, want 2", seen)
+	}
+}
