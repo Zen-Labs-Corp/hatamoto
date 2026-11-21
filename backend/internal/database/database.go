@@ -34,15 +34,20 @@ func (db *DB) TransportNotes() []string {
 // nothing: acquire already pings a connection idle for over a second.
 const warmPoolHealthCheck = 5 * time.Minute
 
+// pgxDefaultHealthCheck is the period pgxpool.ParseConfig leaves when the URL
+// has no pool_health_check_period.
+const pgxDefaultHealthCheck = time.Minute
+
 // applyPoolConfig copies the pool settings from cfg. A pool that may drain
 // (MinConnections 0, the idle-gated setup) keeps pgx's health-check period, so
-// idle connections still close promptly between idle beats.
+// idle connections still close promptly between idle beats. A period the
+// operator set in the URL is kept.
 func applyPoolConfig(pc *pgxpool.Config, cfg config.DatabaseConfig) {
 	pc.MaxConns = int32(cfg.MaxConnections)
 	pc.MinConns = int32(cfg.MinConnections)
 	pc.MaxConnLifetime = cfg.MaxConnLifetime
 	pc.MaxConnIdleTime = cfg.MaxConnIdleTime
-	if cfg.MinConnections > 0 {
+	if cfg.MinConnections > 0 && pc.HealthCheckPeriod == pgxDefaultHealthCheck {
 		pc.HealthCheckPeriod = warmPoolHealthCheck
 	}
 }
