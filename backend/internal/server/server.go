@@ -26,6 +26,8 @@ import (
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
+	"hatamoto.dev/core/internal/auditlog"
+	"hatamoto.dev/core/internal/auditstate"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/authbridge"
 	"hatamoto.dev/core/internal/author"
@@ -433,6 +435,7 @@ func (s *Server) setupDependencies() {
 	// Entity repositories
 	schemaRepo := entity.NewPostgresSchemaRepository(s.db)
 	entityRepo := entity.NewPostgresEntityRepository(s.db)
+	entityRepo.SetAuditTx(s.entityAuditTx)
 	s.entityRepo = entityRepo
 
 	// Sessions: server-side admin session store.
@@ -504,6 +507,7 @@ func (s *Server) setupDependencies() {
 	}
 	s.mediaStorage = mediaConfig.Store
 	s.mediaService = media.NewService(mediaRepo, mediaConfig, s.logger)
+	s.mediaService.SetAudit(s.auditFromCtx)
 	s.mediaService.SetChangeObserver(s.onMediaChange)
 	s.mediaFormats = mediaFormatStore{site: s.siteConfig}
 	s.formatPolicy = s.mediaFormats.policy
@@ -513,6 +517,7 @@ func (s *Server) setupDependencies() {
 	// Menu service
 	menuRepo := menu.NewPostgresRepository(s.db)
 	s.menuService = menu.NewService(menuRepo, s.logger)
+	s.menuService.SetAudit(s.auditFromCtx)
 	s.menuService.SetArchivePaths(func(ctx context.Context, schema string) string {
 		if cfg, ok := s.urlSnapshot(ctx).Config(schema); ok {
 			return cfg.ArchivePath
@@ -597,6 +602,7 @@ func (s *Server) setupDependencies() {
 		Tokens:     s.userTokens,
 		AdminPath:  s.adminPathValue,
 		Now:        time.Now,
+		Audit:      s.recordProvisionerAudit,
 	})
 
 	// Knowledge / segmentation services deleted in Phase 6 along with
@@ -607,6 +613,7 @@ func (s *Server) setupDependencies() {
 	s.redirectService.SameHostOnly = s.demoOn()
 	s.redirectService.SetLogPolicy(s.log404Policy)
 	s.redirectService.SetOnChange(s.notifyRedirectsChanged)
+	s.redirectService.SetAudit(s.auditFromCtx)
 
 	// Agent (AI crawler) hit capture. Page paths are resolved to entities in the
 	// writer goroutine, off the request path.
@@ -646,6 +653,7 @@ func (s *Server) setupDependencies() {
 		// through entity.UpdateStatus, which replaces a still-future published_at with NOW().
 		publishWorker := worker.NewPublishWorker(s.db, s.logger)
 		publishWorker.SetEvents(scheduledPublishSink{s: s, next: s.entitySink})
+		publishWorker.SetAuditTx(s.entityAuditTx)
 		if workerJobEnabled("publish") {
 			s.scheduler.SetPublishWorker(publishWorker)
 			s.scheduler.SetUnpublishWorker(worker.NewUnpublishWorker(s.db, s.logger, unpublishSink{s: s}))
@@ -746,6 +754,7 @@ func (s *Server) setupDependencies() {
 	// remain valid; the new store runs in parallel.
 	taxonomyRepo := taxonomy.NewPostgresRepository(s.db)
 	s.taxonomyService = taxonomy.NewService(taxonomyRepo, s.logger)
+	s.taxonomyService.SetAudit(s.auditFromCtx)
 	s.taxonomyService.SetMoveObserver(s.onTermsMoved)
 	s.taxonomyService.SetChangeObserver(s.invalidateRendered)
 	s.termGroups = taxonomy.NewTermGroupStore(s.db)
@@ -1392,4 +1401,16 @@ func attachFormFileStore(svc *form.Service, logger *slog.Logger, maxTotalBytes i
 	}
 	store.SetMaxTotalBytes(maxTotalBytes)
 	svc.SetFileStore(store)
+}
+
+// recordProvisionerAudit writes the provisioner's rows through the pool
+// Recorder: best-effort, logged on error. A registered sink's refusal cannot
+// undo a change that already succeeded.
+func (s *Server) recordProvisionerAudit(ctx context.Context, ev auditstate.Event) {
+	if s.db == nil {
+		return
+	}
+	if err := (auditlog.Recorder{Pool: s.db.Pool()}).Record(ctx, nil, ev); err != nil {
+		s.logger.Error("admin audit write failed", "action", ev.Action, "error", err)
+	}
 }
