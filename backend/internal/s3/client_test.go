@@ -283,3 +283,55 @@ func TestGetRange(t *testing.T) {
 		t.Errorf("unsatisfiable range: err = %v", err)
 	}
 }
+
+func TestPutWithOptionsSendsContentHeaders(t *testing.T) {
+	for _, size := range []int{50, 250} { // single request, then multipart
+		smallParts(t, 100)
+		srv := s3test.NewServer(t)
+		c := newTestClient(t, srv)
+		err := c.PutWithOptions(context.Background(), "a", bytes.NewReader(randBytes(size)), int64(size),
+			PutOptions{ContentType: "text/html; charset=utf-8", CacheControl: "max-age=60", Meta: map[string]string{"k": "v"}})
+		if err != nil {
+			t.Fatalf("size %d: %v", size, err)
+		}
+		var puts int
+		for _, r := range srv.Requests() {
+			if r.Method == http.MethodPut && r.Query == "" || r.Method == http.MethodPost && r.Query == "uploads=" {
+				puts++
+				if r.Header.Get("Content-Type") != "text/html; charset=utf-8" || r.Header.Get("Cache-Control") != "max-age=60" ||
+					r.Header.Get("X-Amz-Meta-K") != "v" {
+					t.Fatalf("size %d: %s %s headers %v", size, r.Method, r.Path, r.Header)
+				}
+			}
+		}
+		if puts != 1 {
+			t.Fatalf("size %d: %d requests carried the options", size, puts)
+		}
+	}
+}
+
+func TestPutWithoutOptionsSendsNoContentHeaders(t *testing.T) {
+	srv := s3test.NewServer(t)
+	c := newTestClient(t, srv)
+	if err := c.Put(context.Background(), "a", bytes.NewReader(randBytes(10)), 10, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range srv.Requests() {
+		if r.Header.Get("Cache-Control") != "" || r.Header.Get("Content-Type") != "" {
+			t.Fatalf("plain Put sent %v", r.Header)
+		}
+	}
+}
+
+func TestPutWithOptionsRejectsHeaderInjection(t *testing.T) {
+	srv := s3test.NewServer(t)
+	c := newTestClient(t, srv)
+	for _, o := range []PutOptions{{ContentType: "a\r\nX: y"}, {CacheControl: "a\nb"}} {
+		if err := c.PutWithOptions(context.Background(), "a", bytes.NewReader(nil), 0, o); err == nil {
+			t.Fatalf("accepted %+v", o)
+		}
+	}
+	if len(srv.Requests()) != 0 {
+		t.Fatal("a request was sent")
+	}
+}

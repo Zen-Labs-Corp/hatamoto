@@ -19,9 +19,13 @@ var partSize int64 = 16 << 20
 
 const abortTimeout = 30 * time.Second
 
-func (c *Client) putMultipart(ctx context.Context, key string, r io.ReaderAt, size int64, meta map[string]string) (err error) {
+func (c *Client) putMultipart(ctx context.Context, key string, r io.ReaderAt, size int64, o PutOptions) (err error) {
+	hdr, err := o.header()
+	if err != nil {
+		return err
+	}
 	resp, err := c.do(ctx, request{op: "multipart start", method: http.MethodPost, key: key,
-		query: url.Values{"uploads": {""}}, header: metaHeader(meta)})
+		query: url.Values{"uploads": {""}}, header: hdr})
 	if err != nil {
 		return err
 	}
