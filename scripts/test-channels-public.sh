@@ -2,7 +2,7 @@
 # test-channels-public.sh - the channel sources are public, the channel keys never
 # are. Run by `make check`.
 #
-# releases/channels/{canary,edge,stable}.json (the unsigned channel sources) are
+# releases/channels/{canary,edge,lts,stable}.json (the unsigned channel sources) are
 # tracked here and ship in `git archive`. They are signed with the manifest key and
 # uploaded on the maintainer's signing machine; no key and no signing or upload
 # step is ever on GitHub. So this repository must not carry:
@@ -14,7 +14,7 @@ cd "$(git rev-parse --show-toplevel)"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 pass() { echo "PASS: $*"; }
 
-CHANNELS=(canary edge stable)
+CHANNELS=(canary edge lts stable)
 SECRET_NAMES='HATAMOTO_MANIFEST_KEY|RELEASES_SSH_|release-channels'
 # Files that may name the secrets: this test and the workflow tests (names only, as strings to look for).
 NAME_ALLOWED=(scripts/test-channels-public.sh backend/internal/release/workflows_test.go)
@@ -24,9 +24,9 @@ for c in "${CHANNELS[@]}"; do
   git ls-files --error-unmatch "$f" >/dev/null 2>&1 || fail "$f is not tracked"
   [ "$(git check-attr export-ignore -- "$f" | awk '{print $NF}')" != set ] || fail "$f is export-ignore"
 done
-extra=$(git ls-files releases/channels | grep -vxE 'releases/channels/(canary|edge|stable)\.json' || true)
+extra=$(git ls-files releases/channels | grep -vxE 'releases/channels/(canary|edge|lts|stable)\.json' || true)
 [ -z "$extra" ] || fail "unexpected files in releases/channels: $extra"
-pass "channel sources tracked and shipped (canary, edge, stable)"
+pass "channel sources tracked and shipped (canary, edge, lts, stable)"
 
 [ -z "$(git ls-files .github/workflows/channels.yml)" ] || fail ".github/workflows/channels.yml is tracked: channels are never signed on GitHub"
 excl=(); for f in "${NAME_ALLOWED[@]}"; do excl+=(":!$f"); done

@@ -160,7 +160,7 @@ What these settings do is described under [Email delivery](#email-delivery).
 | Variable | Default | Meaning |
 |---|---|---|
 | `HATAMOTO_UPDATES` | `auto` | `auto` (also `on`, `true`, `1`), `notify` (look but never install) or `off` (no network call; also `false`, `0`, `no`, `disabled`), in any case. Any other value is treated as `off` and logged. The environment wins over the admin setting. |
-| `HATAMOTO_UPDATE_CHANNEL` | `stable` | `stable`, `edge` or `canary`. An invalid value is ignored with a warning. |
+| `HATAMOTO_UPDATE_CHANNEL` | `stable` | `stable`, `edge`, `canary` or `lts`. An invalid value is ignored with a warning. |
 | `HATAMOTO_UPDATE_URL` | `https://hatamoto.dev/releases` | Base URL of the release channels and files. https only. |
 | `HATAMOTO_UPDATE_BACKUP` | on | `0` turns off the database dump taken before an update. |
 | `HATAMOTO_TELEMETRY` | unset | `off` (in any case) turns [install stats](install-stats.md) off for good: nothing is sent, a stored install ID is deleted, the notice is left out, and the switch in Settings > Updates is disabled and off. Unset means on by default once setup is finished, unless the owner turned stats off. No value turns stats on; the variable can only turn them off. |

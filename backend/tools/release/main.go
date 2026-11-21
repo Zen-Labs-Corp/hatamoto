@@ -76,7 +76,7 @@ const usage = `usage: release <command> [flags]
   record       --amend F [--security] [--kind K] [--rollback-floor V] [--min-from V] [--allow-same]
   sign-record  FILE (--key KEY | --agent [--agent-key ID]) [--out FILE] [--allow-same]
   channel      add|ramp|halt|unhalt|yank|resign (see channel with no arguments)
-  verify       --chan stable|edge|canary (--manifest F | --channel F --record F --sig F --artifact F --platform P | --record F --sig F --dir D [--version V])`
+  verify       --chan stable|edge|canary|lts (--manifest F | --channel F --record F --sig F --artifact F --platform P | --record F --sig F --dir D [--version V])`
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout, os.Stderr, env{}); err != nil {

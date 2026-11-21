@@ -229,6 +229,38 @@ func TestChannelCanaryAddHalt(t *testing.T) {
 		"--record", f.record, "--sig", f.sig, "--ramp", "now:100")
 }
 
+func TestChannelLTSResignAddVerify(t *testing.T) {
+	f := newChannelFixture(t)
+	man := newKeyPair(t, f.dir, "man")
+	e := env{Release: f.rel.set, Manifest: man.set, Now: f.e.Now}
+	out := filepath.Join(f.dir, "out")
+	runOK(t, e, "channel", "resign", "--channel", "lts", "--in", f.chans, "--out", out, "--key", man.file)
+	doc := mustRead(t, filepath.Join(out, "lts.json"))
+	m, err := release.VerifyManifest(doc, release.Options{Channel: "lts", Manifest: man.set, Now: func() time.Time { return testNow }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Releases) != 0 {
+		t.Errorf("empty lts source resigned with releases: %+v", m.Releases)
+	}
+
+	runOK(t, f.e, "channel", "add", "lts", "v1.2.3", "--dir", f.chans,
+		"--record", f.record, "--sig", f.sig, "--ramp", "now:100")
+	if got := f.source(t, "lts"); !strings.Contains(got, `"channel": "lts"`) || !strings.Contains(got, `"version": "v1.2.3"`) {
+		t.Fatalf("lts not added:\n%s", got)
+	}
+	for _, c := range []string{"stable", "edge", "canary"} {
+		if f.source(t, c) != emptyChannel(c) {
+			t.Errorf("%s changed by an lts edit", c)
+		}
+	}
+
+	runOK(t, e, "channel", "resign", "--channel", "lts", "--in", f.chans, "--out", out, "--key", man.file)
+	lts := filepath.Join(out, "lts.json")
+	runOK(t, e, "verify", "--chan", "lts", "--manifest", lts)
+	runErr(t, e, "verify", "--chan", "stable", "--manifest", lts)
+}
+
 func TestResignRefusesChannelSwaps(t *testing.T) {
 	f := newChannelFixture(t)
 	man := newKeyPair(t, f.dir, "man")

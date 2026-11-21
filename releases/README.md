@@ -1,6 +1,6 @@
 # releases/
 
-`channels/{canary,edge,stable}.json` are the unsigned channel sources: which release
+`channels/{canary,edge,lts,stable}.json` are the unsigned channel sources: which release
 each channel offers, at what rollout, and which are halted or yanked. They change only
 through pull requests made with the release tool (`go run ./tools/release channel ...`
 from `backend/`), never by hand.
@@ -9,6 +9,10 @@ They are signed with the manifest key and uploaded off GitHub, on the maintainer
 signing machine, after every merged change and once a day (a signed manifest is valid
 for 14 days). No key and no signing workflow is in this repository. Boxes read the signed
 manifests from `https://hatamoto.dev/releases/channels/<channel>.json`.
+
+`lts.json` lists only releases of long-term support lines (see the release process
+docs). It started as an empty source; the maintainer's signing run must include it
+before the live `lts.json` exists, and until then the freshness check reports it missing.
 
 The release tooling is `backend/tools/release`, the build is `make release-build`, the
 release workflow is `.github/workflows/release.yml`, and the process is in

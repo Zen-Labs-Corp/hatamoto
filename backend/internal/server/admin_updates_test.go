@@ -156,6 +156,10 @@ func TestAdapterViewReportsEffectivePolicyAndLocks(t *testing.T) {
 	if v, _ = r.View(context.Background()); v.Channel != "canary" || !v.Locks.Channel {
 		t.Errorf("env canary not applied and locked: %+v", v)
 	}
+	r.env[updater.EnvChannel] = "lts"
+	if v, _ = r.View(context.Background()); v.Channel != "lts" || !v.Locks.Channel {
+		t.Errorf("env lts not applied and locked: %+v", v)
+	}
 	r.env[updater.EnvChannel] = "nightly"
 	if v, _ = r.View(context.Background()); v.Locks.Channel || v.Channel != "stable" {
 		t.Errorf("invalid env channel locked or applied: %+v", v)
@@ -225,6 +229,28 @@ func TestAdapterSaveAppliesFormAndHonoursLocks(t *testing.T) {
 	}
 	if got := r.store.saved[0]; got.Mode != "notify" || got.Channel != "edge" {
 		t.Errorf("locked fields were overwritten: stored mode/channel now %q/%q, want unchanged notify/edge", got.Mode, got.Channel)
+	}
+}
+
+func TestAdapterSaveAcceptsLTS(t *testing.T) {
+	r := newAdapterRig()
+	r.store.set = updater.Settings{Mode: "auto", Channel: "stable"}
+	form := admin.UpdatesForm{Mode: "auto", Channel: "lts"}
+	if errs, err := r.Save(context.Background(), form); err != nil || len(errs) != 0 {
+		t.Fatalf("save = %v %v", errs, err)
+	}
+	if got := r.store.saved[0]; got.Channel != "lts" {
+		t.Errorf("saved %+v", got)
+	}
+	r.store.saved = nil
+	r.store.set = updater.Settings{Mode: "auto", Channel: "stable"}
+	r.env[updater.EnvChannel] = "lts"
+	form.Channel = "edge"
+	if _, err := r.Save(context.Background(), form); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.store.saved[0]; got.Channel != "stable" {
+		t.Errorf("an lts env lock must stop the form changing the stored channel: %+v", got)
 	}
 }
 

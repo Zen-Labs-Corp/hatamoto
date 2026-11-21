@@ -35,6 +35,18 @@ func TestEffectiveCanaryChannel(t *testing.T) {
 	}
 }
 
+func TestEffectiveLTSChannel(t *testing.T) {
+	if got := (Settings{}).Effective(env(map[string]string{EnvChannel: "lts"})); got.Channel != "lts" {
+		t.Fatalf("env lts: %+v", got)
+	}
+	if got := (Settings{Channel: "lts"}).Effective(env(map[string]string{EnvChannel: "LTS"})); got.Channel != "lts" {
+		t.Fatalf("invalid env must leave the row alone: %+v", got)
+	}
+	if err := (&Settings{Channel: "lts"}).Validate(); err != nil {
+		t.Fatalf("lts must validate: %v", err)
+	}
+}
+
 func TestEffectiveModeSynonyms(t *testing.T) {
 	for v, want := range map[string]string{
 		"off": ModeOff, "false": ModeOff, "0": ModeOff, "no": ModeOff, "disabled": ModeOff, "OFF": ModeOff, " False ": ModeOff,

@@ -37,7 +37,8 @@ disclosing.
    patch and any test happen in the advisory's private fork. Nothing is
    public yet.
 2. **Patch on every channel.** The fix is released on all update channels
-   (`canary`, `edge`, `stable`). Security releases are marked as such in the
+   (`canary`, `edge`, `stable`, and the LTS lines still in their window
+   on `lts`). Security releases are marked as such in the
    signed release record, and inside the current major they skip the update
    defer, window and pin settings that delay a normal release.
 3. **Advisory and CVE.** When the patched release is available, we publish
@@ -64,11 +65,12 @@ above, we say so in the advisory and ship the fix first.
 | The latest stable release (`stable` update channel) | Yes |
 | The current `edge` release | Yes |
 | `canary` builds | Fixes land here first; no separate support |
+| An LTS line (`lts` update channel, branch `lts/vX.Y`) | Security fixes for 18 months from the branch cut, until a newer LTS line of the same major replaces it on the `lts` channel |
 | The previous major (after 1.0) | Security fixes for six months after the next major is released |
 | Older releases | No: update to the latest stable (self-hosted installs update themselves unless updates are turned off) |
 
 Security fixes ship as new releases on the update channels; there are no
-backports to older minor versions of the current major.
+backports to older minor versions of the current major, except LTS lines.
 
 ## Scope
 

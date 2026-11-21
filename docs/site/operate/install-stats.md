@@ -48,7 +48,7 @@ The body is JSON with these keys:
 |---|---|
 | `install` | A random ID of 32 hexadecimal characters, made when stats are first turned on, by the owner or by the default. It is not derived from anything on your server. |
 | `version` | The release the server runs. |
-| `channel` | The update channel in use: `stable`, `edge` or `canary`. It is whatever you set, also when the update mode is `off`. |
+| `channel` | The update channel in use: `stable`, `edge`, `canary` or `lts`. It is whatever you set, also when the update mode is `off`. |
 | `level` | Always `detailed`. |
 | `host` | The public site domain, taken from `PUBLIC_BASE_URL` if it is set, else from the site address setting: lower-case, no port, no path, for example `example.com`. Left out when it is not a valid public domain name (empty, `localhost`, an IP address, or ending in `.local`, `.internal` or `.localhost`). It is never the machine's own hostname. |
 | `os`, `arch` | The operating system and CPU architecture the server runs on, as Go names them (`linux`, `amd64`). |

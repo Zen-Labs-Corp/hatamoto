@@ -47,6 +47,7 @@ Each release record names `min_from`, the oldest version that can move straight 
 
 - The latest minor of the current major gets every fix.
 - The previous major gets security fixes for six months after the new major is released.
+- An LTS line (the `lts` update channel) gets security fixes for 18 months from its branch cut, until a newer LTS line of the same major replaces it on the `lts` channel; see [Release process](../migrate-contribute/release-process.md#lts-branches).
 
 ## Related
 

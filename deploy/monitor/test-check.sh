@@ -19,7 +19,7 @@ iso() { date -u -d "$1" +%Y-%m-%dT%H:%M:%SZ; }
 # healthy: manifests valid 14 days, security.txt a year
 healthy() {
 	rm -rf "$site"; mkdir -p "$site/releases/channels" "$site/.well-known"
-	local c; for c in stable edge canary; do
+	local c; for c in stable edge canary lts; do
 		jq -n --arg c "$c" --arg e "$(iso '+14 days')" '{algorithm:"ed25519",signer:"k",signature:"x",index:{channel:$c,expires_at:$e,releases:[]}}' >"$site/releases/channels/$c.json"
 	done
 	echo '{"algorithm":"ed25519","signer":"k","signature":"x","index":{"version":1,"packages":[]}}' >"$site/registry.json"
@@ -80,6 +80,9 @@ expect_fail "edge malformed JSON" 'edge.json: not valid JSON'
 
 healthy; echo '{"index":{"expires_at":"next week"}}' >"$site/releases/channels/edge.json"
 expect_fail "edge bad date" 'expires_at is not a date'
+
+healthy; rm "$site/releases/channels/lts.json"
+expect_fail "lts missing" 'lts.json: HTTP 404'
 
 healthy; rm "$site/registry.json"
 expect_fail "registry missing" 'registry.json: HTTP 404'

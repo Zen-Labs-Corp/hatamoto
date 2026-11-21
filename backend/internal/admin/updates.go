@@ -1183,6 +1183,8 @@ func channelLabel(c string) string {
 		return "Edge (2 days early)"
 	case "canary":
 		return "Canary (bleeding edge, may break)"
+	case "lts":
+		return "LTS (security fixes only, 18 months)"
 	}
 	return c
 }

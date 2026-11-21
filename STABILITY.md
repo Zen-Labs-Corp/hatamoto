@@ -197,8 +197,9 @@ A change without those three is not a security exception, whatever its reason.
 
 ## Release and update protocol
 
-- **Channels.** `stable`, `edge` and `canary` (`release.Channels`). The default is `stable`, and
-  `HATAMOTO_UPDATE_CHANNEL` selects another. Each channel has its own signed manifest, and moving
+- **Channels.** `stable`, `edge`, `canary` and `lts` (`release.Channels`). The default is `stable`, and
+  `HATAMOTO_UPDATE_CHANNEL` selects another. `lts` follows a long-term support line (security fixes
+  for 18 months, see the release process). Each channel has its own signed manifest, and moving
   between channels needs no migration.
 - **What a server is offered.** `Decide` in `backend/internal/updater/decide.go` picks the newest
   release of the same major version that is not yanked, not halted, not on the box's bad list, and

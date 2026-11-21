@@ -53,7 +53,7 @@ type Record struct {
 }
 
 // Channels lists the channel names a manifest may carry.
-var Channels = []string{"stable", "edge", "canary"}
+var Channels = []string{"stable", "edge", "canary", "lts"}
 
 // Platforms lists the targets every record must carry.
 var Platforms = []string{"linux-amd64", "linux-arm64", "darwin-amd64", "darwin-arm64"}
@@ -116,7 +116,7 @@ type Yank struct {
 
 // ChannelManifest is the signed content of a channel file.
 type ChannelManifest struct {
-	Channel   string  `json:"channel"` // "stable", "edge" or "canary"; signed so a mirror cannot swap channels
+	Channel   string  `json:"channel"` // "stable", "edge", "canary" or "lts"; signed so a mirror cannot swap channels
 	IssuedAt  string  `json:"issued_at"`
 	ExpiresAt string  `json:"expires_at"`
 	Releases  []Entry `json:"releases"`

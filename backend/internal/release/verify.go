@@ -39,7 +39,7 @@ var (
 // Options tune Verify. The zero value verifies against the embedded trust sets
 // at the current time.
 type Options struct {
-	Channel           string            // the channel being checked, "stable", "edge" or "canary"; required
+	Channel           string            // the channel being checked, "stable", "edge", "canary" or "lts"; required
 	Release, Manifest packages.TrustSet // nil means the embedded set
 	Now               func() time.Time  // nil means time.Now
 	MaxArtifact       int64             // 0 means MaxArtifactSize

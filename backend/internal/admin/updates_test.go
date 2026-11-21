@@ -82,7 +82,7 @@ func ptrInt(n int) *int { return &n }
 func baseUpdates() *fakeUpdates {
 	at := updatesClock.Add(-12 * time.Minute)
 	return &fakeUpdates{state: UpdatesState{
-		Running: "v1.4.1", Mode: "auto", Channel: "stable", Channels: []string{"stable", "edge", "canary"},
+		Running: "v1.4.1", Mode: "auto", Channel: "stable", Channels: []string{"stable", "edge", "canary", "lts"},
 		Status: UpdatesStatus{LastCheckAt: &at, LastResult: "ok", Decision: "up_to_date", Reason: "running the newest release offered"},
 	}}
 }
@@ -199,11 +199,16 @@ func TestUpdatesPageStates(t *testing.T) {
 		{"env_locked", func(f *fakeUpdates) {
 			f.state.Locks = UpdatesLocks{Mode: true, Channel: true, ModeVar: "HATAMOTO_UPDATES", ChannelVar: "HATAMOTO_UPDATE_CHANNEL"}
 		}, []string{">Automatic</span>", "Set by HATAMOTO_UPDATES on the server.", ">Stable (recommended for live sites)</span>", "Set by HATAMOTO_UPDATE_CHANNEL on the server."}, []string{`name="mode"`, `name="channel"`, "Automatic ·", "stable ·"}},
-		{"canary", func(f *fakeUpdates) { f.state.Channel = "canary" }, []string{`<option value="canary" selected>Canary (bleeding edge, may break)</option>`, "Stable is for live sites: it gets each release from day 7 (5%, then 25% on day 9, 100% on day 11). Edge gets it on day 2. Canary is bleeding edge for testing and may break: it gets each release first, before anyone else has run it."}, nil},
+		{"canary", func(f *fakeUpdates) { f.state.Channel = "canary" }, []string{`<option value="canary" selected>Canary (bleeding edge, may break)</option>`, "Stable is for live sites: it gets each release from day 7 (5%, then 25% on day 9, 100% on day 11). Edge gets it on day 2. Canary is bleeding edge for testing and may break: it gets each release first, before anyone else has run it. LTS follows one long-term support line per major version and gets only its security fixes, for 18 months. Choose it only while this server runs an LTS version: on any other version, or while no LTS line exists, it gets no updates at all, not even security fixes."}, nil},
 		{"env_locked_canary", func(f *fakeUpdates) {
 			f.state.Channel = "canary"
 			f.state.Locks = UpdatesLocks{Channel: true, ChannelVar: "HATAMOTO_UPDATE_CHANNEL"}
-		}, []string{">Canary (bleeding edge, may break)</span>", "has run it. Set by HATAMOTO_UPDATE_CHANNEL on the server."}, []string{`name="channel"`, "canary ·"}},
+		}, []string{">Canary (bleeding edge, may break)</span>", "not even security fixes. Set by HATAMOTO_UPDATE_CHANNEL on the server."}, []string{`name="channel"`, "canary ·"}},
+		{"lts", func(f *fakeUpdates) { f.state.Channel = "lts" }, []string{`<option value="canary">Canary (bleeding edge, may break)</option><option value="lts" selected>LTS (security fixes only, 18 months)</option>`}, nil},
+		{"env_locked_lts", func(f *fakeUpdates) {
+			f.state.Channel = "lts"
+			f.state.Locks = UpdatesLocks{Channel: true, ChannelVar: "HATAMOTO_UPDATE_CHANNEL"}
+		}, []string{">LTS (security fixes only, 18 months)</span>", "Set by HATAMOTO_UPDATE_CHANNEL on the server."}, []string{`name="channel"`, "lts ·"}},
 		{"window_and_defer", func(f *fakeUpdates) {
 			f.state.WindowStart, f.state.WindowEnd, f.state.DeferDays = ptrInt(2), ptrInt(5), 3
 		}, []string{`<option value="2" selected>02:00</option>`, `<option value="5" selected>05:00</option>`, `<option value="3" selected>3 days</option>`}, nil},
@@ -374,7 +379,7 @@ func TestUpdatesSaveInvalid(t *testing.T) {
 		{"defer 15", func(v url.Values) { v.Set("defer_days", "15") }, "Choose from 0 to 14 days.", `<option value="5" selected>05:00</option>`, `href="#defer"`},
 		{"defer not a number", func(v url.Values) { v.Set("defer_days", "soon") }, "Choose from 0 to 14 days.", `<option value="2" selected>02:00</option>`, `href="#defer"`},
 		{"bad mode", func(v url.Values) { v.Set("mode", "yolo") }, "Choose Automatic, Notify only or Off.", `<option value="3" selected>3 days</option>`, `href="#mode"`},
-		{"bad channel", func(v url.Values) { v.Set("channel", "nightly") }, "Choose one of: stable, edge, canary.", `<option value="3" selected>3 days</option>`, `href="#channel"`},
+		{"bad channel", func(v url.Values) { v.Set("channel", "nightly") }, "Choose one of: stable, edge, canary, lts.", `<option value="3" selected>3 days</option>`, `href="#channel"`},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			u := newUpdatesRig(t, baseUpdates())
