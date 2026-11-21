@@ -928,8 +928,8 @@ filters by source, actor, action and a From/To date range (site time zone, To in
 A search always has a date range: without From it covers the 30 days before To (or today), and
 a range wider than 366 days is narrowed to 366. Filters without a search need no range. Paging is
 keyset: the **Older** button follows an opaque cursor, so rows never repeat or skip while new
-ones arrive; a cursor that does not parse shows the first page. Agent arguments are searched but
-never shown. The page exists only when the host wires `Deps.AuditLog`; without it the route is a
+ones arrive; a cursor that does not parse shows the first page. Agent arguments are searched, and
+only the target taken from them (slug, path, id or name) is shown. The page exists only when the host wires `Deps.AuditLog`; without it the route is a
 404. There is no sidebar link: the way in is the Activity card's "Audit log" link.
 
 **Retention** (`GET`/`POST <admin>/audit/retention`, owner only, linked from the page's more
