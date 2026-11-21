@@ -16,7 +16,7 @@ import (
 
 // bootThemed404 is bootRoutes with the render handlers given the loaders a
 // database would supply, so a random public path ends in the real themed 404.
-func bootThemed404(t *testing.T) (http.Handler, *Server) {
+func bootThemed404(t testing.TB) (http.Handler, *Server) {
 	t.Helper()
 	h, s := bootRoutes(t)
 	publicThemeFixture(t, s)
@@ -24,7 +24,7 @@ func bootThemed404(t *testing.T) (http.Handler, *Server) {
 }
 
 // publicThemeFixture gives the route shell a themed, database-free public site.
-func publicThemeFixture(t *testing.T, s *Server) {
+func publicThemeFixture(t testing.TB, s *Server) {
 	t.Helper()
 	rh := s.renderHandlers
 	if rh == nil {
