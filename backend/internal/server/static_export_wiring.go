@@ -152,7 +152,8 @@ func (s *Server) setupStaticExport() {
 // liveAdminSite points the mail's admin link at the live origin. In static
 // mode the Site URL is the CDN or directory that holds the exported files; the
 // admin answers on the live origin, so a link built on the Site URL would land
-// on the exported 404 page. Without a live origin the Site URL is all there is.
+// on the exported 404 page. Same host (no live origin): the admin answers on
+// the Site URL, which is all there is.
 func liveAdminSite(site func(ctx context.Context) (name, base, adminPath string),
 	settings func(ctx context.Context) (staticexport.Settings, bool, error)) func(ctx context.Context) (string, string, string) {
 	return func(ctx context.Context) (string, string, string) {
