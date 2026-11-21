@@ -767,6 +767,8 @@ func (s *Server) setupDependencies() {
 	s.setupStanding()
 	s.scheduleStandingDigest()
 	s.scheduleUserAccess()
+	s.wireModuleJobs()
+	s.wireModuleMail()
 	s.setupComments()
 	s.scheduleCommentDraftsPurge()
 	s.setupCommentNotify()
