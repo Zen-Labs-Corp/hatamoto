@@ -4,9 +4,11 @@
 #
 # Usage: scripts/publish-release.sh [--dry-run] vX.Y.Z DIR
 #
-# DIR holds exactly release.json, release.json.sig and the four
-# hatamoto-<os>-<arch> files; anything else (a stray *.key included) aborts.
-# Order: validate, verify the signed record and all four artifacts with
+# DIR holds exactly release.json, release.json.sig and the artifacts the signed
+# record names (the four hatamoto-<os>-<arch> files, plus the four
+# hatamoto-<edition>-<os>-<arch> files for each edition the record carries);
+# anything else (a stray *.key included) aborts.
+# Order: validate, verify the signed record and every artifact it names with
 # tools/release (no network), compare with what the server already has (a
 # different file aborts before any upload; an identical one is skipped), upload
 # artifacts, then the signature, then release.json last (a present record means
@@ -35,7 +37,7 @@ DRY=0; VER=""; DIR=""
 for a in "$@"; do
   case "$a" in
     --dry-run) DRY=1 ;;
-    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
     -*) echo "unknown flag: $a" >&2; usage ;;
     *) if [[ -z "$VER" ]]; then VER=$a; elif [[ -z "$DIR" ]]; then DIR=$a; else usage; fi ;;
   esac
@@ -45,10 +47,23 @@ done
 [[ -d "$DIR" ]] || die "not a directory: $DIR"
 DIR=$(cd "$DIR" && pwd)
 
-ARTIFACTS=(hatamoto-linux-amd64 hatamoto-linux-arm64 hatamoto-darwin-amd64 hatamoto-darwin-arm64)
+REPO=$(git rev-parse --show-toplevel)
+RELEASE_TOOL=${RELEASE_TOOL:-"go run ./tools/release"}
+for f in release.json release.json.sig; do
+  [[ -f "$DIR/$f" && ! -L "$DIR/$f" ]] || die "$f is not a regular file"
+done
+
+# 1. Verify offline (signature, version, size and hash of every artifact the record names)
+# and learn their names.
+list=$(cd "$REPO/backend" && $RELEASE_TOOL verify --chan edge --record "$DIR/release.json" \
+    --sig "$DIR/release.json.sig" --dir "$DIR" --version "$VER" --list-files) || die "verification failed; nothing was uploaded"
+mapfile -t ARTIFACTS <<<"$list"
+for a in "${ARTIFACTS[@]}"; do
+  [[ "$a" =~ ^hatamoto-[a-z0-9-]+$ ]] || die "unexpected artifact name from the verifier: $a"
+done
 FILES=("${ARTIFACTS[@]}" release.json.sig release.json)   # upload order
 
-# 1. DIR holds exactly FILES, all regular files.
+# DIR holds exactly FILES, all regular files.
 want=$(printf '%s\n' "${FILES[@]}" | LC_ALL=C sort)
 have=$(ls -A "$DIR" | LC_ALL=C sort)
 [[ "$want" == "$have" ]] || die "$DIR must hold exactly: ${FILES[*]} (found: $(tr '\n' ' ' <<<"$have"))"
@@ -57,7 +72,6 @@ for f in "${FILES[@]}"; do
 done
 
 # 2. Host.
-REPO=$(git rev-parse --show-toplevel)
 if [[ -z "${DEPLOY_HOST:-}" ]]; then
   MAIN_CHECKOUT=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
   for f in "$REPO/.deploy-host" "$MAIN_CHECKOUT/.deploy-host"; do
@@ -107,11 +121,6 @@ make_run_dir() {
     && [[ "$out" =~ ^"$STAGING"/run\.[A-Za-z0-9]+$ ]] || die "staging dir $STAGING on the host is not a private directory"
   echo "$out"
 }
-
-# 3. Verify offline: signature, version, size and hash of all four artifacts.
-RELEASE_TOOL=${RELEASE_TOOL:-"go run ./tools/release"}
-( cd "$REPO/backend" && $RELEASE_TOOL verify --chan edge --record "$DIR/release.json" \
-    --sig "$DIR/release.json.sig" --dir "$DIR" --version "$VER" )
 
 # 4. Compare with the server before touching it.
 remote_hash() { ssh "$DEPLOY_HOST" "sha256sum -- '$RDIR/$1' 2>/dev/null" | awk '{print $1}' || true; }
