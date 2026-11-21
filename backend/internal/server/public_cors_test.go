@@ -16,12 +16,12 @@ import (
 func corsMux(srv *Server) http.Handler {
 	mux := http.NewServeMux()
 	g := httpx.NewGroup(mux, "/api/v1/public")
-	handleCORS(g, http.MethodGet, "/forms/{slug}/token", srv.handleFormToken)
-	handleCORS(g, http.MethodPost, "/forms/{slug}/submit", srv.handlePublicFormSubmit)
-	handleCORS(httpx.NewGroup(mux, "/api/v1"), http.MethodPost, "/track", func(w http.ResponseWriter, _ *http.Request) {
+	handleCORS(g, &srv.hosting, http.MethodGet, "/forms/{slug}/token", srv.handleFormToken)
+	handleCORS(g, &srv.hosting, http.MethodPost, "/forms/{slug}/submit", srv.handlePublicFormSubmit)
+	handleCORS(httpx.NewGroup(mux, "/api/v1"), &srv.hosting, http.MethodPost, "/track", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
-	handleCORS(httpx.NewGroup(mux, ""), http.MethodPost, "/forms/{slug}/submit", srv.handlePublicFormPost)
+	handleCORS(httpx.NewGroup(mux, ""), &srv.hosting, http.MethodPost, "/forms/{slug}/submit", srv.handlePublicFormPost)
 	return mux
 }
 

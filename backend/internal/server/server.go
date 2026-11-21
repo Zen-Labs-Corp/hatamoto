@@ -65,6 +65,7 @@ import (
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/spam"
 	"hatamoto.dev/core/internal/standing"
+	"hatamoto.dev/core/internal/statichost"
 	"hatamoto.dev/core/internal/tags"
 	"hatamoto.dev/core/internal/taxonomy"
 	"hatamoto.dev/core/internal/twofactor"
@@ -76,6 +77,8 @@ import (
 
 // Server represents the HTTP server.
 type Server struct {
+	hosting statichost.Holder // static hosting snapshot; static_hosting.go
+
 	// communityLive overrides communityScriptsLive; tests only.
 	communityLive func() bool
 
@@ -1022,6 +1025,7 @@ func (s *Server) Start() error {
 		s.logger.Warn("upgrade header menu seed failed", slog.String("error", err.Error()))
 	}
 	seedCancel()
+	s.refreshStaticHosting(s.lifecycleCtx) // before the first request, so it already sees the mode
 	s.loadPageCache(s.lifecycleCtx)
 	if s.mediaRebuilder != nil {
 		s.mediaRebuilder.Resume(s.lifecycleCtx)

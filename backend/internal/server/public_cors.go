@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/statichost"
 )
 
 // originNull reports a sandboxed (opaque origin) caller. Browsers send the
@@ -11,23 +12,29 @@ import (
 // allow-same-origin.
 func originNull(r *http.Request) bool { return r.Header.Get("Origin") == "null" }
 
-// publicCORS lets a sandboxed page read the response. Only "Origin: null" is
-// answered; any other origin is left as it was (no CORS headers). Credentials
-// are never allowed, so the opaque origin cannot ride a session.
-func publicCORS(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if originNull(r) {
-			h := w.Header()
-			h.Set("Access-Control-Allow-Origin", "null")
-			h.Add("Vary", "Origin")
-		}
-		next.ServeHTTP(w, r)
-	})
+// publicCORS lets a sandboxed page, and in static mode the static origin S,
+// read the response. Only "Origin: null" and exactly S are answered; any other
+// origin is left as it was (no CORS headers, and in served mode no Vary
+// either). Credentials are never allowed, so neither origin can ride a session.
+func publicCORS(hp *statichost.Holder) httpx.Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if originNull(r) {
+				h := w.Header()
+				h.Set("Access-Control-Allow-Origin", "null")
+				h.Add("Vary", "Origin")
+			} else if hs := hp.Load(); hs.Active() {
+				staticCORS(w.Header(), hs, r.Header.Get("Origin"))
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // preflight answers OPTIONS for a public route: 204, with CORS headers only
-// for an opaque origin.
-func preflight(methods string) http.HandlerFunc {
+// for an opaque origin or, in static mode, the static origin S. Any other
+// origin gets the bare 204 (plus Vary: Origin in static mode).
+func preflight(hp *statichost.Holder, methods string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if originNull(r) {
 			h := w.Header()
@@ -36,16 +43,18 @@ func preflight(methods string) http.HandlerFunc {
 			h.Set("Access-Control-Allow-Methods", methods)
 			h.Set("Access-Control-Allow-Headers", "Content-Type, X-Page-URL")
 			h.Set("Access-Control-Max-Age", "600")
+		} else if hs := hp.Load(); hs.Active() {
+			staticPreflight(w.Header(), hs, r.Header.Get("Origin"), methods)
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
-// handleCORS mounts a public route with the opaque-origin CORS answer and the
-// matching OPTIONS preflight. mw are applied inside the CORS wrapper.
-func handleCORS(r *httpx.Group, method, path string, h http.HandlerFunc, mw ...httpx.Middleware) {
-	r.HandleFunc("OPTIONS "+path, preflight(method+", OPTIONS"))
-	r.Group("", append([]httpx.Middleware{publicCORS}, mw...)...).HandleFunc(method+" "+path, h)
+// handleCORS mounts a public route with the CORS answer for the opaque origin
+// (and the static origin in static mode) and the matching OPTIONS preflight. mw are applied inside the CORS wrapper.
+func handleCORS(r *httpx.Group, hp *statichost.Holder, method, path string, h http.HandlerFunc, mw ...httpx.Middleware) {
+	r.HandleFunc("OPTIONS "+path, preflight(hp, method+", OPTIONS"))
+	r.Group("", append([]httpx.Middleware{publicCORS(hp)}, mw...)...).HandleFunc(method+" "+path, h)
 }
 
 // timingTokenOK reports whether tok is a valid, unexpired form timing token

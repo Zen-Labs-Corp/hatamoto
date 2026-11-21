@@ -34,7 +34,7 @@ func (s *Server) mountCoreUnauthedAPIRoutes(r *httpx.Group) {
 // there is no cookie, lead or session to protect.
 func (s *Server) mountTrack(r *httpx.Group) {
 	trackLimiter := middleware.NewRateLimiter(20, 50)
-	handleCORS(r, http.MethodPost, "/track", s.analyticsHandlers.Track, trackLimiter.Middleware)
+	handleCORS(r, &s.hosting, http.MethodPost, "/track", s.analyticsHandlers.Track, trackLimiter.Middleware, s.refuseForeignOrigin)
 }
 
 // mountCoreProtectedRoutes mounts the CMS-core route subset that sits
@@ -302,17 +302,17 @@ func (s *Server) mountCorePublicCMSRoutes(r *httpx.Group) {
 
 	// Public form routes
 	r.HandleFunc("GET /forms/{slug}", s.handleGetPublicForm)
-	handleCORS(r, http.MethodGet, "/forms/{slug}/token", s.handleFormToken)
+	handleCORS(r, &s.hosting, http.MethodGet, "/forms/{slug}/token", s.handleFormToken)
 	// Per-IP limit (IPv6 clients by /64; 0.1 rps, burst 5): submit is anonymous and can trigger a
 	// confirmation email, so it must not be an open relay.
 	formSubmitLimiter := middleware.NewRateLimiter(0.1, 5).ByIPv6Prefix()
-	handleCORS(r, http.MethodPost, "/forms/{slug}/submit", s.handlePublicFormSubmit, formSubmitLimiter.Middleware)
+	handleCORS(r, &s.hosting, http.MethodPost, "/forms/{slug}/submit", s.handlePublicFormSubmit, formSubmitLimiter.Middleware)
 
 	// Cookie consent: the region answer is per request and never cached; the
 	// counter beacon stores only a daily total, limited per IP like the forms.
-	handleCORS(r, http.MethodGet, "/consent/region", s.handleConsentRegion)
+	handleCORS(r, &s.hosting, http.MethodGet, "/consent/region", s.handleConsentRegion)
 	consentLimiter := middleware.NewRateLimiter(1, 10)
-	handleCORS(r, http.MethodPost, "/consent", s.handleConsentLog, consentLimiter.Middleware)
+	handleCORS(r, &s.hosting, http.MethodPost, "/consent", s.handleConsentLog, consentLimiter.Middleware, s.refuseForeignOrigin)
 
 	// Public taxonomy archive (Phase 2): list published
 	// entities tagged with {kind}/{slug}. Rate-limited per

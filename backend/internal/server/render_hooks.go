@@ -16,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/statichost"
 	"hatamoto.dev/sdk"
 )
 
@@ -74,6 +75,7 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 		fontsHandler = fonts.Handler(s.fonts)
 	}
 	mountRenderRoutes(r, renderRoutes{
+		hosting:            &s.hosting,
 		pages:              h,
 		assets:             s.renderEngine.AssetHandler(),
 		fonts:              fontsHandler,
@@ -94,6 +96,7 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 		commentPost:        s.handleCommentPost,
 		commentEdit:        s.handleCommentEdit,
 		commentDelete:      s.handleCommentDelete,
+		commentFormLive:    s.handleCommentFormLive,
 		formPage:           s.handleFormPage,
 		favicon:            s.siteFavicon,
 
@@ -115,6 +118,7 @@ type renderRoutes struct {
 	// acquireBound is the public acquire timeout; 0 disables the bound.
 	acquireBound time.Duration
 	pages        *renderHandlers
+	hosting      *statichost.Holder // static hosting snapshot; nil means served mode
 	assets       http.Handler
 	// fonts (optional) serves GET /fonts/<sha256>.woff2 from the font store.
 	fonts      http.Handler
@@ -148,6 +152,9 @@ type renderRoutes struct {
 	// delete of one's own comment. POST only, outside capture and the page
 	// cache, behind the site-access gate (these paths are not in its bypass).
 	commentPost, commentEdit, commentDelete http.HandlerFunc
+	// commentFormLive (optional) answers GET /-/comments/form/{entityID}, the
+	// comment form fragment of a static page (static mode only).
+	commentFormLive http.HandlerFunc
 	// formPage (optional) serves the hosted form page, GET /f/{slug}.
 	formPage http.HandlerFunc
 	// favicon (optional) returns the owner's favicon address ("" = none); the
@@ -203,7 +210,7 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 	// Own limiter: the public API form route has its own bucket, and the two
 	// must not share a budget.
 	formLimiter := middleware.NewRateLimiter(0.1, 5).ByIPv6Prefix()
-	handleCORS(r, http.MethodPost, "/forms/{slug}/submit", rt.formPost, formLimiter.Middleware)
+	handleCORS(r, rt.hosting, http.MethodPost, "/forms/{slug}/submit", rt.formPost, formLimiter.Middleware)
 
 	if rt.preview != nil {
 		// Own limiter: the token is a bearer secret, so guessing is throttled
@@ -245,6 +252,14 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 				r.HandleFunc(m.pattern, commentLimiter.Middleware(m.h).ServeHTTP)
 			}
 		}
+	}
+
+	if rt.commentFormLive != nil {
+		// Own limiter: every load issues a comment token, so loads are throttled
+		// per client, separately from posts. CORS: the static site's loader
+		// reads the fragment.
+		formLiveLimiter := middleware.NewRateLimiter(1, 10).ByIPv6Prefix()
+		handleCORS(r, rt.hosting, http.MethodGet, commentFormLivePrefix+"{entityID}", rt.commentFormLive, formLiveLimiter.Middleware)
 	}
 
 	if rt.formPage != nil {

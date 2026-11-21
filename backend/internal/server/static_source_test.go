@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/agents"
@@ -13,6 +14,7 @@ import (
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/siteaccess"
 	"hatamoto.dev/core/internal/staticexport"
+	"hatamoto.dev/core/internal/statichost"
 )
 
 func TestStaticFetch_RequestShape(t *testing.T) {
@@ -103,5 +105,24 @@ func TestStaticSite_ResolvesBaseAndAdmin(t *testing.T) {
 	}
 	if site.Base.String() != "https://example.com" || site.AdminPrefix != "/k3x9-admin" {
 		t.Fatalf("site = %+v", site)
+	}
+}
+
+func TestStaticSite_WarnsWhenStaticModeInactive(t *testing.T) {
+	s := &Server{cfg: &config.Config{}, accessSettings: func(context.Context) (siteaccess.Settings, error) {
+		return siteaccess.Settings{Mode: siteaccess.ModeOpen}, nil
+	}}
+	s.cfg.PublicSite.BaseURL = "https://example.com"
+	s.setStaticHosting(statichost.StaticHosting{Static: true, Live: "", Site: "https://example.com"})
+	site, err := (&staticSource{s: s}).Site(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(site.Warnings) != 1 || !strings.Contains(site.Warnings[0], "live origin") {
+		t.Fatalf("warnings = %v", site.Warnings)
+	}
+	s.setStaticHosting(statichost.StaticHosting{Static: true, Live: "https://live.example.net", Site: "https://example.com"})
+	if site, _ = (&staticSource{s: s}).Site(context.Background()); len(site.Warnings) != 0 {
+		t.Fatalf("active snapshot warned: %v", site.Warnings)
 	}
 }

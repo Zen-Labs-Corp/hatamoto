@@ -47,10 +47,21 @@
 
   // Timing token: fetched at load, never part of the (cached) page, so the
   // server can tell a form filled in seconds from one a person took time on.
+  // liveBase is the live origin a static page was exported for ('' on served pages).
+  function liveBase() {
+    var m = document.querySelector('meta[name="hm-live-origin"]');
+    return m ? m.getAttribute('content') || '' : '';
+  }
+
   function addTimingToken(form) {
-    var m = /^\/forms\/([^/]+)\/submit$/.exec(form.getAttribute('action') || '');
-    if (!m || !window.fetch) return;
-    fetch('/api/v1/public/forms/' + m[1] + '/token', { credentials: 'omit' })
+    if (!window.fetch) return;
+    var u;
+    try { u = new URL(form.getAttribute('action') || '', location.href); } catch (e) { return; }
+    // Only this site or the configured live origin may be asked for a token.
+    if (u.origin !== location.origin && u.origin !== liveBase()) return;
+    var m = /^\/forms\/([^/]+)\/submit$/.exec(u.pathname);
+    if (!m) return;
+    fetch(liveBase() + '/api/v1/public/forms/' + m[1] + '/token', { credentials: 'omit' })
       .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (body) {
         // A token restored from a draft is older, so it shows the real time on the page.
@@ -219,11 +230,15 @@
           showError(form, CAPTCHA_RETRY);
           return null;
         }
-        return fetch('/api/v1/public/forms/' + encodeURIComponent(slug) + '/submit', {
+        var base = liveBase();
+        var init = {
           method: 'POST',
           headers: hasFile ? { 'X-Page-URL': location.href } : { 'Content-Type': 'application/json', 'X-Page-URL': location.href },
           body: hasFile ? multipart(form) : JSON.stringify(collect(form)),
-        });
+        };
+        // A cross-origin post to the live origin never carries cookies.
+        if (base) init.credentials = 'omit';
+        return fetch(base + '/api/v1/public/forms/' + encodeURIComponent(slug) + '/submit', init);
       })
         .then(function (res) {
           if (!res) return;

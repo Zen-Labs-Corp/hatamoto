@@ -74,6 +74,9 @@ func Build(ctx context.Context, src Source, site Site, dir string, o BuildOption
 	}
 	defer os.RemoveAll(b.tmp)
 
+	for _, w := range site.Warnings {
+		b.warn("%s", w)
+	}
 	if site.LegacyWPRedirects {
 		b.warn("computed WordPress redirects are not exported; only redirects found by crawling are written (see docs)")
 	}

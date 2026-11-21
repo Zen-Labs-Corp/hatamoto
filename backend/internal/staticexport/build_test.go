@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -303,5 +304,18 @@ func TestBuild_NotFoundPage(t *testing.T) {
 	f.pages["/404.html"] = fakeResp{status: 404, ct: "application/json", body: "{}"}
 	if _, _, _, err := build(t, f); err == nil || !strings.Contains(err.Error(), "404 HTML page") {
 		t.Fatalf("json 404: err = %v", err)
+	}
+}
+
+func TestBuild_SiteWarningsReachReport(t *testing.T) {
+	f := newFake("/k3x9-admin", "/")
+	f.html("/", `<p>hi</p>`)
+	f.site.Warnings = []string{"note from the source"}
+	_, r, _, err := build(t, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(r.Warnings, "note from the source") {
+		t.Errorf("warnings = %v", r.Warnings)
 	}
 }

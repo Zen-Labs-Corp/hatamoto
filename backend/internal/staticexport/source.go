@@ -18,6 +18,8 @@ type Site struct {
 	AdminPrefix string
 	// LegacyWPRedirects is on when computed WordPress redirects are active.
 	LegacyWPRedirects bool
+	// Warnings are notes the source wants in the run report; they never fail it.
+	Warnings []string
 }
 
 // Response is the status and headers of one fetched page.

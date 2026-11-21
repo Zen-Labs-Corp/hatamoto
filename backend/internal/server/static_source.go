@@ -15,6 +15,7 @@ import (
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/staticexport"
+	"hatamoto.dev/core/internal/statichost"
 )
 
 // staticSource lets the static exporter render this server's public site. It
@@ -66,11 +67,15 @@ func (src *staticSource) Site(ctx context.Context) (staticexport.Site, error) {
 		return staticexport.Site{}, fmt.Errorf("%w: the site URL %q is not an origin", staticexport.ErrRefused, base)
 	}
 	src.base = u
-	return staticexport.Site{
+	site := staticexport.Site{
 		Base:              u,
 		AdminPrefix:       s.adminPathValue(),
 		LegacyWPRedirects: conf != nil && conf.LegacyWPRedirects,
-	}, nil
+	}
+	if why := s.hosting.Load().InactiveReason(); why != "" {
+		site.Warnings = []string{"static mode is on but islands stay on this site's own paths: " + why}
+	}
+	return site, nil
 }
 
 // Seeds lists the sitemap set (as the preloader does, but with the resolved
@@ -109,7 +114,8 @@ func (src *staticSource) Fetch(ctx context.Context, path string, body io.Writer)
 	if src.base == nil {
 		return staticexport.Response{}, errors.New("static export: Site was not called")
 	}
-	ctx = middleware.WithoutRequestLog(redirect.WithoutCounting(ctx))
+	// Export requests keep S-relative links and never get the live 301.
+	ctx = statichost.WithExport(middleware.WithoutRequestLog(redirect.WithoutCounting(ctx)))
 	w := &streamWriter{h: http.Header{}, body: body, status: http.StatusOK}
 	defer func() {
 		if r := recover(); r != nil {

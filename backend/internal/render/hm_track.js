@@ -33,7 +33,10 @@
   'use strict';
   var ENGAGE = __HM_ENGAGE__;
   var KEY = 'hm_v';
-  var URL_PATH = '/api/v1/track';
+  // Static pages carry the live origin in a meta tag; served pages have none, so BASE stays ''.
+  var metaBase = document.querySelector('meta[name="hm-live-origin"]');
+  var BASE = metaBase ? metaBase.getAttribute('content') || '' : '';
+  var URL_PATH = BASE + '/api/v1/track';
 
   // Canvas/draft previews and automated browsers are not visits.
   if (document.documentElement.dataset.hmPreview === 'true') return;
@@ -135,7 +138,7 @@
       var f = node && node.closest ? node.closest('form') : null;
       if (!f) return null;
       var u = new URL(f.getAttribute('action') || '', location.href);
-      return u.host === location.host && FORM_PATH.test(u.pathname) ? f : null;
+      return (u.host === location.host || (BASE && u.origin === BASE)) && FORM_PATH.test(u.pathname) ? f : null;
     } catch (e) { return null; }
   }
 

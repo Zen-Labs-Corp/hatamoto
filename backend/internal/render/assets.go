@@ -154,6 +154,8 @@ func (h *assetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.serve(w, r, name, h.css, cacheImmutable)
 	case name == TrackScriptName:
 		h.serve(w, r, name, trackScript(trackEngagement()), cacheShort)
+	case name == LiveScriptName:
+		h.serve(w, r, name, hmLiveSrc, cacheShort)
 	case name == ConsentScriptName:
 		cfg, ok := consentConfig(r.Context())
 		if !ok {

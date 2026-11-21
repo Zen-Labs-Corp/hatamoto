@@ -95,8 +95,8 @@ func TestConsentScriptBodyGolden(t *testing.T) {
 		"strings escaped": `{"version":"7","categories":["analytics","marketing"],"region":"all","title":"\u003cCookies\u003e \u0026 you","text":"line\u2028sep \u2029 and \u003cb\u003ebold\u003c/b\u003e","strings":{"accept":"Accept \u0026 close","alpha":"a\u2028b","mid":"ok","zeta":"\u003c\u003e\u0026"}}`,
 	}
 	wantSum := map[string]string{
-		"nil categories":  "6e633dbea11c0cd6c7cf6780b1ff69d64db08054e930dd6b7e746426beaa6123",
-		"strings escaped": "743a164c53e990bb9da648a7b8ba32ba7bb2e8191abfe9fb094c93ae64c0f227",
+		"nil categories":  "602296b2a759ac57b9f55942c0af7b8b96fc3b47827cb6915133fb193216da1c",
+		"strings escaped": "ff7273fe049397b863cdf968fa93e08faff762cbfccbbef59ec66fdcfa6bf9d0",
 	}
 	for name, cfg := range consentPinConfigs() {
 		body := consentScript(cfg)

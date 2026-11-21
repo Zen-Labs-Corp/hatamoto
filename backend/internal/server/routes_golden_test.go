@@ -75,7 +75,7 @@ func allowedExtraPattern(pattern string, expected map[string]bool) bool {
 		return true // the Go admin; its table is pinned by testdata/admin_routes.golden
 	}
 	if method == "OPTIONS" { // preflight for sandboxed (opaque origin) pages, see public_cors.go
-		return strings.HasSuffix(path, "/forms/{slug}/token") || strings.HasSuffix(path, "/forms/{slug}/submit") || strings.HasSuffix(path, "/track") || strings.HasSuffix(path, "/consent") || strings.HasSuffix(path, "/consent/region")
+		return strings.HasSuffix(path, "/forms/{slug}/token") || strings.HasSuffix(path, "/forms/{slug}/submit") || strings.HasSuffix(path, "/track") || strings.HasSuffix(path, "/consent") || strings.HasSuffix(path, "/consent/region") || strings.HasSuffix(path, "/-/comments/form/{entityID}")
 	}
 	if path == "/api/v1/public/consent" && method == "POST" || path == "/api/v1/public/consent/region" && method == "GET" {
 		return true // cookie consent: the region answer and the choice counter
@@ -91,6 +91,8 @@ func allowedExtraPattern(pattern string, expected map[string]bool) bool {
 		return method == "GET"
 	case "/-/comments/confirm/{token}", "/-/comments/unsubscribe/{token}": // comment confirmation and unsubscribe links: GET shows a button, POST acts
 		return method == "GET" || method == "POST"
+	case "/-/comments/form/{entityID}": // static mode: live comment form fragment
+		return method == "GET"
 	case "/-/comments/{entityID}", "/-/comments/edit/{commentID}", "/-/comments/delete/{commentID}": // public comment post, and edit/delete of one's own
 		return method == "POST"
 	case "/favicon.ico", "/favicon-16.png", "/favicon-32.png", "/apple-icon.png", "/icon-192.png", "/icon-512.png":
