@@ -143,6 +143,10 @@ func (s *Server) setupStaticExport() {
 		refresh: s.refreshStaticHosting, siteURL: pluginEntityPaths{s}.BaseURL, snapshot: s.staticHosting,
 		refuse: s.staticRefusal, dirGuard: guard, getenv: os.Getenv, lookup: safefetch.DefaultLookup,
 		testExport: s.StaticTestExport, background: func() context.Context { return s.lifecycleCtx }, log: s.logger,
+		setup: hostingSetupDeps{
+			adminPath: s.adminPathValue, apiPrefix: s.cfg.PublicSite.APIPrefix,
+			upstream: upstreamAddr(s.cfg.Server.Host, s.cfg.Server.Port), headers: s.staticPageHeaders,
+		},
 	}
 	if s.admin != nil { // already mounted: hand it over directly
 		s.admin.SetHosting(s.hostingSvc)

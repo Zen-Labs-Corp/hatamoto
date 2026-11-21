@@ -409,7 +409,8 @@ only the total from the last run.
   Erasing a commenter anonymises their comments and re-exports the site
   (trigger `comment`).
 - **Response headers of `/media`** are not carried over, except the types and
-  the attachment disposition above. Set caching on the host. Object metadata
+  the attachment disposition above. Set caching on the host (the bucket target
+  sets Cache-Control as above). Object metadata
   cannot hold the rest, so set these as CDN response-header rules for `/media/`,
   as the live server does: `X-Content-Type-Options: nosniff` on everything;
   `Content-Security-Policy: sandbox` on SVG and on any type that is not an

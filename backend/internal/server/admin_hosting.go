@@ -56,6 +56,7 @@ type hostingAdmin struct {
 	testing    atomic.Bool         // a Test export is running in this process
 	getenv     func(string) string // nil: no private-endpoint opt-in
 	lookup     safefetch.Lookup    // nil: no save-time DNS lookup
+	setup      hostingSetupDeps
 }
 
 func (h *hostingAdmin) load(ctx context.Context) (staticexport.Settings, error) {
@@ -67,6 +68,14 @@ func (h *hostingAdmin) load(ctx context.Context) (staticexport.Settings, error) 
 		return staticexport.Defaults(), nil
 	}
 	return set, nil
+}
+
+// hostingTargetSaved reports whether the saved target can be exported to.
+func hostingTargetSaved(set staticexport.Settings) bool {
+	if set.Target == staticexport.TargetS3 {
+		return set.Bucket != ""
+	}
+	return set.DirPath != ""
 }
 
 func (h *hostingAdmin) View(ctx context.Context) (admin.HostingView, error) {
@@ -238,7 +247,7 @@ func (h *hostingAdmin) TestExport(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if (set.Target == staticexport.TargetS3 && set.Bucket == "") || (set.Target != staticexport.TargetS3 && set.DirPath == "") {
+	if !hostingTargetSaved(set) {
 		return admin.ErrHostingNoTarget
 	}
 	if h.refuse != nil {
@@ -317,11 +326,6 @@ func (h *hostingAdmin) LastRun(ctx context.Context) (admin.HostingRun, bool, err
 		}
 	}
 	return admin.HostingRun{}, false, nil
-}
-
-// Setup is filled in by hosting_setup.go.
-func (h *hostingAdmin) Setup(ctx context.Context) (admin.HostingSetup, error) {
-	return admin.HostingSetup{}, nil
 }
 
 func (h *hostingAdmin) Islands() ([]admin.HostingIsland, []string) {
