@@ -11,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/permtext"
+	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/themestrings"
 )
 
@@ -253,6 +254,16 @@ func revokedText(reason string) string {
 		return "Disabled: " + defaultRevocation + "."
 	}
 	return "Disabled: " + defaultRevocation + " (" + reason + ")"
+}
+
+// RefusedPlain is TemplatesRefused in plain words for the plugin page.
+func (m PackageMeta) RefusedPlain() []render.TemplateRefusal {
+	return render.ExplainRefusals(m.TemplatesRefused)
+}
+
+// MarkupPlain is MarkupStopped in plain words for the plugin page.
+func (m PackageMeta) MarkupPlain() []render.TemplateRefusal {
+	return render.ExplainRefusals(m.MarkupStopped)
 }
 
 // RevokedText is the owner-facing line for a revoked plugin; "" when not revoked.

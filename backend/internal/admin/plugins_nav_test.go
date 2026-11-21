@@ -480,19 +480,32 @@ func TestPluginRefusedTemplatesShowInBanner(t *testing.T) {
 	t.Parallel()
 
 	g, _, fp := newPackageRig(t)
-	fp.list = append(fp.list, PluginInfo{Name: "refused", Package: &PackageMeta{Enabled: true, TemplatesRefused: []string{"plugin section acme/x: bad type"}}})
+	fp.list = append(fp.list, PluginInfo{Name: "refused", Package: &PackageMeta{Enabled: true, TemplatesRefused: []string{"plugin section acme/x: bad type (want ...) or empty source", "section big: output limit: sample render of section-big: plugin template output is over the 256 KiB output limit"}}})
 	body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String()
 	if !strings.Contains(body, `href="/admin/plugins/refused/settings#needs-attention"`) {
 		t.Error("the list row does not link to the callout")
 	}
 	page := g.do("GET", "/admin/plugins/refused/permissions", "owner-token", nil, nil).Body.String()
-	for _, want := range []string{`id="needs-attention"`, "Not registered", "plugin section acme/x: bad type"} {
+	for _, want := range []string{`id="needs-attention"`, "2 templates not registered", "<code>section x</code>", "so pages show nothing in their place", "<code>section big</code>", "Its output went over the 256 KiB limit in the test render."} {
 		if !strings.Contains(page, want) {
 			t.Errorf("plugin page lacks %q", want)
 		}
 	}
-	if strings.Contains(page, "site.scripts") {
-		t.Error("the callout mentions site.scripts for a refusal that is not about scripts")
+	for _, raw := range []string{"bad type", "output limit: sample render", "site.scripts"} {
+		if strings.Contains(page, raw) {
+			t.Errorf("plugin page shows %q", raw)
+		}
+	}
+}
+
+func TestPluginRefusedTemplatesSingular(t *testing.T) {
+	t.Parallel()
+
+	g, _, fp := newPackageRig(t)
+	fp.list = append(fp.list, PluginInfo{Name: "refused", Package: &PackageMeta{Enabled: true, TemplatesRefused: []string{"plugin section acme/x: bad type (want ...) or empty source"}}})
+	page := g.do("GET", "/admin/plugins/refused/permissions", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(page, "1 template not registered") {
+		t.Errorf("plugin page lacks the singular heading: %.300s", page)
 	}
 }
 
