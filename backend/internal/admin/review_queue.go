@@ -281,7 +281,7 @@ func (a *Admin) renderReviewDetail(w http.ResponseWriter, r *http.Request, statu
 	if !d.Rejected {
 		if label := stageLabel(d.Stage); label != "" {
 			body := label + "."
-			if d.Stage.Group != reviewstate.DefaultGroup {
+			if d.Stage.Group != reviewstate.DefaultGroup && d.NeedsGroup == "" {
 				body += " Waiting for: group " + d.Stage.Group + "."
 			}
 			p.Callout = append(p.Callout, reviewCallout{"info", body})

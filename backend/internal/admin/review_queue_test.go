@@ -347,3 +347,15 @@ func TestReviewQueueFiltersBeforePaging(t *testing.T) {
 	has(t, body, "Brand item 27", "Brand item 28", "Brand item 29")
 	lacks(t, body, "Legal item", "Nothing is waiting")
 }
+
+// The notice that the site lacks the group already says who is awaited.
+func TestReviewNeedsGroupOmitsWaitingFor(t *testing.T) {
+	r := newEditQueueRig(t)
+	r.setStage(ReviewStage{Index: 0, Total: 2, Name: "Legal", Group: "legal"})
+	d := r.rv.details[7]
+	d.NeedsGroup = "legal"
+	r.rv.details[7] = d
+	body := r.get(t, "owner-token", "/admin/review/7", "")
+	has(t, body, "Stage 1 of 2: Legal.", "needs the group legal")
+	lacks(t, body, "Waiting for: group")
+}
