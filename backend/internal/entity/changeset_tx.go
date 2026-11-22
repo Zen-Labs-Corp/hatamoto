@@ -329,7 +329,10 @@ func (s *Service) updateTx(ctx context.Context, tx pgx.Tx, op TxOp, cur *entityS
 			UPDATE hatamoto_entities
 			SET name = $2, slug = $3, locale = $4, attributes = $5, parent_id = $6, status = $7::text, origin = $8,
 			    published_at = CASE WHEN $10::timestamptz IS NOT NULL THEN $10::timestamptz
-			                        WHEN $7::text = 'published' AND published_at IS NULL THEN now() ELSE published_at END,
+			                        WHEN $7::text = 'published' AND published_at IS NULL THEN now()
+			                        -- going live early: no date that has not happened yet (as UpdateStatus)
+			                        WHEN $7::text = 'published' AND status <> 'published' AND published_at > now() THEN now()
+			                        ELSE published_at END,
 			    version = CASE WHEN $9 THEN version + 1 ELSE version END,
 			    -- a row that changes parent lands last among its new siblings
 			    sort_order = CASE WHEN parent_id IS NOT DISTINCT FROM $6::uuid OR variant_key IS NOT NULL THEN sort_order ELSE

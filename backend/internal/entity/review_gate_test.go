@@ -398,3 +398,15 @@ func TestReviewGateStagesUpdateThatResendsStoredByline(t *testing.T) {
 		t.Errorf("changed byline: err = %v, want ErrReviewUnsupported", err)
 	}
 }
+
+// A staged publish carries no publication time: only a schedule does.
+func TestHeldChangeCarriesPublishedAtOnlyWhenScheduled(t *testing.T) {
+	at := time.Now().Add(time.Hour)
+	e := &Entity{PublishedAt: &at}
+	if c := heldChange(ReviewPublish, e, StatusPublished); c.PublishedAt != nil {
+		t.Errorf("publish carries %v", c.PublishedAt)
+	}
+	if c := heldChange(ReviewEdit, e, StatusScheduled); c.PublishedAt == nil || !c.PublishedAt.Equal(at) {
+		t.Errorf("scheduled edit carries %v", c.PublishedAt)
+	}
+}

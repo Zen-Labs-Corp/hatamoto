@@ -204,10 +204,16 @@ func (s *Service) sendForReview(ctx context.Context, c ReviewChange, p ReviewPla
 	return sent
 }
 
-// heldChange is the row e as it is, to be staged with status st.
+// heldChange is the row e as it is, to be staged with status st. Only a
+// scheduled change carries a publication time; a publish leaves it to the
+// write, as the direct path does (a stale future date does not survive).
 func heldChange(kind ReviewKind, e *Entity, st EntityStatus) ReviewChange {
-	return ReviewChange{Kind: kind, Entity: e, Name: e.Name, Slug: e.Slug, Locale: e.Locale,
-		Attributes: e.Attributes, ParentID: e.ParentID, Status: st, PublishedAt: e.PublishedAt}
+	c := ReviewChange{Kind: kind, Entity: e, Name: e.Name, Slug: e.Slug, Locale: e.Locale,
+		Attributes: e.Attributes, ParentID: e.ParentID, Status: st}
+	if st == StatusScheduled {
+		c.PublishedAt = e.PublishedAt
+	}
+	return c
 }
 
 // holdUpdate stages an UpdateEntity as the row it would have written: the

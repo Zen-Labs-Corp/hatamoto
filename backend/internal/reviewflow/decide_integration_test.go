@@ -370,3 +370,26 @@ func TestScheduledRequestIsApprovedAsScheduled(t *testing.T) {
 		t.Fatalf("after approval status = %s, published_at = %v; want scheduled at %v", live.Status, live.PublishedAt, at)
 	}
 }
+
+// Approving "publish now" of a scheduled entry publishes it now, as the direct
+// path does, not at the scheduled time.
+func TestApprovedPublishNowResetsAFuturePublishedAt(t *testing.T) {
+	f := newFixture(t)
+	d := f.publishedBy(f.author, true)
+	at := time.Now().UTC().Add(72 * time.Hour)
+	if _, err := f.ent.ScheduleEntity(context.Background(), d.ID, &f.author, at); err != nil {
+		t.Fatal(err)
+	}
+	_, err := f.ent.UpdateEntityStatus(f.as(f.author, "author"), d.ID, &f.author, entity.StatusPublished)
+	var sent *entity.SentForReviewError
+	if !errors.As(err, &sent) {
+		t.Fatalf("UpdateEntityStatus err = %v, want a SentForReviewError", err)
+	}
+	if out, err := f.flow.Approve(f.as(f.editor, "editor"), sent.ChangesetID, ""); err != nil || !out.Published {
+		t.Fatalf("Approve = %+v, %v", out, err)
+	}
+	live, _ := f.ent.GetEntity(context.Background(), d.ID)
+	if live.Status != entity.StatusPublished || live.PublishedAt == nil || live.PublishedAt.After(time.Now().Add(time.Minute)) {
+		t.Fatalf("after approval status = %s, published_at = %v; want published now", live.Status, live.PublishedAt)
+	}
+}
