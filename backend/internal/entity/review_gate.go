@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/authz"
+	"hatamoto.dev/core/internal/agentpolicystate"
 )
 
 // ReviewKind says what a person asked for.
@@ -28,6 +29,9 @@ const (
 type ReviewPlan struct {
 	Held   bool
 	Stages []ReviewStage
+	// Requester is who the staged change is recorded for; "" means the
+	// subject's user. Set for an API key under an agent policy (api-key:<key id>).
+	Requester string
 }
 
 // ReviewStage is one review step of a plan; Group names who may decide it.
@@ -106,6 +110,9 @@ func (s *Service) reviewPlan(ctx context.Context, e *Entity, kind ReviewKind) (R
 	}
 	p, err := s.review.Plan(ctx, e, kind)
 	if err != nil {
+		if errors.Is(err, agentpolicystate.ErrDenied) {
+			return ReviewPlan{}, err // keep the policy's reason for the caller
+		}
 		return ReviewPlan{}, fmt.Errorf("%w: %v", ErrReviewHold, err)
 	}
 	return p, nil
