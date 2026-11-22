@@ -250,3 +250,60 @@ func TestReviewEditorHeldSaveRefusesWhatItCannotCarry(t *testing.T) {
 		has(t, rec.Body.String(), "cannot be sent for review yet", "Typed by author")
 	})
 }
+
+// reviewRefusing is an entity store whose gate refuses every person's update and
+// status change with err (another change waiting, an unsupported change, a policy hold).
+type reviewRefusing struct {
+	EntityStore
+	err error
+}
+
+func (s reviewRefusing) UpdateEntity(context.Context, uuid.UUID, *uuid.UUID, *entity.UpdateEntityInput) (*entity.Entity, error) {
+	return nil, s.err
+}
+
+func (s reviewRefusing) UpdateEntityStatus(context.Context, uuid.UUID, *uuid.UUID, entity.EntityStatus) (*entity.Entity, error) {
+	return nil, s.err
+}
+
+// Another person's change is waiting: the save is refused with what the user
+// typed still in the form (422), and the blog editor keeps the recovery copy.
+func TestReviewEditorPendingRefusalKeepsInput(t *testing.T) {
+	rec := newFakeRecovery()
+	c, users := newRolesRig(t, func(d *Deps) {
+		d.Content.Entities = reviewRefusing{EntityStore: d.Content.Entities, err: entity.ErrReviewPending}
+		d.Content.Recovery = rec
+		d.Review = &fakeReviewFlow{}
+	})
+	editor := users[user.RoleAuthor]
+	tok := c.freshToken(editor.ID)
+
+	t.Run("classic form", func(t *testing.T) {
+		e := c.entityBy(editor, entity.StatusPublished)
+		path := "/admin/entities/" + e.ID.String()
+		form := parseForm(t, c.get(t, tok, path, ""))
+		form.Set("name", "Ten minutes of typing")
+		w := c.do("POST", path, tok, form, nil)
+		if w.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("save = %d, want 422\n%s", w.Code, w.Body.String())
+		}
+		has(t, w.Body.String(), "Another change to this entry is waiting for review.", `value="Ten minutes of typing"`)
+	})
+	t.Run("blog editor", func(t *testing.T) {
+		e, path := blogRulesPost(c, editor, entity.StatusPublished)
+		if err := rec.Put(t.Context(), editor.ID, e.ID, RecoveryCopy{}); err != nil {
+			t.Fatal(err)
+		}
+		form := parseForm(t, c.get(t, tok, path, ""))
+		form.Set("name", "Ten minutes of typing")
+		form.Set("_op", "save")
+		w := c.do("POST", path, tok, form, nil)
+		if w.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("save = %d, want 422\n%s", w.Code, w.Body.String())
+		}
+		has(t, w.Body.String(), "Another change to this entry is waiting for review.", "Ten minutes of typing")
+		if rec.count() != 1 {
+			t.Errorf("recovery copies = %d, the refusal must keep the copy", rec.count())
+		}
+	})
+}

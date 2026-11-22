@@ -644,15 +644,15 @@ func (a *Admin) handleBlogSave(w http.ResponseWriter, r *http.Request, e *entity
 			a.notFound(w, r, "Entity", a.adminPath+"/entities", "Back to entities")
 			return
 		}
+		if a.entityFormError(r, p.f, err) { // a refusal keeps the typed input and the recovery copy
+			render(http.StatusUnprocessableEntity, false)
+			return
+		}
 		if a.sentForReviewAt(w, r, a.adminPath+"/entities/"+e.ID.String()+"/edit", err) {
 			a.dropRecovery(r.Context(), actorID(r), e.ID)
 			return
 		}
 		if a.refuseNotAllowed(w, r, err) {
-			return
-		}
-		if a.entityFormError(r, p.f, err) {
-			render(http.StatusUnprocessableEntity, false)
 			return
 		}
 		a.serverError(w, r, "The post could not be saved", err)

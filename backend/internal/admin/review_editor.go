@@ -92,8 +92,9 @@ func withPendingChange(e *entity.Entity, st reviewState) *entity.Entity {
 }
 
 // sentForReview answers a save that was staged instead of written: a flash and a
-// redirect to the entry's form. A change that cannot be staged because another
-// person's is waiting is a flash too. It reports whether it answered.
+// redirect to the entry's form. It reports whether it answered. A refusal
+// (another person's change is waiting, ...) is not answered here: the form is
+// re-rendered with what the user typed (entityFormError).
 func (a *Admin) sentForReview(w http.ResponseWriter, r *http.Request, e *entity.Entity, err error) bool {
 	return a.sentForReviewAt(w, r, a.adminPath+"/entities/"+e.ID.String(), err)
 }
@@ -103,8 +104,6 @@ func (a *Admin) sentForReviewAt(w http.ResponseWriter, r *http.Request, to strin
 	switch {
 	case errors.Is(err, entity.ErrSentForReview):
 		a.SetFlash(w, r, "success", reviewSentFlash)
-	case errors.Is(err, entity.ErrReviewPending):
-		a.SetFlash(w, r, "error", sentence(err.Error()))
 	default:
 		return false
 	}
