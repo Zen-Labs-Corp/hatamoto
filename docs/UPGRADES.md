@@ -125,6 +125,12 @@ The release that adds the built-in roles is a second recorded minimum. An older 
 new roles and lets a signed-in user of a new role through its ungated routes, so no release after it takes
 a floor below it.
 
+The release that adds the review step for changes to published content is a third recorded minimum. It is
+the first release that stages human edits as changesets of kind `edit`. An older binary does not know an
+edit's stages or decisions and would publish a waiting change without approval, so no release after it takes
+a floor below it. The floor is set when the release is recorded (`release record --rollback-floor`), naming
+this release by its version.
+
 ### Squashing migrations
 
 The migration chain is folded into a new baseline only at a major release, never in a patch or

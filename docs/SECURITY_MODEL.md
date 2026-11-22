@@ -436,6 +436,9 @@ A wrapper module can register the review stages of a human edit. The core never 
 |---|---|---|
 | A registered review policy that errors, or returns a stage without a name or group, holds the edit: `StagesFor` returns `ErrPolicy` and no stages (fail closed). Registration is frozen once `app.Main` starts | `review`, `internal/reviewstate` | `review_test.go` |
 | An edit changeset publishes only when every one of its stages is approved, in order; a rejection ends it | `internal/changeset` | `stage_decision_integration_test.go` |
+| With review on, a person who may not publish without review cannot write published content: the change is staged (`entity.review.request` replaces `entity.update` and `entity.publish`) on every surface, admin, REST, MCP and the CLI `--as`. No subject on the context is the system and is not held | `internal/entity`, `internal/reviewflow` | `review_gate_test.go`, `gate_test.go` |
+| The review switch is read from the database on every gated write, so a server never lets a change through on a stale cache. A switch, authorizer or policy error refuses the write (fail closed) | `internal/reviewflow` | `gate_test.go` |
+| Nobody decides their own change, whatever their role; a stage whose group is not `reviewers` cannot be decided; send back never discards the requester's version | `internal/changeset`, `internal/reviewflow` | `stage_decision_integration_test.go`, `decide_integration_test.go` |
 
 ## The compile cache holds native code
 
