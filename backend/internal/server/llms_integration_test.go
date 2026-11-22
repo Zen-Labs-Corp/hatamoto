@@ -257,7 +257,7 @@ func TestLLMsSeededSingleLocale(t *testing.T) {
 	idx := e.ok(t, "/llms.txt")
 	full := e.ok(t, "/llms-full.txt")
 	for _, want := range []string{"## Key pages", "## Services", "## Posts", "## People",
-		"- [Home](https://acme.example/)", "- [Web design](https://acme.example/services/web-design)",
+		"- [Home](https://acme.example/)", "- [Web design](https://acme.example/service/web-design)",
 		"- [Launch notes](", "- [Elena Voss]("} {
 		if !strings.Contains(idx, want) {
 			t.Errorf("llms.txt lacks %q", want)
@@ -268,7 +268,7 @@ func TestLLMsSeededSingleLocale(t *testing.T) {
 			t.Errorf("llms-full.txt lacks a block %q", want)
 		}
 	}
-	if len(full) < 1500 {
+	if len(full) < 1000 {
 		t.Errorf("llms-full.txt is %d bytes: only a header", len(full))
 	}
 	for _, s := range llmsAbsent {

@@ -34,7 +34,7 @@ const (
 type llmsRef struct {
 	entry  *entity.SitemapEntry
 	path   string
-	locale string // resolved tag, never empty
+	locale string // resolved tag; "" on a single-locale site
 }
 
 func (r llmsRef) key() string { return r.locale + "|" + r.entry.ID.String() }
@@ -69,12 +69,7 @@ func (s *Server) loadLLMs(ctx context.Context, base string, set seo.AIFiles, all
 	plan := planSitemap(in)
 	locales := in.Snap.Locales()
 	def := locales.Default()
-	resolve := func(e *entity.SitemapEntry) string {
-		if e.Locale == "" || e.Locale == entity.LocaleShared {
-			return def
-		}
-		return e.Locale
-	}
+	resolve := llmsLocaleResolver(locales)
 
 	paths := llmsPaths(plan)
 	kept := map[*entity.SitemapEntry]bool{}
@@ -150,6 +145,20 @@ func (s *Server) loadLLMs(ctx context.Context, base string, set seo.AIFiles, all
 		m.sections = append(m.sections, llmsSections(plan, in, own, ents, rank, isPost, suffix, loc)...)
 	}
 	return m, nil
+}
+
+// llmsLocaleResolver returns the bucket tag of an entry. A site with no locales
+// configured has an empty default tag while its entries carry the site language
+// (the column default), so every entry shares the one default bucket there.
+func llmsLocaleResolver(locales *entity.LocaleSet) func(*entity.SitemapEntry) string {
+	def := locales.Default()
+	multi := locales.Multi()
+	return func(e *entity.SitemapEntry) string {
+		if !multi || e.Locale == "" || e.Locale == entity.LocaleShared {
+			return def
+		}
+		return e.Locale
+	}
 }
 
 // llmsPaths maps every listed entry to its public path, over every group the
