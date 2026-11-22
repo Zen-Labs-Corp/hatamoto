@@ -486,6 +486,8 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 		return fmt.Errorf("connect to database: %w", err)
 	}
 	defer db.Close()
+	// Modules see the pool until shutdown; cleared after services stop, before Close.
+	defer publishModulePool(db.Pool())()
 	logger.Info("connected to database")
 	for _, note := range db.TransportNotes() {
 		logger.Info(note)

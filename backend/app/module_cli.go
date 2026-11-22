@@ -69,6 +69,7 @@ func runModule(ctx context.Context, args []string, _ *slog.Logger) (err error) {
 		return err
 	}
 	defer closeDB()
+	defer publishModulePool(pool)() // db.Pool() is env.DB until the command returns
 	env := &modhost.CLIEnv{
 		DB:      pool,
 		Logger:  slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn})),
