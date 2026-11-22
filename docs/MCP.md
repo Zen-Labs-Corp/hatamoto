@@ -41,6 +41,8 @@ Entity writes are attributed to the key's creator and tagged `[mcp:<key name>]` 
 
 When the site's review switch is on and the key's creator may not publish without review, `entities_update` of a published entry and `entities_publish` do not write: they return `{"status":"pending_review","changeset_id":N,"message":"..."}` and the change goes live when a reviewer approves it. This is a result, not an error. A refusal because another person's change to the entry is waiting, or because the change cannot be sent for review (a byline change), is an error with that sentence. A key made by a Contributor cannot call `entities_publish`, as before.
 
+A wrapper module may also register an agent publishing policy ([ADR 0016](adr/0016-agent-publishing-policy.md)). It is asked, per key, before `entities_publish`, `entities_update` of a published entry and the builder tools write to live content. It can let the call through, hold it for review even when the site's review switch is off (the same `pending_review` result; the key's creator may approve it) or refuse it. A refusal is an error whose text is `refused by the agent policy: <reason>`; nothing is written. With no policy registered nothing changes.
+
 ## Behaviour
 
 - Tools call the same services as the HTTP API (no HTTP self-calls), so validation, slug rules, sanitising of rich-text HTML (and of the inline `html` prop of `heading` and `text` nodes in `page_doc`: `strong em b i u s code br a` only, safe links, `rel="noopener noreferrer"` on `target="_blank"`), plugin `before_save` hooks and cache invalidation are identical. A heading or text node renders its `html` where it has one: changing only `p.text` of such a node changes nothing on the page, so change `html` too or send the node without `p.html`. Sanitised `html` over 20,000 characters is a 422 `invalid_page_doc`.
@@ -286,3 +288,5 @@ Save the final tweak and publish in one call:
 Every call (allowed or refused) writes a row to `hatamoto_mcp_audit`: time, key id and name, tool, success, error and the arguments (long strings shortened, capped at 4 KB). The rows also appear on the admin Audit log as source Agent. The worker prunes rows older than 90 days unless the owner raises the period under Audit log, Keep entries for.
 
 Write tools also write the shared audit log shown in Admin (`hatamoto_admin_audit`): one row per change, actor `api-key:<name>` with kind `api_key` and the key id, `via` set to `mcp`. Entity writes are recorded in the same transaction as the change. `hatamoto_mcp_audit` is unchanged and still records every call.
+
+A change held for review appears as `changeset.edit_submit` with the key id; a change refused by an agent policy appears as `agent_policy.deny` with result `denied`, the reason and the action. A policy module can read them per key with `agentpolicy.Changes`.
