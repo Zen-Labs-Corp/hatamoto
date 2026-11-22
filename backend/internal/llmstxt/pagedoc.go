@@ -72,13 +72,14 @@ func (w *docWalker) nodes(ns []*builder.Node, depth int) {
 				w.add(str(n.P, "text"))
 			}
 		case "image":
-			if src := str(n.P, "src"); src != "" {
-				w.add("![" + OneLine(str(n.P, "alt"), 0) + "](" + src + ")")
+			if src, ok := linkDest(str(n.P, "src")); ok {
+				w.add(imageMarkdown(str(n.P, "alt"), src))
 			}
 		case "button":
-			text, href := OneLine(str(n.P, "text"), 0), str(n.P, "href")
+			text := OneLine(str(n.P, "text"), 0)
+			href, hrefOK := linkDest(str(n.P, "href"))
 			switch {
-			case text != "" && href != "":
+			case text != "" && hrefOK:
 				w.add("[" + text + "](" + href + ")")
 			case text != "":
 				w.add(text)

@@ -65,3 +65,18 @@ func TestDocToMarkdownRefs(t *testing.T) {
 		t.Fatal("nil doc not empty")
 	}
 }
+
+func TestDocToMarkdownLinkSafety(t *testing.T) {
+	d := mustDoc(t, `{"v":2,"nodes":[
+	 {"id":"a","t":"image","p":{"src":"JavaScript:alert(1)","alt":"bad"}},
+	 {"id":"b","t":"image","p":{"src":"data:image/svg+xml,<svg/>","alt":"bad"}},
+	 {"id":"c","t":"image","p":{"src":"/media/a b).png","alt":"ok"}},
+	 {"id":"d","t":"button","p":{"text":"Go","href":"vbscript:x"}},
+	 {"id":"e","t":"button","p":{"text":"Mail","href":"java\tscript:x"}},
+	 {"id":"f","t":"button","p":{"text":"Fine","href":"/contact"}}
+	]}`)
+	want := "![ok](/media/a%20b%29.png)\n\nGo\n\nMail\n\n[Fine](/contact)"
+	if got := DocToMarkdown(d, nil); got != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", got, want)
+	}
+}

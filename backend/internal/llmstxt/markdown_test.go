@@ -29,3 +29,23 @@ func TestHTMLToMarkdown(t *testing.T) {
 		})
 	}
 }
+
+func TestHTMLToMarkdownLinkSafety(t *testing.T) {
+	for _, tc := range []struct{ name, in, want string }{
+		{"mixed case", `<p><a href="JaVaScRiPt:alert(1)">go</a></p>`, "go"},
+		{"tab inside scheme", "<p><a href=\"java&#9;script:alert(1)\">go</a></p>", "go"},
+		{"leading control", "<p><a href=\"&#1; javascript:x\">go</a></p>", "go"},
+		{"vbscript", `<p><a href="vbscript:x">go</a></p>`, "go"},
+		{"data link", `<p><a href="data:text/html,hi">go</a></p>`, "go"},
+		{"data image", `<p><img src="DATA:image/png;base64,AAAA" alt="x"></p>`, ""},
+		{"javascript image", `<p><img src="javascript:x" alt="x"></p>`, ""},
+		{"safe", `<p><a href="https://acme.example/a">go</a> <a href="/rel">r</a> <a href="mailto:a@acme.example">m</a></p>`, "[go](https://acme.example/a) [r](/rel) [m](mailto:a@acme.example)"},
+		{"paren and space", `<p><a href="https://acme.example/a b)c(d">go</a></p>`, "[go](https://acme.example/a%20b%29c%28d)"},
+		{"newline", "<p><a href=\"https://acme.example/a&#10;## injected\">go</a></p>", "[go](https://acme.example/a%0A##%20injected)"},
+		{"alt brackets", `<p><img src="/i.png" alt="a](https://evil.example) [b"></p>`, `![a\](https://evil.example) \[b](/i.png)`},
+	} {
+		if got := HTMLToMarkdown(tc.in); got != tc.want {
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}

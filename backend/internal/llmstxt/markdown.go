@@ -3,6 +3,7 @@ package llmstxt
 import (
 	"strconv"
 	"strings"
+	"unicode"
 
 	"golang.org/x/net/html"
 )
@@ -167,18 +168,18 @@ func inline(n *html.Node) string {
 	case "br":
 		return "\n"
 	case "img":
-		src := attr(n, "src")
-		if src == "" {
+		src, ok := linkDest(attr(n, "src"))
+		if !ok {
 			return ""
 		}
-		return "![" + strings.Join(strings.Fields(attr(n, "alt")), " ") + "](" + src + ")"
+		return imageMarkdown(attr(n, "alt"), src)
 	case "a":
 		text := strings.TrimSpace(inlineChildren(n))
-		href := attr(n, "href")
 		if text == "" {
 			return ""
 		}
-		if href == "" || strings.HasPrefix(href, "javascript:") {
+		href, ok := linkDest(attr(n, "href"))
+		if !ok {
 			return text
 		}
 		return "[" + text + "](" + href + ")"
@@ -268,4 +269,47 @@ func attr(n *html.Node, key string) string {
 		}
 	}
 	return ""
+}
+
+// unsafeSchemes are never written as a link or image destination.
+var unsafeSchemes = map[string]bool{"javascript": true, "vbscript": true, "data": true}
+
+// linkDest makes a raw href or src fit a Markdown link destination. ok is false
+// for an empty value or a script-bearing scheme. Browsers ignore whitespace and
+// control characters inside a scheme, so they are removed before the check
+// ("java\tscript:" is javascript:). In the output, characters that would end or
+// split the destination are percent-encoded.
+func linkDest(raw string) (dest string, ok bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", false
+	}
+	squeezed := strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) || unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, raw)
+	if scheme, _, found := strings.Cut(squeezed, ":"); found && unsafeSchemes[strings.ToLower(scheme)] {
+		return "", false
+	}
+	var b strings.Builder
+	for _, r := range raw {
+		switch {
+		case unicode.IsSpace(r), unicode.IsControl(r), r == '(', r == ')', r == '<', r == '>':
+			for _, c := range []byte(string(r)) {
+				b.WriteString("%" + strings.ToUpper(strconv.FormatInt(int64(c)+256, 16)[1:]))
+			}
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String(), true
+}
+
+// imageMarkdown writes an image whose alt text cannot close the brackets.
+func imageMarkdown(alt, dest string) string {
+	alt = strings.Join(strings.Fields(alt), " ")
+	alt = strings.NewReplacer("[", `\[`, "]", `\]`).Replace(alt)
+	return "![" + alt + "](" + dest + ")"
 }
