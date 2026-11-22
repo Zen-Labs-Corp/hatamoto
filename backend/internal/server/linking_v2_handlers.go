@@ -10,6 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/audit"
+	"hatamoto.dev/core/internal/agentpolicystate"
+	"hatamoto.dev/core/internal/auditctx"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
 	linkingv2 "hatamoto.dev/core/internal/linking/v2"
@@ -234,6 +237,10 @@ func (s *Server) handleLinkingV2Insert(w http.ResponseWriter, r *http.Request) {
 			resp["skip_reason"] = skip
 		}
 		writeJSON(w, http.StatusOK, resp)
+		return
+	}
+
+	if s.refuseAgentLink(w, r, req.SourceEntityID) {
 		return
 	}
 
@@ -633,4 +640,47 @@ func (s *Server) handleDeleteRulesBySource(w http.ResponseWriter, r *http.Reques
 		"deleted": deleted,
 		"source":  body.Source,
 	})
+}
+
+// refuseAgentLink asks the agent policy before a key's link insert edits live
+// content (the insert writes the row directly, outside the entity service). It
+// answers the request and returns true when the write must not happen. Nothing
+// registered, or not a key: it does nothing, not even a fetch.
+func (s *Server) refuseAgentLink(w http.ResponseWriter, r *http.Request, sourceID uuid.UUID) bool {
+	if !agentpolicystate.Active() {
+		return false
+	}
+	a, ok := restAuditActor(r)
+	if !ok || a.Kind != audit.KindAPIKey {
+		return false
+	}
+	return s.refuseAgentLinkAs(r.Context(), w, a, sourceID)
+}
+
+func (s *Server) refuseAgentLinkAs(ctx context.Context, w http.ResponseWriter, a auditctx.Actor, sourceID uuid.UUID) bool {
+	src, err := s.entityService.GetEntity(ctx, sourceID)
+	if err != nil {
+		if errors.Is(err, entity.ErrEntityNotFound) {
+			writeError(w, http.StatusNotFound, "source entity not found")
+			return true
+		}
+		s.logger.Error("linking v2 insert: get source entity", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load source")
+		return true
+	}
+	if src.Status != entity.StatusPublished && src.Status != entity.StatusScheduled {
+		return false
+	}
+	dto := agentpolicystate.Entity{ID: src.ID.String(), Locale: src.Locale, Slug: src.Slug, Status: string(src.Status)}
+	if src.Schema != nil {
+		dto.Schema = src.Schema.Slug
+	}
+	_, err = agentpolicystate.Enforce(auditctx.With(ctx, a), agentpolicystate.ActionEdit, dto, false)
+	if err == nil {
+		return false
+	}
+	if !writeAgentRefusal(w, err) {
+		writeError(w, http.StatusForbidden, agentpolicystate.ErrPolicy.Error()) // fail closed
+	}
+	return true
 }

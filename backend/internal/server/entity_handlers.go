@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/authz"
+	"hatamoto.dev/core/internal/agentpolicystate"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/middleware"
 )
@@ -669,6 +670,7 @@ func (s *Server) handleValidateEntityAttributes(w http.ResponseWriter, r *http.R
 func (s *Server) writeReviewOutcome(w http.ResponseWriter, err error) bool {
 	var sent *entity.SentForReviewError
 	switch {
+	case writeAgentRefusal(w, err):
 	case errors.As(err, &sent):
 		writeJSON(w, http.StatusAccepted, map[string]any{"status": "pending_review", "changeset_id": sent.ChangesetID,
 			"message": "Sent for review. It goes live when a reviewer approves it."})
@@ -680,6 +682,24 @@ func (s *Server) writeReviewOutcome(w http.ResponseWriter, err error) bool {
 		// The cause (a policy or database error) goes to the server log, not the response.
 		s.logger.Error("review policy refused an entity change", "error", err)
 		writeError(w, http.StatusForbidden, entity.ErrReviewHold.Error())
+	default:
+		return false
+	}
+	return true
+}
+
+// writeAgentRefusal answers 403 with the agent policy's reason when err is one
+// of its refusals, and reports whether it did. The refusals only exist when a
+// module registered a policy.
+func writeAgentRefusal(w http.ResponseWriter, err error) bool {
+	var denied *agentpolicystate.DeniedError
+	switch {
+	case errors.As(err, &denied):
+		writeError(w, http.StatusForbidden, denied.Error())
+	case errors.Is(err, agentpolicystate.ErrNeedsReview):
+		writeError(w, http.StatusForbidden, agentpolicystate.ErrNeedsReview.Error())
+	case errors.Is(err, agentpolicystate.ErrPolicy): // the link insert; the entity path wraps it as ErrReviewHold
+		writeError(w, http.StatusForbidden, agentpolicystate.ErrPolicy.Error())
 	default:
 		return false
 	}
