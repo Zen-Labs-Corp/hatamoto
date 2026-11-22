@@ -104,6 +104,7 @@ func Reset() {
 	frozen = false
 	reg.Store(nil)
 	groups.Store(nil)
+	pendingSrc.Store(nil)
 }
 
 // Registered reports whether a policy is installed. With none, the switch alone
