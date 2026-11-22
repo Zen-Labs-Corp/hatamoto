@@ -18,6 +18,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"hatamoto.dev/core/authz"
+	"hatamoto.dev/core/internal/agentpolicystate"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
 	"hatamoto.dev/core/internal/auditctx"
@@ -304,6 +305,9 @@ func publicError(l *slog.Logger, tool string, err error) error {
 		var sent *entity.SentForReviewError
 		errors.As(err, &sent)
 		return userErr("pending_review: the change was sent for review (changeset %d) and goes live when a reviewer approves it; nothing is saved yet", sent.ChangesetID)
+	case errors.Is(err, agentpolicystate.ErrDenied), errors.Is(err, agentpolicystate.ErrNeedsReview):
+		// The agent policy's reason is meant for the agent.
+		return userErr("forbidden: %s", err.Error())
 	case errors.Is(err, entity.ErrReviewHold):
 		// The cause (a policy or database error) goes to the log, not to the agent.
 		if l != nil {
