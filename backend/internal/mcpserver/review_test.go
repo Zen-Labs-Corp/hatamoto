@@ -65,7 +65,7 @@ func reviewSession(t *testing.T, role string, gate entity.ReviewGate) (func(tool
 	if gate != nil {
 		svc.SetReviewGate(gate)
 	}
-	ts := newTestServerRole(t, role, []hmauth.APIKeyScope{hmauth.ScopeReadEntities, hmauth.ScopeWriteEntities}, Deps{Entities: svc})
+	ts := newTestServerRole(t, role, []hmauth.APIKeyScope{hmauth.ScopeReadEntities, hmauth.ScopeWriteEntities}, Deps{Entities: svc, PageURL: func(context.Context, *entity.Entity) string { return "/e" }})
 	sess := session(t, ts)
 	id := uuid.New()
 	return func(tool string, args map[string]any) (string, bool) {
