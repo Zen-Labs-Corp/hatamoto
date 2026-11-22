@@ -1413,6 +1413,11 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 		a.renderEntityForm(w, r, http.StatusUnprocessableEntity, p.f, e, sc, p.attrs, p.errs, p.parentID, p.authorID, p.picked)
 		return
 	}
+	if msg := a.heldExtras(r, p, e, sc); msg != "" {
+		p.f.Errors["status"] = msg
+		a.renderEntityForm(w, r, http.StatusUnprocessableEntity, p.f, e, sc, p.attrs, p.errs, p.parentID, p.authorID, p.picked)
+		return
+	}
 	raw, _ := jsonx.Marshal(p.attrs)
 	summary := "Updated in the admin"
 	in := &entity.UpdateEntityInput{Name: &p.f.Name, Attributes: (*jsontext.Value)(&raw), ChangeSummary: &summary}

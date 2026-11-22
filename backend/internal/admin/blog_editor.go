@@ -619,6 +619,11 @@ func (a *Admin) handleBlogSave(w http.ResponseWriter, r *http.Request, e *entity
 		render(http.StatusConflict, true)
 		return
 	}
+	if msg := a.heldExtras(r, p, e, sc); msg != "" {
+		p.f.Errors["status"] = msg
+		render(http.StatusUnprocessableEntity, false)
+		return
+	}
 	raw, _ := jsonx.Marshal(p.attrs)
 	summary := "Updated in the blog editor"
 	in := &entity.UpdateEntityInput{Name: &p.f.Name, Attributes: (*jsontext.Value)(&raw), ChangeSummary: &summary}

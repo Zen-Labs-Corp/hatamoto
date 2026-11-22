@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -213,4 +214,39 @@ func TestEntityErrorTextForReview(t *testing.T) {
 // newPayload is a pending change's payload with the given name.
 func newPayload(name string) (*entity.Entity, error) {
 	return &entity.Entity{Name: name, Slug: "waiting-slug", Attributes: []byte(`{"summary":"Waiting summary"}`)}, nil
+}
+
+// A held save of a published entry cannot carry a status change: it is refused
+// with the typed input kept, never staged with the status silently dropped.
+func TestReviewEditorHeldSaveRefusesWhatItCannotCarry(t *testing.T) {
+	rv := &fakeReviewFlow{held: true}
+	c, users, held := newReviewEditorRig(t, rv)
+	*held = true
+	author := users[user.RoleAuthor]
+	tok := c.freshToken(author.ID)
+
+	t.Run("classic form", func(t *testing.T) {
+		e := c.entityBy(author, entity.StatusPublished)
+		path := "/admin/entities/" + e.ID.String()
+		form := parseForm(t, c.get(t, tok, path, ""))
+		form.Set("name", "Typed by author")
+		form.Set("status", "draft")
+		rec := c.do("POST", path, tok, form, nil)
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("save = %d, want 422\n%s", rec.Code, rec.Body.String())
+		}
+		has(t, rec.Body.String(), "cannot be sent for review yet", "the status", `value="Typed by author"`)
+	})
+	t.Run("blog editor", func(t *testing.T) {
+		_, path := blogRulesPost(c, author, entity.StatusPublished)
+		form := parseForm(t, c.get(t, tok, path, ""))
+		form.Set("name", "Typed by author")
+		form.Set("status", "draft")
+		form.Set("_op", "save")
+		rec := c.do("POST", path, tok, form, nil)
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("save = %d, want 422\n%s", rec.Code, rec.Body.String())
+		}
+		has(t, rec.Body.String(), "cannot be sent for review yet", "Typed by author")
+	})
 }

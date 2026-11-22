@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/person"
 )
 
 // reviewSentNote is what a status change or schedule that was staged adds to the
@@ -109,6 +110,62 @@ func (a *Admin) sentForReviewAt(w http.ResponseWriter, r *http.Request, to strin
 	}
 	Redirect(w, r, to)
 	return true
+}
+
+// heldExtras names what a posted save of a published entry would change that a
+// review request does not carry: terms, a status change, the schedule and the
+// scheduled unpublish. "" when the save is not held or carries nothing extra.
+// The save is refused before anything is written, so nothing is dropped
+// silently and nothing goes live without a reviewer.
+func (a *Admin) heldExtras(r *http.Request, p *posted, e *entity.Entity, sc *entity.EntitySchema) string {
+	rv := a.deps.Review
+	if rv == nil || (e.Status != entity.StatusPublished && e.Status != entity.StatusScheduled) || !rv.Plan(r.Context(), e) {
+		return ""
+	}
+	ctx := r.Context()
+	var what []string
+	want := entity.EntityStatus(p.f.Status)
+	if sc.Slug != person.SchemaSlug && want != e.Status && entity.ValidStatus(want) {
+		what = append(what, "the status")
+	} else if want == entity.StatusScheduled {
+		if at, err := time.ParseInLocation(scheduleLayout, p.f.Schedule, a.siteLocation(ctx)); err == nil && (e.PublishedAt == nil || !e.PublishedAt.Equal(at)) {
+			what = append(what, "the publish date")
+		}
+	}
+	if st := a.deps.Content.Unpublish; st != nil && p.f.UnpublishPosted {
+		stored, _ := st.UnpublishFor(ctx, e.ID)
+		at, err := time.ParseInLocation(scheduleLayout, p.f.UnpublishAt, a.siteLocation(ctx))
+		switch {
+		case p.f.UnpublishAt == "" && stored != nil:
+			what = append(what, "the scheduled unpublish")
+		case p.f.UnpublishAt != "" && err == nil && (stored == nil || !stored.At.Equal(at) || stored.RedirectTarget != p.f.UnpublishRedirect):
+			what = append(what, "the scheduled unpublish")
+		}
+	}
+	if c := a.deps.Content; c.Terms != nil && p.termsSet && (len(p.f.NewTerms) > 0 || p.f.NewTermName != "" || a.termsChanged(ctx, e, p.picked)) {
+		what = append(what, "the terms")
+	}
+	if len(what) == 0 {
+		return ""
+	}
+	return "A change to " + strings.Join(what, ", ") + " cannot be sent for review yet. Put it back as it was to send your other changes; what you typed is kept below."
+}
+
+// termsChanged reports whether picked differs from the terms e has now.
+func (a *Admin) termsChanged(ctx context.Context, e *entity.Entity, picked map[string]bool) bool {
+	ts, err := a.deps.Content.Terms.ListTermsForEntity(ctx, e.ID)
+	if err != nil {
+		return true
+	}
+	if len(ts) != len(picked) {
+		return true
+	}
+	for _, t := range ts {
+		if !picked[t.ID.String()] {
+			return true
+		}
+	}
+	return false
 }
 
 // noteKind is the flash kind of a save note: a notice that a change was sent for
