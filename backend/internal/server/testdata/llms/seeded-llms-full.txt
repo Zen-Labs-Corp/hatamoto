@@ -1,0 +1,117 @@
+# Acme Studio: full text
+
+> Acme Studio builds websites for small firms in Lisbon.
+
+# Home
+
+URL: https://acme.example/
+Updated: 2026-03-10
+
+Websites for small firms.
+
+---
+
+# Services
+
+URL: https://acme.example/services
+Updated: 2026-03-11
+
+## What we build
+
+Brochure sites and shops.
+
+---
+
+# About
+
+URL: https://acme.example/about
+Updated: 2026-03-12
+
+We are a small studio. We like plain words.
+
+---
+
+# Showcase
+
+URL: https://acme.example/showcase
+Updated: 2026-03-15
+
+## Recent work
+
+Three shops and a **portfolio**.
+
+![A shop](https://acme.example/uploads/shop.jpg)
+
+---
+
+# Our process
+
+URL: https://acme.example/process
+Updated: 2026-03-13
+
+Discovery, design, build.
+
+---
+
+# Online shops
+
+URL: https://acme.example/service/online-shops
+Updated: 2026-03-12
+
+Shops with simple checkout.
+
+---
+
+# Web design
+
+URL: https://acme.example/service/web-design
+Updated: 2026-03-11
+
+Sites that load fast.
+
+---
+
+# Shop checklist
+
+URL: https://acme.example/blog/shop-checklist
+Updated: 2026-03-30
+
+Ten things to check before opening a shop.
+
+---
+
+# Launch notes
+
+URL: https://acme.example/blog/launch
+Updated: 2026-03-20
+
+We opened the studio. It went well.
+
+---
+
+# Elena Voss
+
+URL: https://acme.example/author/elena-voss
+Updated: 2026-03-10
+
+Elena leads design.
+
+---
+
+# Accueil
+
+URL: https://acme.example/fr/accueil
+Updated: 2026-03-10
+
+Des sites web pour les petites entreprises.
+
+---
+
+# Notes de lancement
+
+URL: https://acme.example/fr/blog/lancement
+Updated: 2026-03-20
+
+Nous avons ouvert le studio.
+
+---
