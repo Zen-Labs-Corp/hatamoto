@@ -29,7 +29,7 @@
 <div role="separator"></div><a role="menuitem" href="{{adminPath}}/entities/{{.ID}}/delete" data-hm-confirm="This entity and its version history will be deleted. This cannot be undone." data-hm-confirm-label="Delete entity" data-hm-post="{{adminPath}}/entities/{{.ID}}/delete" data-tone="danger" data-hm-danger>Delete</a></div>
 {{end}}{{end}}
 {{define "main"}}{{with .Data}}<h1 class="hm-visually-hidden">Write {{or .Name (printf "Untitled %s" .Noun)}}</h1>
-{{template "hm/formerrors" dict "Errors" .Summary}}{{with .Review.Banner}}{{template "hm/callout" (dict "Kind" $.Data.Review.Kind "Body" .)}}{{end}}
+{{template "hm/formerrors" dict "Errors" .Summary}}{{with .Review.Banner}}{{template "hm/callout-start" (dict "Kind" $.Data.Review.Kind)}}{{.}}{{if $.Data.Review.Mine}} <a href="{{adminPath}}/review/{{$.Data.Review.Pending.ID}}">Open the change</a>{{end}}{{template "hm/callout-end"}}{{end}}
 {{with .Conflict}}{{template "hm/flash" (dict "Kind" "error" "Message" . "Inline" true)}}{{end}}
 <form method="post" action="{{adminPath}}/entities/{{.ID}}/edit" class="hm-be" id="hm-be" novalidate data-hm-blog-editor{{if .Review.SendsForReview}} data-hm-review="1"{{end}} data-hm-entity="{{.ID}}" data-hm-status="{{.Status}}"{{with $.User}} data-hm-user="{{.ID}}"{{end}} data-hm-version="{{.Version}}" data-hm-recovery-url="{{adminPath}}/entities/{{.ID}}/edit/recovery" data-hm-recovery-discard-url="{{adminPath}}/entities/{{.ID}}/edit/recovery/discard"{{if .CanPreview}} data-hm-preview="{{adminPath}}/entities/{{.ID}}/edit/preview"{{end}}>
 {{template "hm/csrf" $}}

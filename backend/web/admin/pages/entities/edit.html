@@ -3,7 +3,7 @@
 {{define "scripts"}}sortablejs{{end}}
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "Description" .Subtitle "CSRF" $.CSRF "Actions" .Actions "Overflow" .Overflow}}
 {{if not .New}}{{template "hm/tabs" dict "Label" "Entity sections" "Items" .Tabs}}{{end}}
-{{template "hm/formerrors" dict "Errors" .Summary}}{{with .Review.Banner}}{{template "hm/callout" (dict "Kind" $.Data.Review.Kind "Body" .)}}{{end}}
+{{template "hm/formerrors" dict "Errors" .Summary}}{{with .Review.Banner}}{{template "hm/callout-start" (dict "Kind" $.Data.Review.Kind)}}{{.}}{{if $.Data.Review.Mine}} <a href="{{adminPath}}/review/{{$.Data.Review.Pending.ID}}">Open the change</a>{{end}}{{template "hm/callout-end"}}{{end}}
 <form method="post" action="{{if .New}}{{adminPath}}/entities{{else}}{{adminPath}}/entities/{{.ID}}{{end}}" id="hm-entityform" class="hm-stack hm-entityform" novalidate>
 {{template "hm/csrf" $}}
 {{if .New}}<input type="hidden" name="type" value="{{.SchemaSlug}}">{{end}}

@@ -139,12 +139,12 @@ func TestReviewEditorBanners(t *testing.T) {
 
 	t.Run("the requester edits their own change and sees the banner", func(t *testing.T) {
 		body := c.get(t, c.freshToken(author.ID), path, "")
-		has(t, body, `value="Waiting title"`, "Your change goes live when approved.", "Waiting for review since 2 Nov 2026 10:42.")
+		has(t, body, `value="Waiting title"`, "Your change goes live when approved.", "Waiting for review since 2 Nov 2026 10:42.", `<a href="/admin/review/7">Open the change</a>`)
 	})
 	t.Run("someone else sees the live row and a notice naming the change", func(t *testing.T) {
 		body := c.get(t, "owner-token", path, "")
 		has(t, body, "Author Sam&#39;s change to this entry is waiting for review since")
-		lacks(t, body, `value="Waiting title"`, "Your change goes live")
+		lacks(t, body, `value="Waiting title"`, "Your change goes live", "Open the change")
 	})
 	t.Run("a sent-back change shows the comment as a warning", func(t *testing.T) {
 		p := rv.pending[e.ID.String()]
