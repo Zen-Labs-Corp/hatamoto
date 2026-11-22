@@ -108,7 +108,7 @@ The first caller of the edit changeset is the entity service, behind one gate.
   The service then asks `entity.review.request` instead of `entity.update` or `entity.publish`. No subject on
   the context (the scheduler, imports, the CLI without `--as`) is the system and is never held.
 - The stage group `reviewers` maps to the action `entity.review.decide` (Owner, Editor, Reviewer). A stage naming
-  any other group cannot be decided in core: it fails closed and an owner can discard the change.
+  any other group cannot be decided in core: it fails closed and a holder of that right (Owner, Editor, Reviewer) can discard the change.
 - Nobody decides their own change, whatever their role. An owner is exempt by default, so a single-owner site
   never deadlocks.
 - An approval publishes through the engine's `Publish`, not `PublishReviewed`: the import risk classifier is
@@ -116,9 +116,14 @@ The first caller of the edit changeset is the entity service, behind one gate.
   entry's version is compared with the one the edit was based on; a changed entry refuses the approval.
 - Send back records a rejection and keeps the staged change, so the requester still has their version. A new send
   from the same person replaces it; they may also withdraw it. One change waits per entry; another person's
-  is refused.
+  is refused, unless it was sent back: nobody can approve a sent-back change, so a new send by anyone replaces it
+  (its decision and comment stay). Any holder of `entity.review.decide` may discard a waiting change, with no
+  comment and no mail to the requester.
 - Publishing an edit of an entry a plugin owns takes it over and is audited as `entity.take_over`
   (`detail` `{from, changeset}`).
 - Blocks and theme parts are always stored as drafts and are not held; they stay behind `builder.block.manage`.
+- `review.Edit.SlugChange` is not set by core in this release: the plan is taken before the input is known, so a
+  policy's slug rule never sees a change. `Delete` is not set either.
 - This is the first release that creates edit changesets, so it raises the rollback floor (see
-  [Upgrades](../UPGRADES.md)).
+  [Upgrades](../UPGRADES.md)). A binary from before it ignores the review switch, so review would silently turn
+  off and changes would be written directly.
