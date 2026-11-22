@@ -152,7 +152,7 @@ make licenses     # table, plus build/licenses/ (gitignored): every module's lic
 ```
 
 `build/licenses/` is the Go modules licence bundle for a release. Shipping it with
-`backend/web/vendor/licenses/` and `NOTICE` (the JavaScript) is part of the release slug
+`backend/web/assets/licenses/` and `NOTICE` (the JavaScript) is part of the release slug
 (v1-24), which the owner runs separately.
 
 ## Extism and the binary size
@@ -230,7 +230,7 @@ is smaller than the fallback copy of the same width.
 
 The admin ships its browser dependencies as committed files, not from a CDN and not
 through Node. They are listed, with version, licence, source URL, SHA-256 and size of
-every file, in [`backend/web/vendor/vendor.json`](../backend/web/vendor/vendor.json),
+every file, in [`backend/web/assets/vendor.json`](../backend/web/assets/vendor.json),
 which is the source of truth (htmx, SortableJS and the Tiptap/ProseMirror module
 graph, among others). The tool that fetches and checks them is `backend/tools/vendor`:
 
@@ -240,7 +240,11 @@ make vendor-verify   # offline: committed bytes match vendor.json; part of `make
 ```
 
 `make vendor-verify` fails (exit 1) on a changed, missing or extra file. Licences of the
-vendored files are in `backend/web/vendor/licenses/`, with a `NOTICE`.
+vendored files are in `backend/web/assets/licenses/`, with a `NOTICE`.
+
+The directory is not called `vendor`: Go module zips leave out files in subdirectories of a
+`vendor` directory, so a program that depends on core as a module would miss them. The admin
+still serves them under `/_/vendor/`.
 
 | Group | Files | Version | Licence | Purpose | Update |
 |---|---|---|---|---|---|
@@ -248,8 +252,8 @@ vendored files are in `backend/web/vendor/licenses/`, with a `NOTICE`.
 | SortableJS | `sortable-1.15.7.min.js` | 1.15.7 | MIT | Drag and drop | same |
 | Tiptap module graph | `tiptap-3.31.3/` (62 files: Tiptap, ProseMirror, floating-ui, linkifyjs, orderedmap, rope-sequence, w3c-keyname) | 3.31.3 | MIT | Rich-text editor | same, then the editor checklist in `docs/QA.md` |
 
-Licence texts: `backend/web/vendor/licenses/` (22 files, one per package, hashed in
-`vendor.json`) and `backend/web/vendor/NOTICE`, both written by the vendor tool.
+Licence texts: `backend/web/assets/licenses/` (22 files, one per package, hashed in
+`vendor.json`) and `backend/web/assets/NOTICE`, both written by the vendor tool.
 
 ## Admin icons (Lucide)
 

@@ -8,7 +8,7 @@ This page writes the admin address as `<admin>`. Tests and the QA harness pin `H
 
 ```
 backend/web/admin/        layouts/ partials/ pages/ css/ js/   (embedded in the binary)
-backend/web/vendor/       htmx, SortableJS, Tiptap, pinned by vendor.json
+backend/web/assets/       htmx, SortableJS, Tiptap, pinned by vendor.json
 backend/internal/admin/   handlers (never imports internal/server)
   ui/                     typed shapes of the partials
   schemaform/             JSON Schema -> HTML form -> JSON
@@ -764,7 +764,7 @@ declared pairs in both themes.
 
 ## Assets and vendoring
 
-`make vendor` (network, Go only) refreshes `web/vendor`; `make vendor-verify`
+`make vendor` (network, Go only) refreshes `web/assets`; `make vendor-verify`
 (offline, part of `make check`) proves the committed bytes match `vendor.json`.
 URLs must be pinned to `@x.y.z`; changed upstream bytes fail unless `--update`.
 Tiptap is a crawled, deduplicated ES module graph (`backend/tools/vendor/README.md`

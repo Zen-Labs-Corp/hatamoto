@@ -63,7 +63,7 @@ One install = one site. It has one default language and can serve more public lo
 | Charts | **Chart.js 4** (retired 2026-10: own SVG modules) | add | React charts |
 | Admin CSS | plain CSS: existing tokens + one stylesheet per admin partial, bundled by Go | switch | Tailwind |
 | Theme CSS | whatever the theme ships (plain CSS bundled by Go; authors may compile Tailwind/Sass locally) | keep | — |
-| JS delivery | `backend/tools/vendor` (Go tool, `make vendor`) downloads the esm.sh module tree pinned to `?target=es2022`, rewrites imports to local paths, writes `backend/web/vendor/vendor.json` (sha256 per file); import map with `integrity` hashes and per-page `modulepreload`; served fingerprinted from the binary (~0.97 MB embedded, 298 KiB gzip total; list screens 18 KiB, editor 211 KiB) | new | npm, bundler |
+| JS delivery | `backend/tools/vendor` (Go tool, `make vendor`) downloads the esm.sh module tree pinned to `?target=es2022`, rewrites imports to local paths, writes `backend/web/assets/vendor.json` (sha256 per file); import map with `integrity` hashes and per-page `modulepreload`; served fingerprinted from the binary (~0.97 MB embedded, 298 KiB gzip total; list screens 18 KiB, editor 211 KiB) | new | npm, bundler |
 | Canvas editor | embedded `canvas_bridge.js` + vanilla JS host | port | React canvas host |
 | Plugins | **Extism** (wazero) WASM; permissions; own Postgres schema + role per plugin | new | compiled Go plugins, `hatamoto build`, Next plugin layer |
 | Plugin packages | `.hmp` zip, sha256 + ed25519, stored in Postgres, registry | new | blank imports |
@@ -204,13 +204,13 @@ Sizes: S (days), M (about a week), L (two to three weeks), XL (a month or more).
 Shared rules: pages under `/admin`, rendered by `html/template` from `web/admin/`; database sessions + CSRF;
 strict CSP with nonces (`script-src 'self' 'nonce-...'`); htmx for every server interaction; native
 `<dialog>`/`popover`/`<details>` for UI; plain CSS on the existing tokens, one stylesheet per partial,
-bundled and fingerprinted by `render/css.go`; vendored JS in `web/vendor/` behind an import map;
+bundled and fingerprinted by `render/css.go`; vendored JS in `web/assets/` behind an import map;
 everything `go:embed`ed. English-only admin. Every screen is keyboard-usable and meets WCAG 2.2 AA.
 
 #### v1-10-admin-shell (backend, L)
 - **Do:**
   - **Starting point:** the admin-JS spike (an out-of-repo prototype, verdict **go**: 16/16 scripted and 12/12 interactive checks in Chrome, Firefox and WebKit, zero CSP violations). Port its vendor tool, import-map helper and CSP setup; read `FINDINGS.md`.
-  - `backend/tools/vendor` (`make vendor`): downloads each pinned package's full esm.sh module tree with `?target=es2022` (never user-agent dependent), Tiptap as `?bundle&external=@tiptap/core,@tiptap/pm,...` with import-map entries for the shared pieces (never one standalone `?bundle` per package: it loads three copies of core and the editor fails), rewrites imports to local paths, writes `backend/web/vendor/vendor.json` (sha256 per file). `make vendor-verify` (in `make check`) exits 1 on any changed, missing or extra file.
+  - `backend/tools/vendor` (`make vendor`): downloads each pinned package's full esm.sh module tree with `?target=es2022` (never user-agent dependent), Tiptap as `?bundle&external=@tiptap/core,@tiptap/pm,...` with import-map entries for the shared pieces (never one standalone `?bundle` per package: it loads three copies of core and the editor fails), rewrites imports to local paths, writes `backend/web/assets/vendor.json` (sha256 per file). `make vendor-verify` (in `make check`) exits 1 on any changed, missing or extra file.
   - Packages: htmx 2, Tiptap 3 (`core`, `pm`, `starter-kit` (includes Link; no separate link package), `extension-image`, `extension-table`, `extensions` (Placeholder), `suggestion` (slash menu), `extension-bubble-menu`), SortableJS, Chart.js 4.
   - Import map rendered by a dedicated template helper (html/template otherwise entity-escapes it and percent-encodes `^`), with `integrity` for every file (tampered files are refused by browsers, only the affected feature fails) and admin JS fingerprinted through the map. Each page template declares its entry modules; the server emits `modulepreload` links for their full dependency closure (642 ms vs 2141 ms first load at 150 ms RTT).
   - CSP: `script-src 'self' 'nonce-...'`, no `unsafe-eval`, no inline style injection. htmx config `allowEval:false`, `includeIndicatorStyles:false`, `responseHandling` swapping 422 (validation) responses; Tiptap `injectCSS:false`; their CSS ships in our stylesheets. `scripts/check-neutral.sh` also fails on `hx-on`, `js:` values and htmx trigger filters in templates (they need eval and silently do nothing).
@@ -395,7 +395,7 @@ Every phase is additive and N-1 safe, and an install with no locale list stays b
 
 What the items that already merged did differently, or measured, and why. The plan text above has been brought in line where a name changed; these are the things that are not simply renames.
 
-- **Names.** The vendoring tool is `backend/tools/vendor` with `backend/web/vendor/vendor.json` (not `cmd/hm-vendor` and `vendor.lock`): same behaviour, no churn after v1-10 shipped it. Plugin database roles are `hm_p_<id8>_<name>`, not `hm_plugin_<name>`: Postgres roles are cluster-wide, so two Hatamoto databases in one cluster must not collide and a plugin name alone would let one install take over another's role (found in review, tested by `TestTwoDatabasesOneCluster`).
+- **Names.** The vendoring tool is `backend/tools/vendor` with `backend/web/assets/vendor.json` (not `cmd/hm-vendor` and `vendor.lock`): same behaviour, no churn after v1-10 shipped it. Plugin database roles are `hm_p_<id8>_<name>`, not `hm_plugin_<name>`: Postgres roles are cluster-wide, so two Hatamoto databases in one cluster must not collide and a plugin name alone would let one install take over another's role (found in review, tested by `TestTwoDatabasesOneCluster`).
 - **v1-15 dropped the JS unit tests.** Deleting Node deleted the `node:test`/jsdom suites; the cases became manual items in `docs/QA.md` ("Browser modules") and the optional out-of-repo Playwright harness. See the known loss under v1-15.
 - **Plugin timeouts** are per hook (`limits.hook_timeouts_ms`; filters and template funcs 250 ms, everything else 10 s; at most 10 s; 0 is refused). `limits.timeout_ms` and its 2 s default are gone (SDK 0.8).
 - **`capability_denied`** replaces `permission_denied` for plugin host calls (SDK 0.8). The admin bridge that serves a plugin's sandboxed admin page to its iframe still answers `permission_denied` to the page's script; that is the admin's own JSON, not a host call.
