@@ -371,3 +371,85 @@ func TestCommentsNavRefreshAfterSwitch(t *testing.T) {
 		t.Errorf("after the switch: visible %v, badge %q", it.Visible(roleViewer("owner")), it.Badge(roleViewer("owner")))
 	}
 }
+
+func reviewNavItem(t *testing.T, rv ReviewFlow) (*Admin, NavItem) {
+	t.Helper()
+	a := &Admin{nav: defaultNav("/admin")}
+	a.deps.Review = rv
+	a.wireNavCounts()
+	return a, a.reviewItem(t)
+}
+
+func (a *Admin) reviewItem(t *testing.T) NavItem {
+	t.Helper()
+	for _, it := range a.nav.all() {
+		if it.ID == "review" {
+			return it
+		}
+	}
+	t.Fatal("no review nav item")
+	return NavItem{}
+}
+
+func TestReviewNavItem(t *testing.T) {
+	t.Parallel()
+
+	roles := map[string]bool{"owner": true, "editor": true, "reviewer": true, "author": false, "contributor": false, "read-only": false}
+	waiting := []PendingEdit{{ID: 1}, {ID: 2}}
+
+	t.Run("off and empty: hidden for every role", func(t *testing.T) {
+		_, it := reviewNavItem(t, &fakeReviewFlow{})
+		for role := range roles {
+			if it.Visible(roleViewer(role)) {
+				t.Errorf("%s sees the item with review off and nothing waiting", role)
+			}
+		}
+	})
+	t.Run("on: visible to deciders only, with the count", func(t *testing.T) {
+		_, it := reviewNavItem(t, &fakeReviewFlow{on: true, queue: waiting})
+		for role, want := range roles {
+			if got := it.Visible(roleViewer(role)); got != want {
+				t.Errorf("%s: visible = %v, want %v", role, got, want)
+			}
+		}
+		if got := it.Badge(roleViewer("editor")); got != "2" {
+			t.Errorf("badge = %q, want 2", got)
+		}
+		if got := it.Badge(roleViewer("author")); got != "" {
+			t.Errorf("an author sees the badge %q", got)
+		}
+		if got := it.BadgeLabel(roleViewer("editor"), "2"); got != "2 changes waiting for review" {
+			t.Errorf("label %q", got)
+		}
+		if got := it.BadgeLabel(roleViewer("editor"), "1"); got != "1 change waiting for review" {
+			t.Errorf("label %q", got)
+		}
+	})
+	t.Run("off with a change still waiting: shown", func(t *testing.T) {
+		_, it := reviewNavItem(t, &fakeReviewFlow{queue: waiting[:1]})
+		if !it.Visible(roleViewer("owner")) {
+			t.Error("a change waits but the item is hidden")
+		}
+	})
+	t.Run("turning review on shows it at once", func(t *testing.T) {
+		rv := &fakeReviewFlow{}
+		a, it := reviewNavItem(t, rv)
+		if it.Visible(roleViewer("owner")) {
+			t.Fatal("hidden before the switch")
+		}
+		rv.on = true
+		a.refreshReviewNav()
+		if !a.reviewItem(t).Visible(roleViewer("owner")) {
+			t.Error("still hidden after the switch")
+		}
+	})
+	t.Run("no review flow: no item", func(t *testing.T) {
+		a := &Admin{nav: defaultNav("/admin")}
+		a.wireNavCounts()
+		for _, it := range a.nav.For(roleViewer("owner"), "/admin") {
+			if it.Label == "Review" {
+				t.Error("Review shows without a flow")
+			}
+		}
+	})
+}

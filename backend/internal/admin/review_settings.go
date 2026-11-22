@@ -41,6 +41,9 @@ func (a *Admin) handleReviewSettingsSave(w http.ResponseWriter, r *http.Request)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The review setting could not be saved.")
 		return
 	}
+	if a.refreshReviewNav != nil {
+		a.refreshReviewNav()
+	}
 	a.audit(r, "settings.review", "site", map[string]any{"enabled": on})
 	if on {
 		a.SetFlash(w, r, "success", "Review is on.")

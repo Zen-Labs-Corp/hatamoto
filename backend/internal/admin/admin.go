@@ -463,7 +463,9 @@ type Admin struct {
 	nav      *Nav
 	// refreshCommentsNav recounts the Comments sidebar item now; nil without a comment service.
 	refreshCommentsNav func()
-	adminFS            fs.FS
+	// refreshReviewNav recounts the Review sidebar item now; nil without a review flow.
+	refreshReviewNav func()
+	adminFS          fs.FS
 	// adminPath is the normalised URL prefix. It lives on Admin, never on
 	// built state, so dev mode rebuilds keep it.
 	adminPath string

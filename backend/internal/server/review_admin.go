@@ -109,6 +109,10 @@ func (a reviewAdmin) Queue(ctx context.Context, limit, offset int) ([]admin.Pend
 	return out, total, nil
 }
 
+func (a reviewAdmin) Count(ctx context.Context) (int, error) {
+	return a.engine.CountPendingEdits(ctx)
+}
+
 // Detail reads one staged edit. A closed or unknown changeset is not found.
 func (a reviewAdmin) Detail(ctx context.Context, id int64) (admin.ReviewDetail, error) {
 	h, items, err := a.flow.Engine.Get(ctx, id)

@@ -172,6 +172,8 @@ type ReviewFlow interface {
 	Pending(ctx context.Context, entityID string) (PendingEdit, bool, error)
 	// Queue lists the changes waiting for a decision, oldest first, with their total.
 	Queue(ctx context.Context, limit, offset int) ([]PendingEdit, int, error)
+	// Count is the number of changes in the queue.
+	Count(ctx context.Context) (int, error)
 	// Detail reads one change waiting (or sent back) with what the page decides on.
 	// ErrReviewNotFound when there is none, ErrReviewNotStaged when it is closed.
 	Detail(ctx context.Context, id int64) (ReviewDetail, error)

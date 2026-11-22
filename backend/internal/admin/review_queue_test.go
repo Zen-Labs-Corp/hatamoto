@@ -18,6 +18,8 @@ func (f *fakeReviewFlow) Queue(context.Context, int, int) ([]PendingEdit, int, e
 	return f.queue, len(f.queue), nil
 }
 
+func (f *fakeReviewFlow) Count(context.Context) (int, error) { return len(f.queue), nil }
+
 func (f *fakeReviewFlow) Detail(_ context.Context, id int64) (ReviewDetail, error) {
 	d, ok := f.details[id]
 	if !ok {

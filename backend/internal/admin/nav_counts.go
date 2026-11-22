@@ -95,6 +95,9 @@ func (a *Admin) wireNavCounts() {
 	if a.deps.Comments != nil {
 		a.wireCommentsNav()
 	}
+	if a.deps.Review != nil {
+		a.wireReviewNav()
+	}
 	a.nav.update(pluginsID, func(it *NavItem) {
 		it.Badge = func(v viewer) string {
 			if !v.Can(authz.ActionPluginManage) {
@@ -237,4 +240,89 @@ func (a *Admin) commentsInUse() (int, error) {
 		return 1, nil
 	}
 	return 0, nil
+}
+
+// wireReviewNav gives the Review item its visibility and badge. It shows for people who may
+// decide, once the review switch is on or a change is waiting, and counts the changes in the
+// queue. Both are cached values, so turning review on or off starts them over:
+// refreshReviewNav fills them before it returns.
+func (a *Admin) wireReviewNav() {
+	var (
+		mu      sync.Mutex
+		pending func() string
+		shown   func() string
+	)
+	build := func(prime bool) {
+		var inline atomic.Bool
+		inline.Store(prime)
+		run := func(f func()) {
+			if inline.Load() {
+				f()
+				return
+			}
+			navRefreshRun(f)
+		}
+		p := countBadge(navCountTTL, time.Now, run, a.pendingReviews)
+		sh := countBadge(navCountTTL, time.Now, run, a.reviewInUse)
+		if prime {
+			p()
+			sh()
+			inline.Store(false)
+		}
+		mu.Lock()
+		pending, shown = p, sh
+		mu.Unlock()
+	}
+	build(false)
+	a.refreshReviewNav = func() { build(true) }
+	get := func() (func() string, func() string) {
+		mu.Lock()
+		defer mu.Unlock()
+		return pending, shown
+	}
+	a.nav.update("review", func(it *NavItem) {
+		it.Visible = func(v viewer) bool {
+			_, sh := get()
+			return sh() != "" && v.Can(authz.ActionEntityReviewDecide)
+		}
+		it.Badge = func(v viewer) string {
+			if !v.Can(authz.ActionEntityReviewDecide) {
+				return ""
+			}
+			p, _ := get()
+			return p()
+		}
+		it.BadgeLabel = func(_ viewer, b string) string {
+			return countLabel(b, "change waiting for review", "changes waiting for review")
+		}
+	})
+}
+
+// pendingReviews counts the changes in the review queue.
+func (a *Admin) pendingReviews() (int, error) {
+	rv := a.deps.Review
+	if rv == nil {
+		return 0, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return rv.Count(ctx)
+}
+
+// reviewInUse is 1 when the Review sidebar item shows: the switch is on or a change waits.
+func (a *Admin) reviewInUse() (int, error) {
+	rv := a.deps.Review
+	if rv == nil {
+		return 0, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if rv.Enabled(ctx) {
+		return 1, nil
+	}
+	n, err := rv.Count(ctx)
+	if n > 0 {
+		n = 1
+	}
+	return n, err
 }
