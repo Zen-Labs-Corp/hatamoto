@@ -80,3 +80,13 @@ func TestDocToMarkdownLinkSafety(t *testing.T) {
 		t.Fatalf("got:\n%q\nwant:\n%q", got, want)
 	}
 }
+
+func TestDocToMarkdownButtonTextCannotCloseBrackets(t *testing.T) {
+	d := mustDoc(t, `{"v":2,"nodes":[
+	 {"id":"a","t":"button","p":{"text":"a](https://evil.example) [b","href":"/x"}}
+	]}`)
+	want := `[a\](https://evil.example) \[b](/x)`
+	if got := DocToMarkdown(d, nil); got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}

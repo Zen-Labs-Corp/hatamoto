@@ -80,7 +80,7 @@ func (w *docWalker) nodes(ns []*builder.Node, depth int) {
 			href, hrefOK := linkDest(str(n.P, "href"))
 			switch {
 			case text != "" && hrefOK:
-				w.add("[" + text + "](" + href + ")")
+				w.add("[" + bracketEscaper.Replace(text) + "](" + href + ")")
 			case text != "":
 				w.add(text)
 			}

@@ -307,9 +307,10 @@ func linkDest(raw string) (dest string, ok bool) {
 	return b.String(), true
 }
 
+var bracketEscaper = strings.NewReplacer("[", `\[`, "]", `\]`)
+
 // imageMarkdown writes an image whose alt text cannot close the brackets.
 func imageMarkdown(alt, dest string) string {
-	alt = strings.Join(strings.Fields(alt), " ")
-	alt = strings.NewReplacer("[", `\[`, "]", `\]`).Replace(alt)
+	alt = bracketEscaper.Replace(strings.Join(strings.Fields(alt), " "))
 	return "![" + alt + "](" + dest + ")"
 }
