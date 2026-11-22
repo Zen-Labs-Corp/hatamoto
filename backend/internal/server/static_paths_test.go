@@ -19,7 +19,7 @@ func TestStaticPathNoRedirect(t *testing.T) {
 	for _, p := range []string{
 		"/search", "/fr/search", "/forms/x/submit", "/-/comments/form/x", "/preview/t",
 		"/api/v1/public/x", "/media/a.jpg", "/theme/assets/x.css", "/fonts/x.woff2",
-		"/p/plug/x", "/f/x", "/feed.xml", "/sitemap-en.xml", "/robots.txt", "/llms.txt",
+		"/p/plug/x", "/f/x", "/feed.xml", "/sitemap-en.xml", "/robots.txt", "/llms.txt", "/llms-full.txt",
 		"/admin", "/mcp", "/locale/fr", "/favicon.ico", "/secret-door-7", "/secret-door-7/pages",
 		"/x-api", "/x-api/things",
 	} {
