@@ -23,9 +23,6 @@
 *.outd
 bin/
 vendor/
-# the Go admin ships its pinned browser assets (backend/web/vendor, see vendor.json)
-!backend/web/vendor/
-!backend/web/vendor/**
 # ... and the tool that maintains them
 !backend/tools/vendor/
 !scripts/admin-qa/vendor/
@@ -76,8 +73,8 @@ __pycache__/
 backend/hatamoto
 
 # vendored admin assets keep their dist/ directories (after the generic dist/ rule above)
-!backend/web/vendor/**/dist/
-!backend/web/vendor/**/dist/**
+!backend/web/assets/**/dist/
+!backend/web/assets/**/dist/**
 
 # WordPress importer fixture output
 test/wpfixture/out/

@@ -163,7 +163,7 @@ func TestNoticeIsGeneratedFromTheManifestAndVerifyCatchesDrift(t *testing.T) {
 		}
 	}
 	// The committed NOTICE must be exactly what the committed manifest renders.
-	if err := Verify("../../web/vendor"); err != nil {
+	if err := Verify("../../web/assets"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -186,11 +186,11 @@ func TestWriteManifestOmitsZeroBytes(t *testing.T) {
 
 // Re-writing the committed manifest must reproduce it byte for byte.
 func TestWriteManifestReproducesCommittedFile(t *testing.T) {
-	want, err := os.ReadFile("../../web/vendor/vendor.json")
+	want, err := os.ReadFile("../../web/assets/vendor.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := readManifest("../../web/vendor")
+	m, err := readManifest("../../web/assets")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,6 +203,6 @@ func TestWriteManifestReproducesCommittedFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if string(got) != string(want) {
-		t.Errorf("rewritten manifest differs from web/vendor/vendor.json")
+		t.Errorf("rewritten manifest differs from web/assets/vendor.json")
 	}
 }

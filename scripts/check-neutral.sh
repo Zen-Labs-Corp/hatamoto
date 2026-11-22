@@ -26,7 +26,7 @@
 # Exempt from the locale rule (each is applied history, a fixture or a test of the old URLs):
 #   backend/migrations/                  applied history, the prod-like seed and the tests that pin the migration
 #   backend/internal/entity/testdata/    sanitiser HTML corpora (real-world markup)
-#   backend/web/vendor/                  third-party minified code (hash-pinned, never edited)
+#   backend/web/assets/                  third-party minified code (hash-pinned, never edited)
 #   backend/internal/server/retired_prefix_integration_test.go   asserts the old /xx/... URLs redirect
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -86,9 +86,9 @@ fi
 fail=0
 
 hits=$(shipped_files \
-  | grep -zvE '^(backend/web/vendor/|scripts/admin-qa/vendor/)' \
+  | grep -zvE '^(backend/web/assets/|scripts/admin-qa/vendor/)' \
   | xargs -0 grep -nIE -i -e "$BANNED" 2>/dev/null || true)
-hits+=$'\n'$(shipped_files | grep -zvE '^(backend/web/vendor/|scripts/admin-qa/vendor/)' \
+hits+=$'\n'$(shipped_files | grep -zvE '^(backend/web/assets/|scripts/admin-qa/vendor/)' \
   | xargs -0 grep -nIE -e "$HOME_RE" 2>/dev/null || true)
 bad=""
 while IFS= read -r h; do
@@ -101,7 +101,7 @@ while IFS= read -r h; do
   ((ok)) || bad+="$h"$'\n'
 done <<<"$hits"
 # Vendored third-party code: only the site/host names, not the generic words.
-vhits=$(shipped_files | grep -zE '^(backend/web/vendor/|scripts/admin-qa/vendor/)' \
+vhits=$(shipped_files | grep -zE '^(backend/web/assets/|scripts/admin-qa/vendor/)' \
   | xargs -0 grep -liIE -e "${PRIVATE_BANNED:-x^}" -e "$HOME_RE" 2>/dev/null || true)
 [[ -z "$vhits" ]] || bad+="vendored files name a private site or path: $vhits"$'\n'
 if [[ -n "$bad" ]]; then
@@ -134,7 +134,7 @@ fi
 CODES='au|us|uk|nz|sg|ae|cn|at|de|ca'
 locale_files() {
   shipped_files \
-    | grep -zvE '^(backend/migrations/|backend/web/vendor/|backend/internal/entity/testdata/)' \
+    | grep -zvE '^(backend/migrations/|backend/web/assets/|backend/internal/entity/testdata/)' \
     | grep -zvE '^(scripts/check-neutral\.sh|backend/internal/server/retired_prefix_integration_test\.go)$'
 }
 locale_hits=$(locale_files | xargs -0 grep -nIE \

@@ -4,7 +4,7 @@
 //	go run ./tools/vendor fetch [--update]   # network; pins new entries, refuses changed bytes
 //	go run ./tools/vendor verify             # offline; committed bytes == vendor.json
 //
-// Run from backend/. The manifest is web/vendor/vendor.json; the committed
+// Run from backend/. The manifest is web/assets/vendor.json; the committed
 // bytes are the source of truth, the URLs are provenance.
 package main
 
@@ -32,7 +32,7 @@ const (
 	maxModules = 400
 )
 
-// Manifest is web/vendor/vendor.json.
+// Manifest is web/assets/vendor.json.
 type Manifest struct {
 	Schema      int     `json:"schema"`
 	GeneratedBy string  `json:"generated_by"`
@@ -73,7 +73,7 @@ type Asset struct {
 	// module-graph
 	Dir        string            `json:"dir,omitempty"`
 	Roots      map[string]string `json:"roots,omitempty"`     // import-map specifier -> origin-relative URL
-	Importmap  map[string]string `json:"importmap,omitempty"` // specifier -> file (relative to web/vendor)
+	Importmap  map[string]string `json:"importmap,omitempty"` // specifier -> file (relative to web/assets)
 	Files      []File            `json:"files,omitempty"`
 	OriginHost string            `json:"origin,omitempty"`
 }
@@ -91,7 +91,7 @@ func main() {
 	if len(os.Args) < 2 {
 		fatal(errors.New("usage: vendor fetch [--update] | verify"))
 	}
-	dir := "web/vendor"
+	dir := "web/assets"
 	var err error
 	switch os.Args[1] {
 	case "verify":
@@ -160,7 +160,7 @@ func checkPinned(a Asset) error {
 	return nil
 }
 
-// Verify checks, offline, that web/vendor holds exactly what vendor.json lists.
+// Verify checks, offline, that web/assets holds exactly what vendor.json lists.
 func Verify(dir string) error {
 	m, err := readManifest(dir)
 	if err != nil {
@@ -337,7 +337,7 @@ func Fetch(dir string, update bool, c *http.Client, origin string) error {
 	return os.WriteFile(filepath.Join(dir, "NOTICE"), []byte(Notice(m)), 0o644)
 }
 
-// Notice renders web/vendor/NOTICE from the manifest, so it cannot drift from
+// Notice renders web/assets/NOTICE from the manifest, so it cannot drift from
 // what is vendored.
 func Notice(m *Manifest) string {
 	var b strings.Builder

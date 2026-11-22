@@ -1,4 +1,4 @@
-backend/web/vendor/** -text
+backend/web/assets/** -text
 
 # --- Public snapshot (scripts/public-snapshot.sh) ---------------------------
 # Paths marked export-ignore are left out of `git archive`, and so out of the

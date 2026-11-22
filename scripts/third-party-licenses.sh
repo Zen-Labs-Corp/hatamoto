@@ -31,7 +31,7 @@ mkdir -p "$out/go" "$out/fonts" "$out/web-vendor"
 cp "$lic" "$out/go/LICENSE"
 
 (cd "$root/backend" && go run ./tools/licenses -out "$out/go-modules" >/dev/null)
-cp "$root/backend/web/vendor/NOTICE" "$out/web-vendor/NOTICE"
-cp -R "$root/backend/web/vendor/licenses" "$out/web-vendor/licenses"
+cp "$root/backend/web/assets/NOTICE" "$out/web-vendor/NOTICE"
+cp -R "$root/backend/web/assets/licenses" "$out/web-vendor/licenses"
 cp "$root/backend/internal/render/themes/default/assets/fonts/OFL.txt" "$out/fonts/OFL.txt"
 cp "$root/backend/web/admin/fonts/OFL-Inter.txt" "$root/backend/web/admin/fonts/OFL-JetBrainsMono.txt" "$out/fonts/"
