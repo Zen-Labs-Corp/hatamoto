@@ -374,6 +374,14 @@ func TestReviewGateUnchangedFieldsAreNotUnsupported(t *testing.T) {
 	if unsupportedForReview(bare, &UpdateEntityInput{ClearAuthor: true, ClearBylinePerson: true, ClearParent: true}) {
 		t.Error("clearing fields that are already empty was refused")
 	}
+	// "No author" on a row credited to an organisation or to a person without a
+	// user account (no AuthorID) is still a byline change.
+	nobody := uuid.New()
+	for name, row := range map[string]*Entity{"org": {BylineOrg: true}, "person": {BylinePersonID: &nobody}} {
+		if !unsupportedForReview(row, &UpdateEntityInput{ClearAuthor: true}) {
+			t.Errorf("clearing the %s byline was not refused", name)
+		}
+	}
 	other := jsontext.Value(`{"k":2}`)
 	if !unsupportedForReview(e, &UpdateEntityInput{Metadata: &other}) {
 		t.Error("changed metadata was not refused")

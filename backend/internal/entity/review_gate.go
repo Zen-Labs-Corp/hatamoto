@@ -167,7 +167,7 @@ func unsupportedForReview(e *Entity, in *UpdateEntityInput) bool {
 	}
 	changedID := func(sent, stored *uuid.UUID) bool { return sent != nil && (stored == nil || *sent != *stored) }
 	return metadataChanged(e.Metadata, in.Metadata) ||
-		changedID(in.AuthorID, e.AuthorID) || (in.ClearAuthor && e.AuthorID != nil) ||
+		changedID(in.AuthorID, e.AuthorID) || (in.ClearAuthor && (e.AuthorID != nil || e.BylinePersonID != nil || e.BylineOrg)) ||
 		changedID(in.BylinePersonID, e.BylinePersonID) || (in.ClearBylinePerson && e.BylinePersonID != nil) ||
 		(in.BylineOrg != nil && *in.BylineOrg != e.BylineOrg) ||
 		(in.ClearParent && e.ParentID != nil)
