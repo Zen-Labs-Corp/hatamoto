@@ -127,6 +127,37 @@ func TestPlanKeyUsesCreatorRole(t *testing.T) {
 	}
 }
 
+func TestPlanPolicySeesLocaleAndSection(t *testing.T) {
+	authztest.Use(t, &authztest.Recorder{})
+	reviewstate.Reset()
+	t.Cleanup(reviewstate.Reset)
+	var seen reviewstate.Edit
+	reviewstate.Register(policyFunc(func(_ context.Context, e reviewstate.Edit) ([]reviewstate.Stage, error) {
+		seen = e
+		return nil, nil
+	}))
+	f := &Flow{Switch: fakeSwitch{on: true}, Section: func(context.Context, *entity.Entity) string { return "/pricing" }}
+	if _, err := f.Plan(session("author"), testEntity(), entity.ReviewEdit); err != nil {
+		t.Fatal(err)
+	}
+	if seen.Locale != "en" || seen.Section != "/pricing" {
+		t.Fatalf("policy saw Locale %q, Section %q", seen.Locale, seen.Section)
+	}
+}
+
+func TestPlanNoPolicySkipsSection(t *testing.T) {
+	authztest.Use(t, &authztest.Recorder{})
+	reviewstate.Reset()
+	t.Cleanup(reviewstate.Reset)
+	f := &Flow{Switch: fakeSwitch{on: true}, Section: func(context.Context, *entity.Entity) string {
+		t.Fatal("Section asked with no policy registered")
+		return ""
+	}}
+	if _, err := f.Plan(session("author"), testEntity(), entity.ReviewEdit); err != nil {
+		t.Fatal(err)
+	}
+}
+
 type policyFunc func(context.Context, reviewstate.Edit) ([]reviewstate.Stage, error)
 
 func (p policyFunc) Stages(ctx context.Context, e reviewstate.Edit) ([]reviewstate.Stage, error) {

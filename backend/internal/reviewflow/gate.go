@@ -56,14 +56,19 @@ func (f *Flow) Plan(ctx context.Context, e *entity.Entity, kind entity.ReviewKin
 	if err != nil {
 		return entity.ReviewPlan{}, fmt.Errorf("failed to check the review bypass: %w", err)
 	}
-	stages, err := reviewstate.StagesFor(ctx, reviewstate.Edit{
+	ed := reviewstate.Edit{
 		Requester:     s.UserID,
 		EntityID:      e.ID.String(),
 		Schema:        schemaSlug(e),
 		RequesterRole: requesterRole(s),
 		Bypass:        bypass,
 		ReviewEnabled: on,
-	})
+		Locale:        e.Locale,
+	}
+	if reviewstate.Registered() && f.Section != nil {
+		ed.Section = f.Section(ctx, e)
+	}
+	stages, err := reviewstate.StagesFor(ctx, ed)
 	if err != nil {
 		return entity.ReviewPlan{}, err
 	}
