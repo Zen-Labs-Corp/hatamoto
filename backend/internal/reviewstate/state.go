@@ -33,6 +33,8 @@ type Edit struct {
 	ReviewEnabled bool   // the site's review switch, filled in by core
 	RequesterRole string // the requester's role ("owner", "editor", ...); a key's creator role
 	Bypass        bool   // the requester may publish without review (core's entity.review.bypass right)
+	Locale        string // the entry's locale as read before the change
+	Section       string // first segment of the entry's public path without the locale prefix ("/pricing"); "" when unknown
 }
 
 // Stage is one ordered review step; Group names who may decide it.
@@ -77,7 +79,7 @@ func Register(p Policy) {
 
 // isNil reports whether p is nil or an interface holding a nil pointer, map,
 // slice, func or chan, which would panic on first use.
-func isNil(p Policy) bool {
+func isNil(p any) bool {
 	if p == nil {
 		return true
 	}
@@ -101,6 +103,8 @@ func Reset() {
 	defer mu.Unlock()
 	frozen = false
 	reg.Store(nil)
+	groups.Store(nil)
+	pendingSrc.Store(nil)
 }
 
 // Registered reports whether a policy is installed. With none, the switch alone

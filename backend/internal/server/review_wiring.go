@@ -4,7 +4,9 @@ import (
 	"context"
 	"strings"
 
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/reviewflow"
+	"hatamoto.dev/core/internal/reviewstate"
 )
 
 // setupReview builds the review flow on the changeset engine and installs it,
@@ -25,6 +27,11 @@ func (s *Server) setupReview() {
 	if s.emailService != nil {
 		f.Mail = s.emailService
 	}
+	if s.db != nil {
+		repo := entity.NewPostgresPublicRepository(s.db)
+		f.Section = func(ctx context.Context, e *entity.Entity) (string, error) { return s.reviewSection(ctx, repo, e) }
+	}
+	reviewstate.SetPendingSource(reviewflow.PendingSource(s.changesets))
 	s.reviewFlow = f
 	s.entityService.SetReviewGate(&reviewflow.AgentGate{Inner: f})
 }

@@ -393,3 +393,165 @@ func TestApprovedPublishNowResetsAFuturePublishedAt(t *testing.T) {
 		t.Fatalf("after approval status = %s, published_at = %v; want published now", live.Status, live.PublishedAt)
 	}
 }
+
+// chainPolicy holds every change at Legal, then Brand.
+type chainPolicy struct{}
+
+func (chainPolicy) Stages(context.Context, reviewstate.Edit) ([]reviewstate.Stage, error) {
+	return []reviewstate.Stage{{Name: "Legal", Group: "legal"}, {Name: "Brand", Group: "brand"}}, nil
+}
+
+// memberResolver answers from a userID -> group map; err and panics make it fail.
+type memberResolver struct {
+	members map[string]string
+	err     error
+	panics  bool
+}
+
+func (m memberResolver) MayDecide(_ context.Context, userID, _, group, _ string) (bool, error) {
+	if m.panics {
+		panic("boom")
+	}
+	if m.err != nil {
+		return false, m.err
+	}
+	return m.members[userID] == group, nil
+}
+
+// everyone says yes to every user and group.
+type everyone struct{}
+
+func (everyone) MayDecide(context.Context, string, string, string, string) (bool, error) {
+	return true, nil
+}
+
+func TestGroupChainLegalThenBrand(t *testing.T) {
+	f := newFixture(t)
+	reviewstate.Register(chainPolicy{})
+	reviewstate.RegisterGroups(memberResolver{members: map[string]string{f.editor.String(): "legal", f.owner.String(): "brand"}})
+	e := f.publishedBy(f.author, false)
+	cs := f.sendEdit(e, "two")
+
+	if _, err := f.flow.Approve(f.as(f.owner, "owner"), cs, ""); !errors.Is(err, reviewflow.ErrNotDecider) {
+		t.Fatalf("owner at stage 1: err = %v, want ErrNotDecider", err)
+	}
+	out, err := f.flow.Approve(f.as(f.editor, "editor"), cs, "")
+	if err != nil || !out.Pending || out.Published {
+		t.Fatalf("editor at stage 1 = %+v, %v; want pending", out, err)
+	}
+	if _, err := f.flow.Approve(f.as(f.editor, "editor"), cs, ""); !errors.Is(err, reviewflow.ErrNotDecider) {
+		t.Fatalf("editor at stage 2: err = %v, want ErrNotDecider", err)
+	}
+	out, err = f.flow.Approve(f.as(f.owner, "owner"), cs, "")
+	if err != nil || !out.Published {
+		t.Fatalf("owner at stage 2 = %+v, %v; want published", out, err)
+	}
+	if got := f.content(e); got != "two" {
+		t.Fatalf("live after the chain = %s, want two", got)
+	}
+}
+
+func TestGroupResolverErrorDenies(t *testing.T) {
+	f := newFixture(t)
+	f.requireResolverDenies(memberResolver{err: errors.New("directory down")})
+}
+
+func TestGroupResolverPanicDenies(t *testing.T) {
+	f := newFixture(t)
+	f.requireResolverDenies(memberResolver{panics: true})
+}
+
+// requireResolverDenies checks that a failing resolver refuses Approve and SendBack and leaves the change untouched.
+func (f *fixture) requireResolverDenies(r reviewstate.GroupResolver) {
+	f.t.Helper()
+	reviewstate.Register(chainPolicy{})
+	reviewstate.RegisterGroups(r)
+	cs := f.sendEdit(f.publishedBy(f.author, false), "two")
+	if _, err := f.flow.Approve(f.as(f.owner, "owner"), cs, ""); !errors.Is(err, reviewflow.ErrNotDecider) {
+		f.t.Fatalf("Approve err = %v, want ErrNotDecider", err)
+	}
+	if err := f.flow.SendBack(f.as(f.owner, "owner"), cs, "no"); !errors.Is(err, reviewflow.ErrNotDecider) {
+		f.t.Fatalf("SendBack err = %v, want ErrNotDecider", err)
+	}
+	h, _, err := f.eng.Get(context.Background(), cs)
+	if err != nil || h.State != changeset.StateStaged {
+		f.t.Fatalf("changeset = %+v, %v; want staged", h, err)
+	}
+	if ds, err := f.eng.StageDecisions(context.Background(), cs); err != nil || len(ds) != 0 {
+		f.t.Fatalf("decisions = %+v, %v; want none", ds, err)
+	}
+}
+
+func TestGroupResolverNeverLetsRequesterDecide(t *testing.T) {
+	f := newFixture(t)
+	reviewstate.Register(chainPolicy{})
+	reviewstate.RegisterGroups(everyone{})
+	cs := f.sendEdit(f.publishedBy(f.author, false), "two")
+	if _, err := f.flow.Approve(f.as(f.author, "author"), cs, ""); !errors.Is(err, changeset.ErrSelfDecision) {
+		t.Fatalf("Approve own change err = %v, want ErrSelfDecision", err)
+	}
+}
+
+func TestGroupResolverStillNeedsDecideRight(t *testing.T) {
+	f := newFixture(t)
+	reviewstate.Register(chainPolicy{})
+	reviewstate.RegisterGroups(everyone{})
+	e := f.publishedBy(f.editor, false)
+	_, err := f.ent.UpdateEntity(f.as(f.editor, "editor"), e.ID, &f.editor, attrs("two"))
+	var sent *entity.SentForReviewError
+	if !errors.As(err, &sent) {
+		t.Fatalf("UpdateEntity err = %v, want a SentForReviewError", err)
+	}
+	if _, err := f.flow.Approve(f.as(f.author, "author"), sent.ChangesetID, ""); !errors.Is(err, reviewflow.ErrNotDecider) {
+		t.Fatalf("author Approve err = %v, want ErrNotDecider", err)
+	}
+}
+
+func TestPendingStages(t *testing.T) {
+	f := newFixture(t)
+	reviewstate.SetPendingSource(reviewflow.PendingSource(f.eng))
+	reviewstate.Register(chainPolicy{})
+	reviewstate.RegisterGroups(memberResolver{members: map[string]string{f.editor.String(): "legal", f.owner.String(): "brand"}})
+	ctx := context.Background()
+	find := func(cs int64) (reviewstate.PendingStage, bool) {
+		rows, err := reviewstate.Pending(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, r := range rows {
+			if r.ChangesetID == cs {
+				return r, true
+			}
+		}
+		return reviewstate.PendingStage{}, false
+	}
+
+	e := f.publishedBy(f.author, false)
+	cs := f.sendEdit(e, "two")
+	p, ok := find(cs)
+	if !ok || p.Index != 0 || p.Total != 2 || p.Stage.Name != "Legal" || p.Stage.Group != "legal" ||
+		!p.EnteredAt.Equal(p.RequestedAt) || p.Schema != f.schema.Slug || p.EntityID != e.ID.String() || p.Requester != f.author.String() {
+		t.Fatalf("pending after send = %+v, %v", p, ok)
+	}
+	if _, err := f.flow.Approve(f.as(f.editor, "editor"), cs, ""); err != nil {
+		t.Fatal(err)
+	}
+	p2, ok := find(cs)
+	if !ok || p2.Index != 1 || p2.Stage.Name != "Brand" || p2.EnteredAt.Before(p2.RequestedAt) {
+		t.Fatalf("pending after legal = %+v, %v", p2, ok)
+	}
+	if _, err := f.flow.Approve(f.as(f.owner, "owner"), cs, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := find(cs); ok {
+		t.Fatal("a published edit is still pending")
+	}
+
+	back := f.sendEdit(e, "three")
+	if err := f.flow.SendBack(f.as(f.editor, "editor"), back, "no"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := find(back); ok {
+		t.Fatal("a sent-back edit is still pending")
+	}
+}

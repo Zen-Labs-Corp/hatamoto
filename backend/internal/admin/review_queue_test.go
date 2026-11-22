@@ -12,11 +12,13 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/reviewstate"
 	"hatamoto.dev/core/internal/user"
 )
 
-func (f *fakeReviewFlow) Queue(context.Context, int, int) ([]PendingEdit, int, error) {
-	return f.queue, len(f.queue), nil
+func (f *fakeReviewFlow) Queue(_ context.Context, limit, offset int) ([]PendingEdit, int, error) {
+	lo := min(offset, len(f.queue))
+	return f.queue[lo:min(lo+limit, len(f.queue))], len(f.queue), nil
 }
 
 func (f *fakeReviewFlow) Count(context.Context) (int, error) { return len(f.queue), nil }
@@ -274,4 +276,86 @@ func TestReviewFailedSendBackDoesNotSayPublished(t *testing.T) {
 	next := r.next(rec, "/admin/review/7")
 	has(t, next, "The decision could not be saved. Try again.")
 	lacks(t, next, "published")
+}
+
+// setStage puts the change of the rig (id 7) at stage in both the queue and the detail.
+func (r *editQueueRig) setStage(st ReviewStage) {
+	r.rv.queue[0].Stage = st
+	d := r.rv.details[7]
+	d.Stage = st
+	r.rv.details[7] = d
+}
+
+func TestReviewStageLabel(t *testing.T) {
+	r := newEditQueueRig(t)
+	r.setStage(ReviewStage{Index: 0, Total: 2, Name: "Legal", Group: "legal"})
+	has(t, r.get(t, "owner-token", "/admin/review", ""), "Stage 1 of 2: Legal")
+	has(t, r.get(t, "owner-token", "/admin/review/7", ""), "Stage 1 of 2: Legal. Waiting for: group legal.")
+
+	r.setStage(ReviewStage{Index: 0, Total: 1, Name: "Review", Group: "reviewers"})
+	lacks(t, r.get(t, "owner-token", "/admin/review", ""), "Stage 1 of 1")
+	lacks(t, r.get(t, "owner-token", "/admin/review/7", ""), "Stage 1 of 1")
+
+	r.setStage(ReviewStage{Index: 0, Total: 1, Name: "Legal", Group: "legal"})
+	has(t, r.get(t, "owner-token", "/admin/review", ""), "Stage 1 of 1: Legal")
+}
+
+func TestReviewGroupHidesFromNonMembers(t *testing.T) {
+	r := newEditQueueRig(t)
+	r.setStage(ReviewStage{Index: 0, Total: 2, Name: "Legal", Group: "legal"})
+
+	r.rv.groups = map[string]bool{"legal": false}
+	lacks(t, r.get(t, "owner-token", "/admin/review", ""), "New title")
+	if rec := r.do("GET", "/admin/review/7", "owner-token", nil, nil); rec.Code != http.StatusNotFound {
+		t.Errorf("non-member detail = %d, want 404", rec.Code)
+	}
+	body := r.get(t, r.freshToken(r.author.ID), "/admin/review/7", "")
+	has(t, body, "/admin/review/7/withdraw", "Stage 1 of 2: Legal")
+	lacks(t, body, "Approve and publish", `name="comment"`)
+
+	r.rv.groups = map[string]bool{"legal": true}
+	has(t, r.get(t, "owner-token", "/admin/review", ""), "New title")
+	has(t, r.get(t, "owner-token", "/admin/review/7", ""), "Approve and publish", `name="comment"`)
+}
+
+type allowAllGroups struct{}
+
+func (allowAllGroups) MayDecide(context.Context, string, string, string, string) (bool, error) {
+	return true, nil
+}
+
+// With a resolver, a first page of rows the viewer may not see must not hide
+// the later ones: the queue filters before it pages and totals what is visible.
+func TestReviewQueueFiltersBeforePaging(t *testing.T) {
+	reviewstate.Reset()
+	t.Cleanup(reviewstate.Reset)
+	reviewstate.RegisterGroups(allowAllGroups{})
+	r := newEditQueueRig(t)
+	legal, brand := ReviewStage{Total: 2, Name: "Legal", Group: "legal"}, ReviewStage{Index: 1, Total: 2, Name: "Brand", Group: "brand"}
+	base := r.rv.queue[0]
+	r.rv.queue = nil
+	for i := range reviewPerPage + 5 {
+		p := base
+		p.ID, p.EntityName, p.Stage = int64(100+i), "Legal item "+strconv.Itoa(i), legal
+		if i >= reviewPerPage+2 {
+			p.Stage, p.EntityName = brand, "Brand item "+strconv.Itoa(i)
+		}
+		r.rv.queue = append(r.rv.queue, p)
+	}
+	r.rv.groups = map[string]bool{"legal": false, "brand": true}
+	body := r.get(t, "owner-token", "/admin/review", "")
+	has(t, body, "Brand item 27", "Brand item 28", "Brand item 29")
+	lacks(t, body, "Legal item", "Nothing is waiting")
+}
+
+// The notice that the site lacks the group already says who is awaited.
+func TestReviewNeedsGroupOmitsWaitingFor(t *testing.T) {
+	r := newEditQueueRig(t)
+	r.setStage(ReviewStage{Index: 0, Total: 2, Name: "Legal", Group: "legal"})
+	d := r.rv.details[7]
+	d.NeedsGroup = "legal"
+	r.rv.details[7] = d
+	body := r.get(t, "owner-token", "/admin/review/7", "")
+	has(t, body, "Stage 1 of 2: Legal.", "needs the group legal")
+	lacks(t, body, "Waiting for: group")
 }

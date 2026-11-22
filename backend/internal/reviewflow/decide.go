@@ -77,13 +77,43 @@ func subject(ctx context.Context) (authz.Subject, error) {
 	return s, nil
 }
 
-// mayDecide maps a stage group to a right: the default group "reviewers" needs
-// entity.review.decide, any other group names nobody core knows.
+// mayDecide maps a stage group to a right: the default group "reviewers" needs entity.review.decide;
+// any other group needs the right and a yes from the registered group resolver. Without a resolver
+// another group names nobody core knows. A resolver error or panic denies.
 func mayDecide(ctx context.Context, s authz.Subject, group, target string) error {
-	if group != reviewstate.DefaultGroup {
+	if group == reviewstate.DefaultGroup {
+		return mayDecideAny(ctx, s, target)
+	}
+	if !reviewstate.GroupsRegistered() {
 		return fmt.Errorf("%w: %q", ErrUnknownGroup, group)
 	}
-	return mayDecideAny(ctx, s, target)
+	if err := mayDecideAny(ctx, s, target); err != nil {
+		return err
+	}
+	ok, err := reviewstate.MayDecide(ctx, s.UserID, s.Role, group, target)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrNotDecider, err)
+	}
+	if !ok {
+		return fmt.Errorf("%w: not in the group %q", ErrNotDecider, group)
+	}
+	return nil
+}
+
+// GroupAllows reports whether the signed-in subject passes the group part of the decision check for a
+// stage of group on entityID. It is true for the default group and, with no resolver registered, for any
+// group: the decide right alone then opens the review screens and Approve refuses with ErrUnknownGroup.
+// The decide right itself is not checked here. No subject, a resolver error or a panic: false.
+func (f *Flow) GroupAllows(ctx context.Context, group, entityID string) bool {
+	if group == "" || group == reviewstate.DefaultGroup || !reviewstate.GroupsRegistered() {
+		return true
+	}
+	s, err := subject(ctx)
+	if err != nil {
+		return false
+	}
+	ok, err := reviewstate.MayDecide(ctx, s.UserID, s.Role, group, entityID)
+	return err == nil && ok
 }
 
 func mayDecideAny(ctx context.Context, s authz.Subject, target string) error {

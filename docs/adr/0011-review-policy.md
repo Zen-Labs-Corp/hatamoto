@@ -85,7 +85,7 @@ edit may publish at once); review on gives one stage, "Review", for the group
   edit was staged.
 - The reviewer-group check. The engine records a decision for the reviewer it
   is given; that the reviewer belongs to the stage's group is the caller's
-  check.
+  check (see the amendment on reviewer groups below).
 - Any screen or API that stages an edit or records a decision.
 
 ## Consequences
@@ -127,3 +127,29 @@ The first caller of the edit changeset is the entity service, behind one gate.
 - This is the first release that creates edit changesets, so it raises the rollback floor (see
   [Upgrades](../UPGRADES.md)). A binary from before it ignores the review switch, so review would silently turn
   off and changes would be written directly.
+
+## Amendment: reviewer groups and the pending reader (2026-11-22)
+
+The open interface of `hatamoto.dev/core/review` grows; nothing is stored differently.
+
+- `GroupResolver` has one method, `MayDecide(ctx, userID, role, group, entityID) (bool, error)`. A compiled-in
+  module installs one with `RegisterGroups`, from `init` only: it panics after `app.Main` started, on a second
+  call, on nil and on a typed nil.
+- `Edit` gains `Locale` (the entry's locale) and `Section` (first public path segment without the locale
+  prefix, such as `/pricing`; empty when there is none or core cannot tell). `Section` is only worked out while
+  a policy is registered.
+- `PendingStage`, `Pending(ctx)`, `MaxPending` and `ErrUnavailable` give modules a read-only list of staged
+  edits (oldest first, at most `MaxPending`) with the current stage, its 0-based index, the stage count and
+  when the change reached the stage. It checks no rights and works in serve only; elsewhere it returns
+  `ErrUnavailable`. Reminder mail is the module's job (`module/job`, `module/mail`).
+- Fail closed. A stage in the group `reviewers` is decided as before. For any other group the resolver is asked
+  after the decide right `entity.review.decide` is checked; an error, a panic or false refuses the decision.
+  The requester still never decides their own change. A resolver must honour its context: core sets no timeout.
+- Without a resolver nothing changes: a stage naming another group cannot be decided and an owner can discard
+  the change. The free default policy and its single "Review" stage are unchanged.
+- With a resolver, the queue and the change page show a stage only to users the resolver allows. Publish of a
+  fully approved change and discard keep needing only the decide right.
+- The admin shows "Stage n of m: Name" when a change has more than one stage or its stage is not named
+  "Review", and which group the change waits for. A plain one-stage review looks as before.
+- No new table or column: the time a change reached a stage is derived from the request and the decisions.
+- The sidebar count stays the number of changes waiting, not filtered by group.
