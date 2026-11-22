@@ -97,6 +97,9 @@ export const screens = [
   { name: "settings-performance", path: "/admin/settings/performance", mock: null, roles: O },
   { name: "settings-performance-memory", path: "/admin/settings/performance/memory", mock: null, roles: O },
   { name: "settings-updates", path: "/admin/settings/updates", mock: null, roles: O },
+  { name: "settings-review", path: "/admin/settings/review", mock: null, roles: O }, // Settings > Content > Entity models > Review: the switch (off by default; review-edit-flow.mjs seeds it on and walks the whole flow)
+  { name: "review-queue", path: "/admin/review", mock: null, roles: OE, expect: ".hm-empty, #review-queue" }, // the empty state on the default seed; review-edit-flow.mjs fills it
+  { name: "review-detail-missing", path: "/admin/review/0", mock: null, roles: OE, status: 404 }, // a change that is not there; the real detail page needs a waiting change: review-edit-flow.mjs walks it
   { name: "settings-changes", path: "/admin/settings/changes", mock: null, roles: O }, // empty without plugin runs; review-flow.mjs walks the populated page and Undo
   // Pinned by HATAMOTO_ADMIN_PATH in this harness, so the page shows the read-only text. The change and Keep screens
   // need an unpinned install: shots-address.mjs walks them (wizard, change, banner, keep) against a fresh database.
@@ -272,5 +275,6 @@ export const crawlIgnore = [
   { re: /^\/admin\/plugins\/[^/?]+\/changesets\/\d+(\/preview)?$/, reason: "changeset pages need a staged changeset; the seeded instance has none (see Not inventoried above)" },
   { re: /^\/admin\/plugins\/[^/?]+\/automatic$/, reason: "the Automatic updates tab needs a plugin that declares a standing approval; the seeded instance has none (see Not inventoried above)" },
   { re: /^\/admin\/changesets\/\d+\/frame\/\d+\/[^/?]+$/, reason: "the changeset preview frame URL is one-time: a crawl would spend its ticket and a reload is a 404 by design" },
+  { re: /^\/admin\/review\/\d+(\/preview)?$/, reason: "a change's page and preview need a waiting change; the seeded instance has none (review-edit-flow.mjs walks them)" },
   { re: /^\/admin\/plugins\/[^/?]+\/about$/, reason: "the plugin detail page needs a registry entry; the harness has no registry" },
 ];
