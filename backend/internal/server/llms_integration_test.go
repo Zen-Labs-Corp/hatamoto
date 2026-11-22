@@ -25,6 +25,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -389,5 +390,35 @@ func TestLLMsRequestDerivedBaseNotRecorded(t *testing.T) {
 	}
 	if st.LLMsChangedAt != nil || st.FullChangedAt != nil || len(st.Snapshot) != 0 {
 		t.Errorf("a Host-derived build was recorded: %+v", st)
+	}
+}
+
+// The full file's first pass reads names only: its cap bounds the work only if
+// no description is cut for every listed page first.
+func TestLLMsFullFirstPassReadsNamesOnly(t *testing.T) {
+	e := newLLMsEnv(t, llmsOpts{})
+	described := func(allPosts bool) (items, withDesc int) {
+		m, err := e.srv.loadLLMs(e.ctx, "https://acme.example", seo.AIFiles{}, allPosts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, sec := range m.sections {
+			for _, it := range sec.Items {
+				if it.Name == "" || it.Name == it.Path {
+					t.Errorf("item %q has no title", it.Path)
+				}
+				items++
+				if it.Desc != "" || it.Job != "" {
+					withDesc++
+				}
+			}
+		}
+		return items, withDesc
+	}
+	if _, n := described(false); n == 0 {
+		t.Fatal("control: the index model carries no descriptions")
+	}
+	if items, n := described(true); items == 0 || n != 0 {
+		t.Errorf("full model: %d items, %d described, want none described", items, n)
 	}
 }

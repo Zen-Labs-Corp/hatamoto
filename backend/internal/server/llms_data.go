@@ -110,7 +110,13 @@ func (s *Server) loadLLMs(ctx context.Context, base string, set seo.AIFiles, all
 		refs = limitPosts(refs, isPost, set.EffectivePosts())
 	}
 
-	ents, err := s.loadLLMsEnts(ctx, locales, refs)
+	// The full file reads each body again later, under its cap, and never prints
+	// a description: its first pass only needs what ordering and titles use.
+	loadEnts := s.loadLLMsEnts
+	if allPosts {
+		loadEnts = s.loadLLMsNames
+	}
+	ents, err := loadEnts(ctx, locales, refs)
 	if err != nil {
 		return nil, err
 	}
@@ -460,6 +466,30 @@ func (s *Server) loadLLMsEnts(ctx context.Context, locales *entity.LocaleSet, re
 		}
 		for _, e := range got {
 			out[e.ID] = describeEntity(e, resolver)
+		}
+		ids = ids[n:]
+	}
+	return out, nil
+}
+
+// loadLLMsNames is loadLLMsEnts with names only (title and schema name): no
+// attributes are read and no description is cut.
+func (s *Server) loadLLMsNames(ctx context.Context, locales *entity.LocaleSet, refs []llmsRef) (map[uuid.UUID]llmsEnt, error) {
+	ctx = llmsCtx(ctx, locales)
+	repo := entity.NewPostgresPublicRepository(s.db)
+	out := make(map[uuid.UUID]llmsEnt, len(refs))
+	ids := make([]uuid.UUID, 0, len(refs))
+	for _, r := range refs {
+		ids = append(ids, r.entry.ID)
+	}
+	for len(ids) > 0 {
+		n := min(llmsBatch, len(ids))
+		got, err := repo.GetPublishedNames(ctx, ids[:n])
+		if err != nil {
+			return nil, err
+		}
+		for id, nm := range got {
+			out[id] = llmsEnt{name: strings.TrimSpace(nm.Name), schema: nm.SchemaName}
 		}
 		ids = ids[n:]
 	}
