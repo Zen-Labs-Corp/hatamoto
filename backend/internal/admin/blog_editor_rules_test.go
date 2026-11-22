@@ -27,7 +27,8 @@ func TestBlogEditorRules(t *testing.T) {
 	t.Run("a contributor on their own draft gets a placeholder instead of Publish", func(t *testing.T) {
 		_, path := blogRulesPost(c, contrib, entity.StatusDraft)
 		body := c.get(t, c.freshToken(contrib.ID), path, "")
-		has(t, body, `<span>Save draft</span>`, `<span>Send for review</span>`, `aria-disabled="true"`, `data-hm-review-placeholder`, `id="be-review-why"`, `An editor or reviewer publishes drafts.`)
+		has(t, body, `<span>Save draft</span>`, `<span>Send for review</span>`, `aria-disabled="true"`, `data-hm-review-placeholder`, `id="be-review-why"`, `An editor or reviewer publishes drafts.`, `Review is off. An editor or reviewer publishes this draft.`)
+		lacks(t, body, `Reviews are not available yet`)
 		lacks(t, body, `value="publish"`, `data-hm-be-schedule`, `data-hm-be-proxy="schedule"`, `data-hm-be-sched`, `name="schedule"`, `value="scheduled"`)
 	})
 

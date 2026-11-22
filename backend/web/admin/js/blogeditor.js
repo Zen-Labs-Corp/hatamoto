@@ -178,6 +178,7 @@ export class BlogEditor {
     this.fetch = f;
     this.id = form.dataset.hmEntity;
     this.status = form.dataset.hmStatus;
+    this.update = form.dataset.hmReview ? "Send for review" : "Update";
     this.version = Number(form.elements.namedItem("version").value);
     this.title = form.elements.namedItem("name");
     this.body = form.elements.namedItem("content");
@@ -260,7 +261,7 @@ export class BlogEditor {
     if (res.status === 409 && body.conflict) return { conflict: true, version: body.version, message: body.error };
     if (res.status === 409) {
       // Published or scheduled elsewhere: nothing was saved, and nothing will be until the writer acts.
-      return { stop: true, message: "This post was published in another tab; your changes are not saved. Update to apply them." };
+      return { stop: true, message: `This post was published in another tab; your changes are not saved. ${this.update} to apply them.` };
     }
     if (res.ok && body.ok) {
       // Saved: the kept copy is redundant unless the writer has typed since.
@@ -475,7 +476,7 @@ export class BlogEditor {
     if (mod && !e.shiftKey && e.key.toLowerCase() === "s") {
       e.preventDefault();
       if (this.autosave) this.autosave.flush();
-      else this.notify("Press Update to save changes to a published post.");
+      else this.notify(`Press ${this.update} to save changes to a published post.`);
     } else if (mod && e.shiftKey && e.key.toLowerCase() === "f") {
       e.preventDefault();
       this.focusMode(!this.form.hasAttribute("data-hm-focus"));
@@ -805,7 +806,7 @@ export class BlogEditor {
       if (document.scrollingElement) document.scrollingElement.scrollTop = top;
       li.dataset.done = "";
       btn.replaceWith(Object.assign(document.createElement("span"), { className: "hm-be__link-why", textContent: "Linked" }));
-      this.notify(`Linked “${r.anchor}” to ${r.target_name}. ${this.status === "draft" ? "It saves with the draft." : "Press Update to save it."}`);
+      this.notify(`Linked “${r.anchor}” to ${r.target_name}. ${this.status === "draft" ? "It saves with the draft." : `Press ${this.update} to save it.`}`);
       li.parentElement?.querySelector("button")?.focus();
     });
     li.append(btn);

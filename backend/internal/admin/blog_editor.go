@@ -489,6 +489,9 @@ func (a *Admin) buildBlogView(r *http.Request, e *entity.Entity, sc *entity.Enti
 		authorID = bylineValue(e)
 	}
 	if full {
+		if !f.reviewDone {
+			f.Review, f.reviewDone = a.reviewStateFor(r, e), true
+		}
 		a.fill(r, f, sc, e, "", authorID, p.picked)
 	}
 	f.ShowParent = false
@@ -570,8 +573,10 @@ func (a *Admin) renderBlog(w http.ResponseWriter, r *http.Request, status int, d
 
 // handleBlogEditor is GET /admin/entities/{id}/edit for post types.
 func (a *Admin) handleBlogEditor(w http.ResponseWriter, r *http.Request, e *entity.Entity, sc *entity.EntitySchema) {
+	rs := a.reviewStateFor(r, e)
+	e = withPendingChange(e, rs) // the requester edits their own waiting change
 	attrs := attrsMap(e.Attributes)
-	p := &posted{picked: map[string]bool{}, attrs: attrs, f: &entityForm{Name: e.Name, Slug: e.Slug, Status: string(e.Status), SEO: seoFrom(attrs), Errors: map[string]string{}}}
+	p := &posted{picked: map[string]bool{}, attrs: attrs, f: &entityForm{Name: e.Name, Slug: e.Slug, Status: string(e.Status), SEO: seoFrom(attrs), Errors: map[string]string{}, Review: rs, reviewDone: true}}
 	if c := a.deps.Content; c.Terms != nil {
 		if ts, err := c.Terms.ListTermsForEntity(r.Context(), e.ID); err == nil {
 			for _, t := range ts {
@@ -634,6 +639,10 @@ func (a *Admin) handleBlogSave(w http.ResponseWriter, r *http.Request, e *entity
 			a.notFound(w, r, "Entity", a.adminPath+"/entities", "Back to entities")
 			return
 		}
+		if a.sentForReviewAt(w, r, a.adminPath+"/entities/"+e.ID.String()+"/edit", err) {
+			a.dropRecovery(r.Context(), actorID(r), e.ID)
+			return
+		}
 		if a.refuseNotAllowed(w, r, err) {
 			return
 		}
@@ -654,7 +663,7 @@ func (a *Admin) handleBlogSave(w http.ResponseWriter, r *http.Request, e *entity
 		msg = "Saved and published."
 	}
 	if note := a.afterSave(r, p, updated, sc, e.Status); note != "" {
-		msg, kind = "Saved. "+note, "error"
+		msg, kind = "Saved. "+note, noteKind(note)
 	}
 	if updated.TookOwnership {
 		msg += " " + a.tookOverNote(r, e.ID)
