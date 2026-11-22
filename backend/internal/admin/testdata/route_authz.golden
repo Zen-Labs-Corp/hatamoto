@@ -194,7 +194,6 @@ GET /admin/settings/seo anon=303 editor=403 owner=302
 GET /admin/settings/seo/404-monitor anon=303 editor=403 owner=503
 GET /admin/settings/seo/404-monitor/delete-all anon=303 editor=403 owner=503
 GET /admin/settings/seo/ads-txt anon=303 editor=403 owner=503
-GET /admin/settings/seo/ai-files anon=303 editor=403 owner=503
 GET /admin/settings/seo/breadcrumbs anon=303 editor=403 owner=503
 GET /admin/settings/seo/general anon=303 editor=403 owner=503
 GET /admin/settings/seo/indexnow anon=303 editor=403 owner=503
@@ -473,7 +472,6 @@ POST /admin/settings/security/admin-address/keep anon=303 editor=403 owner=503
 POST /admin/settings/seo/404-monitor anon=303 editor=403 owner=503
 POST /admin/settings/seo/404-monitor/delete-all anon=303 editor=403 owner=503
 POST /admin/settings/seo/ads-txt anon=303 editor=403 owner=503
-POST /admin/settings/seo/ai-files anon=303 editor=403 owner=503
 POST /admin/settings/seo/breadcrumbs anon=303 editor=403 owner=503
 POST /admin/settings/seo/general anon=303 editor=403 owner=503
 POST /admin/settings/seo/indexnow anon=303 editor=403 owner=503

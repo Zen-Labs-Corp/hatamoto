@@ -50,7 +50,7 @@ var ErrRefused = errors.New("static export refused")
 // optionalSeeds may answer 404 without failing the export: the site simply
 // has no such file.
 var optionalSeeds = map[string]bool{
-	"/llms.txt": true, "/llms-full.txt": true, "/ads.txt": true, "/app-ads.txt": true, "/feed.xml": true, "/atom.xml": true,
+	"/ads.txt": true, "/app-ads.txt": true, "/feed.xml": true, "/atom.xml": true,
 	"/favicon.ico": true, "/favicon-16.png": true, "/favicon-32.png": true,
 	"/apple-icon.png": true, "/icon-192.png": true, "/icon-512.png": true,
 }

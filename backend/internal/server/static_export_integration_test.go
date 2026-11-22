@@ -262,7 +262,7 @@ func TestStaticExport_A1_EqualsLive(t *testing.T) {
 
 	// The inventory.
 	for _, want := range []string{
-		"index.html", "sitemap.xml", "sitemap.xsl", "robots.txt", "llms.txt", "llms-full.txt", "feed.xml", "atom.xml",
+		"index.html", "sitemap.xml", "sitemap.xsl", "robots.txt", "llms.txt", "feed.xml", "atom.xml",
 		"api/v1/public/knowledge-graph", "404.html", staticexport.RedirectsFile, staticexport.ManifestFile,
 		strings.TrimPrefix(x.base, "/") + "/index.html",
 		strings.TrimPrefix(x.base, "/") + "/p1/index.html",

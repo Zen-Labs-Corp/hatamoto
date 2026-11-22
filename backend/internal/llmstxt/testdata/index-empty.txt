@@ -1,5 +1,0 @@
-# acme.example
-
-## Optional
-- [Knowledge graph](https://acme.example/api/v1/public/knowledge-graph): JSON-LD
-- [Sitemap](https://acme.example/sitemap.xml)

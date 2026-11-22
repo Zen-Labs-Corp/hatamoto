@@ -84,7 +84,6 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 		sitemap:            s.handlePublicSitemap,
 		subSitemap:         s.handlePublicSubSitemap,
 		llms:               s.handleLLMsTxt,
-		llmsFull:           s.handleLLMsFullTxt,
 		adsTxt:             s.handleAdsTxt(false),
 		appAdsTxt:          s.handleAdsTxt(true),
 		feed:               s.handleFeed,
@@ -128,8 +127,6 @@ type renderRoutes struct {
 	sitemap    http.HandlerFunc
 	subSitemap http.HandlerFunc
 	llms       http.HandlerFunc
-	// llmsFull (optional) serves /llms-full.txt.
-	llmsFull http.HandlerFunc
 	// adsTxt and appAdsTxt (optional) serve /ads.txt and /app-ads.txt.
 	adsTxt, appAdsTxt http.HandlerFunc
 	feed              http.HandlerFunc
@@ -189,9 +186,6 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 	captured.HandleFunc("GET /robots.txt", rt.robots)
 	captured.HandleFunc("GET /sitemap.xml", rt.sitemap)
 	captured.HandleFunc("GET /llms.txt", rt.llms)
-	if rt.llmsFull != nil {
-		captured.HandleFunc("GET /llms-full.txt", rt.llmsFull)
-	}
 	if rt.adsTxt != nil {
 		captured.HandleFunc("GET /ads.txt", rt.adsTxt)
 	}

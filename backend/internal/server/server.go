@@ -51,7 +51,6 @@ import (
 	"hatamoto.dev/core/internal/importjob"
 	"hatamoto.dev/core/internal/indexnow"
 	"hatamoto.dev/core/internal/installstats"
-	"hatamoto.dev/core/internal/llmstxt"
 	"hatamoto.dev/core/internal/mailsettings"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/media/modern"
@@ -124,16 +123,6 @@ type Server struct {
 
 	// Infrastructure
 	infra *Infrastructure
-
-	// aiFilesState remembers what llms.txt and llms-full.txt last held; nil in
-	// tests that skip it. The flights share one build of each file between
-	// concurrent cache misses.
-	aiFilesState   *llmstxt.Store
-	llmsFlight     database.Flight[llmsResult]
-	llmsFullFlight database.Flight[llmsResult]
-	// llmsHostMu serialises the builds of requests whose host differs from the
-	// shared build's (only possible when no site address is configured).
-	llmsHostMu sync.Mutex
 
 	// Services
 	authService *auth.Service
@@ -551,7 +540,6 @@ func (s *Server) setupDependencies() {
 	s.formService = form.NewService(formRepo, s.logger)
 	attachFormFileStore(s.formService, s.logger, s.cfg.Server.FormUploadMaxTotalBytes())
 	s.seoStore = seo.NewStore(s.db.Pool())
-	s.aiFilesState = llmstxt.NewStore(s.db.Pool())
 	s.consentStore = consent.NewStore(s.db.Pool())
 	s.consentCounter = consent.NewCounter(s.db.Pool())
 	s.tagsStore = tags.NewStore(s.db.Pool())

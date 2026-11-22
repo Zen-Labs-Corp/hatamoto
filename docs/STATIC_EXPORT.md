@@ -57,8 +57,7 @@ site only).
   `/blog/page/2/`; `?page=1` points at the listing itself. The run counts them
   apart from pages (`+N listing pages`).
 - `sitemap.xml`, its child sitemaps and `sitemap.xsl`.
-- `feed.xml`, `atom.xml`, `robots.txt`, `llms.txt` and `llms-full.txt`. A file that is
-  switched off (SEO > AI files) answers 404 on the live site, so the export skips it.
+- `feed.xml`, `atom.xml`, `robots.txt`, `llms.txt`.
 - The knowledge graph at `api/v1/public/knowledge-graph` (an extensionless
   file; its Content-Type comes from the live answer).
 - `ads.txt` and `app-ads.txt` when they are not empty, the root icons, and the

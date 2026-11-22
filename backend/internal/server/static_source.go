@@ -98,7 +98,7 @@ func (src *staticSource) Seeds(ctx context.Context) ([]string, error) {
 		}
 	}
 	paths := preloadPathsFromLocs(base, locs)
-	paths = append(paths, "/", "/robots.txt", "/sitemap.xml", "/sitemap.xsl", "/llms.txt", "/llms-full.txt",
+	paths = append(paths, "/", "/robots.txt", "/sitemap.xml", "/sitemap.xsl", "/llms.txt",
 		"/feed.xml", "/atom.xml", "/ads.txt", "/app-ads.txt")
 	for _, icon := range render.RootIcons {
 		paths = append(paths, "/"+icon)

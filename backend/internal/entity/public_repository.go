@@ -271,44 +271,6 @@ func (r *PostgresPublicRepository) GetPublishedByIDs(ctx context.Context, ids []
 	return entities, nil
 }
 
-// PublishedName is the title of a published entity and its schema's name.
-type PublishedName struct {
-	Name, SchemaName string
-}
-
-// GetPublishedNames is GetPublishedByIDs reduced to names: no attributes,
-// metadata or schema JSON are read. The same published, hidden-person and
-// visible-locale rules apply.
-func (r *PostgresPublicRepository) GetPublishedNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]PublishedName, error) {
-	out := make(map[uuid.UUID]PublishedName, len(ids))
-	if len(ids) == 0 {
-		return out, nil
-	}
-	conn, err := r.db.GetConn(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to acquire connection: %w", err)
-	}
-	defer conn.Release()
-	rows, err := conn.Query(ctx, `
-		SELECT e.id, e.name, s.name
-		FROM hatamoto_entities e
-		JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
-		WHERE e.id = ANY($1) AND e.status = 'published' AND `+HiddenPersonFor("$2"), ids, VisibleLocales(ctx))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get published names: %w", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var id uuid.UUID
-		var n PublishedName
-		if err := rows.Scan(&id, &n.Name, &n.SchemaName); err != nil {
-			return nil, fmt.Errorf("failed to scan name: %w", err)
-		}
-		out[id] = n
-	}
-	return out, rows.Err()
-}
-
 // ListPublished retrieves paginated published base entities by schema.
 func (r *PostgresPublicRepository) ListPublished(ctx context.Context, schemaSlug string, page, perPage int) (*PublicPagedResult, error) {
 	return r.ListPublishedBySchemas(ctx, []string{schemaSlug}, page, perPage)
