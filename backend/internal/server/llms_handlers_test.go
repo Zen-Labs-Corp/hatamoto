@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -142,6 +143,49 @@ func TestLLMsJoinerDoesNotCacheBuildFromBeforePurge(t *testing.T) {
 	<-done
 	if body, _ := s.infra.Cache.Get(context.Background(), cache.RenderedPageKey("llms:http://acme.example", "/llms.txt")); body != nil {
 		t.Fatalf("a build from before the purge was cached: %q", body)
+	}
+}
+
+// Joiners on other hosts (no site address configured) rebuild one at a time.
+func TestLLMsOtherHostRebuildsAreSerialised(t *testing.T) {
+	s := llmsTestServer(`{}`)
+	release := make(chan struct{})
+	var active, peak atomic.Int32
+	build := func(ctx context.Context, base string, _ seo.AIFiles) (llmsResult, error) {
+		if base == "http://a.example" { // the shared build
+			<-release
+			return llmsResult{base: base, body: []byte("a")}, nil
+		}
+		n := active.Add(1)
+		defer active.Add(-1)
+		for {
+			p := peak.Load()
+			if n <= p || peak.CompareAndSwap(p, n) {
+				break
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+		return llmsResult{base: base, body: []byte(base)}, nil
+	}
+	var wg sync.WaitGroup
+	for _, host := range []string{"a", "b", "c", "d"} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			w := httptest.NewRecorder()
+			s.serveLLMsWith(w, httptest.NewRequest(http.MethodGet, "http://"+host+".example/llms.txt", nil), false, build)
+		}()
+		if host == "a" {
+			time.Sleep(20 * time.Millisecond) // a leads
+		}
+	}
+	if !s.llmsFlight.WaitForWaiters(4, 5*time.Second) {
+		t.Fatal("the requests never joined the build")
+	}
+	close(release)
+	wg.Wait()
+	if peak.Load() != 1 {
+		t.Fatalf("%d other-host builds ran at once, want 1", peak.Load())
 	}
 }
 

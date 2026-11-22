@@ -131,6 +131,9 @@ type Server struct {
 	aiFilesState   *llmstxt.Store
 	llmsFlight     database.Flight[llmsResult]
 	llmsFullFlight database.Flight[llmsResult]
+	// llmsHostMu serialises the builds of requests whose host differs from the
+	// shared build's (only possible when no site address is configured).
+	llmsHostMu sync.Mutex
 
 	// Services
 	authService *auth.Service

@@ -51,8 +51,11 @@ func (s *Server) aiFilesSettings(ctx context.Context) seo.AIFiles {
 }
 
 func (s *Server) serveLLMs(w http.ResponseWriter, r *http.Request, full bool) {
+	configured := s.configuredBaseURL(r)
 	s.serveLLMsWith(w, r, full, func(ctx context.Context, base string, set seo.AIFiles) (llmsResult, error) {
-		return s.buildLLMsFile(ctx, base, set, full)
+		// A base taken from the Host header is served but never recorded: the
+		// stored hash and "last updated" would move with whoever asked last.
+		return s.buildLLMsFile(ctx, base, set, full, base == configured)
 	})
 }
 
@@ -94,7 +97,11 @@ func (s *Server) serveLLMsWith(w http.ResponseWriter, r *http.Request, full bool
 	}
 	res, err := flight.Do(ctx, build)
 	if err == nil && res.base != base {
-		res, err = build(ctx) // joined a build made for another host
+		// Joined a build made for another host: build our own, one at a time,
+		// so varying the Host header cannot start parallel builds.
+		s.llmsHostMu.Lock()
+		res, err = build(ctx)
+		s.llmsHostMu.Unlock()
 	}
 	if err != nil {
 		name := "llms.txt"
@@ -112,8 +119,9 @@ func (s *Server) serveLLMsWith(w http.ResponseWriter, r *http.Request, full bool
 }
 
 // buildLLMsFile builds one file and records its state (hash, size, and for the
-// index the snapshot diff). The state is skipped when the build may be partial.
-func (s *Server) buildLLMsFile(ctx context.Context, base string, set seo.AIFiles, full bool) (llmsResult, error) {
+// index the snapshot diff) when record is set. The state is also skipped when
+// the build may be partial.
+func (s *Server) buildLLMsFile(ctx context.Context, base string, set seo.AIFiles, full, record bool) (llmsResult, error) {
 	res := llmsResult{base: base}
 	if full {
 		body, stats, degraded, err := s.buildLLMsFull(ctx, base, set)
@@ -122,7 +130,7 @@ func (s *Server) buildLLMsFile(ctx context.Context, base string, set seo.AIFiles
 		}
 		res.body = body
 		res.busy = degraded || database.PoolBusyHit(ctx)
-		if !res.busy && s.aiFilesState != nil {
+		if record && !res.busy && s.aiFilesState != nil {
 			if err := s.aiFilesState.RecordFull(ctx, llmsHash(body), stats.Bytes, time.Now().UTC()); err != nil {
 				s.logger.Warn("llms-full: record state", "error", err)
 			}
@@ -135,7 +143,7 @@ func (s *Server) buildLLMsFile(ctx context.Context, base string, set seo.AIFiles
 	}
 	res.body = body
 	res.busy = m.degraded || database.PoolBusyHit(ctx)
-	if !res.busy && s.aiFilesState != nil {
+	if record && !res.busy && s.aiFilesState != nil {
 		snap := llmstxt.SnapshotOf(m.site, m.sections)
 		if err := s.aiFilesState.RecordIndex(ctx, snap, llmsHash(body), len(body), m.excluded, time.Now().UTC()); err != nil {
 			s.logger.Warn("llms: record state", "error", err)

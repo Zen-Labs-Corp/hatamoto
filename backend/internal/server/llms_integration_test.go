@@ -367,3 +367,27 @@ func TestLLMsDegradedNotCachedOrRecorded(t *testing.T) {
 		t.Errorf("a degraded build was recorded: %+v", st)
 	}
 }
+
+// With no site address configured the base comes from the Host header; such a
+// build is served but must not move the stored state.
+func TestLLMsRequestDerivedBaseNotRecorded(t *testing.T) {
+	e := newLLMsEnv(t, llmsOpts{})
+	if _, err := e.pool.Exec(e.ctx, `UPDATE hatamoto_site_config SET public_base_url = ''`); err != nil {
+		t.Fatal(err)
+	}
+	e.srv.siteConfig = siteconfig.NewStore(e.db, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	for _, path := range []string{"/llms.txt", "/llms-full.txt"} {
+		rec := httptest.NewRecorder()
+		e.srv.serveLLMs(rec, httptest.NewRequest("GET", "http://other.example"+path, nil), path == "/llms-full.txt")
+		if rec.Code != 200 || !strings.Contains(rec.Body.String(), "http://other.example") {
+			t.Fatalf("GET %s = %d, body %.200s", path, rec.Code, rec.Body.String())
+		}
+	}
+	st, err := e.srv.aiFilesState.Get(e.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.LLMsChangedAt != nil || st.FullChangedAt != nil || len(st.Snapshot) != 0 {
+		t.Errorf("a Host-derived build was recorded: %+v", st)
+	}
+}
