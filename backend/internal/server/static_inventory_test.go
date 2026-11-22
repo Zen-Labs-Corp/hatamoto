@@ -211,7 +211,7 @@ func TestProxyPathsCoverReservedPrefixes(t *testing.T) {
 	// .well-known is answered by Hatamoto (never exported), so it is proxied.
 	notProxied := map[string]string{
 		"sitemap.xml": "exported", "sitemap": "exported", "robots.txt": "exported",
-		"llms.txt": "exported", "ads.txt": "exported", "app-ads.txt": "exported", "feed": "exported",
+		"llms.txt": "exported", "llms-full.txt": "exported", "ads.txt": "exported", "app-ads.txt": "exported", "feed": "exported",
 		"feed.xml": "exported", "atom.xml": "exported", "favicon.ico": "exported",
 		"health": "operator probe", "ready": "operator probe",
 	}
