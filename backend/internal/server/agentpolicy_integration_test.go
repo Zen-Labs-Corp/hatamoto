@@ -108,6 +108,22 @@ func (e *apEnv) entity(slug string, published bool) *entity.Entity {
 	return ent
 }
 
+// block makes a reusable block written by the owner directly.
+func (e *apEnv) block(slug string) *entity.Entity {
+	e.t.Helper()
+	var schemaID uuid.UUID
+	if err := e.db.Pool().QueryRow(e.ctx, `SELECT id FROM hatamoto_entity_schemas WHERE slug = $1 AND is_builtin`, entity.BlockSchemaSlug).Scan(&schemaID); err != nil {
+		e.t.Fatal(err)
+	}
+	ent, err := e.srv.entityService.CreateEntity(e.ctx, &e.owner.ID, &entity.CreateEntityInput{
+		SchemaID: schemaID, Name: "Block " + slug, Slug: slug + "-" + e.sfx, Attributes: []byte(`{}`)})
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	e.targets = append(e.targets, ent.ID.String())
+	return ent
+}
+
 func (e *apEnv) state(id uuid.UUID) (name, status string, version int) {
 	e.t.Helper()
 	if err := e.db.Pool().QueryRow(e.ctx, `SELECT name, status, version FROM hatamoto_entities WHERE id = $1`, id).Scan(&name, &status, &version); err != nil {
@@ -222,7 +238,9 @@ func TestAgentPolicyDenyEveryWritePath(t *testing.T) {
 	draft := e.entity("deny-publish", false)
 	live := e.entity("deny-live", true)
 	other := e.entity("deny-link", true)
+	block := e.block("deny-block")
 	liveName, liveStatus, liveVersion := e.state(live.ID)
+	blockName, blockStatus, blockVersion := e.state(block.ID)
 
 	// MCP publish.
 	sess := entAuditMCP(t, e.entAuditEnv, k2.PlainKey)
@@ -245,6 +263,9 @@ func TestAgentPolicyDenyEveryWritePath(t *testing.T) {
 		{"status", http.MethodPatch, "/api/v1/entities/" + draft.ID.String() + "/status", `{"status":"published"}`, draft.ID},
 		{"edit", http.MethodPut, "/api/v1/entities/" + live.ID.String(), `{"name":"changed by k2"}`, live.ID},
 		{"restore", http.MethodPost, "/api/v1/entities/" + live.ID.String() + "/restore/1", ``, live.ID},
+		{"unpublish", http.MethodPatch, "/api/v1/entities/" + live.ID.String() + "/status", `{"status":"draft"}`, live.ID},
+		{"archive", http.MethodPatch, "/api/v1/entities/" + live.ID.String() + "/status", `{"status":"archived"}`, live.ID},
+		{"block edit", http.MethodPut, "/api/v1/entities/" + block.ID.String(), `{"name":"changed by k2"}`, block.ID},
 	} {
 		code, raw := e.do(c.method, c.path, []byte(c.body), hdr)
 		if code != http.StatusForbidden || !strings.Contains(string(raw), reason) {
@@ -262,10 +283,15 @@ func TestAgentPolicyDenyEveryWritePath(t *testing.T) {
 		t.Errorf("published entry changed: %s/%s/v%d, was %s/%s/v%d", name, status, version, liveName, liveStatus, liveVersion)
 	}
 
+	if name, status, version := e.state(block.ID); name != blockName || status != blockStatus || version != blockVersion {
+		t.Errorf("block changed: %s/%s/v%d, was %s/%s/v%d", name, status, version, blockName, blockStatus, blockVersion)
+	}
+
 	// One refusal row per refused write, all by the key and marked denied.
 	rows := e.denyRows(id2)
-	// draft: MCP publish + REST status; live: edit, restore, link insert.
-	want := map[string]int{draft.ID.String(): 2, live.ID.String(): 3}
+	// draft: MCP publish + REST status; live: edit, restore, unpublish, archive,
+	// link insert; block: edit.
+	want := map[string]int{draft.ID.String(): 2, live.ID.String(): 5, block.ID.String(): 1}
 	got := map[string]int{}
 	for _, r := range rows {
 		got[r.Target]++

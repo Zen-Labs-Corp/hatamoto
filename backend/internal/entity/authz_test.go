@@ -38,6 +38,7 @@ type authzRig struct {
 	svc    *Service
 	repo   *scheduleRepo
 	schema *EntitySchema
+	sr     *mockSchemaRepository
 }
 
 func newAuthzRig(t *testing.T) *authzRig {
@@ -45,7 +46,7 @@ func newAuthzRig(t *testing.T) *authzRig {
 	sr := newMockSchemaRepository()
 	repo := &scheduleRepo{mockEntityRepository: newMockEntityRepository()}
 	schema := seedSchema(t, sr)
-	return &authzRig{svc: NewService(sr, repo, testLogger()), repo: repo, schema: schema}
+	return &authzRig{svc: NewService(sr, repo, testLogger()), repo: repo, schema: schema, sr: sr}
 }
 
 func (g *authzRig) entity(t *testing.T, creator *uuid.UUID, status EntityStatus) *Entity {

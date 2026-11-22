@@ -46,7 +46,12 @@ The public package `hatamoto.dev/core/agentpolicy` has:
 Only for a write made with an API key that publishes, schedules, restores or
 edits live content (`publish`, `schedule`, `restore`, `edit`), on REST and MCP,
 and for the REST link insert, which edits the source entry directly. Moving an
-entry under another parent is an edit. Drafts are not asked.
+entry under another parent is an edit. Taking live content offline or archiving
+it (`unpublish`) is asked too, and so is an edit of a reusable block, theme part
+or person (`edit`): blocks and theme parts are stored as drafts but show on live
+pages. These three cannot be staged, so `RequireReview` refuses them like a link
+insert. Drafts are not asked. An API key cannot delete entities (no route, and
+the default rules refuse it), so delete is not an action.
 
 ### 3. The three outcomes
 
@@ -97,7 +102,7 @@ that person, not to the key. It works in serve only; elsewhere it returns
 
 ## Not covered
 
-Creating drafts, unpublishing, archiving, media, menus, redirects, terms and
+Creating drafts, media, menus, redirects, terms and
 settings are not asked in this release. The set of actions can grow.
 
 ## Consequences

@@ -4,7 +4,11 @@
 // before: no key is asked anything.
 //
 // The policy is asked only for writes made with an API key (REST and MCP)
-// that publish, schedule, restore or edit live content. People are governed
+// that publish, schedule, restore, unpublish (or archive) or edit live content,
+// or edit a reusable block, theme part or person. Unpublish and the edit of a
+// block, theme part or person cannot be staged: RequireReview refuses them
+// like a Deny, with no reason of its own. An API key cannot delete entities, so
+// delete is not asked. People are governed
 // by roles and review, not by this policy.
 //
 // RequireReview stages the change for the site's reviewers even when the

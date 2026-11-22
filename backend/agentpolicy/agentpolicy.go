@@ -35,6 +35,9 @@ const (
 	ActionSchedule = agentpolicystate.ActionSchedule
 	ActionEdit     = agentpolicystate.ActionEdit
 	ActionRestore  = agentpolicystate.ActionRestore
+	// ActionUnpublish (offline or archive) cannot be staged: RequireReview
+	// refuses it.
+	ActionUnpublish = agentpolicystate.ActionUnpublish
 )
 
 // MaxChanges is the most rows one Changes call returns.

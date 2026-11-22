@@ -49,6 +49,9 @@ const (
 	ActionSchedule = "schedule"
 	ActionEdit     = "edit"
 	ActionRestore  = "restore"
+	// ActionUnpublish takes a live entity offline (to draft) or archives it.
+	// It cannot be staged, so RequireReview refuses it.
+	ActionUnpublish = "unpublish"
 )
 
 var (
