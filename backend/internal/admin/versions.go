@@ -320,6 +320,9 @@ func (a *Admin) handleVersionRestore(w http.ResponseWriter, r *http.Request) {
 	id := e.ID.String()
 	restored, err := a.deps.Content.Entities.RestoreVersion(r.Context(), e.ID, actorID(r), n)
 	if err != nil {
+		if a.sentForReview(w, r, e, err) { // staged: nothing was restored, so nothing is audited
+			return
+		}
 		if a.refuseNotAllowed(w, r, err) {
 			return
 		}
