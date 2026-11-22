@@ -37,7 +37,7 @@ scripts/check-channel-freshness.sh                         backend  ./internal/r
 releases/channels/**                                       backend  ./tools/release
 docker-compose.yml                                         backend  ./app
 backend/cmd/hatamoto/**                                    backend  ./app
-backend/web/vendor/**                                      backend  ./tools/vendor
+backend/web/assets/**                                      backend  ./tools/vendor
 backend/internal/server/admin_*.go                         backend  ./internal/admin
 backend/internal/server/render_admin_handlers.go           backend  ./internal/admin
 scripts/admin-qa/**                                        backend  ./internal/admin

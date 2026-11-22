@@ -19,7 +19,7 @@ import (
 	"hatamoto.dev/core/internal/jsonx"
 )
 
-// vendorManifest is the part of web/vendor/vendor.json the admin needs.
+// vendorManifest is the part of web/assets/vendor.json the admin needs.
 type vendorManifest struct {
 	Assets []struct {
 		Name      string            `json:"name"`

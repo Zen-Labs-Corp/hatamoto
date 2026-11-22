@@ -232,7 +232,7 @@ migrate:
 # --- Guards -----------------------------------------------------------------
 # Neutrality guard (no site-specific names) and the Caddy splice test.
 # vendor refreshes the third-party browser assets of the Go admin
-# (backend/web/vendor, pinned by vendor.json). Network, Go only, no Node.
+# (backend/web/assets, pinned by vendor.json). Network, Go only, no Node.
 # Already-pinned bytes that changed upstream fail; add --update to accept:
 #   cd backend && go run ./tools/vendor fetch --update
 vendor:
@@ -251,7 +251,7 @@ vuln:
 
 # licenses: scan every Go module in the build (fails on a non-permissive or
 # unknown licence) and write the bundle for a release to build/licenses/
-# (gitignored). The vendored JS licences are in backend/web/vendor/licenses/.
+# (gitignored). The vendored JS licences are in backend/web/assets/licenses/.
 licenses:
 	cd backend && go run ./tools/licenses -out ../build/licenses
 

@@ -1,7 +1,9 @@
 // Package web holds the files the Go admin ships inside the binary: templates,
-// CSS and JS (admin/) and the pinned third-party assets (vendor/, see
-// tools/vendor). It lives under backend/ because go:embed cannot climb out of
-// its package directory.
+// CSS and JS (admin/) and the pinned third-party assets (assets/, see
+// tools/vendor). The asset directory must not be named vendor: Go module zips
+// drop every file in a subdirectory of a vendor directory, so modules that
+// depend on core would embed an incomplete tree. It lives under backend/
+// because go:embed cannot climb out of its package directory.
 package web
 
 import (
@@ -9,14 +11,14 @@ import (
 	"io/fs"
 )
 
-//go:embed admin vendor
+//go:embed admin assets
 var content embed.FS
 
 // Admin is the admin tree: layouts/, partials/, pages/, css/, js/.
 func Admin() fs.FS { return sub("admin") }
 
-// Vendor is the vendored third-party tree (vendor.json plus the files it pins).
-func Vendor() fs.FS { return sub("vendor") }
+// Vendor is the vendored third-party tree under assets/ (vendor.json plus the files it pins).
+func Vendor() fs.FS { return sub("assets") }
 
 func sub(dir string) fs.FS {
 	f, err := fs.Sub(content, dir)
