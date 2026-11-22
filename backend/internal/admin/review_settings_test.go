@@ -16,6 +16,12 @@ type fakeReviewFlow struct {
 	saved   []bool
 	held    bool
 	pending map[string]PendingEdit
+	// The review screens: the queue, the changes by id, what the actions answer and what they were asked.
+	queue   []PendingEdit
+	details map[int64]ReviewDetail
+	outcome ReviewOutcome
+	failure error
+	calls   []string
 }
 
 func (f *fakeReviewFlow) Enabled(context.Context) bool { return f.on }

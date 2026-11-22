@@ -1,0 +1,4 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Review" "Description" "Changes to published content that wait for a decision."}}
+{{template "hm/table" .Table}}
+{{end}}{{end}}

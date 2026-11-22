@@ -170,6 +170,48 @@ type ReviewFlow interface {
 	Plan(ctx context.Context, e *entity.Entity) (held bool)
 	// Pending reads the change waiting (or sent back) for one entity.
 	Pending(ctx context.Context, entityID string) (PendingEdit, bool, error)
+	// Queue lists the changes waiting for a decision, oldest first, with their total.
+	Queue(ctx context.Context, limit, offset int) ([]PendingEdit, int, error)
+	// Detail reads one change waiting (or sent back) with what the page decides on.
+	// ErrReviewNotFound when there is none, ErrReviewNotStaged when it is closed.
+	Detail(ctx context.Context, id int64) (ReviewDetail, error)
+	// Approve decides the viewer's stage and publishes once every stage is approved.
+	Approve(ctx context.Context, id int64, comment string) (ReviewOutcome, error)
+	// SendBack records a rejection with a comment; the change stays with its requester.
+	SendBack(ctx context.Context, id int64, comment string) error
+	// Publish retries the publish of a change that is approved but not live.
+	Publish(ctx context.Context, id int64) (ReviewOutcome, error)
+	// Withdraw drops the viewer's own change; Discard drops any change (decide right).
+	Withdraw(ctx context.Context, id int64) error
+	Discard(ctx context.Context, id int64) error
+}
+
+// What the review actions answer when a decision cannot go ahead.
+var (
+	ErrReviewSelf         = errors.New("you cannot decide your own change")
+	ErrReviewNotDecider   = errors.New("you cannot decide this change")
+	ErrReviewStale        = errors.New("the entry changed after this was sent for review")
+	ErrReviewNoComment    = errors.New("a comment is required")
+	ErrReviewNotRequester = errors.New("only the person who sent this change can withdraw it")
+)
+
+// ReviewDetail is one change for the detail page.
+type ReviewDetail struct {
+	PendingEdit
+	Live *entity.Entity // the entry as it is now; nil when it was deleted
+	// Stale: the entry changed after the change was sent, so approving is refused.
+	Stale bool
+	// Approved: every stage approved but the change is not live (the publish failed).
+	Approved bool
+	// NeedsGroup names a stage group this site does not define; nobody can decide it.
+	NeedsGroup string
+}
+
+// ReviewOutcome is what an approval or publish did to the live entry.
+type ReviewOutcome struct {
+	Published  bool
+	NotApplied bool // the entry moved meanwhile: nothing was written, the change stays readable
+	Pending    bool // stages remain for another reviewer
 }
 
 // PendingEdit is one change to a published entry that waits for review or was

@@ -1,0 +1,30 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Title "Badge" .Badge "Description" .Intro "Actions" .Actions}}
+{{range .Callout}}{{template "hm/callout" (dict "Kind" .Kind "Body" .Body)}}
+{{end}}{{if .Rows}}{{template "hm/card-start" dict "ID" "changes" "Title" "Changes" "Heading" "h2" "Description" "What the entry would look like after approval."}}<div class="hm-table__scroll" role="region" aria-label="Changes" tabindex="0"><table class="hm-table hm-diff"><caption class="hm-visually-hidden">What this change would do</caption>
+<thead><tr><th scope="col">Field</th><th scope="col">Live now</th><th scope="col">After approval</th><th scope="col">Change</th></tr></thead>
+<tbody>{{range .Rows}}<tr class="hm-diff__row hm-diff__row--{{.Kind}}"><th scope="row" class="hm-diff__field"><code>{{.Path}}</code></th><td><pre class="hm-diff__value">{{.Left}}</pre></td><td><pre class="hm-diff__value">{{.Right}}</pre></td><td>{{template "hm/badge" dict "Kind" .BadgeKind "Label" .OpLabel}}</td></tr>
+{{end}}</tbody></table></div>
+{{template "hm/card-end"}}
+{{if .Same}}<p class="hm-muted">{{.Same}} unchanged {{if eq .Same 1}}field is{{else}}fields are{{end}} not shown.</p>{{end}}
+{{else}}{{template "hm/empty" dict "Icon" "check" "Title" "No differences" "Body" "This change leaves the entry as it is now."}}
+{{end}}{{if .Decide}}<form method="post" action="{{.URL}}/approve" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "decision" "Title" "Your decision" "Heading" "h2" "Description" "Approve to publish this change, or send it back with a comment."}}
+{{template "hm/field" (dict "ID" "review-comment" "Name" "comment" "Label" "Comment" "Control" "textarea" "Rows" 3 "Value" .Comment "Error" .Error "Help" "Required when you send it back.")}}
+{{template "hm/card-foot"}}{{template "hm/button" (dict "Label" "Send back" "Attrs" (attrmap "formaction" (printf "%s/send-back" .URL)))}}{{if .CanApprove}}{{template "hm/button" (dict "Label" "Approve and publish" "Variant" "primary" "Type" "submit")}}{{end}}{{template "hm/card-foot-end"}}
+{{template "hm/card-end"}}
+</form>
+{{end}}{{if .Retry}}<form method="post" action="{{.URL}}/publish" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "retry" "Title" "Publish" "Heading" "h2" "Description" "This change is approved but is not live yet."}}
+{{template "hm/card-foot"}}{{template "hm/button" (dict "Label" "Publish" "Variant" "primary" "Type" "submit")}}{{template "hm/card-foot-end"}}
+{{template "hm/card-end"}}
+</form>
+{{end}}{{if or .Withdraw .Discard}}<form method="post" action="{{.URL}}/{{if .Withdraw}}withdraw{{else}}discard{{end}}">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "close" "Title" (cond .Withdraw "Withdraw this change" "Discard this change") "Heading" "h2" "Description" "The change is thrown away. The entry stays as it is now."}}
+{{template "hm/card-foot"}}{{template "hm/button" (dict "Label" (cond .Withdraw "Withdraw" "Discard") "Variant" "danger" "Type" "submit" "Attrs" (attrmap "data-hm-confirm" "The change is thrown away. The entry stays as it is now." "data-hm-confirm-label" (cond .Withdraw "Withdraw" "Discard") "data-hm-danger" ""))}}{{template "hm/card-foot-end"}}
+{{template "hm/card-end"}}
+</form>
+{{end}}{{end}}{{end}}

@@ -50,6 +50,7 @@ internal/admin/people.go group person.manage roles=owner,editor  # :25
 internal/admin/plugins.go group plugin.manage,plugin.grant roles=owner  # :32 owner
 internal/admin/plugins.go group plugin.view roles=owner,editor  # :33 owner or editor
 internal/admin/plugins_changeset.go group plugin.changeset.review roles=owner  # :51
+internal/admin/review_queue.go group entity.review.decide roles=owner,editor  # GET /review queue; decisions ask requireCan in the handlers
 internal/admin/pluginui.go group plugin.ui.access roles=owner,editor  # :58
 internal/admin/schemas.go group schema.manage roles=owner  # :26
 internal/admin/settings.go group settings.manage,audit.read,apikey.manage,webhook.manage roles=owner  # :33 every settings sub-page
