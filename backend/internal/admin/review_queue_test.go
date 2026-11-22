@@ -275,3 +275,43 @@ func TestReviewFailedSendBackDoesNotSayPublished(t *testing.T) {
 	has(t, next, "The decision could not be saved. Try again.")
 	lacks(t, next, "published")
 }
+
+// setStage puts the change of the rig (id 7) at stage in both the queue and the detail.
+func (r *editQueueRig) setStage(st ReviewStage) {
+	r.rv.queue[0].Stage = st
+	d := r.rv.details[7]
+	d.Stage = st
+	r.rv.details[7] = d
+}
+
+func TestReviewStageLabel(t *testing.T) {
+	r := newEditQueueRig(t)
+	r.setStage(ReviewStage{Index: 0, Total: 2, Name: "Legal", Group: "legal"})
+	has(t, r.get(t, "owner-token", "/admin/review", ""), "Stage 1 of 2: Legal")
+	has(t, r.get(t, "owner-token", "/admin/review/7", ""), "Stage 1 of 2: Legal. Waiting for: group legal.")
+
+	r.setStage(ReviewStage{Index: 0, Total: 1, Name: "Review", Group: "reviewers"})
+	lacks(t, r.get(t, "owner-token", "/admin/review", ""), "Stage 1 of 1")
+	lacks(t, r.get(t, "owner-token", "/admin/review/7", ""), "Stage 1 of 1")
+
+	r.setStage(ReviewStage{Index: 0, Total: 1, Name: "Legal", Group: "legal"})
+	has(t, r.get(t, "owner-token", "/admin/review", ""), "Stage 1 of 1: Legal")
+}
+
+func TestReviewGroupHidesFromNonMembers(t *testing.T) {
+	r := newEditQueueRig(t)
+	r.setStage(ReviewStage{Index: 0, Total: 2, Name: "Legal", Group: "legal"})
+
+	r.rv.groups = map[string]bool{"legal": false}
+	lacks(t, r.get(t, "owner-token", "/admin/review", ""), "New title")
+	if rec := r.do("GET", "/admin/review/7", "owner-token", nil, nil); rec.Code != http.StatusNotFound {
+		t.Errorf("non-member detail = %d, want 404", rec.Code)
+	}
+	body := r.get(t, r.freshToken(r.author.ID), "/admin/review/7", "")
+	has(t, body, "/admin/review/7/withdraw", "Stage 1 of 2: Legal")
+	lacks(t, body, "Approve and publish", `name="comment"`)
+
+	r.rv.groups = map[string]bool{"legal": true}
+	has(t, r.get(t, "owner-token", "/admin/review", ""), "New title")
+	has(t, r.get(t, "owner-token", "/admin/review/7", ""), "Approve and publish", `name="comment"`)
+}

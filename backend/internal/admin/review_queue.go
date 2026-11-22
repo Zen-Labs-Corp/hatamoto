@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/reviewstate"
 )
 
 const reviewPerPage = 25
@@ -60,7 +62,7 @@ func (a *Admin) handleReviewQueue(w http.ResponseWriter, r *http.Request) {
 	me := userFrom(r.Context())
 	for _, p := range rows {
 		// Only the entries the viewer may decide (or sent themselves) are listed.
-		if (me == nil || me.ID != p.Requester) && !a.canDecide(r.Context(), p.EntityID) {
+		if (me == nil || me.ID != p.Requester) && !a.mayDecideStage(r.Context(), p.EntityID, p.Stage) {
 			continue
 		}
 		open := a.reviewURL("/", strconv.FormatInt(p.ID, 10))
@@ -68,8 +70,12 @@ func (a *Admin) handleReviewQueue(w http.ResponseWriter, r *http.Request) {
 		if who == "" {
 			who = "Unknown"
 		}
+		var notes []string
+		if label := stageLabel(p.Stage); label != "" {
+			notes = []string{label}
+		}
 		t.Rows = append(t.Rows, ui.Row{ID: strconv.FormatInt(p.ID, 10), Label: p.EntityName, Cells: []ui.Cell{
-			{Text: p.EntityName, Link: open, Clip: true},
+			{Text: p.EntityName, Link: open, Clip: true, Notes: notes},
 			{Text: who},
 			{Text: relTime(now, p.Since), Title: fmtDateTime(p.Since.In(loc)), Nowrap: true},
 		}, Actions: []ui.Action{{Label: "Open", Href: open, Button: true}}})
@@ -136,7 +142,7 @@ func (a *Admin) loadReview(w http.ResponseWriter, r *http.Request) (ReviewDetail
 		a.serverError(w, r, "The change could not be loaded", err)
 		return d, false
 	}
-	if !a.isRequester(r, d) && !a.canDecide(r.Context(), d.EntityID) {
+	if !a.isRequester(r, d) && !a.mayDecideStage(r.Context(), d.EntityID, d.Stage) {
 		a.reviewMissing(w, r)
 		return d, false
 	}
@@ -149,6 +155,22 @@ func reviewObject(entityID string) authz.Object { return authz.Object{Kind: "ent
 // canDecide reports whether the viewer holds the decide right on one entry, as the flow checks it.
 func (a *Admin) canDecide(ctx context.Context, entityID string) bool {
 	return a.canObj(ctx, authz.ActionEntityReviewDecide, reviewObject(entityID))
+}
+
+// mayDecideStage is the decide right on the entry plus the group check of its current stage, as the flow applies it.
+func (a *Admin) mayDecideStage(ctx context.Context, entityID string, st ReviewStage) bool {
+	if !a.canDecide(ctx, entityID) {
+		return false
+	}
+	return a.deps.Review == nil || a.deps.Review.MayDecideStage(ctx, entityID, st.Group)
+}
+
+// stageLabel is "Stage n of m: Name", or "" for no stage and for the single default stage (today's look).
+func stageLabel(st ReviewStage) string {
+	if st.Total == 0 || (st.Total == 1 && st.Name == reviewstate.DefaultStageName) {
+		return ""
+	}
+	return fmt.Sprintf("Stage %d of %d: %s", st.Index+1, st.Total, st.Name)
 }
 
 func (a *Admin) isRequester(r *http.Request, d ReviewDetail) bool {
@@ -191,7 +213,7 @@ func reviewRows(d ReviewDetail) ([]diffRow, int) {
 
 func (a *Admin) renderReviewDetail(w http.ResponseWriter, r *http.Request, status int, d ReviewDetail, comment, errText string) {
 	mine := a.isRequester(r, d)
-	decider := !mine && a.canDecide(r.Context(), d.EntityID)
+	decider := !mine && a.mayDecideStage(r.Context(), d.EntityID, d.Stage)
 	p := reviewDetailPage{
 		ID: d.ID, Title: d.EntityName, Comment: comment, Error: errText,
 		URL:      a.reviewURL("/", strconv.FormatInt(d.ID, 10)),
@@ -225,6 +247,13 @@ func (a *Admin) renderReviewDetail(w http.ResponseWriter, r *http.Request, statu
 		p.Callout = append(p.Callout, reviewCallout{"warning", "This entry changed after it was sent for review. Send it back so it can be redone."})
 	}
 	if !d.Rejected {
+		if label := stageLabel(d.Stage); label != "" {
+			body := label + "."
+			if d.Stage.Group != reviewstate.DefaultGroup {
+				body += " Waiting for: group " + d.Stage.Group + "."
+			}
+			p.Callout = append(p.Callout, reviewCallout{"info", body})
+		}
 		switch {
 		case d.NeedsGroup != "":
 			p.Callout = append(p.Callout, reviewCallout{"info", "This stage needs the group " + d.NeedsGroup + ", which this site does not define. An owner can discard the change."})
