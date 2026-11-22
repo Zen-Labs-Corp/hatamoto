@@ -48,6 +48,7 @@ type llmsOpts struct {
 	access  string // site_access_mode, "" = open
 	aiFiles string // the ai_files settings document, "" = defaults
 	bulk    bool   // a long page, to pass a small cap
+	single  bool   // one language, no locales configured (the usual production shape)
 }
 
 func newLLMsEnv(t *testing.T, o llmsOpts) *llmsEnv {
@@ -121,7 +122,9 @@ func newLLMsEnv(t *testing.T, o llmsOpts) *llmsEnv {
 	add("builder", "page", "Showcase", "showcase", "en", "published", day(5),
 		`{"page_doc":{"v":2,"nodes":[{"id":"a","t":"heading","p":{"text":"Recent work","level":2}},{"id":"b","t":"text","p":{"html":"<p>Three shops and a <strong>portfolio</strong>.</p>"}},{"id":"c","t":"image","p":{"src":"https://acme.example/uploads/shop.jpg","alt":"A shop"}}]}}`, nil)
 	add("draftpage", "page", "Unreleased page", "unreleased", "en", "draft", day(6), body("Not public yet."), nil)
-	add("fr-home", "page", "Accueil", "accueil", "fr", "published", day(0), body("Des sites web pour les petites entreprises."), nil)
+	if !o.single {
+		add("fr-home", "page", "Accueil", "accueil", "fr", "published", day(0), body("Des sites web pour les petites entreprises."), nil)
+	}
 
 	add("web", "service", "Web design", "web-design", "en", "published", day(1), `{"content":"<p>Sites that load fast.</p>","meta_description":"Sites that load fast."}`, nil)
 	add("shop", "service", "Online shops", "online-shops", "en", "published", day(2), body("Shops with simple checkout."), nil)
@@ -130,7 +133,9 @@ func newLLMsEnv(t *testing.T, o llmsOpts) *llmsEnv {
 	add("p1", "post", "Launch notes", "launch", "en", "published", day(10), body("We opened the studio. It went well."), nil)
 	add("p2", "post", "Shop checklist", "shop-checklist", "en", "published", day(20), body("Ten things to check before opening a shop."), nil)
 	add("p3", "post", "Draft musings", "musings", "en", "draft", day(30), body("Unfinished."), nil)
-	add("fr-post", "post", "Notes de lancement", "lancement", "fr", "published", day(10), body("Nous avons ouvert le studio."), nil)
+	if !o.single {
+		add("fr-post", "post", "Notes de lancement", "lancement", "fr", "published", day(10), body("Nous avons ouvert le studio."), nil)
+	}
 
 	add("elena", "person", "Elena Voss", "elena-voss", "en", "published", day(0), `{"public":true,"job_title":"Lead designer","bio":"<p>Elena leads design.</p>"}`, nil)
 	add("hidden", "person", "Hidden Person", "hidden-person", "en", "published", day(0), `{"public":false,"job_title":"Advisor"}`, nil)
@@ -149,13 +154,17 @@ func newLLMsEnv(t *testing.T, o llmsOpts) *llmsEnv {
 	if mode == "" {
 		mode = "open"
 	}
+	locales := `[{"tag":"en","segment":""},{"tag":"fr","segment":"fr","name":"Français"}]`
+	if o.single {
+		locales = `[]` // the column default
+	}
 	exec(`INSERT INTO hatamoto_site_config (company_name, tagline, language, locales, public_base_url, homepage_entity_id, business_profile, site_access_mode, phone, business_hours, postal_address)
 		VALUES ('Acme Studio', 'Acme Studio builds websites for small firms in Lisbon.', 'en', $1::jsonb, 'https://acme.example', $2, $3::jsonb, $4,
 		  '+351 21 000 0000', 'Mon-Fri 9:00-18:00', '{"city":"Lisbon","country":"Portugal"}'::jsonb)
 		ON CONFLICT (id) DO UPDATE SET company_name=EXCLUDED.company_name, tagline=EXCLUDED.tagline, language=EXCLUDED.language, locales=EXCLUDED.locales,
 		  public_base_url=EXCLUDED.public_base_url, homepage_entity_id=EXCLUDED.homepage_entity_id, business_profile=EXCLUDED.business_profile, site_access_mode=EXCLUDED.site_access_mode,
 		  phone=EXCLUDED.phone, business_hours=EXCLUDED.business_hours, postal_address=EXCLUDED.postal_address`,
-		`[{"tag":"en","segment":""},{"tag":"fr","segment":"fr","name":"Français"}]`, e.ids["home"], profile, mode)
+		locales, e.ids["home"], profile, mode)
 	ai := ""
 	if o.aiFiles != "" {
 		ai = `,"ai_files":` + o.aiFiles
@@ -238,6 +247,37 @@ func TestLLMsSeededGoldens(t *testing.T) {
 	}
 	checkLLMsGolden(t, "seeded-llms.txt", idx)
 	checkLLMsGolden(t, "seeded-llms-full.txt", full)
+}
+
+// A site with no locales configured has an empty default tag while its
+// entities carry the site language ('en', the column default): every entry must
+// still be listed.
+func TestLLMsSeededSingleLocale(t *testing.T) {
+	e := newLLMsEnv(t, llmsOpts{single: true})
+	idx := e.ok(t, "/llms.txt")
+	full := e.ok(t, "/llms-full.txt")
+	for _, want := range []string{"## Key pages", "## Services", "## Posts", "## People",
+		"- [Home](https://acme.example/)", "- [Web design](https://acme.example/services/web-design)",
+		"- [Launch notes](", "- [Elena Voss]("} {
+		if !strings.Contains(idx, want) {
+			t.Errorf("llms.txt lacks %q", want)
+		}
+	}
+	for _, want := range []string{"# Home", "# About", "# Web design", "# Launch notes", "# Elena Voss"} {
+		if !strings.Contains(full, want) {
+			t.Errorf("llms-full.txt lacks a block %q", want)
+		}
+	}
+	if len(full) < 1500 {
+		t.Errorf("llms-full.txt is %d bytes: only a header", len(full))
+	}
+	for _, s := range llmsAbsent {
+		if strings.Contains(idx, s) || strings.Contains(full, s) {
+			t.Errorf("excluded text %q is in a file", s)
+		}
+	}
+	checkLLMsGolden(t, "seeded-single-llms.txt", idx)
+	checkLLMsGolden(t, "seeded-single-llms-full.txt", full)
 }
 
 func TestLLMsFreshAfterChange(t *testing.T) {
