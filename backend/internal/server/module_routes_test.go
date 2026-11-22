@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -8,7 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"hatamoto.dev/core/internal/modhost"
+	moddb "hatamoto.dev/core/module/db"
 )
 
 // moduleServer mounts the given routes on a route shell and returns its handler.
@@ -151,5 +155,26 @@ func TestModuleRouteUnderAuth(t *testing.T) {
 	}
 	if _, passed := probeThroughIntercept(s, "/auth/sso/x"); !passed {
 		t.Fatal("/auth/sso/x was refused as a probe")
+	}
+}
+
+func TestModuleRouteSeesPool(t *testing.T) {
+	p, err := pgxpool.New(context.Background(), "postgres://x@127.0.0.1:1/x") // lazy: does not dial
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(p.Close)
+	var got *pgxpool.Pool
+	var gotErr error
+	h, _ := moduleServer(t, modhost.Route{Module: "example", Prefix: "/example/", Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got, gotErr = moddb.Pool()
+		w.WriteHeader(http.StatusOK)
+	})})
+	modhost.SetPool(p) // moduleServer already registered t.Cleanup(modhost.Reset)
+	if rec := moduleDo(h, "GET", "/example/x", "203.0.113.7:1000", nil); rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if got != p || gotErr != nil {
+		t.Fatalf("handler saw %v, %v; want the published pool", got, gotErr)
 	}
 }

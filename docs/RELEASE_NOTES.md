@@ -1,5 +1,10 @@
 # Release notes
 
+## Unreleased: database pool for compiled-in modules
+
+- **What.** A new public Go package, `module/db`, gives a wrapper module core's database pool with `db.Pool()` in `serve` and in module commands, so a module no longer needs its own connection. Before the database opens, and in other commands, it returns `db.ErrNotReady`. See [Plugin API](PLUGIN_API.md#go-module-extension-points).
+- **Default.** A standard build calls nothing and behaves as before. Migration: none.
+
 ## Unreleased: agent publishing policy (compiled-in modules)
 
 - **What.** A wrapper module can register an agent publishing policy with `agentpolicy.Register`. For a write made with an API key (REST and MCP) that publishes, schedules, restores or edits live content, unpublishes or archives it, edits a reusable block, theme part or person, or inserts a link into a published entry, the policy answers allow, require review or deny. People are not asked. See [ADR 0016](adr/0016-agent-publishing-policy.md) and [Plugin API](PLUGIN_API.md#go-module-extension-points).
