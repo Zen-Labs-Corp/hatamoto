@@ -1,0 +1,41 @@
+# Acme Studio
+
+> Acme Studio builds websites for small firms in Lisbon.
+
+Based in Lisbon, Portugal.
+hello@acme.example, +351 21 000 0000.
+Open Mon-Fri 9:00-18:00.
+
+## Key pages
+- [Home](https://acme.example/): Websites for small firms.
+- [Services](https://acme.example/services): What we build.
+
+## Services
+- [Web design](https://acme.example/services/web-design): Sites that load fast.
+- [Brand \[kit\]](https://acme.example/services/brand-kit)
+
+## Posts
+- [Launch notes](https://acme.example/blog/launch): How we shipped.
+
+## People
+- [Elena Voss](https://acme.example/team/elena-voss): Lead designer
+
+## Key pages (Français)
+- [Home](https://acme.example/fr/): Websites for small firms.
+- [Services](https://acme.example/fr/services): What we build.
+
+## Services (Français)
+- [Web design](https://acme.example/fr/services/web-design): Sites that load fast.
+- [Brand \[kit\]](https://acme.example/fr/services/brand-kit)
+
+## Posts (Français)
+- [Launch notes](https://acme.example/fr/blog/launch): How we shipped.
+
+## People (Français)
+- [Elena Voss](https://acme.example/fr/team/elena-voss): Lead designer
+
+## Optional
+- [Knowledge graph](https://acme.example/api/v1/public/knowledge-graph): JSON-LD
+- [Sitemap](https://acme.example/sitemap.xml)
+- [Posts feed](https://acme.example/feed.xml)
+- [Full text](https://acme.example/llms-full.txt): older posts and every page
