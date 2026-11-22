@@ -114,10 +114,10 @@ The first caller of the edit changeset is the entity service, behind one gate.
 - An approval publishes through the engine's `Publish`, not `PublishReviewed`: the import risk classifier is
   not meant for human edits, and `Publish` honours the stage gate and the base token. Before deciding, the
   entry's version is compared with the one the edit was based on; a changed entry refuses the approval.
-- Send back records a rejection and keeps the staged change, so the requester still has their version. A new send
+- Send back records a rejection and keeps the staged change for as long as nobody else replaces it. A new send
   from the same person replaces it; they may also withdraw it. One change waits per entry; another person's
   is refused, unless it was sent back: nobody can approve a sent-back change, so a new send by anyone replaces it
-  (its decision and comment stay). Any holder of `entity.review.decide` may discard a waiting change, with no
+  (its decision and comment stay, but the staged content of the replaced edit is deleted, so its requester loses that version; the audit row of the replacing send names them as `superseded_requester`). Any holder of `entity.review.decide` may discard a waiting change, with no
   comment and no mail to the requester.
 - Publishing an edit of an entry a plugin owns takes it over and is audited as `entity.take_over`
   (`detail` `{from, changeset}`).

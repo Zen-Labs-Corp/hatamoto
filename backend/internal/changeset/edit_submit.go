@@ -53,6 +53,7 @@ func (e *Engine) SubmitEdit(ctx context.Context, o EditOptions, it Item) (int64,
 	}
 
 	var id, superseded int64
+	var supersededBy string
 	var oldKeys []string
 	err = e.DB.WithTx(ctx, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('hatamoto:edit:' || $1, 0))`, it.TargetID); err != nil {
@@ -81,7 +82,7 @@ func (e *Engine) SubmitEdit(ctx context.Context, o EditOptions, it Item) (int64,
 			if oldKeys, err = closeStaged(ctx, tx, oldID, StateDiscarded); err != nil {
 				return err
 			}
-			superseded = oldID
+			superseded, supersededBy = oldID, oldBy
 		}
 		runID := uuid.New()
 		if _, err := tx.Exec(ctx, `INSERT INTO hatamoto_runs (id, plugin, state) VALUES ($1, '', 'finished')`, runID); err != nil {
@@ -98,7 +99,7 @@ func (e *Engine) SubmitEdit(ctx context.Context, o EditOptions, it Item) (int64,
 		}
 		if e.AuditTx != nil {
 			return e.AuditTx(ctx, tx, "changeset.edit_submit", fmt.Sprintf("changeset:%d", id),
-				map[string]any{"target": it.TargetID, "stages": len(stages), "superseded": superseded})
+				map[string]any{"target": it.TargetID, "stages": len(stages), "superseded": superseded, "superseded_requester": supersededBy})
 		}
 		return nil
 	})
@@ -108,7 +109,7 @@ func (e *Engine) SubmitEdit(ctx context.Context, o EditOptions, it Item) (int64,
 	e.deleteBlobs(ctx, oldKeys)
 	if e.AuditTx == nil {
 		e.audit(ctx, "changeset.edit_submit", id,
-			map[string]any{"target": it.TargetID, "stages": len(stages), "superseded": superseded})
+			map[string]any{"target": it.TargetID, "stages": len(stages), "superseded": superseded, "superseded_requester": supersededBy})
 	}
 	return id, nil
 }

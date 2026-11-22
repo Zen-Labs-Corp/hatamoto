@@ -142,6 +142,11 @@ func TestSubmitEditSupersedesASentBackEdit(t *testing.T) {
 	if err := f.eng.DecideStage(f.ctx, id, StageDecision{Stage: 0, Reviewer: "user-3", Decision: StageRejected, Comment: "no"}); err != nil {
 		t.Fatal(err)
 	}
+	var detail map[string]any
+	f.eng.AuditTx = func(_ context.Context, _ pgx.Tx, _, _ string, d map[string]any) error {
+		detail = d
+		return nil
+	}
 	id2, err := f.submit("user-2", target)
 	if err != nil {
 		t.Fatalf("submit over a sent-back edit: %v", err)
@@ -151,6 +156,9 @@ func TestSubmitEditSupersedesASentBackEdit(t *testing.T) {
 	}
 	if n := f.count(`SELECT count(*) FROM hatamoto_changeset_stage_decisions WHERE changeset_id = $1`, id); n != 1 {
 		t.Errorf("decision rows of the sent-back edit = %d, want 1", n)
+	}
+	if detail["superseded"] != id || detail["superseded_requester"] != "user-1" {
+		t.Errorf("audit detail = %v, want superseded %d by user-1", detail, id)
 	}
 	_ = f.eng.Discard(f.ctx, id2)
 }
