@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json/jsontext"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -42,6 +43,17 @@ type entitySummary struct {
 	// BylinePersonID / BylineOrg are who the entity credits (see entities_update).
 	BylinePersonID *uuid.UUID `json:"byline_person_id,omitempty"`
 	BylineOrg      bool       `json:"byline_org,omitzero"`
+}
+
+// pendingReview is the tool result of a change the review gate staged instead
+// of writing: not an error, the change goes live when a reviewer approves it.
+func pendingReview(id uuid.UUID, err error) (object, bool) {
+	var sent *entity.SentForReviewError
+	if !errors.As(err, &sent) {
+		return nil, false
+	}
+	return object{"id": id, "status": "pending_review", "changeset_id": sent.ChangesetID,
+		"message": "Sent for review. It goes live when a reviewer approves it."}, true
 }
 
 func (s *Server) summary(ctx context.Context, e *entity.Entity, withURL bool) entitySummary {
@@ -293,6 +305,9 @@ func (s *Server) registerContent() {
 			}
 			up.ChangeSummary = &summary
 			e, err := s.d.Entities.UpdateEntity(ctx, id, key.CreatedBy, up)
+			if res, ok := pendingReview(id, err); ok {
+				return res, nil
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -316,6 +331,9 @@ func (s *Server) registerContent() {
 					return nil, err
 				}
 				e, err := s.d.Entities.UpdateEntityStatus(ctx, id, key.CreatedBy, to)
+				if res, ok := pendingReview(id, err); ok {
+					return res, nil
+				}
 				if err != nil {
 					return nil, err
 				}

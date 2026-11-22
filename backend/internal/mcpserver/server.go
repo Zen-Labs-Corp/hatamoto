@@ -298,6 +298,20 @@ func publicError(l *slog.Logger, tool string, err error) error {
 		return ue
 	case errors.Is(err, entity.ErrNotAllowed):
 		return userErr("forbidden: %s", err.Error())
+	case errors.Is(err, entity.ErrSentForReview):
+		// Tools that report it as a result do so before this; the others (builder_apply_ops)
+		// refuse with the sentence, since nothing was written and the change waits for a reviewer.
+		var sent *entity.SentForReviewError
+		errors.As(err, &sent)
+		return userErr("pending_review: the change was sent for review (changeset %d) and goes live when a reviewer approves it; nothing is saved yet", sent.ChangesetID)
+	case errors.Is(err, entity.ErrReviewHold):
+		// The cause (a policy or database error) goes to the log, not to the agent.
+		if l != nil {
+			l.Error("mcp tool refused by the review policy", "tool", tool, "error", err)
+		}
+		return userErr("forbidden: %s", entity.ErrReviewHold.Error())
+	case errors.Is(err, entity.ErrReviewPending), errors.Is(err, entity.ErrReviewUnsupported):
+		return err
 	case errors.Is(err, entity.ErrSchemaNotFound), errors.Is(err, entity.ErrEntityNotFound),
 		errors.Is(err, entity.ErrSlugAlreadyExists), errors.Is(err, entity.ErrValidationFailed),
 		errors.Is(err, entity.ErrParentNotFound), errors.Is(err, entity.ErrParentCycle), errors.Is(err, entity.ErrParentTooDeep),
