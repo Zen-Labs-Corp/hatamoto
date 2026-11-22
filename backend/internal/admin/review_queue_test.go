@@ -64,7 +64,7 @@ func newEditQueueRig(t *testing.T) *editQueueRig {
 	live := c.entityBy(author, entity.StatusPublished)
 	payload := *live
 	payload.Name, payload.Slug = "New title", live.Slug
-	payload.Attributes = []byte(`{"summary":"A better summary"}`)
+	payload.Attributes = []byte(`{"summary":"A better summary","content":""}`) // an editor writes the empty content field it never had
 	pe := PendingEdit{ID: 7, EntityID: live.ID.String(), EntityName: "New title", Requester: author.ID.String(),
 		RequesterName: "Author Sam", Since: time.Now().Add(-2 * time.Hour), Payload: &payload}
 	rv.queue = []PendingEdit{pe}
@@ -108,7 +108,9 @@ func TestReviewDetail(t *testing.T) {
 		body := r.get(t, "owner-token", "/admin/review/7", "")
 		has(t, body, "Author Sam asked to change this entry", `<code>name</code>`, `<code>summary</code>`, "A better summary",
 			"Approve and publish", "Send back", `name="comment"`, "/admin/review/7/approve", "/admin/review/7/send-back", "/admin/review/7/discard")
-		lacks(t, body, "/admin/review/7/withdraw")
+		lacks(t, body, "/admin/review/7/withdraw", "<code>content</code>")
+		// Send back is a real submit button: its formaction does nothing on a plain button.
+		has(t, body, `<button type="submit" class="hm-btn hm-btn--secondary" formaction="/admin/review/7/send-back">`)
 	})
 	t.Run("the requester sees no decision form, only Withdraw", func(t *testing.T) {
 		body := r.get(t, r.freshToken(r.author.ID), "/admin/review/7", "")

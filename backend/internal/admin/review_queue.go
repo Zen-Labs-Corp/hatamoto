@@ -164,7 +164,15 @@ func reviewRows(d ReviewDetail) ([]diffRow, int) {
 		rows = append(rows, diffRow{"slug", "changed", live.Slug, p.Slug})
 	}
 	attrs, same := diffAttributes(live.Attributes, p.Attributes)
-	return append(rows, attrs...), same
+	for _, row := range attrs {
+		// An editor that writes an empty field the entry never had changes nothing a reviewer can see.
+		if strings.Trim(row.Left+row.Right, `"`) == "" {
+			same++
+			continue
+		}
+		rows = append(rows, row)
+	}
+	return rows, same
 }
 
 func (a *Admin) renderReviewDetail(w http.ResponseWriter, r *http.Request, status int, d ReviewDetail, comment, errText string) {

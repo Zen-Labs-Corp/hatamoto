@@ -282,8 +282,12 @@ func (a *Admin) wireReviewNav() {
 	}
 	a.nav.update("review", func(it *NavItem) {
 		it.Visible = func(v viewer) bool {
+			// Ask the right first: only a person who may decide starts the count.
+			if !v.Can(authz.ActionEntityReviewDecide) {
+				return false
+			}
 			_, sh := get()
-			return sh() != "" && v.Can(authz.ActionEntityReviewDecide)
+			return sh() != ""
 		}
 		it.Badge = func(v viewer) string {
 			if !v.Can(authz.ActionEntityReviewDecide) {

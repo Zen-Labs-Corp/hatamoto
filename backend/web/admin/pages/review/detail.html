@@ -12,7 +12,7 @@
 {{template "hm/csrf" $}}
 {{template "hm/card-start" dict "ID" "decision" "Title" "Your decision" "Heading" "h2" "Description" "Approve to publish this change, or send it back with a comment."}}
 {{template "hm/field" (dict "ID" "review-comment" "Name" "comment" "Label" "Comment" "Control" "textarea" "Rows" 3 "Value" .Comment "Error" .Error "Help" "Required when you send it back.")}}
-{{template "hm/card-foot"}}{{template "hm/button" (dict "Label" "Send back" "Attrs" (attrmap "formaction" (printf "%s/send-back" .URL)))}}{{if .CanApprove}}{{template "hm/button" (dict "Label" "Approve and publish" "Variant" "primary" "Type" "submit")}}{{end}}{{template "hm/card-foot-end"}}
+{{template "hm/card-foot"}}{{template "hm/button" (dict "Label" "Send back" "Type" "submit" "Attrs" (attrmap "formaction" (printf "%s/send-back" .URL)))}}{{if .CanApprove}}{{template "hm/button" (dict "Label" "Approve and publish" "Variant" "primary" "Type" "submit")}}{{end}}{{template "hm/card-foot-end"}}
 {{template "hm/card-end"}}
 </form>
 {{end}}{{if .Retry}}<form method="post" action="{{.URL}}/publish" class="hm-cardform">
