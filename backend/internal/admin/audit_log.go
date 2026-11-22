@@ -80,7 +80,7 @@ var auditLabels = map[string]string{
 	"changeset.edit_submit":        "Sent for review",
 	"changeset.stage_decision":     "Review decision",
 	"changeset.edit_publish":       "Published a reviewed change",
-	"changeset.edit_discard":       "Withdrew a change waiting for review",
+	"changeset.edit_discard":       "Withdrew or discarded a change waiting for review",
 	"settings.review":              "Turned review on or off",
 	"changeset.suggestion.approve": "Approved a plugin suggestion",
 	"changeset.suggestion.reject":  "Rejected a plugin suggestion",

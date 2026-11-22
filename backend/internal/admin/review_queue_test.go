@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -229,7 +230,7 @@ func TestReviewSendBackNeedsAComment(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("send back = %d", rec.Code)
 	}
-	has(t, r.next(rec, "/admin/review"), "Sent back. The author has been told.")
+	has(t, r.next(rec, "/admin/review"), "Sent back. The author sees your comment on the entry.")
 	if len(r.rv.calls) != 1 || r.rv.calls[0] != "send-back 7 Fix the intro." {
 		t.Errorf("calls = %v", r.rv.calls)
 	}
@@ -260,4 +261,17 @@ func TestReviewWithdrawAndDiscard(t *testing.T) {
 	if len(r.rv.calls) != 2 || r.rv.calls[0] != "withdraw 7 " || r.rv.calls[1] != "discard 7 " {
 		t.Errorf("calls = %v", r.rv.calls)
 	}
+}
+
+// A decision that fails for an unknown reason says so without claiming a publish.
+func TestReviewFailedSendBackDoesNotSayPublished(t *testing.T) {
+	r := newEditQueueRig(t)
+	r.rv.failure = errors.New("database down")
+	rec := r.post(t, nil, "send-back", url.Values{"comment": {"Fix it."}})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("failed send back = %d, want 303", rec.Code)
+	}
+	next := r.next(rec, "/admin/review/7")
+	has(t, next, "The decision could not be saved. Try again.")
+	lacks(t, next, "published")
 }

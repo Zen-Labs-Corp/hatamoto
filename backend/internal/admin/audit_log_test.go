@@ -124,7 +124,7 @@ func TestAuditLabelsOfTheReviewFlow(t *testing.T) {
 		"changeset.edit_submit":    "Sent for review",
 		"changeset.stage_decision": "Review decision",
 		"changeset.edit_publish":   "Published a reviewed change",
-		"changeset.edit_discard":   "Withdrew a change waiting for review",
+		"changeset.edit_discard":   "Withdrew or discarded a change waiting for review",
 		"settings.review":          "Turned review on or off",
 		"changeset.publish":        "Published plugin changes", // unchanged
 	} {

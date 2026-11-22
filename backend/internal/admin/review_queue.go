@@ -313,7 +313,7 @@ func (a *Admin) handleReviewSendBack(w http.ResponseWriter, r *http.Request) {
 		if comment == "" {
 			return reviewDone{}, ErrReviewNoComment
 		}
-		return reviewDone{"success", "Sent back. The author has been told.", true}, rv.SendBack(r.Context(), id, comment)
+		return reviewDone{"success", "Sent back. The author sees your comment on the entry.", true}, rv.SendBack(r.Context(), id, comment)
 	})
 }
 
@@ -358,7 +358,7 @@ func (a *Admin) reviewRefused(w http.ResponseWriter, r *http.Request, d ReviewDe
 		a.ErrorBack(w, r, http.StatusConflict, "Not waiting for review", "This change is no longer waiting for a decision.", a.reviewURL(), "Back to review")
 	default:
 		a.logger().Error("review decision failed", "changeset", d.ID, "err", err)
-		a.SetFlash(w, r, "error", "The change could not be published. Try again.")
+		a.SetFlash(w, r, "error", "The decision could not be saved. Try again.")
 		Redirect(w, r, a.reviewURL("/", strconv.FormatInt(d.ID, 10)))
 	}
 }
