@@ -42,6 +42,10 @@ type TxOp struct {
 	Status     EntityStatus // empty keeps the stored status (draft on create)
 	Origin     string       // recorded on create; empty keeps the stored origin on update
 	Delete     bool
+	// PublishedAt, when set, is stored as the row's published_at (a scheduled
+	// edit's publish time). Nil keeps the stored value, or now() on the first
+	// publish.
+	PublishedAt *time.Time
 
 	// BaseVersion and BaseUpdatedAt are the base token: when set they must
 	// equal the live row's, else the op returns ErrConflict.
@@ -324,7 +328,8 @@ func (s *Service) updateTx(ctx context.Context, tx pgx.Tx, op TxOp, cur *entityS
 		_, err = sp.Exec(ctx, `
 			UPDATE hatamoto_entities
 			SET name = $2, slug = $3, locale = $4, attributes = $5, parent_id = $6, status = $7::text, origin = $8,
-			    published_at = CASE WHEN $7::text = 'published' AND published_at IS NULL THEN now() ELSE published_at END,
+			    published_at = CASE WHEN $10::timestamptz IS NOT NULL THEN $10::timestamptz
+			                        WHEN $7::text = 'published' AND published_at IS NULL THEN now() ELSE published_at END,
 			    version = CASE WHEN $9 THEN version + 1 ELSE version END,
 			    -- a row that changes parent lands last among its new siblings
 			    sort_order = CASE WHEN parent_id IS NOT DISTINCT FROM $6::uuid OR variant_key IS NOT NULL THEN sort_order ELSE
@@ -332,7 +337,7 @@ func (s *Service) updateTx(ctx context.Context, tx pgx.Tx, op TxOp, cur *entityS
 			          WHERE o.schema_id = hatamoto_entities.schema_id AND o.parent_id IS NOT DISTINCT FROM $6::uuid
 			            AND o.locale = $4 AND o.variant_key IS NULL AND o.id <> $1) END
 			WHERE id = $1`,
-			cur.ID, name, cand, locale, attrs, parent, string(status), origin, changed)
+			cur.ID, name, cand, locale, attrs, parent, string(status), origin, changed, op.PublishedAt)
 		if err == nil {
 			if err = sp.Commit(ctx); err != nil {
 				return TxResult{}, fmt.Errorf("failed to release savepoint: %w", err)

@@ -116,6 +116,8 @@ type entityPayload struct {
 	TranslationOf string     `json:"translation_of"`
 	SEO           *EntitySEO `json:"seo"`
 	Status        string     `json:"status"`
+	// PublishedAt is a scheduled edit's publish time.
+	PublishedAt *time.Time `json:"published_at,omitempty"`
 }
 
 // EntitySEO is the search metadata of an entity. It is merged into the
@@ -212,7 +214,7 @@ func (w EntityWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, 
 	}
 	op := entity.TxOp{Schema: p.Schema, ID: id, Name: p.Name, Slug: p.Slug, Locale: p.Locale, Attributes: attrs,
 		ParentID: parent, Status: entity.EntityStatus(p.Status), Origin: origin, Delete: it.Op == OpDelete,
-		BaseVersion: ver, BaseUpdatedAt: at}
+		BaseVersion: ver, BaseUpdatedAt: at, PublishedAt: p.PublishedAt}
 	if p.TranslationOf != "" && it.Op != OpDelete {
 		return w.applyTranslation(ctx, tx, origin, op, p.TranslationOf)
 	}

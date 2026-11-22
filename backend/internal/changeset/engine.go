@@ -245,12 +245,16 @@ func checkBlobKeys(runID uuid.UUID, it Item) error {
 
 // Discard drops a staged changeset: its items, the run's buffer and the staged files.
 func (e *Engine) Discard(ctx context.Context, csID int64) error {
-	keys, err := e.finishStaged(ctx, csID, StateDiscarded)
+	keys, kind, err := e.finishStagedKind(ctx, csID, StateDiscarded)
 	if err != nil {
 		return err
 	}
 	e.deleteBlobs(ctx, keys)
-	e.audit(ctx, "changeset.discard", csID, nil)
+	action := "changeset.discard"
+	if kind == ChangesetEdit {
+		action = "changeset.edit_discard"
+	}
+	e.audit(ctx, action, csID, nil)
 	return nil
 }
 
@@ -283,7 +287,13 @@ func (e *Engine) Expire(ctx context.Context) (int, error) {
 	}
 }
 
-func (e *Engine) finishStaged(ctx context.Context, csID int64, state string) (keys []string, err error) {
+func (e *Engine) finishStaged(ctx context.Context, csID int64, state string) ([]string, error) {
+	keys, _, err := e.finishStagedKind(ctx, csID, state)
+	return keys, err
+}
+
+// finishStagedKind is finishStaged that also reports the changeset's kind.
+func (e *Engine) finishStagedKind(ctx context.Context, csID int64, state string) (keys []string, kind ChangesetKind, err error) {
 	err = e.DB.WithTx(ctx, func(tx pgx.Tx) error {
 		cs, err := lockChangeset(ctx, tx, csID)
 		if err != nil {
@@ -292,10 +302,11 @@ func (e *Engine) finishStaged(ctx context.Context, csID int64, state string) (ke
 		if cs.State != StateStaged {
 			return ErrNotStaged
 		}
+		kind = cs.Kind
 		keys, err = closeStaged(ctx, tx, csID, state)
 		return err
 	})
-	return keys, err
+	return keys, kind, err
 }
 
 // closeStaged deletes the items and the run buffer of a locked staged
