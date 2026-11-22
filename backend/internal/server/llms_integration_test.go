@@ -21,9 +21,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/siteconfig"
 )
 
 // updateLLMsSeeded rewrites testdata/llms/seeded-*.txt.
@@ -333,5 +335,35 @@ func TestLLMsSwitchedOff(t *testing.T) {
 		if code, body, _ := e.get(p); code != 404 || strings.Contains(body, "Acme") {
 			t.Errorf("%s = %d %q, want 404", p, code, body)
 		}
+	}
+}
+
+// A build made with an unreadable site config is served, but neither cached nor
+// recorded: its fallback name and empty summary would fill the change list.
+func TestLLMsDegradedNotCachedOrRecorded(t *testing.T) {
+	e := newLLMsEnv(t, llmsOpts{})
+	e.srv.cfg.PublicSite.BaseURL = "https://acme.example" // keep the base independent of the site config
+	dead, err := database.New(e.ctx, e.srv.cfg.Database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dead.Close()
+	e.srv.siteConfig = siteconfig.NewStore(dead, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	for _, path := range []string{"/llms.txt", "/llms-full.txt"} {
+		rec := httptest.NewRecorder() // the handler direct: the middleware also needs the site config
+		e.srv.serveLLMs(rec, httptest.NewRequest("GET", path, nil), path == "/llms-full.txt")
+		if rec.Code != 200 {
+			t.Fatalf("GET %s = %d", path, rec.Code)
+		}
+		if body, _ := e.srv.infra.Cache.Get(e.ctx, cache.RenderedPageKey("llms:https://acme.example", path)); body != nil {
+			t.Errorf("%s: a degraded build was cached", path)
+		}
+	}
+	st, err := e.srv.aiFilesState.Get(e.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.LLMsChangedAt != nil || st.FullChangedAt != nil || len(st.Changes) != 0 {
+		t.Errorf("a degraded build was recorded: %+v", st)
 	}
 }

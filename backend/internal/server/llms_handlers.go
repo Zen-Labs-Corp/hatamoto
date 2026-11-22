@@ -29,7 +29,7 @@ type llmsResult struct {
 	base string
 	gen  uint64 // cache generation read before the build began; the only one it may be stored under
 	body []byte
-	busy bool // a bounded acquire gave up: the body may lack data, never cache it
+	busy bool // a bounded acquire gave up or an input fell back to a default: serve it, never cache or record it
 }
 
 // handleLLMsTxt serves /llms.txt, the plain-words site summary.
@@ -116,12 +116,12 @@ func (s *Server) serveLLMsWith(w http.ResponseWriter, r *http.Request, full bool
 func (s *Server) buildLLMsFile(ctx context.Context, base string, set seo.AIFiles, full bool) (llmsResult, error) {
 	res := llmsResult{base: base}
 	if full {
-		body, stats, err := s.buildLLMsFull(ctx, base, set)
+		body, stats, degraded, err := s.buildLLMsFull(ctx, base, set)
 		if err != nil {
 			return res, err
 		}
 		res.body = body
-		res.busy = database.PoolBusyHit(ctx)
+		res.busy = degraded || database.PoolBusyHit(ctx)
 		if !res.busy && s.aiFilesState != nil {
 			if err := s.aiFilesState.RecordFull(ctx, llmsHash(body), stats.Bytes, time.Now().UTC()); err != nil {
 				s.logger.Warn("llms-full: record state", "error", err)
@@ -134,7 +134,7 @@ func (s *Server) buildLLMsFile(ctx context.Context, base string, set seo.AIFiles
 		return res, err
 	}
 	res.body = body
-	res.busy = database.PoolBusyHit(ctx)
+	res.busy = m.degraded || database.PoolBusyHit(ctx)
 	if !res.busy && s.aiFilesState != nil {
 		snap := llmstxt.SnapshotOf(m.site, m.sections)
 		if err := s.aiFilesState.RecordIndex(ctx, snap, llmsHash(body), len(body), m.excluded, time.Now().UTC()); err != nil {

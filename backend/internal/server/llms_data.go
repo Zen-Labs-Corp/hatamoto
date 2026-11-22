@@ -53,6 +53,9 @@ type llmsModel struct {
 	// excluded maps a snapshot key to why a still-published entity is not listed.
 	excluded map[string]string
 	locales  *entity.LocaleSet
+	// degraded is set when an input fell back to a default (URL registry or
+	// site settings unreadable): the file is served but never cached or recorded.
+	degraded bool
 }
 
 // loadLLMs gathers the model. The URLs and the exclusions come from the
@@ -78,7 +81,7 @@ func (s *Server) loadLLMs(ctx context.Context, base string, set seo.AIFiles, all
 	for _, e := range llmsEntries(in.Entries, in.SEO) {
 		kept[e] = true
 	}
-	m := &llmsModel{excluded: map[string]string{}, locales: locales}
+	m := &llmsModel{excluded: map[string]string{}, locales: locales, degraded: in.NamingUnread}
 	var refs []llmsRef
 	for _, e := range in.Entries {
 		if e.ID == uuid.Nil {
@@ -112,7 +115,9 @@ func (s *Server) loadLLMs(ctx context.Context, base string, set seo.AIFiles, all
 		return nil, err
 	}
 
-	m.site = s.llmsSite(ctx, base, set)
+	var siteOK bool
+	m.site, siteOK = s.llmsSite(ctx, base, set)
+	m.degraded = m.degraded || !siteOK
 	m.site.FullOn = !set.FullOff
 	_, m.site.HasFeed = in.Snap.Config(feedPostSchema)
 
@@ -325,8 +330,10 @@ func (s *Server) headerMenuRank(ctx context.Context) map[uuid.UUID]int {
 }
 
 // llmsSite reads the file-level text: name, summary and the details paragraph.
-func (s *Server) llmsSite(ctx context.Context, base string, set seo.AIFiles) llmstxt.Site {
-	site := llmstxt.Site{BaseURL: base}
+// ok is false when the site settings could not be read.
+func (s *Server) llmsSite(ctx context.Context, base string, set seo.AIFiles) (site llmstxt.Site, ok bool) {
+	site = llmstxt.Site{BaseURL: base}
+	ok = true
 	var prof bizprofile.Profile
 	tagline, company := "", ""
 	if s.siteConfig != nil {
@@ -335,14 +342,17 @@ func (s *Server) llmsSite(ctx context.Context, base string, set seo.AIFiles) llm
 			if p, perr := bizprofile.Parse(cfg.BusinessProfile); perr == nil {
 				prof = bizprofile.FromLegacy(p, cfg.Phone, cfg.BusinessHours, cfg.PostalAddress)
 			}
-		} else if s.logger != nil {
-			s.logger.Warn("llms: site config unreadable", "error", err)
+		} else {
+			ok = false
+			if s.logger != nil {
+				s.logger.Warn("llms: site config unreadable", "error", err)
+			}
 		}
 	}
 	site.Name = firstText(company, strings.TrimSpace(prof.Name), hostOf(base))
 	site.Summary = firstText(strings.TrimSpace(set.Summary), tagline, strings.TrimSpace(prof.Description))
 	site.Details = llmsDetails(prof)
-	return site
+	return site, ok
 }
 
 func firstText(vals ...string) string {
@@ -564,10 +574,10 @@ func (s *Server) buildLLMsIndex(ctx context.Context, base string, set seo.AIFile
 
 // buildLLMsFull renders /llms-full.txt: every listed page's body in section
 // order, loaded in batches until the cap is hit; the rest is only counted.
-func (s *Server) buildLLMsFull(ctx context.Context, base string, set seo.AIFiles) ([]byte, llmstxt.FullStats, error) {
+func (s *Server) buildLLMsFull(ctx context.Context, base string, set seo.AIFiles) (body []byte, stats llmstxt.FullStats, degraded bool, err error) {
 	m, err := s.loadLLMs(ctx, base, set, true)
 	if err != nil {
-		return nil, llmstxt.FullStats{}, err
+		return nil, llmstxt.FullStats{}, false, err
 	}
 	type listed struct {
 		item   llmstxt.Item
@@ -598,7 +608,7 @@ func (s *Server) buildLLMsFull(ctx context.Context, base string, set seo.AIFiles
 		}
 		got, err := repo.GetPublishedByIDs(ctx, ids)
 		if err != nil {
-			return nil, llmstxt.FullStats{}, err
+			return nil, llmstxt.FullStats{}, false, err
 		}
 		byID := make(map[string]*entity.Entity, len(got))
 		for _, e := range got {
@@ -625,5 +635,5 @@ func (s *Server) buildLLMsFull(ctx context.Context, base string, set seo.AIFiles
 		}
 	}
 	out, stats := w.Finish(len(flat) - offered)
-	return out, stats, nil
+	return out, stats, m.degraded, nil
 }
