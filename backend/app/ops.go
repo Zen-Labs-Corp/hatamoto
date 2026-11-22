@@ -13,14 +13,17 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
 	"hatamoto.dev/core/internal/auditctx"
 	"hatamoto.dev/core/internal/auditlog"
+	"hatamoto.dev/core/internal/auditstate"
 	"hatamoto.dev/core/internal/authzctx"
 	"hatamoto.dev/core/internal/authzsubject"
+	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
@@ -28,6 +31,7 @@ import (
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/portability"
 	"hatamoto.dev/core/internal/redirect"
+	"hatamoto.dev/core/internal/reviewflow"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/user"
 )
@@ -138,7 +142,9 @@ func runEntity(ctx context.Context, db *database.DB, args []string, out io.Write
 	repo.SetAuditTx(auditlog.TxHook(logger))
 	svc := entity.NewService(entity.NewPostgresSchemaRepository(db), repo, logger)
 	// A locale-neutral type defaults to all languages on a multi-language site.
-	svc.URLRegistry().SetLocales(siteconfig.NewStore(db, logger).LocaleSource())
+	sites := siteconfig.NewStore(db, logger)
+	svc.URLRegistry().SetLocales(sites.LocaleSource())
+	setReviewGate(db, svc, sites, logger)
 	sub, rest := args[0], args[1:]
 	switch sub {
 	case "list":
@@ -210,6 +216,9 @@ func runEntity(ctx context.Context, db *database.DB, args []string, out io.Write
 		default:
 			e, err = svc.UpdateEntityStatus(ctx, id, actor, entity.StatusDraft)
 		}
+		if sentForReview(out, err) {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
@@ -258,13 +267,52 @@ func runEntity(ctx context.Context, db *database.DB, args []string, out io.Write
 			return err
 		}
 		if publish {
-			if e, err = svc.UpdateEntityStatus(ctx, e.ID, actor, entity.StatusPublished); err != nil {
+			pub, err := svc.UpdateEntityStatus(ctx, e.ID, actor, entity.StatusPublished)
+			if sentForReview(io.Discard, err) {
+				// The entry is created as a draft; its publish waits for a reviewer.
+				if err := printJSON(out, e); err != nil {
+					return err
+				}
+				sentForReview(out, err)
+				return nil
+			}
+			if err != nil {
 				return err
 			}
+			e = pub
 		}
 		return printJSON(out, e)
 	}
 	return fmt.Errorf("unknown entity command %q", sub)
+}
+
+// setReviewGate holds a change made --as a user for review like every other
+// surface does: the entity service asks the gate only when a user is on the
+// context, so a CLI call without --as (the system) is never held.
+func setReviewGate(db *database.DB, svc *entity.Service, sites *siteconfig.Store, logger *slog.Logger) {
+	hook := auditlog.TxHook(logger)
+	// Only entity items are staged here, so the entity writer is the only one needed.
+	eng := &changeset.Engine{DB: db, Logger: logger,
+		Writers: map[changeset.Kind]changeset.KindWriter{changeset.KindEntity: changeset.EntityWriter{Svc: svc}},
+		AuditTx: func(ctx context.Context, tx pgx.Tx, action, target string, detail map[string]any) error {
+			ev := auditstate.Event{Actor: "cli", ActorKind: audit.KindCLI, Action: action, Target: target, Detail: detail}
+			if a, ok := auditctx.From(ctx); ok {
+				ev.ActorID, ev.Actor, ev.ActorKind, ev.KeyID = a.ID, a.Name, a.Kind, a.KeyID
+			}
+			return hook(ctx, tx, ev)
+		}}
+	svc.SetReviewGate(&reviewflow.Flow{Switch: sites, Engine: eng, Users: user.NewPostgresRepository(db), Logger: logger})
+}
+
+// sentForReview reports whether err is the outcome of a change that was staged
+// for review, and says so. It is a success: the command exits 0.
+func sentForReview(out io.Writer, err error) bool {
+	var sent *entity.SentForReviewError
+	if !errors.As(err, &sent) {
+		return false
+	}
+	fmt.Fprintf(out, "Sent for review (change %d). It goes live when a reviewer approves it.\n", sent.ChangesetID)
+	return true
 }
 
 // cliActor is the principal behind a CLI entity write: the --as user, or the
