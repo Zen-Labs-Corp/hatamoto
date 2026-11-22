@@ -340,6 +340,9 @@ type Deps struct {
 	// SiteGraph returns the site-wide Organization + WebSite JSON-LD graph
 	// exactly as the public head emits it; nil hides the preview.
 	SiteGraph func(r *http.Request) (map[string]any, error)
+	// AIFiles returns the built state of /llms.txt and /llms-full.txt for the
+	// AI files tab; nil shows both as "Not built yet".
+	AIFiles func(ctx context.Context) (AIFilesStatus, error)
 	// EmailSettings is the SMTP configuration behind Settings > Email and the
 	// setup wizard's Email step; nil answers those pages with 503.
 	EmailSettings EmailSettingsService

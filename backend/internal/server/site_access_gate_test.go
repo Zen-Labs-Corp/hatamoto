@@ -118,7 +118,7 @@ func TestSiteAccessGateModes(t *testing.T) {
 
 func TestSiteAccessGateMachineFilesAndRobots(t *testing.T) {
 	x := newGateFixture(t)
-	paths := []string{"/sitemap.xml", "/sitemap-posts.xml", "/sitemap.xsl", "/feed.xml", "/atom.xml", "/llms.txt", "/ads.txt", "/app-ads.txt"}
+	paths := []string{"/sitemap.xml", "/sitemap-posts.xml", "/sitemap.xsl", "/feed.xml", "/atom.xml", "/llms.txt", "/llms-full.txt", "/ads.txt", "/app-ads.txt"}
 	for mode, want := range map[siteaccess.Mode]int{siteaccess.ModeComingSoon: 404, siteaccess.ModePassword: 404, siteaccess.ModeMaintenance: 503} {
 		x.set.Mode = mode
 		for _, p := range paths {
@@ -285,7 +285,7 @@ func TestSiteAccessPublicAPIPrefixAndPass(t *testing.T) {
 	x := newGateFixture(t)
 	x.gate.apiPrefix = "/api/feed"
 	x.set.Mode = siteaccess.ModePassword
-	for _, p := range []string{"/api/feed/llms.txt", "/api/v1/public/llms.txt", "/api/other"} {
+	for _, p := range []string{"/api/feed/llms.txt", "/api/v1/public/llms.txt", "/api/v1/public/llms-full.txt", "/api/other"} {
 		if w := x.do("GET", p, ""); w.Code != 404 || x.reach != 0 {
 			t.Errorf("%s: %d, reached %d", p, w.Code, x.reach)
 		}
@@ -384,5 +384,36 @@ func TestSiteAccessLetThrough304IsNotPublicCacheable(t *testing.T) {
 	}
 	if got := w.Header().Get("Cache-Control"); got != "private, no-store" {
 		t.Fatalf("304 Cache-Control = %q, want private, no-store", got)
+	}
+}
+
+// Both AI files, at the root and under /api/v1/public, answer a plain refusal
+// while the gate holds visitors back: never the file, never a themed notice.
+func TestSiteAccessGateHoldsAIFiles(t *testing.T) {
+	x := newGateFixture(t)
+	for _, c := range []struct {
+		mode  siteaccess.Mode
+		code  int
+		body  string
+		retry string
+	}{
+		{siteaccess.ModeComingSoon, 404, "Not found\n", ""},
+		{siteaccess.ModePassword, 404, "Not found\n", ""},
+		{siteaccess.ModeMaintenance, 503, "Service unavailable\n", "900"},
+	} {
+		x.set.Mode = c.mode
+		before := x.reach
+		for _, p := range []string{"/llms.txt", "/llms-full.txt", "/api/v1/public/llms.txt", "/api/v1/public/llms-full.txt"} {
+			w := x.do("GET", p, "")
+			if w.Code != c.code || w.Body.String() != c.body || w.Header().Get("Retry-After") != c.retry {
+				t.Errorf("%s %s: %d %q retry %q", c.mode, p, w.Code, w.Body.String(), w.Header().Get("Retry-After"))
+			}
+			if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/plain") {
+				t.Errorf("%s %s: Content-Type %q", c.mode, p, ct)
+			}
+		}
+		if x.reach != before {
+			t.Errorf("%s: the gate let an AI file request through", c.mode)
+		}
 	}
 }

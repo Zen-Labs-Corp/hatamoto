@@ -200,8 +200,9 @@ own URL segment (free text: `fr-CA` may use `fr`), a default locale (the site
   (public or hidden) with the segment `locale` keeps that locale's home at
   `/locale`: the switcher is unavailable there until the segment is changed.
 
-Sitemaps, search, feeds and llms.txt follow the visible locale; see
-[Sitemaps](site/ai-seo/sitemaps.md) for the per-locale files.
+Sitemaps, search and feeds follow the visible locale; see
+[Sitemaps](site/ai-seo/sitemaps.md) for the per-locale files. `llms.txt` and
+`llms-full.txt` are one file each, with a section per public locale.
 
 A site that models regions as page trees with `overrides` on a region attribute (a `url_pattern` and a `sitemap_group` per region) can keep working as it is. To move it to real locales, use the converter in [LOCALE_CONVERSION.md](LOCALE_CONVERSION.md): it sets the locale of each page from the attribute and leaves every `url_pattern` and the attribute match in place, so URLs do not change. It removes only the `sitemap_group` key of those overrides, because the per-locale sitemap files take over. With the plan's `sitemap_naming` on `auto` the conversion also sets the site's sitemap naming to `legacy`, so the sitemap index keeps the file names the site had before.
 

@@ -108,6 +108,8 @@ func (a *Admin) mountSEOSettings(owner *httpx.Group) {
 	owner.HandleFunc("GET "+seo404DeletePath, a.handleSEO404Delete)
 	owner.HandleFunc("POST "+seo404DeletePath, a.handleSEO404DeleteSave)
 	owner.HandleFunc("GET "+seoKGPath, a.handleSEOKnowledgeGraph)
+	owner.HandleFunc("GET "+seoAIFilesPath, a.handleSEOAIFiles)
+	owner.HandleFunc("POST "+seoAIFilesPath, a.handleSEOAIFilesSave)
 }
 
 // seoFieldID turns a validation field name ("type[doc][title]") into the id of

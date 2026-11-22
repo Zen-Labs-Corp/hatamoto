@@ -122,7 +122,7 @@ func keys(m Manifest) []string {
 
 func TestBuild_InventoryUnion(t *testing.T) {
 	font := "/fonts/" + strings.Repeat("ab", 32) + ".woff2"
-	f := newFake("/k3x9-admin", "/", "/sitemap.xml", "/llms.txt")
+	f := newFake("/k3x9-admin", "/", "/sitemap.xml", "/llms.txt", "/llms-full.txt")
 	f.html("/", `<a href="/category/news">n</a><link rel="stylesheet" href="/theme/assets/theme.abc123.css">
 <img src="/media/a.jpg" srcset="/media/a-300.webp 300w, /media/a.jpg 1200w">`)
 	f.put("/sitemap.xml", "application/xml", `<sitemapindex><loc>https://example.com/sitemap-pages.xml</loc></sitemapindex>`)
@@ -134,6 +134,7 @@ func TestBuild_InventoryUnion(t *testing.T) {
 	f.put("/media/a.jpg", "image/jpeg", "JPG")
 	f.put("/media/a-300.webp", "image/webp", "WEBP")
 	f.put("/llms.txt", "text/plain; charset=utf-8", "https://example.com/api/v1/public/knowledge-graph\nhttps://example.com/api/v1/public/knowledge-graph?schema=post\n")
+	f.put("/llms-full.txt", "text/plain; charset=utf-8", "# Acme Studio: full text\n")
 	f.put("/api/v1/public/knowledge-graph", "application/ld+json", `{"@graph":[]}`)
 
 	m, rep, dir, err := build(t, f)
@@ -141,7 +142,7 @@ func TestBuild_InventoryUnion(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustHave(t, m, "index.html", "sitemap.xml", "sitemap-pages.xml", "about/index.html", "category/news/index.html",
-		"theme/assets/theme.abc123.css", font[1:], "media/a.jpg", "media/a-300.webp", "llms.txt", "404.html",
+		"theme/assets/theme.abc123.css", font[1:], "media/a.jpg", "media/a-300.webp", "llms.txt", "llms-full.txt", "404.html",
 		"api/v1/public/knowledge-graph")
 	if got := m.Files["api/v1/public/knowledge-graph"].Type; got != "application/ld+json" {
 		t.Errorf("knowledge graph type = %q", got)
@@ -176,6 +177,30 @@ func TestBuild_AdsOnlyWhenNonEmpty(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustHave(t, m, "ads.txt")
+}
+
+// Switching an AI file off makes it answer 404; the export still succeeds.
+func TestBuild_AIFilesSwitchedOffDoNotFailTheExport(t *testing.T) {
+	f := newFake("/admin", "/", "/llms.txt", "/llms-full.txt")
+	f.html("/", "<p>home</p>")
+	m, _, _, err := build(t, f)
+	if err != nil {
+		t.Fatalf("export failed with both files off: %v", err)
+	}
+	for _, name := range []string{"llms.txt", "llms-full.txt"} {
+		if _, ok := m.Files[name]; ok {
+			t.Errorf("%s present although the site answers 404", name)
+		}
+	}
+	f.put("/llms-full.txt", "text/plain; charset=utf-8", "# Acme Studio: full text\n")
+	m, _, _, err = build(t, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustHave(t, m, "llms-full.txt")
+	if _, ok := m.Files["llms.txt"]; ok {
+		t.Error("llms.txt present although it is switched off")
+	}
 }
 
 func TestBuild_ExcludesAdminAndPrivate(t *testing.T) {

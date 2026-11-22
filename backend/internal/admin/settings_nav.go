@@ -62,7 +62,7 @@ var settingsLive = map[string]bool{
 	"import": true, "general": true, "branding": true, "export": true, "performance": true, "memory": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "site-access": true, "versions": true, "api": true, "updates": true, "jobs": true, "hosting": true, "backups": true, "changes": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
-	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-ads-txt": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
+	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-ai-files": true, "seo-robots": true, "seo-ads-txt": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
 	"privacy": true, "tracking": true, "contact-button": true, "theme-strings": true,
 	"review": true, "user-sign-in": true, "locales": true, "locale-addresses": true, "locale-business": true, "search-replace": true,
 }
@@ -116,6 +116,7 @@ var settingsRegistry = []settingsSectionDef{
 		{ID: "seo-social", Label: "Social", Final: "/settings/seo/social", Cap: authz.ActionSettingsManage},
 		{ID: "seo-schema", Label: "Schema", Final: "/settings/seo/schema", Cap: authz.ActionSettingsManage},
 		{ID: "seo-kg", Label: "Knowledge graph", Final: "/settings/seo/knowledge-graph", Cap: authz.ActionSettingsManage},
+		{ID: "seo-ai-files", Label: "AI files", Final: "/settings/seo/ai-files", Cap: authz.ActionSettingsManage},
 		{ID: "seo-robots", Label: "Robots", Final: "/settings/seo/robots", Cap: authz.ActionSettingsManage},
 		{ID: "seo-ads-txt", Label: "ads.txt", Final: "/settings/seo/ads-txt", Cap: authz.ActionSettingsManage},
 		{ID: "seo-verification", Label: "Verification", Final: "/settings/seo/verification", Cap: authz.ActionSettingsManage},
