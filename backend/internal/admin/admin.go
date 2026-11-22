@@ -308,6 +308,11 @@ type Deps struct {
 	// Versions and the rule on the versions panel; nil answers that page with
 	// 503 and the panel states the default.
 	VersionRetention VersionRetentionService
+	// Review is the review step for changes to published content: the switch
+	// behind Settings > Content > Entity models > Review and what the editors
+	// show about a change waiting for review. Nil answers that page with 503
+	// and every editor looks as it does with review off.
+	Review ReviewFlow
 	// Spam is the spam protection settings behind Settings > Forms > Spam
 	// protection; nil answers that page with 503.
 	Spam SpamService

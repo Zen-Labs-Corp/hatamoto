@@ -64,7 +64,7 @@ var settingsLive = map[string]bool{
 	"admin-address": true, "site-access": true, "versions": true, "api": true, "updates": true, "jobs": true, "hosting": true, "backups": true, "changes": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
 	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-ads-txt": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
 	"privacy": true, "tracking": true, "contact-button": true, "theme-strings": true,
-	"user-sign-in": true, "locales": true, "locale-addresses": true, "locale-business": true, "search-replace": true,
+	"review": true, "user-sign-in": true, "locales": true, "locale-addresses": true, "locale-business": true, "search-replace": true,
 }
 
 // adminArea is a primary nav item with a secondary sidebar of sections and
@@ -108,6 +108,7 @@ var settingsRegistry = []settingsSectionDef{
 	{ID: "entity-models", Label: "Entity models", Icon: "content-model", Desc: "The kinds of content your site holds and how it is grouped.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "types", Label: "Entity types", Final: "/settings/types", Cap: authz.ActionSchemaManage},
 		{ID: "taxonomies", Label: "Taxonomies", Final: "/settings/taxonomies", Cap: authz.ActionTermManage},
+		{ID: "review", Label: "Review", Final: "/settings/review", Cap: authz.ActionSettingsManage},
 	}},
 	{ID: "seo", Label: "SEO", Icon: "seo", Desc: "Titles, descriptions and the variables they use.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "seo-general", Label: "General", Final: "/settings/seo/general", Cap: authz.ActionSettingsManage},

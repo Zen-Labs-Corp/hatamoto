@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/entity"
 )
 
 // RunInputDecl is one input a plugin's run declares.
@@ -156,3 +158,28 @@ var (
 	// ErrReviewNotApplicable: the suggestion can only be rejected.
 	ErrReviewNotApplicable = errors.New("that suggestion can only be rejected")
 )
+
+// ReviewFlow is the admin's view of changes to published content that wait
+// for a reviewer. Nil hides every review screen (503) and leaves the editors
+// as they are with review off.
+type ReviewFlow interface {
+	// Enabled reads the site's review switch from the cached settings (cosmetic: the server decides).
+	Enabled(ctx context.Context) bool
+	SetEnabled(ctx context.Context, on bool) error
+	// Plan reports whether a save or publish by the viewer would wait for review (the button labels).
+	Plan(ctx context.Context, e *entity.Entity) (held bool)
+	// Pending reads the change waiting (or sent back) for one entity.
+	Pending(ctx context.Context, entityID string) (PendingEdit, bool, error)
+}
+
+// PendingEdit is one change to a published entry that waits for review or was
+// sent back.
+type PendingEdit struct {
+	ID                       int64
+	EntityID, EntityName     string
+	Requester, RequesterName string // the requester's user ID and display name
+	Since                    time.Time
+	Rejected                 bool
+	Comment, Reviewer        string         // a sent-back change's comment and the reviewer's name
+	Payload                  *entity.Entity // name, slug and attributes as the requester left them
+}

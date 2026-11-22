@@ -151,6 +151,9 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 		d.PageCache = s.pageCache
 		d.SiteAccess = siteAccessAdmin{site: s.siteConfig, purge: s.purgeRendered}
 		d.VersionRetention = versionRetentionAdmin{site: s.siteConfig}
+		if s.reviewFlow != nil {
+			d.Review = reviewAdmin{flow: s.reviewFlow, site: s.siteConfig}
+		}
 		d.AuditRetention = auditRetentionAdmin{site: s.siteConfig}
 	}
 	if s.spamStore != nil {
