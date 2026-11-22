@@ -103,6 +103,10 @@ func Reset() {
 	reg.Store(nil)
 }
 
+// Registered reports whether a policy is installed. With none, the switch alone
+// decides, so callers may skip work only a policy needs.
+func Registered() bool { return reg.Load() != nil }
+
 // StagesFor returns the ordered review stages of e. With no policy it
 // returns none when review is off or the requester holds the bypass right,
 // and one "Review" stage for the "reviewers" group otherwise. A registered

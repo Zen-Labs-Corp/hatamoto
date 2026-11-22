@@ -47,6 +47,11 @@ func (f *Flow) Plan(ctx context.Context, e *entity.Entity, kind entity.ReviewKin
 	if err != nil {
 		return entity.ReviewPlan{}, fmt.Errorf("failed to read the review switch: %w", err)
 	}
+	if !on && !reviewstate.Registered() {
+		// Review off, no policy: nothing can hold the change, and the bypass
+		// right is not asked (a registered authorizer may not know the action).
+		return entity.ReviewPlan{}, nil
+	}
 	bypass, err := authz.Can(ctx, s, authz.ActionEntityReviewBypass, e.AuthzObject())
 	if err != nil {
 		return entity.ReviewPlan{}, fmt.Errorf("failed to check the review bypass: %w", err)

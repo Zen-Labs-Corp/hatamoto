@@ -779,8 +779,18 @@ func (s *Store) SetReviewEnabled(ctx context.Context, on bool) error {
 
 // ReviewEnabled reads the switch from the database, bypassing the 60 s cache:
 // the review gate must not let a change through on a server whose cache is
-// stale.
+// stale. When the read fails, a fresh cached copy that says off answers off, so
+// a database hiccup never refuses writes on a site that does not use review;
+// anything else is the error (the gate then refuses).
 func (s *Store) ReviewEnabled(ctx context.Context) (bool, error) {
+	on, err := s.readReviewEnabled(ctx)
+	if err != nil && !errors.Is(err, ErrNotConfigured) && s.cachedReviewOff() {
+		return false, nil
+	}
+	return on, err
+}
+
+func (s *Store) readReviewEnabled(ctx context.Context) (bool, error) {
 	conn, err := s.db.GetConn(database.WithSuperadmin(ctx))
 	if err != nil {
 		return false, fmt.Errorf("acquire db conn: %w", err)
@@ -795,6 +805,13 @@ func (s *Store) ReviewEnabled(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("read review enabled: %w", err)
 	}
 	return on, nil
+}
+
+// cachedReviewOff reports a cached settings copy within the TTL with review off.
+func (s *Store) cachedReviewOff() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.cached != nil && time.Since(s.cachedAt) < cacheTTL && !s.cached.ReviewEnabled
 }
 
 // SetAuditRetention stores how many days the daily prune keeps admin audit

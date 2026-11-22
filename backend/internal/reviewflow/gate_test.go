@@ -148,6 +148,20 @@ func TestPlanRegisteredPolicy(t *testing.T) {
 	}
 }
 
+// Review off and no policy: Plan answers "not held" without asking the
+// authorizer, so an authorizer that errors on the new actions cannot refuse
+// writes on a site that does not use review.
+func TestPlanOffDoesNotAskAuthorizer(t *testing.T) {
+	boom := errors.New("unknown action")
+	authztest.Use(t, authztest.Func(func(context.Context, authz.Subject, authz.Action, authz.Object) (bool, error) { return false, boom }))
+	reviewstate.Reset()
+	t.Cleanup(reviewstate.Reset)
+	p, err := (&Flow{Switch: fakeSwitch{on: false}}).Plan(session("editor"), testEntity(), entity.ReviewEdit)
+	if err != nil || p.Held {
+		t.Fatalf("Plan = %+v, %v; want not held, no error", p, err)
+	}
+}
+
 func TestPlanFailsClosed(t *testing.T) {
 	boom := errors.New("boom")
 	t.Run("policy", func(t *testing.T) {

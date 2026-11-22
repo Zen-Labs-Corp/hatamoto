@@ -170,3 +170,23 @@ func TestVisitorEntryZeroValueIsTheColumnDefault(t *testing.T) {
 		t.Errorf("zero value encodes to %s, want {}", raw)
 	}
 }
+
+// A failed switch read answers off only from a fresh cached copy that says off.
+func TestCachedReviewOff(t *testing.T) {
+	s := &Store{}
+	if s.cachedReviewOff() {
+		t.Error("an empty cache answered off")
+	}
+	s.cached, s.cachedAt = &Config{}, time.Now()
+	if !s.cachedReviewOff() {
+		t.Error("a fresh cached copy with review off did not answer off")
+	}
+	s.cached.ReviewEnabled = true
+	if s.cachedReviewOff() {
+		t.Error("a cached copy with review on answered off")
+	}
+	s.cached.ReviewEnabled, s.cachedAt = false, time.Now().Add(-2*cacheTTL)
+	if s.cachedReviewOff() {
+		t.Error("a stale cached copy answered off")
+	}
+}
