@@ -223,6 +223,8 @@ type Store struct {
 	flight database.Flight[*Config]
 	// loader overrides load; nil means load. A test seam.
 	loader func(context.Context) (*Config, error)
+	// reviewReader overrides readReviewEnabled. A test seam.
+	reviewReader func(context.Context) (bool, error)
 }
 
 // NewStore constructs a site-config store backed by the given database.
@@ -781,10 +783,18 @@ func (s *Store) SetReviewEnabled(ctx context.Context, on bool) error {
 // the review gate must not let a change through on a server whose cache is
 // stale. When the read fails, a fresh cached copy that says off answers off, so
 // a database hiccup never refuses writes on a site that does not use review;
-// anything else is the error (the gate then refuses).
+// anything else is the error (the gate then refuses). The fallback can be
+// stale: a switch turned on in another process is not seen here for up to
+// cacheTTL, so every answer from it is logged.
 func (s *Store) ReviewEnabled(ctx context.Context) (bool, error) {
-	on, err := s.readReviewEnabled(ctx)
+	read := s.readReviewEnabled
+	if s.reviewReader != nil {
+		read = s.reviewReader
+	}
+	on, err := read(ctx)
 	if err != nil && !errors.Is(err, ErrNotConfigured) && s.cachedReviewOff() {
+		s.logger.Warn("review switch read failed, answering off from the cached settings",
+			slog.String("component", "siteconfig"), slog.String("error", err.Error()))
 		return false, nil
 	}
 	return on, err
