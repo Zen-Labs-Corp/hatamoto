@@ -437,6 +437,7 @@ func isMoveOnly(in entity.UpdateEntityInput) bool {
 // writeEntityUpdateError answers a failed update or move.
 func (s *Server) writeEntityUpdateError(w http.ResponseWriter, err error) {
 	switch {
+	case s.writeReviewOutcome(w, err):
 	case writeNotAllowed(w, err):
 	case errors.Is(err, entity.ErrEntityNotFound):
 		writeError(w, http.StatusNotFound, "entity not found")
@@ -472,7 +473,7 @@ func (s *Server) handleUpdateEntityStatus(w http.ResponseWriter, r *http.Request
 
 	ent, err := s.entityService.UpdateEntityStatus(r.Context(), id, &claims.UserID, input.Status)
 	if err != nil {
-		if writeNotAllowed(w, err) {
+		if s.writeReviewOutcome(w, err) || writeNotAllowed(w, err) {
 			return
 		}
 		if errors.Is(err, entity.ErrEntityNotFound) {
@@ -609,7 +610,7 @@ func (s *Server) handleRestoreEntityVersion(w http.ResponseWriter, r *http.Reque
 
 	ent, err := s.entityService.RestoreVersion(r.Context(), id, &claims.UserID, version)
 	if err != nil {
-		if writeNotAllowed(w, err) {
+		if s.writeReviewOutcome(w, err) || writeNotAllowed(w, err) {
 			return
 		}
 		if errors.Is(err, entity.ErrEntityNotFound) {
@@ -659,6 +660,30 @@ func (s *Server) handleValidateEntityAttributes(w http.ResponseWriter, r *http.R
 
 	result := s.entityService.ValidateEntityAttributes(r.Context(), input.SchemaID, input.Attributes)
 	writeJSON(w, http.StatusOK, result)
+}
+
+// writeReviewOutcome answers the outcomes of the review gate and reports
+// whether it did: 202 when the change was sent for review (nothing was
+// written), 409 when another person's change to the entry is waiting, 422 when
+// the change cannot be sent for review, 403 when the review policy refused it.
+func (s *Server) writeReviewOutcome(w http.ResponseWriter, err error) bool {
+	var sent *entity.SentForReviewError
+	switch {
+	case errors.As(err, &sent):
+		writeJSON(w, http.StatusAccepted, map[string]any{"status": "pending_review", "changeset_id": sent.ChangesetID,
+			"message": "Sent for review. It goes live when a reviewer approves it."})
+	case errors.Is(err, entity.ErrReviewPending):
+		writeError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, entity.ErrReviewUnsupported):
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
+	case errors.Is(err, entity.ErrReviewHold):
+		// The cause (a policy or database error) goes to the server log, not the response.
+		s.logger.Error("review policy refused an entity change", "error", err)
+		writeError(w, http.StatusForbidden, entity.ErrReviewHold.Error())
+	default:
+		return false
+	}
+	return true
 }
 
 // writeNotAllowed answers 403 with the refusal sentence when err is
