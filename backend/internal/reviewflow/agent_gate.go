@@ -30,15 +30,15 @@ func (g *AgentGate) Plan(ctx context.Context, e *entity.Entity, kind entity.Revi
 	if err != nil {
 		return entity.ReviewPlan{}, err
 	}
-	if d.Outcome == agentpolicystate.OutcomeRequireReview || p.Held {
-		if !p.Held {
-			p = entity.ReviewPlan{Held: true, Stages: []entity.ReviewStage{
-				{Name: reviewstate.DefaultStageName, Group: reviewstate.DefaultGroup},
-			}}
-		}
-		p.Requester = "api-key:" + a.KeyID
+	// A plan the site's own rule held keeps its requester (the key's creator),
+	// so nobody decides their own change. Only a change held by the agent
+	// policy alone is recorded for the key.
+	if p.Held || d.Outcome != agentpolicystate.OutcomeRequireReview {
+		return p, nil
 	}
-	return p, nil
+	return entity.ReviewPlan{Held: true, Requester: "api-key:" + a.KeyID, Stages: []entity.ReviewStage{
+		{Name: reviewstate.DefaultStageName, Group: reviewstate.DefaultGroup},
+	}}, nil
 }
 
 // Submit stages through the inner gate; the engine's edit-submit audit row

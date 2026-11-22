@@ -8,8 +8,9 @@
 // by roles and review, not by this policy.
 //
 // RequireReview stages the change for the site's reviewers even when the
-// site's review switch is off; the requester is recorded as "api-key:<key id>"
-// so the key's creator may approve it. A policy's Allow never skips the site's
+// site's review switch is off; a change held only by
+// the policy has the requester "api-key:<key id>" so the key's creator may
+// approve it; one the site's own rule held keeps the creator as requester. A policy's Allow never skips the site's
 // own review rule. The zero Decision, an error or a panic refuses the change
 // and stages nothing (fail closed). Deny reasons are trimmed, kept to one
 // line and capped at 200 characters.

@@ -66,11 +66,13 @@ asked first.
 
 ### 4. Who may decide a staged change
 
-A staged agent change records its requester as `api-key:<key id>`, not the
-person who made the key. Nobody decides their own change, so with the creator as
+A change held only by the agent policy records its requester as
+`api-key:<key id>`, not the person who made the key. Nobody decides their own change, so with the creator as
 requester a site with one owner could never approve its own key's work. The
 creator, and anyone else who may decide review changes, can approve it. The
-requester text is stable across key renames.
+requester text is stable across key renames. A change the site's own review
+rule held keeps its requester, the key's creator, whatever the policy answers:
+the creator cannot decide it.
 
 A key needs the `write:entities` scope and a creator whose role may request
 review. A key made by a Contributor may therefore stage a publish of its own

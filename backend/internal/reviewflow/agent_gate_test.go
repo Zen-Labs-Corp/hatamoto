@@ -121,7 +121,16 @@ func TestAgentGateAllowKeepsHeldPlan(t *testing.T) {
 	agentRig(t, &fakePolicy{d: Decision{Outcome: agentpolicystate.OutcomeAllow}})
 	inner := &fakeInner{plan: entity.ReviewPlan{Held: true, Stages: []entity.ReviewStage{{Name: "Legal", Group: "legal"}}}}
 	got, err := (&AgentGate{Inner: inner}).Plan(keyCtx(), testEntity(), entity.ReviewEdit)
-	if err != nil || !got.Held || got.Stages[0].Group != "legal" || got.Requester != "api-key:"+testKeyID {
+	if err != nil || !got.Held || got.Stages[0].Group != "legal" || got.Requester != "" {
+		t.Fatalf("plan = %+v, %v", got, err)
+	}
+}
+
+func TestAgentGateInnerHeldAndRequireReviewKeepsInnerRequester(t *testing.T) {
+	agentRig(t, &fakePolicy{d: Decision{Outcome: agentpolicystate.OutcomeRequireReview}})
+	inner := &fakeInner{plan: entity.ReviewPlan{Held: true, Stages: []entity.ReviewStage{{Name: "Legal", Group: "legal"}}}}
+	got, err := (&AgentGate{Inner: inner}).Plan(keyCtx(), testEntity(), entity.ReviewEdit)
+	if err != nil || !reflect.DeepEqual(got, inner.plan) || got.Requester != "" {
 		t.Fatalf("plan = %+v, %v", got, err)
 	}
 }
