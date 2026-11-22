@@ -12,11 +12,13 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/reviewstate"
 	"hatamoto.dev/core/internal/user"
 )
 
-func (f *fakeReviewFlow) Queue(context.Context, int, int) ([]PendingEdit, int, error) {
-	return f.queue, len(f.queue), nil
+func (f *fakeReviewFlow) Queue(_ context.Context, limit, offset int) ([]PendingEdit, int, error) {
+	lo := min(offset, len(f.queue))
+	return f.queue[lo:min(lo+limit, len(f.queue))], len(f.queue), nil
 }
 
 func (f *fakeReviewFlow) Count(context.Context) (int, error) { return len(f.queue), nil }
@@ -314,4 +316,34 @@ func TestReviewGroupHidesFromNonMembers(t *testing.T) {
 	r.rv.groups = map[string]bool{"legal": true}
 	has(t, r.get(t, "owner-token", "/admin/review", ""), "New title")
 	has(t, r.get(t, "owner-token", "/admin/review/7", ""), "Approve and publish", `name="comment"`)
+}
+
+type allowAllGroups struct{}
+
+func (allowAllGroups) MayDecide(context.Context, string, string, string, string) (bool, error) {
+	return true, nil
+}
+
+// With a resolver, a first page of rows the viewer may not see must not hide
+// the later ones: the queue filters before it pages and totals what is visible.
+func TestReviewQueueFiltersBeforePaging(t *testing.T) {
+	reviewstate.Reset()
+	t.Cleanup(reviewstate.Reset)
+	reviewstate.RegisterGroups(allowAllGroups{})
+	r := newEditQueueRig(t)
+	legal, brand := ReviewStage{Total: 2, Name: "Legal", Group: "legal"}, ReviewStage{Index: 1, Total: 2, Name: "Brand", Group: "brand"}
+	base := r.rv.queue[0]
+	r.rv.queue = nil
+	for i := range reviewPerPage + 5 {
+		p := base
+		p.ID, p.EntityName, p.Stage = int64(100+i), "Legal item "+strconv.Itoa(i), legal
+		if i >= reviewPerPage+2 {
+			p.Stage, p.EntityName = brand, "Brand item "+strconv.Itoa(i)
+		}
+		r.rv.queue = append(r.rv.queue, p)
+	}
+	r.rv.groups = map[string]bool{"legal": false, "brand": true}
+	body := r.get(t, "owner-token", "/admin/review", "")
+	has(t, body, "Brand item 27", "Brand item 28", "Brand item 29")
+	lacks(t, body, "Legal item", "Nothing is waiting")
 }

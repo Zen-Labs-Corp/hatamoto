@@ -47,7 +47,23 @@ func (a *Admin) handleReviewQueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page := pageParam(r)
-	rows, total, err := rv.Queue(r.Context(), reviewPerPage, (page-1)*reviewPerPage)
+	me := userFrom(r.Context())
+	visible := func(p PendingEdit) bool {
+		// Only the entries the viewer may decide (or sent themselves) are listed.
+		return (me != nil && me.ID == p.Requester) || a.mayDecideStage(r.Context(), p.EntityID, p.Stage)
+	}
+	var rows []PendingEdit
+	var total int
+	var err error
+	grouped := reviewstate.GroupsRegistered()
+	if grouped {
+		// A group stage is visible to some viewers only, so filter before paging:
+		// a page of rows the viewer may not see must not hide the later ones.
+		// At most reviewstate.MaxPending of the oldest waiting changes are read.
+		rows, total, err = a.visibleQueue(r, page, visible)
+	} else {
+		rows, total, err = rv.Queue(r.Context(), reviewPerPage, (page-1)*reviewPerPage)
+	}
 	if err != nil {
 		a.serverError(w, r, "The review queue could not be loaded", err)
 		return
@@ -59,10 +75,8 @@ func (a *Admin) handleReviewQueue(w http.ResponseWriter, r *http.Request) {
 		Page:    ui.Pagination{Page: page, PerPage: reviewPerPage, Total: total, BaseURL: a.reviewURL()},
 		Empty:   ui.Empty{Icon: "check", Title: "Nothing is waiting for review.", Body: "Changes to published content that need a decision show up here."},
 	}
-	me := userFrom(r.Context())
 	for _, p := range rows {
-		// Only the entries the viewer may decide (or sent themselves) are listed.
-		if (me == nil || me.ID != p.Requester) && !a.mayDecideStage(r.Context(), p.EntityID, p.Stage) {
+		if !grouped && !visible(p) { // with groups, visibleQueue already filtered
 			continue
 		}
 		open := a.reviewURL("/", strconv.FormatInt(p.ID, 10))
@@ -83,6 +97,24 @@ func (a *Admin) handleReviewQueue(w http.ResponseWriter, r *http.Request) {
 	v := a.NewView(w, r, "Review")
 	v.Data = reviewQueuePage{Table: t}
 	a.Render(w, r, http.StatusOK, "review/queue", v)
+}
+
+// visibleQueue reads the oldest waiting changes (up to reviewstate.MaxPending),
+// keeps the ones the viewer may see and returns the requested page of those
+// with their count, so paging and the total follow what the viewer can open.
+func (a *Admin) visibleQueue(r *http.Request, page int, visible func(PendingEdit) bool) ([]PendingEdit, int, error) {
+	all, _, err := a.deps.Review.Queue(r.Context(), reviewstate.MaxPending, 0)
+	if err != nil {
+		return nil, 0, err
+	}
+	var mine []PendingEdit
+	for _, p := range all {
+		if visible(p) {
+			mine = append(mine, p)
+		}
+	}
+	lo := min((page-1)*reviewPerPage, len(mine))
+	return mine[lo:min(lo+reviewPerPage, len(mine))], len(mine), nil
 }
 
 // reviewCallout is a notice at the top of the detail page.
