@@ -1,0 +1,7 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Preview" "Description" "Your site with this change applied, as it would look once approved."}}
+{{template "hm/card-start" dict "ID" "preview" "Title" "Isolated preview" "Description" "Drawn by core on a separate address, in a sandbox that runs no scripts."}}
+{{if .Empty}}{{template "hm/empty" dict "Icon" "eye" "Title" "Nothing to preview" "Body" "This change has no page to show. Its differences are listed on the change page."}}{{else}}<div class="hm-row">{{template "hm/badge" (dict "Label" "Sandboxed frame, no scripts" "Kind" "info")}}{{template "hm/badge" (dict "Label" "No admin login here" "Plain" true)}}{{template "hm/badge" (dict "Label" .Shown "Mono" true)}}</div>
+<iframe class="hm-pluginframe hm-pluginframe--preview" sandbox="" referrerpolicy="no-referrer" title="{{.FrameTitle}}" src="{{.Src}}"></iframe>{{end}}
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Back to the change" "Variant" "primary" "Href" .Back}}{{template "hm/card-foot-end"}}
+{{end}}{{end}}

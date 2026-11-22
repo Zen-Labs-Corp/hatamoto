@@ -22,6 +22,7 @@ const reviewPerPage = 25
 func (a *Admin) mountReview(content *httpx.Group) {
 	content.Group("", a.RequireCan(authz.ActionEntityReviewDecide)).HandleFunc("GET /review", a.handleReviewQueue)
 	content.HandleFunc("GET /review/{id}", a.handleReviewDetail)
+	content.HandleFunc("GET /review/{id}/preview", a.handleReviewPreview)
 	content.HandleFunc("POST /review/{id}/approve", a.handleReviewApprove)
 	content.HandleFunc("POST /review/{id}/send-back", a.handleReviewSendBack)
 	content.HandleFunc("POST /review/{id}/publish", a.handleReviewRetryPublish)

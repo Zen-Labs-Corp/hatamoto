@@ -9,8 +9,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"hatamoto.dev/core/authz"
-	"hatamoto.dev/core/internal/authzuser"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/session"
 	"hatamoto.dev/core/internal/user"
@@ -132,10 +130,11 @@ func (a *Admin) guardFor(s scope) func(http.Handler) http.Handler {
 					r = r.WithContext(context.WithValue(ctx, previewPayloadKey{}, body))
 				} else if cs, ok := a.changesetFrameRoute(r); ok {
 					// A changeset preview frame: one-time ticket, this session, this
-					// changeset and item. Owner sessions only. consumeBound (the
+					// changeset and item. Owners, and for an edit changeset its requester and the
+					// holders of the decide right (mayPreviewChangeset). consumeBound (the
 					// cookieless preview host) is never used here.
 					u, sess, authed := a.cachedAuth(r)
-					if authed && sess != nil && u != nil && authzuser.Can(r.Context(), a.logger(), u, authz.ActionPluginChangesetReview) {
+					if authed && sess != nil && u != nil && a.mayPreviewChangeset(r.Context(), u, cs.id) {
 						_, ok = a.tickets.consume(ticketChangesetPreview, cs.ticket, sess.ID, changesetTarget(cs.id, cs.seq))
 					} else {
 						ok = false

@@ -15,7 +15,6 @@ import (
 
 	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
-	"hatamoto.dev/core/internal/authzuser"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/httpx"
 )
@@ -323,7 +322,7 @@ func (a *Admin) PreviewHostHandler() http.Handler {
 			a.refuse(w, r)
 			return
 		}
-		if u, err := a.deps.Users.GetByID(r.Context(), uid); err != nil || !authzuser.Can(r.Context(), a.logger(), u, authz.ActionPluginChangesetReview) {
+		if u, err := a.deps.Users.GetByID(r.Context(), uid); err != nil || !a.mayPreviewChangeset(r.Context(), u, cs.id) {
 			a.refuse(w, r)
 			return
 		}

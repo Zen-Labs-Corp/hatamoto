@@ -109,7 +109,8 @@ internal/admin/comments_entity.go inline comment.settings.manage roles=owner  # 
 internal/admin/analytics_robots.go inline robots.policy.write roles=owner  # :109 owner only, 403
 internal/admin/settings_locale_convert.go inline settings.manage roles=owner  # :706 owner only, 403
 internal/admin/entity_edit.go inline term.manage roles=owner  # :1319 "Only owners can create terms"
-internal/admin/plugins_changeset.go inline plugin.changeset.review roles=owner  # :325 re-check of the approving owner
+internal/admin/review_preview.go inline plugin.changeset.review roles=owner  # mayPreviewChangeset: the frame and preview-host re-check of the owner session
+internal/admin/review_preview.go inline entity.review.decide roles=owner,editor  # mayPreviewChangeset: widens to edit changesets only (and their requester)
 internal/admin/users.go inline user.owner.grant roles=owner n=2  # :778,:789 target-role checks (MayGrant, last owner)
 internal/admin/versions_nodes.go inline entity.version.restore roles=owner,editor  # :84 mayRestoreNodes, owner or editor
 
@@ -155,7 +156,6 @@ internal/admin/stats.go flag settings.manage roles=owner  # :162
 
 # --- not access decisions ---
 internal/admin/address_notify.go inline site.receive_owner_mail roles=owner  # recipients of the address-change notice
-internal/admin/adminguard.go inline plugin.changeset.review roles=owner  # changeset preview ticket: owner-session re-check before consume
 internal/admin/authmw.go other - n=1  # :62 claims derivation (IsSuperadmin)
 internal/server/standing_digest.go inline site.receive_owner_mail roles=owner  # ownerEmails (digest, export failure); also admin/address_notify.go, server/comment_surge.go
 internal/server/comment_surge.go inline site.receive_owner_mail roles=owner  # surge notice recipients
