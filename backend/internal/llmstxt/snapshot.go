@@ -51,20 +51,23 @@ func SnapshotOf(site Site, sections []Section) Snapshot {
 }
 
 // Diff returns the changes from old to cur, sorted by text. A nil old is the
-// first build: it only records a baseline, so there are no changes. excluded
+// first build: it only records a baseline, so there are no changes. So is an
+// old snapshot with no entity keys (a build that listed nothing): only the
+// site-level changes count, not every entity as added. excluded
 // maps an entity key to why a still-published entity left the file ("opted
 // out", "noindex").
 func Diff(old, cur Snapshot, excluded map[string]string, at time.Time) []Change {
 	if old == nil {
 		return nil
 	}
+	baseline := !hasEntityKeys(old)
 	var out []Change
 	add := func(text string) { out = append(out, Change{At: at, Text: text}) }
 
 	for key, c := range cur {
 		o, ok := old[key]
 		if !ok {
-			if !strings.HasPrefix(key, "site:") {
+			if !baseline && !strings.HasPrefix(key, "site:") {
 				add(c.Name + ": added")
 			}
 			continue
@@ -110,6 +113,20 @@ func Diff(old, cur Snapshot, excluded map[string]string, at time.Time) []Change 
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Text < out[j].Text })
 	return out
+}
+
+// hasEntityKeys reports whether s lists an entity, or is empty (no baseline of
+// any kind, so everything is new).
+func hasEntityKeys(s Snapshot) bool {
+	if len(s) == 0 {
+		return true
+	}
+	for key := range s {
+		if !strings.HasPrefix(key, "site:") {
+			return true
+		}
+	}
+	return false
 }
 
 // Keep returns add followed by prev, newest first, at most n entries.

@@ -74,6 +74,24 @@ func TestDiffFirstBuild(t *testing.T) {
 	}
 }
 
+// A build that listed no entities recorded only site keys; the first good build
+// after it is a baseline for the entities, not "added" for each of them.
+func TestDiffEmptyBaseline(t *testing.T) {
+	old := SnapshotOf(acmeSite(), nil)
+	cur := snapFor(func(s *Site, _ []Section) { s.Summary = "New summary." })
+	if got, want := texts(Diff(old, cur, nil, t0)), []string{"Site summary: changed"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("changes = %v, want %v", got, want)
+	}
+	// With a real baseline in place a new entity is "added" again.
+	next := snapFor(func(s *Site, secs []Section) {
+		s.Summary = "New summary."
+		secs[0].Items = append(secs[0].Items, Item{Key: "en|new", Name: "New page", Path: "/new"})
+	})
+	if got, want := texts(Diff(cur, next, nil, t0)), []string{"New page: added"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("changes = %v, want %v", got, want)
+	}
+}
+
 func TestKeep(t *testing.T) {
 	older := []Change{{At: t0.Add(-2 * time.Hour), Text: "b"}, {At: t0.Add(-3 * time.Hour), Text: "c"}}
 	fresh := []Change{{At: t0, Text: "a"}}
