@@ -1,0 +1,23 @@
+# Acme Studio: full text
+
+> Acme Studio builds websites for small firms in Lisbon.
+
+# Page 1
+
+URL: https://acme.example/p1
+Updated: 2026-11-22
+
+word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word
+
+---
+
+# Page 2
+
+URL: https://acme.example/p2
+Updated: 2026-11-22
+
+word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word
+
+---
+
+This file was truncated at 1 KB. 3 more pages are left out; see https://acme.example/sitemap.xml for the full list.
