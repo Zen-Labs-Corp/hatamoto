@@ -26,6 +26,7 @@ type fakeSwitch struct {
 func (f fakeSwitch) ReviewEnabled(context.Context) (bool, error) { return f.on, f.err }
 
 type fakeEngine struct {
+	Engine  // the decision methods are not used by the gate
 	opts    changeset.EditOptions
 	item    changeset.Item
 	err     error

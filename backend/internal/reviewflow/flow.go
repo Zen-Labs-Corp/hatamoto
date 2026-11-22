@@ -14,6 +14,8 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/changeset"
+	"hatamoto.dev/core/internal/email"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/user"
 )
 
@@ -27,6 +29,22 @@ type Switch interface {
 type Engine interface {
 	SubmitEdit(ctx context.Context, o changeset.EditOptions, it changeset.Item) (int64, error)
 	PendingEdit(ctx context.Context, targetID string) (changeset.EditRow, bool, error)
+	Get(ctx context.Context, id int64) (changeset.Header, []changeset.StoredItem, error)
+	DecideStage(ctx context.Context, csID int64, d changeset.StageDecision) error
+	StageDecisions(ctx context.Context, csID int64) ([]changeset.StageDecision, error)
+	Publish(ctx context.Context, csID int64) (changeset.Result, error)
+	Discard(ctx context.Context, csID int64) error
+}
+
+// Entities reads the live row an edit is based on.
+type Entities interface {
+	GetEntity(ctx context.Context, id uuid.UUID) (*entity.Entity, error)
+}
+
+// Mailer sends the requester's decision mail. Errors are logged by the flow,
+// never returned to the reviewer.
+type Mailer interface {
+	SendReviewDecision(ctx context.Context, to string, d email.ReviewDecisionData) error
 }
 
 // UserReader reads a user, to name the person whose change is waiting.
@@ -40,6 +58,12 @@ type Flow struct {
 	Switch Switch
 	Engine Engine
 	Users  UserReader
+	// Entities is read for the stale check of an approval.
+	Entities Entities
+	// Mail is nil-safe: without it no decision mail is sent.
+	Mail Mailer
+	// Site names the site and gives the admin address (no trailing slash) for mail links.
+	Site   func(ctx context.Context) (name, adminURL string)
 	Now    func() time.Time
 	Logger *slog.Logger
 }

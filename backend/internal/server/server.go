@@ -62,6 +62,7 @@ import (
 	"hatamoto.dev/core/internal/previewlink"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/reviewflow"
 	"hatamoto.dev/core/internal/runenv"
 	"hatamoto.dev/core/internal/safefetch"
 	"hatamoto.dev/core/internal/sectiontemplate"
@@ -221,6 +222,7 @@ type Server struct {
 	// webhooks queues and manages outgoing webhooks; webhookDeliverer sends them.
 	webhooks         *webhook.Service
 	changesets       *changeset.Engine
+	reviewFlow       *reviewflow.Flow
 	stagedSets       stagedCache
 	webhookDeliverer *webhook.Deliverer
 	// webhookDeliveryOn is true when a scheduled job will send queued webhooks.

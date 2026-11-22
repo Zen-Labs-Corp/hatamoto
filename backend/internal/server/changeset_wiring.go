@@ -40,6 +40,7 @@ func (s *Server) setupChangesets() {
 		},
 	}
 	s.scheduleChangesetSweep()
+	s.setupReview()
 }
 
 // changesetReviewer builds the admin's review service on the engine; nil until
