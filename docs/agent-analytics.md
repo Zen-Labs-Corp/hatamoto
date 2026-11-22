@@ -10,7 +10,7 @@ AI-referred visits are covered under "AI referral attribution" below; the admin 
 
 ```
 Go backend (pages, robots.txt, ─► agentCaptureMiddleware ─► agents.Writer ─┬─ hatamoto_agent_hits   (monthly partitions)
- sitemaps, llms.txt) in-process     (non-blocking, batched)               └─ hatamoto_agent_daily (rollup)
+ sitemaps, llms files) in-process   (non-blocking, batched)               └─ hatamoto_agent_daily (rollup)
 ```
 
 The Go server renders the whole public site, so every request already carries
@@ -26,7 +26,7 @@ the visitor's real User-Agent and is recorded in-process. (There used to be a
 
 | Path | Source |
 |---|---|
-| Go-rendered site: pages, `/robots.txt`, root `/sitemap*.xml`, `/llms.txt` | Go backend in-process (`agentCaptureMiddleware`, `Source=backend`, real status) |
+| Go-rendered site: pages, `/robots.txt`, root `/sitemap*.xml`, `/llms.txt`, `/llms-full.txt` | Go backend in-process (`agentCaptureMiddleware`, `Source=backend`, real status) |
 | `/media/*` | access-log source only (optional, off by default; see "Access-log ingest") |
 
 ## Configuration
@@ -106,7 +106,7 @@ admin overview in a later phase.
 
 1. Confirm the worker is not disabled (`HATAMOTO_WORKER` is not `off`).
 2. Deploy the binary (`scripts/ship.sh`; migrations 009/010 run, legacy rows are backfilled).
-3. Smoke: `curl -A GPTBot https://<host>/sitemap.xml /llms.txt /robots.txt
+3. Smoke: `curl -A GPTBot https://<host>/sitemap.xml /llms.txt /llms-full.txt /robots.txt
    <entity page>`, wait ~3s, then
    `SELECT path, purpose, status, entity_id FROM hatamoto_agent_hits ORDER BY occurred_at DESC LIMIT 4;`
 4. Plugin note: the `bot.visit` hook is removed (it carried raw IPs); its
@@ -521,7 +521,7 @@ not exist (404) and no file is read.
 the other capture paths, only `/media/*` requests (any status) are stored from
 a log, with `source = 'log'`: media is the one surface no other source sees.
 Every other line, 5xx included, is skipped (counted as `skipped`) because the
-backend (pages, sitemaps, `llms.txt`, robots.txt) already records those requests, failures too. Ingesting 5xx from logs is a v2
+backend (pages, sitemaps, `llms.txt`, `llms-full.txt`, robots.txt) already records those requests, failures too. Ingesting 5xx from logs is a v2
 item that needs reconciliation with those sources. Query strings are stripped
 and the logged status is stored as-is (the path resolver is not used). Unknown
 user agents are ignored like everywhere else. Lines whose timestamp is more

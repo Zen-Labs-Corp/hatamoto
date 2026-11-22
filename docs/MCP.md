@@ -69,7 +69,7 @@ Five tools read and change the site's search settings (Settings > SEO in the adm
 
 | Tool | Scope | What it does |
 |---|---|---|
-| `seo_get` | `read:seo` | The whole SEO document: the 16 sections (`separator`, `home`, `types`, `taxonomy`, `archives`, `variables`, `social`, `index`, `robots`, `verification`, `sitemap`, `breadcrumbs`, `indexnow`, `monitor404`, `ads_txt`, `app_ads_txt`), `type_settings` (per content type, by slug) and `ai_crawlers`. |
+| `seo_get` | `read:seo` | The whole SEO document: the 17 sections (`separator`, `home`, `types`, `taxonomy`, `archives`, `variables`, `social`, `index`, `robots`, `verification`, `sitemap`, `breadcrumbs`, `indexnow`, `monitor404`, `ads_txt`, `app_ads_txt`, `ai_files`), `type_settings` (per content type, by slug) and `ai_crawlers`. |
 | `seo_update` | `write:seo` | Merges a partial document into the stored settings and returns the whole updated document, or the field errors (a refused patch changes nothing). |
 | `seo_preview` | `read:seo` | (input: `entity_id`) The SEO part of a published entry's public head (title, description, robots, canonical, Open Graph and Twitter tags), built as a visitor would get it. A draft is not found. |
 | `seo_analyze` | `read:seo` | The entry's SEO panel checks, counts and score, from the stored entity (input: `entity_id`), the title and description length checks included. No keyword or `llms.txt` checks. |
@@ -80,7 +80,8 @@ Five tools read and change the site's search settings (Settings > SEO in the adm
 How a patch merges:
 
 - Only the keys you send change; a section you send is merged into the stored one. Decoding is strict: an unknown key or field is refused.
-- Top-level keys are the 16 sections, `type_settings` and `ai_crawlers`. A `{}` patch writes nothing.
+- Top-level keys are the 17 sections, `type_settings` and `ai_crawlers`. A `{}` patch writes nothing.
+- `ai_files` drives `/llms.txt` and `/llms-full.txt`: `llms_off` and `full_off` (both default to false, so both files are published), `summary` (up to 300 characters, replaces the site tagline), `posts` (posts listed in `llms.txt`, 1 to 200, default 20) and `full_cap_kb` (size cap of `llms-full.txt`, 64 to 20480, default 2048). A value equal to its default is stored as unset.
 - `null` on an entry of a map deletes it. This covers `types`, `taxonomy`, `variables`, `social.types`, `social.taxonomy` and the `index.noindex_*` maps.
 - `type_settings.<slug>` takes `archive_title`, `archive_description`, `schema_org_type`, `article_type`, `faq_from_content` and `sitemap` (`exclude`, `priority` or `null`, `change_freq`). An empty string clears a text field. `schema_org_type` is refused for `person` and for a type whose schema fixes the JSON-LD type.
 - `ai_crawlers.denied_purposes` replaces the whole list.

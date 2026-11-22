@@ -1051,7 +1051,7 @@ is linked with `POST .../link` (only while the term has no copies) and removed f
 
 ### SEO
 
-Settings > SEO (owner-only) has eleven tabs: General, Titles & meta, Social, Schema, Knowledge graph, Robots, Verification, Sitemap, Breadcrumbs, IndexNow and 404 monitor. General (`<admin>/settings/seo/general`) lists the
+Settings > SEO (owner-only) has twelve tabs: General, Titles & meta, Social, Schema, Knowledge graph, AI files, Robots, Verification, Sitemap, Breadcrumbs, IndexNow and 404 monitor. General (`<admin>/settings/seo/general`) lists the
 built-in variables (`%title%`, `%sitename%`, `%sep%` and so on) and holds up to 20 custom
 variables, used as `%cv_name%`. Titles & meta (`<admin>/settings/seo/titles`) sets the separator,
 the homepage, archive, author, search and not-found titles, the date archive title (the public site has no date archive pages yet, so only the preview uses it), a title and description
@@ -1100,6 +1100,15 @@ Knowledge graph (`<admin>/settings/seo/knowledge-graph`) is read-only. It shows 
 Organization and WebSite data the public head emits (name, logo, profile links, and the locales
 with their own business details), links to where each value is edited (Locales >
 Business details; General holds only identity, homepage and the notification email) and previews the resulting JSON-LD, built by the same code as the public site.
+
+AI files (`<admin>/settings/seo/ai-files`) is the card "Files for AI tools". It has a switch for
+`llms.txt` and one for `llms-full.txt` (both on by default; off answers 404), a summary override
+(up to 300 characters; empty uses the site tagline, then the business profile description) and
+the number of posts listed in `llms.txt` (default 20, at most 200). Below, a Files table shows
+when each file was last updated, with the size of `llms-full.txt` and a View link, and "Recently
+changed" lists the five newest changes to pages, people and the summary. Both read the state
+stored when a file is built, so they move when the file is next fetched after a change. The size
+cap of `llms-full.txt` has no field; set `full_cap_kb` through the SEO API.
 
 Titles & meta also decides what search engines may index. Each content type has a Search
 engines select (Index or Noindex), each term kind has an index switch, and so do author pages,
