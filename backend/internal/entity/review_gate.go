@@ -276,6 +276,13 @@ func askAgentPolicy(ctx context.Context, e *Entity, action string) error {
 	return nil
 }
 
+// askedDirectly reports a row whose edit the agent policy is asked about
+// here: a block, theme part or person the review gate never stages. A live
+// person already went through the gate (and so the policy) once.
+func askedDirectly(e *Entity) bool {
+	return reuseOrPerson(e) && !(live(e.Status) && !IsReuseSchema(e.Schema))
+}
+
 // reuseOrPerson reports a row the review gate never stages: a block, theme
 // part or person. A key's edit of one is asked of the agent policy directly.
 func reuseOrPerson(e *Entity) bool {

@@ -120,6 +120,11 @@ func (e *apEnv) block(slug string) *entity.Entity {
 	if err != nil {
 		e.t.Fatal(err)
 	}
+	// a second save stores version 1, which a restore can name
+	name, attrs := ent.Name+" (saved)", jsontext.Value(`{"saved":true}`)
+	if _, err := e.srv.entityService.UpdateEntity(e.ctx, ent.ID, &e.owner.ID, &entity.UpdateEntityInput{Name: &name, Attributes: &attrs}); err != nil {
+		e.t.Fatal(err)
+	}
 	e.targets = append(e.targets, ent.ID.String())
 	return ent
 }
@@ -265,6 +270,7 @@ func TestAgentPolicyDenyEveryWritePath(t *testing.T) {
 		{"restore", http.MethodPost, "/api/v1/entities/" + live.ID.String() + "/restore/1", ``, live.ID},
 		{"unpublish", http.MethodPatch, "/api/v1/entities/" + live.ID.String() + "/status", `{"status":"draft"}`, live.ID},
 		{"archive", http.MethodPatch, "/api/v1/entities/" + live.ID.String() + "/status", `{"status":"archived"}`, live.ID},
+		{"block restore", http.MethodPost, "/api/v1/entities/" + block.ID.String() + "/restore/1", ``, block.ID},
 		{"block edit", http.MethodPut, "/api/v1/entities/" + block.ID.String(), `{"name":"changed by k2"}`, block.ID},
 	} {
 		code, raw := e.do(c.method, c.path, []byte(c.body), hdr)
@@ -290,8 +296,8 @@ func TestAgentPolicyDenyEveryWritePath(t *testing.T) {
 	// One refusal row per refused write, all by the key and marked denied.
 	rows := e.denyRows(id2)
 	// draft: MCP publish + REST status; live: edit, restore, unpublish, archive,
-	// link insert; block: edit.
-	want := map[string]int{draft.ID.String(): 2, live.ID.String(): 5, block.ID.String(): 1}
+	// link insert; block: edit, restore.
+	want := map[string]int{draft.ID.String(): 2, live.ID.String(): 5, block.ID.String(): 2}
 	got := map[string]int{}
 	for _, r := range rows {
 		got[r.Target]++

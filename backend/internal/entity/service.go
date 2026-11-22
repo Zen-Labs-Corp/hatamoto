@@ -436,7 +436,7 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 	if err := authorizeReview(ctx, plan, authz.ActionEntityUpdate, existing.AuthzObject()); err != nil {
 		return nil, err
 	}
-	if !input.KeepUpdatedAt && reuseOrPerson(existing) {
+	if !input.KeepUpdatedAt && askedDirectly(existing) {
 		if err := askAgentPolicy(ctx, existing, agentpolicystate.ActionEdit); err != nil {
 			return nil, err
 		}
@@ -969,6 +969,11 @@ func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID
 	}
 	if err := authorizeReview(ctx, plan, authz.ActionEntityVersionRestore, existing.AuthzObject()); err != nil {
 		return nil, err
+	}
+	if askedDirectly(existing) {
+		if err := askAgentPolicy(ctx, existing, agentpolicystate.ActionEdit); err != nil {
+			return nil, err
+		}
 	}
 
 	// Validate the old attributes still conform to the current schema

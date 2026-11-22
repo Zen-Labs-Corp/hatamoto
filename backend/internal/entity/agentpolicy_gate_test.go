@@ -144,6 +144,11 @@ func TestAgentPolicyAsksBeforeUnpublishAndReuseEdit(t *testing.T) {
 			_, err := g.svc.UpdateEntity(ctx, reuseEntity(t, g, personSchemaSlug, me).ID, &me, &UpdateEntityInput{Name: &name})
 			return err
 		},
+		"restore block": func() error {
+			g.repo.versions[block.ID] = []*EntityVersion{{EntityID: block.ID, Version: 1}}
+			_, err := g.svc.RestoreVersion(ctx, block.ID, &me, 1)
+			return err
+		},
 		"edit block": func() error {
 			_, err := g.svc.UpdateEntity(ctx, block.ID, &me, &UpdateEntityInput{Name: &name})
 			return err
@@ -164,6 +169,32 @@ func TestAgentPolicyAsksBeforeUnpublishAndReuseEdit(t *testing.T) {
 		if !got[a] {
 			t.Errorf("action %q was never asked (asked %v)", a, got)
 		}
+	}
+}
+
+// enforcingGate stands in for the AgentGate: it asks the policy while planning.
+type enforcingGate struct{}
+
+func (enforcingGate) Plan(ctx context.Context, e *Entity, _ ReviewKind) (ReviewPlan, error) {
+	_, err := agentpolicystate.Enforce(ctx, agentpolicystate.ActionEdit, agentpolicystate.Entity{ID: e.ID.String()}, true)
+	return ReviewPlan{}, err
+}
+
+func (enforcingGate) Submit(context.Context, ReviewChange, ReviewPlan) (*SentForReviewError, error) {
+	return nil, nil
+}
+
+func TestAgentPolicyLivePersonEditIsAskedOnce(t *testing.T) {
+	g, me, pol := askRig(t, agentpolicystate.Decision{Outcome: agentpolicystate.OutcomeAllow})
+	g.svc.SetReviewGate(enforcingGate{})
+	sc := seedSchema(t, g.sr, func(s *EntitySchema) { s.Slug = personSchemaSlug })
+	person := seedEntity(t, g.repo.mockEntityRepository, sc, func(e *Entity) { e.CreatedBy = &me; e.Status = StatusPublished })
+	name := "N"
+	if _, err := g.svc.UpdateEntity(keyCtx(me), person.ID, &me, &UpdateEntityInput{Name: &name}); err != nil {
+		t.Fatal(err)
+	}
+	if len(pol.reqs) != 1 {
+		t.Fatalf("Decide called %d times for one live person edit, want 1", len(pol.reqs))
 	}
 }
 
