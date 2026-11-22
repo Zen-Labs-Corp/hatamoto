@@ -39,6 +39,8 @@ A term in `terms_list` carries its `seo` when one is saved. It is read-only here
 
 Entity writes are attributed to the key's creator and tagged `[mcp:<key name>]` in the version history.
 
+When the site's review switch is on and the key's creator may not publish without review, `entities_update` of a published entry and `entities_publish` do not write: they return `{"status":"pending_review","changeset_id":N,"message":"..."}` and the change goes live when a reviewer approves it. This is a result, not an error. A refusal because another person's change to the entry is waiting, or because the change cannot be sent for review (a byline change), is an error with that sentence. A key made by a Contributor cannot call `entities_publish`, as before.
+
 ## Behaviour
 
 - Tools call the same services as the HTTP API (no HTTP self-calls), so validation, slug rules, sanitising of rich-text HTML (and of the inline `html` prop of `heading` and `text` nodes in `page_doc`: `strong em b i u s code br a` only, safe links, `rel="noopener noreferrer"` on `target="_blank"`), plugin `before_save` hooks and cache invalidation are identical. A heading or text node renders its `html` where it has one: changing only `p.text` of such a node changes nothing on the page, so change `html` too or send the node without `p.html`. Sanitised `html` over 20,000 characters is a 422 `invalid_page_doc`.

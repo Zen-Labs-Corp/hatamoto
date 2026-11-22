@@ -2,12 +2,15 @@ package changeset
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Publish applies every item of a staged changeset in one transaction, each in
@@ -47,6 +50,7 @@ func (e *Engine) publish(ctx context.Context, csID int64, mode publishMode, gate
 		undos   []func(context.Context)
 		stale   bool
 		dropped int
+		kind    ChangesetKind
 	)
 	// Acquire, begin and the work run on the request's ctx, so a gone client
 	// still stops them. Only COMMIT runs on a context the client cannot cancel:
@@ -60,6 +64,7 @@ func (e *Engine) publish(ctx context.Context, csID int64, mode publishMode, gate
 		if cs.State != StateStaged {
 			return ErrNotStaged
 		}
+		kind = cs.Kind
 		if !e.now().Before(cs.ExpiresAt) {
 			stale = true
 			return ErrExpired
@@ -122,7 +127,7 @@ func (e *Engine) publish(ctx context.Context, csID int64, mode publishMode, gate
 		if e.AuditTx != nil {
 			detail := publishAuditDetail(res, mode, dropped)
 			detail["plugin"] = cs.Plugin
-			if err := e.AuditTx(ctx, tx, "changeset.publish", fmt.Sprintf("changeset:%d", csID), detail); err != nil {
+			if err := e.AuditTx(ctx, tx, publishAction(cs.Kind), fmt.Sprintf("changeset:%d", csID), detail); err != nil {
 				return fmt.Errorf("audit: %w", err)
 			}
 		}
@@ -143,9 +148,27 @@ func (e *Engine) publish(ctx context.Context, csID int64, mode publishMode, gate
 	e.deleteBlobs(ctx, keys)
 	e.logger().Info("changeset published: " + res.summary())
 	if e.AuditTx == nil {
-		e.audit(ctx, "changeset.publish", csID, publishAuditDetail(res, mode, dropped))
+		e.audit(ctx, publishAction(kind), csID, publishAuditDetail(res, mode, dropped))
+		if kind == ChangesetEdit && e.Audit != nil {
+			for _, it := range res.Items {
+				if it.Kind != KindEntity || it.Created || it.Deleted || len(it.Before) == 0 {
+					continue
+				}
+				if from, err := takeOverOrigin(it.Before); err == nil && from != "" {
+					e.Audit(ctx, "entity.take_over", it.TargetID, takeOverDetail(csID, from))
+				}
+			}
+		}
 	}
 	return res, dropped, nil
+}
+
+// publishAction is the audit action of a published changeset: edits have their own.
+func publishAction(k ChangesetKind) string {
+	if k == ChangesetEdit {
+		return "changeset.edit_publish"
+	}
+	return "changeset.publish"
 }
 
 func publishAuditDetail(res Result, mode publishMode, dropped int) map[string]any {
@@ -212,6 +235,17 @@ func (e *Engine) publishItem(ctx context.Context, tx pgx.Tx, cs changesetRow, it
 			return err
 		}
 	}
+	if e.AuditTx != nil && cs.Kind == ChangesetEdit && it.Kind == KindEntity && it.Op == OpUpsert && len(out.Before) > 0 {
+		from, err := takeOverOrigin(out.Before)
+		if err != nil {
+			return err
+		}
+		if from != "" {
+			if err := e.AuditTx(ctx, tx, "entity.take_over", out.TargetID, takeOverDetail(cs.ID, from)); err != nil {
+				return fmt.Errorf("audit: %w", err)
+			}
+		}
+	}
 	res.Applied++
 	res.Items = append(res.Items, AppliedItem{Kind: it.Kind, TargetID: out.TargetID, Created: out.Created, Deleted: out.Deleted, Before: out.Before, PathMoved: out.PathMoved})
 	return nil
@@ -252,4 +286,24 @@ func (r Result) summary() string {
 		s += " (conflict: " + strings.Join(parts, "; ") + ")"
 	}
 	return s
+}
+
+// takeOverOrigin is the origin the pre-image of an edited entity had, when it
+// was not the owner's: a person's edit takes the entity over (origin owner).
+func takeOverOrigin(before jsontext.Value) (string, error) {
+	var pre struct {
+		Origin string `json:"origin"`
+	}
+	if err := jsonx.Unmarshal(before, &pre, jsonx.StoredLoose); err != nil {
+		return "", fmt.Errorf("invalid pre-image: %w", err)
+	}
+	if pre.Origin == Origin("") {
+		return "", nil
+	}
+	return pre.Origin, nil
+}
+
+// takeOverDetail is the entity.take_over audit detail of an applied edit item.
+func takeOverDetail(cs int64, from string) map[string]any {
+	return map[string]any{"from": from, "changeset": cs}
 }

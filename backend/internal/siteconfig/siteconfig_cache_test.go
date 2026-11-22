@@ -1,10 +1,12 @@
 package siteconfig
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -168,5 +170,47 @@ func TestVisitorEntryZeroValueIsTheColumnDefault(t *testing.T) {
 	}
 	if string(raw) != `{}` {
 		t.Errorf("zero value encodes to %s, want {}", raw)
+	}
+}
+
+// A failed switch read answers off only from a fresh cached copy that says off.
+func TestCachedReviewOff(t *testing.T) {
+	s := &Store{}
+	if s.cachedReviewOff() {
+		t.Error("an empty cache answered off")
+	}
+	s.cached, s.cachedAt = &Config{}, time.Now()
+	if !s.cachedReviewOff() {
+		t.Error("a fresh cached copy with review off did not answer off")
+	}
+	s.cached.ReviewEnabled = true
+	if s.cachedReviewOff() {
+		t.Error("a cached copy with review on answered off")
+	}
+	s.cached.ReviewEnabled, s.cachedAt = false, time.Now().Add(-2*cacheTTL)
+	if s.cachedReviewOff() {
+		t.Error("a stale cached copy answered off")
+	}
+}
+
+// The cached-off fallback answers off after a failed read and logs a warning
+// with the error; without a fresh off copy the error is returned.
+func TestReviewEnabledFallbackLogsWarning(t *testing.T) {
+	var buf bytes.Buffer
+	s := &Store{logger: slog.New(slog.NewTextHandler(&buf, nil))}
+	s.reviewReader = func(context.Context) (bool, error) { return false, errors.New("pool timeout") }
+	if _, err := s.ReviewEnabled(context.Background()); err == nil {
+		t.Fatal("no cached copy: want the read error")
+	}
+	if buf.Len() != 0 {
+		t.Errorf("logged without answering from the cache: %s", buf.String())
+	}
+	s.cached, s.cachedAt = &Config{}, time.Now()
+	on, err := s.ReviewEnabled(context.Background())
+	if on || err != nil {
+		t.Fatalf("ReviewEnabled = %v, %v; want false, nil", on, err)
+	}
+	if out := buf.String(); !strings.Contains(out, "level=WARN") || !strings.Contains(out, "component=siteconfig") || !strings.Contains(out, "pool timeout") {
+		t.Errorf("log = %q", out)
 	}
 }

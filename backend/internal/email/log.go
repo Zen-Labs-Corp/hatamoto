@@ -29,6 +29,7 @@ const (
 	KindCommentReplyDigest  Kind = "comment_reply_digest" // several replies, to an opted-in commenter
 	KindCommentSurge        Kind = "comment_surge"        // surge mode started, to the owners
 	KindStaticExportFailed  Kind = "static_export_failed" // a static export failed, to the owners
+	KindReviewDecision      Kind = "review_decision"      // a reviewer approved or sent back a change, to its requester
 	KindPlugin              Kind = "plugin"
 	KindModule              Kind = "module" // a mail a compiled-in module sent; Plugin holds the module name
 	KindOther               Kind = "other"
@@ -65,12 +66,13 @@ type Recorder interface {
 // kind. The kinds that carry a one-time link or the secret admin address
 // never do, nor do the comment notifications (an unsubscribe bearer link and
 // commenter-written names), the export failure notice (an engine error text)
-// or a module mail (it may carry links or tokens).
+// a review decision (it carries a reviewer's comment) or a module mail (it may
+// carry links or tokens).
 func (k Kind) StoresBody() bool {
 	switch k {
 	case KindPasswordReset, KindInvite, KindAdminAddressChanged, KindAdminAddressSetup, KindCommentConfirmation,
 		KindCommentModeration, KindCommentDigest, KindCommentReply, KindCommentReplyDigest, KindCommentSurge,
-		KindStaticExportFailed, KindModule:
+		KindStaticExportFailed, KindReviewDecision, KindModule:
 		return false
 	}
 	return true

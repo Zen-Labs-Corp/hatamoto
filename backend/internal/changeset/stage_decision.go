@@ -23,6 +23,8 @@ var (
 	ErrStageOrder    = errors.New("stage decided out of order")
 	ErrStageRejected = errors.New("edit was rejected at an earlier stage")
 	ErrStagesPending = errors.New("edit has stages without approval")
+	// ErrSelfDecision means the requester tried to decide a stage of their own edit.
+	ErrSelfDecision = errors.New("the requester cannot decide their own edit")
 )
 
 // StageDecision is one reviewer's answer for one stage of an edit changeset.
@@ -37,11 +39,15 @@ type StageDecision struct {
 // DecideStage records d on a staged edit changeset. Stages are decided in
 // order: d.Stage must be the number of approvals so far and below the number
 // of stages, and nothing is accepted after a rejection. That the reviewer
-// belongs to the stage's group is the caller's check.
+// belongs to the stage's group is the caller's check; that the reviewer is not
+// the requester is checked here (ErrSelfDecision). With AuditTx set the audit
+// row is written in the transaction and an error from it rolls the decision
+// back; otherwise it is recorded after the commit.
 func (e *Engine) DecideStage(ctx context.Context, csID int64, d StageDecision) error {
 	if strings.TrimSpace(d.Reviewer) == "" || (d.Decision != StageApproved && d.Decision != StageRejected) {
 		return fmt.Errorf("%w: a stage decision needs a reviewer and approved or rejected", ErrInvalidEdit)
 	}
+	detail := map[string]any{"stage": d.Stage, "decision": d.Decision, "has_comment": strings.TrimSpace(d.Comment) != ""}
 	err := e.DB.WithTx(ctx, func(tx pgx.Tx) error {
 		cs, err := lockChangeset(ctx, tx, csID)
 		if err != nil {
@@ -52,6 +58,9 @@ func (e *Engine) DecideStage(ctx context.Context, csID int64, d StageDecision) e
 		}
 		if cs.Kind != ChangesetEdit {
 			return ErrNotEdit
+		}
+		if d.Reviewer == cs.Requester {
+			return ErrSelfDecision
 		}
 		approvals, rejected, err := countStages(ctx, tx, csID)
 		if err != nil {
@@ -68,12 +77,17 @@ func (e *Engine) DecideStage(ctx context.Context, csID int64, d StageDecision) e
 			VALUES ($1, $2, $3, $4, $5, $6)`, csID, d.Stage, d.Reviewer, d.Decision, d.Comment, e.now()); err != nil {
 			return fmt.Errorf("failed to record the stage decision: %w", err)
 		}
+		if e.AuditTx != nil {
+			return e.AuditTx(ctx, tx, "changeset.stage_decision", fmt.Sprintf("changeset:%d", csID), detail)
+		}
 		return nil
 	})
 	if err != nil {
 		return err
 	}
-	e.audit(ctx, "changeset.stage_decision", csID, map[string]any{"stage": d.Stage, "decision": d.Decision})
+	if e.AuditTx == nil {
+		e.audit(ctx, "changeset.stage_decision", csID, detail)
+	}
 	return nil
 }
 

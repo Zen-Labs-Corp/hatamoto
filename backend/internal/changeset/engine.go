@@ -136,25 +136,9 @@ var (
 
 // Stage adds it to a staged changeset. Nothing live changes.
 func (e *Engine) Stage(ctx context.Context, csID int64, it Item) error {
-	if singletonKinds[it.Kind] {
-		return fmt.Errorf("%w: %q", ErrSingleton, it.Kind)
-	}
-	if _, ok := e.Writers[it.Kind]; !ok {
-		return fmt.Errorf("%w: %q", ErrNoWriter, it.Kind)
-	}
-	if it.Op != OpUpsert && it.Op != OpDelete {
-		return fmt.Errorf("%w: operation %q", ErrInvalidItem, it.Op)
-	}
-	if it.Op == OpDelete && it.TargetID == "" {
-		return fmt.Errorf("%w: delete needs a target", ErrInvalidItem)
-	}
-	payload := it.Payload
-	if len(payload) == 0 {
-		payload = jsontext.Value(`{}`)
-	}
-	keys := it.BlobKeys
-	if keys == nil {
-		keys = []string{}
+	payload, keys, err := e.checkItem(it)
+	if err != nil {
+		return err
 	}
 	return e.DB.WithTx(ctx, func(tx pgx.Tx) error {
 		cs, err := lockChangeset(ctx, tx, csID)
@@ -196,20 +180,51 @@ func (e *Engine) Stage(ctx context.Context, csID int64, it Item) error {
 		if cs.Items >= int64(maxStagedItems) || cs.PayloadBytes+int64(len(payload)) > maxStagedBytes {
 			return fmt.Errorf("%w: at most %d items and %d MiB", ErrQuotaExceeded, maxStagedItems, maxStagedBytes>>20)
 		}
-		_, err = tx.Exec(ctx, `
-			INSERT INTO hatamoto_changeset_items (changeset_id, seq, kind, op, source_key, target_id, base_token, payload, blob_keys)
-			VALUES ($1, (SELECT COALESCE(MAX(seq), 0) + 1 FROM hatamoto_changeset_items WHERE changeset_id = $1),
-			        $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), $7, $8)`,
-			csID, string(it.Kind), it.Op, it.SourceKey, it.TargetID, it.BaseToken, payload, keys)
-		if err != nil {
-			return fmt.Errorf("failed to stage item: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `UPDATE hatamoto_changesets SET item_count = item_count + 1, payload_bytes = payload_bytes + $2 WHERE id = $1`,
-			csID, len(payload)); err != nil {
-			return fmt.Errorf("failed to count the staged item: %w", err)
-		}
-		return nil
+		return insertItem(ctx, tx, csID, it, payload, keys)
 	})
+}
+
+// checkItem validates the parts of an item that need no database and returns
+// its payload and file keys with the empty defaults filled in.
+func (e *Engine) checkItem(it Item) (payload jsontext.Value, keys []string, err error) {
+	if singletonKinds[it.Kind] {
+		return nil, nil, fmt.Errorf("%w: %q", ErrSingleton, it.Kind)
+	}
+	if _, ok := e.Writers[it.Kind]; !ok {
+		return nil, nil, fmt.Errorf("%w: %q", ErrNoWriter, it.Kind)
+	}
+	if it.Op != OpUpsert && it.Op != OpDelete {
+		return nil, nil, fmt.Errorf("%w: operation %q", ErrInvalidItem, it.Op)
+	}
+	if it.Op == OpDelete && it.TargetID == "" {
+		return nil, nil, fmt.Errorf("%w: delete needs a target", ErrInvalidItem)
+	}
+	payload = it.Payload
+	if len(payload) == 0 {
+		payload = jsontext.Value(`{}`)
+	}
+	keys = it.BlobKeys
+	if keys == nil {
+		keys = []string{}
+	}
+	return payload, keys, nil
+}
+
+// insertItem appends it to the changeset csID and counts it.
+func insertItem(ctx context.Context, tx pgx.Tx, csID int64, it Item, payload jsontext.Value, keys []string) error {
+	_, err := tx.Exec(ctx, `
+		INSERT INTO hatamoto_changeset_items (changeset_id, seq, kind, op, source_key, target_id, base_token, payload, blob_keys)
+		VALUES ($1, (SELECT COALESCE(MAX(seq), 0) + 1 FROM hatamoto_changeset_items WHERE changeset_id = $1),
+		        $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), $7, $8)`,
+		csID, string(it.Kind), it.Op, it.SourceKey, it.TargetID, it.BaseToken, payload, keys)
+	if err != nil {
+		return fmt.Errorf("failed to stage item: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE hatamoto_changesets SET item_count = item_count + 1, payload_bytes = payload_bytes + $2 WHERE id = $1`,
+		csID, len(payload)); err != nil {
+		return fmt.Errorf("failed to count the staged item: %w", err)
+	}
+	return nil
 }
 
 // checkBlobKeys refuses staged files that are not the run's own: only media
@@ -230,12 +245,16 @@ func checkBlobKeys(runID uuid.UUID, it Item) error {
 
 // Discard drops a staged changeset: its items, the run's buffer and the staged files.
 func (e *Engine) Discard(ctx context.Context, csID int64) error {
-	keys, err := e.finishStaged(ctx, csID, StateDiscarded)
+	keys, kind, err := e.finishStagedKind(ctx, csID, StateDiscarded)
 	if err != nil {
 		return err
 	}
 	e.deleteBlobs(ctx, keys)
-	e.audit(ctx, "changeset.discard", csID, nil)
+	action := "changeset.discard"
+	if kind == ChangesetEdit {
+		action = "changeset.edit_discard"
+	}
+	e.audit(ctx, action, csID, nil)
 	return nil
 }
 
@@ -268,7 +287,13 @@ func (e *Engine) Expire(ctx context.Context) (int, error) {
 	}
 }
 
-func (e *Engine) finishStaged(ctx context.Context, csID int64, state string) (keys []string, err error) {
+func (e *Engine) finishStaged(ctx context.Context, csID int64, state string) ([]string, error) {
+	keys, _, err := e.finishStagedKind(ctx, csID, state)
+	return keys, err
+}
+
+// finishStagedKind is finishStaged that also reports the changeset's kind.
+func (e *Engine) finishStagedKind(ctx context.Context, csID int64, state string) (keys []string, kind ChangesetKind, err error) {
 	err = e.DB.WithTx(ctx, func(tx pgx.Tx) error {
 		cs, err := lockChangeset(ctx, tx, csID)
 		if err != nil {
@@ -277,10 +302,11 @@ func (e *Engine) finishStaged(ctx context.Context, csID int64, state string) (ke
 		if cs.State != StateStaged {
 			return ErrNotStaged
 		}
+		kind = cs.Kind
 		keys, err = closeStaged(ctx, tx, csID, state)
 		return err
 	})
-	return keys, err
+	return keys, kind, err
 }
 
 // closeStaged deletes the items and the run buffer of a locked staged

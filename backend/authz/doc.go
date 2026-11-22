@@ -17,7 +17,11 @@
 //     own drafts, and never publishes; a reviewer changes, publishes and
 //     unpublishes any entity. All three upload media and change or delete
 //     the media they uploaded. They never reach menus, settings, users and
-//     the like.
+//     the like. With the site's review switch on, authors, contributors and
+//     editors send changes to published content for review
+//     (entity.review.request); owners and reviewers publish without review
+//     (entity.review.bypass); owners, editors and reviewers decide
+//     (entity.review.decide).
 //   - Any other role, and a session without a user, may do nothing.
 //   - An API key acts within what its creator's role may do: it may act only
 //     for an action that has a key scope, only when the key holds that scope,

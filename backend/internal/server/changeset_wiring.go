@@ -11,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/auditctx"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
@@ -40,6 +41,7 @@ func (s *Server) setupChangesets() {
 		},
 	}
 	s.scheduleChangesetSweep()
+	s.setupReview()
 }
 
 // changesetReviewer builds the admin's review service on the engine; nil until
@@ -86,7 +88,11 @@ func (s *Server) changesetAudit(ctx context.Context, action, target string, deta
 // connection while tx holds one.
 func (s *Server) changesetAuditTx(ctx context.Context, tx pgx.Tx, action, target string, detail map[string]any) error {
 	ev := audit.Event{Actor: "system", ActorKind: audit.KindSystem, Action: action, Target: target, Detail: detail}
-	if id, ok := database.GetUserID(ctx); ok {
+	if a, ok := auditctx.From(ctx); ok {
+		// The request's principal (an API key with its id, an MCP agent, the CLI)
+		// wins over the database user, which for a key is only its creator.
+		ev.ActorID, ev.Actor, ev.ActorKind, ev.KeyID = a.ID, a.Name, a.Kind, a.KeyID
+	} else if id, ok := database.GetUserID(ctx); ok {
 		ev.ActorID, ev.Actor, ev.ActorKind = id.String(), id.String(), audit.KindUser
 		if email := userEmailInTx(ctx, tx, id); email != "" {
 			ev.Actor = email

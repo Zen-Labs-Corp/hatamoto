@@ -174,3 +174,6 @@ internal/admin/admin.go inline content.write roles=owner,editor  # content group
 internal/admin/admin.go inline site.write roles=owner,editor  # writeGuard (write_guard.go) on the signed-in admin group
 internal/server/server_core.go inline content.write roles=owner,editor  # REST content group (/entities, /media)
 internal/server/server_core.go inline site.write roles=owner,editor  # middleware.WriteGuard on the REST protected group
+internal/entity/service.go inline entity.review.request roles=owner,editor  # asked instead of entity.update/entity.publish when the review gate holds a change
+internal/reviewflow/gate.go inline entity.review.bypass roles=owner  # Plan: who publishes without review
+internal/reviewflow/decide.go inline entity.review.decide roles=owner,editor  # stage group "reviewers" -> this right

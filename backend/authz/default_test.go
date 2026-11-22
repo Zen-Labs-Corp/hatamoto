@@ -45,6 +45,9 @@ var want = map[authz.Action]struct {
 	"entity.publish":                  {true, "write:entities"},
 	"entity.read":                     {true, "read:entities"},
 	"entity.reorder":                  {true, "write:entities"},
+	"entity.review.bypass":            {false, "write:entities"},
+	"entity.review.decide":            {true, ""},
+	"entity.review.request":           {true, "write:entities"},
 	"entity.share":                    {true, ""},
 	"entity.takeover":                 {true, "write:entities"},
 	"entity.terms.update":             {true, ""},
@@ -159,7 +162,7 @@ func TestDefaultKeys(t *testing.T) {
 					strs[i] = string(s)
 				}
 				key := &auth.APIKey{Scopes: h, CreatorRole: creator}
-				exp := (creator == "owner" || creator == "editor") && w.scope != "" &&
+				exp := (creator == "owner" || creator == "editor" && w.editor) && w.scope != "" &&
 					key.HasScope(auth.APIKeyScope(w.scope))
 				s := authz.Subject{UserID: "u", KeyID: "k", Scopes: strs, CreatorRole: creator}
 				got, err := d.Can(ctx, s, a, authz.Object{})

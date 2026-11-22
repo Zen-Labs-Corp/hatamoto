@@ -94,3 +94,36 @@ edit may publish at once); review on gives one stage, "Review", for the group
 - A broken policy blocks edits instead of letting them through. The fix is in
   the policy, not a way around it.
 - An edit that nobody reviews stays staged until someone discards it.
+
+## Amendment: the review step (2026-11-22)
+
+The first caller of the edit changeset is the entity service, behind one gate.
+
+- `review.Edit` gains `RequesterRole` (the requester's role, or a key's creator's role) and `Bypass` (the
+  requester holds the new action `entity.review.bypass`). The free default returns no stage when the switch is
+  off or `Bypass` is true, else one "Review" stage for the `reviewers` group. A registered policy sees both
+  fields and its answer wins; a policy error still holds the change.
+- The site's review switch is read from the database on every gated write, never from a cache.
+- A person's publish, schedule, restore or edit of published content is staged when the policy returns stages.
+  The service then asks `entity.review.request` instead of `entity.update` or `entity.publish`. No subject on
+  the context (the scheduler, imports, the CLI without `--as`) is the system and is never held.
+- The stage group `reviewers` maps to the action `entity.review.decide` (Owner, Editor, Reviewer). A stage naming
+  any other group cannot be decided in core: it fails closed and a holder of that right (Owner, Editor, Reviewer) can discard the change.
+- Nobody decides their own change, whatever their role. An owner is exempt by default, so a single-owner site
+  never deadlocks.
+- An approval publishes through the engine's `Publish`, not `PublishReviewed`: the import risk classifier is
+  not meant for human edits, and `Publish` honours the stage gate and the base token. Before deciding, the
+  entry's version is compared with the one the edit was based on; a changed entry refuses the approval.
+- Send back records a rejection and keeps the staged change for as long as nobody else replaces it. A new send
+  from the same person replaces it; they may also withdraw it. One change waits per entry; another person's
+  is refused, unless it was sent back: nobody can approve a sent-back change, so a new send by anyone replaces it
+  (its decision and comment stay, but the staged content of the replaced edit is deleted, so its requester loses that version; the audit row of the replacing send names them as `superseded_requester`). Any holder of `entity.review.decide` may discard a waiting change, with no
+  comment and no mail to the requester.
+- Publishing an edit of an entry a plugin owns takes it over and is audited as `entity.take_over`
+  (`detail` `{from, changeset}`).
+- Blocks and theme parts are always stored as drafts and are not held; they stay behind `builder.block.manage`.
+- `review.Edit.SlugChange` is not set by core in this release: the plan is taken before the input is known, so a
+  policy's slug rule never sees a change. `Delete` is not set either.
+- This is the first release that creates edit changesets, so it raises the rollback floor (see
+  [Upgrades](../UPGRADES.md)). A binary from before it ignores the review switch, so review would silently turn
+  off and changes would be written directly.
