@@ -117,6 +117,23 @@ func TestAuditLabelNamesEveryActionTheAdminWrites(t *testing.T) {
 	}
 }
 
+func TestAuditLabelsOfTheReviewFlow(t *testing.T) {
+	t.Parallel()
+
+	for action, want := range map[string]string{
+		"changeset.edit_submit":    "Sent for review",
+		"changeset.stage_decision": "Review decision",
+		"changeset.edit_publish":   "Published a reviewed change",
+		"changeset.edit_discard":   "Withdrew or discarded a change waiting for review",
+		"settings.review":          "Turned review on or off",
+		"changeset.publish":        "Published plugin changes", // unchanged
+	} {
+		if got := auditLabel(action); got != want {
+			t.Errorf("auditLabel(%q) = %q, want %q", action, got, want)
+		}
+	}
+}
+
 func auditRows(n int) []AuditRow {
 	at := time.Date(2026, 10, 2, 8, 30, 0, 0, time.UTC)
 	rows := make([]AuditRow, n)

@@ -109,6 +109,9 @@ GET /admin/profile/security/codes -> admin.(*Admin).handleSecurityCodes-fm
 GET /admin/profile/security/passkeys/add -> admin.(*Admin).handlePasskeyAddPage-fm
 GET /admin/profile/security/totp -> admin.(*Admin).handleTOTPForm-fm
 GET /admin/reset -> admin.(*Admin).handleResetForm-fm
+GET /admin/review -> admin.(*Admin).handleReviewQueue-fm
+GET /admin/review/{id} -> admin.(*Admin).handleReviewDetail-fm
+GET /admin/review/{id}/preview -> admin.(*Admin).handleReviewPreview-fm
 GET /admin/settings -> admin.(*Admin).areaEntry.func1
 GET /admin/settings/access-security -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/admin-branding -> admin.(*Admin).handleBranding-fm
@@ -179,6 +182,7 @@ GET /admin/settings/redirects/explain -> admin.(*Admin).handleRedirectExplain-fm
 GET /admin/settings/redirects/new -> admin.(*Admin).handleRedirectNew-fm
 GET /admin/settings/redirects/{id}/delete -> admin.(*Admin).handleRedirectDeleteForm-fm
 GET /admin/settings/redirects/{id}/edit -> admin.(*Admin).handleRedirectEdit-fm
+GET /admin/settings/review -> admin.(*Admin).handleReviewSettings-fm
 GET /admin/settings/search-replace -> admin.(*Admin).handleSearchReplace-fm
 GET /admin/settings/security -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/security/admin-address -> admin.(*Admin).handleSecurityAddress-fm
@@ -378,6 +382,11 @@ POST /admin/profile/security/totp -> admin.(*Admin).handleTOTPConfirm-fm
 POST /admin/profile/security/totp/begin -> admin.(*Admin).handleTOTPBegin-fm
 POST /admin/profile/security/totp/remove -> admin.(*Admin).handleTOTPRemove-fm
 POST /admin/reset -> admin.(*Admin).handleReset-fm
+POST /admin/review/{id}/approve -> admin.(*Admin).handleReviewApprove-fm
+POST /admin/review/{id}/discard -> admin.(*Admin).handleReviewDiscardEdit-fm
+POST /admin/review/{id}/publish -> admin.(*Admin).handleReviewRetryPublish-fm
+POST /admin/review/{id}/send-back -> admin.(*Admin).handleReviewSendBack-fm
+POST /admin/review/{id}/withdraw -> admin.(*Admin).handleReviewWithdraw-fm
 POST /admin/settings/admin-branding -> admin.(*Admin).handleBrandingSave-fm
 POST /admin/settings/admin-branding/reset -> admin.(*Admin).handleBrandingReset-fm
 POST /admin/settings/api-keys -> admin.(*Admin).handleAPIKeyCreate-fm
@@ -451,6 +460,7 @@ POST /admin/settings/redirects/bulk -> admin.(*Admin).handleRedirectsBulk-fm
 POST /admin/settings/redirects/{id}/delete -> admin.(*Admin).handleRedirectDelete-fm
 POST /admin/settings/redirects/{id}/edit -> admin.(*Admin).handleRedirectSave-fm
 POST /admin/settings/redirects/{id}/toggle -> admin.(*Admin).handleRedirectToggle-fm
+POST /admin/settings/review -> admin.(*Admin).handleReviewSettingsSave-fm
 POST /admin/settings/search-replace -> admin.(*Admin).handleSearchReplaceApply-fm
 POST /admin/settings/security/admin-address/change -> admin.(*Admin).handleAddressChangeSave-fm
 POST /admin/settings/security/admin-address/change/regenerate -> admin.(*Admin).handleAddressChangeRegen-fm

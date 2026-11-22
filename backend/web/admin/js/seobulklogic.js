@@ -39,10 +39,13 @@ export function rowValues(fields) {
  * The reply is {status, message, values}; a missing or odd reply is an error.
  */
 export function applyResponse(httpStatus, json, posted = {}, current = posted) {
-  const vals = json?.values;
+  // Sent for review: the row keeps what was typed as its loaded copy; the change waits for a reviewer.
+  const sent = httpStatus === 200 && json?.status === "pending_review";
+  const vals = sent ? posted : json?.values;
   const orig = vals ? { title: vals.title ?? "", description: vals.description ?? "", keyword: vals.keyword ?? "", noindex: vals.noindex ? "true" : "" } : null;
   const clash = json?.status === "conflict" ? (json.conflicts ?? {}) : {};
   const refresh = orig ? Object.keys(orig).filter((n) => !(n in clash) && (current[n] ?? "") === (posted[n] ?? "") && orig[n] !== (current[n] ?? "")) : [];
+  if (sent) return { state: "saved", text: json.message || "Sent for review.", orig, refresh: [], held: {} };
   if (httpStatus === 200 && json?.status === "saved") return { state: "saved", text: stateText("saved"), orig, refresh, held: {} };
   if (json?.status === "conflict") return { state: "conflict", text: Object.keys(clash).length ? conflictText(clash) : stateText("conflict"), orig, refresh, held: clash };
   return { state: "error", text: json?.message || stateText("error"), orig: null, refresh: [], held: {} };

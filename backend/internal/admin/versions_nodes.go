@@ -379,6 +379,10 @@ func (a *Admin) handleVersionRestoreNode(w http.ResponseWriter, r *http.Request)
 			"Nothing was restored. Open the comparison again to see the current page.", versions, "Back to versions")
 		return
 	}
+	if a.ownPendingBlocks(r.Context(), e) {
+		a.ErrorBack(w, r, http.StatusConflict, "You have a change waiting", "Nothing was restored. "+reviewOwnPendingMsg, versions, "Back to versions")
+		return
+	}
 	n, err := strconv.Atoi(r.PathValue("version"))
 	if err != nil || n < 1 || n >= e.Version {
 		a.ErrorBack(w, r, http.StatusNotFound, "Version not found", "That version cannot be restored from.", versions, "Back to versions")
@@ -422,7 +426,8 @@ func (a *Admin) handleVersionRestoreNode(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	summary := fmt.Sprintf("Restored node “%s” from version %d", name, n)
-	if _, err := a.saveBuilderDocAs(r.Context(), actorID(r), e, raw, opSave, nil, summary); err != nil {
+	saved, err := a.saveBuilderDocAs(r.Context(), actorID(r), e, raw, opSave, nil, summary)
+	if err != nil {
 		if a.refuseNotAllowed(w, r, err) {
 			return
 		}
@@ -432,6 +437,11 @@ func (a *Admin) handleVersionRestoreNode(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		a.serverError(w, r, "The node could not be restored", err)
+		return
+	}
+	if saved.Sent {
+		a.SetFlash(w, r, "success", reviewSentFlash)
+		Redirect(w, r, a.adminPath+"/entities/"+id+"/edit")
 		return
 	}
 	msg := fmt.Sprintf("Restored “%s” from version %d.", name, n)

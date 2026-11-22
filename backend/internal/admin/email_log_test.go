@@ -294,6 +294,7 @@ func TestEmailKindLabelComments(t *testing.T) {
 		"comment_reply":        "Comment reply",
 		"comment_reply_digest": "Comment replies summary",
 		"comment_surge":        "Comment surge",
+		"review_decision":      "Review decision",
 	} {
 		if got := emailKindLabel(kind, ""); got != want {
 			t.Errorf("emailKindLabel(%q) = %q, want %q", kind, got, want)

@@ -594,6 +594,18 @@ keyword, SEO title and description, canonical, social image, noindex, include in
   Postgres). The slash menu, paste clean-up, autosave, blocks and upload scripts are checked
   by hand: `docs/QA.md` "Blog editor".
 
+## Review
+
+With review on, a change to published content waits for a reviewer instead of going live. The behaviour is the same on every admin screen; the REST, MCP and CLI side is in the API docs.
+
+* **Switch.** Settings > Content > Entity models > Review (`<admin>/settings/review`, owners). One switch, off by default. With it off nothing on this page applies and every screen behaves as before.
+* **Who waits.** Authors, Editors and Contributors. Owners and Reviewers publish directly. A compiled-in review policy may change this ([ADR 0011](adr/0011-review-policy.md)). Blocks and theme parts are not reviewed. A Contributor's publish with review off stays unavailable: the disabled button gives its reason.
+* **Sending.** In the classic entity form, the blog editor and the builder, the publish action reads "Send for review" for someone who waits. The change is staged; the live entry and the public page stay as they are. The editor shows "Waiting for review since 10:42. Your change goes live when approved." until a decision. A scheduled publish by such a person is staged the same way. One change waits per entry: the same person sending again replaces it; another person's change to that entry is refused while one waits.
+* **Queue.** Review in the sidebar (owners, editors and reviewers; the marker is the number waiting) opens `<admin>/review`: entry, requester, waiting since. A row opens `<admin>/review/{id}`, which shows what would change (field, live now, after approval) and a Preview button (`<admin>/review/{id}/preview`).
+* **Deciding.** "Approve and publish" publishes through the changeset engine. "Send back" needs a comment; the requester sees it in the editor and can send a new version, which replaces the old one. Nobody decides their own change, whatever their role. Only holders of `entity.review.decide` can decide: the routes check it on the server, not only in the template. The requester can withdraw a waiting change; a reviewer can discard it.
+* **Stale changes.** If the live entry changed after the request, approving refuses with a message and nothing is written; the requester sends the change again from the current version.
+* **Mail and audit.** The requester gets a "Review decision" mail on approve and send back (visible in the email log). The audit log labels the steps: change sent for review, decision, published, discarded, and the review setting.
+
 ## Security model
 
 * **JSON API origin**: the session-authenticated JSON API is same-origin only

@@ -17,6 +17,7 @@ import (
 // group (content.write); schemas and taxonomies stay behind site.write.
 func (a *Admin) mountContent(content, authed *httpx.Group) {
 	a.mountEntities(content)
+	a.mountReview(content)
 	a.mountSchemas(authed)
 	a.mountTaxonomies(authed)
 	a.mountMedia(content)

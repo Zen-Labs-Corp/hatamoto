@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/entity"
 )
 
 // RunInputDecl is one input a plugin's run declares.
@@ -156,3 +158,75 @@ var (
 	// ErrReviewNotApplicable: the suggestion can only be rejected.
 	ErrReviewNotApplicable = errors.New("that suggestion can only be rejected")
 )
+
+// ReviewFlow is the admin's view of changes to published content that wait
+// for a reviewer. Nil hides every review screen (503) and leaves the editors
+// as they are with review off.
+type ReviewFlow interface {
+	// Enabled reads the site's review switch from the cached settings (cosmetic: the server decides).
+	Enabled(ctx context.Context) bool
+	SetEnabled(ctx context.Context, on bool) error
+	// Plan reports whether a save or publish by the viewer would wait for review (the button labels).
+	Plan(ctx context.Context, e *entity.Entity) (held bool)
+	// Pending reads the change waiting (or sent back) for one entity.
+	Pending(ctx context.Context, entityID string) (PendingEdit, bool, error)
+	// Queue lists the changes waiting for a decision, oldest first, with their total.
+	Queue(ctx context.Context, limit, offset int) ([]PendingEdit, int, error)
+	// Count is the number of changes in the queue.
+	Count(ctx context.Context) (int, error)
+	// Detail reads one change waiting (or sent back) with what the page decides on.
+	// ErrReviewNotFound when there is none, ErrReviewNotStaged when it is closed.
+	Detail(ctx context.Context, id int64) (ReviewDetail, error)
+	// Approve decides the viewer's stage and publishes once every stage is approved.
+	Approve(ctx context.Context, id int64, comment string) (ReviewOutcome, error)
+	// SendBack records a rejection with a comment; the change stays with its requester.
+	SendBack(ctx context.Context, id int64, comment string) error
+	// Publish retries the publish of a change that is approved but not live.
+	Publish(ctx context.Context, id int64) (ReviewOutcome, error)
+	// Withdraw drops the viewer's own change; Discard drops any change (decide right).
+	Withdraw(ctx context.Context, id int64) error
+	Discard(ctx context.Context, id int64) error
+}
+
+// What the review actions answer when a decision cannot go ahead.
+var (
+	ErrReviewSelf         = errors.New("you cannot decide your own change")
+	ErrReviewNotDecider   = errors.New("you cannot decide this change")
+	ErrReviewStale        = errors.New("the entry changed after this was sent for review")
+	ErrReviewNoComment    = errors.New("a comment is required")
+	ErrReviewNotRequester = errors.New("only the person who sent this change can withdraw it")
+)
+
+// ReviewDetail is one change for the detail page.
+type ReviewDetail struct {
+	PendingEdit
+	Live *entity.Entity // the entry as it is now; nil when it was deleted
+	// Stale: the entry changed after the change was sent, so approving is refused.
+	Stale bool
+	// Approved: every stage approved but the change is not live (the publish failed).
+	Approved bool
+	// NeedsGroup names a stage group this site does not define; nobody can decide it.
+	NeedsGroup string
+}
+
+// ReviewOutcome is what an approval or publish did to the live entry.
+type ReviewOutcome struct {
+	Published  bool
+	NotApplied bool // the entry moved meanwhile: nothing was written, the change stays readable
+	Pending    bool // stages remain for another reviewer
+}
+
+// PendingEdit is one change to a published entry that waits for review or was
+// sent back.
+type PendingEdit struct {
+	ID                       int64
+	EntityID, EntityName     string
+	Requester, RequesterName string // the requester's user ID and display name
+	Since                    time.Time
+	Rejected                 bool
+	Comment, Reviewer        string         // a sent-back change's comment and the reviewer's name
+	Payload                  *entity.Entity // name, slug and attributes as the requester left them
+	// Stale: the entry changed after the change was sent, so the payload is out of date.
+	// Only Pending fills it.
+	Stale bool
+}

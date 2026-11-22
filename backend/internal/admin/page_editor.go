@@ -217,9 +217,11 @@ func (a *Admin) handleEntityEditor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if pageEditorFor(sc, e) {
+		rs := a.reviewStateFor(r.Context(), e)
+		e = withPendingChange(e, rs) // the requester edits their own waiting change
 		doc, state := builderDoc(e)
 		if state == docOK {
-			a.handleBuilderScreen(w, r, e, sc, doc)
+			a.handleBuilderScreen(w, r, e, sc, doc, rs)
 			return
 		}
 		a.renderBrokenDoc(w, r, e, state)

@@ -489,6 +489,9 @@ func (a *Admin) buildBlogView(r *http.Request, e *entity.Entity, sc *entity.Enti
 		authorID = bylineValue(e)
 	}
 	if full {
+		if !f.reviewDone {
+			f.Review, f.reviewDone = a.reviewStateFor(r.Context(), e), true
+		}
 		a.fill(r, f, sc, e, "", authorID, p.picked)
 	}
 	f.ShowParent = false
@@ -570,8 +573,10 @@ func (a *Admin) renderBlog(w http.ResponseWriter, r *http.Request, status int, d
 
 // handleBlogEditor is GET /admin/entities/{id}/edit for post types.
 func (a *Admin) handleBlogEditor(w http.ResponseWriter, r *http.Request, e *entity.Entity, sc *entity.EntitySchema) {
+	rs := a.reviewStateFor(r.Context(), e)
+	e = withPendingChange(e, rs) // the requester edits their own waiting change
 	attrs := attrsMap(e.Attributes)
-	p := &posted{picked: map[string]bool{}, attrs: attrs, f: &entityForm{Name: e.Name, Slug: e.Slug, Status: string(e.Status), SEO: seoFrom(attrs), Errors: map[string]string{}}}
+	p := &posted{picked: map[string]bool{}, attrs: attrs, f: &entityForm{Name: e.Name, Slug: e.Slug, Status: string(e.Status), SEO: seoFrom(attrs), Errors: map[string]string{}, Review: rs, reviewDone: true}}
 	if c := a.deps.Content; c.Terms != nil {
 		if ts, err := c.Terms.ListTermsForEntity(r.Context(), e.ID); err == nil {
 			for _, t := range ts {
@@ -590,6 +595,10 @@ func (a *Admin) handleBlogSave(w http.ResponseWriter, r *http.Request, e *entity
 	p, b := a.readBlogForm(r, attrsMap(e.Attributes))
 	op := r.PostFormValue("_op")
 	switch {
+	case op == "publish" && e.Status == entity.StatusScheduled && a.deps.Review != nil && a.deps.Review.Plan(r.Context(), e):
+		// With review on, "Send for review" on a scheduled post sends the content
+		// change and keeps the schedule; it is not a status change.
+		p.f.Status = string(e.Status)
 	case op == "publish":
 		p.f.Status = string(entity.StatusPublished)
 	case r.PostFormValue("status") == "":
@@ -614,6 +623,11 @@ func (a *Admin) handleBlogSave(w http.ResponseWriter, r *http.Request, e *entity
 		render(http.StatusConflict, true)
 		return
 	}
+	if msg := a.heldExtras(r, p, e, sc); msg != "" {
+		p.f.Errors["status"] = msg
+		render(http.StatusUnprocessableEntity, false)
+		return
+	}
 	raw, _ := jsonx.Marshal(p.attrs)
 	summary := "Updated in the blog editor"
 	in := &entity.UpdateEntityInput{Name: &p.f.Name, Attributes: (*jsontext.Value)(&raw), ChangeSummary: &summary}
@@ -634,11 +648,15 @@ func (a *Admin) handleBlogSave(w http.ResponseWriter, r *http.Request, e *entity
 			a.notFound(w, r, "Entity", a.adminPath+"/entities", "Back to entities")
 			return
 		}
-		if a.refuseNotAllowed(w, r, err) {
+		if a.entityFormError(r, p.f, err) { // a refusal keeps the typed input and the recovery copy
+			render(http.StatusUnprocessableEntity, false)
 			return
 		}
-		if a.entityFormError(r, p.f, err) {
-			render(http.StatusUnprocessableEntity, false)
+		if a.sentForReviewAt(w, r, a.adminPath+"/entities/"+e.ID.String()+"/edit", err) {
+			a.dropRecovery(r.Context(), actorID(r), e.ID)
+			return
+		}
+		if a.refuseNotAllowed(w, r, err) {
 			return
 		}
 		a.serverError(w, r, "The post could not be saved", err)
@@ -654,7 +672,7 @@ func (a *Admin) handleBlogSave(w http.ResponseWriter, r *http.Request, e *entity
 		msg = "Saved and published."
 	}
 	if note := a.afterSave(r, p, updated, sc, e.Status); note != "" {
-		msg, kind = "Saved. "+note, "error"
+		msg, kind = "Saved. "+note, noteKind(note)
 	}
 	if updated.TookOwnership {
 		msg += " " + a.tookOverNote(r, e.ID)

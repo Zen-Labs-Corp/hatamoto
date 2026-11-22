@@ -117,6 +117,8 @@ bash "$QA/backups-seed.sh"
 [ "${QA_SEED_COMMENTS:-}" != 1 ] || bash "$QA/comments-seed.sh"
 # QA_SEED_HOSTING=1: static mode (directory target) and three export runs, the newest failed (banner + Failed badge).
 [ "${QA_SEED_HOSTING:-}" != 1 ] || bash "$QA/hosting-seed.sh"
+# review-edit-flow.mjs: an author with a published post and the review switch on (it would change every other screen, so only when asked for).
+case " $* " in *" review-edit-flow.mjs "*) bash "$QA/review-edit-seed.sh" ;; esac
 
 rc=0
 for s in "$@"; do

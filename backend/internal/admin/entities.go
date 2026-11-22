@@ -752,7 +752,7 @@ func (a *Admin) handleEntitiesBulk(w http.ResponseWriter, r *http.Request) {
 		Redirect(w, r, back)
 		return
 	}
-	done, failed, skipped := 0, 0, 0
+	done, failed, skipped, sent := 0, 0, 0, 0
 	var firstErr string
 	for _, raw := range ids {
 		id, err := uuid.Parse(raw)
@@ -771,6 +771,10 @@ func (a *Admin) handleEntitiesBulk(w http.ResponseWriter, r *http.Request) {
 			skipped++
 			continue
 		}
+		if errors.Is(err, entity.ErrSentForReview) {
+			sent++
+			continue
+		}
 		if err != nil {
 			failed++
 			if firstErr == "" {
@@ -783,14 +787,20 @@ func (a *Admin) handleEntitiesBulk(w http.ResponseWriter, r *http.Request) {
 		}
 		done++
 	}
-	msg := fmt.Sprintf("%d %s.", done, bulkVerb(action, done))
+	msg := ""
+	if done > 0 || sent == 0 {
+		msg = fmt.Sprintf("%d %s.", done, bulkVerb(action, done))
+	}
+	if sent > 0 {
+		msg = strings.TrimSpace(msg + fmt.Sprintf(" %d %s sent for review.", sent, plural(sent, "entry was", "entries were")))
+	}
 	if skipped > 0 {
 		msg += fmt.Sprintf(" %d %s skipped: you cannot change them.", skipped, plural(skipped, "entry was", "entries were"))
 	}
 	if failed > 0 {
 		msg += fmt.Sprintf(" %d could not be changed: %s", failed, firstErr)
 		a.SetFlash(w, r, "error", msg)
-	} else if skipped > 0 && done == 0 {
+	} else if skipped > 0 && done == 0 && sent == 0 {
 		a.SetFlash(w, r, "error", msg)
 	} else {
 		a.SetFlash(w, r, "success", msg)
@@ -818,6 +828,14 @@ func bulkVerb(action string, n int) string {
 func entityErrorText(err error) string {
 	var na *entity.NotAllowedError
 	switch {
+	case errors.Is(err, entity.ErrSentForReview):
+		return "Sent for review."
+	case errors.Is(err, entity.ErrReviewPending):
+		return sentence(err.Error())
+	case errors.Is(err, entity.ErrReviewUnsupported):
+		return "this change cannot be sent for review."
+	case errors.Is(err, entity.ErrReviewHold):
+		return "the review policy refused the change."
 	case errors.As(err, &na):
 		return na.Error() + "."
 	case errors.Is(err, entity.ErrHasChildren):
@@ -862,12 +880,22 @@ func (a *Admin) handleEntityStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, err = c.Entities.UpdateEntityStatus(a.entityAuditCtx(r, nil), id, actorID(r), st)
+	if errors.Is(err, entity.ErrSentForReview) {
+		a.SetFlash(w, r, "success", "Sent for review.")
+		Redirect(w, r, back)
+		return
+	}
 	if err != nil {
 		if a.refuseNotAllowed(w, r, err) {
 			return
 		}
 		if errors.Is(err, entity.ErrEntityNotFound) {
 			a.notFound(w, r, "Entity", a.adminPath+"/entities", "Back to entities")
+			return
+		}
+		if isReviewRefusal(err) {
+			a.SetFlash(w, r, "error", sentence(err.Error()))
+			Redirect(w, r, back)
 			return
 		}
 		a.serverError(w, r, "The status could not be changed", err)

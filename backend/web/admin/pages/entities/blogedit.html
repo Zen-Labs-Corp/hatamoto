@@ -13,10 +13,10 @@
 {{if .CanPreview}}{{template "hm/button" (dict "Label" "Preview" "Variant" "ghost" "Attrs" (attrmap "data-hm-be-preview-toggle" "" "aria-haspopup" "dialog"))}}{{end}}
 {{if and (not .Published) (not .HidePublish)}}{{template "hm/button" (dict "Label" "Schedule" "Variant" "ghost" "Attrs" (attrmap "data-hm-be-schedule" ""))}}{{end}}
 </span>
-{{if .Published}}{{template "hm/button" (dict "Label" "Update" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "form" "hm-be" "name" "_op" "value" "save"))}}
+{{if .Published}}{{template "hm/button" (dict "Label" (cond .Review.SendsForReview "Send for review" "Update") "Variant" "primary" "Type" "submit" "Attrs" (attrmap "form" "hm-be" "name" "_op" "value" "save"))}}
 {{else}}{{template "hm/button" (dict "Label" "Save draft" "Type" "submit" "Attrs" (attrmap "form" "hm-be" "name" "_op" "value" "save"))}}
-{{if .HidePublish}}{{template "hm/button" (dict "Label" "Send for review" "Attrs" (attrmap "aria-disabled" "true" "aria-describedby" "be-review-why" "data-hm-review-placeholder" ""))}}<span class="hm-visually-hidden" id="be-review-why">Reviews are not available yet. An editor or reviewer publishes this draft.</span>
-{{else}}{{template "hm/button" (dict "Label" "Publish" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "form" "hm-be" "name" "_op" "value" "publish"))}}{{end}}{{end}}
+{{if .HidePublish}}{{template "hm/button" (dict "Label" "Send for review" "Attrs" (attrmap "aria-disabled" "true" "aria-describedby" "be-review-why" "data-hm-review-placeholder" ""))}}<span class="hm-visually-hidden" id="be-review-why">Review is off. An editor or reviewer publishes this draft.</span>
+{{else}}{{template "hm/button" (dict "Label" (cond .Review.SendsForReview "Send for review" "Publish") "Variant" "primary" "Type" "submit" "Attrs" (attrmap "form" "hm-be" "name" "_op" "value" "publish"))}}{{end}}{{end}}
 {{template "hm/button" (dict "Label" "More actions" "AriaLabel" "More actions" "IconOnly" true "Icon" "more" "Variant" "ghost" "Attrs" (attrmap "aria-haspopup" "menu" "aria-expanded" "false" "popovertarget" "be-more"))}}
 <div class="hm-menu" id="be-more" popover role="menu" aria-label="More actions"><a role="menuitem" href="{{.VersionsHref}}">Versions</a><a role="menuitem" href="{{.DetailsHref}}">Details</a>{{with .ShareHref}}<a role="menuitem" href="{{.}}">Share preview</a>{{end}}{{with .ViewHref}}<a role="menuitem" href="{{.}}">View on site</a>{{end}}
 <button type="button" role="menuitem" class="hm-be__menu-drawer" hidden data-hm-be-settings>Settings</button>
@@ -29,9 +29,9 @@
 <div role="separator"></div><a role="menuitem" href="{{adminPath}}/entities/{{.ID}}/delete" data-hm-confirm="This entity and its version history will be deleted. This cannot be undone." data-hm-confirm-label="Delete entity" data-hm-post="{{adminPath}}/entities/{{.ID}}/delete" data-tone="danger" data-hm-danger>Delete</a></div>
 {{end}}{{end}}
 {{define "main"}}{{with .Data}}<h1 class="hm-visually-hidden">Write {{or .Name (printf "Untitled %s" .Noun)}}</h1>
-{{template "hm/formerrors" dict "Errors" .Summary}}
+{{template "hm/formerrors" dict "Errors" .Summary}}{{with .Review.Banner}}{{template "hm/callout-start" (dict "Kind" $.Data.Review.Kind)}}{{.}}{{if $.Data.Review.Mine}} <a href="{{adminPath}}/review/{{$.Data.Review.Pending.ID}}">Open the change</a>{{end}}{{template "hm/callout-end"}}{{end}}
 {{with .Conflict}}{{template "hm/flash" (dict "Kind" "error" "Message" . "Inline" true)}}{{end}}
-<form method="post" action="{{adminPath}}/entities/{{.ID}}/edit" class="hm-be" id="hm-be" novalidate data-hm-blog-editor data-hm-entity="{{.ID}}" data-hm-status="{{.Status}}"{{with $.User}} data-hm-user="{{.ID}}"{{end}} data-hm-version="{{.Version}}" data-hm-recovery-url="{{adminPath}}/entities/{{.ID}}/edit/recovery" data-hm-recovery-discard-url="{{adminPath}}/entities/{{.ID}}/edit/recovery/discard"{{if .CanPreview}} data-hm-preview="{{adminPath}}/entities/{{.ID}}/edit/preview"{{end}}>
+<form method="post" action="{{adminPath}}/entities/{{.ID}}/edit" class="hm-be" id="hm-be" novalidate data-hm-blog-editor{{if .Review.SendsForReview}} data-hm-review="1"{{end}} data-hm-entity="{{.ID}}" data-hm-status="{{.Status}}"{{with $.User}} data-hm-user="{{.ID}}"{{end}} data-hm-version="{{.Version}}" data-hm-recovery-url="{{adminPath}}/entities/{{.ID}}/edit/recovery" data-hm-recovery-discard-url="{{adminPath}}/entities/{{.ID}}/edit/recovery/discard"{{if .CanPreview}} data-hm-preview="{{adminPath}}/entities/{{.ID}}/edit/preview"{{end}}>
 {{template "hm/csrf" $}}
 <input type="hidden" name="version" value="{{.Version}}">
 {{with .RecoveryScript}}{{.}}{{end}}

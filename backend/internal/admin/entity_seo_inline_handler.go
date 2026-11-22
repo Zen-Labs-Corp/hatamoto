@@ -26,7 +26,8 @@ type seoCount struct {
 }
 
 // seoInlineReply is the JSON answer of an inline SEO save. Status is "saved",
-// "conflict" (a field changed elsewhere since the row loaded) or "error".
+// "conflict" (a field changed elsewhere since the row loaded), "pending_review"
+// (the change was sent for review and nothing live changed) or "error".
 type seoInlineReply struct {
 	Status    string              `json:"status"`
 	Message   string              `json:"message,omitempty"`
@@ -99,7 +100,7 @@ func (a *Admin) handleEntitySEOInline(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		kind := "success"
-		if v.Status != "saved" {
+		if v.Status != "saved" && v.Status != "pending_review" {
 			kind = "error"
 		}
 		a.SetFlash(w, r, kind, v.Message)
@@ -123,6 +124,10 @@ func (a *Admin) handleEntitySEOInline(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if len(res.Changed) > 0 {
+			if a.ownPendingBlocks(r.Context(), e) {
+				fail(http.StatusConflict, res.Current, reviewOwnPendingMsg)
+				return
+			}
 			b, _ := jsonx.Marshal(res.Attrs)
 			raw := jsontext.Value(b)
 			summary := "Updated SEO in the list"
@@ -130,6 +135,15 @@ func (a *Admin) handleEntitySEOInline(w http.ResponseWriter, r *http.Request) {
 			_, err := c.Entities.UpdateEntity(a.entityAuditCtx(r, detail), e.ID, actorID(r), &entity.UpdateEntityInput{Attributes: &raw, ChangeSummary: &summary, ExpectedVersion: &e.Version})
 			if errors.Is(err, entity.ErrVersionConflict) {
 				continue
+			}
+			if errors.Is(err, entity.ErrSentForReview) {
+				cur := seoFieldsOf(attrsMap(e.Attributes))
+				reply(http.StatusOK, seoInlineReply{Status: "pending_review", Message: reviewSentNote, Values: cur, Counters: seoCounters(cur)})
+				return
+			}
+			if errors.Is(err, entity.ErrReviewPending) {
+				fail(http.StatusConflict, seoFieldsOf(attrsMap(e.Attributes)), entityErrorText(err))
+				return
 			}
 			if a.refuseNotAllowed(w, r, err) {
 				return

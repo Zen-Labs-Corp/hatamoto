@@ -175,6 +175,8 @@ type savedPage struct {
 	TookOwnership bool
 	// PublishRefused is the authorizer's refusal when the draft was saved but the user may not publish it.
 	PublishRefused error
+	// Sent is true when review held the change: nothing live changed (a publish saved the draft first).
+	Sent bool
 }
 
 // saveBuilderDoc stores doc as e's page_doc for op (autosave, save or publish)
@@ -259,6 +261,17 @@ func (a *Admin) saveBuilderDocSEO(ctx context.Context, actor *uuid.UUID, e *enti
 	if err != nil {
 		var vc *entity.VersionConflictError
 		switch {
+		case errors.Is(err, entity.ErrSentForReview):
+			if op != opAutosave {
+				a.dropRecovery(ctx, actor, e.ID) // the staged change supersedes the actor's own recovery copy
+			}
+			return &savedPage{Entity: e, Note: reviewSentFlash, Sent: true}, nil
+		case errors.Is(err, entity.ErrReviewPending):
+			return nil, &saveProblem{http.StatusConflict, "review_pending", sentence(err.Error()), 0}
+		case errors.Is(err, entity.ErrReviewUnsupported):
+			return nil, &saveProblem{http.StatusUnprocessableEntity, "review_unsupported", sentence(err.Error()), 0}
+		case errors.Is(err, entity.ErrReviewHold):
+			return nil, &saveProblem{http.StatusServiceUnavailable, "review_hold", sentence(err.Error()), 0}
 		case errors.Is(err, entity.ErrNotAllowed):
 			return nil, &saveProblem{http.StatusForbidden, "not_allowed", sentence(err.Error()), 0}
 		case errors.As(err, &vc):
@@ -282,6 +295,8 @@ func (a *Admin) saveBuilderDocSEO(ctx context.Context, actor *uuid.UUID, e *enti
 	switch {
 	case res.PublishSkipped != "":
 		out.Note = strings.TrimSpace("Saved, but not published. The page still has its generated address. Change it under Details to publish. " + out.Note)
+	case errors.Is(res.PublishErr, entity.ErrSentForReview):
+		out.Sent, out.Note = true, reviewSentFlash
 	case errors.Is(res.PublishErr, entity.ErrNotAllowed):
 		out.PublishRefused = res.PublishErr
 		out.Note = "Saved, but the page could not be published: " + entityErrorText(res.PublishErr)
@@ -388,6 +403,10 @@ func (a *Admin) handleBuilderSave(w http.ResponseWriter, r *http.Request) {
 		SavedAt: saved.Entity.UpdatedAt.UTC().Format(time.RFC3339),
 		Status:  string(saved.Entity.Status),
 		Note:    saved.Note,
+	}
+	if saved.Sent {
+		// Staged for review: the page stays as stored and the editor reloads to show the waiting banner.
+		rep.Status = "pending_review"
 	}
 	if storedDocDiffers(saved.Entity, req.Doc) {
 		var m map[string]jsontext.Value

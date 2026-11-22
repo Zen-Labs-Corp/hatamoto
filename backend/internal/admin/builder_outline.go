@@ -82,6 +82,7 @@ type outlineData struct {
 	Published, CanPublish     bool
 	HidePublish               bool // CanPublish, but the signed-in user may not publish this page: Send for review stands in
 	DetailsHref               string
+	Review                    reviewState // zero: review is off or nothing waits
 	Notice, Conflict          string
 	Summary                   []ui.FieldError
 	Shell                     *builderShell // the JS shell's markup data; nil in the outline's own responses
@@ -134,6 +135,9 @@ type outlineState struct {
 	formErrs map[string]schemaform.Errors // component field errors by node id
 	raw      map[string]string            // typed values that did not coerce, by id+"\x00"+key
 	summary  []ui.FieldError
+	// review is what the page says about review; reviewSet is true when the caller read it (and overlaid the page).
+	review    reviewState
+	reviewSet bool
 }
 
 func newOutlineState() *outlineState {
@@ -518,7 +522,15 @@ func (a *Admin) outlineData(ctx context.Context, e *entity.Entity, doc *builder.
 		DetailsHref: a.adminPath + "/entities/" + e.ID.String(),
 		Summary:     st.summary,
 	}
+	d.Review = st.review
+	if !st.reviewSet {
+		d.Review = a.reviewStateFor(ctx, e)
+	}
 	d.HidePublish = d.CanPublish && !a.canEntity(ctx, authz.ActionEntityPublish, e)
+	if d.Review.SendsForReview {
+		// With review on, a publish is a request for review, not a publish.
+		d.HidePublish = d.CanPublish && !a.canEntity(ctx, authz.ActionEntityReviewRequest, e)
+	}
 	return d, nil
 }
 
@@ -726,6 +738,19 @@ func (a *Admin) handleBuilderPost(w http.ResponseWriter, r *http.Request, e *ent
 		}
 		d.Outline = r.PostFormValue("outline") == "1"
 		a.renderOutline(w, r, http.StatusForbidden, d)
+		return
+	}
+	if saved.Sent {
+		msg := reviewSentFlash
+		if verb == "publish" {
+			msg = "Saved. " + msg
+		}
+		a.SetFlash(w, r, "success", msg)
+		target := a.adminPath + "/entities/" + e.ID.String() + "/edit"
+		if r.PostFormValue("outline") == "1" {
+			target += "?outline=1"
+		}
+		Redirect(w, r, target)
 		return
 	}
 	msg, kind := "Saved.", "success"
