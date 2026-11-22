@@ -114,6 +114,22 @@ func (a *Admin) sentForReviewAt(w http.ResponseWriter, r *http.Request, to strin
 	return true
 }
 
+// reviewOwnPendingMsg is why a partial edit built from the live row is refused
+// while the viewer has a change of their own waiting for this entry.
+const reviewOwnPendingMsg = "You have a change waiting for review on this entry. Edit it in the editor, or withdraw it first, so it is not replaced."
+
+// ownPendingBlocks reports whether a save of e built from the live row would
+// replace a change the viewer has pending (waiting, sent back or out of date):
+// the save would be held, and sending it supersedes that change.
+func (a *Admin) ownPendingBlocks(ctx context.Context, e *entity.Entity) bool {
+	rv, u := a.deps.Review, userFrom(ctx)
+	if rv == nil || u == nil || !rv.Plan(ctx, e) {
+		return false
+	}
+	p, ok, err := rv.Pending(ctx, e.ID.String())
+	return err == nil && ok && p.Requester == u.ID
+}
+
 // heldExtras names what a posted save of a published entry would change that a
 // review request does not carry: terms, a status change, the schedule and the
 // scheduled unpublish. "" when the save is not held or carries nothing extra.

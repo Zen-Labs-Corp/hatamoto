@@ -124,6 +124,10 @@ func (a *Admin) handleEntitySEOInline(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if len(res.Changed) > 0 {
+			if a.ownPendingBlocks(r.Context(), e) {
+				fail(http.StatusConflict, res.Current, reviewOwnPendingMsg)
+				return
+			}
 			b, _ := jsonx.Marshal(res.Attrs)
 			raw := jsontext.Value(b)
 			summary := "Updated SEO in the list"

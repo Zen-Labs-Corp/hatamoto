@@ -1,7 +1,9 @@
 package admin
 
 import (
+	"context"
 	"encoding/json/jsontext"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -91,4 +93,44 @@ func wantRestoreRows(t *testing.T, got []AuditEvent, n int) {
 	if count != n {
 		t.Errorf("restore audit rows = %d, want %d (%v)", count, n, got)
 	}
+}
+
+// ownPendingFlow is a review flow that holds, where the viewer is the requester of
+// a change already waiting for every entry.
+type ownPendingFlow struct{ fakeReviewFlow }
+
+func (f *ownPendingFlow) Pending(ctx context.Context, id string) (PendingEdit, bool, error) {
+	return PendingEdit{ID: 7, EntityID: id, Requester: userFrom(ctx).ID}, true, nil
+}
+
+// A partial edit built from the live row would supersede the requester's own
+// waiting change and delete it: it is refused and nothing is staged.
+func TestReviewOwnPendingIsNotReplacedByPartialEdits(t *testing.T) {
+	t.Run("inline SEO", func(t *testing.T) {
+		c, users, held := newReviewEditorRig(t, &fakeReviewFlow{held: true})
+		c.a.deps.Review = &ownPendingFlow{fakeReviewFlow{held: true}}
+		*held = true
+		author := users[user.RoleAuthor]
+		e := c.entityBy(author, entity.StatusPublished)
+		form := url.Values{"title": {"Typed title"}, "orig_title": {""}, "description": {""}, "orig_description": {""}, "orig_noindex": {""}}
+		rec := c.do("POST", "/admin/entities/"+e.ID.String()+"/seo", c.freshToken(author.ID), form, map[string]string{"Accept": "application/json"})
+		if rec.Code != http.StatusConflict {
+			t.Fatalf("seo = %d, want 409: %s", rec.Code, rec.Body)
+		}
+		r := decodeSEOReply(t, rec)
+		if r.Status != "error" || !strings.Contains(r.Message, "change waiting for review") || r.Values.Title != "Typed title" {
+			t.Errorf("reply = %+v", r)
+		}
+	})
+	t.Run("node restore", func(t *testing.T) {
+		r := newVersionsRig(t)
+		r.a.deps.Review = &ownPendingFlow{fakeReviewFlow{held: true}}
+		code, body := r.restore("owner-token", "2", "stats", baseForm("3"), nil)
+		if code != http.StatusConflict || !strings.Contains(body, "change waiting for review") {
+			t.Fatalf("restore = %d %s", code, body)
+		}
+		if v := r.ents.ents[r.page.ID].Version; v != 3 {
+			t.Errorf("version = %d, the refused restore wrote", v)
+		}
+	})
 }

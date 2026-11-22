@@ -379,6 +379,10 @@ func (a *Admin) handleVersionRestoreNode(w http.ResponseWriter, r *http.Request)
 			"Nothing was restored. Open the comparison again to see the current page.", versions, "Back to versions")
 		return
 	}
+	if a.ownPendingBlocks(r.Context(), e) {
+		a.ErrorBack(w, r, http.StatusConflict, "You have a change waiting", "Nothing was restored. "+reviewOwnPendingMsg, versions, "Back to versions")
+		return
+	}
 	n, err := strconv.Atoi(r.PathValue("version"))
 	if err != nil || n < 1 || n >= e.Version {
 		a.ErrorBack(w, r, http.StatusNotFound, "Version not found", "That version cannot be restored from.", versions, "Back to versions")
