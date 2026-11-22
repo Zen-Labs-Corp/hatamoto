@@ -10,6 +10,7 @@ Open Mon-Fri 9:00-18:00.
 - [Home](https://acme.example/): Websites for small firms.
 - [Services](https://acme.example/services): What we build.
 - [About](https://acme.example/about): We are a small studio.
+- [Our services](https://acme.example/service): Everything we offer, in one place.
 - [Showcase](https://acme.example/showcase): Three shops and a portfolio.
 
 ## Pages

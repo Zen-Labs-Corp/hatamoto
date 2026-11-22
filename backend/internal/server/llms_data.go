@@ -168,7 +168,7 @@ func llmsPaths(plan *sitemapPlan) map[*entity.SitemapEntry]string {
 	var walk func(g *sitemapGroup)
 	walk = func(g *sitemapGroup) {
 		for _, row := range g.rows {
-			if row.section || row.e == nil || row.e.ID == uuid.Nil {
+			if row.e == nil || row.e.ID == uuid.Nil {
 				continue
 			}
 			if _, ok := out[row.e]; !ok {

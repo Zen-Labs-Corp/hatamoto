@@ -31,6 +31,15 @@ We are a small studio. We like plain words.
 
 ---
 
+# Our services
+
+URL: https://acme.example/service
+Updated: 2026-03-11
+
+Everything we offer, in one place.
+
+---
+
 # Showcase
 
 URL: https://acme.example/showcase

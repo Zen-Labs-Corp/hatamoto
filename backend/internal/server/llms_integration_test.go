@@ -106,6 +106,8 @@ func newLLMsEnv(t *testing.T, o llmsOpts) *llmsEnv {
 		exec(`INSERT INTO hatamoto_entity_schemas (id,name,slug,schema,settings) VALUES ($1,$3,$2,'{"type":"object"}',$4)`,
 			sid, slug, name, fmt.Sprintf(`{"url_pattern":"/%[1]s/{slug}","archive_path":"/%[1]s"}`, slug))
 	}
+	// Pages whose slug is a section prefix are landing pages (/service).
+	exec(`UPDATE hatamoto_entity_schemas SET settings = settings || '{"section_pages":true}'::jsonb WHERE slug='page'`)
 	add := func(key, schema, name, slug, locale, status string, at time.Time, attrs string, parent *uuid.UUID) {
 		exec(`INSERT INTO hatamoto_entities (id,schema_id,name,slug,locale,status,published_at,updated_at,attributes,origin,parent_id)
 			VALUES ($1,$2,$3,$4,$5,$6,$7,$7,$8::jsonb,'test',$9)`,
@@ -126,6 +128,7 @@ func newLLMsEnv(t *testing.T, o llmsOpts) *llmsEnv {
 		add("fr-home", "page", "Accueil", "accueil", "fr", "published", day(0), body("Des sites web pour les petites entreprises."), nil)
 	}
 
+	add("landing", "page", "Our services", "service", "en", "published", day(1), body("Everything we offer, in one place."), nil)
 	add("web", "service", "Web design", "web-design", "en", "published", day(1), `{"content":"<p>Sites that load fast.</p>","meta_description":"Sites that load fast."}`, nil)
 	add("shop", "service", "Online shops", "online-shops", "en", "published", day(2), body("Shops with simple checkout."), nil)
 	add("note", "recipe", "Soup of the day", "soup", "en", "published", day(3), body("Lentils and cumin."), nil)
@@ -257,7 +260,7 @@ func TestLLMsSeededSingleLocale(t *testing.T) {
 	idx := e.ok(t, "/llms.txt")
 	full := e.ok(t, "/llms-full.txt")
 	for _, want := range []string{"## Key pages", "## Services", "## Posts", "## People",
-		"- [Home](https://acme.example/)", "- [Web design](https://acme.example/service/web-design)",
+		"- [Home](https://acme.example/)", "- [Our services](https://acme.example/service)", "- [Web design](https://acme.example/service/web-design)",
 		"- [Launch notes](", "- [Elena Voss]("} {
 		if !strings.Contains(idx, want) {
 			t.Errorf("llms.txt lacks %q", want)
