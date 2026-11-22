@@ -165,14 +165,21 @@ func (a reviewAdmin) Detail(ctx context.Context, id int64) (admin.ReviewDetail, 
 			d.Stale = changeset.EntityToken(live.Version, live.UpdatedAt) != items[0].BaseToken
 		}
 	}
+	d.Approved, d.NeedsGroup = approvalState(row)
+	return d, nil
+}
+
+// approvalState says whether every stage of row is approved and, when not, which
+// group the current stage needs but the site does not define (no resolver, not the default group).
+func approvalState(row changeset.EditRow) (approved bool, needsGroup string) {
 	switch {
 	case row.Rejected:
 	case row.Approvals >= len(row.Stages):
-		d.Approved = true
+		approved = true
 	case row.Stages[row.Approvals].Group != reviewstate.DefaultGroup && !reviewstate.GroupsRegistered():
-		d.NeedsGroup = row.Stages[row.Approvals].Group
+		needsGroup = row.Stages[row.Approvals].Group
 	}
-	return d, nil
+	return approved, needsGroup
 }
 
 func (a reviewAdmin) Approve(ctx context.Context, id int64, comment string) (admin.ReviewOutcome, error) {
