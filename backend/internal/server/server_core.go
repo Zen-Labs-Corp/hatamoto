@@ -312,6 +312,7 @@ func (s *Server) mountCorePublicCMSRoutes(r *httpx.Group) {
 	r.HandleFunc("GET /sitemap.xml", s.handlePublicSitemap)
 	r.HandleFunc("GET /knowledge-graph", s.handleKnowledgeGraph)
 	r.HandleFunc("GET /llms.txt", s.handleLLMsTxt)
+	r.HandleFunc("GET /llms-full.txt", s.handleLLMsFullTxt)
 
 	// Public form routes
 	r.HandleFunc("GET /forms/{slug}", s.handleGetPublicForm)

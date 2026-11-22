@@ -176,6 +176,7 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	if s.siteConfig != nil {
 		d.SiteGraph = s.siteGraphPreview
 	}
+	d.AIFiles = s.aiFilesStatus
 	if s.backups != nil {
 		d.Backups = s.backups
 	}

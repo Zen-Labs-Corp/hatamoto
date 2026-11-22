@@ -10,7 +10,7 @@ import (
 )
 
 // agentCaptureMiddleware records requests from known AI agents on the
-// Go-rendered public routes (pages, robots.txt, sitemaps, llms.txt). On
+// Go-rendered public routes (pages, robots.txt, sitemaps, llms.txt, llms-full.txt). On
 // Go-served installs these never reach the Next.js middleware that normally
 // feeds the agent-hit ingest, so the in-process writer is used directly. The
 // hit is recorded after the handler ran with its real status, byte count and

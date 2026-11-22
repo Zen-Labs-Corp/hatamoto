@@ -8,12 +8,13 @@ This page lists everything Hatamoto writes into `robots.txt` and `llms.txt`, the
 
 ## Overview
 
-Hatamoto generates both files from live data on every request. You never edit them by hand.
+Hatamoto generates these files from live data. You never edit them by hand.
 
 | File or feed | Address | Built from | `Cache-Control` |
 |---|---|---|---|
 | `robots.txt` | `/robots.txt` | Fixed default rules plus the saved robots policy | `public, max-age=300, s-maxage=300` |
-| `llms.txt` | `/llms.txt` | The published entities that are not opted out | `public, max-age=3600, s-maxage=3600` |
+| `llms.txt` | `/llms.txt` | A summary of the site and its listed pages, rebuilt on change | `public, max-age=300, s-maxage=300` |
+| `llms-full.txt` | `/llms-full.txt` | The Markdown text of every listed page, rebuilt on change | `public, max-age=300, s-maxage=300` |
 | Knowledge graph | `/api/v1/public/knowledge-graph` | The same entities, as JSON-LD | `public, max-age=3600, s-maxage=3600` |
 
 Every absolute address in these files uses the public base URL. See [URL patterns](url-patterns.md#the-public-base-url).
@@ -168,32 +169,116 @@ Pages shown in preview always carry `noindex,follow`, so a draft preview cannot 
 
 ## llms.txt
 
-`/llms.txt` follows the [llmstxt.org](https://llmstxt.org) shape: a Markdown index for language models. It contains, in order:
+`/llms.txt` follows the [llmstxt.org](https://llmstxt.org) shape: a short Markdown summary of the site for language models. It contains, in order:
 
-1. A title: the company name from site settings, or `Knowledge Base` when none is set.
-2. A summary line with the last-updated date (the newest update among the listed entities, or today), the number of listed entities and the number of content types.
-3. A **Knowledge Graph** list: the JSON-LD feed, the sitemap and, when at least one listed post exists, the RSS feed at `/feed.xml` with a note that an Atom version is at `/atom.xml`.
-4. A **Content Types** list, one line per content type with listed entities, in order of first appearance, with the entity count and a link to the feed filtered to that type.
-5. A **Per-Page Structured Data** note: every page embeds JSON-LD, and sending `Accept: application/ld+json` returns the structured payload only.
+1. A title: the company name from site settings, then the business profile name, then the host name.
+2. A summary line: the **Summary override** from the AI files tab, else the site tagline, else the business profile description. Left out when all three are empty.
+3. A details paragraph from the business profile: location, contact and opening hours. Left out when the profile has none.
+4. One list per section, each line a link with a one-line description (the description field, else the first sentence of the page text). Empty sections are left out.
+5. An **Optional** list: the knowledge-graph feed, the sitemap, the posts feed at `/feed.xml` when the site has a posts type, and `llms-full.txt` when that file is on.
 
-A trimmed example:
+The sections, in order:
+
+| Section | What it lists |
+|---|---|
+| **Key pages** | The home page, then the top-level pages, in the order of the header menu (pages the menu does not link come after, by title). |
+| **Pages** | Pages that sit under another page, by title. |
+| One section per other content type | Entries of that type, by title. The heading is the type's archive title, else the type name. |
+| **Posts** | The newest posts, newest first. The count is **Posts listed in llms.txt** (20 by default, at most 200). Older posts appear only in `llms-full.txt`. |
+| **People** | People marked public, by name, with their job title. |
+
+A trimmed example for a fictional site with two public locales:
 
 ```text
-# Example Co
+# Acme Studio
 
-> Machine-readable index of all published content for LLM and AI crawler consumption. Last updated 2026-01-14. 42 total published entities across 3 content types.
+> Acme Studio builds websites for small firms in Lisbon.
 
-## Knowledge Graph
+Based in Lisbon, Portugal.
+hello@acme.example, +351 21 000 0000.
+Open Mon-Fri 9:00-18:00.
 
-- [All entities (JSON-LD @graph)](https://example.com/api/v1/public/knowledge-graph): paginated `application/ld+json` feed of every published entity. Use `?page=N&per_page=50` (max 100) to walk the full set.
-- [Sitemap (XML)](https://example.com/sitemap.xml): canonical URL index.
+## Key pages
+- [Home](https://acme.example/): Websites for small firms.
+- [Services](https://acme.example/services): What we build.
 
-## Content Types
+## Services
+- [Online shops](https://acme.example/service/online-shops): Shops with simple checkout.
+- [Web design](https://acme.example/service/web-design): Sites that load fast.
 
-- [Page](https://example.com/api/v1/public/knowledge-graph?schema=page): 12 entities as JSON-LD.
+## Posts
+- [Shop checklist](https://acme.example/blog/shop-checklist): Ten things to check before opening a shop.
+
+## People
+- [Elena Voss](https://acme.example/author/elena-voss): Lead designer
+
+## Key pages (Français)
+- [Accueil](https://acme.example/fr/accueil): Des sites web pour les petites entreprises.
+
+## Optional
+- [Knowledge graph](https://acme.example/api/v1/public/knowledge-graph): JSON-LD
+- [Sitemap](https://acme.example/sitemap.xml)
+- [Posts feed](https://acme.example/feed.xml)
+- [Full text](https://acme.example/llms-full.txt): older posts and every page
 ```
 
-Only published entities appear; drafts never do. An entity with **Include in /llms.txt** off is left out and not counted.
+### Locales
+
+There is one `/llms.txt`, not one per locale. The default locale's sections come first with plain headings. Each other public locale follows with the same sections, the locale's name added to the heading, such as `## Posts (Français)`. Each locale lists its own newest posts.
+
+### What is left out
+
+`llms.txt` and `llms-full.txt` list the same pages. A page is left out when it:
+
+- has **Include in /llms.txt** off;
+- is set to no-index, or its content type is hidden from search engines (see [Per-page controls](#per-page-controls));
+- is a draft or otherwise not published;
+- is a person who is not marked public;
+- is anything else the [sitemap](sitemaps.md) leaves out, such as a page with its own **hide from sitemap** setting.
+
+Hatamoto has no password-protected content feature, so there is nothing of that kind to exclude. While the whole site is in coming soon, maintenance or password mode, the files follow the sitemap: see [Settings, users and email](../admin/settings-users-email.md).
+
+### Freshness
+
+The built files are kept in the render cache. Any content or settings change clears it, and the next request builds the files again. Answers carry `Cache-Control: public, max-age=300, s-maxage=300`, so a browser or shared cache may show the previous file for up to five minutes. **Recently changed** and **Last updated** on the AI files tab update when a file is next built, that is on its next fetch after a change.
+
+## llms-full.txt
+
+`/llms-full.txt` holds the text of every page `llms.txt` lists, including all posts, not only the newest. It starts with `# <site name>: full text` and the summary, then one block per page in the same order as `llms.txt`:
+
+```text
+# Web design
+
+URL: https://acme.example/service/web-design
+Updated: 2026-03-11
+
+Sites that load fast. ...
+
+---
+```
+
+The text is Markdown made from the page content, never the themed HTML. A page built with the page builder is turned into headings, paragraphs and lists; a person's text is their bio.
+
+The file stops at a size cap, 2 MB by default. A block is never cut in half: the first page that would pass the cap and every page after it are left out, and the file ends with a line such as:
+
+```text
+This file was truncated at 2048 KB. 14 more pages are left out; see https://acme.example/sitemap.xml for the full list.
+```
+
+The cap is the `full_cap_kb` field of the `ai_files` section of the SEO API (64 to 20480, in KB). The AI files tab has no field for it.
+
+## Files for AI tools
+
+Settings > SEO > **AI files** (owners only) is the card **Files for AI tools**:
+
+| Control | Effect |
+|---|---|
+| **Publish llms.txt** | On by default. Off answers `/llms.txt` with 404 and removes it from the static export. |
+| **Publish llms-full.txt** | On by default. Off answers `/llms-full.txt` with 404, removes it from the static export and from the Optional list of `llms.txt`. |
+| **Summary override** | Up to 300 characters. Empty uses the site tagline, then the business profile description. |
+| **Posts listed in llms.txt** | The newest posts per locale, 1 to 200, 20 by default. |
+
+The card also shows a **Files** table with each file's last update time (and the size of `llms-full.txt`) and **Recently changed**, the five newest changes to pages, people and the summary. The same settings are the `ai_files` section of `GET|PATCH /api/v1/settings/seo`: `llms_off`, `full_off`, `summary`, `posts` and `full_cap_kb`. See [MCP server](mcp.md#tools).
 
 ## The AI crawler comment
 
@@ -230,6 +315,7 @@ Send `Accept: application/ld+json` to an entity page and the server answers with
 
 ## Limits and errors
 
-- When the published entities cannot be listed, `/llms.txt` answers `500` with `failed to build llms.txt`, and the feed answers `500` with `failed to build knowledge graph`.
+- When the published entities cannot be listed, `/llms.txt` answers `500` with `failed to build llms.txt`, `/llms-full.txt` answers `500` with `failed to build llms-full.txt`, and the feed answers `500` with `failed to build knowledge graph`.
 - When the robots policy cannot be read, `/robots.txt` falls back to the default output; it never fails.
-- The MCP tool `llms_txt_preview` returns `/llms.txt` exactly as a crawler gets it now. See [MCP server](mcp.md#tools).
+- A file switched off in the AI files tab answers `404`.
+- The MCP tool `llms_txt_preview` returns `/llms.txt` exactly as a crawler gets it now, in the shape described above. See [MCP server](mcp.md#tools).

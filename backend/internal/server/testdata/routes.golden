@@ -59,6 +59,7 @@ GET /api/v1/plugins/{name}/settings -> (*Server).handleGetPluginSettings-fm
 GET /api/v1/public/forms/{slug} -> (*Server).handleGetPublicForm-fm
 GET /api/v1/public/forms/{slug}/token -> (*Server).handleFormToken-fm
 GET /api/v1/public/knowledge-graph -> (*Server).handleKnowledgeGraph-fm
+GET /api/v1/public/llms-full.txt -> (*Server).handleLLMsFullTxt-fm
 GET /api/v1/public/llms.txt -> (*Server).handleLLMsTxt-fm
 GET /api/v1/public/sitemap-{sub}.xml -> (*Server).handlePublicSubSitemap-fm
 GET /api/v1/public/sitemap.xml -> (*Server).handlePublicSitemap-fm
@@ -77,6 +78,7 @@ GET /api/v1/users/ -> (*Server).handleListUsers-fm
 GET /api/v1/users/{id} -> (*Server).handleGetUser-fm
 GET /f/{slug} -> (*Server).handleFormPage-fm
 GET /health -> (*Server).handleHealth-fm
+GET /llms-full.txt -> (*Server).handleLLMsFullTxt-fm
 GET /llms.txt -> (*Server).handleLLMsTxt-fm
 GET /media/* -> (*Server).handleServeMedia-fm
 GET /p/{plugin}/{rest...} -> (*Server).handlePluginPublicRoute-fm
@@ -88,6 +90,7 @@ GET /sitemap.xsl -> (*Server).handleSitemapXSL-fm
 HEAD / -> (*renderHandlers).handleRenderHome-fm
 HEAD /* -> (*renderHandlers).handleRenderCatchAll-fm
 HEAD /health -> (*Server).handleHealth-fm
+HEAD /llms-full.txt -> (*Server).handleLLMsFullTxt-fm
 HEAD /llms.txt -> (*Server).handleLLMsTxt-fm
 HEAD /media/* -> (*Server).handleServeMedia-fm
 HEAD /ready -> (*Server).handleReady-fm

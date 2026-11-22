@@ -34,7 +34,7 @@ const (
 // names. A patch may name any of them plus the two keys above.
 var seoSections = []string{
 	"separator", "home", "types", "taxonomy", "archives", "variables", "social",
-	"index", "robots", "verification", "sitemap", "breadcrumbs", "indexnow", "monitor404", "ads_txt", "app_ads_txt",
+	"index", "robots", "verification", "sitemap", "breadcrumbs", "indexnow", "monitor404", "ai_files", "ads_txt", "app_ads_txt",
 }
 
 // seoBackend is the settings store and the one transaction that writes schema
@@ -337,6 +337,8 @@ func seoApplySection(set *seo.Settings, name string, raw jsontext.Value) error {
 		return decodeStrict(raw, &set.Verification)
 	case "sitemap":
 		return decodeStrict(raw, &set.Sitemap)
+	case "ai_files":
+		return decodeStrict(raw, &set.AIFiles)
 	case "breadcrumbs":
 		return decodeStrict(raw, &set.Breadcrumbs)
 	case "monitor404":
