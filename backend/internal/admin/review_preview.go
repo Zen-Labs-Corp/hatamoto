@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"hatamoto.dev/core/authz"
+	"hatamoto.dev/core/internal/authzsubject"
 	"hatamoto.dev/core/internal/authzuser"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/user"
@@ -15,7 +16,7 @@ import (
 // mayPreviewChangeset is the check of the sealed preview frame. Holders of
 // plugin.changeset.review (owners by default) may preview any changeset. An edit
 // changeset, a change to an entry waiting for review, may also be previewed by its
-// requester and by holders of entity.review.decide. A plugin's changeset never
+// requester and by holders of entity.review.decide on that entry. A plugin's changeset never
 // widens: it stays with plugin.changeset.review.
 func (a *Admin) mayPreviewChangeset(ctx context.Context, u *user.User, csID int64) bool {
 	if u == nil {
@@ -31,7 +32,16 @@ func (a *Admin) mayPreviewChangeset(ctx context.Context, u *user.User, csID int6
 	if err != nil || h.Kind != changeset.ChangesetEdit {
 		return false
 	}
-	return h.Requester == u.ID.String() || authzuser.Can(ctx, a.logger(), u, authz.ActionEntityReviewDecide)
+	if h.Requester == u.ID.String() {
+		return true
+	}
+	// The decide right is checked on the entry the change is for, as the flow does.
+	items, err := a.deps.Growth.Changesets.ItemPage(ctx, csID, 1, 0)
+	if err != nil || len(items) == 0 {
+		return false
+	}
+	ok, err := authz.Can(ctx, authzsubject.ForSession(u.ID.String(), string(u.Role)), authz.ActionEntityReviewDecide, reviewObject(items[0].TargetID))
+	return err == nil && ok
 }
 
 // handleReviewPreview is the sealed frame of one change waiting for review: the

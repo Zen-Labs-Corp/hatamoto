@@ -11,13 +11,15 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/authz"
+	"hatamoto.dev/core/internal/authzstate"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/user"
 )
 
 // editAndRunChangesets serves two changesets: 7, an edit sent for review by the
 // author (set by the test), and 42, a plugin's run.
-type editAndRunChangesets struct{ requester string }
+type editAndRunChangesets struct{ requester, target string }
 
 func (f editAndRunChangesets) Header(_ context.Context, id int64) (changeset.Header, error) {
 	exp := time.Now().Add(time.Hour)
@@ -30,8 +32,8 @@ func (f editAndRunChangesets) Header(_ context.Context, id int64) (changeset.Hea
 	return changeset.Header{}, changeset.ErrNotFound
 }
 
-func (editAndRunChangesets) ItemPage(context.Context, int64, int, int) ([]changeset.ItemSummary, error) {
-	return nil, nil
+func (f editAndRunChangesets) ItemPage(context.Context, int64, int, int) ([]changeset.ItemSummary, error) {
+	return []changeset.ItemSummary{{Seq: 1, Kind: changeset.KindEntity, TargetID: f.target}}, nil
 }
 
 func (editAndRunChangesets) PreviewSeqs(context.Context, int64) ([]int, error) { return []int{1}, nil }
@@ -40,7 +42,7 @@ func newReviewPreviewRig(t *testing.T) (*editQueueRig, *fakePreviewer) {
 	t.Helper()
 	fp := &fakePreviewer{}
 	r := newEditQueueRig(t)
-	r.a.deps.Growth.Changesets = editAndRunChangesets{requester: r.author.ID.String()}
+	r.a.deps.Growth.Changesets = editAndRunChangesets{requester: r.author.ID.String(), target: r.live.ID.String()}
 	r.a.deps.Growth.ChangesetPreview = fp
 	return r, fp
 }
@@ -133,5 +135,42 @@ func TestReviewPreviewHostChecksTheEditRight(t *testing.T) {
 		if rec.Code != want {
 			t.Errorf("user %s: preview host = %d, want %d", who, rec.Code, want)
 		}
+	}
+}
+
+// scopedDecide is an authorizer that keeps every built-in answer except the decide
+// right on one entry, which nobody holds.
+type scopedDecide struct{ denied string }
+
+func (s scopedDecide) Can(ctx context.Context, sub authz.Subject, a authz.Action, o authz.Object) (bool, error) {
+	if a == authz.ActionEntityReviewDecide && o.ID == s.denied {
+		return false, nil
+	}
+	return authz.Default().Can(ctx, sub, a, o)
+}
+
+// The decide right is checked on the entry, not "in general": a reviewer who
+// may not decide this entry cannot list, read or preview its change; the
+// requester still can. Not parallel: it installs a process-wide authorizer.
+func TestReviewDecideIsCheckedPerEntry(t *testing.T) {
+	r, _ := newReviewPreviewRig(t)
+	reviewer := r.freshToken(r.users[user.RoleReviewer].ID)
+	authzstate.Set(scopedDecide{denied: r.live.ID.String()})
+	t.Cleanup(authzstate.Reset)
+
+	if body := r.get(t, reviewer, "/admin/review", ""); strings.Contains(body, "/admin/review/7") {
+		t.Error("the queue lists a change the viewer may not decide")
+	}
+	for _, path := range []string{"/admin/review/7", "/admin/review/7/preview"} {
+		if rec := r.do("GET", path, reviewer, nil, nil); rec.Code != http.StatusNotFound {
+			t.Errorf("%s = %d, want 404", path, rec.Code)
+		}
+	}
+	if got := r.do("GET", ticketFor(r, reviewer, 7), reviewer, nil, iframeFrame); got.Code != http.StatusNotFound {
+		t.Errorf("frame = %d, want 404", got.Code)
+	}
+	own := r.freshToken(r.author.ID)
+	if rec := r.do("GET", "/admin/review/7", own, nil, nil); rec.Code != http.StatusOK {
+		t.Errorf("the requester's own change = %d, want 200", rec.Code)
 	}
 }

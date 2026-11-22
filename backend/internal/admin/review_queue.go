@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -56,7 +57,12 @@ func (a *Admin) handleReviewQueue(w http.ResponseWriter, r *http.Request) {
 		Page:    ui.Pagination{Page: page, PerPage: reviewPerPage, Total: total, BaseURL: a.reviewURL()},
 		Empty:   ui.Empty{Icon: "check", Title: "Nothing is waiting for review.", Body: "Changes to published content that need a decision show up here."},
 	}
+	me := userFrom(r.Context())
 	for _, p := range rows {
+		// Only the entries the viewer may decide (or sent themselves) are listed.
+		if (me == nil || me.ID != p.Requester) && !a.canDecide(r.Context(), p.EntityID) {
+			continue
+		}
 		open := a.reviewURL("/", strconv.FormatInt(p.ID, 10))
 		who := p.RequesterName
 		if who == "" {
@@ -130,11 +136,19 @@ func (a *Admin) loadReview(w http.ResponseWriter, r *http.Request) (ReviewDetail
 		a.serverError(w, r, "The change could not be loaded", err)
 		return d, false
 	}
-	if !a.isRequester(r, d) && !a.can(r.Context(), authz.ActionEntityReviewDecide) {
+	if !a.isRequester(r, d) && !a.canDecide(r.Context(), d.EntityID) {
 		a.reviewMissing(w, r)
 		return d, false
 	}
 	return d, true
+}
+
+// reviewObject is the object the review flow checks the decide right on.
+func reviewObject(entityID string) authz.Object { return authz.Object{Kind: "entity", ID: entityID} }
+
+// canDecide reports whether the viewer holds the decide right on one entry, as the flow checks it.
+func (a *Admin) canDecide(ctx context.Context, entityID string) bool {
+	return a.canObj(ctx, authz.ActionEntityReviewDecide, reviewObject(entityID))
 }
 
 func (a *Admin) isRequester(r *http.Request, d ReviewDetail) bool {
@@ -177,12 +191,12 @@ func reviewRows(d ReviewDetail) ([]diffRow, int) {
 
 func (a *Admin) renderReviewDetail(w http.ResponseWriter, r *http.Request, status int, d ReviewDetail, comment, errText string) {
 	mine := a.isRequester(r, d)
-	decider := !mine && a.can(r.Context(), authz.ActionEntityReviewDecide)
+	decider := !mine && a.canDecide(r.Context(), d.EntityID)
 	p := reviewDetailPage{
 		ID: d.ID, Title: d.EntityName, Comment: comment, Error: errText,
 		URL:      a.reviewURL("/", strconv.FormatInt(d.ID, 10)),
 		Withdraw: mine,
-		Discard:  !mine && a.can(r.Context(), authz.ActionEntityReviewDecide),
+		Discard:  !mine && a.canDecide(r.Context(), d.EntityID),
 	}
 	loc := a.siteLocation(r.Context())
 	who := d.RequesterName
