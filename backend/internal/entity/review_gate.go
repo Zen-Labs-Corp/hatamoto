@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/authz"
+	"hatamoto.dev/core/internal/agentpolicystate"
 )
 
 // ReviewKind says what a person asked for.
@@ -28,6 +29,9 @@ const (
 type ReviewPlan struct {
 	Held   bool
 	Stages []ReviewStage
+	// Requester is who the staged change is recorded for; "" means the
+	// subject's user. Set for an API key under an agent policy (api-key:<key id>).
+	Requester string
 }
 
 // ReviewStage is one review step of a plan; Group names who may decide it.
@@ -106,6 +110,9 @@ func (s *Service) reviewPlan(ctx context.Context, e *Entity, kind ReviewKind) (R
 	}
 	p, err := s.review.Plan(ctx, e, kind)
 	if err != nil {
+		if errors.Is(err, agentpolicystate.ErrDenied) {
+			return ReviewPlan{}, err // keep the policy's reason for the caller
+		}
 		return ReviewPlan{}, fmt.Errorf("%w: %v", ErrReviewHold, err)
 	}
 	return p, nil
@@ -245,4 +252,39 @@ func (s *Service) holdUpdate(ctx context.Context, e *Entity, in *UpdateEntityInp
 		c.ParentID = in.ParentID
 	}
 	return s.sendForReview(ctx, c, plan)
+}
+
+// askAgentPolicy asks the agent publishing policy about a key's change that
+// cannot be staged (unpublish, an edit of a block, theme part or
+// person): RequireReview refuses it. A refusal keeps the policy's reason; a
+// policy failure is an ErrReviewHold. Nothing registered, or not a key: no
+// work, no read.
+func askAgentPolicy(ctx context.Context, e *Entity, action string) error {
+	if !agentpolicystate.AsksFor(ctx) {
+		return nil
+	}
+	dto := agentpolicystate.Entity{ID: e.ID.String(), Locale: e.Locale, Slug: e.Slug, Status: string(e.Status)}
+	if e.Schema != nil {
+		dto.Schema = e.Schema.Slug
+	}
+	if _, err := agentpolicystate.Enforce(ctx, action, dto, false); err != nil {
+		if errors.Is(err, agentpolicystate.ErrDenied) || errors.Is(err, agentpolicystate.ErrNeedsReview) {
+			return err
+		}
+		return fmt.Errorf("%w: %v", ErrReviewHold, err)
+	}
+	return nil
+}
+
+// askedDirectly reports a row whose edit the agent policy is asked about
+// here: a block, theme part or person the review gate never stages. A live
+// person already went through the gate (and so the policy) once.
+func askedDirectly(e *Entity) bool {
+	return reuseOrPerson(e) && !(live(e.Status) && !IsReuseSchema(e.Schema))
+}
+
+// reuseOrPerson reports a row the review gate never stages: a block, theme
+// part or person. A key's edit of one is asked of the agent policy directly.
+func reuseOrPerson(e *Entity) bool {
+	return e.Schema != nil && (IsReuseSchema(e.Schema) || e.Schema.Slug == personSchemaSlug)
 }

@@ -17,6 +17,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"hatamoto.dev/core/authz"
+	"hatamoto.dev/core/internal/agentpolicystate"
 	"hatamoto.dev/core/internal/jsonx"
 )
 
@@ -435,6 +436,11 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 	if err := authorizeReview(ctx, plan, authz.ActionEntityUpdate, existing.AuthzObject()); err != nil {
 		return nil, err
 	}
+	if !input.KeepUpdatedAt && askedDirectly(existing) {
+		if err := askAgentPolicy(ctx, existing, agentpolicystate.ActionEdit); err != nil {
+			return nil, err
+		}
+	}
 	unsupported := unsupportedForReview(existing, input) // before the credit and locked-status rewrites below
 
 	// The auto-conversion below fills Attributes when the caller sent none; that
@@ -730,6 +736,11 @@ func (s *Service) UpdateEntityStatus(ctx context.Context, id uuid.UUID, userID *
 		if err := authorizeReview(ctx, plan, statusAction(prev.Status, status), prev.AuthzObject()); err != nil {
 			return nil, err
 		}
+		if live(prev.Status) && !live(status) {
+			if err := askAgentPolicy(ctx, prev, agentpolicystate.ActionUnpublish); err != nil {
+				return nil, err
+			}
+		}
 	}
 	if prevErr == nil {
 		prevStatus = prev.Status
@@ -958,6 +969,11 @@ func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID
 	}
 	if err := authorizeReview(ctx, plan, authz.ActionEntityVersionRestore, existing.AuthzObject()); err != nil {
 		return nil, err
+	}
+	if askedDirectly(existing) {
+		if err := askAgentPolicy(ctx, existing, agentpolicystate.ActionEdit); err != nil {
+			return nil, err
+		}
 	}
 
 	// Validate the old attributes still conform to the current schema

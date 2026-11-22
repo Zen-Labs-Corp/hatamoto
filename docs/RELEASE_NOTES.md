@@ -1,5 +1,13 @@
 # Release notes
 
+## Unreleased: agent publishing policy (compiled-in modules)
+
+- **What.** A wrapper module can register an agent publishing policy with `agentpolicy.Register`. For a write made with an API key (REST and MCP) that publishes, schedules, restores or edits live content, unpublishes or archives it, edits a reusable block, theme part or person, or inserts a link into a published entry, the policy answers allow, require review or deny. People are not asked. See [ADR 0016](adr/0016-agent-publishing-policy.md) and [Plugin API](PLUGIN_API.md#go-module-extension-points).
+- **Outcomes.** Require review stages the change even when the site's review switch is off: REST answers `202` and MCP returns `pending_review`, as for any staged change, and, when only the policy held it, it is recorded with the requester `api-key:<key id>` so the key's creator may approve it (a change the site's own rule held keeps the creator as requester). A key needs `write:entities` and a creator role that may request review, so a Contributor's key may stage a publish of its own entry, as a Contributor may. Deny refuses the write: REST `403` with the reason, MCP an error with it, and one `agent_policy.deny` audit row. The site's own review rule still applies and the stricter answer wins. A policy that errors, panics or returns an empty decision refuses the write.
+- **Changes.** `agentpolicy.Changes(ctx, keyID, since)` lists what a key changed from the audit log, oldest first, up to 1000 rows per call; a change a person approved is attributed to that person. It works in `serve` only.
+- **Not covered yet.** Creating drafts, media, menus, redirects, terms and settings. Unpublish, archive and the edit of a block, theme part or person cannot be staged, so a Require review answer refuses them. An API key cannot delete entities, so delete is not asked. A staged agent change is decided where other review changes are decided; there is no screen for it yet.
+- **Default.** With no policy registered nothing changes. Migration: none.
+
 ## Unreleased: one review step for changes to published content
 
 - **Review switch.** The site has a review switch, off by default, stored in one new column. Owners turn it on in Settings > Content > Entity models > Review. With it off, and with no review policy registered, every write behaves as before.

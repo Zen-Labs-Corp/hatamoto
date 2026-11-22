@@ -441,6 +441,19 @@ A wrapper module can register the review stages of a human edit. The core never 
 | The review switch is read from the database on every gated write, so a server never lets a change through on a stale cache. A switch, authorizer or policy error refuses the write (fail closed) | `internal/reviewflow` | `gate_test.go` |
 | Nobody decides their own change, whatever their role; a stage whose group is not `reviewers` cannot be decided; send back never discards the requester's version | `internal/changeset`, `internal/reviewflow` | `stage_decision_integration_test.go`, `decide_integration_test.go` |
 
+### Agent publishing policy
+
+A wrapper module can decide, per API key, whether a change to live content goes through, waits for review or is refused. Nothing registered means no key is asked.
+
+| Guarantee | Where | Check |
+|---|---|---|
+| A registered agent policy that errors or panics refuses the key's write; a zero or unknown decision refuses it too, and nothing is staged. Registration is frozen once `app.Main` starts | `agentpolicy`, `internal/agentpolicystate` | `TestDecideFailsClosed`, `TestEnforcePolicyError`, `TestRegisterPanics` |
+| A refusal writes one `agent_policy.deny` audit row (result `denied`, key id) and the reason, trimmed and capped at 200 characters, reaches the agent: REST 403, MCP error text. A failing audit write never changes the refusal | `internal/agentpolicystate`, `internal/server`, `internal/mcpserver` | `TestEnforceDeny`, `TestEnforceRecordPanicKeepsRefusal`, `TestDecideReasonClamp`, `TestAgentPolicyDenyEveryWritePath` |
+| A key's unpublish or archive of live content, and its edit of a block, theme part or person, are asked of the registered policy; `RequireReview` refuses them as they cannot be staged. A key cannot delete entities | `internal/entity` | `TestAgentPolicyAsksBeforeUnpublishAndReuseEdit`, `TestAgentPolicyRequireReviewRefusesWhatCannotStage`, `TestAgentPolicyDenyEveryWritePath` |
+| A policy's `Allow` never skips the site's review rule, and `RequireReview` stages the change with the site's review switch off | `internal/reviewflow`, `internal/server` | `TestAgentPolicyReviewMCPThenCreatorApproves`, `TestAgentPolicyReviewRESTStages` |
+| A change held only by the agent policy has the requester `api-key:<key id>`: the key's creator may approve it; a change the site's review rule held keeps the creator as requester, and nobody decides their own change | `internal/reviewflow` | `TestAgentPolicyReviewMCPThenCreatorApproves` |
+| With nothing registered no key is asked and no `agent_policy` row is written | `internal/agentpolicystate`, `internal/server` | `TestEnforceInactiveOrNotKey`, `TestAgentPolicyNothingRegisteredPublishesDirectly` |
+
 ## The compile cache holds native code
 
 The plugin host compiles each module to native code and caches the result in

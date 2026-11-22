@@ -93,7 +93,11 @@ func (f *Flow) Submit(ctx context.Context, c entity.ReviewChange, p entity.Revie
 	for _, st := range p.Stages {
 		stages = append(stages, changeset.StageSpec{Name: st.Name, Group: st.Group})
 	}
-	id, err := f.Engine.SubmitEdit(ctx, changeset.EditOptions{Requester: s.UserID, Stages: stages}, changeset.Item{
+	requester := s.UserID
+	if p.Requester != "" {
+		requester = p.Requester
+	}
+	id, err := f.Engine.SubmitEdit(ctx, changeset.EditOptions{Requester: requester, Stages: stages}, changeset.Item{
 		Kind: changeset.KindEntity, Op: changeset.OpUpsert, TargetID: e.ID.String(),
 		BaseToken: changeset.EntityToken(e.Version, e.UpdatedAt), Payload: payload,
 	})

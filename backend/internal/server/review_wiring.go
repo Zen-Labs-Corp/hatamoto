@@ -7,8 +7,8 @@ import (
 	"hatamoto.dev/core/internal/reviewflow"
 )
 
-// setupReview builds the review flow on the changeset engine and installs it as
-// the entity service's review gate. With the site's review switch off (the
+// setupReview builds the review flow on the changeset engine and installs it,
+// wrapped by the agent policy gate, as the entity service's review gate. With the site's review switch off (the
 // default) and no review policy registered, the gate holds nothing.
 func (s *Server) setupReview() {
 	if s.changesets == nil || s.entityService == nil || s.siteConfig == nil {
@@ -26,7 +26,7 @@ func (s *Server) setupReview() {
 		f.Mail = s.emailService
 	}
 	s.reviewFlow = f
-	s.entityService.SetReviewGate(f)
+	s.entityService.SetReviewGate(&reviewflow.AgentGate{Inner: f})
 }
 
 // reviewSite names the site and gives the admin address that mail links start
