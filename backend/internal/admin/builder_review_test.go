@@ -99,7 +99,7 @@ func TestBuilderReviewShell(t *testing.T) {
 	body = c.do("GET", "/admin/entities/"+pub.ID.String()+"/edit?outline=1", tok, nil, nil).Body.String()
 	has(t, body, "Your change goes live when approved.", "Waiting heading")
 	body = c.do("GET", "/admin/entities/"+pub.ID.String()+"/edit", tok, nil, nil).Body.String()
-	has(t, body, `data-banner="review"`, "Your change goes live when approved.", "Waiting heading")
+	has(t, body, `data-banner="review"`, "Your change goes live when approved.", "Waiting heading", `data-hm-dismiss-key="review-5"`, `<a href="/admin/review/5">Open the change</a>`)
 }
 
 func TestBuilderReviewOffIsUnchanged(t *testing.T) {
