@@ -2,22 +2,27 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"hatamoto.dev/core/internal/entity"
 )
 
 // reviewSection is Edit.Section: the first segment of e's public path without the locale prefix
-// ("/pricing"), "" for the home page and for schemas without public pages.
-func (s *Server) reviewSection(ctx context.Context, repo resolveRepo, e *entity.Entity) string {
+// ("/pricing"), "" for the home page and for schemas without public pages. It errors when the URL
+// registry cannot be read, so the caller does not mistake "unknown" for "no section".
+func (s *Server) reviewSection(ctx context.Context, repo resolveRepo, e *entity.Entity) (string, error) {
 	if e == nil || e.Schema == nil {
-		return ""
+		return "", nil
 	}
-	snap := s.urlSnapshot(ctx)
+	snap, err := s.urlSnapshotOrErr(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to load the url registry: %w", err)
+	}
 	if _, ok := snap.Config(e.Schema.Slug); !ok {
-		return ""
+		return "", nil
 	}
-	return sectionOf(locateEntity(ctx, snap, repo, e).Path, snap.WithLocale(e.Locale, "/"))
+	return sectionOf(locateEntity(ctx, snap, repo, e).Path, snap.WithLocale(e.Locale, "/")), nil
 }
 
 // sectionOf strips localeRoot ("/fr"; "/" = none) from path and returns "/" + its first segment.

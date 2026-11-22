@@ -65,8 +65,9 @@ type Flow struct {
 	// Site names the site and gives the admin address (no trailing slash) for mail links.
 	Site func(ctx context.Context) (name, adminURL string)
 	// Section names the first segment of an entry's public path without the locale prefix ("/pricing"),
-	// "" when it has none. Nil-safe: without it Edit.Section is "". Asked only when a policy is registered.
-	Section func(ctx context.Context, e *entity.Entity) string
+	// "" when it has none. An error means it could not be worked out: Plan then holds the edit.
+	// Nil-safe: without it Edit.Section is "". Asked only when a policy is registered.
+	Section func(ctx context.Context, e *entity.Entity) (string, error)
 	Now     func() time.Time
 	Logger  *slog.Logger
 }

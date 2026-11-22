@@ -66,7 +66,10 @@ func (f *Flow) Plan(ctx context.Context, e *entity.Entity, kind entity.ReviewKin
 		Locale:        e.Locale,
 	}
 	if reviewstate.Registered() && f.Section != nil {
-		ed.Section = f.Section(ctx, e)
+		// Without the section a policy would route the edit to a weaker chain: hold it.
+		if ed.Section, err = f.Section(ctx, e); err != nil {
+			return entity.ReviewPlan{}, fmt.Errorf("%w: the section of the entry is unknown: %w", reviewstate.ErrPolicy, err)
+		}
 	}
 	stages, err := reviewstate.StagesFor(ctx, ed)
 	if err != nil {

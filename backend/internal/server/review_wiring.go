@@ -29,7 +29,7 @@ func (s *Server) setupReview() {
 	}
 	if s.db != nil {
 		repo := entity.NewPostgresPublicRepository(s.db)
-		f.Section = func(ctx context.Context, e *entity.Entity) string { return s.reviewSection(ctx, repo, e) }
+		f.Section = func(ctx context.Context, e *entity.Entity) (string, error) { return s.reviewSection(ctx, repo, e) }
 	}
 	reviewstate.SetPendingSource(reviewflow.PendingSource(s.changesets))
 	s.reviewFlow = f
