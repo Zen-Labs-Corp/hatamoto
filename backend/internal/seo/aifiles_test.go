@@ -1,7 +1,7 @@
 package seo
 
 import (
-	"encoding/json"
+	"hatamoto.dev/core/internal/jsonx"
 	"strings"
 	"testing"
 )
@@ -50,18 +50,18 @@ func TestValidateAIFiles(t *testing.T) {
 }
 
 func TestAIFilesJSON(t *testing.T) {
-	b, err := json.Marshal(Defaults())
+	b, err := jsonx.Marshal(Defaults())
 	if err != nil || strings.Contains(string(b), "ai_files") {
 		t.Fatalf("zero value must omit the key: %s %v", b, err)
 	}
 	s := Defaults()
 	s.AIFiles = AIFiles{LLMsOff: true, Posts: 5}
-	b, _ = json.Marshal(s)
+	b, _ = jsonx.Marshal(s)
 	if !strings.Contains(string(b), `"ai_files":{"llms_off":true,"posts":5}`) {
 		t.Fatalf("round trip lost the section: %s", b)
 	}
 	var back Settings
-	if err := json.Unmarshal(b, &back); err != nil || back.AIFiles != s.AIFiles {
+	if err := jsonx.Unmarshal(b, &back); err != nil || back.AIFiles != s.AIFiles {
 		t.Fatalf("decode = %+v %v", back.AIFiles, err)
 	}
 }
