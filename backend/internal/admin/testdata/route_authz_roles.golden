@@ -110,6 +110,9 @@ GET /admin/profile/security/codes anon=303 read-only=404 author=404 contributor=
 GET /admin/profile/security/passkeys/add anon=303 read-only=303 author=303 contributor=303 reviewer=303
 GET /admin/profile/security/totp anon=303 read-only=303 author=303 contributor=303 reviewer=303
 GET /admin/reset anon=200 read-only=200 author=200 contributor=200 reviewer=200
+GET /admin/review anon=303 read-only=403 author=403 contributor=403 reviewer=503
+GET /admin/review/{id} anon=303 read-only=503 author=503 contributor=503 reviewer=503
+GET /admin/review/{id}/preview anon=303 read-only=503 author=503 contributor=503 reviewer=503
 GET /admin/settings anon=303 read-only=303 author=303 contributor=303 reviewer=303
 GET /admin/settings/access-security anon=303 read-only=403 author=403 contributor=403 reviewer=403
 GET /admin/settings/admin-branding anon=303 read-only=403 author=403 contributor=403 reviewer=403
@@ -180,6 +183,7 @@ GET /admin/settings/redirects/explain anon=303 read-only=200 author=200 contribu
 GET /admin/settings/redirects/new anon=303 read-only=503 author=503 contributor=503 reviewer=503
 GET /admin/settings/redirects/{id}/delete anon=303 read-only=503 author=503 contributor=503 reviewer=503
 GET /admin/settings/redirects/{id}/edit anon=303 read-only=503 author=503 contributor=503 reviewer=503
+GET /admin/settings/review anon=303 read-only=403 author=403 contributor=403 reviewer=403
 GET /admin/settings/search-replace anon=303 read-only=403 author=403 contributor=403 reviewer=403
 GET /admin/settings/security anon=303 read-only=403 author=403 contributor=403 reviewer=403
 GET /admin/settings/security/admin-address anon=303 read-only=403 author=403 contributor=403 reviewer=403
@@ -382,6 +386,11 @@ POST /admin/profile/security/totp anon=303 read-only=303 author=303 contributor=
 POST /admin/profile/security/totp/begin anon=303 read-only=303 author=303 contributor=303 reviewer=303
 POST /admin/profile/security/totp/remove anon=303 read-only=303 author=303 contributor=303 reviewer=303
 POST /admin/reset anon=422 read-only=422 author=422 contributor=422 reviewer=422
+POST /admin/review/{id}/approve anon=303 read-only=403 author=403 contributor=403 reviewer=503
+POST /admin/review/{id}/discard anon=303 read-only=403 author=403 contributor=403 reviewer=503
+POST /admin/review/{id}/publish anon=303 read-only=403 author=403 contributor=403 reviewer=503
+POST /admin/review/{id}/send-back anon=303 read-only=403 author=403 contributor=403 reviewer=503
+POST /admin/review/{id}/withdraw anon=303 read-only=403 author=503 contributor=503 reviewer=503
 POST /admin/settings/admin-branding anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/admin-branding/reset anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/api-keys anon=303 read-only=403 author=403 contributor=403 reviewer=403
@@ -455,6 +464,7 @@ POST /admin/settings/redirects/bulk anon=303 read-only=403 author=403 contributo
 POST /admin/settings/redirects/{id}/delete anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/redirects/{id}/edit anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/redirects/{id}/toggle anon=303 read-only=403 author=403 contributor=403 reviewer=403
+POST /admin/settings/review anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/search-replace anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/security/admin-address/change anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/security/admin-address/change/regenerate anon=303 read-only=403 author=403 contributor=403 reviewer=403
