@@ -595,6 +595,10 @@ func (a *Admin) handleBlogSave(w http.ResponseWriter, r *http.Request, e *entity
 	p, b := a.readBlogForm(r, attrsMap(e.Attributes))
 	op := r.PostFormValue("_op")
 	switch {
+	case op == "publish" && e.Status == entity.StatusScheduled && a.deps.Review != nil && a.deps.Review.Plan(r.Context(), e):
+		// With review on, "Send for review" on a scheduled post sends the content
+		// change and keeps the schedule; it is not a status change.
+		p.f.Status = string(e.Status)
 	case op == "publish":
 		p.f.Status = string(entity.StatusPublished)
 	case r.PostFormValue("status") == "":

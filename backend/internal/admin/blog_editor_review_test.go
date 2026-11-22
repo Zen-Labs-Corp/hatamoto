@@ -63,6 +63,24 @@ func TestBlogEditorReviewButtons(t *testing.T) {
 		has(t, body, "Your change goes live when approved.", `>Edited title</textarea>`)
 	})
 
+	t.Run("Send for review on a scheduled post keeps the schedule and is not refused", func(t *testing.T) {
+		e, path := blogRulesPost(c, author, entity.StatusScheduled)
+		at := t0.Add(48 * time.Hour)
+		e.PublishedAt = &at
+		tok := c.freshToken(author.ID)
+		form := parseForm(t, c.get(t, tok, path, ""))
+		form.Set("name", "Scheduled edit")
+		form.Set("_op", "publish")
+		rec := c.do("POST", path, tok, form, nil)
+		if rec.Code != 303 {
+			t.Fatalf("POST = %d, want 303\n%s", rec.Code, rec.Body.String())
+		}
+		has(t, c.next(rec, path), "Sent for review")
+		if got, _ := c.ents.GetEntity(t.Context(), e.ID); got.Status != entity.StatusScheduled {
+			t.Errorf("status = %s, want scheduled", got.Status)
+		}
+	})
+
 	t.Run("publishing a draft stages it with the note", func(t *testing.T) {
 		e, path := blogRulesPost(c, author, entity.StatusDraft)
 		tok := c.freshToken(author.ID)
