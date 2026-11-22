@@ -81,6 +81,19 @@ func TestBlogEditorReviewButtons(t *testing.T) {
 		}
 	})
 
+	t.Run("a stored schedule with seconds is not a change", func(t *testing.T) {
+		e, path := blogRulesPost(c, author, entity.StatusScheduled)
+		at := time.Now().Add(48 * time.Hour).Truncate(time.Minute).Add(30 * time.Second)
+		e.PublishedAt = &at
+		tok := c.freshToken(author.ID)
+		form := parseForm(t, c.get(t, tok, path, ""))
+		form.Set("name", "Seconds edit")
+		form.Set("_op", "save")
+		if rec := c.do("POST", path, tok, form, nil); rec.Code != 303 {
+			t.Fatalf("POST = %d, want 303\n%s", rec.Code, rec.Body.String())
+		}
+	})
+
 	t.Run("publishing a draft stages it with the note", func(t *testing.T) {
 		e, path := blogRulesPost(c, author, entity.StatusDraft)
 		tok := c.freshToken(author.ID)

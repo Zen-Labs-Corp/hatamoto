@@ -146,7 +146,7 @@ func (a *Admin) heldExtras(r *http.Request, p *posted, e *entity.Entity, sc *ent
 	if sc.Slug != person.SchemaSlug && want != e.Status && entity.ValidStatus(want) {
 		what = append(what, "the status")
 	} else if want == entity.StatusScheduled {
-		if at, err := time.ParseInLocation(scheduleLayout, p.f.Schedule, a.siteLocation(ctx)); err == nil && (e.PublishedAt == nil || !e.PublishedAt.Equal(at)) {
+		if at, err := time.ParseInLocation(scheduleLayout, p.f.Schedule, a.siteLocation(ctx)); err == nil && (e.PublishedAt == nil || !e.PublishedAt.Truncate(time.Minute).Equal(at.Truncate(time.Minute))) {
 			what = append(what, "the publish date")
 		}
 	}
@@ -156,7 +156,7 @@ func (a *Admin) heldExtras(r *http.Request, p *posted, e *entity.Entity, sc *ent
 		switch {
 		case p.f.UnpublishAt == "" && stored != nil:
 			what = append(what, "the scheduled unpublish")
-		case p.f.UnpublishAt != "" && err == nil && (stored == nil || !stored.At.Equal(at) || stored.RedirectTarget != p.f.UnpublishRedirect):
+		case p.f.UnpublishAt != "" && err == nil && (stored == nil || !stored.At.Truncate(time.Minute).Equal(at.Truncate(time.Minute)) || stored.RedirectTarget != p.f.UnpublishRedirect):
 			what = append(what, "the scheduled unpublish")
 		}
 	}
