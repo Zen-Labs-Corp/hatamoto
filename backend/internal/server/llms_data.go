@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/url"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -483,6 +484,10 @@ func entityAttrs(e *entity.Entity) map[string]any {
 	return attrs
 }
 
+// markdownInline matches the inline Markdown a builder doc paragraph can carry
+// (link text kept, emphasis and code marks dropped).
+var markdownInline = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)|\*+|__|` + "`" + `+`)
+
 // fallbackDescription is the first sentence of the body as plain text.
 func fallbackDescription(attrs map[string]any, resolve llmstxt.RefResolver) string {
 	if c := strAttr(attrs, "content"); c != "" {
@@ -491,7 +496,7 @@ func fallbackDescription(attrs map[string]any, resolve llmstxt.RefResolver) stri
 	if doc := pageDoc(attrs); doc != nil {
 		for _, block := range strings.Split(llmstxt.DocToMarkdown(doc, resolve), "\n\n") {
 			if b := strings.TrimSpace(block); b != "" && !strings.ContainsAny(b[:1], "#!-") {
-				return llmstxt.FirstSentence(b)
+				return llmstxt.FirstSentence(markdownInline.ReplaceAllString(b, "$1"))
 			}
 		}
 	}
