@@ -163,7 +163,10 @@ func Decide(ctx context.Context, r Request) (d Decision, err error) {
 	case a := <-done:
 		d, err = a.d, a.err
 	case <-ctx.Done():
-		return Decision{}, fmt.Errorf("%w: no answer within %s", ErrPolicy, decideTimeout)
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return Decision{}, fmt.Errorf("%w: no answer within %s", ErrPolicy, decideTimeout)
+		}
+		return Decision{}, fmt.Errorf("%w: request cancelled: %v", ErrPolicy, ctx.Err())
 	}
 	if errors.Is(err, ErrPolicy) { // a recovered panic
 		return Decision{}, err

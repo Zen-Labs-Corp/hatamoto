@@ -136,7 +136,19 @@ func TestDecideTimesOutAsErrPolicy(t *testing.T) {
 	t.Cleanup(func() { close(b.release) })
 	use(t, b)
 	d, err := Decide(context.Background(), Request{})
-	if !errors.Is(err, ErrPolicy) || d != (Decision{}) {
+	if !errors.Is(err, ErrPolicy) || d != (Decision{}) || !strings.Contains(err.Error(), "no answer within") {
 		t.Fatalf("got %+v, %v", d, err)
+	}
+}
+
+func TestDecideCancelledIsNotATimeout(t *testing.T) {
+	b := blockingPolicy{release: make(chan struct{})}
+	t.Cleanup(func() { close(b.release) })
+	use(t, b)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := Decide(ctx, Request{})
+	if !errors.Is(err, ErrPolicy) || strings.Contains(err.Error(), "no answer within") || !strings.Contains(err.Error(), "cancelled") {
+		t.Fatalf("err = %v", err)
 	}
 }
