@@ -50,6 +50,8 @@ func (a *Admin) reviewStateFor(ctx context.Context, e *entity.Entity) reviewStat
 	loc := a.siteLocation(ctx)
 	since := fmtWhen(p.Since.In(loc), time.Now().In(loc))
 	switch {
+	case st.Mine && p.Stale:
+		st.Pending, st.Banner, st.Kind = &p, "Your request is out of date: the entry changed after you sent it. Send it again to put it up for review.", "warning"
 	case st.Mine && p.Rejected:
 		who := "Sent back"
 		if p.Reviewer != "" {
@@ -77,9 +79,10 @@ func fmtWhen(t, now time.Time) string {
 }
 
 // withPendingChange returns e with the viewer's own pending change (name, slug,
-// attributes) applied, for editing. Any other state returns e itself.
+// attributes) applied, for editing. Any other state returns e itself, and so does
+// a change that is out of date: laid over the newer row it would revert it.
 func withPendingChange(e *entity.Entity, st reviewState) *entity.Entity {
-	if !st.Mine || st.Pending == nil || st.Pending.Payload == nil {
+	if !st.Mine || st.Pending == nil || st.Pending.Payload == nil || st.Pending.Stale {
 		return e
 	}
 	c := *e

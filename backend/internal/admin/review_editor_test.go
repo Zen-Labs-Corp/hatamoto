@@ -158,6 +158,23 @@ func TestReviewEditorBanners(t *testing.T) {
 	})
 }
 
+// A change that went stale (the row moved after it was sent) is not laid over the
+// newer row: the editor shows the row as it is, with a warning, so a save cannot
+// write the old text over newer work.
+func TestReviewEditorStalePendingIsNotOverlaid(t *testing.T) {
+	c, users, _ := newReviewEditorRig(t, nil)
+	author := users[user.RoleAuthor]
+	e := c.entityBy(author, entity.StatusPublished)
+	path := "/admin/entities/" + e.ID.String()
+	payload, _ := newPayload("Old pending title")
+	c.a.deps.Review = &fakeReviewFlow{pending: map[string]PendingEdit{e.ID.String(): {
+		ID: 7, EntityID: e.ID.String(), Requester: author.ID.String(), Since: time.Now(), Payload: payload, Stale: true,
+	}}}
+	body := c.get(t, c.freshToken(author.ID), path, "")
+	has(t, body, "Your request is out of date", `value="`+e.Name+`"`)
+	lacks(t, body, "Old pending title", "Your change goes live when approved.")
+}
+
 func TestReviewEditorRowAndBulkPublish(t *testing.T) {
 	rv := &fakeReviewFlow{held: true}
 	c, users, held := newReviewEditorRig(t, rv)

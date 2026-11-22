@@ -226,4 +226,7 @@ type PendingEdit struct {
 	Rejected                 bool
 	Comment, Reviewer        string         // a sent-back change's comment and the reviewer's name
 	Payload                  *entity.Entity // name, slug and attributes as the requester left them
+	// Stale: the entry changed after the change was sent, so the payload is out of date.
+	// Only Pending fills it.
+	Stale bool
 }

@@ -61,6 +61,13 @@ func (a reviewAdmin) Pending(ctx context.Context, entityID string) (admin.Pendin
 		return admin.PendingEdit{}, false, err
 	}
 	p, err := a.pendingEdit(ctx, row, items)
+	if err == nil && len(items) > 0 && a.flow.Entities != nil {
+		if eid, perr := uuid.Parse(items[0].TargetID); perr == nil {
+			if live, gerr := a.flow.Entities.GetEntity(ctx, eid); gerr == nil {
+				p.Stale = changeset.EntityToken(live.Version, live.UpdatedAt) != items[0].BaseToken
+			}
+		}
+	}
 	return p, err == nil, err
 }
 
