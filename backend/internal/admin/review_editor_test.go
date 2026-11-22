@@ -283,6 +283,43 @@ func (s reviewRefusing) UpdateEntityStatus(context.Context, uuid.UUID, *uuid.UUI
 	return nil, s.err
 }
 
+func (s reviewRefusing) RestoreVersion(context.Context, uuid.UUID, *uuid.UUID, int) (*entity.Entity, error) {
+	return nil, s.err
+}
+
+// The gate's refusals are ordinary outcomes: a list row action and a version
+// restore answer with a flash and a redirect, not a 500 page.
+func TestReviewRefusalsAreNotServerErrors(t *testing.T) {
+	for _, tc := range []struct {
+		err  error
+		want string
+	}{
+		{entity.ErrReviewPending, "Another change to this entry is waiting for review."},
+		{entity.ErrReviewUnsupported, "This change cannot be sent for review."},
+		{entity.ErrReviewHold, "The review policy refused the change."},
+	} {
+		c, users := newRolesRig(t, func(d *Deps) {
+			d.Content.Entities = reviewRefusing{EntityStore: d.Content.Entities, err: tc.err}
+			d.Review = &fakeReviewFlow{}
+		})
+		author := users[user.RoleAuthor]
+		tok := c.freshToken(author.ID)
+		e := c.entityBy(author, entity.StatusDraft)
+
+		rec := c.do("POST", "/admin/entities/"+e.ID.String()+"/status", tok, url.Values{"status": {"published"}}, nil)
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("%v: row status = %d, want 303\n%s", tc.err, rec.Code, rec.Body.String())
+		}
+		has(t, c.next(rec, "/admin/entities"), tc.want)
+
+		rec = c.do("POST", "/admin/entities/"+e.ID.String()+"/versions/1/restore", tok, url.Values{}, nil)
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("%v: restore = %d, want 303\n%s", tc.err, rec.Code, rec.Body.String())
+		}
+		has(t, c.next(rec, "/admin/entities/"+e.ID.String()+"/versions"), tc.want)
+	}
+}
+
 // Another person's change is waiting: the save is refused with what the user
 // typed still in the form (422), and the blog editor keeps the recovery copy.
 func TestReviewEditorPendingRefusalKeepsInput(t *testing.T) {

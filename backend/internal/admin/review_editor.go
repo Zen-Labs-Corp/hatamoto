@@ -186,6 +186,13 @@ func (a *Admin) termsChanged(ctx context.Context, e *entity.Entity, picked map[s
 	return false
 }
 
+// isReviewRefusal reports whether err is a refusal of the review gate that is an
+// ordinary outcome, not a server fault: another person's change waits, the change
+// cannot be staged, or the review policy refused it.
+func isReviewRefusal(err error) bool {
+	return errors.Is(err, entity.ErrReviewPending) || errors.Is(err, entity.ErrReviewUnsupported) || errors.Is(err, entity.ErrReviewHold)
+}
+
 // noteKind is the flash kind of a save note: a notice that a change was sent for
 // review is not an error.
 func noteKind(note string) string {

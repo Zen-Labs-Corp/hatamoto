@@ -893,6 +893,11 @@ func (a *Admin) handleEntityStatus(w http.ResponseWriter, r *http.Request) {
 			a.notFound(w, r, "Entity", a.adminPath+"/entities", "Back to entities")
 			return
 		}
+		if isReviewRefusal(err) {
+			a.SetFlash(w, r, "error", sentence(err.Error()))
+			Redirect(w, r, back)
+			return
+		}
 		a.serverError(w, r, "The status could not be changed", err)
 		return
 	}
