@@ -34,6 +34,7 @@ t-farm           .githooks/lib/farm.sh,scripts/test-farm.sh,scripts/check-suites
 t-caddy          deploy/apply-caddy.sh,deploy/caddy/**,deploy/caddy-others.jq,deploy/test-apply-caddy.sh   bash deploy/test-apply-caddy.sh
 t-dns            deploy/dns/**                                      bash deploy/dns/test-check.sh
 vendor-verify    backend/web/assets/**,backend/tools/vendor/**,backend/go.mod   make vendor-verify
+module-zip       backend/**   ! git ls-files -- backend | sed 's|^backend/||' | grep -E '(^|/)vendor/.*/' && cd backend && go test -count=1 -run 'ModuleZip|PinnedEditor' ./web/
 vuln             backend/go.mod,backend/go.sum,backend/pkg/sdk/go.mod,backend/pkg/sdk/go.sum   make vuln
 licenses         backend/go.mod,backend/go.sum,backend/tools/licenses/**   cd backend && go run ./tools/licenses
 notice           NOTICE,backend/go.mod,backend/go.sum,backend/tools/licenses/**   cd backend && go run ./tools/licenses -check-notice ../NOTICE
