@@ -27,6 +27,7 @@ const (
 // host's build notice and build its own.
 type llmsResult struct {
 	base string
+	gen  uint64 // cache generation read before the build began; the only one it may be stored under
 	body []byte
 	busy bool // a bounded acquire gave up: the body may lack data, never cache it
 }
@@ -85,7 +86,12 @@ func (s *Server) serveLLMsWith(w http.ResponseWriter, r *http.Request, full bool
 	if full {
 		flight = &s.llmsFullFlight
 	}
-	build := func(ctx context.Context) (llmsResult, error) { return buildFile(ctx, base, set) }
+	build := func(ctx context.Context) (llmsResult, error) {
+		startGen := s.cacheGeneration() // before the reads: a purge after this makes the result stale
+		res, err := buildFile(ctx, base, set)
+		res.gen = startGen
+		return res, err
+	}
 	res, err := flight.Do(ctx, build)
 	if err == nil && res.base != base {
 		res, err = build(ctx) // joined a build made for another host
@@ -100,7 +106,7 @@ func (s *Server) serveLLMsWith(w http.ResponseWriter, r *http.Request, full bool
 		return
 	}
 	if !res.busy && !database.PoolBusyHit(ctx) && s.infra != nil && s.infra.Cache != nil {
-		_, _ = s.infra.Cache.SetIfGeneration(ctx, key, res.body, llmsCacheTTL, gen)
+		_, _ = s.infra.Cache.SetIfGeneration(ctx, key, res.body, llmsCacheTTL, res.gen)
 	}
 	writeLLMs(w, r, res.body)
 }

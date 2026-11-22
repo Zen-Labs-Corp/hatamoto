@@ -114,6 +114,37 @@ func TestLLMsPoolBusySkipsCache(t *testing.T) {
 	}
 }
 
+// A request that arrives after a purge joins a build that began before it. The
+// joiner must not store that body under its own, newer generation.
+func TestLLMsJoinerDoesNotCacheBuildFromBeforePurge(t *testing.T) {
+	s := llmsTestServer(`{}`)
+	started, release := make(chan struct{}), make(chan struct{})
+	build := func(ctx context.Context, base string, _ seo.AIFiles) (llmsResult, error) {
+		close(started)
+		<-release
+		return llmsResult{base: base, body: []byte("# before the change\n")}, nil
+	}
+	serve := func(done chan<- struct{}) {
+		w := httptest.NewRecorder()
+		s.serveLLMsWith(w, httptest.NewRequest(http.MethodGet, "http://acme.example/llms.txt", nil), false, build)
+		done <- struct{}{}
+	}
+	done := make(chan struct{}, 2)
+	go serve(done)
+	<-started
+	_ = s.infra.CacheInvalidator.InvalidateRendered(context.Background())
+	go serve(done) // reads the new generation, then joins the running build
+	if !s.llmsFlight.WaitForWaiters(2, 5*time.Second) {
+		t.Fatal("the second request never joined the build")
+	}
+	close(release)
+	<-done
+	<-done
+	if body, _ := s.infra.Cache.Get(context.Background(), cache.RenderedPageKey("llms:http://acme.example", "/llms.txt")); body != nil {
+		t.Fatalf("a build from before the purge was cached: %q", body)
+	}
+}
+
 func TestLLMsDetailsFromProfile(t *testing.T) {
 	p := bizprofile.Profile{
 		Email: "hello@acme.example", Phone: "+351 21 000 0000",
