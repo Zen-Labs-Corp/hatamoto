@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -28,12 +29,11 @@ type reviewState struct {
 
 // reviewStateFor reads what the editor of e says about review for the signed-in
 // viewer. It is the zero value when the site has no review flow or e is new.
-func (a *Admin) reviewStateFor(r *http.Request, e *entity.Entity) reviewState {
+func (a *Admin) reviewStateFor(ctx context.Context, e *entity.Entity) reviewState {
 	rv := a.deps.Review
 	if rv == nil || e == nil {
 		return reviewState{}
 	}
-	ctx := r.Context()
 	st := reviewState{SendsForReview: rv.Plan(ctx, e)}
 	p, ok, err := rv.Pending(ctx, e.ID.String())
 	if err != nil {
@@ -43,8 +43,8 @@ func (a *Admin) reviewStateFor(r *http.Request, e *entity.Entity) reviewState {
 	if !ok {
 		return st
 	}
-	if u := actorID(r); u != nil {
-		st.Mine = p.Requester == u.String()
+	if u := userFrom(ctx); u != nil {
+		st.Mine = p.Requester == u.ID
 	}
 	loc := a.siteLocation(ctx)
 	since := fmtWhen(p.Since.In(loc), time.Now().In(loc))

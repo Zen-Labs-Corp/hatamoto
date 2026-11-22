@@ -422,7 +422,8 @@ func (a *Admin) handleVersionRestoreNode(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	summary := fmt.Sprintf("Restored node “%s” from version %d", name, n)
-	if _, err := a.saveBuilderDocAs(r.Context(), actorID(r), e, raw, opSave, nil, summary); err != nil {
+	saved, err := a.saveBuilderDocAs(r.Context(), actorID(r), e, raw, opSave, nil, summary)
+	if err != nil {
 		if a.refuseNotAllowed(w, r, err) {
 			return
 		}
@@ -432,6 +433,11 @@ func (a *Admin) handleVersionRestoreNode(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		a.serverError(w, r, "The node could not be restored", err)
+		return
+	}
+	if saved.Sent {
+		a.SetFlash(w, r, "success", reviewSentFlash)
+		Redirect(w, r, a.adminPath+"/entities/"+id+"/edit")
 		return
 	}
 	msg := fmt.Sprintf("Restored “%s” from version %d.", name, n)

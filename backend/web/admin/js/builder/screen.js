@@ -1041,8 +1041,8 @@ function start(root, boot) {
   async function saveNow(op) {
     const res = await saver.save(op);
     if (!res.ok) return;
-    if (op === "publish" && res.status === "published") {
-      // the page reloads as a published page: carry the note (slug taken) across
+    if ((op === "publish" && res.status === "published") || res.status === "pending_review") {
+      // the page reloads (published, or waiting for review): carry the note (slug taken) across
       if (res.note) rememberNote(noteKey, res.note);
       return location.reload();
     }

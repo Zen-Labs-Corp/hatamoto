@@ -490,7 +490,7 @@ func (a *Admin) buildBlogView(r *http.Request, e *entity.Entity, sc *entity.Enti
 	}
 	if full {
 		if !f.reviewDone {
-			f.Review, f.reviewDone = a.reviewStateFor(r, e), true
+			f.Review, f.reviewDone = a.reviewStateFor(r.Context(), e), true
 		}
 		a.fill(r, f, sc, e, "", authorID, p.picked)
 	}
@@ -573,7 +573,7 @@ func (a *Admin) renderBlog(w http.ResponseWriter, r *http.Request, status int, d
 
 // handleBlogEditor is GET /admin/entities/{id}/edit for post types.
 func (a *Admin) handleBlogEditor(w http.ResponseWriter, r *http.Request, e *entity.Entity, sc *entity.EntitySchema) {
-	rs := a.reviewStateFor(r, e)
+	rs := a.reviewStateFor(r.Context(), e)
 	e = withPendingChange(e, rs) // the requester edits their own waiting change
 	attrs := attrsMap(e.Attributes)
 	p := &posted{picked: map[string]bool{}, attrs: attrs, f: &entityForm{Name: e.Name, Slug: e.Slug, Status: string(e.Status), SEO: seoFrom(attrs), Errors: map[string]string{}, Review: rs, reviewDone: true}}

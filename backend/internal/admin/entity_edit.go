@@ -776,7 +776,7 @@ func renderAttrs(sc *entity.EntitySchema, values map[string]any, errs schemaform
 
 func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status int, f *entityForm, e *entity.Entity, sc *entity.EntitySchema, values map[string]any, errs schemaform.Errors, parentID, authorID string, picked map[string]bool) {
 	if !f.reviewDone && e != nil {
-		f.Review, f.reviewDone = a.reviewStateFor(r, e), true
+		f.Review, f.reviewDone = a.reviewStateFor(r.Context(), e), true
 	}
 	a.fill(r, f, sc, e, parentID, authorID, picked)
 	html, err := renderAttrs(sc, values, errs)
@@ -900,7 +900,7 @@ func (a *Admin) handleEntityEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c := a.deps.Content
-	rs := a.reviewStateFor(r, e)
+	rs := a.reviewStateFor(r.Context(), e)
 	e = withPendingChange(e, rs) // the requester edits their own waiting change
 	attrs := attrsMap(e.Attributes)
 	f := &entityForm{ID: e.ID.String(), Name: e.Name, Slug: e.Slug, Status: string(e.Status), Locale: e.Locale, SEO: seoFrom(attrs), Version: e.Version, Tabs: a.entityTabsFor(r.Context(), e, "details"), Review: rs, reviewDone: true}

@@ -1,6 +1,6 @@
 {{define "hm/builderoutline"}}{{with .Data}}<section class="hm-bo" aria-labelledby="bo-title">
 <h2 class="hm-bo__h" id="bo-title">Page outline</h2>
-{{template "hm/formerrors" dict "Errors" .Summary}}
+{{template "hm/formerrors" dict "Errors" .Summary}}{{with .Review.Banner}}{{template "hm/callout" (dict "Kind" $.Data.Review.Kind "Body" .)}}{{end}}
 {{with .Conflict}}{{template "hm/flash" (dict "Kind" "error" "Message" . "Inline" true)}}{{end}}
 {{with .Notice}}{{template "hm/callout-start" (dict "Kind" "info")}}{{.}}{{template "hm/callout-end"}}{{end}}
 <form method="post" action="{{adminPath}}/entities/{{.ID}}/edit" id="hm-bo" novalidate>
@@ -21,8 +21,8 @@
 {{template "hm/foot"}}
 {{template "hm/button" (dict "Label" "Page details" "Variant" "ghost" "Href" .DetailsHref)}}
 {{if not .Published}}{{template "hm/button" (dict "Label" "Save draft" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "save"))}}
-{{if .HidePublish}}{{template "hm/button" (dict "Label" "Send for review" "Attrs" (attrmap "aria-disabled" "true" "aria-describedby" "bo-review-why" "data-hm-review-placeholder" ""))}}<span class="hm-visually-hidden" id="bo-review-why">Reviews are not available yet. An editor or reviewer publishes this draft.</span>{{else if .CanPublish}}{{template "hm/button" (dict "Label" "Publish" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "publish"))}}{{end}}
-{{else}}{{template "hm/button" (dict "Label" "Update" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "save"))}}{{end}}
+{{if .HidePublish}}{{template "hm/button" (dict "Label" "Send for review" "Attrs" (attrmap "aria-disabled" "true" "aria-describedby" "bo-review-why" "data-hm-review-placeholder" ""))}}<span class="hm-visually-hidden" id="bo-review-why">Review is off. An editor or reviewer publishes this draft.</span>{{else if .CanPublish}}{{template "hm/button" (dict "Label" (cond .Review.SendsForReview "Send for review" "Publish") "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "publish"))}}{{end}}
+{{else}}{{template "hm/button" (dict "Label" (cond .Review.SendsForReview "Send for review" "Update") "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "save"))}}{{end}}
 {{template "hm/foot-end"}}
 </div>
 </form>
