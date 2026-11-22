@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 type fakePolicy struct {
@@ -110,5 +111,32 @@ func TestDeniedErrorUnwraps(t *testing.T) {
 	var err error = &DeniedError{Reason: "no"}
 	if !errors.Is(err, ErrDenied) || err.Error() != "refused by the agent policy: no" {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestDecideReasonDropsControlAndFormatRunes(t *testing.T) {
+	use(t, &fakePolicy{d: Decision{Outcome: OutcomeDeny, Reason: "a\x1b[31mb\u200bc\u202ed\x00e\tf"}})
+	if d, _ := Decide(context.Background(), Request{}); d.Reason != "a[31mbcde f" {
+		t.Errorf("reason %q", d.Reason)
+	}
+}
+
+type blockingPolicy struct{ release chan struct{} }
+
+func (b blockingPolicy) Decide(context.Context, Request) (Decision, error) {
+	<-b.release // ignores ctx on purpose
+	return Decision{Outcome: OutcomeAllow}, nil
+}
+
+func TestDecideTimesOutAsErrPolicy(t *testing.T) {
+	old := decideTimeout
+	decideTimeout = 20 * time.Millisecond
+	t.Cleanup(func() { decideTimeout = old })
+	b := blockingPolicy{release: make(chan struct{})}
+	t.Cleanup(func() { close(b.release) })
+	use(t, b)
+	d, err := Decide(context.Background(), Request{})
+	if !errors.Is(err, ErrPolicy) || d != (Decision{}) {
+		t.Fatalf("got %+v, %v", d, err)
 	}
 }

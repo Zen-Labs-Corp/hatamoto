@@ -71,6 +71,9 @@ func subject(ctx context.Context) (authz.Subject, error) {
 	if !ok || s.UserID == "" {
 		return authz.Subject{}, fmt.Errorf("%w: not signed in", ErrNotDecider)
 	}
+	if s.KeyID != "" { // a key never decides, whatever an authorizer says
+		return authz.Subject{}, fmt.Errorf("%w: an API key cannot decide", ErrNotDecider)
+	}
 	return s, nil
 }
 

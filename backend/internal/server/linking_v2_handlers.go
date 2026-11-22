@@ -683,6 +683,9 @@ func (s *Server) refuseAgentLinkAs(ctx context.Context, w http.ResponseWriter, a
 	if err == nil {
 		return false
 	}
+	if errors.Is(err, agentpolicystate.ErrPolicy) {
+		s.logger.Error("agent policy refused a link insert", "error", err)
+	}
 	if !writeAgentRefusal(w, err) {
 		writeError(w, http.StatusForbidden, agentpolicystate.ErrPolicy.Error()) // fail closed
 	}

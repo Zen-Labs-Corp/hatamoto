@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
+	"unicode"
 )
 
 // Outcome is what a policy decides for one change. The zero value is invalid
@@ -71,6 +73,9 @@ func (e *DeniedError) Unwrap() error { return ErrDenied }
 
 const maxReasonRunes = 200
 
+// decideTimeout bounds one call to the policy; a var so tests can shorten it.
+var decideTimeout = 5 * time.Second
+
 type registration struct{ p Policy }
 
 var (
@@ -130,18 +135,39 @@ func Active() bool { return reg.Load() != nil }
 // Decide asks the registered policy. Nothing registered: Allow. A policy
 // error, a panic (recovered) or an outcome outside Allow, RequireReview and
 // Deny yields ErrPolicy. A refusal reason is trimmed, newlines become spaces
-// and it is capped at 200 runes; empty becomes "no reason given".
+// and it is capped at 200 runes; control and format characters are dropped;
+// empty becomes "no reason given". A policy that takes longer than 5 seconds
+// yields ErrPolicy.
 func Decide(ctx context.Context, r Request) (d Decision, err error) {
 	cur := reg.Load()
 	if cur == nil {
 		return Decision{Outcome: OutcomeAllow}, nil
 	}
-	defer func() {
-		if rec := recover(); rec != nil {
-			d, err = Decision{}, fmt.Errorf("%w: panic: %v", ErrPolicy, rec)
-		}
+	ctx, cancel := context.WithTimeout(ctx, decideTimeout)
+	defer cancel()
+	type answer struct {
+		d   Decision
+		err error
+	}
+	done := make(chan answer, 1) // buffered: a policy that answers late does not leak its goroutine
+	go func() {
+		defer func() {
+			if rec := recover(); rec != nil {
+				done <- answer{err: fmt.Errorf("%w: panic: %v", ErrPolicy, rec)}
+			}
+		}()
+		d, err := cur.p.Decide(ctx, r)
+		done <- answer{d, err}
 	}()
-	d, err = cur.p.Decide(ctx, r)
+	select {
+	case a := <-done:
+		d, err = a.d, a.err
+	case <-ctx.Done():
+		return Decision{}, fmt.Errorf("%w: no answer within %s", ErrPolicy, decideTimeout)
+	}
+	if errors.Is(err, ErrPolicy) { // a recovered panic
+		return Decision{}, err
+	}
 	if err != nil {
 		return Decision{}, fmt.Errorf("%w: %v", ErrPolicy, err)
 	}
@@ -155,6 +181,12 @@ func Decide(ctx context.Context, r Request) (d Decision, err error) {
 }
 
 func cleanReason(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) && !unicode.IsSpace(r) || unicode.Is(unicode.Cf, r) {
+			return -1
+		}
+		return r
+	}, s)
 	s = strings.Join(strings.Fields(s), " ")
 	if s == "" {
 		return "no reason given"

@@ -199,3 +199,17 @@ func TestAgentPolicyRestLinkInsertKeySubjectWithoutAuditActorFailsClosed(t *test
 		t.Fatalf("got %d %s, want a 403 refusal", rec.Code, rec.Body)
 	}
 }
+
+func TestAgentPolicyRestLinkInsertLogsAPolicyFailure(t *testing.T) {
+	linkRuntime(t, fixedPolicy{}) // the zero decision is a policy failure
+	var logs strings.Builder
+	srv := linkServer(&linkSourceRepo{status: entity.StatusPublished})
+	srv.logger = slog.New(slog.NewTextHandler(&logs, nil))
+	rec := httptest.NewRecorder()
+	if !srv.refuseAgentLinkAs(context.Background(), rec, linkKey, uuid.New()) || rec.Code != http.StatusForbidden {
+		t.Fatalf("got %d %s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(logs.String(), "agent policy refused a link insert") {
+		t.Fatalf("log = %q", logs.String())
+	}
+}

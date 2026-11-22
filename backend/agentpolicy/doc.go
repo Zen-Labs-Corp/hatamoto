@@ -7,17 +7,20 @@
 // that publish, schedule, restore, unpublish (or archive) or edit live content,
 // or edit a reusable block, theme part or person. Unpublish and the edit of a
 // block, theme part or person cannot be staged: RequireReview refuses them
-// like a Deny, with no reason of its own. An API key cannot delete entities, so
-// delete is not asked. People are governed
-// by roles and review, not by this policy.
+// like a Deny. An API key cannot delete entities, so delete is not asked.
+// People are governed by roles and review, not by this policy.
 //
 // RequireReview stages the change for the site's reviewers even when the
-// site's review switch is off; a change held only by
-// the policy has the requester "api-key:<key id>" so the key's creator may
-// approve it; one the site's own rule held keeps the creator as requester. A policy's Allow never skips the site's
-// own review rule. The zero Decision, an error or a panic refuses the change
-// and stages nothing (fail closed). Deny reasons are trimmed, kept to one
-// line and capped at 200 characters.
+// site's review switch is off; a change held only by the policy has the
+// requester "api-key:<key id>" so the key's creator may approve it; one the
+// site's own rule held keeps the creator as requester. A policy's Allow never
+// skips the site's own review rule. The reason of a RequireReview is shown
+// only on paths that cannot stage the change (the link insert, unpublish, the
+// edit of a block, theme part or person), and there only in the audit row of
+// the refusal; a staged change does not carry it. The zero Decision, an error
+// or a panic refuses the change and stages nothing (fail closed), as does a
+// policy that takes longer than 5 seconds. Deny reasons are trimmed, kept to
+// one line, stripped of control characters and capped at 200 characters.
 //
 // Decide is called on the request path of every such write: cache in the
 // policy what is slow.
