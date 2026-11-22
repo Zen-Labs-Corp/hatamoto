@@ -16,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/reviewstate"
+	"hatamoto.dev/core/internal/siteconfig"
 )
 
 // pendingError says whose change is waiting; it matches entity.ErrReviewPending.
@@ -39,6 +40,10 @@ func (f *Flow) Plan(ctx context.Context, e *entity.Entity, kind entity.ReviewKin
 		return entity.ReviewPlan{}, nil
 	}
 	on, err := f.Switch.ReviewEnabled(ctx)
+	if errors.Is(err, siteconfig.ErrNotConfigured) {
+		// No settings row yet: nothing ever turned review on.
+		on, err = false, nil
+	}
 	if err != nil {
 		return entity.ReviewPlan{}, fmt.Errorf("failed to read the review switch: %w", err)
 	}

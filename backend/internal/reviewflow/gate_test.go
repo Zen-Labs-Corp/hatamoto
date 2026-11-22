@@ -15,6 +15,7 @@ import (
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/reviewstate"
+	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/user"
 )
 
@@ -92,6 +93,18 @@ func TestPlan(t *testing.T) {
 				t.Fatalf("stages = %+v, want one Review/reviewers stage", p.Stages)
 			}
 		})
+	}
+}
+
+// A site that was never configured has no settings row: review is off, not an error.
+func TestPlanUnconfiguredSiteIsOff(t *testing.T) {
+	authztest.Use(t, &authztest.Recorder{})
+	reviewstate.Reset()
+	t.Cleanup(reviewstate.Reset)
+	f := &Flow{Switch: fakeSwitch{err: siteconfig.ErrNotConfigured}}
+	p, err := f.Plan(session("author"), testEntity(), entity.ReviewEdit)
+	if err != nil || p.Held {
+		t.Fatalf("Plan = %+v, %v; want not held", p, err)
 	}
 }
 
