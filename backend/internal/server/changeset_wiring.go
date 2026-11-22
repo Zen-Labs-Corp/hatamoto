@@ -11,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/auditctx"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
@@ -92,6 +93,9 @@ func (s *Server) changesetAuditTx(ctx context.Context, tx pgx.Tx, action, target
 		if email := userEmailInTx(ctx, tx, id); email != "" {
 			ev.Actor = email
 		}
+	} else if a, ok := auditctx.From(ctx); ok {
+		// MCP and CLI calls carry their principal here, not as a signed-in user.
+		ev.ActorID, ev.Actor, ev.ActorKind, ev.KeyID = a.ID, a.Name, a.Kind, a.KeyID
 	}
 	err := audit.Record(ctx, tx, ev)
 	if errors.Is(err, audit.ErrSink) {
