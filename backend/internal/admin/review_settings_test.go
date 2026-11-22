@@ -10,29 +10,29 @@ import (
 	"hatamoto.dev/core/internal/entity"
 )
 
-// fakeReview is a ReviewFlow with the switch and canned answers.
-type fakeReview struct {
+// fakeReviewFlow is a ReviewFlow with the switch and canned answers.
+type fakeReviewFlow struct {
 	on      bool
 	saved   []bool
 	held    bool
 	pending map[string]PendingEdit
 }
 
-func (f *fakeReview) Enabled(context.Context) bool { return f.on }
-func (f *fakeReview) SetEnabled(_ context.Context, on bool) error {
+func (f *fakeReviewFlow) Enabled(context.Context) bool { return f.on }
+func (f *fakeReviewFlow) SetEnabled(_ context.Context, on bool) error {
 	f.saved = append(f.saved, on)
 	f.on = on
 	return nil
 }
-func (f *fakeReview) Plan(context.Context, *entity.Entity) bool { return f.held }
-func (f *fakeReview) Pending(_ context.Context, id string) (PendingEdit, bool, error) {
+func (f *fakeReviewFlow) Plan(context.Context, *entity.Entity) bool { return f.held }
+func (f *fakeReviewFlow) Pending(_ context.Context, id string) (PendingEdit, bool, error) {
 	p, ok := f.pending[id]
 	return p, ok, nil
 }
 
 const reviewSettingsURL = "/admin/settings/review"
 
-func newReviewSettingsRig(t *testing.T, svc *fakeReview) *perfRig {
+func newReviewSettingsRig(t *testing.T, svc *fakeReviewFlow) *perfRig {
 	t.Helper()
 	p := newPerfRig(t, nil)
 	p.a.deps.Review = svc
@@ -42,7 +42,7 @@ func newReviewSettingsRig(t *testing.T, svc *fakeReview) *perfRig {
 func TestReviewSettingsPage(t *testing.T) {
 	t.Parallel()
 
-	p := newReviewSettingsRig(t, &fakeReview{on: true})
+	p := newReviewSettingsRig(t, &fakeReviewFlow{on: true})
 	rec := p.do("GET", reviewSettingsURL, "owner-token", nil, nil)
 	if rec.Code != 200 {
 		t.Fatalf("GET = %d", rec.Code)
@@ -61,7 +61,7 @@ func TestReviewSettingsPage(t *testing.T) {
 func TestReviewSettingsSave(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeReview{}
+	svc := &fakeReviewFlow{}
 	p := newReviewSettingsRig(t, svc)
 	rec := p.do("POST", reviewSettingsURL, "owner-token", url.Values{"review_enabled": {"1"}}, nil)
 	if rec.Code != 303 || rec.Header().Get("Location") != reviewSettingsURL {
@@ -86,7 +86,7 @@ func TestReviewSettingsSave(t *testing.T) {
 func TestReviewSettingsOwnerOnly(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeReview{}
+	svc := &fakeReviewFlow{}
 	p := newReviewSettingsRig(t, svc)
 	if rec := p.do("GET", reviewSettingsURL, "editor-token", nil, nil); rec.Code != 403 {
 		t.Errorf("editor GET = %d", rec.Code)

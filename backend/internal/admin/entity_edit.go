@@ -127,7 +127,10 @@ type entityForm struct {
 	// values are today's form (owners and editors).
 	HidePublish, HideUnpublish bool
 	StatusHelp                 string
-	Schedule, Zone             string
+	// Review is what the editor says about review (zero: review is off or nothing waits); reviewDone marks it computed.
+	Review         reviewState
+	reviewDone     bool
+	Schedule, Zone string
 	// UnpublishAt, UnpublishRedirect are the scheduled unpublish (site time, form layout);
 	// UnpublishPosted is true when the form carried the fields.
 	UnpublishAt, UnpublishRedirect string
@@ -575,6 +578,10 @@ func (a *Admin) fill(r *http.Request, f *entityForm, sc *entity.EntitySchema, se
 	f.Zone = loc.String()
 	if self != nil {
 		f.HidePublish = !a.canEntity(ctx, authz.ActionEntityPublish, self)
+		if f.Review.SendsForReview {
+			// With review on, a publish is a request for review, not a publish.
+			f.HidePublish = !a.canEntity(ctx, authz.ActionEntityReviewRequest, self)
+		}
 		f.HideUnpublish = !a.canEntity(ctx, authz.ActionEntityUnpublish, self)
 	} else {
 		f.HidePublish = !a.canObj(ctx, authz.ActionEntityPublish, authz.Object{Kind: "entity", Schema: sc.Slug})
@@ -582,6 +589,8 @@ func (a *Admin) fill(r *http.Request, f *entityForm, sc *entity.EntitySchema, se
 	}
 	if f.HidePublish {
 		f.StatusHelp = "An editor or reviewer publishes drafts."
+	} else if f.Review.SendsForReview {
+		f.StatusHelp = "Publishing sends this entry for review."
 	}
 	f.StatusOptions = entityStatusOptions(f.Status, f.HidePublish)
 	f.SchemaSlug, f.SchemaName = sc.Slug, sc.Name
@@ -766,6 +775,9 @@ func renderAttrs(sc *entity.EntitySchema, values map[string]any, errs schemaform
 }
 
 func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status int, f *entityForm, e *entity.Entity, sc *entity.EntitySchema, values map[string]any, errs schemaform.Errors, parentID, authorID string, picked map[string]bool) {
+	if !f.reviewDone && e != nil {
+		f.Review, f.reviewDone = a.reviewStateFor(r, e), true
+	}
 	a.fill(r, f, sc, e, parentID, authorID, picked)
 	html, err := renderAttrs(sc, values, errs)
 	if err != nil {
@@ -888,8 +900,10 @@ func (a *Admin) handleEntityEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c := a.deps.Content
+	rs := a.reviewStateFor(r, e)
+	e = withPendingChange(e, rs) // the requester edits their own waiting change
 	attrs := attrsMap(e.Attributes)
-	f := &entityForm{ID: e.ID.String(), Name: e.Name, Slug: e.Slug, Status: string(e.Status), Locale: e.Locale, SEO: seoFrom(attrs), Version: e.Version, Tabs: a.entityTabsFor(r.Context(), e, "details")}
+	f := &entityForm{ID: e.ID.String(), Name: e.Name, Slug: e.Slug, Status: string(e.Status), Locale: e.Locale, SEO: seoFrom(attrs), Version: e.Version, Tabs: a.entityTabsFor(r.Context(), e, "details"), Review: rs, reviewDone: true}
 	loc := a.siteLocation(r.Context())
 	if !e.UpdatedAt.IsZero() {
 		f.UpdatedAt = fmtDateTime(e.UpdatedAt.In(loc))
@@ -1311,13 +1325,17 @@ func (a *Admin) afterSave(r *http.Request, p *posted, e *entity.Entity, sc *enti
 		at, err := time.ParseInLocation(scheduleLayout, p.f.Schedule, a.siteLocation(ctx))
 		if err == nil && (before != entity.StatusScheduled || e.PublishedAt == nil || !e.PublishedAt.Equal(at)) {
 			actx := a.entityAuditCtx(r, map[string]any{"schema": sc.Slug, "from": string(before), "to": string(want)})
-			if _, err := c.Entities.ScheduleEntity(actx, e.ID, actorID(r), at); err != nil {
+			if _, err := c.Entities.ScheduleEntity(actx, e.ID, actorID(r), at); errors.Is(err, entity.ErrSentForReview) {
+				notes = append(notes, reviewSentNote)
+			} else if err != nil {
 				notes = append(notes, "The status could not be set: "+entityErrorText(err))
 			}
 		}
 	case want != before && entity.ValidStatus(want):
 		actx := a.entityAuditCtx(r, map[string]any{"schema": sc.Slug, "from": string(before)})
-		if _, err := c.Entities.UpdateEntityStatus(actx, e.ID, actorID(r), want); err != nil {
+		if _, err := c.Entities.UpdateEntityStatus(actx, e.ID, actorID(r), want); errors.Is(err, entity.ErrSentForReview) {
+			notes = append(notes, reviewSentNote)
+		} else if err != nil {
 			notes = append(notes, "The status could not be set: "+entityErrorText(err))
 		}
 	}
@@ -1433,6 +1451,9 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 			a.renderEntityForm(w, r, http.StatusUnprocessableEntity, p.f, e, sc, p.attrs, p.errs, p.parentID, p.authorID, p.picked)
 			return
 		}
+		if a.sentForReview(w, r, e, err) {
+			return
+		}
 		if a.refuseNotAllowed(w, r, err) {
 			return
 		}
@@ -1443,7 +1464,7 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 	msg := "Saved."
 	kind := "success"
 	if note := a.afterSave(r, p, updated, sc, e.Status); note != "" {
-		msg, kind = "Saved. "+note, "error"
+		msg, kind = "Saved. "+note, noteKind(note)
 	}
 	if updated.TookOwnership {
 		msg += " " + a.tookOverNote(r, e.ID)
