@@ -36,6 +36,12 @@ test("applyResponse maps replies to row states", () => {
   assert.deepEqual(c.refresh, ["noindex"]); // the conflicting title keeps the user's value for Retry
   assert.equal(c.text, "Changed elsewhere: title is now “T”. Retry keeps yours.");
   assert.deepEqual(c.held, { title: "T" });
+  const posted = { title: "New", description: "", keyword: "", noindex: "" };
+  const sent = applyResponse(200, { status: "pending_review", message: "Sent for review.", values }, posted);
+  assert.equal(sent.state, "saved"); // a request waiting for a reviewer is not an error: no Retry
+  assert.equal(showsRetry(sent.state), false);
+  assert.equal(sent.text, "Sent for review.");
+  assert.equal(sent.orig.title, "New"); // what was typed is the loaded copy
   assert.equal(applyResponse(422, { status: "error", message: "Too long." }).text, "Too long.");
   const bad = applyResponse(500, null);
   assert.equal(bad.state, "error");
