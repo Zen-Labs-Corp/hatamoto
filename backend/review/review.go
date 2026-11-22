@@ -35,3 +35,27 @@ func Register(p Policy) { reviewstate.Register(p) }
 func StagesFor(ctx context.Context, e Edit) ([]Stage, error) {
 	return reviewstate.StagesFor(ctx, e)
 }
+
+// GroupResolver says who may decide a stage whose Group is not DefaultGroup.
+type GroupResolver = reviewstate.GroupResolver
+
+// RegisterGroups sets the group resolver. Call it from an init function. It
+// panics when called after app.Main started, a second time, or with a nil
+// resolver. Without one, a stage whose group is not DefaultGroup cannot be
+// decided (an owner can discard it).
+func RegisterGroups(r GroupResolver) { reviewstate.RegisterGroups(r) }
+
+// PendingStage is one staged edit waiting at a stage.
+type PendingStage = reviewstate.PendingStage
+
+// MaxPending is the most rows one Pending call returns.
+const MaxPending = reviewstate.MaxPending
+
+// ErrUnavailable means Pending was called outside serve, where there is no
+// database.
+var ErrUnavailable = reviewstate.ErrUnavailable
+
+// Pending lists the staged edits waiting at a stage, oldest first, at most
+// MaxPending. It works in serve only (ErrUnavailable elsewhere) and checks
+// no rights: callers are module jobs.
+func Pending(ctx context.Context) ([]PendingStage, error) { return reviewstate.Pending(ctx) }

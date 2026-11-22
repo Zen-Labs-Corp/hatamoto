@@ -121,3 +121,80 @@ func TestPolicySeesRoleAndBypassAndWins(t *testing.T) {
 		t.Fatalf("policy saw %#v", sp.got)
 	}
 }
+
+type resolver struct {
+	ok    bool
+	err   error
+	panic bool
+}
+
+func (r *resolver) MayDecide(context.Context, string, string, string, string) (bool, error) {
+	if r.panic {
+		panic("boom")
+	}
+	return r.ok, r.err
+}
+
+func TestRegisterGroupsPanics(t *testing.T) {
+	reset(t)
+	review.RegisterGroups(&resolver{})
+	mustPanic(t, "second RegisterGroups", func() { review.RegisterGroups(&resolver{}) })
+
+	reset(t)
+	mustPanic(t, "nil", func() { review.RegisterGroups(nil) })
+	mustPanic(t, "typed nil", func() { review.RegisterGroups((*resolver)(nil)) })
+
+	reset(t)
+	review.FreezeForTest()
+	mustPanic(t, "after Freeze", func() { review.RegisterGroups(&resolver{}) })
+}
+
+func TestGroupResolverRegistersAndFailsClosed(t *testing.T) {
+	ctx := context.Background()
+	for _, tc := range []struct {
+		name string
+		r    *resolver
+		want bool
+		err  bool
+	}{
+		{"yes", &resolver{ok: true}, true, false},
+		{"no", &resolver{}, false, false},
+		{"error", &resolver{ok: true, err: errors.New("down")}, false, true},
+		{"panic", &resolver{ok: true, panic: true}, false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			reset(t)
+			review.RegisterGroups(tc.r)
+			got, err := review.MayDecideForTest(ctx, "u", "editor", "legal", "e")
+			if got != tc.want || (err != nil) != tc.err {
+				t.Fatalf("got %v, %v; want %v, err=%v", got, err, tc.want, tc.err)
+			}
+		})
+	}
+}
+
+func TestPendingUnavailableOutsideServe(t *testing.T) {
+	reset(t)
+	if _, err := review.Pending(context.Background()); !errors.Is(err, review.ErrUnavailable) {
+		t.Fatalf("got %v; want ErrUnavailable", err)
+	}
+	review.SetPendingSourceForTest(func(context.Context, int) ([]review.PendingStage, error) {
+		return []review.PendingStage{{ChangesetID: 3, Index: 0, Total: 2}}, nil
+	})
+	rows, err := review.Pending(context.Background())
+	if err != nil || len(rows) != 1 || rows[0].ChangesetID != 3 {
+		t.Fatalf("got %#v, %v", rows, err)
+	}
+}
+
+func TestEditCarriesLocaleAndSection(t *testing.T) {
+	reset(t)
+	sp := &spy{}
+	review.Register(sp)
+	if _, err := review.StagesFor(context.Background(), review.Edit{ReviewEnabled: true, Locale: "fr", Section: "/pricing"}); err != nil {
+		t.Fatal(err)
+	}
+	if sp.got.Locale != "fr" || sp.got.Section != "/pricing" {
+		t.Fatalf("policy saw %#v", sp.got)
+	}
+}

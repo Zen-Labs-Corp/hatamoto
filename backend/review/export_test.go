@@ -6,4 +6,7 @@ import "hatamoto.dev/core/internal/reviewstate"
 var (
 	ResetForTest  = reviewstate.Reset
 	FreezeForTest = reviewstate.Freeze
+
+	SetPendingSourceForTest = reviewstate.SetPendingSource
+	MayDecideForTest        = reviewstate.MayDecide
 )
