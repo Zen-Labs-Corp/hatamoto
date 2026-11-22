@@ -71,6 +71,7 @@ type Service struct {
 	live           LiveFunc
 	reuse          ReuseStatus
 	unpublish      *UnpublishStore
+	review         ReviewGate
 	archived       LiveFunc
 	orderChanged   OrderFunc
 }
@@ -423,9 +424,18 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 	if err != nil {
 		return nil, err
 	}
-	if err := Authorize(ctx, authz.ActionEntityUpdate, existing.AuthzObject()); err != nil {
+	// A person changing live content may have to send it for review instead
+	// (see ReviewGate). Machine writes (KeepUpdatedAt) never are.
+	var plan ReviewPlan
+	if !input.KeepUpdatedAt && live(existing.Status) && !IsReuseSchema(existing.Schema) {
+		if plan, err = s.reviewPlan(ctx, existing, ReviewEdit); err != nil {
+			return nil, err
+		}
+	}
+	if err := authorizeReview(ctx, plan, authz.ActionEntityUpdate, existing.AuthzObject()); err != nil {
 		return nil, err
 	}
+	unsupported := unsupportedForReview(input) // before the credit and locked-status rewrites below
 
 	// The auto-conversion below fills Attributes when the caller sent none; that
 	// is a machine rewrite, so only caller-sent attributes can hand ownership
@@ -525,9 +535,15 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 	}
 	if st := lockedStatus(existing.Schema, attrs); st != nil {
 		input.Status = st
-		if err := authorizeLocked(ctx, existing.Status, st, existing.AuthzObject()); err != nil {
+		if plan, err = s.settleLockedPlan(ctx, existing, st, plan, authz.ActionEntityUpdate, input.KeepUpdatedAt); err != nil {
 			return nil, err
 		}
+	}
+	if plan.Held {
+		if unsupported {
+			return nil, ErrReviewUnsupported
+		}
+		return nil, s.holdUpdate(ctx, existing, input, attrs, plan)
 	}
 
 	entity, err := s.entityRepo.Update(ctx, id, userID, input)
@@ -699,12 +715,19 @@ func (s *Service) UpdateEntityStatus(ctx context.Context, id uuid.UUID, userID *
 	var prevStatus EntityStatus
 	var schemaSlug string
 	var reuse bool
+	var plan ReviewPlan
 	prev, prevErr := s.entityRepo.GetByID(ctx, id)
 	if hasSubject(ctx) {
 		if prevErr != nil {
 			return nil, prevErr
 		}
-		if err := Authorize(ctx, statusAction(prev.Status, status), prev.AuthzObject()); err != nil {
+		if live(status) && gateable(prev) {
+			var err error
+			if plan, err = s.reviewPlan(ctx, prev, ReviewPublish); err != nil {
+				return nil, err
+			}
+		}
+		if err := authorizeReview(ctx, plan, statusAction(prev.Status, status), prev.AuthzObject()); err != nil {
 			return nil, err
 		}
 	}
@@ -720,6 +743,9 @@ func (s *Service) UpdateEntityStatus(ctx context.Context, id uuid.UUID, userID *
 	}
 	if reuse {
 		return nil, errReuseStatus
+	}
+	if plan.Held {
+		return nil, s.sendForReview(ctx, heldChange(ReviewPublish, prev, status), plan)
 	}
 
 	entity, err := s.entityRepo.UpdateStatus(ctx, id, userID, status)
@@ -770,12 +796,19 @@ func (s *Service) ScheduleEntity(ctx context.Context, id uuid.UUID, userID *uuid
 		return nil, ErrScheduleInPast
 	}
 	var prevStatus EntityStatus
+	var plan ReviewPlan
 	prev, prevErr := s.entityRepo.GetByID(ctx, id)
 	if hasSubject(ctx) {
 		if prevErr != nil {
 			return nil, prevErr
 		}
-		if err := Authorize(ctx, authz.ActionEntityPublish, prev.AuthzObject()); err != nil {
+		if gateable(prev) {
+			var err error
+			if plan, err = s.reviewPlan(ctx, prev, ReviewSchedule); err != nil {
+				return nil, err
+			}
+		}
+		if err := authorizeReview(ctx, plan, authz.ActionEntityPublish, prev.AuthzObject()); err != nil {
 			return nil, err
 		}
 	}
@@ -789,6 +822,11 @@ func (s *Service) ScheduleEntity(ctx context.Context, id uuid.UUID, userID *uuid
 				return nil, errReuseStatus
 			}
 		}
+	}
+	if plan.Held {
+		c := heldChange(ReviewSchedule, prev, StatusScheduled)
+		c.PublishedAt = &at
+		return nil, s.sendForReview(ctx, c, plan)
 	}
 	e, err := sc.Schedule(ctx, id, userID, at)
 	if err != nil {
@@ -912,7 +950,13 @@ func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID
 	if err != nil {
 		return nil, err
 	}
-	if err := Authorize(ctx, authz.ActionEntityVersionRestore, existing.AuthzObject()); err != nil {
+	var plan ReviewPlan
+	if live(existing.Status) && !IsReuseSchema(existing.Schema) {
+		if plan, err = s.reviewPlan(ctx, existing, ReviewRestore); err != nil {
+			return nil, err
+		}
+	}
+	if err := authorizeReview(ctx, plan, authz.ActionEntityVersionRestore, existing.AuthzObject()); err != nil {
 		return nil, err
 	}
 
@@ -937,8 +981,16 @@ func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID
 	changeSummary := fmt.Sprintf("Restored from version %d", version)
 
 	locked := lockedStatus(existing.Schema, restoredAttrs)
-	if err := authorizeLocked(ctx, existing.Status, locked, existing.AuthzObject()); err != nil {
+	if plan, err = s.settleLockedPlan(ctx, existing, locked, plan, authz.ActionEntityVersionRestore, false); err != nil {
 		return nil, err
+	}
+	if plan.Held {
+		c := heldChange(ReviewRestore, existing, existing.Status)
+		if locked != nil {
+			c.Status = *locked
+		}
+		c.Attributes = restoredAttrs
+		return nil, s.sendForReview(ctx, c, plan)
 	}
 
 	// Update with the old attributes

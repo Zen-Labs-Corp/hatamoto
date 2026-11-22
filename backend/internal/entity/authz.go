@@ -36,6 +36,8 @@ func (e *NotAllowedError) Error() string {
 		return "you cannot unpublish this entry"
 	case authz.ActionEntityVersionRestore:
 		return "you cannot restore versions of this entry"
+	case authz.ActionEntityReviewRequest:
+		return "you cannot send this entry for review"
 	}
 	return "you cannot make this change"
 }
