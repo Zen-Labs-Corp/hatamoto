@@ -225,3 +225,28 @@ func TestLimitPostsKeepsNewestPerLocale(t *testing.T) {
 		}
 	}
 }
+
+func TestLockCtxGivesUpWhenCancelled(t *testing.T) {
+	var mu sync.Mutex
+	mu.Lock()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if err := lockCtx(ctx, &mu); err == nil {
+		t.Fatal("lockCtx took a held lock")
+	}
+	mu.Unlock()
+	// The abandoned waiter takes the lock and hands it back.
+	deadline := time.After(2 * time.Second)
+	for !mu.TryLock() {
+		select {
+		case <-deadline:
+			t.Fatal("lock never released by the abandoned waiter")
+		case <-time.After(time.Millisecond):
+		}
+	}
+	mu.Unlock()
+	if err := lockCtx(context.Background(), &mu); err != nil {
+		t.Fatal(err)
+	}
+	mu.Unlock()
+}

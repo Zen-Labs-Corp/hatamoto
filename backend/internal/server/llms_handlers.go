@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"hatamoto.dev/core/internal/cache"
@@ -97,9 +98,10 @@ func (s *Server) serveLLMsWith(w http.ResponseWriter, r *http.Request, full bool
 	if err == nil && res.base != base {
 		// Joined a build made for another host: build our own, one at a time,
 		// so varying the Host header cannot start parallel builds.
-		s.llmsHostMu.Lock()
-		res, err = build(ctx)
-		s.llmsHostMu.Unlock()
+		if err = lockCtx(ctx, &s.llmsHostMu); err == nil {
+			res, err = build(ctx)
+			s.llmsHostMu.Unlock()
+		}
 	}
 	if err != nil {
 		name := "llms.txt"
@@ -157,6 +159,22 @@ func (s *Server) buildLLMsFile(ctx context.Context, base string, set seo.AIFiles
 
 // llmsHash hashes body with every occurrence of base removed, so the same
 // content served under another host hashes the same.
+// lockCtx locks mu, giving up with the context's error when ctx ends first.
+func lockCtx(ctx context.Context, mu *sync.Mutex) error {
+	got := make(chan struct{})
+	go func() {
+		mu.Lock()
+		close(got)
+	}()
+	select {
+	case <-got:
+		return nil
+	case <-ctx.Done():
+		go func() { <-got; mu.Unlock() }() // the lock arrives later: hand it straight back
+		return ctx.Err()
+	}
+}
+
 func llmsHash(body []byte, base string) string {
 	if base != "" {
 		body = bytes.ReplaceAll(body, []byte(base), nil)
