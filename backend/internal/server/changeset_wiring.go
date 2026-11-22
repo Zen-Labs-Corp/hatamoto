@@ -88,14 +88,15 @@ func (s *Server) changesetAudit(ctx context.Context, action, target string, deta
 // connection while tx holds one.
 func (s *Server) changesetAuditTx(ctx context.Context, tx pgx.Tx, action, target string, detail map[string]any) error {
 	ev := audit.Event{Actor: "system", ActorKind: audit.KindSystem, Action: action, Target: target, Detail: detail}
-	if id, ok := database.GetUserID(ctx); ok {
+	if a, ok := auditctx.From(ctx); ok {
+		// The request's principal (an API key with its id, an MCP agent, the CLI)
+		// wins over the database user, which for a key is only its creator.
+		ev.ActorID, ev.Actor, ev.ActorKind, ev.KeyID = a.ID, a.Name, a.Kind, a.KeyID
+	} else if id, ok := database.GetUserID(ctx); ok {
 		ev.ActorID, ev.Actor, ev.ActorKind = id.String(), id.String(), audit.KindUser
 		if email := userEmailInTx(ctx, tx, id); email != "" {
 			ev.Actor = email
 		}
-	} else if a, ok := auditctx.From(ctx); ok {
-		// MCP and CLI calls carry their principal here, not as a signed-in user.
-		ev.ActorID, ev.Actor, ev.ActorKind, ev.KeyID = a.ID, a.Name, a.Kind, a.KeyID
 	}
 	err := audit.Record(ctx, tx, ev)
 	if errors.Is(err, audit.ErrSink) {

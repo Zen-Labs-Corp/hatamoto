@@ -19,6 +19,7 @@ import (
 
 	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/auditctx"
 	"hatamoto.dev/core/internal/auditstate"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/config"
@@ -572,6 +573,33 @@ func TestChangesetReviewPublishWritesOneAuditRow(t *testing.T) {
 	})
 	if h, err := rev.History(ctx, 5, 0); err != nil || len(h) == 0 || h[0].ID != cs || h[0].By != "Pat Publisher" {
 		t.Fatalf("history by = %+v, %v", h, err)
+	}
+}
+
+// A publish by an API key is audited as the key (kind and key id), not as the
+// key's creator, whom the REST middleware also puts on the context.
+func TestChangesetReviewPublishAuditsTheKey(t *testing.T) {
+	f := newReviewPublishFixture(t)
+	if err := f.runs.Finish(f.ctx, f.runID, jsontext.Value(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	keyID := uuid.New()
+	ctx := auditctx.With(database.WithUser(f.ctx, f.uid), auditctx.Actor{
+		ID: f.uid.String(), Name: "api-key:agent", Kind: "api_key", KeyID: keyID.String(), Via: "api"})
+	if _, _, err := f.rev.Publish(ctx, f.cs); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = f.db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_admin_audit WHERE target = $1`, changesetTarget(f.cs))
+	})
+	var actor, kind string
+	var gotKey *string
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT actor, actor_kind, actor_key_id::text FROM hatamoto_admin_audit
+		WHERE action = 'changeset.publish' AND target IN ($1, $2)`, changesetTarget(f.cs), fmt.Sprint(f.cs)).Scan(&actor, &kind, &gotKey); err != nil {
+		t.Fatal(err)
+	}
+	if kind != "api_key" || gotKey == nil || *gotKey != keyID.String() || actor != "api-key:agent" {
+		t.Fatalf("audit actor %q kind %q key %v, want api-key:agent, api_key, %s", actor, kind, gotKey, keyID)
 	}
 }
 
