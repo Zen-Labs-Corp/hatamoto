@@ -175,7 +175,6 @@ export const screens = [
   { name: "settings-seo-social", path: "/admin/settings/seo/social", mock: null, roles: O },
   { name: "settings-seo-schema", path: "/admin/settings/seo/schema", mock: null, roles: O },
   { name: "settings-seo-knowledge-graph", path: "/admin/settings/seo/knowledge-graph", mock: null, roles: O },
-  { name: "settings-seo-ai-files", path: "/admin/settings/seo/ai-files", mock: null, roles: O },
   { name: "settings-seo-robots", path: "/admin/settings/seo/robots", mock: null, roles: O },
   { name: "settings-seo-ads-txt", path: "/admin/settings/seo/ads-txt", mock: null, roles: O },
   { name: "settings-seo-verification", path: "/admin/settings/seo/verification", mock: null, roles: O },

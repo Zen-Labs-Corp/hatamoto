@@ -30,7 +30,7 @@ func TestSettingsForRoles(t *testing.T) {
 	owner := sectionTabs(SettingsFor("owner"))
 	for id, want := range map[string]string{
 		"general": "general", "privacy-tracking": "tracking privacy", "locales": "locales locale-addresses locale-business", "entity-models": "types taxonomies review",
-		"seo": "seo-general seo-titles seo-social seo-schema seo-kg seo-ai-files seo-robots seo-ads-txt seo-verification seo-sitemap seo-breadcrumbs seo-indexnow seo-404", "redirects": "redirects", "linking": "linking", "comments": "comments comment-blocklists commenters", "users": "users user-sign-in", "integrations": "api subscriptions deliveries",
+		"seo": "seo-general seo-titles seo-social seo-schema seo-kg seo-robots seo-ads-txt seo-verification seo-sitemap seo-breadcrumbs seo-indexnow seo-404", "redirects": "redirects", "linking": "linking", "comments": "comments comment-blocklists commenters", "users": "users user-sign-in", "integrations": "api subscriptions deliveries",
 		"tools": "import export search-replace", "performance": "performance memory", "updates": "updates", "hosting": "hosting", "backups-recovery": "backups versions changes", "access-security": "site-access admin-address",
 	} {
 		if got := strings.Join(owner[id], " "); got != want {

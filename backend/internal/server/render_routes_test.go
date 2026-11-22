@@ -60,14 +60,14 @@ func TestRenderRoutesEnabledPrecedence(t *testing.T) {
 	r, h := baseRouter()
 	mountRenderRoutes(r, renderRoutes{
 		pages: f.h, assets: stub("assets"), robots: stub("robots"), sitemap: stub("sitemap"),
-		subSitemap: stub("sub"), llms: stub("llms"), llmsFull: stub("llmsFull"), feed: stub("feed"), xsl: stub("xsl"), formPost: stub("form"),
+		subSitemap: stub("sub"), llms: stub("llms"), feed: stub("feed"), xsl: stub("xsl"), formPost: stub("form"),
 	})
 
 	for path, want := range map[string]string{
 		"/feed.xml": "feed", "/atom.xml": "feed",
 		"/api/v1/x": "api", "/health": "health", "/media/a.png": "media",
 		"/robots.txt": "robots", "/sitemap.xml": "sitemap", "/sitemap-en.xml": "sub",
-		"/llms.txt": "llms", "/llms-full.txt": "llmsFull", "/sitemap.xsl": "xsl", "/theme/assets/hm.js": "assets",
+		"/llms.txt": "llms", "/sitemap.xsl": "xsl", "/theme/assets/hm.js": "assets",
 	} {
 		if got := getPath(h, path).Body.String(); got != want {
 			t.Errorf("%s -> %q, want %q", path, got, want)
@@ -187,14 +187,14 @@ func TestRenderRoutesHeadHitsRealHandlers(t *testing.T) {
 	r, h := baseRouter()
 	mountRenderRoutes(r, renderRoutes{
 		pages: f.h, assets: stub("assets"), robots: stub("robots"), sitemap: stub("sitemap"),
-		subSitemap: stub("sub"), llms: stub("llms"), llmsFull: stub("llmsFull"), xsl: stub("xsl"), formPost: stub("form"),
+		subSitemap: stub("sub"), llms: stub("llms"), xsl: stub("xsl"), formPost: stub("form"),
 	})
 	f.next = func() (*routeResult, pageOutcome, error) {
 		t.Error("HEAD fell through to the page catch-all")
 		return &routeResult{NotFound: true}, pageOutcome{Status: 404, NotFound: true}, nil
 	}
 	for _, path := range []string{"/health", "/ready", "/media/a.png", "/robots.txt", "/sitemap.xml",
-		"/sitemap-en.xml", "/llms.txt", "/llms-full.txt", "/sitemap.xsl"} {
+		"/sitemap-en.xml", "/llms.txt", "/sitemap.xsl"} {
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, httptest.NewRequest(http.MethodHead, path, nil))
 		if w.Code != http.StatusOK || isHTML(w) {

@@ -14,7 +14,6 @@ func TestPublicPath(t *testing.T) {
 		{"/api/v1/public/sitemap.xml", "/sitemap.xml", true},
 		{"/api/v1/public/sitemap-au.xml", "/sitemap-au.xml", true},
 		{"/api/v1/public/llms.txt", "/llms.txt", true},
-		{"/api/v1/public/llms-full.txt", "/llms-full.txt", true},
 		{"/sitemap.xml", "/sitemap.xml", true},
 		{"/api/v1/public/resolve", "", false},
 		{"/api/v1/public/some/x", "", false},

@@ -455,27 +455,3 @@ func TestSEOServiceAuditsSavedSettingsWhenPolicyWriteFails(t *testing.T) {
 		t.Errorf("audited a write that saved nothing: %v", r.audits)
 	}
 }
-
-func TestSEOServiceAIFilesSection(t *testing.T) {
-	t.Parallel()
-
-	r := newSEORig(t)
-	doc, err := r.svc.Update(context.Background(), keyActor, patchOf(t, `{"ai_files":{"posts":5,"full_off":true}}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := r.back.set.AIFiles; got != (seo.AIFiles{FullOff: true, Posts: 5}) {
-		t.Errorf("stored = %+v", got)
-	}
-	if ai, ok := doc["ai_files"].(map[string]any); !ok || ai["posts"] != float64(5) || ai["full_off"] != true {
-		t.Errorf("ai_files in the document = %v", doc["ai_files"])
-	}
-	_, err = r.svc.Update(context.Background(), keyActor, patchOf(t, `{"ai_files":{"typo":1}}`))
-	if fieldsOf(t, err)["ai_files"] == "" {
-		t.Error("unknown ai_files key accepted")
-	}
-	_, err = r.svc.Update(context.Background(), keyActor, patchOf(t, `{"ai_files":{"posts":500}}`))
-	if fieldsOf(t, err)["ai_files[posts]"] == "" {
-		t.Error("out-of-range posts accepted")
-	}
-}
