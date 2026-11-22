@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -51,11 +52,8 @@ func (s *Server) aiFilesSettings(ctx context.Context) seo.AIFiles {
 }
 
 func (s *Server) serveLLMs(w http.ResponseWriter, r *http.Request, full bool) {
-	configured := s.configuredBaseURL(r)
 	s.serveLLMsWith(w, r, full, func(ctx context.Context, base string, set seo.AIFiles) (llmsResult, error) {
-		// A base taken from the Host header is served but never recorded: the
-		// stored hash and "last updated" would move with whoever asked last.
-		return s.buildLLMsFile(ctx, base, set, full, base == configured)
+		return s.buildLLMsFile(ctx, base, set, full)
 	})
 }
 
@@ -119,9 +117,10 @@ func (s *Server) serveLLMsWith(w http.ResponseWriter, r *http.Request, full bool
 }
 
 // buildLLMsFile builds one file and records its state (hash, size, and for the
-// index the snapshot diff) when record is set. The state is also skipped when
-// the build may be partial.
-func (s *Server) buildLLMsFile(ctx context.Context, base string, set seo.AIFiles, full, record bool) (llmsResult, error) {
+// index the snapshot diff), skipped when the build may be partial. What is
+// recorded does not depend on the host the base came from: the hash ignores
+// the base and the snapshot leaves out the host-derived site name.
+func (s *Server) buildLLMsFile(ctx context.Context, base string, set seo.AIFiles, full bool) (llmsResult, error) {
 	res := llmsResult{base: base}
 	if full {
 		body, stats, degraded, err := s.buildLLMsFull(ctx, base, set)
@@ -130,8 +129,8 @@ func (s *Server) buildLLMsFile(ctx context.Context, base string, set seo.AIFiles
 		}
 		res.body = body
 		res.busy = degraded || database.PoolBusyHit(ctx)
-		if record && !res.busy && s.aiFilesState != nil {
-			if err := s.aiFilesState.RecordFull(ctx, llmsHash(body), stats.Bytes, time.Now().UTC()); err != nil {
+		if !res.busy && s.aiFilesState != nil {
+			if err := s.aiFilesState.RecordFull(ctx, llmsHash(body, base), stats.Bytes, time.Now().UTC()); err != nil {
 				s.logger.Warn("llms-full: record state", "error", err)
 			}
 		}
@@ -143,16 +142,25 @@ func (s *Server) buildLLMsFile(ctx context.Context, base string, set seo.AIFiles
 	}
 	res.body = body
 	res.busy = m.degraded || database.PoolBusyHit(ctx)
-	if record && !res.busy && s.aiFilesState != nil {
-		snap := llmstxt.SnapshotOf(m.site, m.sections)
-		if err := s.aiFilesState.RecordIndex(ctx, snap, llmsHash(body), len(body), m.excluded, time.Now().UTC()); err != nil {
+	if !res.busy && s.aiFilesState != nil {
+		site := m.site
+		if site.Name == hostOf(base) {
+			site.Name = "" // the fallback name follows the Host header
+		}
+		snap := llmstxt.SnapshotOf(site, m.sections)
+		if err := s.aiFilesState.RecordIndex(ctx, snap, llmsHash(body, base), len(body), m.excluded, time.Now().UTC()); err != nil {
 			s.logger.Warn("llms: record state", "error", err)
 		}
 	}
 	return res, nil
 }
 
-func llmsHash(body []byte) string {
+// llmsHash hashes body with every occurrence of base removed, so the same
+// content served under another host hashes the same.
+func llmsHash(body []byte, base string) string {
+	if base != "" {
+		body = bytes.ReplaceAll(body, []byte(base), nil)
+	}
 	sum := sha256.Sum256(body)
 	return hex.EncodeToString(sum[:])
 }

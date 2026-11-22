@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"reflect"
 
 	"log/slog"
 	"net/http"
@@ -370,26 +371,44 @@ func TestLLMsDegradedNotCachedOrRecorded(t *testing.T) {
 }
 
 // With no site address configured the base comes from the Host header; such a
-// build is served but must not move the stored state.
-func TestLLMsRequestDerivedBaseNotRecorded(t *testing.T) {
+// build is still recorded, and what is recorded must not depend on the host.
+func TestLLMsRequestDerivedBaseRecordsHostIndependentState(t *testing.T) {
 	e := newLLMsEnv(t, llmsOpts{})
 	if _, err := e.pool.Exec(e.ctx, `UPDATE hatamoto_site_config SET public_base_url = ''`); err != nil {
 		t.Fatal(err)
 	}
 	e.srv.siteConfig = siteconfig.NewStore(e.db, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	for _, path := range []string{"/llms.txt", "/llms-full.txt"} {
-		rec := httptest.NewRecorder()
-		e.srv.serveLLMs(rec, httptest.NewRequest("GET", "http://other.example"+path, nil), path == "/llms-full.txt")
-		if rec.Code != 200 || !strings.Contains(rec.Body.String(), "http://other.example") {
-			t.Fatalf("GET %s = %d, body %.200s", path, rec.Code, rec.Body.String())
+	get := func(host string) {
+		t.Helper()
+		for _, path := range []string{"/llms.txt", "/llms-full.txt"} {
+			rec := httptest.NewRecorder()
+			e.srv.serveLLMs(rec, httptest.NewRequest("GET", "http://"+host+path, nil), path == "/llms-full.txt")
+			if rec.Code != 200 || !strings.Contains(rec.Body.String(), "http://"+host) {
+				t.Fatalf("GET %s on %s = %d, body %.200s", path, host, rec.Code, rec.Body.String())
+			}
 		}
 	}
-	st, err := e.srv.aiFilesState.Get(e.ctx)
+	get("one.example")
+	first, err := e.srv.aiFilesState.Get(e.ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.LLMsChangedAt != nil || st.FullChangedAt != nil || len(st.Snapshot) != 0 {
-		t.Errorf("a Host-derived build was recorded: %+v", st)
+	if first.LLMsChangedAt == nil || first.FullChangedAt == nil || first.LLMsHash == "" || first.FullHash == "" || len(first.Snapshot) == 0 {
+		t.Fatalf("a request-derived build was not recorded: %+v", first)
+	}
+	get("two.example")
+	second, err := e.srv.aiFilesState.Get(e.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.LLMsHash != first.LLMsHash || second.FullHash != first.FullHash {
+		t.Errorf("hash follows the host: %q/%q then %q/%q", first.LLMsHash, first.FullHash, second.LLMsHash, second.FullHash)
+	}
+	if !reflect.DeepEqual(second.Snapshot, first.Snapshot) {
+		t.Errorf("snapshot follows the host:\n%+v\n%+v", first.Snapshot, second.Snapshot)
+	}
+	if !second.LLMsChangedAt.Equal(*first.LLMsChangedAt) || !second.FullChangedAt.Equal(*first.FullChangedAt) || len(second.Changes) != len(first.Changes) {
+		t.Errorf("a second host moved the state: %+v then %+v", first, second)
 	}
 }
 
