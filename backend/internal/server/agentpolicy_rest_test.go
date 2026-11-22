@@ -15,9 +15,11 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/audit"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/agentpolicystate"
 	"hatamoto.dev/core/internal/auditctx"
 	"hatamoto.dev/core/internal/auditstate"
+	"hatamoto.dev/core/internal/authzctx"
 	"hatamoto.dev/core/internal/entity"
 )
 
@@ -184,5 +186,16 @@ func TestAgentPolicyRestLinkInsertNothingRegisteredFetchesNothing(t *testing.T) 
 	linkRuntime(t, fixedPolicy{agentpolicystate.Decision{Outcome: agentpolicystate.OutcomeDeny, Reason: "x"}})
 	if linkServer(repo).refuseAgentLink(rec, req, uuid.New()) || repo.gets != 0 {
 		t.Fatalf("a non-key request was checked: gets = %d", repo.gets)
+	}
+}
+
+func TestAgentPolicyRestLinkInsertKeySubjectWithoutAuditActorFailsClosed(t *testing.T) {
+	linkRuntime(t, fixedPolicy{agentpolicystate.Decision{Outcome: agentpolicystate.OutcomeAllow}})
+	repo := &linkSourceRepo{status: entity.StatusPublished}
+	req := httptest.NewRequest("POST", "/api/v1/linking/insert", nil)
+	req = req.WithContext(authzctx.With(req.Context(), authz.Subject{UserID: "u", KeyID: linkKey.KeyID}))
+	rec := httptest.NewRecorder()
+	if !linkServer(repo).refuseAgentLink(rec, req, uuid.New()) || rec.Code != http.StatusForbidden {
+		t.Fatalf("got %d %s, want a 403 refusal", rec.Code, rec.Body)
 	}
 }

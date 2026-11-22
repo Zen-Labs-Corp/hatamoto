@@ -89,6 +89,16 @@ func TestAgentGateNonKeyActorIsInner(t *testing.T) {
 	}
 }
 
+func TestAgentGateKeySubjectWithoutAuditActorFailsClosed(t *testing.T) {
+	pol := &fakePolicy{d: Decision{Outcome: agentpolicystate.OutcomeAllow}}
+	agentRig(t, pol)
+	ctx := authzctx.With(context.Background(), authz.Subject{UserID: "creator", Role: "owner", KeyID: testKeyID})
+	_, err := (&AgentGate{Inner: &fakeInner{}}).Plan(ctx, testEntity(), entity.ReviewEdit)
+	if !errors.Is(err, agentpolicystate.ErrPolicy) || len(pol.calls) != 0 {
+		t.Fatalf("err = %v, calls %d", err, len(pol.calls))
+	}
+}
+
 func TestAgentGateInnerErrorWins(t *testing.T) {
 	pol := &fakePolicy{d: Decision{Outcome: agentpolicystate.OutcomeAllow}}
 	agentRig(t, pol)

@@ -3,6 +3,7 @@ package agentpolicystate
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"hatamoto.dev/core/audit"
 	"hatamoto.dev/core/internal/auditctx"
 	"hatamoto.dev/core/internal/auditstate"
+	"hatamoto.dev/core/internal/authzctx"
 )
 
 // MaxChanges is the most rows one Changes call returns.
@@ -75,6 +77,25 @@ func KeyActor(ctx context.Context) (auditctx.Actor, bool) {
 	return a, true
 }
 
+// AsksFor reports whether a write under ctx is one the policy decides: one is
+// registered and the write is made with an API key, known from the audit actor
+// or from the authorization subject.
+func AsksFor(ctx context.Context) bool {
+	if !Active() {
+		return false
+	}
+	if _, ok := KeyActor(ctx); ok {
+		return true
+	}
+	return subjectIsKey(ctx)
+}
+
+// subjectIsKey reports whether the authorization subject is an API key.
+func subjectIsKey(ctx context.Context) bool {
+	s, ok := authzctx.From(ctx)
+	return ok && s.KeyID != ""
+}
+
 // RequestFor builds the policy request for a key's change.
 func RequestFor(a auditctx.Actor, action string, e Entity) Request {
 	return Request{
@@ -83,8 +104,9 @@ func RequestFor(a auditctx.Actor, action string, e Entity) Request {
 	}
 }
 
-// Enforce asks the policy for a key's change. Not active, or no key actor:
-// Allow, no work. A Deny records agent_policy.deny and returns a *DeniedError.
+// Enforce asks the policy for a key's change. Not active, or not a key: Allow,
+// no work. A key (by its authorization subject) with no audit actor on ctx
+// cannot be named to the policy: it fails closed with ErrPolicy. A Deny records agent_policy.deny and returns a *DeniedError.
 // A policy failure records the row (outcome error) and returns ErrPolicy.
 // RequireReview with canStage false records the row (outcome needs_review) and
 // returns ErrNeedsReview. RequireReview with canStage true returns the
@@ -96,6 +118,9 @@ func Enforce(ctx context.Context, action string, e Entity, canStage bool) (Decis
 	}
 	a, ok := KeyActor(ctx)
 	if !ok {
+		if subjectIsKey(ctx) {
+			return Decision{}, fmt.Errorf("%w: a key's write has no audit actor", ErrPolicy)
+		}
 		return allow, nil
 	}
 	d, err := Decide(ctx, RequestFor(a, action, e))

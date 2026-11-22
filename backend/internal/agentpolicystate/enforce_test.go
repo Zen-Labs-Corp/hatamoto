@@ -9,8 +9,10 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/audit"
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/auditctx"
 	"hatamoto.dev/core/internal/auditstate"
+	"hatamoto.dev/core/internal/authzctx"
 )
 
 var testKey = uuid.NewString()
@@ -133,5 +135,21 @@ func TestChanges(t *testing.T) {
 	Reset()
 	if _, err := Changes(context.Background(), testKey, time.Time{}); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("Reset keeps runtime: %v", err)
+	}
+}
+
+func TestEnforceKeySubjectWithoutAuditActorFailsClosed(t *testing.T) {
+	p := &fakePolicy{d: Decision{Outcome: OutcomeAllow}}
+	use(t, p)
+	captureRuntime(t)
+	ctx := authzctx.With(context.Background(), authz.Subject{UserID: "u", KeyID: testKey})
+	if !AsksFor(ctx) {
+		t.Fatal("a key subject must be asked for")
+	}
+	if _, err := Enforce(ctx, ActionEdit, Entity{}, false); !errors.Is(err, ErrPolicy) || p.calls != 0 {
+		t.Fatalf("err %v, calls %d", err, p.calls)
+	}
+	if AsksFor(authzctx.With(context.Background(), authz.Subject{UserID: "u"})) {
+		t.Fatal("a person is not asked for")
 	}
 }

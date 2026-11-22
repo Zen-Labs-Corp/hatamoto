@@ -652,6 +652,10 @@ func (s *Server) refuseAgentLink(w http.ResponseWriter, r *http.Request, sourceI
 	}
 	a, ok := restAuditActor(r)
 	if !ok || a.Kind != audit.KindAPIKey {
+		if agentpolicystate.AsksFor(r.Context()) { // a key with no audit actor: fail closed
+			writeError(w, http.StatusForbidden, agentpolicystate.ErrPolicy.Error())
+			return true
+		}
 		return false
 	}
 	return s.refuseAgentLinkAs(r.Context(), w, a, sourceID)

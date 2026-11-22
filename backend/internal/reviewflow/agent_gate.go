@@ -22,13 +22,13 @@ func (g *AgentGate) Plan(ctx context.Context, e *entity.Entity, kind entity.Revi
 	if err != nil || !agentpolicystate.Active() {
 		return p, err
 	}
-	a, ok := agentpolicystate.KeyActor(ctx)
-	if !ok {
-		return p, nil
-	}
 	d, err := agentpolicystate.Enforce(ctx, string(kind), entityDTO(e), true)
 	if err != nil {
 		return entity.ReviewPlan{}, err
+	}
+	a, ok := agentpolicystate.KeyActor(ctx)
+	if !ok { // not a key: Enforce allowed without asking
+		return p, nil
 	}
 	// A plan the site's own rule held keeps its requester (the key's creator),
 	// so nobody decides their own change. Only a change held by the agent
