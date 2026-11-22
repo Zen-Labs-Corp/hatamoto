@@ -118,6 +118,7 @@ func Reset() {
 	defer mu.Unlock()
 	frozen = false
 	reg.Store(nil)
+	rt.Store(nil)
 }
 
 // Active reports whether a policy is registered. Callers skip all work when not.
