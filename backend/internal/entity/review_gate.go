@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"bytes"
 	"context"
 	"encoding/json/jsontext"
 	"errors"
@@ -155,12 +156,39 @@ func (s *Service) settleLockedPlan(ctx context.Context, e *Entity, locked *Entit
 	return plan, authorizeLocked(ctx, e.Status, locked, e.AuthzObject())
 }
 
-// unsupportedForReview reports input fields a staged change cannot carry: the
-// byline and author fields, metadata, a cleared parent, and autosave (which
-// never stages).
-func unsupportedForReview(in *UpdateEntityInput) bool {
-	return in.Autosave || in.Metadata != nil || in.AuthorID != nil || in.ClearAuthor ||
-		in.BylinePersonID != nil || in.ClearBylinePerson || in.BylineOrg != nil || in.ClearParent
+// unsupportedForReview reports input a staged change cannot carry: autosave
+// (which never stages) and a real change to the byline, author, metadata or
+// parent-clearing fields. A value equal to the stored one is no change (the
+// classic form posts the author on every save, a REST read-modify-write sends
+// the whole entity back) and is dropped, as the direct write would.
+func unsupportedForReview(e *Entity, in *UpdateEntityInput) bool {
+	if in.Autosave {
+		return true
+	}
+	changedID := func(sent, stored *uuid.UUID) bool { return sent != nil && (stored == nil || *sent != *stored) }
+	return metadataChanged(e.Metadata, in.Metadata) ||
+		changedID(in.AuthorID, e.AuthorID) || (in.ClearAuthor && e.AuthorID != nil) ||
+		changedID(in.BylinePersonID, e.BylinePersonID) || (in.ClearBylinePerson && e.BylinePersonID != nil) ||
+		(in.BylineOrg != nil && *in.BylineOrg != e.BylineOrg) ||
+		(in.ClearParent && e.ParentID != nil)
+}
+
+// metadataChanged reports whether sent metadata differs from the stored value;
+// an absent, empty or null value on either side is the same as no metadata.
+func metadataChanged(stored jsontext.Value, sent *jsontext.Value) bool {
+	if sent == nil {
+		return false
+	}
+	blank := func(raw []byte) bool {
+		t := bytes.TrimSpace(raw)
+		return len(t) == 0 || string(t) == "null"
+	}
+	if blank(stored) || blank(*sent) {
+		return blank(stored) != blank(*sent)
+	}
+	a, okA := decodeJSON(stored)
+	b, okB := decodeJSON(*sent)
+	return !okA || !okB || !sameJSON(a, b)
 }
 
 // sendForReview stages c through the gate and returns the outcome as the error

@@ -211,10 +211,13 @@ func TestReviewGateUnsupportedAndPolicyError(t *testing.T) {
 	me := uuid.New()
 	ctx := asRole("author", me)
 	e := g.entity(t, &me, StatusPublished)
+	parent := uuid.New()
+	e.ParentID = &parent
 	yes := true
+	meta := jsontext.Value(`{"k":1}`)
 	for name, in := range map[string]*UpdateEntityInput{
 		"autosave": {Autosave: true},
-		"metadata": {Metadata: new(jsontext.Value)},
+		"metadata": {Metadata: &meta},
 		"author":   {AuthorID: &me},
 		"byline":   {BylineOrg: &yes},
 		"parent":   {ClearParent: true},
@@ -331,12 +334,67 @@ func TestReviewGateClassifiesEveryInputField(t *testing.T) {
 			v.SetBool(true)
 		case reflect.Pointer:
 			v.Set(reflect.New(v.Type().Elem()))
+			switch p := v.Interface().(type) {
+			case *uuid.UUID:
+				*p = uuid.New()
+			case *bool:
+				*p = true
+			case *jsontext.Value:
+				*p = jsontext.Value(`{"changed":1}`)
+			}
 		}
-		if !unsupportedForReview(in) {
-			t.Errorf("%s is classified refused but unsupportedForReview ignores it", f.Name)
+		if !unsupportedForReview(storedWithByline(), in) {
+			t.Errorf("%s is classified refused but unsupportedForReview ignores a change to it", f.Name)
 		}
 	}
 	if len(want) != typ.NumField() {
 		t.Errorf("classification lists %d fields, the input has %d", len(want), typ.NumField())
+	}
+}
+
+// storedWithByline is a stored row that has every field the input can clear or set.
+func storedWithByline() *Entity {
+	author, person, parent := uuid.New(), uuid.New(), uuid.New()
+	return &Entity{AuthorID: &author, BylinePersonID: &person, ParentID: &parent,
+		Metadata: jsontext.Value(`{"k": 1, "z": [true]}`)}
+}
+
+// A field sent with the value the row already has is not a change: the classic
+// form posts the author on every save and a REST read-modify-write sends the
+// whole entity back.
+func TestReviewGateUnchangedFieldsAreNotUnsupported(t *testing.T) {
+	e := storedWithByline()
+	same, org := jsontext.Value(`{"z":[true],"k":1}`), false
+	author, person := *e.AuthorID, *e.BylinePersonID
+	in := &UpdateEntityInput{Metadata: &same, AuthorID: &author, BylinePersonID: &person, BylineOrg: &org}
+	if unsupportedForReview(e, in) {
+		t.Error("unchanged byline, author and metadata were refused")
+	}
+	bare := &Entity{}
+	if unsupportedForReview(bare, &UpdateEntityInput{ClearAuthor: true, ClearBylinePerson: true, ClearParent: true}) {
+		t.Error("clearing fields that are already empty was refused")
+	}
+	other := jsontext.Value(`{"k":2}`)
+	if !unsupportedForReview(e, &UpdateEntityInput{Metadata: &other}) {
+		t.Error("changed metadata was not refused")
+	}
+}
+
+func TestReviewGateStagesUpdateThatResendsStoredByline(t *testing.T) {
+	g, gate, _ := gateRig(t, true)
+	me := uuid.New()
+	e := g.entity(t, &me, StatusPublished)
+	person := uuid.New()
+	e.BylinePersonID = &person
+	name := "Changed"
+	_, err := g.svc.UpdateEntity(asRole("author", me), e.ID, &me, &UpdateEntityInput{Name: &name, BylinePersonID: &person})
+	sent(t, err, 42)
+	if len(gate.subs) != 1 {
+		t.Fatalf("submits = %d", len(gate.subs))
+	}
+	other := uuid.New()
+	_, err = g.svc.UpdateEntity(asRole("author", me), e.ID, &me, &UpdateEntityInput{Name: &name, BylinePersonID: &other})
+	if !errors.Is(err, ErrReviewUnsupported) {
+		t.Errorf("changed byline: err = %v, want ErrReviewUnsupported", err)
 	}
 }

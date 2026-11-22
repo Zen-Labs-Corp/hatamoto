@@ -435,7 +435,7 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 	if err := authorizeReview(ctx, plan, authz.ActionEntityUpdate, existing.AuthzObject()); err != nil {
 		return nil, err
 	}
-	unsupported := unsupportedForReview(input) // before the credit and locked-status rewrites below
+	unsupported := unsupportedForReview(existing, input) // before the credit and locked-status rewrites below
 
 	// The auto-conversion below fills Attributes when the caller sent none; that
 	// is a machine rewrite, so only caller-sent attributes can hand ownership
