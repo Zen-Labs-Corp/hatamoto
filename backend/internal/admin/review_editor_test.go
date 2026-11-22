@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -296,7 +297,6 @@ func TestReviewRefusalsAreNotServerErrors(t *testing.T) {
 	}{
 		{entity.ErrReviewPending, "Another change to this entry is waiting for review."},
 		{entity.ErrReviewUnsupported, "This change cannot be sent for review."},
-		{entity.ErrReviewHold, "The review policy refused the change."},
 	} {
 		c, users := newRolesRig(t, func(d *Deps) {
 			d.Content.Entities = reviewRefusing{EntityStore: d.Content.Entities, err: tc.err}
@@ -360,4 +360,17 @@ func TestReviewEditorPendingRefusalKeepsInput(t *testing.T) {
 			t.Errorf("recovery copies = %d, the refusal must keep the copy", rec.count())
 		}
 	})
+}
+
+// ErrReviewHold wraps infrastructure failures (database, authorizer): it must reach
+// the logged server-error path, never show its text in a flash.
+func TestReviewHoldIsAServerError(t *testing.T) {
+	err := fmt.Errorf("%w: failed to read the review switch: pgx secret", entity.ErrReviewHold)
+	if isReviewRefusal(err) {
+		t.Fatal("ErrReviewHold must not be a user-facing refusal")
+	}
+	f := &entityForm{Errors: map[string]string{}}
+	if (&Admin{}).entityFormError(nil, f, err) {
+		t.Fatalf("entityFormError took ErrReviewHold: %v", f.Errors)
+	}
 }

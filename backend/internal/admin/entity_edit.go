@@ -1298,7 +1298,7 @@ func (a *Admin) entityFormError(r *http.Request, f *entityForm, err error) bool 
 		f.Errors["slug"] = "That slug is already used by another entity"
 	case errors.Is(err, entity.ErrParentCycle), errors.Is(err, entity.ErrParentTooDeep), errors.Is(err, entity.ErrParentNotFound):
 		f.Errors["parent"] = sentence(entityErrorText(err))
-	case errors.Is(err, entity.ErrRejectedByPlugin), errors.Is(err, entity.ErrReviewPending), errors.Is(err, entity.ErrReviewUnsupported), errors.Is(err, entity.ErrReviewHold):
+	case errors.Is(err, entity.ErrRejectedByPlugin), errors.Is(err, entity.ErrReviewPending), errors.Is(err, entity.ErrReviewUnsupported):
 		f.Errors["name"] = sentence(err.Error())
 	case errors.Is(err, entity.ErrValidationFailed), errors.Is(err, entity.ErrInvalidDoc), errors.Is(err, entity.ErrPageSectionsRemoved):
 		f.Errors["name"] = sentence(err.Error())
