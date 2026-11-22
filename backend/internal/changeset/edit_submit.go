@@ -60,16 +60,22 @@ func (e *Engine) SubmitEdit(ctx context.Context, o EditOptions, it Item) (int64,
 		}
 		var oldID int64
 		var oldBy string
+		var sentBack bool
 		err := tx.QueryRow(ctx, `
-			SELECT c.id, c.requested_by FROM hatamoto_changesets c
+			SELECT c.id, c.requested_by,
+			       EXISTS (SELECT 1 FROM hatamoto_changeset_stage_decisions d WHERE d.changeset_id = c.id AND d.decision = 'rejected')
+			FROM hatamoto_changesets c
 			JOIN hatamoto_changeset_items i ON i.changeset_id = c.id
 			WHERE c.kind = 'edit' AND c.state = 'staged' AND i.target_id = $1
-			ORDER BY c.id LIMIT 1 FOR UPDATE OF c`, it.TargetID).Scan(&oldID, &oldBy)
+			ORDER BY c.id LIMIT 1 FOR UPDATE OF c`, it.TargetID).Scan(&oldID, &oldBy, &sentBack)
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
 		case err != nil:
 			return fmt.Errorf("failed to look up the pending edit: %w", err)
-		case oldBy != o.Requester:
+		case oldBy != o.Requester && !sentBack:
+			// Another person's change is waiting for a decision. A sent-back one
+			// is not: nobody can approve it, so a new submit supersedes it (its
+			// decision and comment rows stay).
 			return ErrEditPending
 		default:
 			if oldKeys, err = closeStaged(ctx, tx, oldID, StateDiscarded); err != nil {

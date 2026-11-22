@@ -129,3 +129,28 @@ func TestSubmitEditAuditErrorRollsBack(t *testing.T) {
 	}
 	_ = f.eng.Discard(f.ctx, first)
 }
+
+// A sent-back edit does not block another requester: their submit supersedes
+// it, and its decision row stays.
+func TestSubmitEditSupersedesASentBackEdit(t *testing.T) {
+	f := newFixture(t)
+	target := "target-" + f.tag
+	id, err := f.submit("user-1", target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.eng.DecideStage(f.ctx, id, StageDecision{Stage: 0, Reviewer: "user-3", Decision: StageRejected, Comment: "no"}); err != nil {
+		t.Fatal(err)
+	}
+	id2, err := f.submit("user-2", target)
+	if err != nil {
+		t.Fatalf("submit over a sent-back edit: %v", err)
+	}
+	if f.state(id) != StateDiscarded || f.state(id2) != StateStaged || f.editRows(target) != 1 {
+		t.Errorf("old %s new %s rows %d", f.state(id), f.state(id2), f.editRows(target))
+	}
+	if n := f.count(`SELECT count(*) FROM hatamoto_changeset_stage_decisions WHERE changeset_id = $1`, id); n != 1 {
+		t.Errorf("decision rows of the sent-back edit = %d, want 1", n)
+	}
+	_ = f.eng.Discard(f.ctx, id2)
+}
