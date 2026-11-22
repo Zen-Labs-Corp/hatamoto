@@ -76,7 +76,7 @@ func (a reviewAdmin) Pending(ctx context.Context, entityID string) (admin.Pendin
 func (a reviewAdmin) pendingEdit(ctx context.Context, row changeset.EditRow, items []changeset.StoredItem) (admin.PendingEdit, error) {
 	p := admin.PendingEdit{
 		ID: row.ID, EntityID: row.TargetID, EntityName: row.Name, Requester: row.Requester,
-		RequesterName: a.userName(ctx, row.Requester), Since: row.CreatedAt.UTC(), Rejected: row.Rejected,
+		RequesterName: a.userName(ctx, row.Requester), Since: row.CreatedAt.UTC(), Rejected: row.Rejected, Stage: stageOf(row),
 	}
 	if len(items) > 0 {
 		var sp stagedPayload
@@ -111,9 +111,23 @@ func (a reviewAdmin) Queue(ctx context.Context, limit, offset int) ([]admin.Pend
 	out := make([]admin.PendingEdit, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, admin.PendingEdit{ID: r.ID, EntityID: r.TargetID, EntityName: r.Name, Requester: r.Requester,
-			RequesterName: a.userName(ctx, r.Requester), Since: r.CreatedAt.UTC()})
+			RequesterName: a.userName(ctx, r.Requester), Since: r.CreatedAt.UTC(), Stage: stageOf(r)})
 	}
 	return out, total, nil
+}
+
+// stageOf is the stage row waits at; zero when it was sent back or every stage is approved.
+func stageOf(row changeset.EditRow) admin.ReviewStage {
+	if row.Rejected || row.Approvals >= len(row.Stages) {
+		return admin.ReviewStage{}
+	}
+	st := row.Stages[row.Approvals]
+	return admin.ReviewStage{Index: row.Approvals, Total: len(row.Stages), Name: st.Name, Group: st.Group}
+}
+
+// MayDecideStage is the group check of the flow, the one Approve applies.
+func (a reviewAdmin) MayDecideStage(ctx context.Context, entityID, group string) bool {
+	return a.flow.GroupAllows(ctx, group, entityID)
 }
 
 func (a reviewAdmin) Count(ctx context.Context) (int, error) {
@@ -155,7 +169,7 @@ func (a reviewAdmin) Detail(ctx context.Context, id int64) (admin.ReviewDetail, 
 	case row.Rejected:
 	case row.Approvals >= len(row.Stages):
 		d.Approved = true
-	case row.Stages[row.Approvals].Group != reviewstate.DefaultGroup:
+	case row.Stages[row.Approvals].Group != reviewstate.DefaultGroup && !reviewstate.GroupsRegistered():
 		d.NeedsGroup = row.Stages[row.Approvals].Group
 	}
 	return d, nil

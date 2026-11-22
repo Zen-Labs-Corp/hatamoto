@@ -186,6 +186,9 @@ type ReviewFlow interface {
 	// Withdraw drops the viewer's own change; Discard drops any change (decide right).
 	Withdraw(ctx context.Context, id int64) error
 	Discard(ctx context.Context, id int64) error
+	// MayDecideStage is the group part of the decision check for the viewer: true for the default group
+	// and when no group resolver is registered. The decide right is checked by the caller.
+	MayDecideStage(ctx context.Context, entityID, group string) bool
 }
 
 // What the review actions answer when a decision cannot go ahead.
@@ -205,7 +208,7 @@ type ReviewDetail struct {
 	Stale bool
 	// Approved: every stage approved but the change is not live (the publish failed).
 	Approved bool
-	// NeedsGroup names a stage group this site does not define; nobody can decide it.
+	// NeedsGroup names a stage group this site does not define (no group resolver); nobody can decide it.
 	NeedsGroup string
 }
 
@@ -214,6 +217,13 @@ type ReviewOutcome struct {
 	Published  bool
 	NotApplied bool // the entry moved meanwhile: nothing was written, the change stays readable
 	Pending    bool // stages remain for another reviewer
+}
+
+// ReviewStage is the stage a change waits at. Index is 0-based; the zero value means no stage is
+// waiting (sent back, or every stage approved).
+type ReviewStage struct {
+	Index, Total int
+	Name, Group  string
 }
 
 // PendingEdit is one change to a published entry that waits for review or was
@@ -226,6 +236,7 @@ type PendingEdit struct {
 	Rejected                 bool
 	Comment, Reviewer        string         // a sent-back change's comment and the reviewer's name
 	Payload                  *entity.Entity // name, slug and attributes as the requester left them
+	Stage                    ReviewStage    // the stage waiting for a decision
 	// Stale: the entry changed after the change was sent, so the payload is out of date.
 	// Only Pending fills it.
 	Stale bool

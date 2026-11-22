@@ -22,6 +22,7 @@ type fakeReviewFlow struct {
 	outcome ReviewOutcome
 	failure error
 	calls   []string
+	groups  map[string]bool // nil: every group allowed
 }
 
 func (f *fakeReviewFlow) Enabled(context.Context) bool { return f.on }
@@ -29,6 +30,12 @@ func (f *fakeReviewFlow) SetEnabled(_ context.Context, on bool) error {
 	f.saved = append(f.saved, on)
 	f.on = on
 	return nil
+}
+func (f *fakeReviewFlow) MayDecideStage(_ context.Context, _, group string) bool {
+	if f.groups == nil {
+		return true
+	}
+	return f.groups[group]
 }
 func (f *fakeReviewFlow) Plan(context.Context, *entity.Entity) bool { return f.held }
 func (f *fakeReviewFlow) Pending(_ context.Context, id string) (PendingEdit, bool, error) {
