@@ -21,6 +21,9 @@ type Converted struct {
 	Builders   []string // page builders whose markers were found
 	Embeds     int      // YouTube and Vimeo embeds kept
 	Dropped    []string // other things removed: unsupported iframes
+
+	WPBakery      int      // WPBakery shortcodes converted or unwrapped (layout only lost)
+	MissingImages []string // WPBakery image ids with no media in the source (sorted)
 }
 
 var (
@@ -92,7 +95,11 @@ func DetectBuilders(s string) []string {
 // a bare URL), forms and shortcodes are removed and reported, responsive image
 // attributes are dropped. raw is true for WXR bodies, which are stored as
 // typed (shortcodes unexpanded, paragraphs not yet wrapped).
-func Convert(in string, raw bool) Converted {
+func Convert(in string, raw bool, opts ...ConvertOption) Converted {
+	var o convertOpts
+	for _, f := range opts {
+		f(&o)
+	}
 	var res Converted
 	res.Builders = DetectBuilders(in)
 	s := commentRe().ReplaceAllString(in, "")
@@ -120,7 +127,7 @@ func Convert(in string, raw bool) Converted {
 	for _, n := range nodes {
 		root.AppendChild(n)
 	}
-	cv := &converter{res: &res, shortcodes: map[string]bool{}, forms: map[string]bool{}}
+	cv := &converter{res: &res, opts: o, shortcodes: map[string]bool{}, forms: map[string]bool{}}
 	cv.walk(root)
 	cv.finish()
 	var b strings.Builder
@@ -136,6 +143,7 @@ func Convert(in string, raw bool) Converted {
 
 type converter struct {
 	res        *Converted
+	opts       convertOpts
 	shortcodes map[string]bool
 	forms      map[string]bool
 	drop       []*xhtml.Node
