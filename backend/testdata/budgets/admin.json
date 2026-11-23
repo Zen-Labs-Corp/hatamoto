@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 71669,
+      "value": 71396,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -14,7 +14,7 @@
       "value": 109037,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 110061
+      "cap": 109317
     },
     "editor_js_total_gzip": {
       "value": 297454,
@@ -117,7 +117,7 @@
       "date": "2026-11-20"
     },
     {
-      "reason": "section examples: the Insert card stores the example and opens the Content tab (editor_js_first_gzip 108481 -> 109037, cap 108761 -> 110061; editor_js_total_gzip 296752 -> 297454)",
+      "reason": "section examples: the Insert card stores the example and opens the Content tab (editor_js_first_gzip 108481 -> 109037, cap 108761 -> 109317, the previous 280 B of headroom kept; editor_js_total_gzip 296752 -> 297454)",
       "date": "2026-11-23"
     }
   ]
