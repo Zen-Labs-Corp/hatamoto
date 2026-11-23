@@ -14,7 +14,7 @@ func TestLazyRegexpsCompile(t *testing.T) {
 		"commentRe": commentRe, "embedSCRe": embedSCRe, "linkTagRe": linkTagRe,
 		"metaContentRE": metaContentRE, "metaTagRe": metaTagRe, "shortcodeRe": shortcodeRe,
 		"tagRe": tagRe, "titleRe": titleRe, "twitterURLRE": twitterURLRE,
-		"vcAttrRe": vcAttrRe, "vimeoRe": vimeoRe, "youtubeRe": youtubeRe,
+		"vcAttrRe": vcAttrRe, "vcTagRe": vcTagRe, "vimeoRe": vimeoRe, "youtubeRe": youtubeRe,
 	}
 	for name, get := range lazy {
 		if get() == nil {

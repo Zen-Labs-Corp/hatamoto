@@ -103,6 +103,10 @@ func Convert(in string, raw bool, opts ...ConvertOption) Converted {
 	var res Converted
 	res.Builders = DetectBuilders(in)
 	s := commentRe().ReplaceAllString(in, "")
+	shortcodes := map[string]bool{}
+	if strings.Contains(s, "[vc_") {
+		s = wpbakery(s, &o, &res, shortcodes)
+	}
 	s = embedSCRe().ReplaceAllString(s, "<p>$1</p>")
 	s = captionRe().ReplaceAllStringFunc(s, func(m string) string {
 		inner := captionRe().FindStringSubmatch(m)[1]
@@ -127,7 +131,7 @@ func Convert(in string, raw bool, opts ...ConvertOption) Converted {
 	for _, n := range nodes {
 		root.AppendChild(n)
 	}
-	cv := &converter{res: &res, opts: o, shortcodes: map[string]bool{}, forms: map[string]bool{}}
+	cv := &converter{res: &res, opts: o, shortcodes: shortcodes, forms: map[string]bool{}}
 	cv.walk(root)
 	cv.finish()
 	var b strings.Builder
@@ -250,11 +254,28 @@ func (c *converter) visit(n *xhtml.Node) {
 			return
 		}
 	case atom.P, atom.Div:
+		if n.DataAtom == atom.P && c.res.WPBakery > 0 && emptyParagraph(n) {
+			c.drop = append(c.drop, n) // what a converted shortcode left behind
+			return
+		}
 		if c.bareEmbed(n) {
 			return
 		}
 	}
 	c.walk(n)
+}
+
+// emptyParagraph reports a <p> holding nothing but whitespace and line breaks.
+func emptyParagraph(n *xhtml.Node) bool {
+	for ch := n.FirstChild; ch != nil; ch = ch.NextSibling {
+		switch {
+		case ch.Type == xhtml.TextNode && strings.TrimSpace(ch.Data) == "":
+		case ch.Type == xhtml.ElementNode && ch.DataAtom == atom.Br:
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // form removes the markup of a form plugin.
