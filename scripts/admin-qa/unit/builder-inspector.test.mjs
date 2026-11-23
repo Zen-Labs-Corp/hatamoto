@@ -108,7 +108,10 @@ test("openContent pre-selects the Content tab and arms a one-shot, id-keyed fiel
   assert.match(src, /takeFieldFocus: \(id\) => \(focusFor === id \? \(\(focusFor = null\), true\) : false\)/);
   assert.match(src, /if \(key === tab\) return;\s*focusFor = null;/);
   const body = readFileSync(new URL("../../../backend/web/admin/js/builder/inspcontent.js", import.meta.url), "utf8");
-  assert.match(body, /onReady: \(form\) => \{\s*if \(mine === gen\(\) && ctx\.takeFieldFocus\?\.\(id\)\)/);
+  assert.match(src, /focusFor !== null && focusFor !== sel\) focusFor = null/);
+  assert.match(body, /const take = ctx\.takeFieldFocus\?\.\(id\);/);
+  assert.match(body, /data-hm-bs-tree\], \[data-hm-bs-palette\]/);
+  assert.match(body, /if \(take && mine === gen\(\) && free\)/);
   const fields = readFileSync(new URL("../../../backend/web/admin/js/builder/fields.js", import.meta.url), "utf8");
   assert.match(fields, /form\.removeAttribute\("aria-busy"\);\s*if \(!readied\) \{\s*readied = true;\s*onReady\?\.\(form\);/);
 });

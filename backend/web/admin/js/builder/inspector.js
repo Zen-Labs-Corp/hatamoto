@@ -161,6 +161,7 @@ export function mountInspector(root, api) {
     if (state === "parent-hover" && !takesParentHover(locate(api.getDoc(), sel)?.parent)) setState("");
     const fld = node ? api.getField?.() : null;
     const def = fld && fld.componentId === sel ? api.sections.find((s) => s.type === node.p?.type)?.fields?.find((f) => f.key === fld.key) : null;
+    if (focusFor !== null && focusFor !== sel) focusFor = null; // a stale one-shot must not fire on a later visit
     drawnId = node ? sel : null;
     drawnKey = def ? def.key : null;
     drawnNode = node || null;
