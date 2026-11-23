@@ -38,13 +38,17 @@ func TestVCAttrs(t *testing.T) {
 		in   string
 		want map[string]string
 	}{
-		"straight":   {` text="Hello" size='big' id=7`, map[string]string{"text": "Hello", "size": "big", "id": "7"}},
-		"texturized": {` text=&#8221;Hello&#8221; alignment=&#8221;center&#8221;`, map[string]string{"text": "Hello", "alignment": "center"}},
-		"inch":       {` size=&#8221;10&#8243; x=&#8221;1&#8221;`, map[string]string{"size": "10", "x": "1"}},
-		"unicode":    {" text=\u201dHi\u201d w=\u201c5\u2033", map[string]string{"text": "Hi", "w": "5"}},
-		"br":         {` a="1"<br />b="2"`, map[string]string{"a": "1", "b": "2"}},
-		"upper+dup":  {` Key="a" key="b"`, map[string]string{"key": "b"}},
-		"entity":     {` text=&#8221;A &amp; B&#8221;`, map[string]string{"text": "A &amp; B"}},
+		"straight":        {` text="Hello" size='big' id=7`, map[string]string{"text": "Hello", "size": "big", "id": "7"}},
+		"texturized":      {` text=&#8221;Hello&#8221; alignment=&#8221;center&#8221;`, map[string]string{"text": "Hello", "alignment": "center"}},
+		"inch":            {` size=&#8221;10&#8243; x=&#8221;1&#8221;`, map[string]string{"size": "10", "x": "1"}},
+		"unicode":         {" text=\u201dHi\u201d w=\u201c5\u2033", map[string]string{"text": "Hi", "w": "5"}},
+		"br":              {` a="1"<br />b="2"`, map[string]string{"a": "1", "b": "2"}},
+		"upper+dup":       {` Key="a" key="b"`, map[string]string{"key": "b"}},
+		"curly inside":    {" text=\"Our \u201cbest\u201d offer\" w=1", map[string]string{"text": "Our \u201cbest\u201d offer", "w": "1"}},
+		"curly in entity": {" text=&#8221;Our \u201cbest\u201d offer&#8221; w=1", map[string]string{"text": "Our \u201cbest\u201d offer", "w": "1"}},
+		"backticks":       {" text=\"Why ``our``\"", map[string]string{"text": `Why "our"`}},
+		"apostrophe":      {` text="It's ok" b='say "hi"'`, map[string]string{"text": "It's ok", "b": `say "hi"`}},
+		"entity":          {` text=&#8221;A &amp; B&#8221;`, map[string]string{"text": "A &amp; B"}},
 	}
 	for name, tc := range cases {
 		if got := vcAttrs(tc.in); !reflect.DeepEqual(got, tc.want) {
@@ -280,5 +284,14 @@ func TestConvertWPBakeryUnbalancedTagsRecover(t *testing.T) {
 	}
 	if len(c.Dropped) != 0 || strings.Contains(c.HTML, "[") {
 		t.Errorf("dropped=%v html=%.200s", c.Dropped, c.HTML)
+	}
+}
+
+func TestConvertWPBakeryQuotesInsideValues(t *testing.T) {
+	raw := Convert("[vc_custom_heading text=\"Our \u201cbest\u201d offer\"]", true)
+	rendered := Convert("<p>[vc_custom_heading text=&#8221;Our \u201cbest\u201d offer&#8221;]</p>", false)
+	want := "<h2>Our \u201cbest\u201d offer</h2>"
+	if raw.HTML != want || rendered.HTML != want {
+		t.Errorf("raw %q rendered %q want %q", raw.HTML, rendered.HTML, want)
 	}
 }

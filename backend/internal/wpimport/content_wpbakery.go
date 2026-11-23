@@ -42,18 +42,63 @@ var vcContainers = map[string]bool{
 	"vc_section": true, "vc_column_text": true,
 }
 
-var vcAttrRe = sync.OnceValue(func() *regexp.Regexp {
-	return regexp.MustCompile(`([a-zA-Z0-9_-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|(\S+))`)
+var vcKeyRe = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`([a-zA-Z0-9_-]+)\s*=\s*`)
 })
 
-// vcQuotes maps the quote forms a WordPress body can carry (texturized
-// entities from rendered REST content, curly characters, plain entities) to a
-// plain double or single quote.
-var vcQuotes = strings.NewReplacer(
-	"&#8220;", `"`, "&#8221;", `"`, "&#8243;", `"`, "&#8242;", `"`, "&quot;", `"`, "&#34;", `"`,
-	"\u201c", `"`, "\u201d", `"`, "\u2033", `"`, "\u2032", `"`,
-	"&#039;", "'", "&#39;", "'", "&#8217;", "'", "&#8216;", "'", "\u2019", "'", "\u2018", "'",
-)
+// vcQuote is one way a WordPress body can write a quote: plain, as an entity
+// (texturized rendered content) or as a curly character. dbl tells a double
+// quote from a single one, form the writing, so a curly quote inside a value
+// is not mistaken for the delimiter that is written another way.
+type vcQuote struct {
+	tok  string
+	dbl  bool
+	form int
+}
+
+var vcQuotes = []vcQuote{
+	{"&#8220;", true, 1}, {"&#8221;", true, 1}, {"&#8243;", true, 1}, {"&#8242;", true, 1}, {"&quot;", true, 1}, {"&#34;", true, 1},
+	{"&#039;", false, 1}, {"&#39;", false, 1}, {"&#8217;", false, 1}, {"&#8216;", false, 1},
+	{"\u201c", true, 2}, {"\u201d", true, 2}, {"\u2033", true, 2}, {"\u2032", true, 2},
+	{"\u2019", false, 2}, {"\u2018", false, 2},
+	{`"`, true, 0}, {"'", false, 0},
+}
+
+func quoteAt(s string, i int) (vcQuote, bool) {
+	for _, q := range vcQuotes {
+		if strings.HasPrefix(s[i:], q.tok) {
+			return q, true
+		}
+	}
+	return vcQuote{}, false
+}
+
+// vcSafe undoes WPBakery's escaping of a value: a double quote is stored as
+// two backticks.
+var vcSafe = strings.NewReplacer("``", `"`)
+
+// vcValue reads the value starting at span[i:]. A quote only opens a value
+// here, and only closes it before whitespace or the end of the span, so quotes
+// inside the value stay. It returns the value and where reading goes on.
+func vcValue(span string, i int) (string, int) {
+	if q, ok := quoteAt(span, i); ok {
+		for k := i + len(q.tok); k < len(span); k++ {
+			c, ok := quoteAt(span, k)
+			if !ok || c.dbl != q.dbl || c.form != q.form {
+				continue
+			}
+			end := k + len(c.tok)
+			if end == len(span) || span[end] == ' ' || span[end] == '\t' || span[end] == '\n' || span[end] == '\r' {
+				return vcSafe.Replace(span[i+len(q.tok) : k]), end
+			}
+		}
+	}
+	end := i
+	for end < len(span) && !strings.ContainsRune(" \t\r\n", rune(span[end])) {
+		end++
+	}
+	return vcSafe.Replace(span[i:end]), end
+}
 
 // convertOpts carries the optional inputs of Convert.
 type convertOpts struct {
@@ -95,17 +140,16 @@ func MediaByID(ms []Media) map[string]Media {
 // handlers do that. A repeated key keeps its last value.
 func vcAttrs(span string) map[string]string {
 	span = tagRe().ReplaceAllString(span, " ") // wpautop leaves <br /> inside a span
-	span = vcQuotes.Replace(span)
 	out := map[string]string{}
-	for _, m := range vcAttrRe().FindAllStringSubmatch(span, -1) {
-		v := m[2]
-		if v == "" {
-			v = m[3]
+	for pos := 0; pos < len(span); {
+		m := vcKeyRe().FindStringSubmatchIndex(span[pos:])
+		if m == nil {
+			break
 		}
-		if v == "" {
-			v = m[4]
-		}
-		out[strings.ToLower(m[1])] = v
+		key := strings.ToLower(span[pos+m[2] : pos+m[3]])
+		var v string
+		v, pos = vcValue(span, pos+m[1])
+		out[key] = v
 	}
 	return out
 }
