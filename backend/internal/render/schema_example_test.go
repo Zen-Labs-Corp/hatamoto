@@ -3,6 +3,9 @@ package render
 import (
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const exampleSchemaHead = `{
@@ -67,5 +70,62 @@ func TestSectionExampleInvalid(t *testing.T) {
 				t.Fatalf("err = %v, want containing %q", err, tc.want)
 			}
 		})
+	}
+}
+
+// exampleOf returns the decoded x-hm-section.example of a default-theme section schema.
+func exampleOf(t *testing.T, typ string, schema []byte) map[string]any {
+	t.Helper()
+	var root struct {
+		Section struct {
+			Example map[string]any `json:"example"`
+		} `json:"x-hm-section"`
+	}
+	if err := jsonx.Unmarshal(schema, &root); err != nil {
+		t.Fatalf("%s: %v", typ, err)
+	}
+	return root.Section.Example
+}
+
+func TestDefaultThemeSectionsHaveExamples(t *testing.T) {
+	e, err := New(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	info := e.ThemeInfo()
+	if len(info.Sections) != 25 {
+		t.Fatalf("default theme has %d sections, want 25", len(info.Sections))
+	}
+	for _, s := range info.Sections {
+		if len(exampleOf(t, s.Type, s.Schema)) == 0 {
+			t.Errorf("section %q has no x-hm-section.example", s.Type)
+		}
+	}
+}
+
+func TestHeroExampleRenders(t *testing.T) {
+	e, err := New(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var content map[string]any
+	for _, s := range e.ThemeInfo().Sections {
+		if s.Type == "hero" {
+			content = exampleOf(t, s.Type, s.Schema)
+		}
+	}
+	if len(content) == 0 {
+		t.Fatal("hero has no example")
+	}
+	d := &builder.Doc{V: 2, Nodes: []*builder.Node{{ID: "h", T: "component", P: map[string]any{"type": "hero", "content": content}}}}
+	out := renderDoc(t, nil, d, true)
+	if !strings.Contains(out, "A clear headline goes here") {
+		t.Error("the hero example headline is not rendered")
+	}
+	if n := strings.Count(out, "hm-btn"); n < 2 {
+		t.Errorf("hm-btn appears %d times, want at least 2 buttons", n)
+	}
+	if strings.Contains(out, "data-hm-empty") {
+		t.Error("the hero example renders the empty placeholder")
 	}
 }
