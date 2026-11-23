@@ -1,5 +1,13 @@
 {
-  "x-hm-section": {"title": "Split", "description": "Text column beside a code panel"},
+  "x-hm-section": {"title": "Split", "description": "Text column beside a code panel",
+    "example": {
+      "eyebrow": "Details",
+      "heading": "A heading for this section",
+      "lede": "Explain the idea in a sentence or two, with an example alongside.",
+      "rows": [{"term": "First term", "description": "What the first term means."}, {"term": "Second term", "description": "What the second term means."}],
+      "panel": {"title": "example.txt", "code": "Replace this with your own example."}
+    }
+  },
   "type": "object",
   "properties": {
     "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},

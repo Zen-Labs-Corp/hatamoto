@@ -1,5 +1,11 @@
 {
-  "x-hm-section": {"title": "Theme directory", "description": "Cards for the themes in the signed registry, with optional search"},
+  "x-hm-section": {"title": "Theme directory", "description": "Cards for the themes in the signed registry, with optional search",
+    "example": {
+      "eyebrow": "Directory",
+      "heading": "Browse available themes",
+      "subheading": "Find a look that fits your site."
+    }
+  },
   "type": "object",
   "properties": {
     "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},

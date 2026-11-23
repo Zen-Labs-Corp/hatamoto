@@ -1,5 +1,10 @@
 {
-  "x-hm-section": {"title": "Tag strip", "description": "Label plus a row of short items"},
+  "x-hm-section": {"title": "Tag strip", "description": "Label plus a row of short items",
+    "example": {
+      "label": "Topics",
+      "items": ["First topic", "Second topic", "Third topic"]
+    }
+  },
   "type": "object",
   "properties": {
     "label": {"type": "string", "title": "Label", "x-hm-field": "plaintext"},

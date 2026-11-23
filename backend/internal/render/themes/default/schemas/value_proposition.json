@@ -1,5 +1,10 @@
 {
-  "x-hm-section": {"title": "Value proposition", "description": "Short headline with one supporting paragraph"},
+  "x-hm-section": {"title": "Value proposition", "description": "Short headline with one supporting paragraph",
+    "example": {
+      "headline": "A short, clear promise",
+      "paragraph": "One supporting paragraph that explains why it matters."
+    }
+  },
   "type": "object",
   "properties": {
     "headline": {"type": "string", "title": "Headline", "x-hm-field": "plaintext"},

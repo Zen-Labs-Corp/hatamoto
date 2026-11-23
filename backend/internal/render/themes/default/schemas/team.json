@@ -1,5 +1,11 @@
 {
-  "x-hm-section": {"title": "Team", "description": "Grid of team members"},
+  "x-hm-section": {"title": "Team", "description": "Grid of team members",
+    "example": {
+      "heading": "Meet the team",
+      "subheading": "The people behind the work.",
+      "members": [{"name": "Team member", "title": "Role", "bio": "A short line about this person."}, {"name": "Team member", "title": "Role", "bio": "A short line about this person."}, {"name": "Team member", "title": "Role", "bio": "A short line about this person."}]
+    }
+  },
   "type": "object",
   "properties": {
     "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
