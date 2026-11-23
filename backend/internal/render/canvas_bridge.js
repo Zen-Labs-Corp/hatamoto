@@ -494,6 +494,7 @@
     if (!boxless(el)) return r;
     var l = Infinity, t = Infinity, rt = -Infinity, b = -Infinity;
     for (var c = el.firstElementChild; c; c = c.nextElementSibling) {
+      if (c.hasAttribute('data-hm-empty')) continue;
       var cr = c.getBoundingClientRect();
       l = Math.min(l, cr.left); t = Math.min(t, cr.top); rt = Math.max(rt, cr.right); b = Math.max(b, cr.bottom);
     }
@@ -508,7 +509,12 @@
 
   // el, or the first descendant that has a box when el is a display:contents wrapper
   function boxOf(el) {
-    while (boxless(el) && el.firstElementChild) el = el.firstElementChild;
+    while (boxless(el)) {
+      var c = el.firstElementChild;
+      while (c && c.hasAttribute('data-hm-empty')) c = c.nextElementSibling;
+      if (!c) break;
+      el = c;
+    }
     return el;
   }
 

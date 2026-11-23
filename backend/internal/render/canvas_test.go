@@ -163,3 +163,12 @@ func TestCanvasBridgeEmptyHintStyle(t *testing.T) {
 		}
 	}
 }
+
+// The empty-section hint is not part of a section's own box: rectOf and boxOf
+// must skip it, or the reported rect and padding come from the hint.
+func TestCanvasBridgeMetricsSkipEmptyHint(t *testing.T) {
+	t.Parallel()
+	if n := strings.Count(canvasBridgeJS, "c.hasAttribute('data-hm-empty')"); n != 2 {
+		t.Fatalf("rectOf and boxOf must each skip [data-hm-empty] children, found %d skips", n)
+	}
+}
