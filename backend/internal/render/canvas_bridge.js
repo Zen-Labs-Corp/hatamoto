@@ -509,7 +509,7 @@
 
   // el, or the first descendant that has a box when el is a display:contents wrapper
   function boxOf(el) {
-    while (boxless(el)) {
+    while (boxless(el) && el.firstElementChild) {
       var c = el.firstElementChild;
       while (c && c.hasAttribute('data-hm-empty')) c = c.nextElementSibling;
       if (!c) break;
