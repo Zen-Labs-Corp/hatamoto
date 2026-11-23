@@ -445,6 +445,9 @@ export function createContent(ctx) {
               urls: api.urls,
               csrf: api.csrf,
               only: opts.only ?? null,
+              onReady: (form) => {
+                if (mine === gen() && ctx.takeFieldFocus?.(id)) form.querySelector('[contenteditable="true"], input:not([readonly]):not([type="hidden"]), select, textarea')?.focus();
+              },
               onContent: (content) => {
                 const now = find(api.getDoc(), id);
                 if (!now || JSON.stringify(now.p?.content ?? {}) === JSON.stringify(content)) return;

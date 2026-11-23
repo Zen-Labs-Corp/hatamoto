@@ -53,15 +53,17 @@ export function noImplicitSubmit(e) {
  * mountFields(host, {node, type, getContent, urls, csrf, onContent, only}) -> {destroy}
  * only: [key, ...aliases] of one content field: the form shows just that field (applyOnly), again after every adopt().
 
+ * onReady(form): called once, after the first adopt() has finished and the form is no longer busy.
  * onContent(content): a decoded content object to commit as the node's content.
  * destroy() sends any pending edit before it leaves, so a selection change loses nothing.
  */
-export function mountFields(host, { node, type, getContent, urls, csrf, onContent, only = null }) {
+export function mountFields(host, { node, type, getContent, urls, csrf, onContent, only = null, onReady = null }) {
   const form = h("form", { class: "hm-bs-fields", novalidate: true, "aria-busy": "true" });
   const status = h("p", { class: "hm-muted", role: "status", text: LOADING });
   host.append(status, form);
   let timer = 0;
   let dirty = false;
+  let readied = false;
   let gone = false;
   let seq = 0;
   let errKey = "";
@@ -98,6 +100,10 @@ export function mountFields(host, { node, type, getContent, urls, csrf, onConten
       editorsErr = err;
     }
     form.removeAttribute("aria-busy");
+    if (!readied) {
+      readied = true;
+      onReady?.(form);
+    }
     const failed = mods.find((m) => m.status === "rejected") ?? (editorsErr && { reason: editorsErr });
     if (failed) {
       console.error("hatamoto builder: section form", failed.reason);

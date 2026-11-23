@@ -634,6 +634,7 @@ function start(root, boot) {
     const node = makeNode(item, boot.kinds);
     const at = pos ?? insertPoint(st.doc, selected, boot.kinds);
     if (!run([{ op: "insert", parent: at.parent, index: at.index, node }], { label: "Insert" })) return false;
+    if (item.kind === "component" && !keepOpen) inspector.openContent(node.id); // a theme section: Content tab, first field focused
     select(node.id);
     settle(keepOpen);
     announce(`Inserted ${label(node.id)} to ${position(node.id)}`);
@@ -673,6 +674,7 @@ function start(root, boot) {
       }
     } else if (run([target.op], { label: "Insert" })) {
       palette?.used(spec.key); // a dragged item counts for Recent too
+      if (spec.node.t === "component") inspector.openContent(spec.node.id);
       select(spec.node.id);
       announce(`Inserted ${label(spec.node.id)} to ${position(spec.node.id)}`);
     }

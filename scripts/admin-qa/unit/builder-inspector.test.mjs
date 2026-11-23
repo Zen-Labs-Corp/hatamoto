@@ -100,3 +100,15 @@ test("driftRows names a state by its label", () => {
   const rows = driftRows({ overrides: [{ bp: "md:hover", key: "bg", own: "a", preset: "b", at: "base:hover" }] });
   assert.match(rows[0].text, /\(Hover, Tablet\): a, class has b on Hover, Desktop$/);
 });
+
+test("openContent pre-selects the Content tab and arms a one-shot, id-keyed field focus that a tab pick clears", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../../../backend/web/admin/js/builder/inspector.js", import.meta.url), "utf8");
+  assert.match(src, /openContent\(id\) \{\s*focusFor = id;\s*tab = "content";\s*\}/);
+  assert.match(src, /takeFieldFocus: \(id\) => \(focusFor === id \? \(\(focusFor = null\), true\) : false\)/);
+  assert.match(src, /if \(key === tab\) return;\s*focusFor = null;/);
+  const body = readFileSync(new URL("../../../backend/web/admin/js/builder/inspcontent.js", import.meta.url), "utf8");
+  assert.match(body, /onReady: \(form\) => \{\s*if \(mine === gen\(\) && ctx\.takeFieldFocus\?\.\(id\)\)/);
+  const fields = readFileSync(new URL("../../../backend/web/admin/js/builder/fields.js", import.meta.url), "utf8");
+  assert.match(fields, /form\.removeAttribute\("aria-busy"\);\s*if \(!readied\) \{\s*readied = true;\s*onReady\?\.\(form\);/);
+});
