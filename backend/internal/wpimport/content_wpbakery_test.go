@@ -40,17 +40,19 @@ func TestVCAttrs(t *testing.T) {
 		in   string
 		want map[string]string
 	}{
-		"straight":        {` text="Hello" size='big' id=7`, map[string]string{"text": "Hello", "size": "big", "id": "7"}},
-		"texturized":      {` text=&#8221;Hello&#8221; alignment=&#8221;center&#8221;`, map[string]string{"text": "Hello", "alignment": "center"}},
-		"inch":            {` size=&#8221;10&#8243; x=&#8221;1&#8221;`, map[string]string{"size": "10", "x": "1"}},
-		"unicode":         {" text=\u201dHi\u201d w=\u201c5\u2033", map[string]string{"text": "Hi", "w": "5"}},
-		"br":              {` a="1"<br />b="2"`, map[string]string{"a": "1", "b": "2"}},
-		"upper+dup":       {` Key="a" key="b"`, map[string]string{"key": "b"}},
-		"curly inside":    {" text=\"Our \u201cbest\u201d offer\" w=1", map[string]string{"text": "Our \u201cbest\u201d offer", "w": "1"}},
-		"curly in entity": {" text=&#8221;Our \u201cbest\u201d offer&#8221; w=1", map[string]string{"text": "Our \u201cbest\u201d offer", "w": "1"}},
-		"backticks":       {" text=\"Why ``our``\"", map[string]string{"text": `Why "our"`}},
-		"apostrophe":      {` text="It's ok" b='say "hi"'`, map[string]string{"text": "It's ok", "b": `say "hi"`}},
-		"entity":          {` text=&#8221;A &amp; B&#8221;`, map[string]string{"text": "A &amp; B"}},
+		"straight":         {` text="Hello" size='big' id=7`, map[string]string{"text": "Hello", "size": "big", "id": "7"}},
+		"texturized":       {` text=&#8221;Hello&#8221; alignment=&#8221;center&#8221;`, map[string]string{"text": "Hello", "alignment": "center"}},
+		"inch":             {` size=&#8221;10&#8243; x=&#8221;1&#8221;`, map[string]string{"size": "10", "x": "1"}},
+		"unicode":          {" text=\u201dHi\u201d w=\u201c5\u2033", map[string]string{"text": "Hi", "w": "5"}},
+		"br":               {` a="1"<br />b="2"`, map[string]string{"a": "1", "b": "2"}},
+		"upper+dup":        {` Key="a" key="b"`, map[string]string{"key": "b"}},
+		"curly inside":     {" text=\"Our \u201cbest\u201d offer\" w=1", map[string]string{"text": "Our \u201cbest\u201d offer", "w": "1"}},
+		"curly in entity":  {" text=&#8221;Our \u201cbest\u201d offer&#8221; w=1", map[string]string{"text": "Our \u201cbest\u201d offer", "w": "1"}},
+		"backticks":        {" text=\"Why ``our``\"", map[string]string{"text": `Why "our"`}},
+		"apostrophe":       {` text="It's ok" b='say "hi"'`, map[string]string{"text": "It's ok", "b": `say "hi"`}},
+		"mid backtick":     {` text=&#8221;Why &#8220;big&#8220; works&#8221; w=1`, map[string]string{"text": `Why "big" works`, "w": "1"}},
+		"mid backtick raw": {" text=\"Why ``big`` works\" w=1", map[string]string{"text": `Why "big" works`, "w": "1"}},
+		"entity":           {` text=&#8221;A &amp; B&#8221;`, map[string]string{"text": "A &amp; B"}},
 	}
 	for name, tc := range cases {
 		if got := vcAttrs(tc.in); !reflect.DeepEqual(got, tc.want) {
@@ -342,5 +344,38 @@ func TestConvertWPBakeryImageThenRewrite(t *testing.T) {
 	}
 	if st.MediaRewritten != 2 || len(st.Unresolved) != 0 {
 		t.Errorf("stats %+v", st)
+	}
+}
+
+func TestVCAttrsStayLinear(t *testing.T) {
+	start := time.Now()
+	vcAttrs(" " + strings.Repeat(`a="x `, 200000))
+	vcAttrs(" " + strings.Repeat(`a="x `, 3000)) // under the span cap
+	if d := time.Since(start); d > 2*time.Second {
+		t.Errorf("vcAttrs took %s", d)
+	}
+	got := vcAttrs(` a="x" b='y z' c=3`)
+	if !reflect.DeepEqual(got, map[string]string{"a": "x", "b": "y z", "c": "3"}) {
+		t.Errorf("attrs = %v", got)
+	}
+}
+
+func TestConvertWPBakeryHugeTagIsDropped(t *testing.T) {
+	in := "before [vc_custom_heading " + strings.Repeat(`a="x `, 200000) + "] after"
+	start := time.Now()
+	c := Convert(in, true)
+	if d := time.Since(start); d > 2*time.Second {
+		t.Errorf("Convert took %s", d)
+	}
+	if !slices.Contains(c.Dropped, "WPBakery (shortcode too large)") || !strings.Contains(c.HTML, "before") || !strings.Contains(c.HTML, "after") {
+		t.Errorf("dropped %v html %.80q", c.Dropped, c.HTML)
+	}
+}
+
+func TestConvertWPBakeryEscapedQuoteMidValue(t *testing.T) {
+	raw := Convert("[vc_custom_heading text=\"Why ``big`` works\" w=1]", true)
+	rendered := Convert("<p>[vc_custom_heading text=&#8221;Why &#8220;big&#8220; works&#8221; w=1]</p>", false)
+	if raw.HTML != rendered.HTML || !strings.Contains(raw.HTML, "Why &#34;big&#34; works") {
+		t.Errorf("raw %q rendered %q", raw.HTML, rendered.HTML)
 	}
 }

@@ -13,8 +13,9 @@ import (
 
 // Bounds on what a body can make the WPBakery pass do.
 const (
-	maxVCDepth = 64   // nested containers
-	maxVCTags  = 5000 // vc_* tags per body
+	maxVCDepth = 64       // nested containers
+	maxVCTags  = 5000     // vc_* tags per body
+	maxVCSpan  = 16 << 10 // bytes of one tag's attributes
 
 	maxRawHTMLDecoded = 256 << 10 // decoded bytes of one vc_raw_html
 	maxRawHTMLBody    = 1 << 20   // decoded bytes of all vc_raw_html in one body
@@ -78,24 +79,54 @@ func quoteAt(s string, i int) (vcQuote, bool) {
 }
 
 // vcSafe undoes WPBakery's escaping of a value: a double quote is stored as
-// two backticks.
-var vcSafe = strings.NewReplacer("``", `"`)
+// two backticks, which a texturized body shows as &#8220;.
+var vcSafe = strings.NewReplacer("``", `"`, "&#8220;", `"`)
+
+// vcKind is the quote family a value was opened with.
+type vcKind struct {
+	dbl  bool
+	form int
+}
+
+var vcNextKeyRe = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`^[a-zA-Z0-9_-]+\s*=`)
+})
+
+// vcClosesAt reports whether a quote ending at end closes a value: it is
+// followed by the end of the span, or by whitespace and then the next key (or
+// only more whitespace). A quote inside the text is followed by a word.
+func vcClosesAt(span string, end int) bool {
+	if end == len(span) {
+		return true
+	}
+	j := end
+	for j < len(span) && strings.IndexByte(" \t\r\n", span[j]) >= 0 {
+		j++
+	}
+	if j == end {
+		return false
+	}
+	return j == len(span) || vcNextKeyRe().MatchString(span[j:])
+}
 
 // vcValue reads the value starting at span[i:]. A quote only opens a value
-// here, and only closes it before whitespace or the end of the span, so quotes
-// inside the value stay. It returns the value and where reading goes on.
-func vcValue(span string, i int) (string, int) {
-	if q, ok := quoteAt(span, i); ok {
+// here, and only closes it where vcClosesAt says so, so quotes inside the
+// value stay. noCloser remembers the quote kinds with no closer in the rest of
+// the span (a closer is valid wherever it sits, so none exists after a failed
+// search either), which keeps the parse linear. It returns the value and where
+// reading goes on.
+func vcValue(span string, i int, noCloser map[vcKind]bool) (string, int) {
+	if q, ok := quoteAt(span, i); ok && !noCloser[vcKind{q.dbl, q.form}] {
 		for k := i + len(q.tok); k < len(span); k++ {
 			c, ok := quoteAt(span, k)
 			if !ok || c.dbl != q.dbl || c.form != q.form {
 				continue
 			}
-			end := k + len(c.tok)
-			if end == len(span) || span[end] == ' ' || span[end] == '\t' || span[end] == '\n' || span[end] == '\r' {
+			if end := k + len(c.tok); vcClosesAt(span, end) {
 				return vcSafe.Replace(span[i+len(q.tok) : k]), end
 			}
 		}
+		noCloser[vcKind{q.dbl, q.form}] = true
 	}
 	end := i
 	for end < len(span) && !strings.ContainsRune(" \t\r\n", rune(span[end])) {
@@ -145,6 +176,10 @@ func MediaByID(ms []Media) map[string]Media {
 func vcAttrs(span string) map[string]string {
 	span = tagRe().ReplaceAllString(span, " ") // wpautop leaves <br /> inside a span
 	out := map[string]string{}
+	if len(span) > maxVCSpan {
+		return out
+	}
+	noCloser := map[vcKind]bool{}
 	for pos := 0; pos < len(span); {
 		m := vcKeyRe().FindStringSubmatchIndex(span[pos:])
 		if m == nil {
@@ -152,7 +187,7 @@ func vcAttrs(span string) map[string]string {
 		}
 		key := strings.ToLower(span[pos+m[2] : pos+m[3]])
 		var v string
-		v, pos = vcValue(span, pos+m[1])
+		v, pos = vcValue(span, pos+m[1], noCloser)
 		out[key] = v
 	}
 	return out
@@ -173,6 +208,7 @@ func wpbakery(s string, o *convertOpts, res *Converted, removed map[string]bool)
 	var stack []string
 	var missing []string
 	deepReported := false
+	spanReported := false
 	noCloser := map[string]bool{} // raw tags with no closing tag in the rest of the body
 	unclosedReported := false
 	rawTotal := 0
@@ -202,6 +238,13 @@ func wpbakery(s string, o *convertOpts, res *Converted, removed map[string]bool)
 			} else {
 				noCloser[name] = true
 			}
+		}
+		if len(span) > maxVCSpan {
+			if !spanReported {
+				spanReported = true
+				res.Dropped = append(res.Dropped, "WPBakery (shortcode too large)")
+			}
+			continue
 		}
 		switch {
 		case name == "vc_raw_html" && !closing:
