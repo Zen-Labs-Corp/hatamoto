@@ -379,3 +379,10 @@ func TestConvertWPBakeryEscapedQuoteMidValue(t *testing.T) {
 		t.Errorf("raw %q rendered %q", raw.HTML, rendered.HTML)
 	}
 }
+
+func TestConvertWPBakeryBracketEscapes(t *testing.T) {
+	c := Convert("[vc_custom_heading text=\"Pricing `{`2024`}`\"]", true)
+	if c.HTML != "<h2>Pricing [2024]</h2>" {
+		t.Errorf("html = %q", c.HTML)
+	}
+}

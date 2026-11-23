@@ -79,8 +79,9 @@ func quoteAt(s string, i int) (vcQuote, bool) {
 }
 
 // vcSafe undoes WPBakery's escaping of a value: a double quote is stored as
-// two backticks, which a texturized body shows as &#8220;.
-var vcSafe = strings.NewReplacer("``", `"`, "&#8220;", `"`)
+// two backticks, which a texturized body shows as &#8220;; [ and ] are stored
+// as `{` and `}`.
+var vcSafe = strings.NewReplacer("``", `"`, "&#8220;", `"`, "`{`", "[", "`}`", "]")
 
 // vcKind is the quote family a value was opened with.
 type vcKind struct {
