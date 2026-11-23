@@ -122,8 +122,8 @@ func TestHeroExampleRenders(t *testing.T) {
 	if !strings.Contains(out, "A clear headline goes here") {
 		t.Error("the hero example headline is not rendered")
 	}
-	if n := strings.Count(out, "hm-btn"); n < 2 {
-		t.Errorf("hm-btn appears %d times, want at least 2 buttons", n)
+	if n := strings.Count(out, `class="hm-btn`); n != 2 {
+		t.Errorf("%d buttons rendered, want 2", n)
 	}
 	if strings.Contains(out, "data-hm-empty") {
 		t.Error("the hero example renders the empty placeholder")
