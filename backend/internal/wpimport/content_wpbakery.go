@@ -32,6 +32,10 @@ var vcIframeSrcRe = sync.OnceValue(func() *regexp.Regexp {
 // vcMapHosts are the hosts a vc_gmaps link may point to.
 var vcMapHosts = map[string]bool{"www.google.com": true, "google.com": true, "maps.google.com": true}
 
+var vcRawPairRe = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`\[vc_raw_(?:html|js)(?:\s[^\[\]]*)?\][\s\S]*?\[/vc_raw_(?:html|js)\]`)
+})
+
 var vcTagRe = sync.OnceValue(func() *regexp.Regexp {
 	return regexp.MustCompile(`\[(/?)(vc_[a-zA-Z0-9_-]{1,40})((?:\s[^\[\]]*)?)\]`)
 })
@@ -284,6 +288,7 @@ func wpbakery(s string, o *convertOpts, res *Converted, removed map[string]bool)
 	}
 	rest := s[last:]
 	if tooMany { // the tail was never tokenised: strip its tags, keep the text
+		rest = vcRawPairRe().ReplaceAllString(rest, "") // payloads are base64, not text
 		rest = vcTagRe().ReplaceAllString(rest, "")
 	}
 	b.WriteString(rest)

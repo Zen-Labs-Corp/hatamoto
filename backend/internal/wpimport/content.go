@@ -132,7 +132,7 @@ func Convert(in string, raw bool, opts ...ConvertOption) Converted {
 	for _, n := range nodes {
 		root.AppendChild(n)
 	}
-	cv := &converter{res: &res, opts: o, shortcodes: shortcodes, forms: map[string]bool{}}
+	cv := &converter{res: &res, shortcodes: shortcodes, forms: map[string]bool{}}
 	cv.walk(root)
 	cv.finish()
 	var b strings.Builder
@@ -148,7 +148,6 @@ func Convert(in string, raw bool, opts ...ConvertOption) Converted {
 
 type converter struct {
 	res        *Converted
-	opts       convertOpts
 	shortcodes map[string]bool
 	forms      map[string]bool
 	drop       []*xhtml.Node

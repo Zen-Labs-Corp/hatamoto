@@ -240,7 +240,12 @@ func TestConvertWPBakeryLimits(t *testing.T) {
 	if !reflect.DeepEqual(c.Dropped, []string{"WPBakery (too many shortcodes)"}) || strings.Contains(c.HTML, "[vc_") || !strings.Contains(c.HTML, "tail") {
 		t.Errorf("tag cap: %v %.60s", c.Dropped, c.HTML)
 	}
-	if !reflect.DeepEqual(Convert(many, true), c) {
+	pastCap := strings.Repeat("[vc_empty_space]", maxVCTags) + "[vc_raw_html]" + vcEncode("<p>secret</p>") + "[/vc_raw_html]tail"
+	c = Convert(pastCap, true)
+	if strings.Contains(c.HTML, vcEncode("<p>secret</p>")) || strings.Contains(c.HTML, "[vc_") || !strings.Contains(c.HTML, "tail") {
+		t.Errorf("payload past the tag cap left in the body: %.80s", c.HTML)
+	}
+	if !reflect.DeepEqual(Convert(many, true), Convert(many, true)) {
 		t.Error("Convert is not deterministic")
 	}
 }
