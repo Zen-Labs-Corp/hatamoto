@@ -1,6 +1,8 @@
 package wpimport
 
 import (
+	"encoding/base64"
+	"errors"
 	"html"
 	"net/url"
 	"regexp"
@@ -13,7 +15,22 @@ import (
 const (
 	maxVCDepth = 64   // nested containers
 	maxVCTags  = 5000 // vc_* tags per body
+
+	maxRawHTMLDecoded = 256 << 10 // decoded bytes of one vc_raw_html
+	maxRawHTMLBody    = 1 << 20   // decoded bytes of all vc_raw_html in one body
 )
+
+var (
+	errRawTooLarge = errors.New("raw HTML too large")
+	errRawBad      = errors.New("raw HTML unreadable")
+)
+
+var vcIframeSrcRe = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`(?i)src\s*=\s*["']([^"']+)["']`)
+})
+
+// vcMapHosts are the hosts a vc_gmaps link may point to.
+var vcMapHosts = map[string]bool{"www.google.com": true, "google.com": true, "maps.google.com": true}
 
 var vcTagRe = sync.OnceValue(func() *regexp.Regexp {
 	return regexp.MustCompile(`\[(/?)(vc_[a-zA-Z0-9_-]{1,40})((?:\s[^\[\]]*)?)\]`)
@@ -96,18 +113,59 @@ func wpbakery(s string, o *convertOpts, res *Converted, removed map[string]bool)
 	var stack []string
 	var missing []string
 	tooDeep := false
+	rawTotal := 0
 	last := 0
 	for _, m := range locs {
+		if m[0] < last {
+			continue // inside a raw payload already consumed
+		}
 		b.WriteString(s[last:m[0]])
 		last = m[1]
 		closing := s[m[2]:m[3]] == "/"
 		name := s[m[4]:m[5]]
 		span := s[m[6]:m[7]]
 		container := vcContainers[name] || strings.HasPrefix(name, "vc_tta_")
+		var payload string
+		hasPayload := false
+		if !closing && (name == "vc_raw_html" || name == "vc_raw_js") {
+			// The payload is everything up to the closing tag; none of it is
+			// tokenised. Without a closing tag only the tag itself is removed.
+			end := "[/" + name + "]"
+			if i := strings.Index(s[m[1]:], end); i >= 0 {
+				payload, hasPayload = s[m[1]:m[1]+i], true
+				last = m[1] + i + len(end)
+			}
+		}
 		if tooDeep {
 			continue
 		}
 		switch {
+		case name == "vc_raw_html" && !closing:
+			if !hasPayload {
+				break
+			}
+			dec, err := vcRawPayload(payload, maxRawHTMLBody-rawTotal)
+			switch {
+			case errors.Is(err, errRawTooLarge):
+				res.Dropped = append(res.Dropped, "WPBakery raw HTML (too large)")
+			case err != nil:
+				res.Dropped = append(res.Dropped, "WPBakery raw HTML (unreadable)")
+			default:
+				rawTotal += len(dec)
+				b.WriteString("\n\n" + dec + "\n\n")
+				res.WPBakery++
+			}
+		case name == "vc_raw_js" && !closing:
+			removed[name] = true
+		case name == "vc_posts_slider" && !closing:
+			removed[name] = true
+		case name == "vc_gmaps" && !closing:
+			if link, ok := vcMapsLink(vcAttrs(span)["link"]); ok {
+				b.WriteString("\n\n<p><a href=\"" + html.EscapeString(link) + "\">View on Google Maps</a></p>\n\n")
+				res.WPBakery++
+			} else {
+				res.Dropped = append(res.Dropped, "Google Maps (unrecognised link)")
+			}
 		case container && closing:
 			if n := len(stack); n > 0 && stack[n-1] == name {
 				stack = stack[:n-1]
@@ -281,4 +339,56 @@ func vcImage(attrs map[string]string, o *convertOpts) (string, string) {
 		}
 	}
 	return "\n\n<p>" + img + "</p>\n\n", ""
+}
+
+// vcRawPayload decodes the body of a vc_raw_html: base64 of URL-encoded HTML,
+// possibly texturized or wrapped in tags by the editor. room is what is left of
+// the per-body budget; sizes are checked before decoding.
+func vcRawPayload(p string, room int) (string, error) {
+	p = tagRe().ReplaceAllString(p, "")
+	p = strings.NewReplacer("&#215;", "x", "\u00d7", "x").Replace(p)
+	p = strings.Join(strings.Fields(p), "")
+	limit := min(maxRawHTMLDecoded, room)
+	if base64.StdEncoding.DecodedLen(len(p)) > limit+3 {
+		return "", errRawTooLarge
+	}
+	raw, err := base64.StdEncoding.DecodeString(p)
+	if err != nil {
+		if raw, err = base64.RawStdEncoding.DecodeString(strings.TrimRight(p, "=")); err != nil {
+			return "", errRawBad
+		}
+	}
+	dec, err := url.QueryUnescape(string(raw))
+	if err != nil {
+		if dec, err = url.PathUnescape(string(raw)); err != nil {
+			return "", errRawBad
+		}
+	}
+	if len(dec) > limit {
+		return "", errRawTooLarge
+	}
+	return dec, nil
+}
+
+// vcMapsLink extracts the map URL from a vc_gmaps link attribute ("#E-8_" and
+// base64 of the URL-encoded embed code). Only https Google Maps URLs pass.
+func vcMapsLink(link string) (string, bool) {
+	link = strings.TrimPrefix(strings.TrimSpace(html.UnescapeString(link)), "#E-8_")
+	dec, err := vcRawPayload(link, maxRawHTMLDecoded)
+	if err != nil {
+		return "", false
+	}
+	target := strings.TrimSpace(dec)
+	if strings.Contains(strings.ToLower(target), "<iframe") {
+		m := vcIframeSrcRe().FindStringSubmatch(target)
+		if m == nil {
+			return "", false
+		}
+		target = html.UnescapeString(m[1])
+	}
+	u, err := url.Parse(target)
+	if err != nil || u.Scheme != "https" || !vcMapHosts[u.Host] || !strings.HasPrefix(u.Path, "/maps") {
+		return "", false
+	}
+	return u.String(), true
 }

@@ -1,6 +1,8 @@
 package wpimport
 
 import (
+	"encoding/base64"
+	"net/url"
 	"reflect"
 	"regexp"
 	"strings"
@@ -137,5 +139,101 @@ func TestConvertWithoutWPBakeryUnchanged(t *testing.T) {
 	}
 	if got := Convert(in, false); !strings.Contains(got.HTML, "<p></p>") {
 		t.Errorf("empty paragraph cleanup must be off without WPBakery: %s", got.HTML)
+	}
+}
+
+// vcEncode is how WPBakery stores raw HTML and map embeds.
+func vcEncode(s string) string { return base64.StdEncoding.EncodeToString([]byte(url.QueryEscape(s))) }
+
+func TestConvertWPBakeryRawHTML(t *testing.T) {
+	payload := vcEncode(`<p>Hello <strong>there</strong></p>[gallery_plugin id="1"]<script>x()</script>`)
+	for name, in := range map[string]string{
+		"plain":      `<p>[vc_raw_html]` + payload + `[/vc_raw_html]</p>`,
+		"wrapped":    `[vc_raw_html]<br />` + payload[:20] + "\n" + payload[20:] + `<br />[/vc_raw_html]`,
+		"texturized": `[vc_raw_html]` + payload + `[/vc_raw_html]`,
+	} {
+		c := Convert(in, name != "plain")
+		if !strings.Contains(c.HTML, "<strong>there</strong>") || strings.Contains(c.HTML, "<script") || strings.Contains(c.HTML, "x()") {
+			t.Errorf("%s: %s", name, c.HTML)
+		}
+		if !reflect.DeepEqual(c.Shortcodes, []string{"gallery_plugin"}) {
+			t.Errorf("%s: Shortcodes = %v", name, c.Shortcodes)
+		}
+	}
+	// wptexturize turns "x" between digits into a multiplication sign.
+	var p2, text string
+	for n := 0; !strings.Contains(p2, "x"); n++ { // a payload whose base64 has an "x"
+		text = "<p>" + string(rune('a'+n%26)) + string(rune('a'+n/26%26)) + string(rune('a'+n/676%26)) + " boards</p>"
+		p2 = vcEncode(text)
+		if n > 20000 {
+			t.Fatal("no payload with an x found")
+		}
+	}
+	i := strings.Index(p2, "x")
+	c := Convert("[vc_raw_html]"+p2[:i]+"&#215;"+p2[i+1:]+"[/vc_raw_html]", false)
+	if !strings.Contains(c.HTML, " boards") || strings.Contains(c.HTML, "[vc_") {
+		t.Errorf("texturized payload: %s", c.HTML)
+	}
+	if c := Convert("[vc_raw_html]!!not base64!![/vc_raw_html]", false); !reflect.DeepEqual(c.Dropped, []string{"WPBakery raw HTML (unreadable)"}) || strings.Contains(c.HTML, "base64") {
+		t.Errorf("unreadable: %+v", c)
+	}
+}
+
+func TestConvertWPBakeryRawJSAndSlider(t *testing.T) {
+	js := vcEncode(`<script>alert(1)</script>`)
+	c := Convert(`<p>Before</p>[vc_raw_js]`+js+`[/vc_raw_js][vc_posts_slider count="3"]<p>After</p>`, false)
+	if !reflect.DeepEqual(c.Shortcodes, []string{"vc_posts_slider", "vc_raw_js"}) {
+		t.Errorf("Shortcodes = %v", c.Shortcodes)
+	}
+	if strings.Contains(c.HTML, "alert") || strings.Contains(c.HTML, "<script") || strings.Contains(c.HTML, js) {
+		t.Errorf("script kept: %s", c.HTML)
+	}
+	if !strings.Contains(c.HTML, "Before") || !strings.Contains(c.HTML, "After") {
+		t.Errorf("text lost: %s", c.HTML)
+	}
+}
+
+func TestConvertWPBakeryMaps(t *testing.T) {
+	ok := Convert(`[vc_gmaps link="#E-8_`+vcEncode(`<iframe src="https://www.google.com/maps/embed?pb=!1m18&amp;x=1" width="600"></iframe>`)+`"]`, true)
+	if want := `<a href="https://www.google.com/maps/embed?pb=!1m18&amp;x=1">View on Google Maps</a>`; !strings.Contains(ok.HTML, want) {
+		t.Errorf("missing %q in %s", want, ok.HTML)
+	}
+	for _, bad := range []string{
+		`<iframe src="http://www.google.com/maps/embed?pb=1"></iframe>`,
+		`<iframe src="https://maps.example.net/maps/embed"></iframe>`,
+		`<iframe src="https://www.google.com/other"></iframe>`,
+		`https://evil.example/maps`,
+	} {
+		c := Convert(`[vc_gmaps link="#E-8_`+vcEncode(bad)+`"]`, true)
+		if strings.Contains(c.HTML, "<a ") || !reflect.DeepEqual(c.Dropped, []string{"Google Maps (unrecognised link)"}) {
+			t.Errorf("%s: %+v", bad, c)
+		}
+	}
+}
+
+func TestConvertWPBakeryLimits(t *testing.T) {
+	big := vcEncode(strings.Repeat("a", maxRawHTMLDecoded+1))
+	c := Convert(`[vc_raw_html]`+big+`[/vc_raw_html]<p>kept</p>`, false)
+	if !reflect.DeepEqual(c.Dropped, []string{"WPBakery raw HTML (too large)"}) || strings.Contains(c.HTML, "aaaa") || !strings.Contains(c.HTML, "kept") {
+		t.Errorf("raw html cap: %+v", c)
+	}
+	// Each block is within its cap, together they exceed the body budget.
+	part := vcEncode("<p>" + strings.Repeat("b", maxRawHTMLDecoded-16) + "</p>")
+	c = Convert(strings.Repeat(`[vc_raw_html]`+part+`[/vc_raw_html]`, 5), false)
+	if len(c.Dropped) == 0 || c.Dropped[0] != "WPBakery raw HTML (too large)" {
+		t.Errorf("body cap: %v", c.Dropped)
+	}
+	deep := strings.Repeat("[vc_row]", maxVCDepth+1) + "deep text" + strings.Repeat("[/vc_row]", maxVCDepth+1)
+	c = Convert(deep, true)
+	if !reflect.DeepEqual(c.Dropped, []string{"WPBakery (nesting too deep)"}) || strings.Contains(c.HTML, "[vc_") || !strings.Contains(c.HTML, "deep text") {
+		t.Errorf("depth cap: %+v", c)
+	}
+	many := strings.Repeat("[vc_empty_space]", maxVCTags+10) + "tail"
+	c = Convert(many, true)
+	if !reflect.DeepEqual(c.Dropped, []string{"WPBakery (too many shortcodes)"}) || strings.Contains(c.HTML, "[vc_") || !strings.Contains(c.HTML, "tail") {
+		t.Errorf("tag cap: %v %.60s", c.Dropped, c.HTML)
+	}
+	if !reflect.DeepEqual(Convert(many, true), c) {
+		t.Error("Convert is not deterministic")
 	}
 }
