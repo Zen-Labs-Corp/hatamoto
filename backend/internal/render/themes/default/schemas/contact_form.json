@@ -1,5 +1,12 @@
 {
-  "x-hm-section": {"title": "Contact form", "description": "Server-rendered form from a form definition"},
+  "x-hm-section": {
+    "title": "Contact form",
+    "description": "Server-rendered form from a form definition",
+    "example": {
+      "heading": "Get in touch",
+      "subheading": "Tell us a little about what you need and we will reply soon."
+    }
+  },
   "type": "object",
   "properties": {
     "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},

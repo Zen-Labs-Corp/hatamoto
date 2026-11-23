@@ -2,7 +2,11 @@ package render
 
 import (
 	"encoding/json/jsontext"
+	"errors"
 	"fmt"
+	"io"
+	"reflect"
+	"strings"
 
 	"hatamoto.dev/core/internal/jsonx"
 )
@@ -21,6 +25,8 @@ type SectionMeta struct {
 	Title       string `json:"title"`
 	Description string `json:"description,omitempty"`
 	Icon        string `json:"icon,omitempty"`
+	// Example is content the builder stores when an editor inserts the section (optional, validated at load).
+	Example jsontext.Value `json:"example,omitempty"`
 }
 
 // parsedSchema is the subset of a section schema the renderer reads itself.
@@ -49,6 +55,11 @@ func parseSectionSchema(raw jsontext.Value) (SectionMeta, map[string][]string, m
 	if err := jsonx.Unmarshal(raw, &ps, jsonx.StoredLoose); err != nil {
 		return SectionMeta{}, nil, nil, fmt.Errorf("parse schema: %w", err)
 	}
+	if len(ps.Section.Example) > 0 {
+		if err := validateExample(ps.Properties, ps.Section.Example); err != nil {
+			return SectionMeta{}, nil, nil, err
+		}
+	}
 	aliases := map[string][]string{}
 	kinds := map[string]string{}
 	for name, prop := range ps.Properties {
@@ -66,6 +77,133 @@ func parseSectionSchema(raw jsontext.Value) (SectionMeta, map[string][]string, m
 		}
 	}
 	return ps.Section, aliases, kinds, nil
+}
+
+// validateExample checks an x-hm-section.example against the schema's
+// top-level properties: it must be an object whose keys are canonical
+// property names (aliases are rejected) and whose values match the declared
+// types and enums.
+func validateExample(props map[string]jsontext.Value, example jsontext.Value) error {
+	if example.Kind() != '{' {
+		return fmt.Errorf("x-hm-section.example: must be an object")
+	}
+	if err := rejectDuplicateNames(example); err != nil {
+		return fmt.Errorf("x-hm-section.example: %w", err)
+	}
+	var fields map[string]jsontext.Value
+	if err := jsonx.Unmarshal(example, &fields, jsonx.StoredLoose); err != nil {
+		return fmt.Errorf("x-hm-section.example: %w", err)
+	}
+	for name, v := range fields {
+		prop, ok := props[name]
+		if !ok {
+			return fmt.Errorf("x-hm-section.example.%s: not a property of the schema", name)
+		}
+		if err := checkExampleValue(prop, v, "."+name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// rejectDuplicateNames fails on a repeated member name anywhere in v. The
+// error names the JSON path. A duplicate would otherwise load and then make
+// the builder boot JSON fail to encode.
+func rejectDuplicateNames(v jsontext.Value) error {
+	dec := jsontext.NewDecoder(strings.NewReader(string(v)))
+	for {
+		if _, err := dec.ReadToken(); err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
+// checkExampleValue checks v against one (sub)schema node, recursing through
+// properties and items. at is the path used in errors, like ".ctas[1].url".
+func checkExampleValue(node, v jsontext.Value, at string) error {
+	var s struct {
+		Type       string                    `json:"type"`
+		Enum       []jsontext.Value          `json:"enum"`
+		Properties map[string]jsontext.Value `json:"properties"`
+		Items      jsontext.Value            `json:"items"`
+	}
+	if err := jsonx.Unmarshal(node, &s, jsonx.StoredLoose); err != nil {
+		return fmt.Errorf("x-hm-section.example%s: schema: %w", at, err)
+	}
+	kind := v.Kind()
+	if kind == 'n' {
+		return fmt.Errorf("x-hm-section.example%s: null is not allowed", at)
+	}
+	bad := func() error {
+		return fmt.Errorf("x-hm-section.example%s: expected %s", at, s.Type)
+	}
+	switch s.Type {
+	case "string":
+		if kind != '"' {
+			return bad()
+		}
+	case "number":
+		if kind != '0' {
+			return bad()
+		}
+	case "integer":
+		if kind != '0' || strings.ContainsAny(string(v), ".eE") {
+			return bad()
+		}
+	case "boolean":
+		if kind != 't' && kind != 'f' {
+			return bad()
+		}
+	case "array":
+		if kind != '[' {
+			return bad()
+		}
+		var items []jsontext.Value
+		if err := jsonx.Unmarshal(v, &items, jsonx.StoredLoose); err != nil {
+			return fmt.Errorf("x-hm-section.example%s: %w", at, err)
+		}
+		if len(s.Items) > 0 {
+			for i, it := range items {
+				if err := checkExampleValue(s.Items, it, fmt.Sprintf("%s[%d]", at, i)); err != nil {
+					return err
+				}
+			}
+		}
+	case "object":
+		if kind != '{' {
+			return bad()
+		}
+		var fields map[string]jsontext.Value
+		if err := jsonx.Unmarshal(v, &fields, jsonx.StoredLoose); err != nil {
+			return fmt.Errorf("x-hm-section.example%s: %w", at, err)
+		}
+		for name, fv := range fields {
+			child, ok := s.Properties[name]
+			if !ok {
+				return fmt.Errorf("x-hm-section.example%s.%s: unknown field", at, name)
+			}
+			if err := checkExampleValue(child, fv, at+"."+name); err != nil {
+				return err
+			}
+		}
+	}
+	if len(s.Enum) > 0 {
+		var got any
+		if err := jsonx.Unmarshal(v, &got, jsonx.StoredLoose); err != nil {
+			return fmt.Errorf("x-hm-section.example%s: %w", at, err)
+		}
+		for _, e := range s.Enum {
+			var want any
+			if jsonx.Unmarshal(e, &want, jsonx.StoredLoose) == nil && reflect.DeepEqual(got, want) {
+				return nil
+			}
+		}
+		return fmt.Errorf("x-hm-section.example%s: %s is not one of the enum values", at, v)
+	}
+	return nil
 }
 
 // validateSchemaSubset rejects schema features outside the supported subset

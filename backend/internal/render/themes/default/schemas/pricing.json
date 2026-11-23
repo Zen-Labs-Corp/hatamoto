@@ -1,5 +1,11 @@
 {
-  "x-hm-section": {"title": "Pricing", "description": "Pricing tiers as cards or a comparison table"},
+  "x-hm-section": {"title": "Pricing", "description": "Pricing tiers as cards or a comparison table",
+    "example": {
+      "heading": "Simple pricing",
+      "subheading": "Pick the plan that fits your needs.",
+      "tiers": [{"name": "Starter", "description": "For getting started.", "price": 0, "currency": "$", "billingPeriod": "month", "features": [{"text": "Feature one"}, {"text": "Feature two"}], "ctaText": "Choose plan", "ctaLink": "#"}, {"name": "Standard", "description": "For growing needs.", "price": 29, "currency": "$", "billingPeriod": "month", "features": [{"text": "Everything in Starter"}, {"text": "Feature three"}], "ctaText": "Choose plan", "ctaLink": "#"}]
+    }
+  },
   "type": "object",
   "properties": {
     "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},

@@ -20,6 +20,7 @@ let uid = 0;
  */
 export function mountInspector(root, api) {
   let tab = "style";
+  let focusFor = null; // the section id whose first content field takes focus once its form mounts (one-shot)
   let state = ""; // the Style tab's State switch ("" = Normal); lives here so in-place commits keep it
   let drawnId = null;
   let drawnKey = null; // the content field the panel was drawn for (field mode), else null
@@ -66,7 +67,7 @@ export function mountInspector(root, api) {
       .then((m) => {
         clearTimeout(busy);
         if (mine !== gen || !slot.isConnected) return;
-        const body = build(m.createContent({ api, root, visibilityGroup, commit, draw, kindInfo, gen: () => gen, pushRich: (c) => rich.push(c), setFields: (f) => (fields = f) }));
+        const body = build(m.createContent({ api, root, visibilityGroup, commit, draw, kindInfo, gen: () => gen, takeFieldFocus: (id) => (focusFor === id ? ((focusFor = null), true) : false), pushRich: (c) => rich.push(c), setFields: (f) => (fields = f) }));
         slot.replaceWith(body);
       })
       .catch((err) => {
@@ -160,6 +161,7 @@ export function mountInspector(root, api) {
     if (state === "parent-hover" && !takesParentHover(locate(api.getDoc(), sel)?.parent)) setState("");
     const fld = node ? api.getField?.() : null;
     const def = fld && fld.componentId === sel ? api.sections.find((s) => s.type === node.p?.type)?.fields?.find((f) => f.key === fld.key) : null;
+    if (focusFor !== null && focusFor !== sel) focusFor = null; // a stale one-shot must not fire on a later visit
     drawnId = node ? sel : null;
     drawnKey = def ? def.key : null;
     drawnNode = node || null;
@@ -228,6 +230,7 @@ export function mountInspector(root, api) {
 
   function activate(key, focus) {
     if (key === tab) return;
+    focusFor = null; // the user picked a tab
     tab = key;
     setState("");
     draw();
@@ -242,6 +245,11 @@ export function mountInspector(root, api) {
     attach(el) {
       slot.append(el);
       return () => el.remove();
+    },
+    /** A theme section was just inserted: show its Content tab and focus the first field once the form mounts. select() then draws. */
+    openContent(id) {
+      focusFor = id;
+      tab = "content";
     },
     /** Selection changed: redraw only when it is another element. */
     show() {

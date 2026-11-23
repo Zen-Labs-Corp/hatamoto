@@ -1,5 +1,11 @@
 {
-  "x-hm-section": {"title": "Plugin directory", "description": "Cards for the plugins in the signed registry, with optional search"},
+  "x-hm-section": {"title": "Plugin directory", "description": "Cards for the plugins in the signed registry, with optional search",
+    "example": {
+      "eyebrow": "Directory",
+      "heading": "Browse available plugins",
+      "subheading": "Find an extension that fits your needs."
+    }
+  },
   "type": "object",
   "properties": {
     "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},

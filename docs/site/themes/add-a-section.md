@@ -31,7 +31,12 @@ A **section** is a block an editor can place on a page. Each section type is two
    {
      "x-hm-section": {
        "title": "Notice",
-       "description": "A short message with an optional link"
+       "description": "A short message with an optional link",
+       "example": {
+         "heading": "Heads up",
+         "text": "Say what readers need to know here.",
+         "tone": "info"
+       }
      },
      "type": "object",
      "properties": {
@@ -46,6 +51,7 @@ A **section** is a block an editor can place on a page. Each section type is two
    ```
 
    - `x-hm-section` gives the name and description editors see when they choose a section.
+   - `example` is the content a new notice starts with when an editor inserts it, so the section shows something right away. It is optional. Use only property names from the schema and values that fit their types.
    - Each property becomes a field in the editor's form, labelled with its `title`.
    - `x-hm-field` says what kind of text a field holds: `plaintext` for plain text, `url` for a link address. [Sections and schemas](sections.md) lists every kind.
    - `enum` gives a fixed list of choices, and `default` the starting value.

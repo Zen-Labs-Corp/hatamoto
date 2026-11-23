@@ -1,5 +1,12 @@
 {
-  "x-hm-section": {"title": "Process steps", "description": "Numbered steps; also emits HowTo structured data"},
+  "x-hm-section": {"title": "Process steps", "description": "Numbered steps; also emits HowTo structured data",
+    "example": {
+      "eyebrow": "How it works",
+      "heading": "Three simple steps",
+      "subheading": "Follow these steps from start to finish.",
+      "steps": [{"number": "1", "title": "First step", "description": "Describe what happens in this step."}, {"number": "2", "title": "Second step", "description": "Describe what happens next."}, {"number": "3", "title": "Third step", "description": "Describe the final step."}]
+    }
+  },
   "type": "object",
   "properties": {
     "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},

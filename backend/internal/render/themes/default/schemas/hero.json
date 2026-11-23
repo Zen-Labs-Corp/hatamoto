@@ -1,5 +1,17 @@
 {
-  "x-hm-section": {"title": "Hero", "description": "Page opener with headline, subheadline and call-to-action buttons"},
+  "x-hm-section": {
+    "title": "Hero",
+    "description": "Page opener with headline, subheadline and call-to-action buttons",
+    "example": {
+      "eyebrow": "Welcome",
+      "headline": "A clear headline goes here",
+      "subheadline": "One or two sentences that explain what this page offers.",
+      "primaryCta": "Get started",
+      "ctaUrl": "#",
+      "secondaryCta": "Learn more",
+      "secondaryCtaUrl": "#"
+    }
+  },
   "type": "object",
   "properties": {
     "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},

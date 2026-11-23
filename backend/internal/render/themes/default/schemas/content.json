@@ -1,5 +1,12 @@
 {
-  "x-hm-section": {"title": "Content", "description": "Heading with a rich-text body"},
+  "x-hm-section": {
+    "title": "Content",
+    "description": "Heading with a rich-text body",
+    "example": {
+      "headline": "A heading for this section",
+      "body": "Write the main text of this section here. Replace this sample with your own words."
+    }
+  },
   "type": "object",
   "properties": {
     "layout": {"type": "string", "title": "Layout", "enum": ["stack", "essay"], "default": "stack"},

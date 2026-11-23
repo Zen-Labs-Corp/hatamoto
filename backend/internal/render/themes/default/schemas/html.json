@@ -1,5 +1,11 @@
 {
-  "x-hm-section": {"title": "HTML", "description": "Free-form sanitised HTML block"},
+  "x-hm-section": {
+    "title": "HTML",
+    "description": "Free-form sanitised HTML block",
+    "example": {
+      "body": "<p>Replace this paragraph with your own HTML.</p>"
+    }
+  },
   "type": "object",
   "properties": {
     "body": {"type": "string", "title": "HTML", "x-hm-field": "html"}

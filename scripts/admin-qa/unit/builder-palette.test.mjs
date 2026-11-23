@@ -37,6 +37,21 @@ test("hidden kinds stay out of the palette; a single or archive part gets the Co
   assert.equal(P.itemsOf(kinds, sections, { slot: true }).some((i) => i.key === "ref"), false, "ref is never offered");
 });
 
+test("a section's example rides on its item and seeds a cloned p.content; without one p is just the type", () => {
+  const example = { headline: "H", items: [{ title: "A" }] };
+  const [item] = P.itemsOf(kinds, [{ type: "hero", title: "Hero", description: "D", example }]).filter((i) => i.kind === "component");
+  assert.equal(item.description, "D");
+  assert.deepEqual(item.example, example);
+  const node = P.makeNode(item, kinds);
+  assert.deepEqual(node.p, { type: "hero", content: example });
+  assert.notEqual(node.p.content, item.example);
+  node.p.content.items[0].title = "changed";
+  assert.equal(item.example.items[0].title, "A");
+  const plain = P.itemsOf(kinds, [{ type: "hero", title: "Hero", example: {} }]).find((i) => i.kind === "component");
+  assert.equal("example" in plain, false);
+  assert.deepEqual(P.makeNode(plain, kinds).p, { type: "hero" });
+});
+
 test("wantsSlot: only single and archive parts", () => {
   for (const [role, slot, want] of [["part", "single", true], ["part", "archive", true], ["part", "header", false], ["part", "footer", false], ["block", "", false], ["page", "", false]]) {
     assert.equal(U.wantsSlot({ role, slot }), want, `${role} ${slot}`);

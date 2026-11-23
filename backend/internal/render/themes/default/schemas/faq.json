@@ -1,5 +1,17 @@
 {
-  "x-hm-section": {"title": "FAQ", "description": "Accordion of questions and answers"},
+  "x-hm-section": {
+    "title": "FAQ",
+    "description": "Accordion of questions and answers",
+    "example": {
+      "heading": "Frequently asked questions",
+      "subheading": "Answer the questions visitors ask most.",
+      "faqs": [
+        {"question": "What is the first question?", "answer": "Write a short, helpful answer here."},
+        {"question": "What is the second question?", "answer": "Write another short answer here."},
+        {"question": "What is the third question?", "answer": "Keep answers brief and clear."}
+      ]
+    }
+  },
   "type": "object",
   "properties": {
     "heading": {"type": "string", "title": "Heading", "default": "Frequently Asked Questions", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},

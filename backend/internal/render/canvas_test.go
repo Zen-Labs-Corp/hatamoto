@@ -153,3 +153,22 @@ func TestCanvasBridgeForwardsCtrlH(t *testing.T) {
 		t.Error("the bridge does not forward Ctrl+H")
 	}
 }
+
+// An empty section shows a builder-only hint: hidden by default, a block while editing.
+func TestCanvasBridgeEmptyHintStyle(t *testing.T) {
+	t.Parallel()
+	for _, want := range []string{"[data-hm-empty]{display:none}", "html[data-hm-editing] [data-hm-empty]{display:block;min-height:"} {
+		if !strings.Contains(canvasBridgeJS, want) {
+			t.Errorf("bridge style lacks %q", want)
+		}
+	}
+}
+
+// The empty-section hint is not part of a section's own box: rectOf and boxOf
+// must skip it, or the reported rect and padding come from the hint.
+func TestCanvasBridgeMetricsSkipEmptyHint(t *testing.T) {
+	t.Parallel()
+	if n := strings.Count(canvasBridgeJS, "c.hasAttribute('data-hm-empty')"); n != 2 {
+		t.Fatalf("rectOf and boxOf must each skip [data-hm-empty] children, found %d skips", n)
+	}
+}

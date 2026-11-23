@@ -112,6 +112,19 @@ func TestComponentRoundTrip(t *testing.T) {
 	}
 }
 
+// Clearing the last field decodes to an empty object, which must still be sent: the builder commits it so an emptied
+// section does not keep its old content.
+func TestComponentDecodeSendsEmptyContent(t *testing.T) {
+	t.Parallel()
+
+	r := newBuilderRenderRig(t)
+	form := url.Values{"type": {"hero"}, "node": {"n1"}, "mode": {"decode"}, "prev": {`{"heading":"Hello"}`}, "n.n1.c.heading": {""}}
+	rec := r.do("POST", r.url(r.page, "/builder/component"), "owner-token", form, nil)
+	if rec.Code != 200 || strings.TrimSpace(rec.Body.String()) != `{"content":{}}` {
+		t.Fatalf("empty decode: %d %s", rec.Code, rec.Body)
+	}
+}
+
 func TestComponentStructuralButton(t *testing.T) {
 	t.Parallel()
 

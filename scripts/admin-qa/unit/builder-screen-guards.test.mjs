@@ -76,3 +76,10 @@ test("inserting says Insert in history labels and announcements (the Add section
   assert.match(src, /label: "Insert"/);
   assert.match(src, /label: `Insert \$\{item\.name\}`/);
 });
+
+test("a section insert opens its Content tab before select(): insertItem (component, not keepOpen) and drop (component)", () => {
+  const ins = src.slice(src.indexOf("function insertItem("), src.indexOf("function drop("));
+  assert.match(ins, /if \(item\.kind === "component" && !keepOpen\) inspector\.openContent\(node\.id\);[^\n]*\n\s*select\(node\.id\);/);
+  const drp = src.slice(src.indexOf("function drop("), src.indexOf("function frameRef("));
+  assert.match(drp, /if \(spec\.node\.t === "component"\) inspector\.openContent\(spec\.node\.id\);\s*select\(spec\.node\.id\);/);
+});

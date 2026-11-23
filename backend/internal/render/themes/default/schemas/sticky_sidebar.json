@@ -1,5 +1,12 @@
 {
-  "x-hm-section": {"title": "Article with sidebar", "description": "Rich-text body next to a sticky facts rail"},
+  "x-hm-section": {"title": "Article with sidebar", "description": "Rich-text body next to a sticky facts rail",
+    "example": {
+      "heading": "A heading for the article",
+      "subheading": "A short introduction to the topic.",
+      "body": "Write the main text here. It sits next to a rail of quick facts.",
+      "sidebar": {"title": "Quick facts", "facts": [{"label": "First fact", "value": "Value one"}, {"label": "Second fact", "value": "Value two"}], "cta": {"text": "Get in touch", "url": "#"}}
+    }
+  },
   "type": "object",
   "properties": {
     "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},

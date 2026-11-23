@@ -19,7 +19,7 @@ import (
 	"hatamoto.dev/core/internal/sectiontemplate"
 )
 
-const heroSchema = `{"type":"object","x-hm-section":{"title":"Hero"},"properties":{
+const heroSchema = `{"type":"object","x-hm-section":{"title":"Hero","example":{"heading":"<b>A clear headline</b>"}},"properties":{
  "heading":{"type":"string","title":"Heading","maxLength":60,"x-hm-alias":["headline"]},
  "image":{"type":"string","format":"uri","x-hm-media":true,"title":"Image"},
  "faqs":{"type":"array","title":"Questions","items":{"type":"object","properties":{"question":{"type":"string","title":"Question"},"answer":{"type":"string","format":"richtext","title":"Answer"}}}}}}`

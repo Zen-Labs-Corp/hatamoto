@@ -1,5 +1,13 @@
 {
-  "x-hm-section": {"title": "Overview", "description": "Eyebrow, heading, body, highlight list and optional image"},
+  "x-hm-section": {"title": "Overview", "description": "Eyebrow, heading, body, highlight list and optional image",
+    "example": {
+      "eyebrow": "Overview",
+      "headline": "A clear headline goes here",
+      "subheading": "A short line that frames the points below.",
+      "body": "Describe the topic in a few sentences so visitors know what to expect.",
+      "items": [{"text": "First highlight"}, {"text": "Second highlight"}, {"text": "Third highlight"}]
+    }
+  },
   "type": "object",
   "properties": {
     "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},

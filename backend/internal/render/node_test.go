@@ -292,3 +292,40 @@ func tagOf(out, id string) string {
 	}
 	return out[i : i+strings.Index(out[i:], ">")]
 }
+
+func TestCanvasEmptySectionHint(t *testing.T) {
+	doc := func(content any) *builder.Doc {
+		p := map[string]any{"type": "hero"}
+		if content != nil {
+			p["content"] = content
+		}
+		return &builder.Doc{V: 2, Nodes: []*builder.Node{{ID: "k", T: "component", P: p}}}
+	}
+	cases := []struct {
+		name    string
+		content any
+		want    bool
+	}{
+		{"none", nil, true},
+		{"blank", map[string]any{"headline": "  ", "features": []any{}}, true},
+		{"filled", map[string]any{"headline": "x"}, false},
+	}
+	for _, tc := range cases {
+		out := renderDoc(t, nil, doc(tc.content), true)
+		if got := strings.Contains(out, "data-hm-empty"); got != tc.want {
+			t.Errorf("%s: hint present = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+	out := renderDoc(t, nil, doc(nil), true)
+	i := strings.Index(out, "<div data-hm-empty")
+	if i < 0 {
+		t.Fatalf("no hint: %s", out)
+	}
+	hint := out[i : i+strings.Index(out[i:], "</div>")]
+	if !strings.Contains(hint, "<span>Hero</span>") || strings.Contains(hint, "data-hm-field") || strings.Contains(hint, "data-hm-prop") {
+		t.Errorf("bad hint: %s", hint)
+	}
+	if pub := renderDoc(t, nil, doc(nil), false); strings.Contains(pub, "data-hm-empty") || strings.Contains(pub, "This section is empty") {
+		t.Error("public render carries the hint")
+	}
+}

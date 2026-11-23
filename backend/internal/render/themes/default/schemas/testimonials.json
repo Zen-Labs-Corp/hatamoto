@@ -1,5 +1,11 @@
 {
-  "x-hm-section": {"title": "Testimonials", "description": "Customer quotes in a grid"},
+  "x-hm-section": {"title": "Testimonials", "description": "Customer quotes in a grid",
+    "example": {
+      "heading": "What people say",
+      "subheading": "Short quotes from happy visitors.",
+      "testimonials": [{"quote": "Share a short, specific quote here.", "name": "Person name", "title": "Role", "company": "Company", "rating": 5}, {"quote": "Another quote about the experience.", "name": "Person name", "title": "Role", "company": "Company", "rating": 5}]
+    }
+  },
   "type": "object",
   "properties": {
     "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
