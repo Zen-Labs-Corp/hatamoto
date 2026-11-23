@@ -70,6 +70,9 @@ Each REST collection (terms, users, media, menu items) is capped at 100 000 item
 posts, pages and custom types together at `--max-items` (default 50 000). A site that ignores `?page=`
 (a cache plugin) or claims an absurd page count is stopped with an error instead of being read for ever. The
 whole read is limited to 2 GiB of REST and sitemap data and 4 hours; sitemaps and WXR files cap their nesting.
+WPBakery shortcodes are bounded too: the decoded HTML of one raw HTML block is capped at 256 KiB and all of
+them in one body at 1 MiB, containers nest at most 64 deep, and a body is converted for at most 5000 WPBakery
+shortcodes. Over a limit the part is dropped (the text around it is kept) and reported.
 
 ## The scan report
 
@@ -79,7 +82,10 @@ sitemap), the permalink structure and whether it becomes a Hatamoto URL pattern,
 Builder, Bricks), forms (Contact Form 7, Gravity Forms, WPForms, Ninja Forms, Formidable), multilingual
 plugins (WPML, Polylang: every language is imported and tagged where the source says which, and the report counts the items per language), the
 other plugins found (listed as unsupported), every shortcode left in a body, and **expected fidelity**:
-the share of items that import without loss, with each medium or low item and why. For a WXR file it also
+the share of items that import without loss, with each medium or low item and why. A WPBakery item whose only
+loss is layout is a small loss ("WPBakery: layout not kept, content converted"); with forms, other
+shortcodes, unreadable or oversized raw HTML or images missing from the library it needs a look. Other page
+builders always need a look. The percentage is still the share of items with no loss at all. For a WXR file it also
 counts the comments found and the pingbacks and trackbacks that will be skipped.
 
 ## What is imported and how
@@ -106,7 +112,14 @@ counts the comments found and the pingbacks and trackbacks that will be skipped.
 Body conversion: Gutenberg comments are stripped; YouTube and Vimeo embeds are kept as iframes (also from a
 bare URL or an unrendered `wp-block-embed`); form markup and shortcodes are removed and reported (the
 text is not guessed); `[caption]` becomes a figure; responsive-image attributes are dropped; any other
-iframe is removed and reported. **No `wp-content` URL remains in imported content:** images and files are
+iframe is removed and reported. WPBakery shortcodes are converted, from raw (WXR, edit context) and rendered
+REST bodies alike: custom headings become headings, single images become images (found by attachment id in the
+media library, so they are imported and rewritten like any other image; an id that is not in the source is
+dropped and reported), buttons become links, separators with a title become an `h3` and the others a rule, raw
+HTML is decoded and sanitised like the rest of the body (shortcodes inside it are removed and reported), raw
+JavaScript and post sliders are removed and reported, and a Google Maps block becomes a "View on Google Maps"
+link. Rows, columns, sections and tabs are unwrapped and their content kept in reading order; spacing, icons
+and row backgrounds are dropped. **No `wp-content` URL remains in imported content:** images and files are
 rewritten to their new media URL, a file that cannot be fetched is removed (an image) or unlinked, and the
 run's `wp_content_left` list, which must stay empty, is checked in the database at the end. Internal links
 (`/2024/05/hello/`, `?p=12`) become `<a data-entity-id>` links, so they follow later renames.
@@ -178,7 +191,7 @@ archives or 404 pages). A value that fails validation is listed there with the r
 
 ## Limits
 
-One language per install; page-builder layouts are not reproduced (the text is kept, the page is listed);
+One language per install; WPBakery content is converted but its layout is not, and other page builders keep the text and the page is listed for review;
 forms are not converted; WooCommerce, events and other plugin data are not imported; comments come from a WXR
 file only; Rank Math, SEOPress and All in One SEO data over REST are read from each page's `<head>`
 (published items only), Yoast's from its REST field. Sites with plain permalinks (`?p=12`) import, but their
