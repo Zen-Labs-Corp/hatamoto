@@ -166,6 +166,42 @@ func (n *wpNumber) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// mediaFields is what the importer reads of an attachment.
+const mediaFields = "id,date_gmt,source_url,mime_type,alt_text,title,caption,media_details"
+
+// mediaOneByOne reads a media page the site failed to serve item by item. A
+// plugin can make WordPress fail on one attachment's media_details (seen on SVG
+// and Word files): that item is read without it, so it comes over without its
+// size variants, and the rest of the page is kept whole.
+func (s *RESTSource) mediaOneByOne(d *Dump) PageFallback {
+	return func(ctx context.Context, q url.Values) ([]jsontext.Value, http.Header, error) {
+		q.Set("_fields", "id")
+		var ids []struct {
+			ID int `json:"id"`
+		}
+		hdr, err := s.c.JSON(ctx, "/wp/v2/media", q, &ids)
+		if err != nil {
+			return nil, nil, err
+		}
+		var out []jsontext.Value
+		for _, it := range ids {
+			route := "/wp/v2/media/" + strconv.Itoa(it.ID)
+			var raw jsontext.Value
+			if _, err := s.c.JSON(ctx, route, url.Values{"_fields": {mediaFields}}, &raw); err == nil {
+				out = append(out, raw)
+				continue
+			}
+			if _, err := s.c.JSON(ctx, route, url.Values{"_fields": {strings.TrimSuffix(mediaFields, ",media_details")}}, &raw); err != nil {
+				d.Warnings = append(d.Warnings, fmt.Sprintf("media %d skipped: WordPress fails to describe it: %v", it.ID, err))
+				continue
+			}
+			d.Warnings = append(d.Warnings, fmt.Sprintf("media %d: WordPress fails on its size details, imported without size variants", it.ID))
+			out = append(out, raw)
+		}
+		return out, hdr, nil
+	}
+}
+
 // Load reads the whole site.
 func (s *RESTSource) Load(ctx context.Context) (*Dump, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.opts.MaxDuration)
@@ -378,7 +414,8 @@ func (s *RESTSource) Load(ctx context.Context) (*Dump, error) {
 	say(fmt.Sprintf("read %d authors", len(d.Authors)))
 
 	// Media library.
-	err = s.c.Paged(ctx, "/wp/v2/media", nil, s.opts.MaxCollection, func(raw jsontext.Value) error {
+	mq := url.Values{"_fields": {mediaFields}}
+	err = s.c.PagedFallback(ctx, "/wp/v2/media", mq, s.opts.MaxCollection, s.mediaOneByOne(d), func(raw jsontext.Value) error {
 		var m struct {
 			ID      int      `json:"id"`
 			DateGMT string   `json:"date_gmt"`

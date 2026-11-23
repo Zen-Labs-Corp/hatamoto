@@ -307,6 +307,16 @@ func (c *Client) JSON(ctx context.Context, route string, q url.Values, out any) 
 // error. A collection that claims too many pages, or returns a page equal to
 // the one before (a cache that ignores ?page=), fails with ErrPagination.
 func (c *Client) Paged(ctx context.Context, route string, q url.Values, max int, fn func(jsontext.Value) error) error {
+	return c.PagedFallback(ctx, route, q, max, nil, fn)
+}
+
+// PageFallback reads one page another way after the site failed to serve it
+// (5xx after the retries). It gets that page's query.
+type PageFallback func(ctx context.Context, q url.Values) ([]jsontext.Value, http.Header, error)
+
+// PagedFallback is Paged with a fallback for a page the site fails to serve:
+// one broken item (a plugin's fatal error) must not lose the whole collection.
+func (c *Client) PagedFallback(ctx context.Context, route string, q url.Values, max int, fallback PageFallback, fn func(jsontext.Value) error) error {
 	q = cloneValues(q)
 	q.Set("per_page", "100")
 	max = maxInt(max, 0)
@@ -325,7 +335,12 @@ func (c *Client) Paged(ctx context.Context, route string, q url.Values, max int,
 			if page > 1 && errors.As(err, &he) && he.Status == http.StatusBadRequest {
 				return nil // WordPress answers 400 for a page past the end
 			}
-			return err
+			if fallback == nil || !errors.As(err, &he) || he.Status < 500 {
+				return err
+			}
+			if items, hdr, err = fallback(ctx, cloneValues(q)); err != nil {
+				return err
+			}
 		}
 		total, _ := strconv.Atoi(hdr.Get("X-WP-TotalPages"))
 		if total > maxPages {
@@ -350,7 +365,9 @@ func (c *Client) Paged(ctx context.Context, route string, q url.Values, max int,
 				return err
 			}
 		}
-		if len(items) < 100 || (total > 0 && page >= total) {
+		// WordPress counts items it then hides (attachments of drafts, items a plugin
+		// filters out), so a short page is the last one only when the total is unknown.
+		if (total > 0 && page >= total) || (total <= 0 && len(items) < 100) {
 			return nil
 		}
 	}
