@@ -3,6 +3,7 @@ package wpimport
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -165,7 +166,7 @@ func Scan(d *Dump, source string) *Report {
 				level = 2
 			}
 			if len(c.MissingImages) > 0 {
-				reasons = append(reasons, "images not found in the media library: "+strings.Join(c.MissingImages, ", "))
+				reasons = append(reasons, "images not found in the media library: "+listCapped(c.MissingImages, maxListedMissing))
 			}
 		} else if len(c.Builders) > 0 {
 			level = 2
@@ -222,6 +223,17 @@ func Scan(d *Dump, source string) *Report {
 		r.Fidelity.Percent = r.Fidelity.High * 100 / total
 	}
 	return r
+}
+
+// maxListedMissing is how many missing image ids a scan note names.
+const maxListedMissing = 20
+
+// listCapped joins the first max entries and counts the rest.
+func listCapped(list []string, max int) string {
+	if len(list) <= max {
+		return strings.Join(list, ", ")
+	}
+	return strings.Join(list[:max], ", ") + " and " + strconv.Itoa(len(list)-max) + " more"
 }
 
 // wpbakeryReason is the note of an item whose only loss is WPBakery layout.

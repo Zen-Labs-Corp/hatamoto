@@ -1,6 +1,7 @@
 package wpimport
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -46,5 +47,21 @@ func TestScanWPBakeryClassification(t *testing.T) {
 	}
 	if len(r.PageBuilders) != 1 || r.PageBuilders[0] != "WPBakery" {
 		t.Errorf("PageBuilders = %v", r.PageBuilders)
+	}
+}
+
+func TestScanWPBakeryMissingImagesAreBounded(t *testing.T) {
+	var b strings.Builder
+	for i := range 30 {
+		b.WriteString(`[vc_single_image image="` + strconv.Itoa(100+i) + `"]`)
+	}
+	b.WriteString("[vc_single_image image=\"x\x1b[2J\"][vc_single_image image=\"" + strings.Repeat("9", 21) + "\"]")
+	r := Scan(&Dump{RawBodies: true, Items: []Item{{ID: "1", Type: "page", Status: "publish", Title: "Many", Content: b.String()}}}, "test")
+	if len(r.LowFidelity) != 1 {
+		t.Fatalf("LowFidelity = %+v", r.LowFidelity)
+	}
+	reason := r.LowFidelity[0].Reason
+	if !strings.Contains(reason, "and 11 more") || strings.Contains(reason, "\x1b") || strings.Contains(reason, "999999") {
+		t.Errorf("reason = %q", reason)
 	}
 }

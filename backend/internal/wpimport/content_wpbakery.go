@@ -381,6 +381,19 @@ func vcButton(attrs map[string]string) string {
 	return "\n\n<p><a href=\"" + html.EscapeString(href) + "\">" + html.EscapeString(title) + "</a></p>\n\n"
 }
 
+// vcImageID reports whether v can be an attachment id: digits only, at most 20.
+func vcImageID(v string) bool {
+	if len(v) > 20 {
+		return false
+	}
+	for _, r := range v {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 // vcImage returns the markup for a vc_single_image and, when the image cannot
 // be resolved, what to report as missing (an id, "featured" or "external").
 func vcImage(attrs map[string]string, o *convertOpts) (string, string) {
@@ -395,11 +408,14 @@ func vcImage(attrs map[string]string, o *convertOpts) (string, string) {
 		return "", "featured"
 	default:
 		id := strings.TrimSpace(attrs["image"])
+		if id == "" {
+			return "", "unknown"
+		}
+		if !vcImageID(id) {
+			return "", "invalid" // never echo free text into a report
+		}
 		m, ok := o.media[id]
 		if !ok || m.URL == "" {
-			if id == "" {
-				id = "unknown"
-			}
 			return "", id
 		}
 		src, alt = m.URL, m.Alt
