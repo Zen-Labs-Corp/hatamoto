@@ -100,6 +100,7 @@ func Convert(in string, raw bool, opts ...ConvertOption) Converted {
 	for _, f := range opts {
 		f(&o)
 	}
+	o.raw = raw
 	var res Converted
 	res.Builders = DetectBuilders(in)
 	s := commentRe().ReplaceAllString(in, "")

@@ -237,3 +237,16 @@ func TestConvertWPBakeryLimits(t *testing.T) {
 		t.Error("Convert is not deterministic")
 	}
 }
+
+func TestConvertWPBakeryColumnsStaySeparate(t *testing.T) {
+	cols := `[vc_row][vc_column width="1/2"][vc_column_text]Left text.[/vc_column_text][/vc_column][vc_column width="1/2"][vc_column_text]Right text.[/vc_column_text][/vc_column][/vc_row]`
+	for name, tc := range map[string]struct {
+		in  string
+		raw bool
+	}{"raw": {cols, true}, "rendered": {"<p>" + cols + "</p>", false}} {
+		c := Convert(tc.in, tc.raw)
+		if normHTML(c.HTML) != "<p>Left text.</p><p>Right text.</p>" {
+			t.Errorf("%s: columns ran together or left empty paragraphs: %s", name, c.HTML)
+		}
+	}
+}

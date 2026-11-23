@@ -58,6 +58,18 @@ var vcQuotes = strings.NewReplacer(
 // convertOpts carries the optional inputs of Convert.
 type convertOpts struct {
 	media map[string]Media
+	raw   bool // the body is raw (paragraphs not wrapped yet)
+}
+
+// vcBreak is the block boundary written where a container tag was removed.
+// WPBakery stores tags back to back, so without it adjacent columns would run
+// into one paragraph. A raw body is split by autop on blank lines; a rendered
+// one is already inside a <p> that has to be closed and reopened.
+func (o *convertOpts) vcBreak() string {
+	if o.raw {
+		return "\n\n"
+	}
+	return "</p><p>"
 }
 
 // ConvertOption configures Convert.
@@ -167,6 +179,7 @@ func wpbakery(s string, o *convertOpts, res *Converted, removed map[string]bool)
 				res.Dropped = append(res.Dropped, "Google Maps (unrecognised link)")
 			}
 		case container && closing:
+			b.WriteString(o.vcBreak())
 			if n := len(stack); n > 0 && stack[n-1] == name {
 				stack = stack[:n-1]
 			}
@@ -176,6 +189,7 @@ func wpbakery(s string, o *convertOpts, res *Converted, removed map[string]bool)
 				res.Dropped = append(res.Dropped, "WPBakery (nesting too deep)")
 				continue
 			}
+			b.WriteString(o.vcBreak())
 			stack = append(stack, name)
 			res.WPBakery++
 		case closing:
