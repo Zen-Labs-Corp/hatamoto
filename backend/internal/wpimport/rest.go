@@ -150,6 +150,22 @@ func wpTime(s string) time.Time {
 	return time.Time{}
 }
 
+// wpNumber is a number WordPress may send as a number or as a string. The REST index
+// returns the raw gmt_offset option, which is a string ("0", "5.5") on a site with a
+// manual UTC offset. An empty, null or unreadable value is 0: a missing timezone hint
+// must not stop an import.
+type wpNumber float64
+
+func (n *wpNumber) UnmarshalJSON(b []byte) error {
+	s := strings.Trim(strings.TrimSpace(string(b)), `"`)
+	f, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	if err != nil || f != f || f < -24 || f > 24 { // NaN, Inf and nonsense: no UTC offset is that large
+		f = 0
+	}
+	*n = wpNumber(f)
+	return nil
+}
+
 // Load reads the whole site.
 func (s *RESTSource) Load(ctx context.Context) (*Dump, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.opts.MaxDuration)
@@ -162,7 +178,7 @@ func (s *RESTSource) Load(ctx context.Context) (*Dump, error) {
 		URL        string   `json:"url"`
 		Home       string   `json:"home"`
 		Timezone   string   `json:"timezone_string"`
-		GMTOffset  float64  `json:"gmt_offset"`
+		GMTOffset  wpNumber `json:"gmt_offset"`
 		Namespaces []string `json:"namespaces"`
 	}
 	if _, err := s.c.JSON(ctx, "/", nil, &idx); err != nil {
@@ -174,9 +190,9 @@ func (s *RESTSource) Load(ctx context.Context) (*Dump, error) {
 	}
 	home := strings.TrimRight(firstNonEmpty(idx.Home, idx.URL, s.c.Base.String()), "/")
 	d.Site = Site{URL: home, Title: html.UnescapeString(idx.Name), Tagline: html.UnescapeString(idx.Desc), Timezone: idx.Timezone}
-	if d.Site.Timezone == "" && idx.GMTOffset == float64(int(idx.GMTOffset)) && idx.GMTOffset != 0 {
+	if off := float64(idx.GMTOffset); d.Site.Timezone == "" && off == float64(int(off)) && off != 0 {
 		// A fixed offset: Etc/GMT zones count the other way round (UTC+2 is Etc/GMT-2).
-		d.Site.Timezone = fmt.Sprintf("Etc/GMT%+d", -int(idx.GMTOffset))
+		d.Site.Timezone = fmt.Sprintf("Etc/GMT%+d", -int(off))
 	}
 	d.Detect.Namespaces = idx.Namespaces
 	say(fmt.Sprintf("connected to %s (%s)", d.Site.URL, d.Site.Title))
