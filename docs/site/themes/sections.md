@@ -41,7 +41,7 @@ Hatamoto adds three extensions:
 
 | Keyword | Where | Meaning |
 | --- | --- | --- |
-| `x-hm-section` | top level | `{ "title", "description", "icon", "example" }`: `title`, `description` and `icon` are shown in the section picker. `example` is optional: the `content` stored when an editor inserts the section, so it does not start empty. It is checked when the theme loads: it must be an object whose keys are top-level property names, with values of the declared JSON types and, for an `enum`, one of its values. Older cores ignore it | |
+| `x-hm-section` | top level | `{ "title", "description", "icon", "example" }`: `title`, `description` and `icon` are shown in the section picker. `example` is optional: the `content` stored when an editor inserts the section, so it does not start empty. It is checked when the theme loads: it must be an object whose keys are top-level property names, with values of the declared JSON types and, for an `enum`, one of its values. Load checks only keys, JSON types and `enum` values: the example must also meet the field's other constraints (`maxLength`, `pattern`, `format`, bounds), otherwise editors see validation errors after inserting. Older cores ignore it |
 | `x-hm-field` | string property | the field kind, listed below |
 | `x-hm-alias` | top-level property | alternative stored names, for example `form_slug` with alias `formSlug`; the renderer maps the alias to the canonical name before the template runs |
 
