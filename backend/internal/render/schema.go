@@ -2,7 +2,9 @@ package render
 
 import (
 	"encoding/json/jsontext"
+	"errors"
 	"fmt"
+	"io"
 	"reflect"
 	"strings"
 
@@ -85,6 +87,9 @@ func validateExample(props map[string]jsontext.Value, example jsontext.Value) er
 	if example.Kind() != '{' {
 		return fmt.Errorf("x-hm-section.example: must be an object")
 	}
+	if err := rejectDuplicateNames(example); err != nil {
+		return fmt.Errorf("x-hm-section.example: %w", err)
+	}
 	var fields map[string]jsontext.Value
 	if err := jsonx.Unmarshal(example, &fields, jsonx.StoredLoose); err != nil {
 		return fmt.Errorf("x-hm-section.example: %w", err)
@@ -99,6 +104,21 @@ func validateExample(props map[string]jsontext.Value, example jsontext.Value) er
 		}
 	}
 	return nil
+}
+
+// rejectDuplicateNames fails on a repeated member name anywhere in v. The
+// error names the JSON path. A duplicate would otherwise load and then make
+// the builder boot JSON fail to encode.
+func rejectDuplicateNames(v jsontext.Value) error {
+	dec := jsontext.NewDecoder(strings.NewReader(string(v)))
+	for {
+		if _, err := dec.ReadToken(); err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
+	}
 }
 
 // checkExampleValue checks v against one (sub)schema node, recursing through

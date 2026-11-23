@@ -62,6 +62,8 @@ func TestSectionExampleInvalid(t *testing.T) {
 		{"null", `{"headline":null}`, "x-hm-section.example.headline: null"},
 		{"unknown item key", `{"ctas":[{"label":"a"},{"nope":"b"}]}`, "x-hm-section.example.ctas[1].nope"},
 		{"wrong item type", `{"lines":["a",2]}`, "x-hm-section.example.lines[1]: expected string"},
+		{"duplicate top-level key", `{"headline":"a","headline":"b"}`, "duplicate"},
+		{"duplicate item key", `{"ctas":[{"label":"a"},{"label":"b","label":"c"}]}`, "/ctas/1"},
 		{"wrong nested type", `{"box":{"note":3}}`, "x-hm-section.example.box.note"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
