@@ -1,5 +1,17 @@
 {
-  "x-hm-section": {"title": "Contact info", "description": "Address, phone, email and opening hours"},
+  "x-hm-section": {
+    "title": "Contact info",
+    "description": "Address, phone, email and opening hours",
+    "example": {
+      "heading": "Find us",
+      "address": {"street": "123 Example Street", "city": "Sample City", "state": "ST", "postal_code": "12345", "country": "Country"},
+      "phone": "+1 555 0100",
+      "email": "hello@example.com",
+      "hours": [
+        {"day": "Monday to Friday", "open": "9:00", "close": "17:00"}
+      ]
+    }
+  },
   "type": "object",
   "properties": {
     "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},

@@ -1,5 +1,17 @@
 {
-  "x-hm-section": {"title": "Features", "description": "Grid of feature cards with optional icon and link"},
+  "x-hm-section": {
+    "title": "Features",
+    "description": "Grid of feature cards with optional icon and link",
+    "example": {
+      "heading": "What this page offers",
+      "subheading": "Highlight the main benefits in a few short cards.",
+      "features": [
+        {"title": "Feature one", "description": "Describe a feature in one line."},
+        {"title": "Feature two", "description": "Describe a feature in one line."},
+        {"title": "Feature three", "description": "Describe a feature in one line."}
+      ]
+    }
+  },
   "type": "object",
   "properties": {
     "eyebrow": {"type": "string", "title": "Eyebrow (bento)", "x-hm-field": "plaintext"},

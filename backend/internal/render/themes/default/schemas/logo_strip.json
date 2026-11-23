@@ -1,5 +1,11 @@
 {
-  "x-hm-section": {"title": "Logo strip", "description": "Row of partner or customer logos, optionally scrolling"},
+  "x-hm-section": {
+    "title": "Logo strip",
+    "description": "Row of partner or customer logos, optionally scrolling",
+    "example": {
+      "heading": "Trusted by teams everywhere"
+    }
+  },
   "type": "object",
   "properties": {
     "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},

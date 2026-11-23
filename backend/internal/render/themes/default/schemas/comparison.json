@@ -1,5 +1,25 @@
 {
-  "x-hm-section": {"title": "Comparison", "description": "Two sides compared point by point"},
+  "x-hm-section": {
+    "title": "Comparison",
+    "description": "Two sides compared point by point",
+    "example": {
+      "eyebrow": "Comparison",
+      "heading": "Before and after",
+      "subheading": "Set two approaches side by side.",
+      "sides": [
+        {
+          "tag": "Before",
+          "title": "The old way",
+          "items": ["A common frustration", "Another pain point"]
+        },
+        {
+          "tag": "After",
+          "title": "The better way",
+          "items": ["A clear benefit", "Another improvement"]
+        }
+      ]
+    }
+  },
   "type": "object",
   "properties": {
     "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},

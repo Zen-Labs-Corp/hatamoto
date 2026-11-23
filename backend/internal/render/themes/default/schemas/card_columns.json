@@ -1,5 +1,30 @@
 {
-  "x-hm-section": {"title": "Card columns", "description": "Framed columns with bullet lists and a notes strip"},
+  "x-hm-section": {
+    "title": "Card columns",
+    "description": "Framed columns with bullet lists and a notes strip",
+    "example": {
+      "eyebrow": "Overview",
+      "heading": "Compare your options",
+      "subheading": "Group related points into framed columns.",
+      "columns": [
+        {
+          "label": "Option A",
+          "title": "First column",
+          "description": "A short summary of this column.",
+          "items": ["First point", "Second point", "Third point"]
+        },
+        {
+          "label": "Option B",
+          "title": "Second column",
+          "description": "A short summary of this column.",
+          "items": ["First point", "Second point", "Third point"]
+        }
+      ],
+      "notes": [
+        {"title": "Note", "text": "Use this strip for a short remark."}
+      ]
+    }
+  },
   "type": "object",
   "properties": {
     "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},

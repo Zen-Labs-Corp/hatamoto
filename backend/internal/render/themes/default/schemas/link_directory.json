@@ -1,5 +1,29 @@
 {
-  "x-hm-section": {"title": "Link directory", "description": "Columns of grouped links, like a sitemap"},
+  "x-hm-section": {
+    "title": "Link directory",
+    "description": "Columns of grouped links, like a sitemap",
+    "example": {
+      "eyebrow": "Directory",
+      "heading": "Useful links",
+      "subheading": "Group links into columns.",
+      "columns": [
+        {
+          "heading": "Column one",
+          "links": [
+            {"text": "First link", "href": "#"},
+            {"text": "Second link", "href": "#"}
+          ]
+        },
+        {
+          "heading": "Column two",
+          "links": [
+            {"text": "Third link", "href": "#"},
+            {"text": "Fourth link", "href": "#"}
+          ]
+        }
+      ]
+    }
+  },
   "type": "object",
   "properties": {
     "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},

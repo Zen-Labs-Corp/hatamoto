@@ -1,5 +1,14 @@
 {
-  "x-hm-section": {"title": "Call to action", "description": "Closing banner with a headline and one button"},
+  "x-hm-section": {
+    "title": "Call to action",
+    "description": "Closing banner with a headline and one button",
+    "example": {
+      "headline": "Ready to get started?",
+      "subheadline": "Add one sentence that tells visitors what happens next.",
+      "buttonText": "Get started",
+      "buttonUrl": "#"
+    }
+  },
   "type": "object",
   "properties": {
     "headline": {"type": "string", "title": "Headline", "x-hm-field": "plaintext"},
