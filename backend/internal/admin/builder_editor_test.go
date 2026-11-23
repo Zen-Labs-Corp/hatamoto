@@ -609,3 +609,16 @@ func registerParamSources(t *testing.T) {
 	})
 	t.Cleanup(func() { builder.SetExtSources(nil) })
 }
+
+func TestSectionExampleDroppedWhenNotEncodable(t *testing.T) {
+	t.Parallel()
+
+	ok := sectionExample(jsontext.Value(`{"x-hm-section":{"example":{"headline":"a"}}}`))
+	if string(ok) != `{"headline":"a"}` {
+		t.Fatalf("valid example = %s", ok)
+	}
+	dup := sectionExample(jsontext.Value(`{"x-hm-section":{"example":{"headline":"a","headline":"b"}}}`))
+	if dup != nil {
+		t.Fatalf("duplicate-name example = %s, want nil", dup)
+	}
+}

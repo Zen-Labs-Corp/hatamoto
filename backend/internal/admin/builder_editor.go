@@ -142,6 +142,11 @@ func sectionExample(schema jsontext.Value) jsontext.Value {
 	if jsonx.Unmarshal(schema, &s, jsonx.StoredLoose) != nil {
 		return nil
 	}
+	// The boot JSON is encoded with HTMLSafe, which refuses duplicate member
+	// names; drop such an example rather than fail every builder page.
+	if _, err := jsonx.Marshal(s.Section.Example, jsonx.HTMLSafe); err != nil {
+		return nil
+	}
 	return s.Section.Example
 }
 
