@@ -169,6 +169,8 @@ func wpbakery(s string, o *convertOpts, res *Converted, removed map[string]bool)
 	var stack []string
 	var missing []string
 	deepReported := false
+	noCloser := map[string]bool{} // raw tags with no closing tag in the rest of the body
+	unclosedReported := false
 	rawTotal := 0
 	last := 0
 	for _, m := range locs {
@@ -186,15 +188,24 @@ func wpbakery(s string, o *convertOpts, res *Converted, removed map[string]bool)
 		if !closing && (name == "vc_raw_html" || name == "vc_raw_js") {
 			// The payload is everything up to the closing tag; none of it is
 			// tokenised. Without a closing tag only the tag itself is removed.
+			// A closer missing once is missing for every later opener too.
 			end := "[/" + name + "]"
-			if i := strings.Index(s[m[1]:], end); i >= 0 {
+			if noCloser[name] {
+				// nothing to find
+			} else if i := strings.Index(s[m[1]:], end); i >= 0 {
 				payload, hasPayload = s[m[1]:m[1]+i], true
 				last = m[1] + i + len(end)
+			} else {
+				noCloser[name] = true
 			}
 		}
 		switch {
 		case name == "vc_raw_html" && !closing:
 			if !hasPayload {
+				if !unclosedReported {
+					unclosedReported = true
+					res.Dropped = append(res.Dropped, "WPBakery raw HTML (unclosed)")
+				}
 				break
 			}
 			dec, err := vcRawPayload(payload, maxRawHTMLBody-rawTotal)

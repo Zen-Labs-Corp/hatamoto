@@ -5,9 +5,11 @@ import (
 	"net/url"
 	"reflect"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/entity"
 )
@@ -293,5 +295,20 @@ func TestConvertWPBakeryQuotesInsideValues(t *testing.T) {
 	want := "<h2>Our \u201cbest\u201d offer</h2>"
 	if raw.HTML != want || rendered.HTML != want {
 		t.Errorf("raw %q rendered %q want %q", raw.HTML, rendered.HTML, want)
+	}
+}
+
+func TestConvertWPBakeryUnclosedRawTagsStayFast(t *testing.T) {
+	in := strings.Repeat("[vc_raw_html][vc_raw_js]"+strings.Repeat("x", 2000), maxVCTags/2)
+	start := time.Now()
+	c := Convert(in, true)
+	if d := time.Since(start); d > 5*time.Second {
+		t.Errorf("unclosed raw tags took %s", d)
+	}
+	if !slices.Contains(c.Dropped, "WPBakery raw HTML (unclosed)") || !slices.Contains(c.Shortcodes, "vc_raw_js") {
+		t.Errorf("unclosed raw tags not reported: %+v", c.Dropped)
+	}
+	if strings.Contains(c.HTML, "[vc_") {
+		t.Errorf("tag left: %.80s", c.HTML)
 	}
 }
