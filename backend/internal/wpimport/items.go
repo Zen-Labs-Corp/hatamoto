@@ -74,7 +74,7 @@ func itemStatus(it *Item) entity.EntityStatus {
 // body converts an item's HTML and rewrites its links. withEntities resolves
 // internal links to imported entities (the second pass).
 func (r *Runner) body(ctx context.Context, it *Item, withEntities bool) (string, Converted, RewriteStats) {
-	conv := Convert(it.Content, r.dump.RawBodies)
+	conv := Convert(it.Content, r.dump.RawBodies, WithMedia(r.mediaByID))
 	rw := &Rewriter{Hosts: r.hosts, Media: r.resolveMedia(ctx), Path: func(p string) (string, bool) {
 		np, ok := r.termPaths[normPath(p)]
 		return np, ok

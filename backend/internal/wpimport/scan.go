@@ -115,6 +115,7 @@ func Scan(d *Dump, source string) *Report {
 			r.UnsupportedPlugins = appendUnique(r.UnsupportedPlugins, ns)
 		}
 	}
+	mediaByID := MediaByID(d.Media)
 	for _, it := range d.Items {
 		if it.Status == wpTrash || it.Status == "auto-draft" {
 			continue
@@ -144,7 +145,7 @@ func Scan(d *Dump, source string) *Report {
 				r.CommentPings++
 			}
 		}
-		c := Convert(it.Content, d.RawBodies)
+		c := Convert(it.Content, d.RawBodies, WithMedia(mediaByID))
 		r.Embeds += c.Embeds
 		for _, sc := range c.Shortcodes {
 			r.Shortcodes[sc]++

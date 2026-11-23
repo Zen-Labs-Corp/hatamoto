@@ -143,6 +143,9 @@ type Runner struct {
 
 	client *Client
 	media  *mediaRegistry
+	// mediaByID is the source media by attachment id, for WPBakery images; the
+	// Rewriter maps their source URLs to the imported files.
+	mediaByID map[string]Media
 	// mediaMu serialises the identical-bytes check and upload; hashes caches the result.
 	mediaMu sync.Mutex
 	hashes  map[string]*media.Media
@@ -175,6 +178,7 @@ func NewRunner(d *Deps, st *Store, dump *Dump, opts Options) (*Runner, error) {
 		hosts: map[string]bool{}, authorIDs: map[string]uuid.UUID{}, termIDs: map[string]uuid.UUID{},
 		schemaOf: map[string]string{}, infos: map[string]*entInfo{}, byID: map[uuid.UUID]*entity.Entity{},
 		oldPaths: map[string]*entInfo{}, termPaths: map[string]string{}, hiddenAuthors: map[string]string{}, schemas: map[string]*entity.EntitySchema{}}
+	r.mediaByID = MediaByID(dump.Media)
 	u, err := url.Parse(dump.Site.URL)
 	if err != nil || u.Host == "" {
 		return nil, fmt.Errorf("the source has no usable site URL (%q)", dump.Site.URL)
