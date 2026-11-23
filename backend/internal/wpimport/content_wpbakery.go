@@ -190,6 +190,11 @@ func wpbakery(s string, o *convertOpts, res *Converted, removed map[string]bool)
 				continue
 			}
 			b.WriteString(o.vcBreak())
+			if name == "vc_tta_section" || name == "vc_tta_tab" || name == "vc_tta_panel" {
+				if title := vcText(vcAttrs(span), "title"); title != "" {
+					b.WriteString("\n\n<h3>" + html.EscapeString(title) + "</h3>\n\n")
+				}
+			}
 			stack = append(stack, name)
 			res.WPBakery++
 		case closing:

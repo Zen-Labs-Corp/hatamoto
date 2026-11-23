@@ -118,7 +118,7 @@ media library, so they are imported and rewritten like any other image; an id th
 dropped and reported), buttons become links, separators with a title become an `h3` and the others a rule, raw
 HTML is decoded and sanitised like the rest of the body (shortcodes inside it are removed and reported), raw
 JavaScript and post sliders are removed and reported, and a Google Maps block becomes a "View on Google Maps"
-link. Rows, columns, sections and tabs are unwrapped and their content kept in reading order; spacing, icons
+link. Rows, columns, sections and tabs are unwrapped and their content kept in reading order (each column is its own paragraph, and a tab or accordion title becomes an `h3` before its content); spacing, icons
 and row backgrounds are dropped. **No `wp-content` URL remains in imported content:** images and files are
 rewritten to their new media URL, a file that cannot be fetched is removed (an image) or unlinked, and the
 run's `wp_content_left` list, which must stay empty, is checked in the database at the end. Internal links

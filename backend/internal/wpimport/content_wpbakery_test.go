@@ -250,3 +250,16 @@ func TestConvertWPBakeryColumnsStaySeparate(t *testing.T) {
 		}
 	}
 }
+
+func TestConvertWPBakeryTabTitlesBecomeHeadings(t *testing.T) {
+	in := `[vc_tta_accordion][vc_tta_section title="How long does it take?" tab_id="a"][vc_column_text]About two days.[/vc_column_text][/vc_tta_section][vc_tta_section title="Q &amp; A"][vc_column_text]Yes.[/vc_column_text][/vc_tta_section][/vc_tta_accordion]`
+	for name, tc := range map[string]struct {
+		in  string
+		raw bool
+	}{"raw": {in, true}, "rendered": {"<p>" + in + "</p>", false}} {
+		c := Convert(tc.in, tc.raw)
+		if got, want := normHTML(c.HTML), "<h3>How long does it take?</h3><p>About two days.</p><h3>Q &amp; A</h3><p>Yes.</p>"; got != want {
+			t.Errorf("%s: got %s want %s", name, got, want)
+		}
+	}
+}
