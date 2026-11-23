@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -261,5 +262,23 @@ func TestConvertWPBakeryTabTitlesBecomeHeadings(t *testing.T) {
 		if got, want := normHTML(c.HTML), "<h3>How long does it take?</h3><p>About two days.</p><h3>Q &amp; A</h3><p>Yes.</p>"; got != want {
 			t.Errorf("%s: got %s want %s", name, got, want)
 		}
+	}
+}
+
+func TestConvertWPBakeryUnbalancedTagsRecover(t *testing.T) {
+	var b strings.Builder
+	for i := range 40 {
+		closer := "" // the closer of every row's text block is missing
+		b.WriteString(`[vc_row][vc_column][vc_column_text]Row ` + strconv.Itoa(i) + closer + `[vc_custom_heading text="Heading ` + strconv.Itoa(i) + `"][/vc_column][/vc_row]`)
+	}
+	b.WriteString("[/vc_column][/vc_nothing]")
+	c := Convert(b.String(), true)
+	for i := range 40 {
+		if want := "<h2>Heading " + strconv.Itoa(i) + "</h2>"; !strings.Contains(c.HTML, want) {
+			t.Fatalf("missing %q: %.200s", want, c.HTML)
+		}
+	}
+	if len(c.Dropped) != 0 || strings.Contains(c.HTML, "[") {
+		t.Errorf("dropped=%v html=%.200s", c.Dropped, c.HTML)
 	}
 }

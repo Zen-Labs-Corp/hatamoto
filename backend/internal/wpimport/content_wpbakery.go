@@ -124,7 +124,7 @@ func wpbakery(s string, o *convertOpts, res *Converted, removed map[string]bool)
 	var b strings.Builder
 	var stack []string
 	var missing []string
-	tooDeep := false
+	deepReported := false
 	rawTotal := 0
 	last := 0
 	for _, m := range locs {
@@ -147,9 +147,6 @@ func wpbakery(s string, o *convertOpts, res *Converted, removed map[string]bool)
 				payload, hasPayload = s[m[1]:m[1]+i], true
 				last = m[1] + i + len(end)
 			}
-		}
-		if tooDeep {
-			continue
 		}
 		switch {
 		case name == "vc_raw_html" && !closing:
@@ -180,13 +177,19 @@ func wpbakery(s string, o *convertOpts, res *Converted, removed map[string]bool)
 			}
 		case container && closing:
 			b.WriteString(o.vcBreak())
-			if n := len(stack); n > 0 && stack[n-1] == name {
-				stack = stack[:n-1]
+			// Like HTML: pop up to the matching open, ignore a close with none.
+			for i := len(stack) - 1; i >= 0; i-- {
+				if stack[i] == name {
+					stack = stack[:i]
+					break
+				}
 			}
 		case container:
 			if len(stack) >= maxVCDepth {
-				tooDeep = true
-				res.Dropped = append(res.Dropped, "WPBakery (nesting too deep)")
+				if !deepReported {
+					deepReported = true
+					res.Dropped = append(res.Dropped, "WPBakery (nesting too deep)")
+				}
 				continue
 			}
 			b.WriteString(o.vcBreak())
