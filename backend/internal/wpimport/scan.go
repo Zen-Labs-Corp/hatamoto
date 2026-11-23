@@ -3,6 +3,7 @@ package wpimport
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -115,6 +116,7 @@ func Scan(d *Dump, source string) *Report {
 			r.UnsupportedPlugins = appendUnique(r.UnsupportedPlugins, ns)
 		}
 	}
+	mediaByID := MediaByID(d.Media)
 	for _, it := range d.Items {
 		if it.Status == wpTrash || it.Status == "auto-draft" {
 			continue
@@ -144,7 +146,7 @@ func Scan(d *Dump, source string) *Report {
 				r.CommentPings++
 			}
 		}
-		c := Convert(it.Content, d.RawBodies)
+		c := Convert(it.Content, d.RawBodies, WithMedia(mediaByID))
 		r.Embeds += c.Embeds
 		for _, sc := range c.Shortcodes {
 			r.Shortcodes[sc]++
@@ -154,7 +156,19 @@ func Scan(d *Dump, source string) *Report {
 		}
 		reasons := []string{}
 		level := 0 // 0 high, 1 medium, 2 low
-		if len(c.Builders) > 0 {
+		if c.WPBakery > 0 && len(c.Builders) == 1 && c.Builders[0] == "WPBakery" {
+			// The shortcodes were converted: only the layout is lost, unless
+			// something else was removed or an image could not be found.
+			r.PageBuilders = appendUnique(r.PageBuilders, "WPBakery")
+			reasons = append(reasons, wpbakeryReason)
+			level = 1
+			if len(c.Shortcodes)+len(c.Forms)+len(c.Dropped)+len(c.MissingImages) > 0 {
+				level = 2
+			}
+			if len(c.MissingImages) > 0 {
+				reasons = append(reasons, "images not found in the media library: "+listCapped(c.MissingImages, maxListedMissing))
+			}
+		} else if len(c.Builders) > 0 {
 			level = 2
 			for _, b := range c.Builders {
 				r.PageBuilders = appendUnique(r.PageBuilders, b)
@@ -210,6 +224,20 @@ func Scan(d *Dump, source string) *Report {
 	}
 	return r
 }
+
+// maxListedMissing is how many missing image ids a scan note names.
+const maxListedMissing = 20
+
+// listCapped joins the first max entries and counts the rest.
+func listCapped(list []string, max int) string {
+	if len(list) <= max {
+		return strings.Join(list, ", ")
+	}
+	return strings.Join(list[:max], ", ") + " and " + strconv.Itoa(len(list)-max) + " more"
+}
+
+// wpbakeryReason is the note of an item whose only loss is WPBakery layout.
+const wpbakeryReason = "WPBakery: layout not kept, content converted"
 
 func note(it Item, reason string) ItemNote {
 	return ItemNote{ID: it.ID, Type: it.Type, Title: it.Title, Link: it.Link, Reason: reason}

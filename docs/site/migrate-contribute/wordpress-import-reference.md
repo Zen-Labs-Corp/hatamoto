@@ -79,7 +79,7 @@ A scan lists counts (posts, pages, custom post types, drafts, private items, med
 - Multilingual plugins (WPML, Polylang). Every language is imported and tagged with a locale, but only the site language is public, because one install serves one language. Over REST only Polylang is read once per language; WPML over REST is one unfiltered pass and items are tagged only when the response carries their language. A plain WPML export usually carries no language, so its items take the site language. A script-only code such as `zh-hans` is the site language when the site shares its primary language and script (`zh-CN`).
 - Other plugins, listed as unsupported, and every shortcode left in a body.
 
-The report ends with the expected fidelity: the share of items that import without loss, with each medium or low item and the reason. A page builder makes an item low fidelity; removed shortcodes, forms or embeds, and private or password-protected status, make it medium.
+The report ends with the expected fidelity: the share of items that import without loss, with each medium or low item and the reason. A page builder other than WPBakery makes an item low fidelity; removed shortcodes, forms or embeds, and private or password-protected status, make it medium. A WPBakery item is converted: if layout is its only loss it is a small loss, and if forms, other shortcodes, dropped embeds or images missing from the library come on top, it is low fidelity.
 
 ## What is imported
 
@@ -138,7 +138,7 @@ The application password is sealed (encrypted) in the database so a run can resu
 What is not imported or reproduced:
 
 - One language per install: items in other languages are stored with their locale but are not public, and get no redirects.
-- Page-builder layouts are not reproduced. The text is kept and the page is listed for review.
+- Page-builder layouts are not reproduced. WPBakery content (headings, images, buttons, raw HTML, map links) is converted; for other builders the text is kept and the page is listed for review.
 - Forms are not converted; recreate them with Hatamoto forms.
 - WooCommerce orders and coupons are not imported, and comments come from a WXR file only. Products and event posts are ordinary custom types: they come across as plain pages (text and images, no prices, cart, stock or event dates logic).
 - Sites with plain permalinks (`?p=12`) import, but their old URLs are audited from the sitemap only.
