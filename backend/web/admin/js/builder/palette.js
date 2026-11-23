@@ -19,14 +19,14 @@ export function itemsOf(kinds, sections, { slot = false } = {}) {
   const native = kinds
     .filter((k) => k.kind !== "component" && (!k.hidden || (slot && k.kind === "slot")))
     .map((k) => ({ key: k.kind, kind: k.kind, name: k.label || (k.kind === "slot" ? "Content slot" : kindName(k.kind)), hint: k.hint || (KIND_HINT[k.kind] ?? ""), group: k.group || (k.kind === "slot" ? "Layout" : "Elements") }));
-  const comps = sections.map((s) => ({ key: `component:${s.type}`, kind: "component", type: s.type, name: s.title || title(s.type), hint: "Theme section", description: s.description || "", group: "Patterns" }));
+  const comps = sections.map((s) => ({ key: `component:${s.type}`, kind: "component", type: s.type, name: s.title || title(s.type), hint: "Theme section", description: s.description || "", ...(s.example && typeof s.example === "object" && Object.keys(s.example).length ? { example: s.example } : {}), group: "Patterns" }));
   return [...native, ...comps];
 }
 
-/** A new node for an item: the kind's default props and seeded children (fresh ids, one subtree, so one undo step), or a component of the section type. */
+/** A new node for an item: the kind's default props and seeded children (fresh ids, one subtree, so one undo step), or a component of the section type (carrying a deep clone of the theme's example as its content). */
 export function makeNode(item, kinds) {
   if (item.kind === "block") return { id: newId(), t: "ref", p: { block: item.key.slice(4) } }; // a synced block: key is "blk:<id>"
-  if (item.kind === "component") return { id: newId(), t: "component", p: { type: item.type } };
+  if (item.kind === "component") return { id: newId(), t: "component", p: item.example ? { type: item.type, content: structuredClone(item.example) } : { type: item.type } };
   const k = kinds.find((x) => x.kind === item.kind);
   const def = k?.default;
   const node = { id: newId(), t: item.kind, ...(def && Object.keys(def).length ? { p: structuredClone(def) } : {}) };
