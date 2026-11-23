@@ -452,8 +452,10 @@ func TestBuilderBootSectionsCarryFields(t *testing.T) {
 	rest := body[i+len(open):]
 	var got struct {
 		Sections []struct {
-			Type   string                              `json:"type"`
-			Fields []struct{ Key, Label, Kind string } `json:"fields"`
+			Type        string                              `json:"type"`
+			Description string                              `json:"description"`
+			Fields      []struct{ Key, Label, Kind string } `json:"fields"`
+			Example     map[string]any                      `json:"example"`
 		} `json:"sections"`
 	}
 	if err := jsonx.Unmarshal([]byte(rest[:strings.Index(rest, "</script>")]), &got, jsonx.StoredLoose); err != nil {
@@ -471,6 +473,19 @@ func TestBuilderBootSectionsCarryFields(t *testing.T) {
 		}
 		if !slices.Equal(have, want[s.Type]) {
 			t.Errorf("section %s fields = %v, want %v", s.Type, have, want[s.Type])
+		}
+		switch s.Type {
+		case "hero":
+			if s.Description != "A big opening" {
+				t.Errorf("hero description = %q", s.Description)
+			}
+			if s.Example["heading"] != "<b>A clear headline</b>" {
+				t.Errorf("hero example = %v", s.Example)
+			}
+		case "html":
+			if s.Example != nil || s.Description != "" {
+				t.Errorf("html carries description/example: %q %v", s.Description, s.Example)
+			}
 		}
 		delete(want, s.Type)
 	}

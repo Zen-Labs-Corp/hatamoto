@@ -2,6 +2,7 @@ package admin
 
 import (
 	"cmp"
+	"encoding/json/jsontext"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -124,9 +125,24 @@ func loopSources() []bootLoopSource {
 }
 
 type bootSection struct {
-	Type   string                `json:"type"`
-	Title  string                `json:"title"`
-	Fields []schemaform.TopField `json:"fields,omitempty"`
+	Type        string                `json:"type"`
+	Title       string                `json:"title"`
+	Description string                `json:"description,omitempty"`
+	Fields      []schemaform.TopField `json:"fields,omitempty"`
+	Example     jsontext.Value        `json:"example,omitempty"`
+}
+
+// sectionExample returns x-hm-section.example from a raw section schema, or nil.
+func sectionExample(schema jsontext.Value) jsontext.Value {
+	var s struct {
+		Section struct {
+			Example jsontext.Value `json:"example"`
+		} `json:"x-hm-section"`
+	}
+	if jsonx.Unmarshal(schema, &s, jsonx.StoredLoose) != nil {
+		return nil
+	}
+	return s.Section.Example
 }
 
 func (a *Admin) builderShellData(r *http.Request, e *entity.Entity, sc *entity.EntitySchema, doc *builder.Doc) (*builderShell, error) {
@@ -139,7 +155,7 @@ func (a *Admin) builderShellData(r *http.Request, e *entity.Entity, sc *entity.E
 	sections := []bootSection{}
 	_, types := a.themeTypes()
 	for _, t := range types {
-		sections = append(sections, bootSection{Type: t.Type, Title: t.Title, Fields: schemaform.TopFields(t.Schema)})
+		sections = append(sections, bootSection{Type: t.Type, Title: t.Title, Description: t.Description, Fields: schemaform.TopFields(t.Schema), Example: sectionExample(t.Schema)})
 	}
 	sh := &builderShell{
 		SchemaName: sc.Name + "s", ListHref: a.adminPath + "/entities?type=" + url.QueryEscape(sc.Slug),
