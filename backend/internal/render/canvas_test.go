@@ -153,3 +153,13 @@ func TestCanvasBridgeForwardsCtrlH(t *testing.T) {
 		t.Error("the bridge does not forward Ctrl+H")
 	}
 }
+
+// An empty section shows a builder-only hint: hidden by default, a block while editing.
+func TestCanvasBridgeEmptyHintStyle(t *testing.T) {
+	t.Parallel()
+	for _, want := range []string{"[data-hm-empty]{display:none}", "html[data-hm-editing] [data-hm-empty]{display:block;min-height:"} {
+		if !strings.Contains(canvasBridgeJS, want) {
+			t.Errorf("bridge style lacks %q", want)
+		}
+	}
+}

@@ -59,6 +59,10 @@
     'html[data-hm-editing]:not([data-hm-v2]) [data-hm-node].hm-canvas-hover{outline:1px dashed rgba(52,80,138,.6);outline-offset:-1px}' +
     'html[data-hm-editing]:not([data-hm-v2]) [data-hm-node].hm-canvas-selected{outline:2px solid #34508A;outline-offset:-2px}' +
     'html[data-hm-editing] [data-hm-node][data-hm-holds]:empty{min-height:64px;outline:1px dashed rgba(52,80,138,.45);outline-offset:-1px}' +
+    '[data-hm-empty]{display:none}' +
+    'html[data-hm-editing] [data-hm-empty]{display:block;min-height:96px;padding:24px;outline:1px dashed rgba(52,80,138,.45);outline-offset:-1px;font:14px/1.5 system-ui,sans-serif;color:#4a5568;background:rgba(52,80,138,.04)}' +
+    'html[data-hm-editing] [data-hm-empty]>span{display:block}' +
+    'html[data-hm-editing] [data-hm-empty]>span:first-child{font-weight:600}' +
     'html[data-hm-editing] [data-hm-prop][contenteditable]{cursor:text;outline:none}' +
     'html[data-hm-editing] [data-hm-field][contenteditable]{text-decoration:none!important;text-transform:none!important}' +
     'html[data-hm-editing] [contenteditable]{cursor:text;outline:none}' +

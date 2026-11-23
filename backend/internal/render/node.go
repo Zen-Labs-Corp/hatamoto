@@ -767,6 +767,9 @@ func (e *Engine) renderComponent(b *bytes.Buffer, c *compiled, v *PageView, n *b
 	}
 	if canvas {
 		b.WriteString(`<div style="display:contents" ` + nodeMarker(n.ID) + " " + kindMarker(p.Type) + " " + string(sectionMarker(p)) + ">")
+		if contentEmpty(s.Content) {
+			b.WriteString(emptyHint(c, p.Type))
+		}
 		b.Write(out.Bytes())
 		b.WriteString("</div>")
 		return
@@ -780,6 +783,44 @@ func (e *Engine) renderComponent(b *bytes.Buffer, c *compiled, v *PageView, n *b
 		return
 	}
 	b.Write(out.Bytes())
+}
+
+// contentEmpty reports whether a section's content has nothing an editor
+// typed: nil, blank strings, empty lists and maps of those. Numbers, booleans
+// and other types are ignored (they do not count as content).
+func contentEmpty(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return true
+	case string:
+		return strings.TrimSpace(x) == ""
+	case []any:
+		for _, e := range x {
+			if !contentEmpty(e) {
+				return false
+			}
+		}
+		return true
+	case map[string]any:
+		for _, e := range x {
+			if !contentEmpty(e) {
+				return false
+			}
+		}
+		return true
+	}
+	return true
+}
+
+// emptyHint is the builder-only placeholder of an empty section: the canvas
+// bridge shows it while editing and hides it otherwise. It carries no field
+// or prop markers, so inline editing never maps onto it.
+func emptyHint(c *compiled, typ string) string {
+	title := typ
+	if def := c.theme.Sections[typ]; def != nil && def.Meta.Title != "" {
+		title = def.Meta.Title
+	}
+	return `<div data-hm-empty contenteditable="false"><span>` + html.EscapeString(title) + `</span><span>This section is empty.</span><span>Add content in the Content tab.</span></div>`
 }
 
 // execDispatch executes section-dispatch, turning a template panic into an error.
