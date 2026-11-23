@@ -319,3 +319,23 @@ func TestConvertWPBakeryImageIDMustBeDigits(t *testing.T) {
 		t.Errorf("MissingImages = %q", c.MissingImages)
 	}
 }
+
+func TestConvertWPBakeryImageThenRewrite(t *testing.T) {
+	rw := &Rewriter{
+		Hosts: map[string]bool{"example.com": true},
+		Media: func(u *url.URL) (string, bool) {
+			if mediaKey(u) == "2020/01/photo.jpg" {
+				return "/media/t/photo.jpg", true
+			}
+			return "", false
+		},
+	}
+	c := Convert(`[vc_single_image image="12" link="url:https%3A%2F%2Fexample.com%2Fwp-content%2Fuploads%2F2020%2F01%2Fphoto.jpg"]`, true, WithMedia(testVCMedia))
+	out, st := rw.Rewrite(c.HTML)
+	if !strings.Contains(out, `<img src="/media/t/photo.jpg"`) || strings.Contains(out, "wp-content") {
+		t.Errorf("image not rewritten: %s", out)
+	}
+	if st.MediaRewritten != 2 || len(st.Unresolved) != 0 {
+		t.Errorf("stats %+v", st)
+	}
+}
