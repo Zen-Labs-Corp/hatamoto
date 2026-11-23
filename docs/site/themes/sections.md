@@ -35,13 +35,13 @@ Sections with `isVisible: false` are skipped, and the rest are ordered by `sort_
 
 ## The schema
 
-`schemas/<type>.json` describes the section's `content`. The supported JSON Schema subset is plain structural keywords: `type`, `properties`, `items`, `enum`, `default`, `title`, `description`, `required` and numeric or length bounds. The admin form cannot render `$ref`, `oneOf`, `anyOf`, `allOf` or `patternProperties`, so a schema using any of them is rejected when the theme loads, as is an unknown `x-hm-field` kind. The checks walk nested properties and array items.
+`schemas/<type>.json` describes the section's `content`. The supported JSON Schema subset is plain structural keywords: `type`, `properties`, `items`, `enum`, `default`, `title`, `description`, `required` and numeric or length bounds. The admin form cannot render `$ref`, `oneOf`, `anyOf`, `allOf` or `patternProperties`, so a schema using any of them is rejected when the theme loads, as is an unknown `x-hm-field` kind or an `x-hm-section.example` that is not an object, names a property the schema does not have, or has a value of the wrong type or outside an `enum`. The checks walk nested properties and array items.
 
 Hatamoto adds three extensions:
 
 | Keyword | Where | Meaning |
 | --- | --- | --- |
-| `x-hm-section` | top level | `{ "title", "description", "icon" }` shown in the section picker |
+| `x-hm-section` | top level | `{ "title", "description", "icon", "example" }`: `title`, `description` and `icon` are shown in the section picker. `example` is optional: the `content` stored when an editor inserts the section, so it does not start empty. It is checked when the theme loads: it must be an object whose keys are top-level property names, with values of the declared JSON types and, for an `enum`, one of its values. Older cores ignore it | |
 | `x-hm-field` | string property | the field kind, listed below |
 | `x-hm-alias` | top-level property | alternative stored names, for example `form_slug` with alias `formSlug`; the renderer maps the alias to the canonical name before the template runs |
 
@@ -49,7 +49,11 @@ A complete schema:
 
 ```json
 {
-  "x-hm-section": { "title": "Call to action", "description": "Heading and one button" },
+  "x-hm-section": {
+    "title": "Call to action",
+    "description": "Heading and one button",
+    "example": { "heading": "Ready to start?", "buttonText": "Get started", "buttonUrl": "#" }
+  },
   "type": "object",
   "properties": {
     "heading":    { "type": "string", "title": "Heading", "x-hm-field": "plaintext" },

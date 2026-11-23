@@ -898,6 +898,12 @@ From inside the canvas frame Ctrl/Cmd+Z, Shift+Z, Y, D, C, X, V, G, Shift+G, K a
   (the `columns` widget), 33/67 and 67/33 and a 2×2 grid (a `container` in grid layout with a column template), and
   **Choose an element…** and **Insert a ready-made section…** for the Insert tab (at the same position). Each layout is one undo step ("Add section: 3 columns" at the page level, "Add 3 columns" nested).
   The buttons are pointer only: the keyboard path is the toolbar's **Insert after** (the same picker after the selection) or the Insert tab.
+* **Inserting a theme section.** The section cards show the theme's `description`. Inserting one (click, Enter, drag, the
+  `/` popover or the command palette) stores the section's `x-hm-section.example` as its `content` in the same undo
+  step, selects it and opens the inspector's Content tab with the first field focused. A section without an example
+  is inserted with no `content`. Native elements are inserted as before and keep the current inspector tab. A section whose
+  content is empty shows a placeholder on the canvas only ("This section is empty." and "Add content in the Content
+  tab."); it is not part of the published page.
 * **Move handle.** The selected element's toolbar carries a handle; dragging it reorders with the same drop targets as the
   tree. A press before the lazy `drag` chunk has arrived starts the drag as soon as it does if the pointer is still
   down. A v1 section's handle moves the whole section (its top-level container), not the component inside it.

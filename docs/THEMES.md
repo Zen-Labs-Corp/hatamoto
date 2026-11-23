@@ -1079,20 +1079,24 @@ Supported JSON Schema subset: plain structural keywords (`type`, `properties`,
 `items`, `enum`, `default`, `title`, `description`, `required`, and numeric or
 length bounds). The admin form cannot render `$ref`, `oneOf`, `anyOf`, `allOf`
 or `patternProperties`, so a schema using any of them is rejected when the
-theme loads, as is an unknown `x-hm-field` kind.
+theme loads, as is an unknown `x-hm-field` kind or an `x-hm-section.example` that is not an object, names a property the schema does not have, or has a value of the wrong type or outside an `enum`.
 
 Extensions:
 
 | Keyword | Where | Meaning |
 | --- | --- | --- |
-| `x-hm-section` | top level | `{ "title", "description", "icon" }` shown in the section picker |
+| `x-hm-section` | top level | `{ "title", "description", "icon", "example" }`: `title`, `description` and `icon` are shown in the section picker. `example` is optional: the `content` stored when an editor inserts the section, so it does not start empty. It is checked when the theme loads: it must be an object whose keys are top-level property names, with values of the declared JSON types and, for an `enum`, one of its values. Older cores ignore it | |
 | `x-hm-field` | string property | field kind: `plaintext`, `richtext`, `html`, `url`, `image`, `code`, `css`. `richtext` and `html` strings are sanitised at render time (and `data-hm-*` is stripped from them); `plaintext` and `code` are escaped by the template (`code` is edited in a monospace textarea and rendered through `hl`, see below). `css` is edited like `code` but is for a theme's own `<style>` element: at render time every `<` that could start a tag (one followed by `/`, `!`, `?` or an ASCII letter, or the last character of the value) becomes the CSS escape `\3c ` (so values joined in one `<style>` can never form `</style>`; other `<`, as in `@media (width < 600px)`, and `>` are left alone so range syntax and child combinators work). A value containing `<!--` is kept, with that `<` escaped. A value containing `@import`, `expression(`, `javascript:`, `behavior:` or `-moz-binding` (case-insensitive) becomes empty, but that deny-list is best-effort only and can be bypassed with CSS escapes (for example `\40import`); do not rely on it. The only guaranteed property is that the value cannot leave the `<style>` element. Emit it only inside a top-level `<style>` element, as `<style>{{.Content.css}}</style>`, never inside `<svg>` and never in an attribute or elsewhere. Stored content is not rewritten |
 | `x-hm-alias` | top-level property | alternative stored names, e.g. `form_slug` with alias `formSlug`; the renderer maps the alias to the canonical name before the template runs |
 | `x-hm-item-label` | array property | the noun in the Add button of a repeater, e.g. `"slide"` gives "Add slide"; without it the button reads "Add <title> item" |
 
 ```json
 {
-  "x-hm-section": { "title": "Call to action", "description": "Heading and one button" },
+  "x-hm-section": {
+    "title": "Call to action",
+    "description": "Heading and one button",
+    "example": { "heading": "Ready to start?", "buttonText": "Get started", "buttonUrl": "#" }
+  },
   "type": "object",
   "properties": {
     "heading":    { "type": "string", "title": "Heading", "x-hm-field": "plaintext" },
