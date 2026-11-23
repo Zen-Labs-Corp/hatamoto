@@ -321,7 +321,7 @@ func TestConvertWPBakeryUnclosedRawTagsStayFast(t *testing.T) {
 }
 
 func TestConvertWPBakeryImageIDMustBeDigits(t *testing.T) {
-	c := Convert("[vc_single_image image=\"x\x1b[2J\"][vc_single_image image=\""+strings.Repeat("9", 21)+"\"][vc_single_image image=\"7\"]", true, WithMedia(testVCMedia))
+	c := Convert("[vc_single_image image=\"x\x1b(2J\"][vc_single_image image=\""+strings.Repeat("9", 21)+"\"][vc_single_image image=\"7\"]", true, WithMedia(testVCMedia))
 	if !reflect.DeepEqual(c.MissingImages, []string{"7", "invalid"}) {
 		t.Errorf("MissingImages = %q", c.MissingImages)
 	}

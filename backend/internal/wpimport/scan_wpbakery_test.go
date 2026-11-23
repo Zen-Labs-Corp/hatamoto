@@ -55,7 +55,7 @@ func TestScanWPBakeryMissingImagesAreBounded(t *testing.T) {
 	for i := range 30 {
 		b.WriteString(`[vc_single_image image="` + strconv.Itoa(100+i) + `"]`)
 	}
-	b.WriteString("[vc_single_image image=\"x\x1b[2J\"][vc_single_image image=\"" + strings.Repeat("9", 21) + "\"]")
+	b.WriteString("[vc_single_image image=\"x\x1b(2J\"][vc_single_image image=\"" + strings.Repeat("9", 21) + "\"]")
 	r := Scan(&Dump{RawBodies: true, Items: []Item{{ID: "1", Type: "page", Status: "publish", Title: "Many", Content: b.String()}}}, "test")
 	if len(r.LowFidelity) != 1 {
 		t.Fatalf("LowFidelity = %+v", r.LowFidelity)
