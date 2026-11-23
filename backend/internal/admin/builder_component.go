@@ -56,7 +56,7 @@ func (a *Admin) renderComponentForm(def ThemeSection, content map[string]any, pr
 // componentReply is what the component endpoint answers.
 type componentReply struct {
 	HTML       string              `json:"html,omitempty"`
-	Content    *map[string]any     `json:"content,omitempty"`
+	Content    *map[string]any     `json:"content,omitzero"`
 	Errors     map[string][]string `json:"errors,omitempty"`
 	Structural bool                `json:"structural,omitzero"`
 }
