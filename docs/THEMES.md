@@ -263,7 +263,13 @@ own (a theme file with the same name wins over the embedded default):
 `Total`, `Page`, `Pages`, `PrevURL`, `NextURL`, `Notice`, `Error` and `Newest`.
 `CommentItem` has `ID`, `Author`, `IsSiteAuthor`, `Body` (already sanitised HTML,
 print it as is), `CreatedAt`, `Depth`, `Replies`, `ReplyURL` (empty at the
-maximum depth), `Own`, `Editable`, `EditAction` and `DeleteAction`.
+maximum depth), `Own`, `Editable`, `EditAction`, `DeleteAction` and `Dead`.
+`Dead` is true for a comment a plugin marked dead. Unless the viewer may read it,
+`Author` and `Body` are empty, so an override prints the `comment_dead` string
+(default `[dead]`) instead of the name and text, adds the class
+`hm-comment--dead` to the item and offers no `ReplyURL`; its `Replies` still render.
+When the viewer may read it, `Author` and `Body` are filled and `Dead` stays
+true, so show the text with the `comment_dead` marker.
 `Notice` is a code, `check_email` or `posted`. `Error` is a code, `body_empty`,
 `body_long`, `name`, `email`, `email_domain` or `closed`. The theme maps the codes
 to its own text; the default strings are the `comment_*` and `comments_*` keys of

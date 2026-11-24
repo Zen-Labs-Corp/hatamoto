@@ -17,11 +17,15 @@ Comments cannot be turned on until the site address is set (Settings > General, 
 
 Owners and editors moderate every comment. Every comment with a link and every first comment waits in the queue.
 
-The Comments screen in the sidebar lists comments in four tabs: Pending, Approved, Spam and Trash. Search by text and filter by entry, commenter trust or "has links". A held comment shows why it was held, for example a link or a first comment. The sidebar item shows the number of comments waiting, and shows once comments are on or any comment exists.
+The Comments screen in the sidebar lists comments in five tabs: Pending, Approved, Spam, Trash and Dead. Search by text and filter by entry, commenter trust or "has links". A held comment shows why it was held, for example a link or a first comment. The sidebar item shows the number of comments waiting, and shows once comments are on or any comment exists.
 
 Each row can be approved, replied to as the site, edited, marked as spam or trashed. Approving a comment from a new commenter can also vouch for them, which raises their trust level. Marking spam can teach the site to catch the same text, address or links again. Select several rows to approve, mark as spam, trash or delete them together; deleting removes a comment and its replies for good and asks first.
 
 Under Settings > Comments there are two more pages. Commenters lists the people who commented: search them, vouch for or block one, export what is stored about them, sign them out everywhere or erase them. Sign out all devices ends the commenter's sign-in on every device; the trust level stays. Erasing has one behaviour: comments without replies are deleted and the others are made anonymous. Webhooks and plugins hear of the deleted ones (`comment.deleted`), not of the anonymised ones. Blocklists holds the email and link domains that mark a comment as spam, which owners and editors can edit, and the spam texts, addresses and networks learned from Mark as spam, which can only be cleared.
+
+**Dead comments.** A plugin that created a content type can mark comments on it dead (and restore them). A dead comment is kept for good: the retention job never purges it, its replies stay under it, and it is left out of every comment count. Visitors see a placeholder ("[dead]" in the default theme) instead of the name and text. The author still reads their own comment, and so does a visitor the same plugin flagged to show dead comments; a page read that way is never cached for others. Dead comments cannot be edited, and no reply notification is sent for them. The Dead tab lists them with the plugin that marked them; each row can be restored (it becomes approved), trashed or deleted, and the bulk bar offers the same. Staff mark nothing dead themselves.
+
+**Order.** Besides newest and oldest first, a content type can order top-level comments by rank: higher rank first, then newest. A plugin that owns the type sets the ranks; the site-wide setting is not changed by it. Replies stay in the order of their thread.
 
 The Overview shows a Comments card with the newest waiting comments and a link to the queue; it is left out while comments are off and nothing is waiting.
 
@@ -87,7 +91,7 @@ No raw IP address is stored, only keyed hashes (`ip_hash` and `net_hash`), which
 
 ## Plugins
 
-Plugins can add to a comment's spam score through a hook that never sees the IP address or the email. Not written yet.
+Plugins that hold `comments.moderate` can mark comments dead, restore them and rank them on their own content type, and hear of changes through `comment.updated` and `comment.deleted` (see the plugin API). Plugins can add to a comment's spam score through a hook that never sees the IP address or the email. Not written yet.
 
 ## For developers
 
