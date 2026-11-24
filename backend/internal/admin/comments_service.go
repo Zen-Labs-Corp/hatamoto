@@ -54,14 +54,14 @@ type CommentFilter struct {
 }
 
 // CommentCounts are the site-wide totals behind the status tabs (never filtered).
-type CommentCounts struct{ Pending, Approved, Spam, Trash int }
+type CommentCounts struct{ Pending, Approved, Spam, Trash, Dead int }
 
 // CommentRow is one comment as the moderation screen shows it. AuthorUserID
 // is set for a site reply (the "Author" tag); CommenterID is empty then.
 // Reasons are the human strings the model produced for why it was held.
 type CommentRow struct {
 	ID, EntityID, EntityTitle, ParentID, Status, BodyHTML, BodyRaw string
-	AuthorName, AuthorUserID, CommenterID, Trust                   string
+	AuthorName, AuthorUserID, CommenterID, Trust, DeadBy           string
 	ApprovedCount                                                  int
 	HasLinks                                                       bool
 	Score                                                          int
