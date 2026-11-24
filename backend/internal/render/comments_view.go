@@ -43,6 +43,7 @@ type CommentItem struct {
 	Editable     bool
 	EditAction   string
 	DeleteAction string
+	Dead         bool // a dead comment: Author and Body are empty unless the viewer may see it
 }
 
 // CommentForm feeds the comments/form partial. Name, Email, Body, Honeypot and

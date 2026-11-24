@@ -39,9 +39,14 @@ func commentThreadFixture() *CommentThread {
 			item("c3", "Ken", "Second reply.", 3)))
 	site := item("c4", "Site team", "Thanks for reading.", 1)
 	site.IsSiteAuthor = true
+	// A dead placeholder (no author, no body) keeps its reply; a revealed dead item shows both.
+	dead := CommentItem{ID: "c6", CreatedAt: at, Depth: 1, Dead: true,
+		Replies: []CommentItem{item("c7", "Ada", "Reply under the dead one.", 2)}}
+	revealed := item("c8", "Barbara", "Shown with show dead.", 1)
+	revealed.Dead = true
 	return &CommentThread{
-		Items: []CommentItem{chain, site, item("c5", "Margaret", "Another view.", 1)},
-		Total: 5, Page: 1, Pages: 1, Newest: true,
+		Items: []CommentItem{chain, site, item("c5", "Margaret", "Another view.", 1), dead, revealed},
+		Total: 8, Page: 1, Pages: 1, Newest: true,
 	}
 }
 
