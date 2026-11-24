@@ -163,6 +163,23 @@ try {
     await page.waitForLoadState("load");
     await page.goto(`${base}${admin}/comments?status=pending`);
     ok((await tabCount(page, "trash")) === trash + 2, "queue: bulk trash of two raises the Trash count by 2");
+
+    // Dead tab: one comment a plugin marked dead; Restore moves it to Approved.
+    await page.goto(`${base}${admin}/comments?status=dead`);
+    ok((await tabCount(page, "dead")) === 1, "dead tab: the Dead count is 1");
+    const dead = page.locator("table tbody tr");
+    const deadText = await dead.first().innerText();
+    ok(deadText.includes("Dead") && deadText.includes("Marked dead by plugin example."), "dead tab: the row has the Dead badge and the plugin line");
+    await dead.first().locator('[popovertarget^="menu-"]').click();
+    for (const name of ["Restore", "Trash", "Delete"]) {
+      ok(await page.getByRole("menuitem", { name, exact: true }).isVisible(), `dead tab: the row offers ${name}`);
+    }
+    await page.screenshot({ path: path.join(shots, "comments-dead.png"), fullPage: true });
+    const approvedBefore = await tabCount(page, "approved");
+    await page.getByRole("menuitem", { name: "Restore", exact: true }).click();
+    await page.waitForLoadState("load");
+    await page.goto(`${base}${admin}/comments?status=dead`);
+    ok((await tabCount(page, "dead")) === 0 && (await tabCount(page, "approved")) === approvedBefore + 1, "dead tab: Restore empties Dead and raises Approved by 1");
   } else skip("moderation");
 
   // ============ a phone ============
