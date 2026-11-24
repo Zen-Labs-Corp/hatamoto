@@ -33,6 +33,7 @@ type commentSettingsView struct {
 	NoAddress      bool
 	S              CommentSettings
 	Cards          []csetCard
+	Types          []cpolType
 	FormErrors     []ui.FieldError
 }
 
@@ -247,6 +248,9 @@ func (a *Admin) renderCommentSettings(w http.ResponseWriter, r *http.Request, st
 		d.FormErrors = append(d.FormErrors, ui.FieldError{ID: csetFieldID(e.Name), Label: label, Message: e.Message})
 	}
 	d.Cards = csetCards(vals, byName)
+	if s.Enabled {
+		d.Types = a.cpolTypes(r, a.deps.Comments, s.Sort)
+	}
 	v := a.NewView(w, r, "Comments")
 	v.Section, v.Tab = "comments", "comments"
 	v.Width = "compact"
