@@ -12,6 +12,7 @@ import (
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/statichost"
 	"hatamoto.dev/sdk"
 )
 
@@ -52,6 +53,17 @@ func (s *Server) handlePluginAdminRoute(w http.ResponseWriter, r *http.Request) 
 	s.plugins.AdminRoutes().Serve(w, r, r.PathValue("plugin"), r.PathValue("rest"), user)
 }
 
+// withVisitorIP puts the client address in the request context; only a plugin
+// holding client.key gets keys derived from it. Synthetic renders (static
+// export, page preload, smoke pass) have no visitor, so they carry no address.
+func withVisitorIP(r *http.Request) context.Context {
+	ctx := r.Context()
+	if statichost.IsExport(ctx) || refreshRequested(ctx) || isSmokeRequest(ctx) {
+		return ctx
+	}
+	return clientkey.WithIP(ctx, middleware.GetClientIP(r))
+}
+
 func (s *Server) handlePluginPublicRoute(w http.ResponseWriter, r *http.Request) {
 	if s.plugins == nil {
 		notFoundHandler(w, r)
@@ -66,8 +78,7 @@ func (s *Server) handlePluginPublicRoute(w http.ResponseWriter, r *http.Request)
 			return
 		}
 	}
-	// The address stays in the context; only a plugin holding client.key gets keys derived from it.
-	r = r.WithContext(clientkey.WithIP(r.Context(), middleware.GetClientIP(r)))
+	r = r.WithContext(withVisitorIP(r))
 	s.plugins.PublicRoutes().Serve(w, r, plugin, rest, nil)
 }
 

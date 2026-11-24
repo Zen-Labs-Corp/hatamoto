@@ -121,7 +121,7 @@ func init() {
 			return p, nil
 		}
 		if p.Path == "/echo-keys" { // reports the visitor keys the host passed in
-			p.Blocks = []sdk.Block{{ID: "keys", Type: "content", Title: p.AddrKey + "|" + p.NetKey}}
+			p.Blocks = []sdk.Block{{ID: "keys", Type: "content", Title: p.AddrKey + "|" + p.NetKey, Content: map[string]any{"headline": p.AddrKey + "|" + p.NetKey, "body": "<p>" + p.AddrKey + "</p>"}}}
 			return p, nil
 		}
 		if p.Cookies["unlock"] != "1" {
