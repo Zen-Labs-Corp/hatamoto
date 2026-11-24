@@ -215,7 +215,7 @@ func (im *Importer) Import(ctx context.Context, batch []ImportedComment) (Import
 			ipHash, netHash := im.keys.HashIP(b.IP)
 			created := b.CreatedAt.UTC()
 			var approvedAt *time.Time
-			if b.Status == StatusApproved {
+			if b.Status == StatusApproved || b.Status == StatusDead { // dead is a once-approved comment
 				approvedAt = &created
 			}
 			verdict := "allow"
