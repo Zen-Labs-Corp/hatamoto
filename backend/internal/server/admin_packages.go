@@ -328,6 +328,19 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 		sum.Refused = packages.RefusedPermissions(origin, pkg)
 		sum.RequestHeaders, sum.CSP = m.RequestHeaders, permtext.CSPLines(m.CSP)
 		sum.ContentTypes = packages.ContentTypeNames(pkg)
+		sum.EntitySchema = m.EntitySchema
+		if m.EntitySchema != "" {
+			if cts, err := pkg.EntitySchemas(); err == nil {
+				for _, ct := range cts {
+					if ct.Slug == m.EntitySchema {
+						sum.EntitySchemaName = ct.Name
+					}
+				}
+			}
+			if sum.EntitySchemaName == "" {
+				sum.EntitySchemaName = m.EntitySchema
+			}
+		}
 		sum.Tags = tagInfos(pkg)
 		sum.DeclaresRuns = len(m.Runs) > 0
 		for _, r := range m.Runs {
@@ -374,7 +387,7 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	sum.FirstParty = sum.Problem == "" && packages.Classify(pkg.Name, sum.Signer) == packages.OriginFirstParty
 	if need, err := p.mgr().NeedsConfirmation(ctx, pkg, packages.SourceUpload); err == nil && need != nil {
 		c := &admin.ConfirmInfo{Name: need.Name, Downgrade: need.Downgrade, SignerChange: need.SignerChange,
-			WidenedAccess: need.WidenedAccess, NewHosts: need.NewHosts, NewFetchAny: need.NewFetchAny, NewIsland: need.NewIsland, NewScripts: need.NewScripts, NewEntitiesFilter: need.NewEntitiesFilter, NewCSPHosts: need.NewCSPHosts, NewRequestHeaders: need.NewRequestHeaders, NewRedirectPaths: need.NewRedirectPaths, NewTagHosts: need.NewTagHosts, TagCategoryChanged: need.TagCategoryChanged,
+			WidenedAccess: need.WidenedAccess, NewHosts: need.NewHosts, NewFetchAny: need.NewFetchAny, NewIsland: need.NewIsland, NewScripts: need.NewScripts, NewEntitiesFilter: need.NewEntitiesFilter, NewEntityWrite: need.NewEntityWrite, EntitySchemaChanged: need.EntitySchemaChanged, OldEntitySchema: need.OldEntitySchema, NewEntitySchema: need.NewEntitySchema, NewEntityFields: need.NewEntityFields, NewCSPHosts: need.NewCSPHosts, NewRequestHeaders: need.NewRequestHeaders, NewRedirectPaths: need.NewRedirectPaths, NewTagHosts: need.NewTagHosts, TagCategoryChanged: need.TagCategoryChanged,
 			OldVersion: need.OldVersion, NewVersion: need.NewVersion, OldSigner: need.OldSigner, NewSigner: need.NewSigner}
 		for _, m := range need.Missing {
 			c.Missing = append(c.Missing, admin.MissingSection{Type: m.Type, Uses: m.Uses})

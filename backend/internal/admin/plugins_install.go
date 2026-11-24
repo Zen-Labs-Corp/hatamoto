@@ -59,6 +59,8 @@ type promptStatement struct {
 	permtext.Statement
 	Icon string
 	New  bool // requested by an update and not granted before
+	// Detail is a second muted line under the statement.
+	Detail string
 }
 
 // promptScripts is the one permission the owner must switch on: site.scripts
@@ -329,6 +331,14 @@ func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, 
 	}
 	g := permtext.Group(perms, sum.DeclaresRuns, sum.Proposes)
 	d.Can, d.Never = promptStatements(g.Can, newTitles), promptStatements(g.Never, nil)
+	if sum.EntitySchema != "" {
+		title := strings.TrimSuffix(permtext.Lookup(sdk.PermEntitiesWriteOwn).Short, ".")
+		for i := range d.Can {
+			if d.Can[i].Title == title {
+				d.Can[i].Detail = fmt.Sprintf("Content type: %s (%s)", sum.EntitySchemaName, sum.EntitySchema)
+			}
+		}
+	}
 	// A package from another signer starts with nothing granted.
 	reset := sum.Confirm != nil && (sum.Confirm.SignerChange || sum.Confirm.WidenedAccess)
 	for _, p := range perms {
