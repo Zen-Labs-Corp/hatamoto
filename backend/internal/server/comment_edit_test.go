@@ -21,12 +21,16 @@ import (
 
 type fakeEditor struct {
 	c       comment.Comment
+	cfg     comment.EntityConfig
 	getErr  error
 	edited  *comment.Edited
 	trashed bool
 }
 
 func (f *fakeEditor) Get(context.Context, uuid.UUID) (comment.Comment, error) { return f.c, f.getErr }
+func (f *fakeEditor) EntityConfig(context.Context, uuid.UUID) (comment.EntityConfig, error) {
+	return f.cfg, nil
+}
 func (f *fakeEditor) Edit(_ context.Context, _ uuid.UUID, e comment.Edited) (comment.Comment, error) {
 	f.edited = &e
 	return f.c, nil
@@ -259,5 +263,24 @@ func TestCommentEditRunsContentChecks(t *testing.T) {
 	}
 	if r.ed.edited == nil || r.ed.edited.Hold {
 		t.Fatalf("a clean edit was held: %+v", r.ed.edited)
+	}
+}
+
+func TestCommentEditWindowFollowsTypePolicy(t *testing.T) {
+	r := newEditRig()
+	r.ed.cfg.Policy = comment.Policy{Enabled: true, EditWindowMinutes: 120}
+	r.ed.c.CreatedAt = r.now.Add(-time.Hour) // past the default 15m, inside the type's 120m
+	if w := r.do(false, editForm("still mine")); w.Code != http.StatusSeeOther || r.ed.edited == nil {
+		t.Fatalf("edit inside the type window: %d edited=%v", w.Code, r.ed.edited)
+	}
+	if w := r.do(true, nil); w.Code != http.StatusSeeOther || !r.ed.trashed {
+		t.Fatalf("delete inside the type window: %d trashed=%v", w.Code, r.ed.trashed)
+	}
+
+	r = newEditRig()
+	r.ed.cfg.Policy = comment.Policy{Enabled: true, EditWindowMinutes: 30}
+	r.ed.c.CreatedAt = r.now.Add(-time.Hour)
+	if w := r.do(false, editForm("late")); w.Code != http.StatusForbidden || r.ed.edited != nil {
+		t.Fatalf("edit past the type window: %d edited=%v", w.Code, r.ed.edited)
 	}
 }
