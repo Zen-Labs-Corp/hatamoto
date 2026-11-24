@@ -9,4 +9,10 @@ const (
 
 	// NoAddressMsg is shown when comments are turned on with no site address.
 	NoAddressMsg = "Set your site address in Settings > General before turning comments on."
+
+	// The community policy per content type (ADR 0005 9.5). Settings > Comments >
+	// Content types, the kit review screen and the CLI print these.
+	PolicyOnWarning      = "Links and first-time commenters are posted at once, not held."
+	PolicyConfirmWarning = "Are you sure? With the community policy on, comments with links and first comments on this content type are posted at once, without review. Spam checks, blocked commenters, duplicates, captcha and surge mode still hold comments."
+	PolicyTick           = "I understand comments on this type will not wait for review"
 )

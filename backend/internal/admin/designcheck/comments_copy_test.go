@@ -24,3 +24,20 @@ func TestCommentsTemplatesMatchExportedCopy(t *testing.T) {
 		}
 	}
 }
+
+// The community policy copy on the settings page and the per-type panel stays equal to the exported copy.
+func TestCommentsPolicyTemplatesMatchExportedCopy(t *testing.T) {
+	t.Parallel()
+
+	for name, wants := range map[string][]string{
+		"pages/settings/comments.html":        {comment.PolicyOnWarning, comment.PolicyConfirmWarning, comment.PolicyTick},
+		"pages/settings/comments-policy.html": {comment.PolicyConfirmWarning, comment.PolicyTick},
+	} {
+		src := readWeb(t, name)
+		for _, want := range wants {
+			if !strings.Contains(src, want) {
+				t.Errorf("%s lacks %q", name, want)
+			}
+		}
+	}
+}

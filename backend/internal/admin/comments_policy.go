@@ -9,16 +9,17 @@ import (
 
 	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
+	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/sdk"
 )
 
 // Wording of the community policy warnings. The templates carry the same text
 // literally (the design check pins both).
 const (
-	cpolOnWarning = "Links and first-time commenters are posted at once, not held."
+	cpolOnWarning = comment.PolicyOnWarning
 	cpolOffHelp   = "Links and new commenters are held."
-	cpolConfirm   = "Are you sure? With the community policy on, comments with links and first comments on this content type are posted at once, without review. Spam checks, blocked commenters, duplicates, captcha and surge mode still hold comments."
-	cpolTick      = "I understand comments on this type will not wait for review"
+	cpolConfirm   = comment.PolicyConfirmWarning
+	cpolTick      = comment.PolicyTick
 )
 
 // cpolFields are the policy numbers shown while the policy is on.
