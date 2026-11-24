@@ -138,7 +138,11 @@ func (s *Service) Store(ctx context.Context, d Draft) (Comment, error) {
 			if err != nil {
 				return err
 			}
-			if attach := ReplyParentPath(path, set.MaxDepth); attach != "" {
+			_, pol, err := schemaComments(ctx, tx, d.EntityID)
+			if err != nil {
+				return err
+			}
+			if attach := ReplyParentPath(path, pol.Depth(set.MaxDepth)); attach != "" {
 				var id uuid.UUID
 				if err := tx.QueryRow(ctx, `SELECT id FROM hatamoto_comments WHERE path = $1 FOR KEY SHARE`, attach).Scan(&id); err != nil {
 					return err
@@ -264,8 +268,13 @@ func (s *Service) Confirm(ctx context.Context, id uuid.UUID) (Comment, error) {
 			st.Current = TrustLevel(level)
 			trust = EvaluateTrust(st, set.Thresholds, now)
 		}
+		_, pol, err := schemaComments(ctx, tx, c.EntityID)
+		if err != nil {
+			return err
+		}
 		status, decided := Decide(DecideInput{
 			Verdict: c.SpamVerdict, HasLinks: c.HasLinks, Trust: trust, AdminAuthor: c.AuthorUserID != nil,
+			Community: pol.Enabled,
 		})
 		reasons := mergeReasons(c.SpamReasons, decided)
 		reasonsText, err := reasonsJSON(reasons)
@@ -451,7 +460,8 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 
 // Edit stores a re-rendered body and sets edited_at. An edit by the commenter
 // that leaves links in the body, or that the content checks held, moves an
-// approved comment back to pending.
+// approved comment back to pending. On a content type with the community
+// policy a link does not re-hold; a content-check hold still does.
 func (s *Service) Edit(ctx context.Context, id uuid.UUID, e Edited) (Comment, error) {
 	set, err := s.Settings(ctx)
 	if err != nil {
@@ -465,8 +475,13 @@ func (s *Service) Edit(ctx context.Context, id uuid.UUID, e Edited) (Comment, er
 			return err
 		}
 		before = c
+		_, pol, err := schemaComments(ctx, tx, c.EntityID)
+		if err != nil {
+			return err
+		}
 		status := c.Status
-		if !e.ByAdmin && (e.HasLinks || e.Hold) && c.Status == StatusApproved {
+		linkHold := e.HasLinks && !pol.Enabled
+		if !e.ByAdmin && (linkHold || e.Hold) && c.Status == StatusApproved {
 			status = StatusPending
 		}
 		out, err = scanComment(tx.QueryRow(ctx, `UPDATE hatamoto_comments SET body_raw = $2, body_html = $3,
