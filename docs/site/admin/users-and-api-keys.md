@@ -119,7 +119,7 @@ Read the entry again, redo the change and retry. The check is atomic with the wr
 
 - `If-Match` works on `PUT` and `PATCH /api/v1/entities/{id}`, `PATCH /api/v1/entities/{id}/status` and `POST /api/v1/entities/{id}/restore/{version}`. On a restore, the `{version}` in the address is the version to restore and `If-Match` is the current version you expect.
 - The header is optional. Without it a change is applied as before.
-- Send one strong tag (`"9"`) or `*` (any existing entry). A weak tag (`W/"9"`), a list of tags or anything else malformed answers `400`.
+- Send one tag (`"9"`) or `*` (any existing entry). When the response is compressed, the tag may arrive weakened as `W/"9"`; send it back exactly as received, both forms mean version 9. A list of tags or anything else malformed answers `400`.
 - The tag follows the content version. A status change does not advance it, so two status changes with the same tag can both succeed.
 - A change that only moves the entry (`position` alone) does not check the tag.
 - A restore never overwrites an edit stored while it ran. Without `If-Match` (or with `*`) it answers `409` with `current_version`; with a stale tag, `412`.

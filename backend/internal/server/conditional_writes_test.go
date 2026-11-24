@@ -16,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/authzctx"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
 )
@@ -29,10 +30,15 @@ type versionRepo struct {
 	version   int
 	writes    int
 	race      bool // Update loses a race the caller did not name
+	bigAttrs  bool // the entry carries attributes over the compression threshold
 }
 
 func (r *versionRepo) entry(id uuid.UUID) *entity.Entity {
-	return &entity.Entity{ID: id, Name: "E", Slug: "e", Status: entity.StatusPublished, Version: r.version, Attributes: []byte(`{}`),
+	attrs := []byte(`{}`)
+	if r.bigAttrs {
+		attrs = []byte(`{"body":"` + strings.Repeat("x", 2*httpx.CompressMinSize) + `"}`)
+	}
+	return &entity.Entity{ID: id, Name: "E", Slug: "e", Status: entity.StatusPublished, Version: r.version, Attributes: attrs,
 		CreatedBy: &r.createdBy, Schema: &entity.EntitySchema{Slug: "page", Schema: []byte(`{}`)}}
 }
 
@@ -101,6 +107,13 @@ var (
 // If-Match header lines.
 func condCall(t *testing.T, repo *versionRepo, gate entity.ReviewGate, route condRoute, ifMatch ...string) *httptest.ResponseRecorder {
 	t.Helper()
+	return condServe(t, repo, gate, route, nil, ifMatch...)
+}
+
+// condServe is condCall with the handler optionally wrapped in middleware, and
+// a client that accepts gzip.
+func condServe(t *testing.T, repo *versionRepo, gate entity.ReviewGate, route condRoute, wrap func(http.Handler) http.Handler, ifMatch ...string) *httptest.ResponseRecorder {
+	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	uid := uuid.New()
 	repo.createdBy = uid
@@ -118,13 +131,18 @@ func condCall(t *testing.T, repo *versionRepo, gate entity.ReviewGate, route con
 	req := httptest.NewRequest(route.method, "/api/v1/entities/"+id.String(), strings.NewReader(route.body))
 	req.SetPathValue("id", id.String())
 	req.SetPathValue("version", "1")
+	req.Header.Set("Accept-Encoding", "gzip")
 	for _, h := range ifMatch {
 		req.Header.Add("If-Match", h)
 	}
 	ctx := middleware.ContextWithClaims(req.Context(), &auth.Claims{UserID: uuid.New()})
 	ctx = authzctx.With(ctx, authz.Subject{UserID: uid.String(), KeyID: "k1", Scopes: []string{"*"}, CreatorRole: role})
 	rec := httptest.NewRecorder()
-	route.handler(s, rec, req.WithContext(ctx))
+	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { route.handler(s, w, r) })
+	if wrap != nil {
+		h = wrap(h)
+	}
+	h.ServeHTTP(rec, req.WithContext(ctx))
 	return rec
 }
 
@@ -153,7 +171,7 @@ func TestConditionalWrites(t *testing.T) {
 
 	for name, route := range routes {
 		t.Run(name, func(t *testing.T) {
-			for _, ok := range [][]string{nil, {`"3"`}, {`*`}} {
+			for _, ok := range [][]string{nil, {`"3"`}, {`W/"3"`}, {`*`}} {
 				repo := &versionRepo{}
 				rec := condCall(t, repo, nil, route, ok...)
 				if rec.Code != http.StatusOK || rec.Header().Get("ETag") != after[name] || repo.writes != 1 {
@@ -167,7 +185,7 @@ func TestConditionalWrites(t *testing.T) {
 				t.Errorf("stale: status = %d etag = %q body = %s writes = %d", rec.Code, rec.Header().Get("ETag"), rec.Body, repo.writes)
 			}
 
-			for _, bad := range [][]string{{`W/"3"`}, {`"2", "3"`}, {`"3"`, `"3"`}, {`abc`}, {``}} {
+			for _, bad := range [][]string{{`W/"x"`}, {`w/"3"`}, {`W/3`}, {`W/""`}, {`W/"3", W/"3"`}, {`"2", "3"`}, {`"3"`, `"3"`}, {`abc`}, {``}} {
 				repo := &versionRepo{}
 				rec := condCall(t, repo, nil, route, bad...)
 				if rec.Code != http.StatusBadRequest || repo.writes != 0 {
@@ -175,6 +193,28 @@ func TestConditionalWrites(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// httpx.Compress weakens the ETag of a compressed body to W/"N"; a client that
+// echoes it back as received must still pass the check.
+func TestConditionalWeakETagAfterCompression(t *testing.T) {
+	compress := httpx.Compress(func() bool { return true })
+	rec := condServe(t, &versionRepo{bigAttrs: true}, nil, condGet, compress)
+	if rec.Header().Get("Content-Encoding") != "gzip" || rec.Header().Get("ETag") != `W/"3"` {
+		t.Fatalf("GET: encoding = %q etag = %q, want gzip and W/\"3\"", rec.Header().Get("Content-Encoding"), rec.Header().Get("ETag"))
+	}
+	tag := rec.Header().Get("ETag")
+
+	repo := &versionRepo{}
+	rec = condServe(t, repo, nil, condUpdate, compress, tag)
+	if rec.Code != http.StatusOK || repo.writes != 1 {
+		t.Fatalf("PATCH with %s: status = %d writes = %d, want 200 and one write", tag, rec.Code, repo.writes)
+	}
+	repo = &versionRepo{}
+	rec = condServe(t, repo, nil, condUpdate, compress, `W/"2"`)
+	if rec.Code != http.StatusPreconditionFailed || repo.writes != 0 {
+		t.Fatalf("stale weak tag: status = %d writes = %d, want 412", rec.Code, repo.writes)
 	}
 }
 

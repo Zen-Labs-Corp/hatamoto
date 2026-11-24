@@ -20,8 +20,13 @@ type ifMatch struct {
 
 var errIfMatch = errors.New(`If-Match must be one strong entity tag such as "12", or *`)
 
-// parseIfMatch reads the If-Match header: absent, "*" or one strong tag
-// holding a version number. Weak tags, lists and anything else are an error.
+// parseIfMatch reads the If-Match header: absent, "*" or one tag holding a
+// version number. Lists and anything else are an error.
+//
+// The tag is `"N"` or `W/"N"` (case-sensitive W/), both meaning version N. We
+// always send a strong tag, but httpx.Compress, or a proxy in front of us,
+// weakens it to W/"N" when it content-codes the body, and a client echoes the
+// tag back as received. Nothing else weakens it: the version is the same.
 func parseIfMatch(r *http.Request) (ifMatch, error) {
 	vals := r.Header.Values("If-Match")
 	switch len(vals) {
@@ -35,6 +40,7 @@ func parseIfMatch(r *http.Request) (ifMatch, error) {
 	if v == "*" {
 		return ifMatch{present: true, any: true}, nil
 	}
+	v = strings.TrimPrefix(v, "W/")
 	if len(v) < 3 || v[0] != '"' || v[len(v)-1] != '"' {
 		return ifMatch{}, errIfMatch
 	}
