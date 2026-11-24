@@ -77,12 +77,12 @@ func TestAppliedListOrder(t *testing.T) {
 func TestAppliedMigrationDown(t *testing.T) {
 	pool, prov := scratchDB(t)
 	ctx := context.Background()
-	// The newest migration by version is applied_kits (202612010900).
+	// The newest migration by version is applied_kits (202611251300).
 	res, err := prov.Down(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Source.Version != 202612010900 {
+	if res.Source.Version != 202611251300 {
 		t.Skipf("newest migration is %d, not applied_kits", res.Source.Version)
 	}
 	var reg *string
