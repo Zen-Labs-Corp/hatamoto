@@ -183,12 +183,13 @@ type ConfirmInfo struct {
 	Downgrade, SignerChange bool
 	// WidenedAccess is set when an update can call web addresses the installed
 	// version could not; it also clears the plugin's grants.
-	WidenedAccess     bool
-	NewHosts          []string
-	NewFetchAny       bool
-	NewIsland         bool
-	NewScripts        bool
-	NewEntitiesFilter bool
+	WidenedAccess       bool
+	NewHosts            []string
+	NewFetchAny         bool
+	NewIsland           bool
+	NewScripts          bool
+	NewEntitiesFilter   bool
+	NewCommentsModerate bool // the update newly asks for comments.moderate
 	// NewEntityWrite: the update newly asks for entities.write.own;
 	// EntitySchemaChanged: it writes another content type (OldEntitySchema ->
 	// NewEntitySchema); NewEntityFields: keys it may now write.
