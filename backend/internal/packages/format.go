@@ -36,16 +36,18 @@ import (
 // Kind is what a package holds.
 type Kind string
 
-// The two package kinds, named by their manifest: plugin.json or theme.json.
+// The package kinds, named by their manifest: plugin.json, theme.json or kit.json.
 const (
 	KindPlugin Kind = "plugin"
 	KindTheme  Kind = "theme"
+	KindKit    Kind = "kit"
 )
 
 // Well-known entries of a package.
 const (
 	PluginManifest = "plugin.json"
 	ThemeManifest  = "theme.json"
+	KitManifest    = "kit.json"
 	PluginWasm     = "plugin.wasm"
 	SignatureFile  = "signature.json"
 	// Extension is the file extension of a package.
@@ -81,7 +83,7 @@ var topDirs = map[string]bool{
 
 // topFiles are the files allowed at the root next to the directories.
 var topFiles = map[string]bool{
-	PluginManifest: true, ThemeManifest: true, PluginWasm: true, SignatureFile: true,
+	PluginManifest: true, ThemeManifest: true, KitManifest: true, PluginWasm: true, SignatureFile: true,
 	"README.md": true, "LICENSE": true, "CHANGELOG.md": true,
 }
 
@@ -202,6 +204,14 @@ func (p *Package) ThemeMeta() (ThemeMeta, error) {
 		m.Screenshot = ""
 	}
 	return m, err
+}
+
+// Kit decodes kit.json of a kit package.
+func (p *Package) Kit() (*Kit, error) {
+	if p.Kind != KindKit {
+		return nil, errors.New("not a kit package")
+	}
+	return parseKit(p.Manifest)
 }
 
 // packageFS hides signature.json from consumers of the package's files.
@@ -358,6 +368,8 @@ func Parse(raw []byte, lim Limits) (*Package, error) {
 		anyTags  bool
 		tagFiles int
 		otherDir string
+		// firstDir: the first directory of any kind (a kit may hold none).
+		firstDir string
 		assets   = map[string][]byte{} // assets/ contents, for the screenshot check
 	)
 	for _, f := range zr.File {
@@ -405,6 +417,9 @@ func Parse(raw []byte, lim Limits) (*Package, error) {
 		} else if top := strings.SplitN(clean, "/", 2)[0]; (isDir || strings.Contains(clean, "/")) && otherDir == "" {
 			otherDir = top + "/"
 		}
+		if firstDir == "" && (isDir || strings.Contains(clean, "/")) {
+			firstDir = strings.SplitN(clean, "/", 2)[0] + "/"
+		}
 		if isDir {
 			if f.UncompressedSize64 != 0 {
 				return nil, refuse("%s: directory with content", name)
@@ -439,6 +454,8 @@ func Parse(raw []byte, lim Limits) (*Package, error) {
 			manifest, kinds = b, append(kinds, KindPlugin)
 		case ThemeManifest:
 			manifest, kinds = b, append(kinds, KindTheme)
+		case KitManifest:
+			manifest, kinds = b, append(kinds, KindKit)
 		case SignatureFile:
 			sigRaw = b
 			continue // not part of the digest
@@ -448,7 +465,7 @@ func Parse(raw []byte, lim Limits) (*Package, error) {
 		entries = append(entries, entry{clean, sha256.Sum256(b), len(b)})
 	}
 	if len(kinds) != 1 {
-		return nil, refuse("a package holds exactly one of %s or %s", PluginManifest, ThemeManifest)
+		return nil, refuse("a package holds exactly one of %s, %s or %s", PluginManifest, ThemeManifest, KitManifest)
 	}
 	p := &Package{Kind: kinds[0], Manifest: manifest, data: raw, zr: zr}
 	switch p.Kind {
@@ -503,6 +520,24 @@ func Parse(raw []byte, lim Limits) (*Package, error) {
 		_, p.MenusErr = menu.ParseDecl(m.Menus)
 		_, p.StringsErr = themestrings.ParseDecl(m.Strings)
 		p.Name, p.Version = m.Name, m.Version
+	case KindKit:
+		if hasWasm {
+			return nil, refuse("a kit package cannot hold %s", PluginWasm)
+		}
+		if firstDir != "" {
+			return nil, refuse("a kit package holds no directories (found %s)", firstDir)
+		}
+		k, err := p.Kit()
+		if err != nil {
+			return nil, refuse("%s: %v", KitManifest, err)
+		}
+		if !namePattern.MatchString(k.Name) {
+			return nil, refuse("%s: invalid kit name %q (want %s)", KitManifest, k.Name, namePattern)
+		}
+		if !semverPattern.MatchString(k.Version) {
+			return nil, refuse("%s: version %q is not semver", KitManifest, k.Version)
+		}
+		p.Name, p.Version = k.Name, k.Version
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].name < entries[j].name })
 	h := sha256.New()
