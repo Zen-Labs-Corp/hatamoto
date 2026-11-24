@@ -60,8 +60,9 @@ const threadRootsSQL = `WITH dir AS (
 
 // Thread returns one page of the tree in render order with one query (the
 // settings come from the cache): roots by the content type's order (the site
-// sort when it sets none), each followed by its subtree in path order, replies
-// oldest first (by rank, then newest first, in a rank type). Approved and dead
+// sort when it sets none), each followed by its subtree in path order. Replies
+// are oldest first, except in a rank type: then every sibling group, roots and
+// replies alike, is ordered by rank, then newest first. Approved and dead
 // comments are returned; a reply whose parent is neither is dropped with its
 // subtree. A dead row keeps its BodyHTML and AuthorName: hiding them from
 // viewers who may not see them is the caller's job. Only public fields are

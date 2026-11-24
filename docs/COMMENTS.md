@@ -25,7 +25,7 @@ Under Settings > Comments there are two more pages. Commenters lists the people 
 
 **Dead comments.** A plugin that created a content type can mark comments on it dead (and restore them). A dead comment is kept for good: the retention job never purges it, its replies stay under it, and it is left out of every comment count. Visitors see a placeholder ("[dead]" in the default theme) instead of the name and text. The author still reads their own comment, and so does a visitor the same plugin flagged to show dead comments; a page read that way is never cached for others. Dead comments cannot be edited, and no reply notification is sent for them. The Dead tab lists them with the plugin that marked them; each row can be restored (it becomes approved), marked as spam, trashed or deleted, and the bulk bar offers the same. Staff mark nothing dead themselves.
 
-**Order.** Besides newest and oldest first, a content type can order top-level comments by rank: higher rank first, then newest. A plugin that owns the type sets the ranks; the site-wide setting is not changed by it. Replies stay in the order of their thread.
+**Order.** Besides newest and oldest first, a content type can order comments by rank: higher rank first, then newest, at every level (top-level comments and the replies under each comment). A plugin that owns the type sets the ranks; the site-wide setting is not changed by it. A reply nobody ranked has rank 0, so ranked replies come first and the rest follow newest first.
 
 The Overview shows a Comments card with the newest waiting comments and a link to the queue; it is left out while comments are off and nothing is waiting.
 
