@@ -316,7 +316,9 @@ func TestCommentsHostReadLimiter(t *testing.T) {
 	if l := api.limits("capa").reads; l.Burst() != 60 || l.Limit() != 30 {
 		t.Fatalf("read limiter = %v / %d, want 30 / 60", l.Limit(), l.Burst())
 	}
-	api.limits("capa").reads.AllowN(time.Now(), 60) // drain the bucket
+	reads := api.limits("capa").reads
+	reads.AllowN(time.Now(), 60) // drain the bucket
+	reads.SetLimit(0)            // and stop the refill, so a slow runner cannot get a token back
 	by := map[string]any{"commenter_key": "key"}
 	sub := map[string]any{"comment_id": uuid.NewString()}
 	if o := r.do(t, sdk.FnCommentsByAuthor, by); o.Code != sdk.ErrRateLimited || o.Msg != "comments.by_author: 1800 per minute" {
