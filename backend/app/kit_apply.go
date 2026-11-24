@@ -20,6 +20,7 @@ import (
 	"hatamoto.dev/core/internal/kit"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/packages"
+	"hatamoto.dev/core/internal/server"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -49,7 +50,7 @@ func kitDeps(ctx context.Context, m *packages.Manager, db *database.DB, logger *
 	}
 	return kit.Wire(kit.Services{
 		Manager: m, Entities: ents, Menus: menu.NewService(menu.NewPostgresRepository(db), logger),
-		Site: sites, Comments: comments, Pool: db.Pool(), Address: address, Log: logger,
+		Site: sites, Comments: comments, SchemaComments: server.KitSchemaComments(comments, db, ents), Pool: db.Pool(), Address: address, Log: logger,
 	}), comments, nil
 }
 
@@ -202,6 +203,9 @@ func runKitApply(ctx context.Context, args []string, logger *slog.Logger, out io
 	for what, n := range res.Created {
 		created[what] = n
 	}
+	for _, ch := range res.PolicyOn {
+		auditCLI(ctx, db.Pool(), logger, "comments.policy", ch.SchemaID, map[string]any{"type": ch.Slug, "old": false, "new": true, "changed": []string{"policy"}, "via": "kit:" + k.Name})
+	}
 	auditCLI(ctx, db.Pool(), logger, "kit.apply", "kit:"+k.Name, map[string]any{
 		"version": k.Version, "created": created, "filled": res.Filled, "kept": len(res.Kept), "skipped": len(res.Skipped),
 	})
@@ -310,6 +314,9 @@ func printKitPlan(out io.Writer, pl *kit.Plan, acc kit.Accepts) {
 	}
 	if pl.Comments.Requested && !pl.Comments.AlreadyOn && acc.Comments {
 		fmt.Fprintln(out, "switch   comments on")
+	}
+	if len(pl.Policy.AlreadyOn) > 0 {
+		fmt.Fprintf(out, "kept     community policy on %s (already on)\n", strings.Join(pl.Policy.AlreadyOn, ", "))
 	}
 	if pl.Policy.Available && acc.Policy {
 		fmt.Fprintf(out, "switch   community policy on %s\n", strings.Join(pl.Policy.Requested, ", "))

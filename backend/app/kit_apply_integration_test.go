@@ -58,6 +58,13 @@ func kitRegistry(t *testing.T) {
 		t.Fatal(err)
 	}
 	publish(packages.KindKit, "community", "1.0.0", map[string][]byte{"kit.json": kitJSON})
+	// The same kit under another name, asking for the community policy.
+	policyJSON := strings.Replace(string(kitJSON), `"name": "community",`, `"name": "community-policy",`, 1)
+	policyJSON = strings.Replace(policyJSON, `"kit": 1,`, `"kit": 1, "requires": ["comment.policy"],`, 1)
+	if policyJSON == string(kitJSON) || !strings.Contains(policyJSON, "comment.policy") {
+		t.Fatal("the fixture kit.json changed shape")
+	}
+	publish(packages.KindKit, "community-policy", "1.0.0", map[string][]byte{"kit.json": []byte(policyJSON)})
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/registry.json" {
@@ -177,5 +184,91 @@ func TestKitApplyList_Integration(t *testing.T) {
 	out, err = kitCLI(t, "list")
 	if err != nil || !strings.Contains(out, "community  v1.0.0  applied") || !strings.Contains(out, "(applied)") {
 		t.Fatalf("list: %v\n%s", err, out)
+	}
+}
+
+func TestKitApplyPolicy_Integration(t *testing.T) {
+	dsn := scratchDSN(t)
+	t.Setenv("DATABASE_URL", dsn)
+	t.Setenv("PUBLIC_BASE_URL", "https://example.test")
+	kitRegistry(t)
+	ctx := database.WithSuperadmin(context.Background())
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 4, MinConnections: 1, MaxConnLifetime: time.Hour, MaxConnIdleTime: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := migrateUp(ctx, db.Pool(), quietLogger()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_site_config (company_name, language) VALUES ('Example', 'en') ON CONFLICT (id) DO NOTHING`); err != nil {
+		t.Fatal(err)
+	}
+	count := func(q string) (n int) {
+		t.Helper()
+		if err := db.Pool().QueryRow(ctx, q).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	policyOf := func() (order string, p comment.Policy) {
+		t.Helper()
+		var raw []byte
+		if err := db.Pool().QueryRow(ctx, `SELECT settings FROM hatamoto_entity_schemas WHERE slug = 'story'`).Scan(&raw); err != nil {
+			t.Fatal(err)
+		}
+		var st struct {
+			Comments struct {
+				Order  string         `json:"order"`
+				Policy comment.Policy `json:"policy"`
+			} `json:"comments"`
+		}
+		if err := jsonx.Unmarshal(raw, &st); err != nil {
+			t.Fatal(err)
+		}
+		return st.Comments.Order, st.Comments.Policy
+	}
+
+	// Without the flag: the order and the numbers are stored, the policy stays off.
+	out, err := kitCLI(t, "apply", "community-policy")
+	if err != nil {
+		t.Fatalf("apply: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, comment.PolicyConfirmWarning) || !strings.Contains(out, "Community policy left off") {
+		t.Errorf("output:\n%s", out)
+	}
+	if order, p := policyOf(); order != "rank" || p != (comment.Policy{MaxDepth: 32, EditWindowMinutes: 120, SlowModeSeconds: 30}) {
+		t.Errorf("stored without the flag: %q %+v", order, p)
+	}
+	if n := count(`SELECT count(*) FROM hatamoto_admin_audit WHERE action = 'comments.policy'`); n != 0 {
+		t.Errorf("comments.policy audit rows = %d without the flag", n)
+	}
+
+	// With the flag: the policy goes on, audited once.
+	out, err = kitCLI(t, "apply", "community-policy", "--accept-comment-warnings")
+	if err != nil {
+		t.Fatalf("apply with flag: %v\n%s", err, out)
+	}
+	t.Logf("kit apply community-policy --accept-comment-warnings:\n%s", out)
+	for _, want := range []string{comment.PolicyConfirmWarning, "accepted with --accept-comment-warnings", "switch   community policy on story", "Community policy is on for story."} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output lacks %q:\n%s", want, out)
+		}
+	}
+	if order, p := policyOf(); order != "rank" || p != (comment.Policy{Enabled: true, MaxDepth: 32, EditWindowMinutes: 120, SlowModeSeconds: 30}) {
+		t.Errorf("stored with the flag: %q %+v", order, p)
+	}
+	if n := count(`SELECT count(*) FROM hatamoto_admin_audit WHERE action = 'comments.policy' AND actor_kind = 'cli'`); n != 1 {
+		t.Errorf("comments.policy audit rows = %d", n)
+	}
+	audits := count(`SELECT count(*) FROM hatamoto_admin_audit`)
+
+	// Again: nothing to change and nothing recorded.
+	out, err = kitCLI(t, "apply", "community-policy", "--accept-comment-warnings")
+	if err != nil || !strings.Contains(out, "is already applied: nothing to change") || !strings.Contains(out, "kept     community policy on story (already on)") {
+		t.Fatalf("second apply: %v\n%s", err, out)
+	}
+	if n := count(`SELECT count(*) FROM hatamoto_admin_audit`); n != audits {
+		t.Errorf("a second apply wrote %d audit rows", n-audits)
 	}
 }
