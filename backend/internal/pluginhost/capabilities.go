@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"hatamoto.dev/core/internal/clientkey"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
@@ -40,6 +42,9 @@ type Config struct {
 	MailQuotas MailQuotas
 	// ClientKeys derives the client.key visitor keys; nil (no server secret) means no plugin ever gets one.
 	ClientKeys *clientkey.Deriver
+	// CommenterKey derives the plugin's pseudonymous key for a commenter
+	// (pluginkey.Deriver.Commenter); nil means no commenter keys are handed out.
+	CommenterKey func(plugin string, commenter uuid.UUID) string
 }
 
 type capabilities struct {
@@ -50,6 +55,8 @@ type capabilities struct {
 	public *RouteRegistry
 	db     *PluginDB
 	keys   *clientkey.Deriver
+
+	commenterKey func(plugin string, commenter uuid.UUID) string
 }
 
 // Configure sets the capabilities. Call it before loading plugins.
@@ -58,13 +65,14 @@ func (r *Runtime) Configure(c Config) {
 		c.Grants = NewGrantStore(nil)
 	}
 	c.Services.MailQuotas = c.MailQuotas
-	r.caps = capabilities{grants: c.Grants, cron: c.Scheduler, db: c.Services.DB, keys: c.ClientKeys}
+	r.caps = capabilities{grants: c.Grants, cron: c.Scheduler, db: c.Services.DB, keys: c.ClientKeys, commenterKey: c.CommenterKey}
 	r.caps.api = NewAPI(c.Services, c.Grants, r.manifest, r.log)
 	r.host.SetHostCall(r.caps.api.Call)
 	r.caps.admin = NewRouteRegistry(r.host.Call, false, r.log)
 	r.caps.public = NewRouteRegistry(r.host.Call, true, r.log)
 	r.caps.admin.keys, r.caps.public.keys = r.clientKeys, r.clientKeys
 	r.caps.admin.keyed, r.caps.public.keyed = r.hasClientKey, r.hasClientKey
+	r.caps.public.keyFor = r.commenterKeyFor
 }
 
 // SetMailQuota applies the plugin's new mail.send quota to its running

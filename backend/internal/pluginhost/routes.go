@@ -68,7 +68,10 @@ type RouteRegistry struct {
 	// keyed reports whether a plugin holds client.key: its public responses
 	// are per visitor whether or not this request produced a key.
 	keyed func(plugin string) bool
-	m     atomic.Pointer[map[string]*pluginRouter]
+	// keyFor derives the plugin's commenter key for a public request; nil on
+	// the admin registry and when no keys are configured.
+	keyFor func(ctx context.Context, plugin string) string
+	m      atomic.Pointer[map[string]*pluginRouter]
 }
 
 // NewRouteRegistry returns a registry serving either the admin or the public
@@ -209,6 +212,9 @@ func (g *RouteRegistry) Serve(w http.ResponseWriter, r *http.Request, plugin, re
 		req.Cookies = routeCookies(r, pr.m)
 		if g.keys != nil {
 			req.AddrKey, req.NetKey = g.keys(r.Context(), plugin)
+		}
+		if g.keyFor != nil {
+			req.CommenterKey = g.keyFor(r.Context(), plugin)
 		}
 	}
 	if utf8.Valid(body) {

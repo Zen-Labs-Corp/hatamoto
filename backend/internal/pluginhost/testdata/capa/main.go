@@ -124,6 +124,12 @@ func init() {
 			p.Blocks = []sdk.Block{{ID: "keys", Type: "content", Title: p.AddrKey + "|" + p.NetKey, Content: map[string]any{"headline": p.AddrKey + "|" + p.NetKey, "body": "<p>" + p.AddrKey + "</p>"}}}
 			return p, nil
 		}
+		if p.Path == "/echo-key" { // reports the commenter key and tries to overwrite it
+			k := p.CommenterKey
+			p.CommenterKey = "forged"
+			p.Blocks = []sdk.Block{{ID: "key", Type: "content", Title: k}}
+			return p, nil
+		}
 		if p.Cookies["unlock"] != "1" {
 			p.Hide = append(p.Hide, "secret")
 		}

@@ -67,6 +67,7 @@ func (r *Runtime) hookFilter(m sdk.Manifest, hook, export string) func(context.C
 		in.SetCookies, in.Hide = nil, nil
 		// Visitor keys exist only on this per-plugin copy, never on the chain value.
 		in.AddrKey, in.NetKey = r.clientKeys(ctx, m.Name)
+		in.CommenterKey = r.commenterKeyFor(ctx, m.Name)
 		if !m.FullPageBlocks() {
 			in.Blocks = slimBlocks(pc.Blocks)
 		}
