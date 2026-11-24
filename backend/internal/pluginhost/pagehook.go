@@ -56,6 +56,14 @@ func (r *Runtime) hookFilter(m sdk.Manifest, hook, export string) func(context.C
 				in.Cookies[name] = val
 			}
 		}
+		// Likewise only the declared query keys; longer values are dropped,
+		// never truncated.
+		in.Query = make(map[string]string, len(m.PageQuery))
+		for _, k := range m.PageQuery {
+			if v, ok := pc.Query[k]; ok && len(v) <= sdk.MaxPageQueryValueBytes {
+				in.Query[k] = v
+			}
+		}
 		in.SetCookies, in.Hide = nil, nil
 		if !m.FullPageBlocks() {
 			in.Blocks = slimBlocks(pc.Blocks)
@@ -213,6 +221,18 @@ func (p *PageFilter) Applies(path string) bool {
 		return n > 0
 	}
 	return p.rt.pageFiltered(path, n)
+}
+
+// QueryKeys returns the query keys any loaded render.page plugin declared
+// (page_query); the caller passes only those. Read-only; nil without a runtime.
+func (p *PageFilter) QueryKeys() []string {
+	if p == nil || p.rt == nil {
+		return nil
+	}
+	if idx := p.rt.pageIdx.Load(); idx != nil {
+		return idx.queryKeys
+	}
+	return nil
 }
 
 // Apply runs the chain over in and returns the result (in itself when nothing

@@ -54,18 +54,28 @@ type pageIndex struct {
 	byPlugin map[string]pageEntry
 	siteWide int       // plugins with neither page_paths nor page_path_prefixes
 	union    pageScope // every declared path (counted) and prefix
+
+	queryKeys []string // sorted, deduped union of every entry.query
 }
 
 func newPageIndex(by map[string]pageEntry) *pageIndex {
 	idx := &pageIndex{byPlugin: by}
 	var paths, prefixes []string
+	seen := map[string]bool{}
 	for _, e := range by {
 		if len(e.paths) == 0 && len(e.prefixes) == 0 {
 			idx.siteWide++
 		}
 		paths = append(paths, e.paths...)
 		prefixes = append(prefixes, e.prefixes...)
+		for _, k := range e.query {
+			if !seen[k] {
+				seen[k] = true
+				idx.queryKeys = append(idx.queryKeys, k)
+			}
+		}
 	}
+	slices.Sort(idx.queryKeys)
 	idx.union = newPageScope(paths, prefixes)
 	return idx
 }
