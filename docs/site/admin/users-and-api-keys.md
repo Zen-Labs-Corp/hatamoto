@@ -98,14 +98,14 @@ A wrong field answers `422` with a `fields` list that names each one. **Read SEO
 
 ### Edit safely when several programs write
 
-Every entity has a version that counts its content versions. `GET /api/v1/entities/{id}` and every successful change return it as the `ETag` header, a strong tag such as `"9"`. Send it back as `If-Match` and the change is applied only if nobody changed the entry in between:
+Every entity has a version that counts the versions of its content (its `attributes`). `GET /api/v1/entities/{id}` and every successful change return it as the `ETag` header, a strong tag such as `"9"`. Send it back as `If-Match` and the change is applied only if nobody changed the entry in between:
 
 ```bash
 curl -i -H "X-API-Key: <your-key>" https://example.com/api/v1/entities/<id>
 # ETag: "9"
 
 curl -X PATCH -H "X-API-Key: <your-key>" -H "Content-Type: application/json" \
-  -H 'If-Match: "9"' -d '{"name": "New title"}' \
+  -H 'If-Match: "9"' -d '{"attributes": {"summary": "New summary"}}' \
   https://example.com/api/v1/entities/<id>
 ```
 
@@ -120,7 +120,7 @@ Read the entry again, redo the change and retry. The check is atomic with the wr
 - `If-Match` works on `PUT` and `PATCH /api/v1/entities/{id}`, `PATCH /api/v1/entities/{id}/status` and `POST /api/v1/entities/{id}/restore/{version}`. On a restore, the `{version}` in the address is the version to restore and `If-Match` is the current version you expect.
 - The header is optional. Without it a change is applied as before.
 - Send one tag (`"9"`) or `*` (any existing entry). When the response is compressed, the tag may arrive weakened as `W/"9"`; send it back exactly as received, both forms mean version 9. A list of tags or anything else malformed answers `400`.
-- The tag follows the content version. A status change does not advance it, so two status changes with the same tag can both succeed.
+- The tag follows the attribute (content) version. Changes to the name, slug, locale, SEO metadata, parent, byline and status do not advance it, so two such changes made with the same tag can both succeed. Use the tag to protect content edits.
 - A change that only moves the entry (`position` alone) does not check the tag.
 - A restore never overwrites an edit stored while it ran. Without `If-Match` (or with `*`) it answers `409` with `current_version`; with a stale tag, `412`.
 - `If-Match: *` on an entry that does not exist answers `404`.
