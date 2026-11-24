@@ -301,8 +301,7 @@ func TestPluginCommentReaderByAuthor_Integration(t *testing.T) {
 func TestPluginCommentReaderByAuthorRevealParity_Integration(t *testing.T) {
 	ctx := context.Background()
 	r := newReadRig(t)
-	revealed := 0
-	for i, c := range []struct {
+	cases := []struct {
 		name, origin, slug string
 		opts               pluginhost.ThreadOpts
 	}{
@@ -311,20 +310,45 @@ func TestPluginCommentReaderByAuthorRevealParity_Integration(t *testing.T) {
 		{"other schema named", "plugin-a", "t3", pluginhost.ThreadOpts{Plugin: "plugin-a", Schema: "item", IncludeDead: true}},
 		{"other plugin", "plugin-b", "t4", pluginhost.ThreadOpts{Plugin: "plugin-a", Schema: "t4", IncludeDead: true}},
 		{"type without owner", "", "t5", pluginhost.ThreadOpts{Plugin: "plugin-a", Schema: "t5", IncludeDead: true}},
+		// ByAuthor resolves no key without a plugin, so this one goes to the SQL directly.
 		{"no plugin", "plugin-a", "t6", pluginhost.ThreadOpts{Schema: "t6", IncludeDead: true}},
-	} {
-		cid := r.commenter(fmt.Sprint("parity", i))
-		ent := r.entity(c.slug, c.origin, "published", "")
-		dead := r.comment(ent, nil, &cid, "dead", "gone")
+	}
+	// Create every commenter first, so the one full scan sees them all and
+	// each call reaches the SQL instead of the index's miss guard.
+	cids := make([]uuid.UUID, len(cases))
+	deads := make([]uuid.UUID, len(cases))
+	for i, c := range cases {
+		cids[i] = r.commenter(fmt.Sprint("parity", i))
+		deads[i] = r.comment(r.entity(c.slug, c.origin, "published", ""), nil, &cids[i], "dead", "gone")
+	}
+	revealed := 0
+	for i, c := range cases {
 		want := revealDead(comment.EntityConfig{OwnerPlugin: c.origin, SchemaSlug: c.slug}, c.opts)
 		if want {
 			revealed++
 		}
-		th, err := r.reader.ByAuthor(ctx, r.keys.Commenter(c.opts.Plugin, cid), 1, c.opts)
-		if err != nil {
-			t.Fatal(err)
+		var th sdk.CommentThread
+		if c.opts.Plugin == "" {
+			var dead comment.DeadScope
+			if c.opts.IncludeDead {
+				dead = comment.DeadScope{Plugin: c.opts.Plugin, Schema: c.opts.Schema}
+			}
+			tp, err := r.s.comments.ByAuthor(r.reader.scoped(ctx), cids[i], 1, dead)
+			if err != nil {
+				t.Fatal(err)
+			}
+			th = pluginThread(tp, true, r.reader.keyFor(c.opts.Plugin))
+		} else {
+			key := r.keys.Commenter(c.opts.Plugin, cids[i])
+			if id, ok, err := r.reader.authors.resolve(ctx, c.opts.Plugin, key); err != nil || !ok || id != cids[i] {
+				t.Fatalf("%s: key does not resolve (%v %v %v), the case would not reach the SQL", c.name, id, ok, err)
+			}
+			var err error
+			if th, err = r.reader.ByAuthor(ctx, key, 1, c.opts); err != nil {
+				t.Fatal(err)
+			}
 		}
-		got := len(th.Items) == 1 && th.Items[0].ID == dead.String() && th.Items[0].BodyHTML != ""
+		got := len(th.Items) == 1 && th.Items[0].ID == deads[i].String() && th.Items[0].BodyHTML != ""
 		if got != want {
 			t.Errorf("%s: by_author reveals dead = %v, revealDead = %v (items %+v)", c.name, got, want, th.Items)
 		}
