@@ -180,8 +180,9 @@ location. A kit never overwrites something the owner edited. The order is fixed:
   Comments > Content types, with its limits: reply depth 1 to 32, edit window
   1 to 1440 minutes, slow mode 0 to 86400 seconds, and a known order (newest,
   oldest or rank). A bad value refuses the kit before anything changes.
-  Order `rank` is stored as given but changes nothing until a plugin supplies
-  ranks; until then threads use the default sort.
+  Order `rank` sorts every sibling level by the rank a plugin writes, then
+  newest first; until a plugin supplies ranks all comments tie and threads
+  read newest first.
   `policy.enabled` in `kit.json` is ignored: the policy goes on only for the
   types in `switches.comment_policy`, with the owner's accept of its warning
   ("Are you sure? With the community policy on, comments with links and first
@@ -227,7 +228,7 @@ turns on writes `comments.policy`.
 Core knows a fixed list of feature names a kit may put in `requires`:
 `comment.policy`, `comment.rank`, `comment.signin` and `plugin.entity-write`.
 `kit.Features()` (package `internal/kit`) returns the ones this build has. This
-build has `comment.policy`; the others are not available yet. A name is added
+build has `comment.policy` and `comment.rank`; the others are not available yet. A name is added
 only by the change that makes the feature work. `hatamoto kit check` prints a note for each
 required name this build does not have yet ("needs a newer Hatamoto") and for
 each name it does not know at all.

@@ -100,7 +100,7 @@ func TestPlanRefusals(t *testing.T) {
 		edit  func(*packages.Kit)
 		want  string
 	}{
-		{"missing feature", nil, func(k *packages.Kit) { k.Requires = []string{"comment.policy", "comment.rank"} }, "comment.rank"},
+		{"missing feature", nil, func(k *packages.Kit) { k.Requires = []string{"comment.policy", "comment.signin"} }, "comment.signin"},
 		{"unknown plugin", nil, func(k *packages.Kit) { k.Plugins[0].Name = "nobody" }, "plugin nobody is not listed"},
 		{"unknown theme", nil, func(k *packages.Kit) { k.Themes[0].Name = "nobody" }, "theme nobody is not listed"},
 		{"registry version out of range", nil, func(k *packages.Kit) { k.Plugins[0].Range = "^2" }, "outside the range ^2"},
