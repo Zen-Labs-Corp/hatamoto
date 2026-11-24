@@ -60,3 +60,14 @@ func TestCommentPolicyRevokeRefusals(t *testing.T) {
 		t.Errorf("audit on a refused revoke: %+v", p.events)
 	}
 }
+
+func TestCommentPolicyRevokeButtonNamesTheType(t *testing.T) {
+	t.Parallel()
+
+	p := newCommentsRig(t, cpolRig(false))
+	p.a.deps.Growth.Plugins = cpolPlugins("db", "comments.moderate")
+	body := csetGet(t, p, "owner-token")
+	if notes := cpolCard(t, body, "notes"); !strings.Contains(notes, `aria-label="Revoke ranker moderation on Notes"`) {
+		t.Errorf("Revoke button has no name for its card: %s", notes)
+	}
+}
