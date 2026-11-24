@@ -156,7 +156,8 @@ location. A kit never overwrites something the owner edited. The order is fixed:
   (inside its content type), a menu by its location. Missing: created. Present:
   **kept**, which means left exactly as the owner has it; nothing is
   overwritten, reordered or republished. Content types that exist but lack some
-  of the kit's `settings` get only the missing settings filled in.
+  of the kit's `settings` are kept as they are; the exception is a content type
+  created by a kit plugin (`entity_schema`), see below.
 - **Plugins and themes** that are already installed are kept, at the installed
   version. Only a name the registry lists, at a version that satisfies `range`,
   is installed. A plugin a kit asks for is installed with the permissions the
@@ -174,9 +175,22 @@ location. A kit never overwrites something the owner edited. The order is fixed:
   General, or `PUBLIC_BASE_URL`). Without an address the apply is refused
   before anything is changed. The owner can leave the switch off and turn
   comments on later in Settings > Comments.
+- **Comment order and community policy.** `settings.comments.order` and
+  `settings.comments.policy` are written through the same code as Settings >
+  Comments > Content types, with its limits: reply depth 1 to 32, edit window
+  1 to 1440 minutes, slow mode 0 to 86400 seconds, and a known order (newest,
+  oldest or rank). A bad value refuses the kit before anything changes.
+  `policy.enabled` in `kit.json` is ignored: the policy goes on only for the
+  types in `switches.comment_policy`, with the owner's accept of its warning
+  ("Are you sure? With the community policy on, comments with links and first
+  comments on this content type are posted at once, without review. Spam
+  checks, blocked commenters, duplicates, captcha and surge mode still hold
+  comments."). A type whose policy is already on is kept. Each type a kit turns
+  on is recorded as `comments.policy`.
 - **Content type owned by a plugin.** When the plugin that creates a content
-  type (`entity_schema`) is part of the kit, an existing content type is kept
-  and only its `settings` are filled in. When the slug belongs to another
+  type (`entity_schema`) is part of the kit, the content type gets only the
+  settings it lacks (including the comment order and policy numbers when it
+  has none stored); a type the owner or an earlier apply created is kept as is. When the slug belongs to another
   plugin, the kit is refused.
 - **Interrupted runs.** An apply is not one transaction. Every step can be run
   again, and the record is written last, so running the same command again
@@ -203,15 +217,16 @@ Table `hatamoto_applied_kits`, one row per kit name:
 Applying again updates the row only when something changed or the version is
 new. The audit log gets one `kit.apply` entry per apply that did work (an
 owner-only action; the target is `kit:<name>`). Turning comments on from a kit
-also writes `comments.enable`.
+also writes `comments.enable`; each content type whose community policy a kit
+turns on writes `comments.policy`.
 
 ## Features
 
 Core knows a fixed list of feature names a kit may put in `requires`:
 `comment.policy`, `comment.rank`, `comment.signin` and `plugin.entity-write`.
-`kit.Features()` (package `internal/kit`) returns the ones this build has. The
-change that ships a feature adds its name to that list, and a name is never
-added before the feature works. `hatamoto kit check` prints a note for each
+`kit.Features()` (package `internal/kit`) returns the ones this build has. This
+build has `comment.policy`; the others are not available yet. A name is added
+only by the change that makes the feature work. `hatamoto kit check` prints a note for each
 required name this build does not have yet ("needs a newer Hatamoto") and for
 each name it does not know at all.
 
@@ -233,8 +248,8 @@ hatamoto kit list
 - `apply` takes a registry name, an `https` URL or a file. It prints the
   signer, what it resolved, both comment warnings (when the kit asks for
   comments), then each step, and records the kit. `--accept-comment-warnings`
-  accepts the warnings and turns comments (and the community policy, when the
-  site can) on; without it the command says `comments left off`. `--grant P,P`
+  accepts the warnings and turns comments and the community policy on (the
+  policy warning is printed too); without it the command says `comments left off`. `--grant P,P`
   names permissions beyond what the kit's `grant` gives, as `<plugin>:<permission>`
   (a bare name works only when one plugin of the kit asks for it); those
   "Handle with care" permissions and `ui.allow:*` are granted only when named here. `--dry-run` prints the steps
