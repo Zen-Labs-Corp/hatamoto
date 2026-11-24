@@ -19,7 +19,7 @@ import (
 // commentReader is the slice of *comment.Service the view needs (tests use a fake).
 type commentReader interface {
 	Settings(context.Context) (comment.Settings, error)
-	EntityMode(context.Context, uuid.UUID) (comment.Mode, error)
+	EntityConfig(context.Context, uuid.UUID) (comment.EntityConfig, error)
 	Thread(context.Context, uuid.UUID, int) (comment.ThreadPage, error)
 	Counts(context.Context, []uuid.UUID) (map[uuid.UUID]comment.EntityCounts, error)
 	ViewerComments(context.Context, uuid.UUID, uuid.UUID) ([]comment.ThreadComment, error)
@@ -77,7 +77,7 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 			*v.Uncacheable = true
 		}
 	}
-	mode, err := c.reader.EntityMode(ctx, id)
+	cfg, err := c.reader.EntityConfig(ctx, id)
 	if errors.Is(err, comment.ErrNotFound) {
 		return
 	}
@@ -85,6 +85,7 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 		fail("comments: entity mode", err)
 		return
 	}
+	mode := cfg.Mode
 	if mode != comment.ModeOpen && mode != comment.ModeClosed {
 		return
 	}
@@ -116,15 +117,18 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 		return
 	}
 
+	maxDepth := cfg.Policy.Depth(set.MaxDepth)
+	window := cfg.Policy.EditWindow()
+	newest := cfg.Order.Sort(set.Sort) == comment.SortNewest
 	nodes := newCommentTree()
 	replyable := map[string]string{} // id -> author of the items a reply may target
 	for _, tc := range tp.Comments {
 		it := commentItem(tc)
-		if tc.Depth < set.MaxDepth {
+		if tc.Depth < maxDepth {
 			it.ReplyURL = v.Path + "?creply=" + tc.ID.String() + "#hm-comment-form"
 		}
 		nodes.add(tc.ParentID, it, false)
-		if tc.Depth < set.MaxDepth {
+		if tc.Depth < maxDepth {
 			replyable[it.ID] = it.Author
 		}
 	}
@@ -139,11 +143,11 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 				return
 			}
 			now := c.now()
-			nodes.rootsFirst = set.Sort == comment.SortNewest
+			nodes.rootsFirst = newest
 			for _, tc := range own {
 				it := commentItem(tc)
 				it.Own = true
-				if now.Sub(tc.CreatedAt) < comment.EditWindow {
+				if now.Sub(tc.CreatedAt) < window {
 					setEditable(&it, tc.ID)
 				}
 				// A reply whose parent is off this page shows on the first page only.
@@ -158,7 +162,7 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 			}
 			marked := 0
 			for _, tc := range editable {
-				if n := nodes.byID[tc.ID.String()]; n != nil && now.Sub(tc.CreatedAt) < comment.EditWindow {
+				if n := nodes.byID[tc.ID.String()]; n != nil && now.Sub(tc.CreatedAt) < window {
 					setEditable(&n.item, tc.ID)
 					marked++
 				}
@@ -170,7 +174,7 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 	}
 
 	thread := &render.CommentThread{
-		Items: nodes.items(), Total: counts[id].Approved, Page: page, Pages: max(tp.Pages, page), Newest: set.Sort == comment.SortNewest,
+		Items: nodes.items(), Total: counts[id].Approved, Page: page, Pages: max(tp.Pages, page), Newest: newest,
 	}
 	if tp.HasMore {
 		thread.NextURL = v.Path + "?cpage=" + strconv.Itoa(page+1) + "#hm-comments"

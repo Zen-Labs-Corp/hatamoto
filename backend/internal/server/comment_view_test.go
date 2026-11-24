@@ -24,6 +24,8 @@ type fakeCommentReader struct {
 	set       comment.Settings
 	mode      comment.Mode
 	modeErr   error
+	policy    comment.Policy
+	order     comment.Order
 	thread    comment.ThreadPage
 	threadErr error
 	approved  int
@@ -35,8 +37,8 @@ type fakeCommentReader struct {
 }
 
 func (f *fakeCommentReader) Settings(context.Context) (comment.Settings, error) { return f.set, nil }
-func (f *fakeCommentReader) EntityMode(context.Context, uuid.UUID) (comment.Mode, error) {
-	return f.mode, f.modeErr
+func (f *fakeCommentReader) EntityConfig(context.Context, uuid.UUID) (comment.EntityConfig, error) {
+	return comment.EntityConfig{Mode: f.mode, Order: f.order, Policy: f.policy}, f.modeErr
 }
 func (f *fakeCommentReader) Thread(_ context.Context, _ uuid.UUID, page int) (comment.ThreadPage, error) {
 	f.threadCalls++
@@ -372,5 +374,39 @@ func TestCommentViewEcho(t *testing.T) {
 	v = run(echo)
 	if v.Comments.Error != "" || v.CommentForm.ParentID != "" || v.CommentForm.BodyValue != "" || v.CommentForm.Notify || *v.Uncacheable {
 		t.Fatalf("echo for another entity applied: %+v", v.CommentForm)
+	}
+}
+
+func TestCommentViewFollowsTypePolicy(t *testing.T) {
+	f := newViewFixture() // site: max depth 2, newest first
+	f.fake.policy = comment.Policy{Enabled: true, MaxDepth: 3, EditWindowMinutes: 120}
+	v := f.run("/post")
+	if v.Comments.Items[0].Replies[0].ReplyURL == "" {
+		t.Fatal("a reply at depth 2 must be replyable when the type allows depth 3")
+	}
+	if !v.Comments.Newest {
+		t.Fatal("no type order: the site sort applies")
+	}
+
+	f.fake.order = comment.OrderOldest
+	if f.run("/post").Comments.Newest {
+		t.Fatal("type order oldest must override the site sort")
+	}
+	f.fake.order = comment.OrderRank
+	if !f.run("/post").Comments.Newest {
+		t.Fatal("type order rank falls back to the site sort")
+	}
+
+	f.cv.device = func(context.Context, string) (uuid.UUID, bool) { return uuid.New(), true }
+	cookie := func(r *http.Request) { r.AddCookie(&http.Cookie{Name: identity.CookieName, Value: "good"}) }
+	mine := f.root
+	mine.CreatedAt = time.Now().Add(-time.Hour)
+	f.fake.editable = []comment.ThreadComment{mine}
+	if r := f.run("/post", cookie).Comments.Items[0]; !r.Editable {
+		t.Fatal("an hour-old comment is editable inside the type's 120 minute window")
+	}
+	f.fake.policy.EditWindowMinutes = 30
+	if r := f.run("/post", cookie).Comments.Items[0]; r.Editable {
+		t.Fatal("editable after the type's 30 minute window")
 	}
 }
