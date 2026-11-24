@@ -99,6 +99,23 @@ func TestCommenterIndexDelta(t *testing.T) {
 	}
 }
 
+// An importer writes commenters with the date of their oldest imported
+// comment, so a row can appear far behind the watermark.
+func TestCommenterIndexBackDatedRow(t *testing.T) {
+	f := &fakeCommenters{stamps: []comment.CommenterStamp{stamp(30)}}
+	x, d := newTestIndex(f)
+	ctx := context.Background()
+	if _, ok, _ := x.resolve(ctx, "plugin-a", d.Commenter("plugin-a", f.stamps[0].ID)); !ok {
+		t.Fatal("first commenter not found")
+	}
+	old := comment.CommenterStamp{ID: uuid.New(), CreatedAt: time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)}
+	f.stamps = append(f.stamps, old)
+	f.clock = f.clock.Add(keyFullRescanGap)
+	if id, ok, err := x.resolve(ctx, "plugin-a", d.Commenter("plugin-a", old.ID)); err != nil || !ok || id != old.ID {
+		t.Fatalf("back-dated commenter: %v %v %v", id, ok, err)
+	}
+}
+
 func TestCommenterIndexMissGuard(t *testing.T) {
 	f := &fakeCommenters{stamps: []comment.CommenterStamp{stamp(1)}}
 	x, _ := newTestIndex(f)

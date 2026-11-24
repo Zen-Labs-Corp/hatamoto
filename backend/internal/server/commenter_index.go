@@ -15,7 +15,7 @@ import (
 // commenterIndex resolves a plugin's commenter_key back to the commenter id
 // without storing keys: per plugin it derives the key of every commenter once
 // (pluginkey, one-way HMAC) and keeps key -> id in memory, then derives only
-// commenters created since the last scan. It lives as long as the process;
+// recent commenters on a miss, and rescans all of them once a minute at most. It lives as long as the process;
 // a new server secret means a new process and a new index.
 type commenterIndex struct {
 	list   func(ctx context.Context, since time.Time) ([]comment.CommenterStamp, error)
@@ -32,13 +32,19 @@ type pluginKeys struct {
 	scanned   bool      // a full scan succeeded
 	watermark time.Time // newest created_at seen
 	lastScan  time.Time
+	lastFull  time.Time // when the last full scan succeeded
 }
 
 const (
 	// keyScanOverlap re-reads commenters this far before the watermark:
-	// created_at is the inserting transaction's start, so a row can commit
-	// after a newer one was scanned. Re-deriving is idempotent.
+	// created_at is set by the writer's clock, so a row can commit after a
+	// newer one was scanned. Re-deriving is idempotent.
 	keyScanOverlap = 10 * time.Minute
+	// keyFullRescanGap: created_at is not monotonic (the importer writes the
+	// date of a commenter's oldest imported comment), so the delta scan can
+	// miss a row. A miss that finds the last full scan older than this
+	// rescans everything.
+	keyFullRescanGap = time.Minute
 	// keyMissGap: a key that is not known triggers at most one delta scan per
 	// plugin in this interval, so random keys cannot force repeated scans.
 	keyMissGap = 2 * time.Second
@@ -84,7 +90,8 @@ func (x *commenterIndex) resolve(ctx context.Context, plugin, key string) (uuid.
 		return uuid.Nil, false, nil
 	}
 	var since time.Time
-	if p.scanned {
+	full := !p.scanned || x.now().Sub(p.lastFull) >= keyFullRescanGap
+	if !full {
 		since = p.watermark.Add(-keyScanOverlap)
 	}
 	rows, err := x.list(ctx, since)
@@ -100,6 +107,9 @@ func (x *commenterIndex) resolve(ctx context.Context, plugin, key string) (uuid.
 		}
 	}
 	p.scanned, p.lastScan = true, x.now()
+	if full {
+		p.lastFull = p.lastScan
+	}
 	id, ok := p.ids[key]
 	return id, ok, nil
 }
