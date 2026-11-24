@@ -21,7 +21,7 @@ func commentRoutesRouter(t *testing.T) http.Handler {
 	mountRenderRoutes(r, renderRoutes{
 		pages: f.h, assets: stub("assets"), robots: stub("robots"), sitemap: stub("sitemap"),
 		subSitemap: stub("sub"), llms: stub("llms"), xsl: stub("xsl"), formPost: stub("form"),
-		commentConfirm: stub("confirm"), commentPost: stub("post"), commentEdit: stub("edit"), commentDelete: stub("delete"),
+		commentConfirm: stub("confirm"), commentSignIn: stub("signin"), commentPost: stub("post"), commentEdit: stub("edit"), commentDelete: stub("delete"),
 	})
 	return h
 }
@@ -41,10 +41,19 @@ func TestCommentRoutesReachTheirHandlers(t *testing.T) {
 		{"POST", "/-/comments/delete/" + id, "delete"},
 		{"GET", "/-/comments/confirm/tok", "confirm"},
 		{"POST", "/-/comments/confirm/tok", "confirm"},
+		{"GET", "/-/comments/signin", "signin"},
+		{"POST", "/-/comments/signin", "signin"},
+		{"GET", "/-/comments/signin/tok", "signin"},
+		{"POST", "/-/comments/signin/tok", "signin"},
+		{"POST", "/-/comments/signout", "signin"},
 	} {
 		if got := commentRoutesDo(h, c.method, c.path).Body.String(); got != c.want {
 			t.Errorf("%s %s -> %q, want %q", c.method, c.path, got, c.want)
 		}
+	}
+	// Sign-out is its own route, not the comment post for an entity called "signout".
+	if got := commentRoutesDo(h, "POST", "/-/comments/signout").Body.String(); got == "post" {
+		t.Error("POST /-/comments/signout reached the comment-post handler")
 	}
 	// A GET of the submit path is not the submit handler.
 	for _, p := range []string{"/-/comments/" + id, "/-/comments/edit/" + id, "/-/comments/delete/" + id} {

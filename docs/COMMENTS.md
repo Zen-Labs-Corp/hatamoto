@@ -168,6 +168,7 @@ Routes, all under the reserved `/-/` segment (the word `comments` itself is not 
 - `POST /-/comments/edit/{commentID}` edits one (the field is `body`).
 - `POST /-/comments/delete/{commentID}` moves one to the trash.
 - `GET` and `POST /-/comments/confirm/{token}` is the confirmation link, see Identity.
+- `GET` and `POST /-/comments/signin`, `GET` and `POST /-/comments/signin/{token}` and `POST /-/comments/signout` are the standalone sign-in and sign-out, see Identity.
 
 All of them answer `404` while the site switch is off, sit behind the site-access gate (maintenance, coming-soon and password modes refuse them), are limited per IP network and are sent `Cache-Control: no-store`. A post answers `303` to the page: `#comment-<id>` when posted, `?cnotice=check_email#hm-comments` when it waits for the email, `?cnotice=posted#hm-comments` when it was dropped (see below) and `?cerror=closed#hm-comments` when the page is closed. The exception is an error the visitor can fix (`body_empty`, `body_long`, `name`, `email`, `email_domain`): that answers `200` with the page itself, the error at `#hm-comment-form` and the name, email, comment, reply opt-in and reply target as typed, under a fresh token and new field names. It is sent `private, no-cache, no-store`. The typed values are only in that response body, never in a URL or a cookie. With `HX-Request: true` the same form comes back as a fragment. `?cerror=<code>` remains a code a `GET` can read, as a fallback when the page cannot be rendered. A dropped post never gets its values back.
 
@@ -217,7 +218,18 @@ Disposable email domains come from `hatamoto_comment_blocks` (kind `email_domain
 
 The hourly job `comment_drafts_purge` deletes drafts with status `draft` older than 24 hours, old confirmation rows and commenters that only ever had drafts.
 
-Set the site address before enabling comments: without it no confirmation mail is sent.
+**Sign-in and sign-out without a comment.** A visitor can sign in on their own, which a schema with a sign-in policy needs before the form unlocks:
+
+1. `GET /-/comments/signin` shows the email form (theme layout `comment-signin`), or, when this browser holds a valid `hm_c`, a Sign out button. A GET never signs anyone in or out.
+2. `POST /-/comments/signin` takes an email address and always answers with the same "check your email" page, whether or not the address is known, so the page cannot be used to find out who has commented. Only a malformed or blocked address is refused, with the form again. The mail uses the same limits as confirmation mails (3 per address, 10 per `ip_hash`, 30 per `net_hash` per 24 hours); over the limit the page is the same and nothing is sent.
+3. The mailed link, `/-/comments/signin/<token>`, works once for 24 hours. Its page has one Sign in button (a scanner that fetches the link consumes nothing); the same-origin POST sets `hm_c` and redirects to `/-/comments/signin`.
+4. `POST /-/comments/signout` clears `hm_c` on this browser and redirects to `/-/comments/signin?out=1`. It does not bump `token_version`: a copied cookie stays valid until it expires or an admin revokes the commenter's devices.
+
+Both POSTs refuse a browser that is not same-origin (`403`) and need a single-use form token (`hm_ct`, subject `signin` or `signout`); a missing or used token shows the form again with a fresh one. The routes are limited per client like the confirm link, are sent `no-store`, `noindex` and `no-referrer`, are not cached, and the link token is redacted in logs. A sign-in link whose comment was deleted afterwards still works, because the mail went to the address owner.
+
+Without a mail service the sign-in routes answer `404` like the confirm link; a locked form still shows its sign-in line, and that link leads to the 404.
+
+Set the site address before enabling comments: without it no confirmation or sign-in mail is sent.
 
 ### Comment counts
 

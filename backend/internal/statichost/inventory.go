@@ -42,6 +42,10 @@ var inventory = []Island{
 	{Key: "comment-links", Name: "Comment confirm and unsubscribe links", Where: Stays, Routes: []string{
 		"GET /-/comments/confirm/{token}", "POST /-/comments/confirm/{token}",
 		"GET /-/comments/unsubscribe/{token}", "POST /-/comments/unsubscribe/{token}"}},
+	{Key: "comment-signin", Name: "Commenter sign-in and sign-out", Where: Stays, Routes: []string{
+		"GET /-/comments/signin", "POST /-/comments/signin",
+		"GET /-/comments/signin/{token}", "POST /-/comments/signin/{token}",
+		"POST /-/comments/signout"}},
 	{Key: "comment-own", Name: "Edit or delete one's own comment", Where: Stays, Routes: []string{
 		"POST /-/comments/edit/{commentID}", "POST /-/comments/delete/{commentID}"}},
 	{Key: "previews", Name: "Draft previews", Where: Stays, Routes: []string{"GET /preview/{token}"}},
