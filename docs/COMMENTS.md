@@ -81,6 +81,8 @@ With static hosting on (see [STATIC_EXPORT.md](STATIC_EXPORT.md)), the thread is
 
 No raw IP address is stored, only keyed hashes (`ip_hash` and `net_hash`), which are pseudonymous personal data. A truncated user agent is stored with each comment. There is no website field.
 
+**Plugin keys.** A plugin that holds `client.key` receives its own keys of the visitor (`addr_key` and `area_key` on `comment.check`), derived with separate keys and the plugin's name, never the stored `ip_hash` or `net_hash`. They are pseudonymous personal data. An IPv4 `addr_key` can be brute-forced by anyone who holds the server secret. The keys change only if the server secret changes.
+
 **Purging.** The daily retention job deletes spam and trash `purge_days` (default 30) after their last status change (`updated_at`). One that still has replies is not deleted: its text, name, hashes and user agent are blanked so the thread stays intact. The hourly job removes unconfirmed drafts after 24 hours and used or expired form tokens. The daily job also prunes reply-notification rows and moderator-notification rows of comments that are no longer held.
 
 **Export.** The owner can export everything stored for an email address: the address, trust level, approved count and dates of the commenter, and for each of their comments its ids, status, name, text, `ip_hash`, `net_hash`, the user agent, the reply opt-in, the spam score, verdict and reasons, the locale and the dates. Fields computed from the body (`body_html`, `body_hash`, link data, path and depth) and internal references (the stored address hash and sealed copy, the approving user) are left out.
