@@ -9,6 +9,9 @@ import (
 	"log/slog"
 	"slices"
 	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
@@ -194,8 +197,40 @@ func TestUninstallKeepContentRevokesPluginEntries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// An entry a changeset put into an owner-made type is not the plugin's own
+	// surface and stays as it is.
+	var otherSchema, imported string
+	if err := r.pool.QueryRow(ctx, `INSERT INTO hatamoto_entity_schemas (name, slug, schema, settings) VALUES ('Other', 'other-'||substr(gen_random_uuid()::text,1,8), '{"type":"object"}', '{}') RETURNING id, slug`).Scan(&otherSchema, new(string)); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = r.pool.Exec(context.Background(), `DELETE FROM hatamoto_entities WHERE schema_id = $1`, otherSchema)
+		_, _ = r.pool.Exec(context.Background(), `DELETE FROM hatamoto_entity_schemas WHERE id = $1`, otherSchema)
+	})
+	if err := r.pool.QueryRow(ctx, `INSERT INTO hatamoto_entities (schema_id, name, slug, status, attributes, origin) VALUES ($1, 'Imported', 'imported', 'published', '{}', 'plugin:shop') RETURNING id`, otherSchema).Scan(&imported); err != nil {
+		t.Fatal(err)
+	}
+	// Pin updated_at to the past, as an import does (hatamoto.import skips the trigger).
+	old := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+	if err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `SELECT set_config('hatamoto.import', 'on', true)`); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `UPDATE hatamoto_entities SET updated_at = $1 WHERE id = ANY($2::uuid[])`, old, []string{e.ID.String(), imported})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if err := r.mgr.Uninstall(ctx, KindPlugin, "shop", UninstallOpts{}); err != nil {
 		t.Fatal(err)
+	}
+	var updated time.Time
+	if err := r.pool.QueryRow(ctx, `SELECT updated_at FROM hatamoto_entities WHERE id = $1`, e.ID).Scan(&updated); err != nil || !updated.Equal(old) {
+		t.Fatalf("updated_at after uninstall = %v, %v, want %v untouched", updated, err, old)
+	}
+	var importedOrigin string
+	if err := r.pool.QueryRow(ctx, `SELECT origin FROM hatamoto_entities WHERE id = $1`, imported).Scan(&importedOrigin); err != nil || importedOrigin != "plugin:shop" {
+		t.Fatalf("changeset entry in another type: origin %q, %v, want plugin:shop", importedOrigin, err)
 	}
 	var origin string
 	if err := r.pool.QueryRow(ctx, `SELECT origin FROM hatamoto_entities WHERE id = $1`, e.ID).Scan(&origin); err != nil || origin != "owner" {

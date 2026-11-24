@@ -967,9 +967,21 @@ func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, opts Un
 			return fmt.Errorf("removing the content types of %q (uninstall is unfinished; try again): %w", name, err)
 		}
 	} else if m.Schemas != nil {
-		// The owner keeps the content, so it is the owner's now: a later package
-		// that reuses this name must not inherit write access to it.
-		if _, err := m.Pool.Exec(ctx, `UPDATE hatamoto_entities SET origin = 'owner' WHERE origin = $1`, entity.PluginOrigin(name)); err != nil {
+		// The owner keeps the content, so the entries in the plugin's own content
+		// types are the owner's now: a later package that reuses this name must
+		// not inherit write access to them. Entries a changeset put into other
+		// types stay as they are, and updated_at is left alone (the entities
+		// trigger honours hatamoto.import).
+		err := pgx.BeginFunc(ctx, m.Pool, func(tx pgx.Tx) error {
+			if _, err := tx.Exec(ctx, `SELECT set_config('hatamoto.import', 'on', true)`); err != nil {
+				return err
+			}
+			_, err := tx.Exec(ctx, `UPDATE hatamoto_entities e SET origin = 'owner'
+				FROM hatamoto_entity_schemas s
+				WHERE s.id = e.schema_id AND s.origin_plugin = $1 AND e.origin = $2`, name, entity.PluginOrigin(name))
+			return err
+		})
+		if err != nil {
 			return fmt.Errorf("handing the entries of %q to the owner (uninstall is unfinished; try again): %w", name, err)
 		}
 	}
