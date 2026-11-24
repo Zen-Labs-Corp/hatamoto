@@ -111,3 +111,49 @@ func TestPageFilterNilSafe(t *testing.T) {
 		t.Error("nil engine must give a nil filter")
 	}
 }
+
+func TestPagePathPrefix(t *testing.T) {
+	r := newCapaRig(t)
+	r.loadAs(t, "capa", func(m *sdk.Manifest) { m.PagePathPrefixes = []string{"/item/"} })
+	pf := NewPageFilter(r.rt, r.engine)
+	for path, want := range map[string]bool{"/item/abc": true, "/item/": false, "/item": false, "/items/x": false, "/about": false} {
+		if got := pf.Applies(path); got != want {
+			t.Errorf("Applies(%q) = %v, want %v", path, got, want)
+		}
+	}
+	if out := applyAt(r, "/item/abc"); len(out.SetCookies) != 1 || out.SetCookies[0].Name != "hmp_capa_visited" {
+		t.Fatalf("prefix page: cookies = %+v", out.SetCookies)
+	}
+	if out := applyAt(r, "/about"); len(out.SetCookies) != 0 {
+		t.Fatalf("off-prefix page: the plugin was called: %+v", out.SetCookies)
+	}
+	if idx := r.rt.pageIdx.Load(); idx.siteWide != 0 {
+		t.Fatalf("a prefix-only plugin is site-wide: %+v", idx)
+	}
+}
+
+func TestPagePathPrefixMixed(t *testing.T) {
+	r := newCapaRig(t)
+	r.loadAs(t, "capa", func(m *sdk.Manifest) { m.PagePaths = []string{"/item/abc"} })
+	r.loadAs(t, "capa2", func(m *sdk.Manifest) { m.PagePathPrefixes = []string{"/item/"} })
+	if out := applyAt(r, "/item/abc"); len(out.SetCookies) != 2 {
+		t.Fatalf("both plugins must run on /item/abc: %+v", out.SetCookies)
+	}
+	out := applyAt(r, "/item/zzz")
+	if len(out.SetCookies) != 1 || out.SetCookies[0].Name != "hmp_capa2_visited" {
+		t.Fatalf("/item/zzz cookies = %+v, want only the prefix plugin's", out.SetCookies)
+	}
+}
+
+func TestPagePathPrefixUnload(t *testing.T) {
+	r := newCapaRig(t)
+	r.loadAs(t, "capa", func(m *sdk.Manifest) { m.PagePathPrefixes = []string{"/item/"} })
+	pf := NewPageFilter(r.rt, r.engine)
+	r.rt.Unload(context.Background(), "capa")
+	if pf.Applies("/item/abc") {
+		t.Error("Applies after unload")
+	}
+	if idx := r.rt.pageIdx.Load(); len(idx.union.prefixes) != 0 {
+		t.Fatalf("prefixes after unload: %v", idx.union.prefixes)
+	}
+}

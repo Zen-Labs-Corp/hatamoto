@@ -110,6 +110,13 @@ func init() {
 			}
 			return p, nil
 		}
+		if p.Path == "/echo-query" { // reports every query entry the host passed in
+			p.Blocks = nil
+			for k, v := range p.Query {
+				p.Blocks = append(p.Blocks, sdk.Block{ID: "q:" + k, Type: "content", Title: v, Content: map[string]any{"headline": "q:" + k + "=" + v, "body": "<p>q</p>"}})
+			}
+			return p, nil
+		}
 		if p.Cookies["unlock"] != "1" {
 			p.Hide = append(p.Hide, "secret")
 		}

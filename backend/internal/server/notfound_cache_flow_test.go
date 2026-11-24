@@ -16,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/sdk"
 )
 
 // TestNotFoundStoreBytesMatchUncached: each path's cold and warm answers equal
@@ -210,6 +211,13 @@ func TestNotFoundStoreBypass(t *testing.T) {
 			_, s := bootRoutes(t)
 			capaRuntime(t, s)
 			f.h.pageFilter = pluginhost.NewPageFilter(s.plugins, s.hooks)
+		}},
+		// A 404 under a prefix renders afresh each request but never calls the
+		// plugin (404s do not run applyPageFilter).
+		{name: "page prefix", target: "/item/nope", setup: func(f *renderFixture) {
+			_, s := bootRoutes(t)
+			rt := capaRuntimeWith(t, s, func(m *sdk.Manifest) { m.PagePathPrefixes = []string{"/item/"} })
+			f.h.pageFilter = pluginhost.NewPageFilter(rt, s.hooks)
 		}},
 		{name: "comment bypass", target: "/nope", setup: func(f *renderFixture) {
 			key := identity.DeviceKey("bypass-secret")

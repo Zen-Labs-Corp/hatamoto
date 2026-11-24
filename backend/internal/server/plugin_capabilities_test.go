@@ -430,3 +430,73 @@ func TestRenderPagePluginUnloadRestoresCache(t *testing.T) {
 		t.Fatalf("after unload: Cache-Control=%q sets=%d", cc, len(f.cache.sets))
 	}
 }
+
+// A prefix makes every page under it request-dependent: private, filtered on
+// each request, never stored. The bare prefix and look-alikes stay public.
+func TestPluginPrefixPageUncached(t *testing.T) {
+	f := newRenderFixture(t)
+	_, s := bootRoutes(t)
+	rt := capaRuntimeWith(t, s, func(m *sdk.Manifest) { m.PagePathPrefixes = []string{"/item/"} })
+	f.h.pageFilter = pluginhost.NewPageFilter(rt, s.hooks)
+	f.next = membersPage
+
+	resolves := f.resolves
+	for i := 0; i < 2; i++ {
+		w := f.get("/item/x")
+		if cc := w.Header().Get("Cache-Control"); !strings.Contains(cc, "no-store") || w.Header().Get("Vary") != "Cookie" {
+			t.Fatalf("request %d: Cache-Control=%q Vary=%q", i, cc, w.Header().Get("Vary"))
+		}
+		if strings.Contains(w.Body.String(), "SECRET-BLOCK") {
+			t.Errorf("request %d: the filter did not run", i)
+		}
+	}
+	if f.resolves != resolves+2 {
+		t.Errorf("resolves advanced by %d, want 2", f.resolves-resolves)
+	}
+	if len(f.cache.sets) != 0 {
+		t.Fatalf("a prefix page was stored: %d sets", len(f.cache.sets))
+	}
+	for i, path := range []string{"/item", "/items/x"} {
+		w := f.get(path)
+		if !strings.Contains(w.Body.String(), "SECRET-BLOCK") {
+			t.Errorf("%s: the filter ran outside the prefix", path)
+		}
+		if len(f.cache.sets) != i+1 {
+			t.Fatalf("%s: %d sets, want %d", path, len(f.cache.sets), i+1)
+		}
+	}
+}
+
+// The first value of a declared key reaches the plugin; undeclared keys and
+// later values do not.
+func TestPluginPageQueryFirstValue(t *testing.T) {
+	f := newRenderFixture(t)
+	_, s := bootRoutes(t)
+	rt := capaRuntimeWith(t, s, func(m *sdk.Manifest) {
+		m.PagePaths, m.PageQuery = []string{"/echo-query"}, []string{"p"}
+	})
+	f.h.pageFilter = pluginhost.NewPageFilter(rt, s.hooks)
+	f.next = membersPage
+
+	w := f.get("/echo-query?p=2&p=3&x=1")
+	body := w.Body.String()
+	if !strings.Contains(body, "q:p=2") || strings.Contains(body, "q:x") || strings.Contains(body, "=3") {
+		t.Fatalf("body:\n%s", body)
+	}
+	if cc := w.Header().Get("Cache-Control"); !strings.Contains(cc, "no-store") {
+		t.Errorf("Cache-Control = %q", cc)
+	}
+}
+
+func TestPageQueryHelper(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/x?p=2&p=3&x=1", nil)
+	if got := pageQuery(req, nil); got != nil {
+		t.Errorf("no keys: %v", got)
+	}
+	if got := pageQuery(req, []string{"p", "q"}); len(got) != 1 || got["p"] != "2" {
+		t.Errorf("got %v, want only p=2", got)
+	}
+	if got := pageQuery(httptest.NewRequest(http.MethodGet, "/x?x=1", nil), []string{"p"}); len(got) != 0 {
+		t.Errorf("absent key: %v", got)
+	}
+}

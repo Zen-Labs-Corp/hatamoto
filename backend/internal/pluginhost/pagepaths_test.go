@@ -35,7 +35,7 @@ func TestPagePathsIndex(t *testing.T) {
 	r := newCapaRig(t)
 	r.loadAs(t, "capa", func(m *sdk.Manifest) { m.PagePaths = []string{"/members"} })
 	idx := r.rt.pageIdx.Load()
-	if idx == nil || len(idx.byPlugin["capa"]) != 1 || idx.siteWide != 0 || idx.paths["/members"] != 1 {
+	if idx == nil || len(idx.byPlugin["capa"].paths) != 1 || idx.siteWide != 0 || idx.union.paths["/members"] != 1 {
 		t.Fatalf("index = %+v", idx)
 	}
 	for _, c := range []struct {
@@ -49,15 +49,15 @@ func TestPagePathsIndex(t *testing.T) {
 	}
 
 	r.loadAs(t, "capa2", func(m *sdk.Manifest) { m.PagePaths = []string{"/members"} })
-	if got := r.rt.pageIdx.Load().paths["/members"]; got != 2 {
+	if got := r.rt.pageIdx.Load().union.paths["/members"]; got != 2 {
 		t.Fatalf("shared path count = %d, want 2", got)
 	}
 	r.rt.Unload(context.Background(), "capa")
-	if got := r.rt.pageIdx.Load().paths["/members"]; got != 1 {
+	if got := r.rt.pageIdx.Load().union.paths["/members"]; got != 1 {
 		t.Fatalf("after unload = %d, want 1", got)
 	}
 	r.rt.Unload(context.Background(), "capa2")
-	if idx := r.rt.pageIdx.Load(); len(idx.byPlugin) != 0 || len(idx.paths) != 0 {
+	if idx := r.rt.pageIdx.Load(); len(idx.byPlugin) != 0 || len(idx.union.paths) != 0 {
 		t.Fatalf("index not empty: %+v", idx)
 	}
 	if r.rt.pageFiltered("/members", 0) {

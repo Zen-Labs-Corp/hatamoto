@@ -15,7 +15,7 @@ func (h *renderHandlers) applyPageFilter(r *http.Request, path string, v *render
 	if v.Doc != nil {
 		return nil // builder-only page: the render.page contract is sections
 	}
-	in := sdk.PageContext{Path: path, Cookies: pluginCookies(r), Blocks: make([]sdk.Block, 0, len(v.Sections))}
+	in := sdk.PageContext{Path: path, Cookies: pluginCookies(r), Query: pageQuery(r, h.pageFilter.QueryKeys()), Blocks: make([]sdk.Block, 0, len(v.Sections))}
 	if e := v.Entity; e != nil {
 		in.Entity = &sdk.EntitySummary{ID: e.ID, SchemaSlug: e.Schema, Slug: e.Slug, Name: e.Title, Locale: firstNonEmpty(v.Locale, v.Site.Language)}
 	}
@@ -37,4 +37,21 @@ func (h *renderHandlers) applyPageFilter(r *http.Request, path string, v *render
 	}
 	v.Sections = sections
 	return out.SetCookies
+}
+
+// pageQuery returns the first value of each key some render.page plugin
+// declared (page_query); the host gives each plugin only its own keys and
+// drops long values. Runs only on filtered pages.
+func pageQuery(r *http.Request, keys []string) map[string]string {
+	if len(keys) == 0 || r.URL.RawQuery == "" {
+		return nil
+	}
+	q := r.URL.Query()
+	out := make(map[string]string, len(keys))
+	for _, k := range keys {
+		if vs := q[k]; len(vs) > 0 {
+			out[k] = vs[0]
+		}
+	}
+	return out
 }
