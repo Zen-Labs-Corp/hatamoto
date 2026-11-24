@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/packages"
@@ -63,12 +64,23 @@ type Comments interface {
 	Enabled(ctx context.Context) (bool, error)
 }
 
-// Policy turns the community comment policy on for one content type. It is nil
-// until the part that ships comment.policy supplies it. Warning is the text
-// the owner must see first (ADR 0005 9.5); this package never writes it.
-type Policy interface {
-	SetPolicy(ctx context.Context, schemaSlug string, on bool) error
-	Warning() string
+// SchemaComments is the comment settings seam of Settings > Comments > Content
+// types (admin.CommentsService.SetSchemaComments). It alone validates and writes
+// settings.comments.order and .policy; this package reads state and passes values.
+type SchemaComments interface {
+	// SchemaComments returns entity.ErrSchemaNotFound for an unknown slug.
+	SchemaComments(ctx context.Context, slug string) (SchemaCommentState, error)
+	// SetSchemaComments rewrites order ("" = site default) and policy, keeping every other key.
+	SetSchemaComments(ctx context.Context, slug, order string, p comment.Policy) error
+}
+
+// SchemaCommentState is what the seam holds for one content type.
+type SchemaCommentState struct {
+	ID        string
+	Builtin   bool           // a type the seam refuses (built-in, no schema-mode-builtin)
+	Order     string         // "" when unset
+	Policy    comment.Policy // stored policy, decoded (defaults when unset)
+	HasPolicy bool           // settings.comments.policy is stored
 }
 
 // AppliedLog reads and records applied kits (AppliedStore implements it).
@@ -79,13 +91,13 @@ type AppliedLog interface {
 
 // Deps are the services Plan and Apply work on.
 type Deps struct {
-	Packages Packages
-	Schemas  Schemas
-	Pages    Pages
-	Menus    Menus
-	Site     Site
-	Comments Comments
-	Policy   Policy
-	Applied  AppliedLog
-	Log      *slog.Logger
+	Packages       Packages
+	Schemas        Schemas
+	Pages          Pages
+	Menus          Menus
+	Site           Site
+	Comments       Comments
+	SchemaComments SchemaComments
+	Applied        AppliedLog
+	Log            *slog.Logger
 }

@@ -63,7 +63,7 @@ type ItemStep struct {
 	Name   string
 	Action Action
 	Note   string
-	// Owner is the kit plugin that creates a content type (Decision 27).
+	// Owner is the kit plugin whose entity_schema creates this content type.
 	Owner string
 }
 
@@ -78,11 +78,13 @@ type CommentsStep struct {
 
 // PolicyStep is the kit's request for the community policy on its content types.
 type PolicyStep struct {
-	Requested []string
-	// Available is set only when the policy can be turned on and its warning
-	// is known; Warning is that text (ADR 0005 9.5).
+	Requested []string // types the owner's tick turns on (policy not on yet)
+	AlreadyOn []string // requested types whose policy is already on: kept
+	// Available is set when at least one type can be turned on; Warning and
+	// Tick are the texts the owner must accept first (ADR 0005 9.5).
 	Available bool
 	Warning   string
+	Tick      string
 	Message   string
 }
 
@@ -176,7 +178,8 @@ func (pl *Plan) note(format string, a ...any) {
 	pl.Messages = append(pl.Messages, fmt.Sprintf(format, a...))
 }
 
-// tierOf is the signer label shown to the owner (Decision 16).
+// tierOf is the signer label shown to the owner: the registry's tier when it
+// lists one, else first-party, developer or community from the signer.
 func tierOf(o Options) string {
 	if o.Tier != "" {
 		return o.Tier
@@ -450,17 +453,8 @@ func (pl *Plan) planSwitches(ctx context.Context, d Deps) error {
 		pl.Comments.NoAddress = d.Site.Address(ctx) == ""
 	}
 	if len(sw.CommentPolicy) > 0 {
-		pl.Policy.Requested = sw.CommentPolicy
-		switch {
-		case !slices.Contains(pl.Kit.Requires, "comment.policy"):
-			pl.Policy.Message = "Community policy skipped: the kit does not list comment.policy in requires."
-		case d.Policy == nil || d.Policy.Warning() == "":
-			pl.Policy.Message = "Community policy skipped: this site cannot turn it on yet."
-		default:
-			pl.Policy.Available, pl.Policy.Warning = true, d.Policy.Warning()
-		}
-		if pl.Policy.Message != "" {
-			pl.note("%s", pl.Policy.Message)
+		if err := pl.planPolicy(ctx, d, sw.CommentPolicy); err != nil {
+			return err
 		}
 	}
 	pl.Homepage.Page = sw.Homepage
@@ -471,6 +465,43 @@ func (pl *Plan) planSwitches(ctx context.Context, d Deps) error {
 				break
 			}
 		}
+	}
+	return nil
+}
+
+// planPolicy sorts the kit's policy types into those the owner's tick turns on
+// and those already on.
+func (pl *Plan) planPolicy(ctx context.Context, d Deps, slugs []string) error {
+	switch {
+	case !slices.Contains(pl.Kit.Requires, "comment.policy"):
+		pl.Policy.Requested = slugs
+		pl.Policy.Message = "Community policy skipped: the kit does not list comment.policy in requires."
+	case d.SchemaComments == nil:
+		pl.Policy.Requested = slugs
+		pl.Policy.Message = "Community policy skipped: this site cannot turn it on yet."
+	default:
+		for _, slug := range slugs {
+			st, err := d.SchemaComments.SchemaComments(ctx, slug)
+			switch {
+			case errors.Is(err, entity.ErrSchemaNotFound):
+				pl.Policy.Requested = append(pl.Policy.Requested, slug) // the schemas step creates it
+			case err != nil:
+				return err
+			case st.Builtin:
+				pl.note("Community policy skipped for '%s': built-in content types cannot use it.", slug)
+			case st.Policy.Enabled:
+				pl.Policy.AlreadyOn = append(pl.Policy.AlreadyOn, slug)
+				pl.Kept = append(pl.Kept, fmt.Sprintf("community policy on '%s'", slug))
+			default:
+				pl.Policy.Requested = append(pl.Policy.Requested, slug)
+			}
+		}
+		if pl.Policy.Available = len(pl.Policy.Requested) > 0; pl.Policy.Available {
+			pl.Policy.Warning, pl.Policy.Tick = comment.PolicyConfirmWarning, comment.PolicyTick
+		}
+	}
+	if pl.Policy.Message != "" {
+		pl.note("%s", pl.Policy.Message)
 	}
 	return nil
 }

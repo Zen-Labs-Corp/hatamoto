@@ -181,26 +181,50 @@ func TestApplyCommentsNeedACallback(t *testing.T) {
 	}
 }
 
-func TestApplyPolicyOnlyWithTheTick(t *testing.T) {
+func withPolicyFeature(t *testing.T) func(*packages.Kit) {
 	old := present
 	present = []string{"comment.policy"}
 	t.Cleanup(func() { present = old })
-	edit := func(k *packages.Kit) { k.Requires = []string{"comment.policy"} }
+	return func(k *packages.Kit) { k.Requires = []string{"comment.policy"} }
+}
+
+func TestApplyPolicyOnlyWithTheTick(t *testing.T) {
+	edit := withPolicyFeature(t)
 
 	f := newFake(t).withRegistry(t)
-	f.policy = &fakePolicy{warning: "Read this first."}
 	res, err := apply(t, f, kitPackage(t, edit), Accepts{Comments: true}, &enabler{})
-	if err != nil || len(f.policy.on) != 0 || policyEnabled(t, f) || !hasText(res.Messages, "Community policy left off") {
-		t.Fatalf("err=%v on=%v messages=%v", err, f.policy.on, res.Messages)
+	if err != nil || f.wrote("comments") != 0 || policyEnabled(t, f) || !hasText(res.Messages, "Community policy left off") || len(res.PolicyOn) != 0 {
+		t.Fatalf("err=%v writes=%v messages=%v", err, f.writes, res.Messages)
 	}
 
 	f = newFake(t).withRegistry(t)
-	f.policy = &fakePolicy{warning: "Read this first."}
-	if _, err = apply(t, f, kitPackage(t, edit), Accepts{Comments: true, Policy: true}, &enabler{}); err != nil {
+	if res, err = apply(t, f, kitPackage(t, edit), Accepts{Comments: true, Policy: true}, &enabler{}); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(f.policy.on, []string{"story"}) {
-		t.Errorf("policy on for %v", f.policy.on)
+	if f.wrote("comments story") != 1 || !policyEnabled(t, f) {
+		t.Fatalf("writes=%v settings=%s", f.writes, f.schemas["story"].s.Settings)
+	}
+	st, _ := f.SchemaComments(context.Background(), "story")
+	if st.Policy.MaxDepth != 32 || st.Policy.EditWindowMinutes != 120 || st.Policy.SlowModeSeconds != 30 {
+		t.Errorf("the kit's numbers must be kept: %+v", st.Policy)
+	}
+	if want := []PolicyChange{{Slug: "story", SchemaID: st.ID}}; !slices.Equal(res.PolicyOn, want) {
+		t.Errorf("PolicyOn = %v, want %v", res.PolicyOn, want)
+	}
+}
+
+func TestApplyPolicyTwiceChangesNothing(t *testing.T) {
+	edit := withPolicyFeature(t)
+	f := newFake(t).withRegistry(t)
+	acc := Accepts{Comments: true, Policy: true}
+	if _, err := apply(t, f, kitPackage(t, edit), acc, &enabler{}); err != nil {
+		t.Fatal(err)
+	}
+	f.comOn = true // the enabler fake does not switch comments on itself
+	before := len(f.writes)
+	res, err := apply(t, f, kitPackage(t, edit), acc, &enabler{})
+	if err != nil || len(f.writes) != before || res.Recorded || len(res.PolicyOn) != 0 {
+		t.Errorf("second apply: err=%v recorded=%v on=%v writes=%v", err, res.Recorded, res.PolicyOn, f.writes[before:])
 	}
 }
 

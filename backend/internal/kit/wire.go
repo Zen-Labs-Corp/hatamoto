@@ -21,24 +21,26 @@ type Services struct {
 	Menus    *menu.Service
 	Site     *siteconfig.Store
 	Comments *comment.Service
-	Pool     *pgxpool.Pool
+	// SchemaComments is nil when the site cannot write comment settings.
+	SchemaComments SchemaComments
+	Pool           *pgxpool.Pool
 	// Address returns the site address ("" when none is set).
 	Address func(ctx context.Context) string
 	Log     *slog.Logger
 }
 
-// Wire adapts the services to Deps. The adapters only translate calls. Policy
-// stays nil until the part that ships comment.policy supplies one.
+// Wire adapts the services to Deps. The adapters only translate calls.
 func Wire(s Services) Deps {
 	return Deps{
-		Packages: packagesAdapter{m: s.Manager},
-		Schemas:  schemasAdapter{Service: s.Entities, pool: s.Pool},
-		Pages:    pagesAdapter{e: s.Entities},
-		Menus:    s.Menus,
-		Site:     siteAdapter{site: s.Site, entities: s.Entities, address: s.Address},
-		Comments: commentsAdapter{c: s.Comments},
-		Applied:  AppliedStore{Pool: s.Pool},
-		Log:      s.Log,
+		Packages:       packagesAdapter{m: s.Manager},
+		Schemas:        schemasAdapter{Service: s.Entities, pool: s.Pool},
+		Pages:          pagesAdapter{e: s.Entities},
+		Menus:          s.Menus,
+		Site:           siteAdapter{site: s.Site, entities: s.Entities, address: s.Address},
+		Comments:       commentsAdapter{c: s.Comments},
+		SchemaComments: s.SchemaComments,
+		Applied:        AppliedStore{Pool: s.Pool},
+		Log:            s.Log,
 	}
 }
 

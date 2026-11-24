@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
@@ -101,7 +102,9 @@ type fake struct {
 	home    *entity.Entity
 	address string
 	comOn   bool
-	policy  *fakePolicy
+	// noSeam leaves Deps.SchemaComments nil; builtin lists slugs the seam refuses.
+	noSeam  bool
+	builtin map[string]bool
 	applied map[string]Applied
 
 	// pluginCreates makes installing a plugin that declares entity_schema
@@ -112,19 +115,6 @@ type fake struct {
 
 	writes []string
 	reads  int
-}
-
-type fakePolicy struct {
-	warning string
-	on      []string
-}
-
-func (p *fakePolicy) Warning() string { return p.warning }
-func (p *fakePolicy) SetPolicy(_ context.Context, slug string, on bool) error {
-	if on {
-		p.on = append(p.on, slug)
-	}
-	return nil
 }
 
 func newFake(t testing.TB) *fake {
@@ -155,8 +145,8 @@ func (f *fake) write(format string, a ...any) { f.writes = append(f.writes, fmt.
 
 func (f *fake) deps() Deps {
 	d := Deps{Packages: f, Schemas: f, Pages: f, Menus: f, Site: f, Comments: f, Applied: f}
-	if f.policy != nil {
-		d.Policy = f.policy
+	if !f.noSeam {
+		d.SchemaComments = f
 	}
 	return d
 }
@@ -235,6 +225,53 @@ func (f *fake) SchemaOrigin(_ context.Context, slug string) (string, error) {
 		return r.origin, nil
 	}
 	return "", entity.ErrSchemaNotFound
+}
+
+// SchemaComments: the real seam validates, merges and writes through the stored settings.
+
+func (f *fake) SchemaComments(_ context.Context, slug string) (SchemaCommentState, error) {
+	r, ok := f.schemas[slug]
+	if !ok {
+		return SchemaCommentState{}, entity.ErrSchemaNotFound
+	}
+	var st struct {
+		Comments struct {
+			Order  string         `json:"order"`
+			Policy jsontext.Value `json:"policy"`
+		} `json:"comments"`
+	}
+	if len(r.s.Settings) > 0 {
+		if err := jsonx.Unmarshal(r.s.Settings, &st, jsonx.StoredLoose); err != nil {
+			return SchemaCommentState{}, err
+		}
+	}
+	return SchemaCommentState{
+		ID: r.s.ID.String(), Builtin: f.builtin[slug], Order: st.Comments.Order,
+		Policy: comment.DecodePolicy(st.Comments.Policy), HasPolicy: len(st.Comments.Policy) > 0,
+	}, nil
+}
+
+func (f *fake) SetSchemaComments(_ context.Context, slug, order string, p comment.Policy) error {
+	r, ok := f.schemas[slug]
+	if !ok {
+		return entity.ErrSchemaNotFound
+	}
+	if f.builtin[slug] {
+		return errors.New("built-in content type")
+	}
+	if err := p.Validate(); err != nil {
+		return err
+	}
+	if !comment.ValidOrder(order) {
+		return errors.New("bad order")
+	}
+	f.write("comments %s", slug)
+	merged, err := comment.MergeSchemaComments(r.s.Settings, &order, &p)
+	if err != nil {
+		return err
+	}
+	r.s.Settings = merged
+	return nil
 }
 
 // Pages

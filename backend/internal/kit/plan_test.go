@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/packages"
@@ -200,27 +201,46 @@ func TestPlanPolicyNeedsRequires(t *testing.T) {
 	}
 }
 
-func TestPlanPolicyAvailableOnlyWithAWarning(t *testing.T) {
-	old := present
-	present = []string{"comment.policy"}
-	t.Cleanup(func() { present = old })
-	edit := func(k *packages.Kit) { k.Requires = []string{"comment.policy"} }
-
+func TestPlanPolicyAvailableWithTheSeam(t *testing.T) {
+	edit := withPolicyFeature(t)
 	f := newFake(t).withRegistry(t)
 	pl := mustPlan(t, f, kitPackage(t, edit))
-	if len(pl.Refusals) != 0 || pl.Policy.Available || pl.Policy.Message == "" {
-		t.Errorf("no policy part: %+v refusals %v", pl.Policy, pl.Refusals)
-	}
-
-	f.policy = &fakePolicy{}
-	if pl = mustPlan(t, f, kitPackage(t, edit)); pl.Policy.Available {
-		t.Error("a policy without a warning must not be offered")
-	}
-
-	f.policy = &fakePolicy{warning: "Read this first."}
-	pl = mustPlan(t, f, kitPackage(t, edit))
-	if !pl.Policy.Available || pl.Policy.Warning != "Read this first." || !slices.Equal(pl.Policy.Requested, []string{"story"}) {
+	if !pl.Policy.Available || pl.Policy.Warning != comment.PolicyConfirmWarning || pl.Policy.Tick != comment.PolicyTick ||
+		!slices.Equal(pl.Policy.Requested, []string{"story"}) {
 		t.Errorf("policy: %+v", pl.Policy)
+	}
+}
+
+func TestPlanPolicyAlreadyOn(t *testing.T) {
+	edit := withPolicyFeature(t)
+	f := newFake(t).withRegistry(t)
+	f.schemas["story"] = &schemaRec{s: &entity.EntitySchema{ID: uuid.New(), Slug: "story",
+		Settings: []byte(`{"comments":{"policy":{"enabled":true,"max_depth":5,"edit_window_minutes":15,"slow_mode_seconds":0}}}`)}}
+	pl := mustPlan(t, f, kitPackage(t, edit))
+	if !slices.Equal(pl.Policy.AlreadyOn, []string{"story"}) || len(pl.Policy.Requested) != 0 || pl.Policy.Available ||
+		!hasText(pl.Kept, "community policy on 'story'") {
+		t.Errorf("policy: %+v kept %v", pl.Policy, pl.Kept)
+	}
+}
+
+func TestPlanPolicyBuiltinSkipped(t *testing.T) {
+	edit := withPolicyFeature(t)
+	f := newFake(t).withRegistry(t)
+	f.schemas["story"] = &schemaRec{s: &entity.EntitySchema{ID: uuid.New(), Slug: "story"}}
+	f.builtin = map[string]bool{"story": true}
+	pl := mustPlan(t, f, kitPackage(t, edit))
+	if pl.Policy.Available || !hasText(pl.Messages, "Community policy skipped for 'story': built-in content types cannot use it.") {
+		t.Errorf("policy: %+v messages %v", pl.Policy, pl.Messages)
+	}
+}
+
+func TestPlanPolicyNoSeam(t *testing.T) {
+	edit := withPolicyFeature(t)
+	f := newFake(t).withRegistry(t)
+	f.noSeam = true
+	pl := mustPlan(t, f, kitPackage(t, edit))
+	if len(pl.Refusals) != 0 || pl.Policy.Available || !hasText(pl.Messages, "cannot turn it on yet") {
+		t.Errorf("policy: %+v messages %v refusals %v", pl.Policy, pl.Messages, pl.Refusals)
 	}
 }
 

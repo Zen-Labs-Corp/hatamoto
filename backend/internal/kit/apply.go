@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
@@ -47,6 +48,9 @@ type ApplyOptions struct {
 	EnableComments func(context.Context) error
 }
 
+// PolicyChange is one content type whose community policy an apply turned on.
+type PolicyChange struct{ Slug, SchemaID string }
+
 // Result is what one Apply did.
 type Result struct {
 	// Created counts what was added: plugins, themes, schemas, pages, menus.
@@ -61,6 +65,9 @@ type Result struct {
 	Checked int
 	// Recorded is true when the applied row was written.
 	Recorded bool
+	// PolicyOn lists the types whose community policy this apply turned on
+	// (callers audit comments.policy).
+	PolicyOn []PolicyChange
 
 	changed bool
 }
@@ -372,19 +379,42 @@ func applySwitches(ctx context.Context, d Deps, pl *Plan, a Accepts, o ApplyOpti
 			res.Messages = append(res.Messages, "Comments left off: you did not accept the comment warnings.")
 		}
 	}
-	if len(pl.Policy.Requested) > 0 {
-		switch {
-		case a.Policy && pl.Policy.Available:
-			for _, slug := range pl.Policy.Requested {
-				if err := d.Policy.SetPolicy(ctx, slug, true); err != nil {
-					return fmt.Errorf("community policy for %s: %w", slug, err)
-				}
-			}
-			res.Messages = append(res.Messages, "Community policy is on.")
-			res.changed = true
-		case pl.Policy.Available:
+	if pl.Policy.Available {
+		if !a.Policy {
 			res.Messages = append(res.Messages, "Community policy left off: you did not accept its warning.")
+		} else if err := turnPolicyOn(ctx, d, pl, res); err != nil {
+			return err
 		}
+	}
+	return nil
+}
+
+// turnPolicyOn switches the community policy on for each requested type that
+// does not have it yet, keeping the order and the numbers the type stores.
+func turnPolicyOn(ctx context.Context, d Deps, pl *Plan, res *Result) error {
+	var slugs []string
+	for _, slug := range pl.Policy.Requested {
+		st, err := d.SchemaComments.SchemaComments(ctx, slug)
+		if err != nil {
+			return fmt.Errorf("community policy for %s: %w", slug, err)
+		}
+		if st.Policy.Enabled {
+			continue
+		}
+		p := st.Policy
+		if !st.HasPolicy {
+			p = comment.DefaultPolicy()
+		}
+		p.Enabled = true
+		if err := d.SchemaComments.SetSchemaComments(ctx, slug, st.Order, p); err != nil {
+			return fmt.Errorf("community policy for %s: %w", slug, err)
+		}
+		res.PolicyOn = append(res.PolicyOn, PolicyChange{Slug: slug, SchemaID: st.ID})
+		slugs = append(slugs, slug)
+	}
+	if len(slugs) > 0 {
+		res.Messages = append(res.Messages, "Community policy is on for "+strings.Join(slugs, ", ")+".")
+		res.changed = true
 	}
 	return nil
 }
