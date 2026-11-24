@@ -394,6 +394,8 @@ type Deps struct {
 	AuditRetention AuditRetentionService
 	Owners         OwnerCreator
 	Starter        StarterInstaller
+	// Kits lists and applies site kits; nil answers Settings > Kits as unavailable.
+	Kits KitService
 	// SetupCode gates the first owner; nil disables the wizard's first step.
 	SetupCode *SetupCode
 	// NeedsSetup reports a fresh install (no users yet); /admin/login then
@@ -654,6 +656,7 @@ func (a *Admin) mountScreens(public, account, content, authed *httpx.Group) {
 	a.mountGrowth(authed)
 	a.mountContent(content, authed)
 	a.mountComments(authed)
+	a.mountKits(authed)
 	a.mountImport(authed)
 	a.mountPageEditor(content, public)
 	a.mountChangesets(authed, public)

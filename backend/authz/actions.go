@@ -102,6 +102,8 @@ const (
 	ActionFormSubmissionRead Action = "form.submission.read"
 	// ActionImportRun is the "import.run" action.
 	ActionImportRun Action = "import.run"
+	// ActionKitApply is the "kit.apply" action: apply a site kit (owner only).
+	ActionKitApply Action = "kit.apply"
 	// ActionLinkInsert is the "link.insert" action.
 	ActionLinkInsert Action = "link.insert"
 	// ActionLinkRuleManage is the "link.rule.manage" action.

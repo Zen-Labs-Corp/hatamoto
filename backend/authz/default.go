@@ -62,6 +62,7 @@ var table = map[Action]rule{
 	ActionFormSubmissionManage:         {editor: true, scope: ""},
 	ActionFormSubmissionRead:           {editor: true, scope: "read:forms"},
 	ActionImportRun:                    {editor: false, scope: ""},
+	ActionKitApply:                     {editor: false, scope: ""},
 	ActionLinkInsert:                   {editor: true, scope: "write:entities"},
 	ActionLinkRuleManage:               {editor: true, scope: ""},
 	ActionLinkSuggest:                  {editor: true, scope: "read:entities"},

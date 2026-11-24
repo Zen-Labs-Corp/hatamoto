@@ -157,6 +157,7 @@ GET /admin/settings/import/wordpress/{id}/cancel anon=303 editor=403 owner=503
 GET /admin/settings/import/wordpress/{id}/options anon=303 editor=403 owner=503
 GET /admin/settings/integrations anon=303 editor=403 owner=302
 GET /admin/settings/jobs anon=303 editor=403 owner=503
+GET /admin/settings/kits anon=303 editor=403 owner=503
 GET /admin/settings/linking anon=303 editor=503 owner=503
 GET /admin/settings/linking/equity anon=303 editor=503 owner=503
 GET /admin/settings/linking/equity/{id} anon=303 editor=503 owner=503
