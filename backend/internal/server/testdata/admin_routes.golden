@@ -156,6 +156,8 @@ GET /admin/settings/import/wordpress/{id}/cancel -> admin.(*Admin).handleImportC
 GET /admin/settings/import/wordpress/{id}/options -> admin.(*Admin).handleImportOptions-fm
 GET /admin/settings/integrations -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/jobs -> admin.(*Admin).handleJobs-fm
+GET /admin/settings/kits -> admin.(*Admin).handleKits-fm
+GET /admin/settings/kits/{name} -> admin.(*Admin).handleKitReview-fm
 GET /admin/settings/linking -> admin.(*Admin).handleRules-fm
 GET /admin/settings/linking/equity -> admin.(*Admin).handleEquity-fm
 GET /admin/settings/linking/equity/{id} -> admin.(*Admin).handleInbound-fm
@@ -242,6 +244,8 @@ GET /admin/setup/admin-address/strength -> admin.(*Admin).handleSetupAddressStre
 GET /admin/setup/content -> admin.(*Admin).handleSetupContentForm-fm
 GET /admin/setup/done -> admin.(*Admin).handleSetupDone-fm
 GET /admin/setup/email -> admin.(*Admin).handleSetupEmailForm-fm
+GET /admin/setup/kit -> admin.(*Admin).handleSetupKitList-fm
+GET /admin/setup/kit/{name} -> admin.(*Admin).handleSetupKitReview-fm
 GET /admin/setup/site -> admin.(*Admin).handleSetupSiteForm-fm
 GET /admin/setup/theme -> admin.(*Admin).handleSetupThemeForm-fm
 GET /admin/sudo -> admin.(*Admin).handleSudoPage-fm
@@ -434,6 +438,7 @@ POST /admin/settings/import/wordpress/{id}/cancel -> admin.(*Admin).handleImport
 POST /admin/settings/import/wordpress/{id}/resume -> admin.(*Admin).handleImportResume-fm
 POST /admin/settings/import/wordpress/{id}/start -> admin.(*Admin).handleImportStart-fm
 POST /admin/settings/jobs/{id}/run -> admin.(*Admin).handleJobRun-fm
+POST /admin/settings/kits/{name} -> admin.(*Admin).handleKitApply-fm
 POST /admin/settings/linking/import -> admin.(*Admin).handleImport-fm
 POST /admin/settings/linking/rules -> admin.(*Admin).handleRuleSave-fm
 POST /admin/settings/linking/rules/bulk -> admin.(*Admin).handleRulesBulk-fm
@@ -532,6 +537,8 @@ POST /admin/setup/admin-address -> admin.(*Admin).handleSetupAddressSave-fm
 POST /admin/setup/admin-address/regenerate -> admin.(*Admin).handleSetupAddressRegen-fm
 POST /admin/setup/content -> admin.(*Admin).handleSetupContent-fm
 POST /admin/setup/email -> admin.(*Admin).handleSetupEmail-fm
+POST /admin/setup/kit -> admin.(*Admin).handleSetupKitPick-fm
+POST /admin/setup/kit/{name} -> admin.(*Admin).handleSetupKitApply-fm
 POST /admin/setup/site -> admin.(*Admin).handleSetupSite-fm
 POST /admin/setup/theme -> admin.(*Admin).handleSetupTheme-fm
 POST /admin/sudo -> admin.(*Admin).handleSudo-fm
