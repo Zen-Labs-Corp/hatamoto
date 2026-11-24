@@ -41,8 +41,8 @@ type postComments struct {
 }
 
 func (f *postComments) Settings(context.Context) (comment.Settings, error) { return f.set, nil }
-func (f *postComments) EntityMode(context.Context, uuid.UUID) (comment.Mode, error) {
-	return f.mode, nil
+func (f *postComments) EntityConfig(context.Context, uuid.UUID) (comment.EntityConfig, error) {
+	return comment.EntityConfig{Mode: f.mode}, nil
 }
 func (f *postComments) Store(_ context.Context, d comment.Draft) (comment.Comment, error) {
 	f.stored = append(f.stored, d)

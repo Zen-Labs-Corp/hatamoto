@@ -43,6 +43,41 @@ func TestCommentsEnableWarningsAndAck(t *testing.T) {
 	}
 }
 
+// The community policy warnings are pinned word for word: the on-state callout and the off-state
+// help on the panel, the confirm text and the tick on the panel dialog and the no-JS confirm page.
+// Their ack buttons are never disabled by server HTML.
+func TestCommentsPolicyWarningAndAck(t *testing.T) {
+	t.Parallel()
+
+	settings := readWeb(t, "pages/settings/comments.html")
+	confirm := readWeb(t, "pages/settings/comments-policy.html")
+	for _, want := range []string{
+		"Links and first-time commenters are posted at once, not held.",
+		"Links and new commenters are held.",
+	} {
+		if !strings.Contains(settings, want) {
+			t.Errorf("comments.html lacks %q", want)
+		}
+	}
+	disabled := regexp.MustCompile(`(?i)disabled`)
+	for name, src := range map[string]string{"comments.html": settings, "comments-policy.html": confirm} {
+		for _, want := range []string{
+			"Are you sure? With the community policy on, comments with links and first comments on this content type are posted at once, without review. Spam checks, blocked commenters, duplicates, captcha and surge mode still hold comments.",
+			"I understand comments on this type will not wait for review",
+			"data-hm-ack-submit",
+		} {
+			if !strings.Contains(src, want) {
+				t.Errorf("%s lacks %q", name, want)
+			}
+		}
+		for _, line := range strings.Split(src, "\n") {
+			if strings.Contains(line, "data-hm-ack-submit") && disabled.MatchString(line) {
+				t.Errorf("%s: a data-hm-ack-submit button is disabled in the HTML: %s", name, line)
+			}
+		}
+	}
+}
+
 func TestCommentsScreensHaveNoWebsiteField(t *testing.T) {
 	t.Parallel()
 

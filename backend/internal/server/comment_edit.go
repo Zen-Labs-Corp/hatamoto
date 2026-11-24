@@ -26,6 +26,7 @@ const editBodyField = "body"
 // need (tests use a fake).
 type commentEditor interface {
 	Get(context.Context, uuid.UUID) (comment.Comment, error)
+	EntityConfig(context.Context, uuid.UUID) (comment.EntityConfig, error)
 	Edit(context.Context, uuid.UUID, comment.Edited) (comment.Comment, error)
 	Trash(context.Context, uuid.UUID) (comment.Comment, error)
 }
@@ -50,7 +51,7 @@ func (s *Server) commentEditorOrNil() commentEditor {
 
 // serveOwnComment applies an edit or a delete when the signed device cookie
 // belongs to the comment's author and the comment is still inside
-// comment.EditWindow. Ownership never comes from the form. Neither the body
+// the edit window of its content type (cfg.Policy.EditWindow). Ownership never comes from the form. Neither the body
 // nor the cookie is logged.
 func (s *Server) serveOwnComment(w http.ResponseWriter, r *http.Request, ed commentEditor, del bool, now time.Time) {
 	w.Header().Set("Cache-Control", "no-store")
@@ -79,8 +80,17 @@ func (s *Server) serveOwnComment(w http.ResponseWriter, r *http.Request, ed comm
 		s.commentFail(w, r, "comment edit: get", err)
 		return
 	}
+	cfg, err := ed.EntityConfig(ctx, c.EntityID)
+	if errors.Is(err, comment.ErrNotFound) {
+		s.commentNotFound(w, r)
+		return
+	}
+	if err != nil {
+		s.commentFail(w, r, "comment edit: policy", err)
+		return
+	}
 	if c.CommenterID == nil || *c.CommenterID != commenter ||
-		now.Sub(c.CreatedAt) >= comment.EditWindow || c.Status == comment.StatusTrash {
+		now.Sub(c.CreatedAt) >= cfg.Policy.EditWindow() || c.Status == comment.StatusTrash {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}

@@ -17,6 +17,9 @@ type DecideInput struct {
 	Trust       TrustLevel
 	AdminAuthor bool // owner or editor replying as the site
 	Surge       bool
+	// Community is the content type's community policy: a link and a first
+	// comment do not hold. Every other reason (surge, score, block, spam) still does.
+	Community bool
 }
 
 // Decide maps a scored submission to the status it gets once confirmed.
@@ -24,6 +27,8 @@ type DecideInput struct {
 // spam verdict is spam (a shadow hold); otherwise every applicable hold reason
 // (surge, link, score, new commenter) collects and the comment is pending; a
 // clean, link-free comment from a known or trusted commenter is approved.
+// On a content type with the community policy the link and new-commenter
+// reasons do not apply; the others do.
 func Decide(in DecideInput) (Status, []string) {
 	if in.AdminAuthor {
 		return StatusApproved, nil
@@ -38,13 +43,13 @@ func Decide(in DecideInput) (Status, []string) {
 	if in.Surge {
 		reasons = append(reasons, ReasonSurge)
 	}
-	if in.HasLinks {
+	if in.HasLinks && !in.Community {
 		reasons = append(reasons, ReasonLink)
 	}
 	if in.Verdict == "hold" {
 		reasons = append(reasons, ReasonScore)
 	}
-	if in.Trust != TrustKnown && in.Trust != TrustTrusted {
+	if !in.Community && in.Trust != TrustKnown && in.Trust != TrustTrusted {
 		reasons = append(reasons, ReasonFirst)
 	}
 	if len(reasons) > 0 {

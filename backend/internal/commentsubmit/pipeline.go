@@ -95,7 +95,7 @@ type Typed struct {
 // Comments is the part of *comment.Service the pipeline uses.
 type Comments interface {
 	Settings(context.Context) (comment.Settings, error)
-	EntityMode(context.Context, uuid.UUID) (comment.Mode, error)
+	EntityConfig(context.Context, uuid.UUID) (comment.EntityConfig, error)
 	Store(context.Context, comment.Draft) (comment.Comment, error)
 	Commenter(context.Context, string) (comment.Commenter, error)
 	MatchBlocks(context.Context, comment.Probe) ([]comment.Block, error)
@@ -155,14 +155,14 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	if !set.Enabled {
 		return Outcome{Kind: NotFound}, nil
 	}
-	mode, err := p.Comments.EntityMode(ctx, req.EntityID)
+	cfg, err := p.Comments.EntityConfig(ctx, req.EntityID)
 	if errors.Is(err, comment.ErrNotFound) {
 		return Outcome{Kind: NotFound}, nil
 	}
 	if err != nil {
 		return Outcome{}, err
 	}
-	switch mode {
+	switch cfg.Mode {
 	case comment.ModeOpen:
 	case comment.ModeClosed:
 		return Outcome{Kind: Closed}, nil
@@ -312,9 +312,10 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	}
 	status, why := comment.Decide(comment.DecideInput{
 		Verdict: verdict, HasLinks: rendered.HasLinks, Trust: trust, AdminAuthor: admin, Surge: surge,
+		Community: cfg.Policy.Enabled,
 	})
 	slow := !admin && trust != comment.TrustTrusted &&
-		p.Limits.InSlowMode(commenterKey, entityID, time.Duration(set.SlowModeSeconds)*time.Second)
+		p.Limits.InSlowMode(commenterKey, entityID, cfg.Policy.SlowMode(set.SlowModeSeconds))
 	if slow {
 		if status == comment.StatusApproved {
 			status = comment.StatusPending

@@ -23,6 +23,13 @@ func TestDecide(t *testing.T) {
 		{"surge with trusted", DecideInput{Trust: TrustTrusted, Verdict: "allow", Surge: true}, StatusPending, []string{ReasonSurge}},
 		{"hold verdict known", DecideInput{Trust: TrustKnown, Verdict: "hold"}, StatusPending, []string{ReasonScore}},
 		{"all reasons", DecideInput{Trust: TrustNew, Verdict: "hold", HasLinks: true, Surge: true}, StatusPending, []string{ReasonSurge, ReasonLink, ReasonScore, ReasonFirst}},
+		{"community link from new", DecideInput{Community: true, Trust: TrustNew, Verdict: "allow", HasLinks: true}, StatusApproved, nil},
+		{"community new clean", DecideInput{Community: true, Trust: TrustNew, Verdict: "allow"}, StatusApproved, nil},
+		{"community blocked", DecideInput{Community: true, Trust: TrustBlocked, Verdict: "allow"}, StatusSpam, []string{ReasonBlocked}},
+		{"community spam verdict", DecideInput{Community: true, Trust: TrustNew, Verdict: "spam", HasLinks: true}, StatusSpam, []string{ReasonScore}},
+		{"community hold verdict", DecideInput{Community: true, Trust: TrustNew, Verdict: "hold", HasLinks: true}, StatusPending, []string{ReasonScore}},
+		{"community surge", DecideInput{Community: true, Trust: TrustNew, Verdict: "allow", HasLinks: true, Surge: true}, StatusPending, []string{ReasonSurge}},
+		{"community surge and hold", DecideInput{Community: true, Trust: TrustNew, Verdict: "hold", Surge: true}, StatusPending, []string{ReasonSurge, ReasonScore}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

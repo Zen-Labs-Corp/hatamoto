@@ -113,13 +113,29 @@ type Blocklist struct {
 // EntityOption is one entry of the entity filter.
 type EntityOption struct{ ID, Title string }
 
+// CommentPolicy is a content type's community policy (the admin-side copy of
+// the comment package's policy; defaults are filled).
+type CommentPolicy struct {
+	Enabled                                      bool
+	MaxDepth, EditWindowMinutes, SlowModeSeconds int
+}
+
+// SchemaCommentConfig is one content type's comment settings.
+type SchemaCommentConfig struct {
+	ID, Slug, Name string
+	Builtin        bool
+	Mode           string // "", open, closed, hidden
+	Order          string // "", newest, oldest, rank
+	Policy         CommentPolicy
+}
+
 // CommentsService is the comment store behind the Comments screen, Settings >
 // Comments, the entity and schema cards, the sidebar badge and the dashboard
 // card. nil hides the sidebar item and the cards and answers the pages with
 // 503.
 type CommentsService interface {
 	// Supports reports an optional feature: "privacy", "blocklists",
-	// "entity-options", "schema-mode", "schema-mode-builtin".
+	// "entity-options", "schema-mode", "schema-mode-builtin", "schema-policy".
 	Supports(feature string) bool
 	Settings(ctx context.Context) (CommentSettings, error)
 	// SaveSettings returns a *CommentFieldError for a refused value.
@@ -144,6 +160,13 @@ type CommentsService interface {
 	// SetSchemaMode returns ErrCommentsUnsupported for a built-in type unless
 	// Supports("schema-mode-builtin").
 	SetSchemaMode(ctx context.Context, schemaID, mode string) error
+	// SchemaCommentConfigs lists every content type with its comment settings.
+	SchemaCommentConfigs(ctx context.Context) ([]SchemaCommentConfig, error)
+	// SetSchemaComments writes settings.comments.order and .policy and keeps
+	// every other key. It returns ErrCommentsUnsupported for a built-in type
+	// unless Supports("schema-mode-builtin"), a *CommentFieldError for an
+	// out-of-range value and ErrCommentNotFound for an unknown id.
+	SetSchemaComments(ctx context.Context, schemaID, order string, p CommentPolicy) error
 	EntityOptions(ctx context.Context, limit int) ([]EntityOption, error)
 	Commenters(ctx context.Context, q string, page int) (CommenterPage, error)
 	Block(ctx context.Context, commenterID, actorID string) error

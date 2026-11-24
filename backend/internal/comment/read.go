@@ -12,9 +12,10 @@ import (
 	"hatamoto.dev/core/internal/jsonx"
 )
 
-// Thread SQL: one statement. A roots CTE picks the page of approved top-level
-// comments, joined to each root's approved subtree by a path range scan. The
-// two constants differ only in the root order; nothing is interpolated.
+// Thread SQL: one statement. threadSelect joins the page of approved top-level
+// comments (the roots CTE of threadRootsSQL) to each root's approved subtree by
+// a path range scan. The root order is picked inside the statement; nothing is
+// interpolated.
 const threadSelect = `
 SELECT c.id, c.parent_id, c.depth, c.author_name, c.author_user_id IS NOT NULL,
        c.body_html, c.created_at, c.edited_at, r.rk, r.roots
@@ -24,22 +25,28 @@ JOIN hatamoto_comments c
  AND c.path >= r.path AND c.path < r.path || '/'
 ORDER BY r.rk, c.path`
 
-const threadNewestSQL = `WITH roots AS (
-    SELECT path, row_number() OVER (ORDER BY created_at DESC, seq DESC) AS rk,
-           count(*) OVER () AS roots
-    FROM hatamoto_comments
-    WHERE entity_id = $1 AND parent_id IS NULL AND status = 'approved'
-    ORDER BY created_at DESC, seq DESC
-    LIMIT $2 OFFSET $3
-)` + threadSelect
-
-const threadOldestSQL = `WITH roots AS (
-    SELECT path, row_number() OVER (ORDER BY created_at ASC, seq ASC) AS rk,
-           count(*) OVER () AS roots
-    FROM hatamoto_comments
-    WHERE entity_id = $1 AND parent_id IS NULL AND status = 'approved'
-    ORDER BY created_at ASC, seq ASC
-    LIMIT $2 OFFSET $3
+// threadRootsSQL picks the roots in the content type's own order (newest or
+// oldest) or, when the type sets none, in the site sort ($4). The direction is
+// resolved inside the statement, so Thread stays one query; each branch keeps
+// its own index-friendly ORDER BY and only one of them is not empty.
+const threadRootsSQL = `WITH dir AS (
+    SELECT COALESCE((SELECT CASE s.settings->'comments'->>'order' WHEN 'newest' THEN 'newest' WHEN 'oldest' THEN 'oldest' END
+                     FROM hatamoto_entities e JOIN hatamoto_entity_schemas s ON s.id = e.schema_id
+                     WHERE e.id = $1), $4::text) AS d
+), roots AS (
+    (SELECT path, row_number() OVER (ORDER BY created_at DESC, seq DESC) AS rk,
+            count(*) OVER () AS roots
+     FROM hatamoto_comments
+     WHERE entity_id = $1 AND parent_id IS NULL AND status = 'approved' AND (SELECT d FROM dir) = 'newest'
+     ORDER BY created_at DESC, seq DESC
+     LIMIT $2 OFFSET $3)
+    UNION ALL
+    (SELECT path, row_number() OVER (ORDER BY created_at ASC, seq ASC) AS rk,
+            count(*) OVER () AS roots
+     FROM hatamoto_comments
+     WHERE entity_id = $1 AND parent_id IS NULL AND status = 'approved' AND (SELECT d FROM dir) = 'oldest'
+     ORDER BY created_at ASC, seq ASC
+     LIMIT $2 OFFSET $3)
 )` + threadSelect
 
 // Thread returns one page of the approved tree in render order with one query
@@ -54,12 +61,12 @@ func (s *Service) Thread(ctx context.Context, entityID uuid.UUID, page int) (Thr
 	if page < 1 {
 		page = 1
 	}
-	q := threadNewestSQL
+	site := SortNewest
 	if set.Sort == SortOldest {
-		q = threadOldestSQL
+		site = SortOldest
 	}
 	offset := (page - 1) * set.PageSize
-	rows, err := s.db.Pool().Query(ctx, q, entityID, set.PageSize+1, offset)
+	rows, err := s.db.Pool().Query(ctx, threadRootsSQL, entityID, set.PageSize+1, offset, string(site))
 	if err != nil {
 		return ThreadPage{}, err
 	}
@@ -237,27 +244,65 @@ func (s *Service) Commenter(ctx context.Context, emailHash string) (Commenter, e
 	return c, nil
 }
 
-// EntityMode resolves the comment mode of one entity. With comments off it
-// answers ModeOff without a query. An unknown entity is ErrNotFound.
-func (s *Service) EntityMode(ctx context.Context, entityID uuid.UUID) (Mode, error) {
+// EntityConfig is one entity's resolved comment mode plus its content type's
+// thread order and community policy.
+type EntityConfig struct {
+	Mode   Mode
+	Order  Order
+	Policy Policy
+}
+
+// EntityConfig resolves the comment mode, order and policy of one entity in
+// one query. With comments off it answers ModeOff (zero Order and Policy)
+// without a query. An unknown entity is ErrNotFound. A bad stored order or
+// policy reads as unset, never as an error.
+func (s *Service) EntityConfig(ctx context.Context, entityID uuid.UUID) (EntityConfig, error) {
 	set, err := s.Settings(ctx)
 	if err != nil || !set.Enabled {
-		return ModeOff, err
+		return EntityConfig{Mode: ModeOff}, err
 	}
-	var schemaMode, entityMode *string
+	var schemaMode, schemaOrder, entityMode *string
+	var policy []byte
 	var published *time.Time
-	err = s.db.Pool().QueryRow(ctx, `SELECT s.settings->'comments'->>'mode', ce.mode, e.published_at
+	err = s.db.Pool().QueryRow(ctx, `SELECT s.settings->'comments'->>'mode', s.settings->'comments'->>'order',
+			s.settings->'comments'->'policy', ce.mode, e.published_at
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON s.id = e.schema_id
 		LEFT JOIN hatamoto_comment_entities ce ON ce.entity_id = e.id
-		WHERE e.id = $1`, entityID).Scan(&schemaMode, &entityMode, &published)
+		WHERE e.id = $1`, entityID).Scan(&schemaMode, &schemaOrder, &policy, &entityMode, &published)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ModeOff, ErrNotFound
+		return EntityConfig{Mode: ModeOff}, ErrNotFound
 	}
 	if err != nil {
-		return ModeOff, err
+		return EntityConfig{Mode: ModeOff}, err
 	}
-	return ResolveMode(set, deref(schemaMode), deref(entityMode), published, s.utcNow()), nil
+	cfg := EntityConfig{
+		Mode:   ResolveMode(set, deref(schemaMode), deref(entityMode), published, s.utcNow()),
+		Policy: DecodePolicy(policy),
+	}
+	if ValidOrder(deref(schemaOrder)) {
+		cfg.Order = Order(deref(schemaOrder))
+	}
+	return cfg, nil
+}
+
+// EntityMode resolves the comment mode of one entity. With comments off it
+// answers ModeOff without a query. An unknown entity is ErrNotFound.
+func (s *Service) EntityMode(ctx context.Context, entityID uuid.UUID) (Mode, error) {
+	cfg, err := s.EntityConfig(ctx, entityID)
+	return cfg.Mode, err
+}
+
+// Sort is the root order for a type: newest and oldest override the site sort;
+// rank and "" keep it (the rank order is applied by a plugin).
+func (o Order) Sort(site Sort) Sort {
+	switch o {
+	case OrderNewest:
+		return SortNewest
+	case OrderOldest:
+		return SortOldest
+	}
+	return site
 }
 
 func deref(s *string) string {

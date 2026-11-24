@@ -117,6 +117,13 @@ func (im *Importer) Import(ctx context.Context, batch []ImportedComment) (Import
 	if err != nil {
 		return stats, err
 	}
+	// The import is scoped to one entity: resolve its type's reply depth once.
+	// An unknown entity keeps the site depth; the insert then fails on its own.
+	_, pol, err := schemaComments(ctx, im.db.Pool(), entity)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return stats, err
+	}
+	maxDepth := pol.Depth(set.MaxDepth)
 	now := im.now().UTC()
 	order := make([]*importedCommenter, 0, len(commenters))
 	for _, c := range commenters {
@@ -190,7 +197,7 @@ func (im *Importer) Import(ctx context.Context, batch []ImportedComment) (Import
 			var parentID *uuid.UUID
 			parentPath, depth := "", 1
 			if parent != nil {
-				attach := ReplyParentPath(parent.path, set.MaxDepth)
+				attach := ReplyParentPath(parent.path, maxDepth)
 				if attach != parent.path {
 					stats.Clamped++
 				}

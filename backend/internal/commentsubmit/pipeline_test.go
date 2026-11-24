@@ -21,6 +21,7 @@ var t0 = time.Date(2030, 1, 2, 12, 0, 0, 0, time.UTC)
 type fakeComments struct {
 	set       comment.Settings
 	mode      comment.Mode
+	policy    comment.Policy
 	modeErr   error
 	commenter *comment.Commenter
 	blocks    []comment.Block
@@ -31,8 +32,8 @@ type fakeComments struct {
 }
 
 func (f *fakeComments) Settings(context.Context) (comment.Settings, error) { return f.set, nil }
-func (f *fakeComments) EntityMode(context.Context, uuid.UUID) (comment.Mode, error) {
-	return f.mode, f.modeErr
+func (f *fakeComments) EntityConfig(context.Context, uuid.UUID) (comment.EntityConfig, error) {
+	return comment.EntityConfig{Mode: f.mode, Policy: f.policy}, f.modeErr
 }
 func (f *fakeComments) Store(_ context.Context, d comment.Draft) (comment.Comment, error) {
 	f.stored = append(f.stored, d)
@@ -215,6 +216,33 @@ func TestSubmitBranches(t *testing.T) {
 		{name: "slow mode holds a known commenter", setup: func(h *harness) {
 			h.known(true)
 			h.c.set.SlowModeSeconds = 120
+			h.p.Limits.MarkPosted(h.c.keys.HashEmail("ada@example.test"), h.req.EntityID.String())
+		}, kind: Posted, stored: 1, status: comment.StatusPending, verdict: "allow", reason: ReasonSlowMode},
+		{name: "policy type posts a new commenter with a link at once", setup: func(h *harness) {
+			h.c.policy = comment.Policy{Enabled: true}
+			h.known(true)
+			h.c.commenter.Trust = comment.TrustNew
+			h.post.Set(h.names().Body, "see https://example.test/x")
+		}, kind: Posted, stored: 1, status: comment.StatusApproved, verdict: "allow"},
+		{name: "policy type still holds on surge", setup: func(h *harness) {
+			h.c.policy = comment.Policy{Enabled: true}
+			for i := 0; i < defaultSurgeLimit; i++ {
+				h.p.Limits.Surge().Note()
+			}
+		}, kind: CheckEmail, stored: 1, status: comment.StatusDraft, verdict: "hold", reason: comment.ReasonSurge},
+		{name: "policy type still holds a duplicate body", setup: func(h *harness) {
+			h.c.policy = comment.Policy{Enabled: true}
+			h.c.dups = 1
+		}, kind: CheckEmail, stored: 1, status: comment.StatusDraft, verdict: "hold", reason: spam.ReasonDuplicate},
+		{name: "policy slow mode replaces the site value", setup: func(h *harness) {
+			h.known(true)
+			h.c.set.SlowModeSeconds = 120
+			h.c.policy = comment.Policy{Enabled: true, SlowModeSeconds: 0}
+			h.p.Limits.MarkPosted(h.c.keys.HashEmail("ada@example.test"), h.req.EntityID.String())
+		}, kind: Posted, stored: 1, status: comment.StatusApproved, verdict: "allow"},
+		{name: "policy slow mode holds a known commenter", setup: func(h *harness) {
+			h.known(true)
+			h.c.policy = comment.Policy{Enabled: true, SlowModeSeconds: 120}
 			h.p.Limits.MarkPosted(h.c.keys.HashEmail("ada@example.test"), h.req.EntityID.String())
 		}, kind: Posted, stored: 1, status: comment.StatusPending, verdict: "allow", reason: ReasonSlowMode},
 		{name: "blocked commenter is a shadow spam", setup: func(h *harness) { h.known(true); h.c.commenter.Trust = comment.TrustBlocked },

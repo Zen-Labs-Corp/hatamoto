@@ -508,3 +508,9 @@ document.addEventListener("change", onAck);
 document.addEventListener("DOMContentLoaded", () => syncAckAll(document));
 window.addEventListener("pageshow", () => syncAckAll(document));
 document.addEventListener("htmx:afterSettle", (evt) => syncAckAll(evt.target));
+
+// input[data-hm-from=<id>] posts the current value of the control with that id on submit.
+document.addEventListener("submit", (e) => {
+  for (const i of e.target.querySelectorAll?.("input[data-hm-from]") || [])
+    i.value = document.getElementById(i.dataset.hmFrom)?.value ?? i.value;
+}, true);
