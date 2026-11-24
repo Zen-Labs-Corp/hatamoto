@@ -112,9 +112,10 @@ type Comments interface {
 	Keys() comment.Keys
 }
 
-// PolicyReader is optional: nil means no schema has the community policy.
+// PolicyReader is optional: nil means no schema has the community policy. Which
+// schema has it comes from Comments.EntityConfig (Policy.Enabled), the flag the
+// Settings > Comments panel writes; the reader only opens the signed-in email.
 type PolicyReader interface {
-	PolicyInfo(context.Context, uuid.UUID) (comment.PolicyInfo, error)
 	CommenterEmail(context.Context, uuid.UUID) (comment.Commenter, string, error)
 }
 
@@ -191,14 +192,7 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 		return Outcome{Kind: NotFound}, nil
 	}
 
-	var info comment.PolicyInfo
-	if p.Policy != nil {
-		if info, err = p.Policy.PolicyInfo(ctx, req.EntityID); errors.Is(err, comment.ErrNotFound) {
-			return Outcome{Kind: NotFound}, nil
-		} else if err != nil {
-			return Outcome{}, err
-		}
-	}
+	signIn := cfg.Policy.Enabled && p.Policy != nil
 
 	// 2. Single-use token. The form field names derive from it, so the email
 	// (and its limit bucket) is only known after this step.
@@ -239,7 +233,7 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 			Body: body, Name: req.Post.Get(names.Name), Email: typedEmail, Notify: notify,
 		}}, nil
 	}
-	if info.Enabled && !admin {
+	if signIn && !admin {
 		// Policy schema: the identity is the signed-in commenter, never the post.
 		if req.DeviceCommenter == nil {
 			return fixable(CodeSignIn)
@@ -255,7 +249,7 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 		if p.Drafter == nil {
 			return fixable(CodeDraft)
 		}
-		drafted, err := p.Drafter.Name(ctx, *req.DeviceCommenter, info.Schema)
+		drafted, err := p.Drafter.Name(ctx, *req.DeviceCommenter, cfg.SchemaSlug)
 		if err != nil {
 			out, _ := fixable(CodeDraft)
 			var dr *DraftRejected
@@ -361,7 +355,7 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 		checkCtx = pluginkey.WithCommenter(ctx, *req.DeviceCommenter)
 	}
 	sr, verdict, hold, err := p.assess(checkCtx, spamSet, assessInput{
-		Schema: info.Schema, EntityID: req.EntityID, Name: name, Body: body, Email: email, Rendered: rendered,
+		Schema: cfg.SchemaSlug, EntityID: req.EntityID, Name: name, Body: body, Email: email, Rendered: rendered,
 		IPHash: ipHash, NetHash: netHash, Issued: issued, IssuedOK: true, Now: now, IP: req.IP,
 	})
 	if err != nil {
@@ -504,6 +498,7 @@ func (p *Pipeline) assess(ctx context.Context, spamSet spam.Settings, in assessI
 // EditCheck is an edit of a comment, as the handler parsed it.
 type EditCheck struct {
 	EntityID uuid.UUID
+	Schema   string // the entity's content type slug, for comment.check
 	Name     string
 	Body     string
 	Rendered commentfmt.Result
@@ -525,18 +520,12 @@ func (p *Pipeline) HoldEdit(ctx context.Context, e EditCheck) (bool, error) {
 	if err != nil {
 		spamSet = spam.Defaults()
 	}
-	var info comment.PolicyInfo
-	if p.Policy != nil {
-		if info, err = p.Policy.PolicyInfo(ctx, e.EntityID); err != nil && !errors.Is(err, comment.ErrNotFound) {
-			return false, err
-		}
-	}
 	if e.Commenter != nil {
 		ctx = pluginkey.WithCommenter(ctx, *e.Commenter)
 	}
 	ipHash, netHash := p.Comments.Keys().HashIP(e.IP)
 	_, verdict, _, err := p.assess(ctx, spamSet, assessInput{
-		Schema: info.Schema, EntityID: e.EntityID, Name: e.Name, Body: e.Body, Rendered: e.Rendered,
+		Schema: e.Schema, EntityID: e.EntityID, Name: e.Name, Body: e.Body, Rendered: e.Rendered,
 		IPHash: ipHash, NetHash: netHash, Now: e.Now.UTC(), SkipDuplicates: !e.BodyChanged, IP: e.IP,
 	})
 	return verdict != "allow", err

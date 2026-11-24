@@ -33,7 +33,6 @@ type commentPostHooks struct {
 	entity commentEntityLookup
 	admin  func(r *http.Request) (id uuid.UUID, name string, ok bool)
 	device func(ctx context.Context, val string) (uuid.UUID, bool)
-	policy commentPolicyFn
 }
 
 // handleCommentPost takes a public comment post (POST /-/comments/{entityID}).
@@ -243,7 +242,7 @@ func (s *Server) commentDevice(r *http.Request) (uuid.UUID, bool) {
 // commentSlot.fill). Callers must have checked that renderEngine, commentSlot
 // and commentSubmit are wired.
 func (s *Server) commentFormView(ctx context.Context, id uuid.UUID, path, locale string, parent *uuid.UUID,
-	notice, errCode string, echo *commentEcho) *render.PageView {
+	notice, errCode string, echo *commentEcho, locked bool) *render.PageView {
 	v := &render.PageView{Path: path, Locale: locale, EntityID: id.String()}
 	v.Comments = &render.CommentThread{Notice: notice, Error: errCode}
 	if echo != nil && echo.Code == commentsubmit.CodeDraft && errCode == commentsubmit.CodeDraft {
@@ -277,23 +276,14 @@ func (s *Server) commentFormView(ctx context.Context, id uuid.UUID, path, locale
 				form.Captcha = &render.CommentCaptcha{Provider: cw.provider, SiteKey: cw.siteKey}
 			}
 		}
-		lockCommentForm(ctx, s.commentPolicy(), id, &form, s.logCommentErr)
+		if locked {
+			lockCommentForm(&form)
+		}
 		v.CommentForm = &form
 		v.CommentsOpen = true
 	}
 	s.applyStrings(ctx, v)
 	return v
-}
-
-// commentPolicy is the policy lookup of the comment service, nil without one.
-func (s *Server) commentPolicy() commentPolicyFn {
-	if s.commentPost.policy != nil {
-		return s.commentPost.policy
-	}
-	if s.comments == nil {
-		return nil
-	}
-	return s.comments.PolicyInfo
 }
 
 // logCommentErr logs a non-fatal comment read failure.
@@ -317,7 +307,12 @@ func (s *Server) writeCommentFragment(w http.ResponseWriter, r *http.Request, id
 	if out.Kind == commentsubmit.Invalid {
 		parent = req.ParentID // keep the reply target on a retry
 	}
-	v := s.commentFormView(ctx, id, path, req.Locale, parent, notice, errCode, echo)
+	cfg, err := s.commentSubmit.Comments.EntityConfig(ctx, id)
+	if err != nil { // a failed read must not offer a policy schema's free name field
+		s.logCommentErr(ctx, "comments: policy", err)
+		cfg.Policy.Enabled = true
+	}
+	v := s.commentFormView(ctx, id, path, req.Locale, parent, notice, errCode, echo, cfg.Policy.Enabled)
 
 	var item *render.CommentItem
 	if out.Kind == commentsubmit.Posted && out.Comment.ParentID == nil && req.ParentID == nil {

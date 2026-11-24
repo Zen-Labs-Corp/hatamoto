@@ -9,27 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// PolicyInfo is what the identity flow needs to know about an entity's schema.
-type PolicyInfo struct {
-	Schema  string // schema slug
-	Enabled bool   // settings.comments.policy.enabled
-}
-
-// PolicyInfo reads the entity's schema slug and settings.comments.policy.enabled;
-// a missing or non-boolean value reads as false. Unknown entity: ErrNotFound.
-func (s *Service) PolicyInfo(ctx context.Context, entityID uuid.UUID) (PolicyInfo, error) {
-	var p PolicyInfo
-	err := s.db.Pool().QueryRow(ctx, `SELECT s.slug,
-			CASE WHEN jsonb_typeof(s.settings->'comments'->'policy'->'enabled') = 'boolean'
-			     THEN (s.settings->'comments'->'policy'->>'enabled')::boolean ELSE false END
-		FROM hatamoto_entities e JOIN hatamoto_entity_schemas s ON s.id = e.schema_id
-		WHERE e.id = $1`, entityID).Scan(&p.Schema, &p.Enabled)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return PolicyInfo{}, ErrNotFound
-	}
-	return p, err
-}
-
 // FindCommenter returns the id of the commenter with this address without
 // creating one. ok is false when there is none.
 func (s *Service) FindCommenter(ctx context.Context, email string) (id uuid.UUID, ok bool, err error) {

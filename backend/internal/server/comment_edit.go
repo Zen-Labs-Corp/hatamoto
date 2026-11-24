@@ -132,7 +132,7 @@ func (s *Server) serveOwnComment(w http.ResponseWriter, r *http.Request, ed comm
 	hold := false
 	if p := s.commentSubmit; p != nil {
 		hold, err = p.HoldEdit(ctx, commentsubmit.EditCheck{
-			EntityID: c.EntityID, Name: c.AuthorName, Body: body, Rendered: res,
+			EntityID: c.EntityID, Schema: cfg.SchemaSlug, Name: c.AuthorName, Body: body, Rendered: res,
 			BodyChanged: res.BodyHash != c.BodyHash, IP: middleware.GetClientIP(r), Now: now, Commenter: &commenter,
 		})
 		if err != nil {

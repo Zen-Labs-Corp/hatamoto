@@ -23,6 +23,7 @@ type fakeComments struct {
 	set       comment.Settings
 	mode      comment.Mode
 	policy    comment.Policy
+	schema    string
 	modeErr   error
 	commenter *comment.Commenter
 	blocks    []comment.Block
@@ -34,7 +35,7 @@ type fakeComments struct {
 
 func (f *fakeComments) Settings(context.Context) (comment.Settings, error) { return f.set, nil }
 func (f *fakeComments) EntityConfig(context.Context, uuid.UUID) (comment.EntityConfig, error) {
-	return comment.EntityConfig{Mode: f.mode, Policy: f.policy}, f.modeErr
+	return comment.EntityConfig{SchemaSlug: f.schema, Mode: f.mode, Policy: f.policy}, f.modeErr
 }
 func (f *fakeComments) Store(_ context.Context, d comment.Draft) (comment.Comment, error) {
 	f.stored = append(f.stored, d)
@@ -577,14 +578,10 @@ func TestSubmitTypedOnlyOnInvalid(t *testing.T) {
 	}
 }
 
-type fakePolicy struct {
-	info  comment.PolicyInfo
-	email string
-}
+// fakePolicy opens the signed-in email; whether a schema has the policy comes
+// from the entity config (fakeComments.policy), as in production.
+type fakePolicy struct{ email string }
 
-func (f fakePolicy) PolicyInfo(context.Context, uuid.UUID) (comment.PolicyInfo, error) {
-	return f.info, nil
-}
 func (f fakePolicy) CommenterEmail(_ context.Context, id uuid.UUID) (comment.Commenter, string, error) {
 	return comment.Commenter{ID: id}, f.email, nil
 }
@@ -608,7 +605,8 @@ func policyHarness(t *testing.T) *harness {
 	t.Helper()
 	h := newHarness(t)
 	h.known(true)
-	h.p.Policy = fakePolicy{info: comment.PolicyInfo{Schema: "story", Enabled: true}, email: "grace@example.test"}
+	h.c.schema, h.c.policy = "story", comment.Policy{Enabled: true}
+	h.p.Policy = fakePolicy{email: "grace@example.test"}
 	h.p.Drafter = fakeDrafter{name: "Grace H."}
 	return h
 }
@@ -640,7 +638,7 @@ func TestPolicySchemaRefusals(t *testing.T) {
 	})
 	t.Run("no email", func(t *testing.T) {
 		h := policyHarness(t)
-		h.p.Policy = fakePolicy{info: comment.PolicyInfo{Schema: "story", Enabled: true}}
+		h.p.Policy = fakePolicy{}
 		if out := h.submit(t); out.Code != CodeSignIn || len(h.c.stored) != 0 {
 			t.Fatalf("out = %+v", out)
 		}
@@ -683,7 +681,7 @@ func TestPolicySchemaAdminUnchanged(t *testing.T) {
 
 func TestPolicySchemaOffKeepsPostedIdentity(t *testing.T) {
 	h := policyHarness(t)
-	h.p.Policy = fakePolicy{info: comment.PolicyInfo{Schema: "story"}}
+	h.c.policy.Enabled = false
 	h.p.Drafter = fakeDrafter{err: ErrDraftUnavailable}
 	h.submit(t)
 	if d := h.c.stored[0]; d.AuthorName != "Ada" || d.Email != "ada@example.test" {
@@ -740,7 +738,7 @@ func TestHoldEditCheckGetsSchemaAndKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = h.p.HoldEdit(context.Background(), EditCheck{
-		EntityID: h.req.EntityID, Name: "Ada", Body: "A fine edit.", Rendered: res, BodyChanged: true,
+		EntityID: h.req.EntityID, Schema: "story", Name: "Ada", Body: "A fine edit.", Rendered: res, BodyChanged: true,
 		IP: h.req.IP, Now: t0, Commenter: h.req.DeviceCommenter,
 	})
 	if err != nil {

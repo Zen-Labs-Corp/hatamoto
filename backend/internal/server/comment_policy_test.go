@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -15,15 +16,13 @@ import (
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/comment/identity"
 	"hatamoto.dev/core/internal/commentsubmit"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 )
 
-type fakePolicy struct{ enabled bool }
+type fakePolicy struct{}
 
-func (f fakePolicy) PolicyInfo(context.Context, uuid.UUID) (comment.PolicyInfo, error) {
-	return comment.PolicyInfo{Schema: "story", Enabled: f.enabled}, nil
-}
-func (f fakePolicy) CommenterEmail(context.Context, uuid.UUID) (comment.Commenter, string, error) {
+func (fakePolicy) CommenterEmail(context.Context, uuid.UUID) (comment.Commenter, string, error) {
 	return comment.Commenter{}, "ada@example.test", nil
 }
 
@@ -38,9 +37,9 @@ func (f fakeDrafter) Name(context.Context, uuid.UUID, string) (string, error) { 
 func policyRig(t *testing.T, d commentsubmit.DraftNamer) *postRig {
 	t.Helper()
 	r := newPostRig(t)
-	r.srv.commentSubmit.Policy = fakePolicy{enabled: true}
+	r.c.policy = comment.Policy{Enabled: true} // what the Settings > Comments panel stores
+	r.srv.commentSubmit.Policy = fakePolicy{}
 	r.srv.commentSubmit.Drafter = d
-	r.srv.commentPost.policy = fakePolicy{enabled: true}.PolicyInfo
 	return r
 }
 
@@ -115,7 +114,7 @@ func TestPolicyRejectTextShownEscapedNeverInAURL(t *testing.T) {
 
 func TestPolicyLockedFormHasNoNameOrEmailInput(t *testing.T) {
 	r := policyRig(t, fakeDrafter{name: "story_author"})
-	v := r.srv.commentFormView(context.Background(), r.entity, postPath, "", nil, "", "", nil)
+	v := r.srv.commentFormView(context.Background(), r.entity, postPath, "", nil, "", "", nil, r.c.policy.Enabled)
 	if v.CommentForm == nil || !v.CommentForm.Locked || v.CommentForm.SignInURL != commentSignInPath {
 		t.Fatalf("form = %+v", v.CommentForm)
 	}
@@ -127,35 +126,13 @@ func TestPolicyLockedFormHasNoNameOrEmailInput(t *testing.T) {
 	}
 
 	// A policy-off entity gets today's form.
-	r.srv.commentPost.policy = fakePolicy{enabled: false}.PolicyInfo
-	v = r.srv.commentFormView(context.Background(), r.entity, postPath, "", nil, "", "", nil)
+	r.c.policy = comment.Policy{}
+	v = r.srv.commentFormView(context.Background(), r.entity, postPath, "", nil, "", "", nil, r.c.policy.Enabled)
 	if v.CommentForm.Locked || v.CommentForm.SignInURL != "" {
 		t.Errorf("policy off: %+v", v.CommentForm)
 	}
 	if body := renderFilled(t, r.srv, v, r.entity); !strings.Contains(body, `autocomplete="email"`) {
 		t.Error("the unlocked form lost its email input")
-	}
-}
-
-func TestLockCommentFormFailsClosed(t *testing.T) {
-	id := uuid.New()
-	lock := func(p commentPolicyFn) render.CommentForm {
-		var f render.CommentForm
-		lockCommentForm(context.Background(), p, id, &f, func(context.Context, string, error) {})
-		return f
-	}
-	if f := lock(nil); f.Locked {
-		t.Error("nil policy locked the form")
-	}
-	if f := lock(func(context.Context, uuid.UUID) (comment.PolicyInfo, error) {
-		return comment.PolicyInfo{}, errors.New("db")
-	}); !f.Locked {
-		t.Error("a policy read error must render the locked form")
-	}
-	if f := lock(func(context.Context, uuid.UUID) (comment.PolicyInfo, error) {
-		return comment.PolicyInfo{}, comment.ErrNotFound
-	}); f.Locked {
-		t.Error("an unknown entity locked the form")
 	}
 }
 
@@ -178,7 +155,7 @@ func renderFilled(t *testing.T, s *Server, v *render.PageView, entity uuid.UUID)
 // lockedPage renders the locked form and fills it for a request with the given cookie.
 func lockedPage(t *testing.T, r *postRig, cookie string) string {
 	t.Helper()
-	v := r.srv.commentFormView(context.Background(), r.entity, postPath, "", nil, "", "", nil)
+	v := r.srv.commentFormView(context.Background(), r.entity, postPath, "", nil, "", "", nil, r.c.policy.Enabled)
 	var buf strings.Builder
 	if err := r.srv.renderEngine.RenderCommentsFragment(&buf, v, nil); err != nil {
 		t.Fatal(err)
@@ -249,5 +226,46 @@ func TestPolicySlotSignedOutNeverLooksUpAName(t *testing.T) {
 		if strings.Contains(page, "story_author") || !strings.Contains(page, "disabled") {
 			t.Errorf("cookie %q: %s", cookie, page)
 		}
+	}
+}
+
+// The policy flag is the one the Settings > Comments panel stores
+// (settings.comments.policy.enabled, written by MergeSchemaComments and read
+// back by EntityConfig through DecodePolicy): a schema switched on there is
+// locked by the live form and refused a typed identity by the pipeline.
+func TestPolicyFromPanelSettingsLocksFormAndPipeline(t *testing.T) {
+	stored := func(on bool) comment.Policy {
+		raw, err := comment.MergeSchemaComments(nil, nil, &comment.Policy{Enabled: on, MaxDepth: 10, EditWindowMinutes: 15})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc struct {
+			Comments struct {
+				Policy jsontext.Value `json:"policy"`
+			} `json:"comments"`
+		}
+		if err := jsonx.Unmarshal(raw, &doc, jsonx.StoredLoose); err != nil {
+			t.Fatal(err)
+		}
+		return comment.DecodePolicy(doc.Comments.Policy)
+	}
+
+	r := newPostRig(t)
+	r.goStatic()
+	r.srv.commentSubmit.Policy = fakePolicy{}
+	r.srv.commentSubmit.Drafter = fakeDrafter{name: "story_author"}
+
+	r.c.policy = stored(true)
+	rec := r.liveForm("")
+	if body := rec.Body.String(); rec.Code != http.StatusOK || strings.Contains(body, `type="email"`) || !strings.Contains(body, commentSignInPath) {
+		t.Errorf("a schema turned on in the panel kept its free form (%d):\n%s", rec.Code, body)
+	}
+	if rec := r.do(r.form(time.Minute)); !strings.Contains(rec.Header().Get("Location"), "cerror=sign_in") || len(r.c.stored) != 0 {
+		t.Errorf("anonymous post on a policy schema: %q stored %d", rec.Header().Get("Location"), len(r.c.stored))
+	}
+
+	r.c.policy = stored(false)
+	if body := r.liveForm("").Body.String(); !strings.Contains(body, `type="email"`) {
+		t.Errorf("a schema turned off in the panel lost its email input:\n%s", body)
 	}
 }

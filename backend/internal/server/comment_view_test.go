@@ -488,20 +488,14 @@ func TestCommentViewDeadOwnBodyShownOnce(t *testing.T) {
 	}
 }
 
-func TestCommentViewPolicyErrorStaysOutOfCache(t *testing.T) {
+func TestCommentViewLocksFormByTypePolicy(t *testing.T) {
 	f := newViewFixture()
-	f.cv.policy = func(context.Context, uuid.UUID) (comment.PolicyInfo, error) {
-		return comment.PolicyInfo{}, errors.New("db busy")
+	if v := f.run("/post"); v.CommentForm == nil || v.CommentForm.Locked {
+		t.Fatalf("policy off: %+v", v.CommentForm)
 	}
+	f.fake.policy = comment.Policy{Enabled: true}
 	v := f.run("/post")
-	if v.CommentForm == nil || !v.CommentForm.Locked {
-		t.Fatalf("form after a policy error: %+v", v.CommentForm)
-	}
-	if !*v.Uncacheable {
-		t.Error("a guessed locked form was left cacheable")
-	}
-	f.cv.policy = func(context.Context, uuid.UUID) (comment.PolicyInfo, error) { return comment.PolicyInfo{}, nil }
-	if v := f.run("/post"); *v.Uncacheable || v.CommentForm.Locked {
-		t.Errorf("a clean policy read: uncacheable %v locked %v", *v.Uncacheable, v.CommentForm.Locked)
+	if v.CommentForm == nil || !v.CommentForm.Locked || v.CommentForm.SignInURL != commentSignInPath {
+		t.Fatalf("policy on: %+v", v.CommentForm)
 	}
 }

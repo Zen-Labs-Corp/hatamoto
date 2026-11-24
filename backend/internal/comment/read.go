@@ -311,7 +311,9 @@ func (s *Service) Commenter(ctx context.Context, emailHash string) (Commenter, e
 }
 
 // EntityConfig is one entity's resolved comment mode plus its content type's
-// thread order, community policy and owner.
+// thread order, community policy and owner. Policy.Enabled
+// (settings.comments.policy.enabled) is the one flag that decides a policy
+// schema: the sign-in form, the locked name and the hold rules all read it here.
 type EntityConfig struct {
 	Mode        Mode
 	Order       Order

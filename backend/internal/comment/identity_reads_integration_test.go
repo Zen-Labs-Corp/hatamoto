@@ -10,27 +10,29 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestPolicyInfo(t *testing.T) {
+// The sign-in policy flag is EntityConfig's Policy.Enabled, the key the
+// Settings > Comments panel writes, and the config names the schema.
+func TestEntityConfigPolicyFlagAndSchema(t *testing.T) {
 	f := newFixture(t)
-	const sch = `UPDATE hatamoto_entity_schemas SET settings = $1::jsonb WHERE slug = 'cmm-note'`
+	f.enable()
 	for _, c := range []struct {
-		name, settings string
+		name, comments string
 		want           bool
 	}{
 		{"absent", `{}`, false},
-		{"on", `{"comments":{"policy":{"enabled":true}}}`, true},
-		{"off", `{"comments":{"policy":{"enabled":false}}}`, false},
-		{"string", `{"comments":{"policy":{"enabled":"true"}}}`, false},
-		{"number", `{"comments":{"policy":{"enabled":1}}}`, false},
-		{"policy not an object", `{"comments":{"policy":true}}`, false},
+		{"on", `{"policy":{"enabled":true}}`, true},
+		{"off", `{"policy":{"enabled":false}}`, false},
+		{"string", `{"policy":{"enabled":"true"}}`, false},
+		{"number", `{"policy":{"enabled":1}}`, false},
+		{"policy not an object", `{"policy":true}`, false},
 	} {
-		f.exec(sch, c.settings)
-		got, err := f.svc.PolicyInfo(f.ctx, f.entity)
-		if err != nil || got.Enabled != c.want || got.Schema != "cmm-note" {
+		f.setComments(c.comments)
+		got, err := f.svc.EntityConfig(f.ctx, f.entity)
+		if err != nil || got.Policy.Enabled != c.want || got.SchemaSlug != "cmm-note" {
 			t.Errorf("%s: %+v, %v", c.name, got, err)
 		}
 	}
-	if _, err := f.svc.PolicyInfo(f.ctx, uuid.New()); !errors.Is(err, ErrNotFound) {
+	if _, err := f.svc.EntityConfig(f.ctx, uuid.New()); !errors.Is(err, ErrNotFound) {
 		t.Errorf("unknown entity = %v", err)
 	}
 }

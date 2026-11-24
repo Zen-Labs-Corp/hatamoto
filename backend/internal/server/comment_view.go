@@ -32,7 +32,6 @@ type commentView struct {
 	reader  commentReader
 	device  func(ctx context.Context, val string) (uuid.UUID, bool)
 	captcha func(ctx context.Context) *captchaWidget // nil = no widget
-	policy  commentPolicyFn                          // nil = no schema has the community policy
 	now     func() time.Time
 	logf    func(ctx context.Context, msg string, err error)
 	// showDead reports whether the viewer may read dead comments of the content
@@ -40,30 +39,10 @@ type commentView struct {
 	showDead func(ctx context.Context, plugin string, commenterID uuid.UUID) bool
 }
 
-// commentPolicyFn is comment.Service.PolicyInfo.
-type commentPolicyFn func(context.Context, uuid.UUID) (comment.PolicyInfo, error)
-
 // lockCommentForm turns form into the locked variant (no name or email input, a
-// sign-in line) when the entity's schema has the sign-in policy. A nil policy
-// means no schema has it. A read error fails closed: the locked form, so a
-// failed lookup never offers the free name field of a policy schema.
-func lockCommentForm(ctx context.Context, policy commentPolicyFn, id uuid.UUID, form *render.CommentForm, logf func(context.Context, string, error)) {
-	if policy == nil {
-		return
-	}
-	info, err := policy(ctx, id)
-	if errors.Is(err, comment.ErrNotFound) {
-		return
-	}
-	if err != nil {
-		if logf != nil {
-			logf(ctx, "comments: policy", err)
-		}
-		info.Enabled = true
-	}
-	if info.Enabled {
-		form.Locked, form.SignInURL = true, commentSignInPath
-	}
+// sign-in line), used when the entity's content type has the community policy.
+func lockCommentForm(form *render.CommentForm) {
+	form.Locked, form.SignInURL = true, commentSignInPath
 }
 
 // Codes the theme turns into text; anything else in the query is ignored.
@@ -81,7 +60,7 @@ func (s *Server) fillComments(ctx context.Context, r *http.Request, rr *routeRes
 	if s.comments == nil {
 		return
 	}
-	cv := commentView{reader: s.comments, now: time.Now, captcha: s.captchaWidgetFor, policy: s.comments.PolicyInfo}
+	cv := commentView{reader: s.comments, now: time.Now, captcha: s.captchaWidgetFor}
 	if s.commentIdentity != nil {
 		cv.device = s.commentIdentity.Device
 	}
@@ -289,14 +268,9 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 			p.Captcha = &render.CommentCaptcha{Provider: w.provider, SiteKey: w.siteKey}
 		}
 	}
-	// A failed policy read renders the locked form for this visitor only: a
-	// guessed state must not enter the shared page cache.
-	lockCommentForm(ctx, c.policy, id, &p, func(ctx context.Context, msg string, err error) {
-		c.logf(ctx, msg, err)
-		if v.Uncacheable != nil {
-			*v.Uncacheable = true
-		}
-	})
+	if cfg.Policy.Enabled {
+		lockCommentForm(&p)
+	}
 	v.CommentForm = &p
 }
 
