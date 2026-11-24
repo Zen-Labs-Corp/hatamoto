@@ -3,6 +3,7 @@ package comment
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -77,11 +78,33 @@ func collectComments(rows pgx.Rows) ([]Comment, error) {
 // (approved_at set: approved, dead, or moved on from there) with a batch
 // context. Comments that were never public (held, bot spam) fire nothing.
 func (s *Service) announceDeleted(ctx context.Context, cs []Comment) {
+	s.announce(ctx, cs, func(c Comment) bool { return c.ApprovedAt != nil })
+}
+
+// announceErased fires OnDeleted for each erased comment that was ever announced
+// through comment.created: every status except a draft and a comment the spam
+// filter stored as spam (never approved, verdict spam). A pending comment counts,
+// its name and body went out with comment.created. Then one OnBatch for the
+// entities of the comments that had been public, because the observers skip the
+// page drop inside a batch.
+func (s *Service) announceErased(ctx context.Context, cs []Comment) {
+	s.announce(ctx, cs, func(c Comment) bool { return c.ApprovedAt != nil })
+	shown := map[uuid.UUID]bool{}
+	for _, c := range cs {
+		if c.ApprovedAt != nil {
+			shown[c.EntityID] = true
+		}
+	}
+	if len(shown) > 0 {
+		s.fireBatch(ctx, sortedUUIDs(shown))
+	}
+}
+
+func (s *Service) announce(ctx context.Context, cs []Comment, keep func(Comment) bool) {
 	bctx := WithBatch(ctx)
 	for _, c := range cs {
-		if c.ApprovedAt == nil {
-			continue
+		if keep(c) {
+			s.obs.each("deleted", func(o Observer) { o.OnDeleted(bctx, c) })
 		}
-		s.obs.each("deleted", func(o Observer) { o.OnDeleted(bctx, c) })
 	}
 }
