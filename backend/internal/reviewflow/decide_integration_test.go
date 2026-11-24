@@ -234,11 +234,16 @@ func TestApproveStaleKeepsTheEditPending(t *testing.T) {
 	f := newFixture(t)
 	e := f.publishedBy(f.author, false)
 	cs := f.sendEdit(e, "two")
-	// The owner edits live in the meantime (exempt, so written directly).
-	if _, err := f.ent.UpdateEntity(f.as(f.owner, "owner"), e.ID, &f.owner, attrs("owner")); err != nil {
+	base, err := f.ent.GetEntity(context.Background(), e.ID)
+	if err != nil {
 		t.Fatal(err)
 	}
-	_, err := f.flow.Approve(f.as(f.editor, "editor"), cs, "")
+	// The owner edits live in the meantime (exempt, so written directly).
+	moved, err := f.ent.UpdateEntity(f.as(f.owner, "owner"), e.ID, &f.owner, attrs("owner"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = f.flow.Approve(f.as(f.editor, "editor"), cs, "")
 	if !errors.Is(err, reviewflow.ErrEditStale) {
 		t.Fatalf("err = %v, want ErrEditStale", err)
 	}
@@ -251,6 +256,13 @@ func TestApproveStaleKeepsTheEditPending(t *testing.T) {
 	}
 	if got := f.content(e); got != "owner" {
 		t.Fatalf("live = %s, want the owner's change", got)
+	}
+	live, err := f.ent.GetEntity(context.Background(), e.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if live.Version != moved.Version || moved.Version != base.Version+1 {
+		t.Fatalf("live version = %d, owner's edit = %d, staged base = %d; want live == base+1", live.Version, moved.Version, base.Version)
 	}
 	if len(f.mail.outcomes()) != 0 {
 		t.Fatalf("mail = %v, want none", f.mail.outcomes())
