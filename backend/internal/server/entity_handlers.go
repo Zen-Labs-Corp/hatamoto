@@ -383,10 +383,10 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	input := body.UpdateEntityInput
+	// decided before the expected version and the API-key summary are set, which would make every request look like an edit
+	moveOnly := body.Position != nil && isMoveOnly(input)
 	// A move-only request stores no content version, so it does not evaluate the tag.
 	input.ExpectedVersion = m.expected()
-	// decided before the API-key summary below, which would make every key request look like an edit
-	moveOnly := body.Position != nil && isMoveOnly(input)
 
 	if k, ok := middleware.GetAPIKey(r.Context()); ok {
 		input.ChangeSummary = apiKeySummary(k.Name, input.ChangeSummary)

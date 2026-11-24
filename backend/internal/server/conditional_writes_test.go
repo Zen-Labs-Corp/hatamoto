@@ -29,6 +29,7 @@ type versionRepo struct {
 	createdBy uuid.UUID
 	version   int
 	writes    int
+	moves     int  // SetPosition calls
 	race      bool // Update loses a race the caller did not name
 	bigAttrs  bool // the entry carries attributes over the compression threshold
 }
@@ -57,6 +58,18 @@ func (r *versionRepo) Update(_ context.Context, id uuid.UUID, _ *uuid.UUID, in *
 	r.writes++
 	r.version++
 	return r.entry(id), nil
+}
+
+// SetPosition and OrderRows make versionRepo an entity.OrderStore.
+func (r *versionRepo) SetPosition(context.Context, uuid.UUID, int) (int, int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.moves++
+	return 2, 5, nil
+}
+
+func (r *versionRepo) OrderRows(context.Context, uuid.UUID, string) ([]*entity.Entity, error) {
+	return nil, nil
 }
 
 func (r *versionRepo) UpdateStatus(ctx context.Context, id uuid.UUID, u *uuid.UUID, st entity.EntityStatus) (*entity.Entity, error) {
@@ -135,7 +148,7 @@ func condServe(t *testing.T, repo *versionRepo, gate entity.ReviewGate, route co
 	for _, h := range ifMatch {
 		req.Header.Add("If-Match", h)
 	}
-	ctx := middleware.ContextWithClaims(req.Context(), &auth.Claims{UserID: uuid.New()})
+	ctx := middleware.ContextWithClaims(req.Context(), &auth.Claims{UserID: uuid.New(), Role: "editor"})
 	ctx = authzctx.With(ctx, authz.Subject{UserID: uid.String(), KeyID: "k1", Scopes: []string{"*"}, CreatorRole: role})
 	rec := httptest.NewRecorder()
 	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { route.handler(s, w, r) })
@@ -215,6 +228,18 @@ func TestConditionalWeakETagAfterCompression(t *testing.T) {
 	rec = condServe(t, repo, nil, condUpdate, compress, `W/"2"`)
 	if rec.Code != http.StatusPreconditionFailed || repo.writes != 0 {
 		t.Fatalf("stale weak tag: status = %d writes = %d, want 412", rec.Code, repo.writes)
+	}
+}
+
+// A position-only change stores no version, so it is a move whatever tag came with it.
+func TestConditionalMoveOnlyIgnoresTheTag(t *testing.T) {
+	route := condRoute{"PATCH", `{"position":2}`, (*Server).handleUpdateEntity}
+	for _, h := range []string{`"2"`, `W/"2"`, `"3"`, `*`} {
+		repo := &versionRepo{}
+		rec := condCall(t, repo, nil, route, h)
+		if rec.Code != http.StatusOK || repo.moves != 1 || repo.writes != 0 {
+			t.Errorf("If-Match %s: status = %d %s moves = %d writes = %d, want 200, one move, no update", h, rec.Code, rec.Body, repo.moves, repo.writes)
+		}
 	}
 }
 
