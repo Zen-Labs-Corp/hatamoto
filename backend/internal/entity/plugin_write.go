@@ -16,9 +16,13 @@ import (
 	"hatamoto.dev/core/internal/jsonx"
 )
 
-// pluginWriteTimeout bounds a plugin write from begin to the last event. The
-// write runs detached from the calling plugin's context (see detach).
-const pluginWriteTimeout = 30 * time.Second
+// pluginCommitTimeout bounds the COMMIT of a plugin write and pluginAfterTimeout
+// the reload and events after it. Both run detached from the calling plugin's
+// context; everything before the commit runs on it.
+const (
+	pluginCommitTimeout = 10 * time.Second
+	pluginAfterTimeout  = 10 * time.Second
+)
 
 // Audit actions of the plugin write path, one row per successful write.
 const (
@@ -32,11 +36,17 @@ const (
 // refusal) rolls the write back; nil records nothing.
 func (s *Service) SetPluginAudit(f TxAudit) { s.pluginAudit = f }
 
-// detach lets a plugin write finish once begun: a cancelled plugin call must
-// not leave a committed entry without its audit row or events, or an unknown
-// commit. The write is bounded by pluginWriteTimeout instead.
-func detach(ctx context.Context) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.WithoutCancel(ctx), pluginWriteTimeout)
+// inTx runs fn on the plugin call's ctx, so a cancelled call (or one past its
+// deadline) stops waiting for the pool or a lock and rolls back. Only COMMIT is
+// detached, so a commit cut off mid-flight cannot leave the outcome unknown.
+func (s *Service) inTx(ctx context.Context, fn func(tx pgx.Tx) error) error {
+	return s.schemaRepo.InTxDetachedCommit(ctx, pluginCommitTimeout, fn)
+}
+
+// afterCommit is the context for the reload and the events of a write that is
+// committed: the call's cancellation must not drop them.
+func afterCommit(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), pluginAfterTimeout)
 }
 
 // auditTx writes one audit row in tx: the actor is the plugin, the target the entry.
@@ -99,11 +109,9 @@ func (s *Service) PluginCreate(ctx context.Context, plugin string, w PluginWrite
 	if len(w.Attributes) == 0 {
 		w.Attributes = jsontext.Value(`{}`)
 	}
-	ctx, cancel := detach(ctx)
-	defer cancel()
 	var id uuid.UUID
 	var sc *EntitySchema
-	err = s.schemaRepo.InTx(ctx, func(tx pgx.Tx) error {
+	err = s.inTx(ctx, func(tx pgx.Tx) error {
 		if sc, err = ownedSchemaTx(ctx, tx, w.Schema, plugin); err != nil {
 			return err
 		}
@@ -120,6 +128,8 @@ func (s *Service) PluginCreate(ctx context.Context, plugin string, w PluginWrite
 	if err != nil {
 		return nil, err
 	}
+	ctx, cancel := afterCommit(ctx)
+	defer cancel()
 	e, err := s.entityRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -146,11 +156,9 @@ func (s *Service) PluginUpdate(ctx context.Context, plugin string, id uuid.UUID,
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := detach(ctx)
-	defer cancel()
 	var sc *EntitySchema
 	var before *Entity
-	err = s.schemaRepo.InTx(ctx, func(tx pgx.Tx) error {
+	err = s.inTx(ctx, func(tx pgx.Tx) error {
 		if sc, err = ownedSchemaTx(ctx, tx, w.Schema, plugin); err != nil {
 			return err
 		}
@@ -180,6 +188,8 @@ func (s *Service) PluginUpdate(ctx context.Context, plugin string, id uuid.UUID,
 	if err != nil {
 		return nil, err
 	}
+	ctx, cancel := afterCommit(ctx)
+	defer cancel()
 	e, err := s.entityRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -209,11 +219,9 @@ func pluginMayUpdate(cur *entitySnapshot, want EntityStatus) error {
 // PluginDelete removes an entry the plugin created (hard delete; its comments
 // go with it) and returns the pre-image. It refuses an entry that has children.
 func (s *Service) PluginDelete(ctx context.Context, plugin, schema string, id uuid.UUID) (*Entity, error) {
-	ctx, cancel := detach(ctx)
-	defer cancel()
 	var sc *EntitySchema
 	var pre *Entity
-	err := s.schemaRepo.InTx(ctx, func(tx pgx.Tx) error {
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
 		var err error
 		if sc, err = ownedSchemaTx(ctx, tx, schema, plugin); err != nil {
 			return err
@@ -231,6 +239,8 @@ func (s *Service) PluginDelete(ctx context.Context, plugin, schema string, id uu
 	if err != nil {
 		return nil, err
 	}
+	ctx, cancel := afterCommit(ctx)
+	defer cancel()
 	s.emit(ctx, EventDeleted, pre, sc.Slug, func(ev *Event) { ev.Entity = pre })
 	return pre, nil
 }

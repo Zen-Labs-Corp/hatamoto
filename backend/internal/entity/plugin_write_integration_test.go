@@ -325,27 +325,51 @@ func TestPluginWriteAuditFailsClosed_Integration(t *testing.T) {
 	}
 }
 
-// A plugin call cancelled once the write has begun still finishes whole: the
-// audit row and the events of a committed entry are never missing.
+// A plugin call cancelled before the commit stops and rolls back: nothing is
+// stored, no audit row survives and no event fires. Once the commit has
+// happened the call's cancellation changes nothing: the reload and every event
+// still run.
 func TestPluginWriteSurvivesCancel_Integration(t *testing.T) {
 	r := newPluginWriteRig(t)
 	fields := []string{"url", "text"}
-	_, slug := r.schema(t, "story", "fixture")
+	schemaID, slug := r.schema(t, "story", "fixture")
 
+	// Before the commit: the cancel arrives while the transaction is open.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	audited := 0
-	r.svc.SetPluginAudit(func(hctx context.Context, _ pgx.Tx, _ auditstate.Event) error {
-		audited++
-		cancel() // the plugin's call is cancelled while the transaction is open
+	r.svc.SetPluginAudit(func(hctx context.Context, tx pgx.Tx, ev auditstate.Event) error {
+		cancel()
+		if _, err := tx.Exec(hctx, `SELECT 1`); err == nil {
+			t.Error("a statement on a cancelled call's transaction succeeded")
+		}
 		return hctx.Err()
 	})
-	e, err := r.svc.PluginCreate(ctx, "fixture", PluginWrite{Schema: slug, Fields: fields, Name: "Late"})
-	if err != nil {
-		t.Fatalf("create after cancel: %v", err)
+	if _, err := r.svc.PluginCreate(ctx, "fixture", PluginWrite{Schema: slug, Fields: fields, Name: "Late"}); err == nil {
+		t.Fatal("create on a call cancelled before the commit succeeded")
 	}
-	if audited != 1 {
-		t.Fatalf("audit calls = %d", audited)
+	if n := r.count(t, schemaID); n != 0 {
+		t.Fatalf("entries after a cancelled create = %d, want 0", n)
+	}
+	if got := r.sink.kinds(); len(got) != 0 {
+		t.Fatalf("events for a cancelled create: %v", got)
+	}
+	r.svc.SetPluginAudit(nil)
+
+	// Cancelled before the call begins: it never starts.
+	dead, stop := context.WithCancel(context.Background())
+	stop()
+	if _, err := r.svc.PluginCreate(dead, "fixture", PluginWrite{Schema: slug, Fields: fields, Name: "Never"}); err == nil || r.count(t, schemaID) != 0 {
+		t.Fatalf("create on a cancelled ctx: err=%v, entries=%d", err, r.count(t, schemaID))
+	}
+
+	// After the commit: the first event cancels the call; the rest still arrive.
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	defer cancel2()
+	cs := &cancellingSink{recordingSink: r.sink, cancel: cancel2}
+	r.svc.SetEvents(cs)
+	e, err := r.svc.PluginCreate(ctx2, "fixture", PluginWrite{Schema: slug, Fields: fields, Name: "On time"})
+	if err != nil {
+		t.Fatalf("create cancelled after the commit: %v", err)
 	}
 	if _, err := r.svc.entityRepo.GetByID(context.Background(), e.ID); err != nil {
 		t.Fatalf("entry missing: %v", err)
@@ -353,4 +377,26 @@ func TestPluginWriteSurvivesCancel_Integration(t *testing.T) {
 	if got := r.sink.kinds(); !slices.Equal(got, []EventKind{EventCreated, EventPublished}) {
 		t.Fatalf("events = %v", got)
 	}
+	if cs.lateErr != nil {
+		t.Fatalf("an event after the cancel got a dead context: %v", cs.lateErr)
+	}
+}
+
+// cancellingSink cancels the plugin call at its first event and records whether
+// a later event still had a live context.
+type cancellingSink struct {
+	*recordingSink
+	cancel  context.CancelFunc
+	n       int
+	lateErr error
+}
+
+func (c *cancellingSink) Emit(ctx context.Context, ev Event) {
+	c.n++
+	if c.n == 1 {
+		c.cancel()
+	} else if err := ctx.Err(); err != nil {
+		c.lateErr = err
+	}
+	c.recordingSink.Emit(ctx, ev)
 }

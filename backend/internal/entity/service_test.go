@@ -83,6 +83,10 @@ func (m *mockSchemaRepository) InTx(_ context.Context, fn func(tx pgx.Tx) error)
 	return fn(nil)
 }
 
+func (m *mockSchemaRepository) InTxDetachedCommit(_ context.Context, _ time.Duration, fn func(tx pgx.Tx) error) error {
+	return fn(nil)
+}
+
 func (m *mockSchemaRepository) GetByIDForUpdate(ctx context.Context, _ pgx.Tx, id uuid.UUID) (*EntitySchema, error) {
 	return m.GetByID(ctx, id)
 }
