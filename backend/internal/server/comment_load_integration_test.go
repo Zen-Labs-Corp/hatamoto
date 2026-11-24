@@ -141,11 +141,13 @@ func TestCommentLoadIntegration(t *testing.T) {
 		srv.router.ServeHTTP(rec, req)
 		return rec, time.Since(start)
 	}
-	// threadQueries counts the thread statements run since mark.
+	// threadQueries counts the thread statements run since mark. The thread
+	// statement is the only one that joins the roots CTE, whatever its leading
+	// WITH clauses (the per-type order is resolved in a dir CTE before it).
 	threadQueries := func(mark int) int {
 		c := 0
 		for _, q := range counter.Since(mark) {
-			if strings.Contains(q, "WITH roots AS") {
+			if strings.Contains(q, "FROM roots r") {
 				c++
 			}
 		}
