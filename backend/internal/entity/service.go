@@ -984,6 +984,14 @@ func (s *Service) GetVersion(ctx context.Context, entityID uuid.UUID, version in
 
 // RestoreVersion restores an entity to a previous version.
 func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID *uuid.UUID, version int) (*Entity, error) {
+	return s.RestoreVersionIf(ctx, entityID, userID, version, nil)
+}
+
+// RestoreVersionIf restores version as a new version. The write is conditional
+// on the version read here, so an edit stored in between is never overwritten
+// (*VersionConflictError). A non-nil expected is the caller's own precondition
+// on the current version and is checked first.
+func (s *Service) RestoreVersionIf(ctx context.Context, entityID uuid.UUID, userID *uuid.UUID, version int, expected *int) (*Entity, error) {
 	// Get the version to restore
 	ver, err := s.entityRepo.GetVersion(ctx, entityID, version)
 	if err != nil {
@@ -1034,6 +1042,9 @@ func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID
 	if plan, err = s.settleLockedPlan(ctx, existing, locked, plan, authz.ActionEntityVersionRestore, false); err != nil {
 		return nil, err
 	}
+	if expected != nil && *expected != existing.Version {
+		return nil, &VersionConflictError{Current: existing.Version}
+	}
 	if plan.Held {
 		c := heldChange(ReviewRestore, existing, existing.Status)
 		if locked != nil {
@@ -1043,14 +1054,24 @@ func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID
 		return nil, s.sendForReview(ctx, c, plan)
 	}
 
-	// Update with the old attributes
+	// Update with the old attributes, only if nobody stored a version since
+	// existing was read.
+	readVersion := existing.Version
 	entity, err := s.entityRepo.Update(ctx, entityID, userID, &UpdateEntityInput{
-		Attributes:    &restoredAttrs,
-		ChangeSummary: &changeSummary,
-		Status:        locked,
-		TakeOwnership: structuralAttrsChanged(existing.Schema, ver.Attributes, existing.Attributes),
+		Attributes:      &restoredAttrs,
+		ChangeSummary:   &changeSummary,
+		Status:          locked,
+		TakeOwnership:   structuralAttrsChanged(existing.Schema, ver.Attributes, existing.Attributes),
+		ExpectedVersion: &readVersion,
 	})
 	if err != nil {
+		if errors.Is(err, ErrVersionConflict) {
+			s.logger.Info("restore lost to a concurrent edit",
+				slog.String("entity_id", entityID.String()),
+				slog.Int("version", version),
+			)
+			return nil, err
+		}
 		s.logger.Error("failed to restore entity version",
 			slog.String("entity_id", entityID.String()),
 			slog.Int("version", version),
