@@ -78,7 +78,7 @@ type Services struct {
 	Media     *media.Service
 	Redirects *redirect.Service
 	Forms     *form.Service
-	// Comments serves comments.thread/counts (approved comments only); nil = unavailable.
+	// Comments serves comments.thread/counts/by_author/subtree (approved comments; dead ones per the thread rule); nil = unavailable.
 	Comments CommentReader
 	// CommentModerator serves the comments.moderate functions; nil = unavailable.
 	CommentModerator CommentModerator
@@ -145,6 +145,7 @@ type API struct {
 type pluginLimits struct {
 	log, mail, fetch *rate.Limiter
 	writes           *rate.Limiter // entities.* and comments.* writes, one budget
+	reads            *rate.Limiter // comments.by_author and comments.subtree, one budget
 
 	// Guarded by API.mu.
 	quota int   // mail.send recipients per hour the mail limiter was built for
@@ -190,6 +191,8 @@ func (a *API) limitsLocked(plugin string) *pluginLimits {
 			fetch: rate.NewLimiter(rate.Every(time.Minute/time.Duration(perMin)), min(perMin, 60)),
 			// 60 writes per minute, burst 20; fixed, not owner-tunable.
 			writes: rate.NewLimiter(rate.Every(time.Second), 20),
+			// 30 comment reads per second (1,800 per minute), burst 60; fixed, not owner-tunable.
+			reads: rate.NewLimiter(30, 60),
 		}
 		a.limiters[plugin] = l
 	}
@@ -386,13 +389,6 @@ func parseID(s string) (uuid.UUID, error) {
 
 func unavailable(what string) error { return herr(sdk.ErrUnavailable, "%s is not available", what) }
 
-// contractStub answers a host function the SDK 0.27 contract names before the
-// change that implements it ships. The grant check runs first (Call), so only a
-// granted plugin sees unavailable. The owning change replaces its rows.
-func contractStub(fn string) func(context.Context, *API, *callEnv, jsontext.Value) (any, error) {
-	return func(context.Context, *API, *callEnv, jsontext.Value) (any, error) { return nil, unavailable(fn) }
-}
-
 func clamp(v, def, max int) int {
 	switch {
 	case v <= 0:
@@ -446,8 +442,7 @@ var hostFns = map[string]hostFn{
 	sdk.FnCommentsCounts:       {perm: sdk.PermCommentsRead, run: fnCommentsCounts},
 	sdk.FnFormsSubmissions:     {perm: sdk.PermFormsRead, run: fnFormsSubmissions},
 
-	// SDK 0.27 contract: names and permissions only, bodies come with the changes that own them.
-	// (entities.create|update|delete are implemented in hostapi_entitywrite.go.)
+	// SDK 0.27 functions (entities.* writes live in hostapi_entitywrite.go, comments.* in hostapi_comments.go).
 	sdk.FnEntitiesCreate:    {perm: sdk.PermEntitiesWriteOwn, run: fnEntitiesCreate},
 	sdk.FnEntitiesUpdate:    {perm: sdk.PermEntitiesWriteOwn, run: fnEntitiesUpdate},
 	sdk.FnEntitiesDelete:    {perm: sdk.PermEntitiesWriteOwn, run: fnEntitiesDelete},
@@ -455,8 +450,8 @@ var hostFns = map[string]hostFn{
 	sdk.FnCommentsRestore:   {perm: sdk.PermCommentsModerate, run: fnCommentsRestore},
 	sdk.FnCommentsSetRank:   {perm: sdk.PermCommentsModerate, run: fnCommentsSetRank},
 	sdk.FnCommentsSetViewer: {perm: sdk.PermCommentsModerate, run: fnCommentsSetViewer},
-	sdk.FnCommentsByAuthor:  {perm: sdk.PermCommentsRead, run: contractStub(sdk.FnCommentsByAuthor)},
-	sdk.FnCommentsSubtree:   {perm: sdk.PermCommentsRead, run: contractStub(sdk.FnCommentsSubtree)},
+	sdk.FnCommentsByAuthor:  {perm: sdk.PermCommentsRead, run: fnCommentsByAuthor},
+	sdk.FnCommentsSubtree:   {perm: sdk.PermCommentsRead, run: fnCommentsSubtree},
 }
 
 func fnPermissions(_ context.Context, a *API, e *callEnv, _ jsontext.Value) (any, error) {

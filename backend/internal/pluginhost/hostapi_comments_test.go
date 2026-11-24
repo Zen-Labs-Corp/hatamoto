@@ -18,10 +18,28 @@ import (
 )
 
 type fakeCommentReader struct {
-	thread  sdk.CommentThread
-	counts  map[uuid.UUID]int
-	gotPage int
-	gotOpts ThreadOpts
+	thread     sdk.CommentThread
+	counts     map[uuid.UUID]int
+	byAuthor   sdk.CommentThread
+	subtree    sdk.CommentSubtree
+	subtreeErr error
+	gotPage    int
+	gotOpts    ThreadOpts
+	gotKey     string
+	gotID      uuid.UUID
+	calls      int
+}
+
+func (f *fakeCommentReader) ByAuthor(_ context.Context, key string, page int, opts ThreadOpts) (sdk.CommentThread, error) {
+	f.calls++
+	f.gotKey, f.gotPage, f.gotOpts = key, page, opts
+	return f.byAuthor, nil
+}
+
+func (f *fakeCommentReader) Subtree(_ context.Context, id uuid.UUID, page int, opts ThreadOpts) (sdk.CommentSubtree, error) {
+	f.calls++
+	f.gotID, f.gotPage, f.gotOpts = id, page, opts
+	return f.subtree, f.subtreeErr
 }
 
 func (f *fakeCommentReader) Thread(_ context.Context, _ uuid.UUID, page int, opts ThreadOpts) (sdk.CommentThread, error) {
@@ -178,5 +196,139 @@ func TestCommentsHostUnavailable(t *testing.T) {
 	}
 	if o := r.do(t, sdk.FnCommentsCounts, map[string]any{"entity_ids": []string{id}}); o.Code != sdk.ErrUnavailable {
 		t.Errorf("counts: %+v", o)
+	}
+}
+
+func TestCommentsHostByAuthor(t *testing.T) {
+	fake := &fakeCommentReader{byAuthor: sdk.CommentThread{
+		Items: []sdk.CommentItem{{ID: "c1", CommenterKey: "k", Status: "approved"}}, Page: 1, HasMore: true,
+	}}
+	r := newCommentsRig(t, fake)
+	r.load(t, func(m *sdk.Manifest) {
+		m.Permissions = append(m.Permissions, sdk.PermCommentsRead, sdk.PermEntitiesWriteOwn)
+		m.EntitySchema = "item"
+	})
+	args := map[string]any{"commenter_key": "key"}
+	if o := r.do(t, sdk.FnCommentsByAuthor, args); o.Code != sdk.ErrCapabilityDenied || o.Cap != sdk.PermCommentsRead {
+		t.Fatalf("before grant: %+v", o)
+	}
+	r.grant(t, sdk.PermCommentsRead)
+	o := r.do(t, sdk.FnCommentsByAuthor, args)
+	if o.Code != "" || !strings.Contains(string(o.Result), `"commenter_key":"k"`) || !strings.Contains(string(o.Result), `"has_more":true`) {
+		t.Fatalf("by_author: %+v", o)
+	}
+	if fake.gotKey != "key" || fake.gotOpts.Plugin != "capa" || fake.gotOpts.Schema != "item" {
+		t.Errorf("reader saw key %q opts %+v", fake.gotKey, fake.gotOpts)
+	}
+	for page, want := range map[int]int{0: 1, -5: 1, 10001: maxCommentPage, 3: 3} {
+		r.do(t, sdk.FnCommentsByAuthor, map[string]any{"commenter_key": "key", "page": page})
+		if fake.gotPage != want {
+			t.Errorf("page %d reached the reader as %d, want %d", page, fake.gotPage, want)
+		}
+	}
+	calls := fake.calls
+	for name, a := range map[string]any{
+		"empty key":   map[string]any{"commenter_key": ""},
+		"long key":    map[string]any{"commenter_key": strings.Repeat("k", maxCommenterKeyBytes+1)},
+		"unknown arg": map[string]any{"commenter_key": "key", "bogus": 1},
+	} {
+		if o := r.do(t, sdk.FnCommentsByAuthor, a); o.Code != sdk.ErrInvalidArgument {
+			t.Errorf("%s: %+v, want invalid_argument", name, o)
+		}
+	}
+	if fake.calls != calls {
+		t.Error("an invalid call reached the reader")
+	}
+
+	none := newCommentsRig(t, nil)
+	none.loadComments(t)
+	none.grant(t, sdk.PermCommentsRead)
+	if o := none.do(t, sdk.FnCommentsByAuthor, args); o.Code != sdk.ErrUnavailable {
+		t.Errorf("nil reader: %+v", o)
+	}
+}
+
+func TestCommentsHostSubtree(t *testing.T) {
+	id := uuid.New()
+	fake := &fakeCommentReader{subtree: sdk.CommentSubtree{
+		Ancestors: []sdk.CommentItem{{ID: "r"}}, Items: []sdk.CommentItem{{ID: "c1"}}, Page: 1,
+	}}
+	r := newCommentsRig(t, fake)
+	r.loadComments(t)
+	args := map[string]any{"comment_id": id.String()}
+	if o := r.do(t, sdk.FnCommentsSubtree, args); o.Code != sdk.ErrCapabilityDenied || o.Cap != sdk.PermCommentsRead {
+		t.Fatalf("before grant: %+v", o)
+	}
+	r.grant(t, sdk.PermCommentsRead)
+	if o := r.do(t, sdk.FnCommentsSubtree, map[string]any{"comment_id": "nope"}); o.Code != sdk.ErrInvalidArgument {
+		t.Errorf("bad id: %+v", o)
+	}
+	o := r.do(t, sdk.FnCommentsSubtree, map[string]any{"comment_id": id.String(), "page": 99999})
+	if o.Code != "" || !strings.Contains(string(o.Result), `"ancestors":[`) || fake.gotID != id || fake.gotPage != maxCommentPage {
+		t.Fatalf("subtree: %+v id %s page %d", o, fake.gotID, fake.gotPage)
+	}
+	fake.subtreeErr = ErrCommentNotFound
+	if o := r.do(t, sdk.FnCommentsSubtree, args); o.Code != sdk.ErrNotFound || o.Msg != "comment not found" {
+		t.Errorf("not found: %+v", o)
+	}
+
+	none := newCommentsRig(t, nil)
+	none.loadComments(t)
+	none.grant(t, sdk.PermCommentsRead)
+	if o := none.do(t, sdk.FnCommentsSubtree, args); o.Code != sdk.ErrUnavailable {
+		t.Errorf("nil reader: %+v", o)
+	}
+}
+
+func TestCommentsHostReadsIncludeDeadNeedsModerate(t *testing.T) {
+	fake := &fakeCommentReader{}
+	r := newCommentsRig(t, fake)
+	r.load(t, func(m *sdk.Manifest) {
+		m.Permissions = append(m.Permissions, sdk.PermCommentsRead, sdk.PermCommentsModerate, sdk.PermEntitiesWriteOwn)
+		m.EntitySchema = "item"
+	})
+	r.grant(t, sdk.PermCommentsRead)
+	calls := map[string]func(dead any) map[string]any{
+		sdk.FnCommentsByAuthor: func(d any) map[string]any { return map[string]any{"commenter_key": "key", "include_dead": d} },
+		sdk.FnCommentsSubtree:  func(d any) map[string]any { return map[string]any{"comment_id": uuid.NewString(), "include_dead": d} },
+	}
+	for fn, mk := range calls {
+		if o := r.do(t, fn, mk(true)); o.Code != "" || fake.gotOpts.IncludeDead {
+			t.Fatalf("%s without comments.moderate: %+v opts %+v", fn, o, fake.gotOpts)
+		}
+	}
+	r.grant(t, sdk.PermCommentsRead, sdk.PermCommentsModerate, sdk.PermEntitiesWriteOwn)
+	for fn, mk := range calls {
+		if o := r.do(t, fn, mk(true)); o.Code != "" || !fake.gotOpts.IncludeDead || fake.gotOpts.Plugin != "capa" || fake.gotOpts.Schema != "item" {
+			t.Fatalf("%s with comments.moderate: %+v opts %+v", fn, o, fake.gotOpts)
+		}
+		if o := r.do(t, fn, mk(false)); o.Code != "" || fake.gotOpts.IncludeDead {
+			t.Fatalf("%s not asked: %+v opts %+v", fn, o, fake.gotOpts)
+		}
+	}
+}
+
+func TestCommentsHostReadLimiter(t *testing.T) {
+	r := newCommentsRig(t, &fakeCommentReader{})
+	r.loadComments(t)
+	r.grant(t, sdk.PermCommentsRead)
+	api := r.rt.caps.api
+	if l := api.limits("capa").reads; l.Burst() != 60 || l.Limit() != 30 {
+		t.Fatalf("read limiter = %v / %d, want 30 / 60", l.Limit(), l.Burst())
+	}
+	api.limits("capa").reads.AllowN(time.Now(), 60) // drain the bucket
+	by := map[string]any{"commenter_key": "key"}
+	sub := map[string]any{"comment_id": uuid.NewString()}
+	if o := r.do(t, sdk.FnCommentsByAuthor, by); o.Code != sdk.ErrRateLimited || o.Msg != "comments.by_author: 1800 per minute" {
+		t.Fatalf("by_author: %+v", o)
+	}
+	if o := r.do(t, sdk.FnCommentsSubtree, sub); o.Code != sdk.ErrRateLimited {
+		t.Fatalf("subtree shares the bucket: %+v", o)
+	}
+	if o := r.do(t, sdk.FnCommentsThread, map[string]any{"entity_id": uuid.NewString()}); o.Code != "" {
+		t.Fatalf("thread is never limited: %+v", o)
+	}
+	if l := api.limits("other").reads; !l.Allow() {
+		t.Fatal("another plugin shares the bucket")
 	}
 }
