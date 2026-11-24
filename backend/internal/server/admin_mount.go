@@ -258,6 +258,9 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 			Invalidate: s.invalidateRendered,
 		}
 	}
+	if s.db != nil && s.packages != nil && s.entityService != nil && s.menuService != nil && s.siteConfig != nil && s.comments != nil {
+		d.Kits = s.newKitsAdmin()
+	}
 	if s.mediaFormatsSvc != nil {
 		d.MediaFormats = s.mediaFormatsSvc
 	}
