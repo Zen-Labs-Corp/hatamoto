@@ -727,3 +727,26 @@ func TestCheckKeyOnlyFromVerifiedDevice(t *testing.T) {
 		}
 	})
 }
+
+func TestHoldEditCheckGetsSchemaAndKey(t *testing.T) {
+	h := policyHarness(t)
+	var schema string
+	var id uuid.UUID
+	var ok bool
+	h.p.Checkers = []comment.Checker{schemaChecker{&schema}, keyChecker{&id, &ok}}
+	h.p.Spam.Settings = spamSettings{*h.sp}
+	res, err := commentfmt.Render("A fine edit.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = h.p.HoldEdit(context.Background(), EditCheck{
+		EntityID: h.req.EntityID, Name: "Ada", Body: "A fine edit.", Rendered: res, BodyChanged: true,
+		IP: h.req.IP, Now: t0, Commenter: h.req.DeviceCommenter,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if schema != "story" || !ok || id != *h.req.DeviceCommenter {
+		t.Errorf("edit check saw schema %q, key %s (%v)", schema, id, ok)
+	}
+}

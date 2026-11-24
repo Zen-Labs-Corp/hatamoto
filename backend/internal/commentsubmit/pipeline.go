@@ -512,6 +512,9 @@ type EditCheck struct {
 	BodyChanged bool
 	IP          string
 	Now         time.Time
+	// Commenter is the verified device commenter (the editor); comment.check
+	// gets its key, as on a new post.
+	Commenter *uuid.UUID
 }
 
 // HoldEdit runs the content checks of a new post on an edited body and reports
@@ -522,9 +525,18 @@ func (p *Pipeline) HoldEdit(ctx context.Context, e EditCheck) (bool, error) {
 	if err != nil {
 		spamSet = spam.Defaults()
 	}
+	var info comment.PolicyInfo
+	if p.Policy != nil {
+		if info, err = p.Policy.PolicyInfo(ctx, e.EntityID); err != nil && !errors.Is(err, comment.ErrNotFound) {
+			return false, err
+		}
+	}
+	if e.Commenter != nil {
+		ctx = pluginkey.WithCommenter(ctx, *e.Commenter)
+	}
 	ipHash, netHash := p.Comments.Keys().HashIP(e.IP)
 	_, verdict, _, err := p.assess(ctx, spamSet, assessInput{
-		EntityID: e.EntityID, Name: e.Name, Body: e.Body, Rendered: e.Rendered,
+		Schema: info.Schema, EntityID: e.EntityID, Name: e.Name, Body: e.Body, Rendered: e.Rendered,
 		IPHash: ipHash, NetHash: netHash, Now: e.Now.UTC(), SkipDuplicates: !e.BodyChanged, IP: e.IP,
 	})
 	return verdict != "allow", err

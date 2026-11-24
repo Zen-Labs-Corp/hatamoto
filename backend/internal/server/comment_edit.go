@@ -133,7 +133,7 @@ func (s *Server) serveOwnComment(w http.ResponseWriter, r *http.Request, ed comm
 	if p := s.commentSubmit; p != nil {
 		hold, err = p.HoldEdit(ctx, commentsubmit.EditCheck{
 			EntityID: c.EntityID, Name: c.AuthorName, Body: body, Rendered: res,
-			BodyChanged: res.BodyHash != c.BodyHash, IP: middleware.GetClientIP(r), Now: now,
+			BodyChanged: res.BodyHash != c.BodyHash, IP: middleware.GetClientIP(r), Now: now, Commenter: &commenter,
 		})
 		if err != nil {
 			s.commentFail(w, r, "comment edit: checks", err)
