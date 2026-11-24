@@ -224,7 +224,6 @@ func BuildIndexWith(dir, urlPrefix string, key Key, now time.Time, validity time
 	}
 	type ident struct{ kind, name string }
 	seen := map[ident]string{}
-	perName := map[string]int{}
 	for _, f := range files {
 		raw, err := os.ReadFile(f)
 		if err != nil {
@@ -239,7 +238,6 @@ func BuildIndexWith(dir, urlPrefix string, key Key, now time.Time, validity time
 			return nil, fmt.Errorf("%s: package %q is already provided by %s", f, p.Name, prev)
 		}
 		seen[id] = f
-		perName[p.Name]++
 		e := Entry{Kind: p.Kind, Name: p.Name, Version: p.Version, URL: urlPrefix + filepath.Base(f), Size: int64(len(raw))}
 		sum := p.SHA256()
 		e.SHA256 = hex.EncodeToString(sum[:])
@@ -268,25 +266,10 @@ func BuildIndexWith(dir, urlPrefix string, key Key, now time.Time, validity time
 			}
 			e.Description = cmp.Or(k.Description, k.Title)
 		}
-		if m, ok := opts.Meta[p.Name]; ok {
-			if err := m.validate(p.Name, p.Kind); err != nil {
-				return nil, fmt.Errorf("meta for %s: %w", p.Name, err)
-			}
-			e.Title, e.Author, e.Source, e.Commit, e.Tier, e.Screenshot = m.Title, m.Author, m.Source, m.Commit, m.Tier, m.Screenshot
-			e.About, e.Features = m.About, m.Features
-			e.Category, e.Featured = m.Category, m.Featured
-			e.SiteType, e.Flags = m.SiteType, cleanFlags(m.Flags)
-		}
 		idx.Packages = append(idx.Packages, e)
 	}
-	for name := range opts.Meta {
-		switch perName[name] {
-		case 0:
-			return nil, fmt.Errorf("meta names %q, which is not a package in %s", name, dir)
-		case 1:
-		default:
-			return nil, fmt.Errorf("meta names %q, which is both a plugin and a theme in %s", name, dir)
-		}
+	if err := applyMeta(idx.Packages, opts.Meta, dir); err != nil {
+		return nil, err
 	}
 	sort.Slice(idx.Packages, func(i, j int) bool { return idx.Packages[i].Name < idx.Packages[j].Name })
 	body, err := jsonx.MarshalPinned(idx)
@@ -297,4 +280,54 @@ func BuildIndexWith(dir, urlPrefix string, key Key, now time.Time, validity time
 		return nil, fmt.Errorf("registry: url prefix is empty")
 	}
 	return SignIndex(body, key)
+}
+
+// KitMetaPrefix keys the meta of a kit that shares its name with a plugin or
+// theme: "kit:<name>". A bare name applies to the plugin or theme of that
+// name, and to the kit only when no plugin or theme has it.
+const KitMetaPrefix = "kit:"
+
+// applyMeta copies the meta entries onto the entries they describe.
+func applyMeta(pkgs []Entry, meta map[string]Meta, dir string) error {
+	nonKit := map[string]int{}
+	for _, e := range pkgs {
+		if e.Kind != KindKit {
+			nonKit[e.Name]++
+		}
+	}
+	used := map[string]bool{}
+	for i := range pkgs {
+		e := &pkgs[i]
+		key := e.Name
+		switch {
+		case e.Kind == KindKit:
+			if _, ok := meta[KitMetaPrefix+e.Name]; ok {
+				key = KitMetaPrefix + e.Name
+			} else if nonKit[e.Name] > 0 {
+				continue // the bare name belongs to the plugin or theme
+			}
+		case nonKit[e.Name] > 1:
+			if _, ok := meta[key]; ok {
+				return fmt.Errorf("meta names %q, which is both a plugin and a theme in %s", key, dir)
+			}
+		}
+		m, ok := meta[key]
+		if !ok {
+			continue
+		}
+		used[key] = true
+		if err := m.validate(e.Name, e.Kind); err != nil {
+			return fmt.Errorf("meta for %s: %w", e.Name, err)
+		}
+		e.Title, e.Author, e.Source, e.Commit, e.Tier, e.Screenshot = m.Title, m.Author, m.Source, m.Commit, m.Tier, m.Screenshot
+		e.About, e.Features = m.About, m.Features
+		e.Category, e.Featured = m.Category, m.Featured
+		e.SiteType, e.Flags = m.SiteType, cleanFlags(m.Flags)
+	}
+	for key := range meta {
+		if !used[key] {
+			return fmt.Errorf("meta names %q, which is not a package in %s", key, dir)
+		}
+	}
+	return nil
 }

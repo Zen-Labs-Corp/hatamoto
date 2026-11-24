@@ -73,13 +73,19 @@ printf 'x' >>"$work/o/arch/community/"*.kit.hmp
 refuses_out=$(run "$pl" 2>&1) && fail "tampered archive accepted"
 grep -q "does not match its sidecar" <<<"$refuses_out" || fail "tampered archive: wrong error: $refuses_out"
 
-# 3. A plugin of the same name does not stop the kit; the plugin's meta entry is kept.
+# 3. A plugin of the same name does not stop the kit; the plugin's meta entry is kept and the kit's goes under kit:<name>.
 rm -rf "$work/o"; mkdir -p "$work/o/pk"
 printf 'plugin' >"$work/o/pk/community.hmp"
 printf '{"community":{"tier":"community"}}' >"$work/o/meta.json"
 out=$(run "$pl") || fail "shared name: $out"
 [ -f "$work/o/pk/community.kit.hmp" ] && [ "$(cat "$work/o/pk/community.hmp")" = plugin ] || fail "shared name: wrong files"
 jq -e '.community == {"tier":"community"}' "$work/o/meta.json" >/dev/null || fail "plugin meta overwritten: $(cat "$work/o/meta.json")"
+jq -e --arg c "$commit" '.["kit:community"].tier == "community" and .["kit:community"].commit == $c' "$work/o/meta.json" >/dev/null || fail "kit meta missing: $(cat "$work/o/meta.json")"
+# Same, with the plugin only in the meta file (a bare entry from another source).
+rm -rf "$work/o"; mkdir -p "$work/o"
+printf '{"community":{"tier":"community","source":"https://example.org/other"}}' >"$work/o/meta.json"
+out=$(run "$pl") || fail "shared name, meta only: $out"
+jq -e '.community.source == "https://example.org/other" and (.["kit:community"].tier == "community")' "$work/o/meta.json" >/dev/null || fail "meta-only shared name: $(cat "$work/o/meta.json")"
 
 # 4. Kit-vs-kit collisions, duplicates and bad manifests are refused.
 rm -rf "$work/o"; mkdir -p "$work/o/pk"; : >"$work/o/pk/community.kit.hmp"

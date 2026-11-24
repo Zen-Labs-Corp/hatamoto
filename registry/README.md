@@ -273,8 +273,9 @@ is data: the script fetches the pinned commit, runs `hatamoto kit pack` and
 
 - **Names.** The file is `<name>.kit.hmp`, so a kit may share its name with a plugin or
   a theme (`<name>.hmp`); only a second kit of the same name is refused. The meta file
-  is keyed by bare name, so when a plugin or theme already holds the name there, no meta
-  entry is written for the kit (a loud warning) rather than overwrite the other's.
+  is keyed by bare name for plugins and themes, so when one already holds the name there,
+  the kit's entry is written under `kit:<name>` instead, and `registry index` applies it
+  to the kit only.
 - **Archive.** Builds go into the same `ARCHIVE_DIR` as
   `<name>/<name>-<version>-<id12>-<keyid>.kit.hmp` plus a `.kit.json` sidecar
   `{name, kind: "kit", version, commit, id12, key_id, sha256}`. A pin that matches a

@@ -21,10 +21,10 @@
 #
 # A kit file is <name>.kit.hmp, so a kit may share its name with a plugin or a theme
 # (<name>.hmp). Only a kit-vs-kit collision is refused: an existing
-# <packages-dir>/<name>.kit.hmp. The meta file is keyed by bare name, so for a kit
-# whose name a plugin or theme already holds there (a file <name>.hmp in <packages-dir>
-# or a key in <meta-file>) no meta entry is written, with a warning, rather than
-# overwrite the other package's.
+# <packages-dir>/<name>.kit.hmp. The meta file is keyed by bare name for plugins and
+# themes, so a kit whose name one of them already holds there (a file <name>.hmp in
+# <packages-dir>, or a bare key from another source in <meta-file>) gets its entry under
+# "kit:<name>" instead; `registry index` applies that key to the kit only.
 #
 # <archive-dir> is an append-only archive of signed builds, same layout as the plugin
 # and theme ones, with the kind in the name:
@@ -321,12 +321,14 @@ for f in ${manifests[@]+"${manifests[@]}"}; do
       '{name:$n, kind:"kit", version:$v, commit:$c, id12:$i, key_id:$k, sha256:$h}' \
       >"$stage/archive/$name/$af.kit.json"
   fi
-  # The meta file is keyed by bare name: never overwrite the entry of a plugin or theme.
-  if [ -e "$packages/$name.hmp" ] || ! jq -e --arg n "$name" 'has($n) | not' "$stage/meta.json" >/dev/null; then
-    echo "build-community-kits: WARNING: $name: a plugin or theme has this name; no meta entry is written for the kit" >&2
-    continue
+  # The meta file is keyed by bare name for plugins and themes. A kit whose name one of
+  # them holds (a file <name>.hmp here, or a bare entry from another source) is keyed
+  # "kit:<name>", so neither entry overwrites the other.
+  key=$name
+  if [ -e "$packages/$name.hmp" ] || ! jq -e --arg n "$name" --arg s "$repo" '(.[$n].source // $s) == $s' "$stage/meta.json" >/dev/null; then
+    key="kit:$name"
   fi
-  jq --arg n "$name" --arg a "$author" --arg t "$title" --arg s "$repo" --arg c "$commit" \
+  jq --arg n "$key" --arg a "$author" --arg t "$title" --arg s "$repo" --arg c "$commit" \
     --arg about "$(field "$f" about)" --argjson feat "$(jq -c '.features // null' "$f")" \
     '.[$n] = ({author: $a, source: $s, commit: $c, tier: "community"} + (if $t != "" then {title: $t} else {} end) + (if $about != "" then {about: $about} else {} end) + (if $feat != null then {features: $feat} else {} end))' \
     "$stage/meta.json" >"$stage/meta.next" || die "$name: meta merge failed"

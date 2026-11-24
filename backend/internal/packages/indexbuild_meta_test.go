@@ -454,6 +454,48 @@ func TestBuildIndexAllowsAKitAndPluginWithOneName(t *testing.T) {
 	}
 }
 
+func TestBuildIndexMetaForAKitAndPluginWithOneName(t *testing.T) {
+	dir := t.TempDir()
+	pl := pluginFiles()
+	pl[PluginManifest] = []byte(strings.Replace(pluginJSON, "hello", "community", 1))
+	for name, files := range map[string]map[string][]byte{"community.hmp": pl, "community.kit.hmp": kitFiles(kitExampleJSON)} {
+		if err := os.WriteFile(filepath.Join(dir, name), packForMeta(t, files), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	plug, kitMeta := goodMeta(), goodMeta()
+	plug.Title, kitMeta.Title = "Community Plugin", "Community Kit"
+	build := func(meta map[string]Meta) (Index, error) {
+		var idx Index
+		raw, err := buildMeta(t, dir, meta)
+		if err != nil {
+			return idx, err
+		}
+		return idx, jsonx.Unmarshal(raw, &idx)
+	}
+	idx, err := build(map[string]Meta{"community": plug, KitMetaPrefix + "community": kitMeta})
+	if err != nil {
+		t.Fatalf("meta for both refused: %v", err)
+	}
+	if e, _ := idx.Find(KindPlugin, "community"); e.Title != "Community Plugin" {
+		t.Errorf("plugin entry = %+v", e)
+	}
+	if e, _ := idx.Find(KindKit, "community"); e.Title != "Community Kit" {
+		t.Errorf("kit entry = %+v", e)
+	}
+	// A bare name describes the plugin only; the kit stays without meta.
+	idx, err = build(map[string]Meta{"community": plug})
+	if err != nil {
+		t.Fatalf("plugin meta alone refused: %v", err)
+	}
+	if e, _ := idx.Find(KindKit, "community"); e.Title != "" || e.Tier != "" {
+		t.Errorf("kit took the plugin's meta: %+v", e)
+	}
+	if _, err := build(map[string]Meta{KitMetaPrefix + "ghost": kitMeta}); err == nil {
+		t.Error("meta for a kit that is not there was accepted")
+	}
+}
+
 func TestBuildIndexRefusesKitMetaForThemesOnlyFields(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "community.kit.hmp"), packForMeta(t, kitFiles(kitMinJSON)), 0o600); err != nil {
