@@ -17,9 +17,10 @@ import (
 // commentEventObserver turns comment transitions into the SDK comment actions
 // on the hook engine; webhooks and plugins both listen there. One call fires at
 // most one event. A draft never fires; a comment stored or confirmed directly
-// as spam (a bot) fires nothing, only a moderator's spam transition does.
+// as spam (a bot) fires nothing, only a moderator's spam transition does. A
+// rank write never fires (no OnUpdated), and OnBatch is cache work only.
 type commentEventObserver struct {
-	comment.NopObserver // OnUpdated (edits, unapproval) and OnSettingsChanged fire nothing
+	comment.NopObserver // OnBatch and OnSettingsChanged fire nothing
 	fire                func(ctx context.Context, name string, ev sdk.CommentEvent)
 	quietSpam           sync.Map // comment id -> struct{}: the OnSpam that follows a spam store/confirm
 }
@@ -53,6 +54,15 @@ func (o *commentEventObserver) OnSpam(ctx context.Context, c comment.Comment) {
 		return
 	}
 	o.fire(ctx, sdk.CommentSpam.Name, commentEvent(c))
+}
+
+// OnUpdated announces an edit, an unapproval and a move to or from dead; the
+// payload carries the new status ("dead" included).
+func (o *commentEventObserver) OnUpdated(ctx context.Context, _, after comment.Comment) {
+	if after.Status == comment.StatusDraft {
+		return
+	}
+	o.fire(ctx, sdk.CommentUpdated.Name, commentEvent(after))
 }
 
 // OnDeleted carries ids and status only: the comment is gone.

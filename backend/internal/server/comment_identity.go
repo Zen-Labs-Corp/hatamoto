@@ -185,7 +185,8 @@ func (s *Server) setupComments() {
 		}, nil)
 	s.comments.Register(commentCacheObserver{
 		drop: s.dropRenderedEntity, all: s.invalidateRendered,
-		forget: s.commentBypass.forget,
+		forget:   s.commentBypass.forget,
+		coalesce: newDropCoalescer(s.dropRenderedEntity, commentDropWindow),
 	})
 	if s.hooks != nil {
 		s.comments.Register(newCommentEventObserver(s.hooks))

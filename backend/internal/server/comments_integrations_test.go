@@ -91,10 +91,23 @@ func TestCommentEventApprovedAndSilentCallbacks(t *testing.T) {
 	o, got := recordingCommentObserver()
 	c := testComment(comment.StatusApproved)
 	o.OnApproved(ctx, c)
-	o.OnUpdated(ctx, c, c)
 	o.OnSettingsChanged(ctx, comment.Settings{})
+	o.OnBatch(ctx, []uuid.UUID{c.EntityID})
 	if n := names(*got); len(n) != 1 || n[0] != "comment.approved" {
 		t.Errorf("fired %v", n)
+	}
+}
+
+func TestCommentEventUpdated(t *testing.T) {
+	ctx := comment.WithBatch(context.Background()) // a batch still announces each comment
+	o, got := recordingCommentObserver()
+	before := testComment(comment.StatusApproved)
+	dead := before
+	dead.Status = comment.StatusDead
+	o.OnUpdated(ctx, before, dead)
+	o.OnUpdated(ctx, before, testComment(comment.StatusDraft)) // a draft never fires
+	if len(*got) != 1 || (*got)[0].name != "comment.updated" || (*got)[0].ev.Status != "dead" || (*got)[0].ev.ID != dead.ID.String() {
+		t.Errorf("fired %+v", *got)
 	}
 }
 
