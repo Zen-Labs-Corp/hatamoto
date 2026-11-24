@@ -3,6 +3,7 @@
 package comment
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -283,4 +284,171 @@ func TestCommentersSince(t *testing.T) {
 	if len(late) != 1 || late[0].ID != made[2] {
 		t.Fatalf("since second = %+v", late)
 	}
+}
+
+// chain seeds R > A > B > {C > D, E} on f.entity, oldest first.
+type chain struct{ r, a, b, c, d, e seeded }
+
+func (f *fixture) chain() chain {
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	at := func(i int) time.Time { return base.Add(time.Duration(i) * time.Minute) }
+	var ch chain
+	ch.r = f.seedBy(f.entity, nil, nil, at(1), StatusApproved)
+	ch.a = f.seedBy(f.entity, &ch.r, nil, at(2), StatusApproved)
+	ch.b = f.seedBy(f.entity, &ch.a, nil, at(3), StatusApproved)
+	ch.c = f.seedBy(f.entity, &ch.b, nil, at(4), StatusApproved)
+	ch.d = f.seedBy(f.entity, &ch.c, nil, at(5), StatusApproved)
+	ch.e = f.seedBy(f.entity, &ch.b, nil, at(6), StatusApproved)
+	return ch
+}
+
+func (f *fixture) setStatus(s seeded, st Status) {
+	f.t.Helper()
+	f.exec(`UPDATE hatamoto_comments SET status = $2 WHERE id = $1`, s.id, string(st))
+}
+
+func TestSubtreeAncestorsAndReplies(t *testing.T) {
+	f := newFixture(t)
+	f.enable()
+	ch := f.chain()
+	sp, err := f.svc.Subtree(f.ctx, ch.b.id, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantIDs(t, "ancestors", sp.Ancestors, ch.r, ch.a)
+	wantIDs(t, "items", sp.Comments, ch.b, ch.c, ch.d, ch.e)
+	if sp.EntityID != f.entity || sp.HasMore || sp.Page != 1 {
+		t.Errorf("page = %+v", sp)
+	}
+	if sp.Ancestors[0].Depth != 1 || sp.Ancestors[1].Depth != 2 {
+		t.Errorf("ancestor depths = %d, %d", sp.Ancestors[0].Depth, sp.Ancestors[1].Depth)
+	}
+}
+
+func TestSubtreeDropsUnderNonApproved(t *testing.T) {
+	for _, st := range []Status{StatusPending, StatusSpam, StatusTrash} {
+		t.Run(string(st), func(t *testing.T) {
+			f := newFixture(t)
+			f.enable()
+			ch := f.chain()
+			f.setStatus(ch.c, st)
+			sp, err := f.svc.Subtree(f.ctx, ch.b.id, 1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantIDs(t, "items", sp.Comments, ch.b, ch.e)
+		})
+	}
+}
+
+func TestSubtreeKeepsDead(t *testing.T) {
+	f := newFixture(t)
+	f.enable()
+	ch := f.chain()
+	f.setStatus(ch.c, StatusDead)
+	sp, err := f.svc.Subtree(f.ctx, ch.b.id, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantIDs(t, "dead reply", sp.Comments, ch.b, ch.c, ch.d, ch.e)
+	if sp.Comments[1].Status != StatusDead || sp.Comments[1].BodyHTML == "" {
+		t.Errorf("dead reply = %+v", sp.Comments[1])
+	}
+	f.setStatus(ch.a, StatusDead)
+	f.setStatus(ch.b, StatusDead)
+	sp, err = f.svc.Subtree(f.ctx, ch.b.id, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantIDs(t, "dead ancestor", sp.Ancestors, ch.r, ch.a)
+	if sp.Ancestors[1].Status != StatusDead || sp.Comments[0].ID != ch.b.id || sp.Comments[0].Status != StatusDead {
+		t.Errorf("dead ancestor/target = %+v / %+v", sp.Ancestors[1], sp.Comments[0])
+	}
+}
+
+func TestSubtreeNotFound(t *testing.T) {
+	cases := []struct {
+		name string
+		prep func(f *fixture, ch chain)
+	}{
+		{"target pending", func(f *fixture, ch chain) { f.setStatus(ch.b, StatusPending) }},
+		{"target spam", func(f *fixture, ch chain) { f.setStatus(ch.b, StatusSpam) }},
+		{"target trash", func(f *fixture, ch chain) { f.setStatus(ch.b, StatusTrash) }},
+		{"target draft", func(f *fixture, ch chain) { f.setStatus(ch.b, StatusDraft) }},
+		{"ancestor pending", func(f *fixture, ch chain) { f.setStatus(ch.a, StatusPending) }},
+		{"ancestor spam", func(f *fixture, ch chain) { f.setStatus(ch.a, StatusSpam) }},
+		{"ancestor trash", func(f *fixture, ch chain) { f.setStatus(ch.a, StatusTrash) }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture(t)
+			f.enable()
+			ch := f.chain()
+			tc.prep(f, ch)
+			sp, err := f.svc.Subtree(f.ctx, ch.b.id, 1)
+			if !errors.Is(err, ErrNotFound) || sp.EntityID != uuid.Nil || sp.Comments != nil || sp.Ancestors != nil {
+				t.Fatalf("got %+v, %v", sp, err)
+			}
+		})
+	}
+	t.Run("unknown", func(t *testing.T) {
+		f := newFixture(t)
+		f.enable()
+		if _, err := f.svc.Subtree(f.ctx, uuid.New(), 1); !errors.Is(err, ErrNotFound) {
+			t.Fatal(err)
+		}
+	})
+	t.Run("comments off", func(t *testing.T) {
+		f := newFixture(t)
+		ch := f.chain()
+		if _, err := f.svc.Subtree(f.ctx, ch.b.id, 1); !errors.Is(err, ErrNotFound) {
+			t.Fatal(err)
+		}
+	})
+}
+
+func TestSubtreePaging(t *testing.T) {
+	f := newFixture(t)
+	f.enable()
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	root := f.seedBy(f.entity, nil, nil, base, StatusApproved)
+	for i := 0; i < 199; i++ {
+		f.seedBy(f.entity, &root, nil, base.Add(time.Duration(i+1)*time.Minute), StatusApproved)
+	}
+	sp, err := f.svc.Subtree(f.ctx, root.id, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sp.Comments) != 200 || sp.HasMore {
+		t.Fatalf("199 replies: %d items, has_more %v", len(sp.Comments), sp.HasMore)
+	}
+	f.seedBy(f.entity, &root, nil, base.Add(time.Hour), StatusApproved)
+	sp, err = f.svc.Subtree(f.ctx, root.id, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sp.Comments) != 200 || !sp.HasMore {
+		t.Fatalf("200 replies page 1: %d items, has_more %v", len(sp.Comments), sp.HasMore)
+	}
+	sp, err = f.svc.Subtree(f.ctx, root.id, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sp.Comments) != 1 || sp.HasMore || sp.Page != 2 {
+		t.Fatalf("page 2: %d items, has_more %v", len(sp.Comments), sp.HasMore)
+	}
+}
+
+func TestSubtreeLeaf(t *testing.T) {
+	f := newFixture(t)
+	f.enable()
+	root := f.seedBy(f.entity, nil, nil, time.Now(), StatusApproved)
+	sp, err := f.svc.Subtree(f.ctx, root.id, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sp.Ancestors == nil || len(sp.Ancestors) != 0 {
+		t.Errorf("ancestors = %v", sp.Ancestors)
+	}
+	wantIDs(t, "leaf", sp.Comments, root)
 }
