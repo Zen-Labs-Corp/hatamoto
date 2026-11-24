@@ -12,9 +12,10 @@ import (
 	"hatamoto.dev/core/internal/jsonx"
 )
 
-// Thread SQL: one statement. A roots CTE picks the page of approved top-level
-// comments, joined to each root's approved subtree by a path range scan. The
-// two constants differ only in the root order; nothing is interpolated.
+// Thread SQL: one statement. threadSelect joins the page of approved top-level
+// comments (the roots CTE of threadRootsSQL) to each root's approved subtree by
+// a path range scan. The root order is picked inside the statement; nothing is
+// interpolated.
 const threadSelect = `
 SELECT c.id, c.parent_id, c.depth, c.author_name, c.author_user_id IS NOT NULL,
        c.body_html, c.created_at, c.edited_at, r.rk, r.roots
