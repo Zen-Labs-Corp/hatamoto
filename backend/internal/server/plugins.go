@@ -6,11 +6,22 @@ import (
 	"net/http"
 	"strings"
 
+	"hatamoto.dev/core/internal/clientkey"
+	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/pluginhost"
 )
+
+// pluginClientKeys derives the client.key keys from the server secret; no
+// config or an empty secret means no plugin gets a key.
+func pluginClientKeys(c *config.Config) *clientkey.Deriver {
+	if c == nil {
+		return nil
+	}
+	return clientkey.New(c.Secret)
+}
 
 // setupPlugins builds the WASM plugin runtime. The plugins themselves come from
 // installed packages (setupPackages loads them, at boot and whenever the
@@ -50,6 +61,7 @@ func (s *Server) setupPlugins() {
 	cfg := pluginhost.Config{
 		Grants:     grants,
 		MailQuotas: quotas,
+		ClientKeys: pluginClientKeys(s.cfg),
 		Services: pluginhost.Services{
 			Entities:  s.entityService,
 			Paths:     pluginEntityPaths{s},

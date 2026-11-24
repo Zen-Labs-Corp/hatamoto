@@ -18,7 +18,9 @@ var ErrHookHold = errors.New("commentsubmit: comment.check unavailable")
 
 // CheckPayload is the value of the comment.check chain: the public SDK type, so
 // what a plugin sees is the documented wire shape. Body, link domains and the
-// body hash only: never an IP, a network hash, an email, a name or the entity.
+// body hash only: never the address, a network hash, an email, a name or the
+// entity. addr_key and area_key are per-plugin keys the plugin host adds, only
+// for plugins holding client.key.
 type CheckPayload = sdk.CommentCheck
 
 type filterEngine interface {

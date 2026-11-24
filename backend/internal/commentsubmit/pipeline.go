@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/clientkey"
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/comment/identity"
 	"hatamoto.dev/core/internal/commentfmt"
@@ -287,7 +288,7 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	}
 	sr, verdict, hold, err := p.assess(ctx, spamSet, assessInput{
 		EntityID: req.EntityID, Name: name, Body: body, Email: email, Rendered: rendered,
-		IPHash: ipHash, NetHash: netHash, Issued: issued, IssuedOK: true, Now: now,
+		IPHash: ipHash, NetHash: netHash, Issued: issued, IssuedOK: true, Now: now, IP: req.IP,
 	})
 	if err != nil {
 		return Outcome{}, err
@@ -373,6 +374,7 @@ type assessInput struct {
 	IssuedOK       bool
 	Now            time.Time
 	SkipDuplicates bool
+	IP             string // raw client address: in memory only, never stored or logged
 }
 
 // assess runs the content checks (blocklists, duplicates, plugin checks, score)
@@ -402,7 +404,9 @@ func (p *Pipeline) assess(ctx context.Context, spamSet spam.Settings, in assessI
 		}
 	}
 
-	// Plugin checks, then the score.
+	// Plugin checks, then the score. The address rides in the context so the
+	// plugin host can derive keys for plugins holding client.key; CheckInput never has it.
+	ctx = clientkey.WithIP(ctx, in.IP)
 	score, checkReasons, hold := comment.RunCheckers(ctx, p.Checkers, comment.CheckInput{
 		EntityID: in.EntityID, Body: body, LinkDomains: rendered.LinkDomains, BodyHash: rendered.BodyHash,
 		IPHash: in.IPHash, NetHash: in.NetHash,
@@ -453,7 +457,7 @@ func (p *Pipeline) HoldEdit(ctx context.Context, e EditCheck) (bool, error) {
 	ipHash, netHash := p.Comments.Keys().HashIP(e.IP)
 	_, verdict, _, err := p.assess(ctx, spamSet, assessInput{
 		EntityID: e.EntityID, Name: e.Name, Body: e.Body, Rendered: e.Rendered,
-		IPHash: ipHash, NetHash: netHash, Now: e.Now.UTC(), SkipDuplicates: !e.BodyChanged,
+		IPHash: ipHash, NetHash: netHash, Now: e.Now.UTC(), SkipDuplicates: !e.BodyChanged, IP: e.IP,
 	})
 	return verdict != "allow", err
 }

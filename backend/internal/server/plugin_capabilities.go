@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"hatamoto.dev/core/internal/clientkey"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/middleware"
@@ -65,6 +66,8 @@ func (s *Server) handlePluginPublicRoute(w http.ResponseWriter, r *http.Request)
 			return
 		}
 	}
+	// The address stays in the context; only a plugin holding client.key gets keys derived from it.
+	r = r.WithContext(clientkey.WithIP(r.Context(), middleware.GetClientIP(r)))
 	s.plugins.PublicRoutes().Serve(w, r, plugin, rest, nil)
 }
 
