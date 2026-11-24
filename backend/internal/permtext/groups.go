@@ -104,10 +104,15 @@ func Group(perms []string, declaresRuns, proposes bool) Grouped {
 		// A save filter can change what is saved to pages the owner wrote.
 		g.Never = slices.DeleteFunc(g.Never, func(s Statement) bool { return s.Title == neverEditOwn })
 	}
+	if slices.Contains(perms, sdk.PermEntitiesWriteOwn) || slices.Contains(perms, sdk.PermCommentsModerate) {
+		// It publishes entries of its own type, or moderates their comments, without review.
+		g.Never = slices.DeleteFunc(g.Never, func(s Statement) bool { return s.Title == neverLive })
+	}
 	return g
 }
 
 const (
+	neverLive       = "Change your live site directly"
 	neverPublicCode = "Run code on your public pages"
 	neverEditOwn    = "Edit or delete pages you wrote"
 )
@@ -115,7 +120,7 @@ const (
 // NeverList is the fixed list of things no plugin can do, whatever it asks for.
 func NeverList() []Statement {
 	titles := []string{
-		"Change your live site directly",
+		neverLive,
 		neverEditOwn,
 		"Touch user accounts, passwords, email settings or your site address",
 		neverPublicCode,

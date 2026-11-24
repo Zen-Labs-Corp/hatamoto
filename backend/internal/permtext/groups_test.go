@@ -112,6 +112,33 @@ func TestNeverListDropsEditLineWhenFilterRequested(t *testing.T) {
 	}
 }
 
+func TestNeverListDropsLiveLineWhenWriteOrModerateRequested(t *testing.T) {
+	for _, perm := range []string{sdk.PermEntitiesWriteOwn, sdk.PermCommentsModerate} {
+		got := Group([]string{perm}, false, false).Never
+		for _, s := range got {
+			if s.Title == "Change your live site directly" {
+				t.Errorf("%s: never list contradicts the can list: %v", perm, titles(got))
+			}
+		}
+		if len(got) != 3 {
+			t.Errorf("%s: never = %v", perm, titles(got))
+		}
+	}
+	got := Group([]string{sdk.PermClientKey}, false, false).Never
+	if len(got) != 4 || got[0].Title != "Change your live site directly" {
+		t.Errorf("client.key: never = %v", titles(got))
+	}
+}
+
+func TestGroupShowsContractPermissionsAsReview(t *testing.T) {
+	for _, p := range []string{sdk.PermClientKey, sdk.PermEntitiesWriteOwn, sdk.PermCommentsModerate} {
+		g := Group([]string{p}, false, false)
+		if len(g.Can) != 1 || g.Can[0].Kind != KindReview || !g.Can[0].Warn {
+			t.Errorf("%s: %+v, want one review statement with a warning", p, g.Can)
+		}
+	}
+}
+
 func TestNeverListDropsPublicCodeLineWhenCodeIsRequested(t *testing.T) {
 	for _, perm := range []string{sdk.PermSiteScripts, sdk.PermBuilderIsland} {
 		for _, s := range Group([]string{perm}, false, false).Never {
