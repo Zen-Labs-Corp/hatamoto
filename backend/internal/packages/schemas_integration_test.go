@@ -180,3 +180,35 @@ func TestEnableSurvivesContentTypeConflict(t *testing.T) {
 		t.Fatalf("the owner's type was claimed by %q", owner)
 	}
 }
+
+// Uninstalling and keeping the content hands the plugin's entries to the owner:
+// a later package of the same name can neither edit nor delete them.
+func TestUninstallKeepContentRevokesPluginEntries(t *testing.T) {
+	r, svc := schemaRig(t)
+	ctx := context.Background()
+	if err := r.installPack(schemaPack("shop")); err != nil {
+		t.Fatal(err)
+	}
+	w := entity.PluginWrite{Schema: "product", Fields: []string{"price"}, Name: "Kept", Attributes: []byte(`{"price":1}`)}
+	e, err := svc.PluginCreate(ctx, "shop", w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.mgr.Uninstall(ctx, KindPlugin, "shop", UninstallOpts{}); err != nil {
+		t.Fatal(err)
+	}
+	var origin string
+	if err := r.pool.QueryRow(ctx, `SELECT origin FROM hatamoto_entities WHERE id = $1`, e.ID).Scan(&origin); err != nil || origin != "owner" {
+		t.Fatalf("origin after uninstall = %q, %v, want owner", origin, err)
+	}
+	if err := r.installPack(schemaPack("shop")); err != nil {
+		t.Fatalf("reinstall under the same name: %v", err)
+	}
+	w.Name = "Taken over"
+	if _, err := svc.PluginUpdate(ctx, "shop", e.ID, w); !errors.Is(err, entity.ErrNotPluginOwned) {
+		t.Fatalf("update by a package reusing the name: %v, want ErrNotPluginOwned", err)
+	}
+	if _, err := svc.PluginDelete(ctx, "shop", "product", e.ID); !errors.Is(err, entity.ErrNotPluginOwned) {
+		t.Fatalf("delete by a package reusing the name: %v, want ErrNotPluginOwned", err)
+	}
+}

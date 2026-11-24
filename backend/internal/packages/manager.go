@@ -910,7 +910,8 @@ type UninstallOpts struct {
 // cannot be installed over), its permissions are revoked, with dropData its
 // schema, role, stored values and settings are dropped, and only then is the row
 // deleted. With DropContentTypes the entity types the plugin installed and
-// their content go too (types the owner made are never touched). A failure
+// their content go too (types the owner made are never touched); without it the
+// entries the plugin wrote become the owner's. A failure
 // leaves the row uninstalling; call Uninstall again. Core content is never
 // touched.
 func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, opts UninstallOpts) error {
@@ -958,6 +959,12 @@ func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, opts Un
 	if opts.DropContentTypes && m.Schemas != nil {
 		if droppedTypes, err = m.Schemas.RemovePluginSchemas(ctx, name); err != nil {
 			return fmt.Errorf("removing the content types of %q (uninstall is unfinished; try again): %w", name, err)
+		}
+	} else if m.Schemas != nil {
+		// The owner keeps the content, so it is the owner's now: a later package
+		// that reuses this name must not inherit write access to it.
+		if _, err := m.Pool.Exec(ctx, `UPDATE hatamoto_entities SET origin = 'owner' WHERE origin = $1`, entity.PluginOrigin(name)); err != nil {
+			return fmt.Errorf("handing the entries of %q to the owner (uninstall is unfinished; try again): %w", name, err)
 		}
 	}
 	if opts.DropData {
