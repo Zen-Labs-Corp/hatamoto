@@ -706,15 +706,21 @@ func newlyAsks(installed jsontext.Value, p *Package, perm sdk.Permission) bool {
 
 // entityWriteChange compares entity_schema and entity_fields of the installed
 // manifest with the update's. "" -> X is NewEntityWrite's case; X -> "" and
-// dropped keys narrow access, so none of them is reported.
+// dropped keys narrow access, so none of them is reported. An installed
+// manifest that cannot be decoded counts as a change when the update writes.
 func entityWriteChange(installed jsontext.Value, p *Package) (oldSchema, newSchema string, changed bool, newFields []string) {
 	var old sdk.Manifest
-	_ = decodeManifest(installed, &old)
+	oldErr := decodeManifest(installed, &old)
 	next, err := p.PluginManifest()
 	if err != nil {
 		return old.EntitySchema, "", false, nil
 	}
 	oldSchema, newSchema = old.EntitySchema, next.EntitySchema
+	if oldErr != nil && newSchema != "" {
+		// The installed manifest cannot be read, so what the plugin may write
+		// today is unknown: fail toward asking.
+		return "", newSchema, true, nil
+	}
 	if oldSchema == "" || newSchema == "" {
 		return oldSchema, newSchema, false, nil
 	}

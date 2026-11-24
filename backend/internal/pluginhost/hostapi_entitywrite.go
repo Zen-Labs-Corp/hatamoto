@@ -5,6 +5,7 @@ import (
 	"encoding/json/jsontext"
 	"errors"
 	"slices"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -128,17 +129,25 @@ func entityWriteArgs(e *callEnv, in sdk.EntityWrite, create bool) (entity.Plugin
 	default:
 		return entity.PluginWrite{}, invalid("status must be %q or %q", entity.StatusPublished, entity.StatusDraft)
 	}
+	if !create && in.Name != "" && strings.TrimSpace(in.Name) == "" {
+		return entity.PluginWrite{}, invalid("name is blank")
+	}
 	strs := []string{in.Name, in.Slug, in.Locale}
+	keys := 0
 	if len(in.Attributes) > 0 {
 		entries, err := jsonx.ObjectEntries(in.Attributes)
 		if err != nil {
 			return entity.PluginWrite{}, invalid("attributes must be a JSON object")
 		}
+		keys = len(entries)
 		for _, en := range entries {
 			if !slices.Contains(e.manifest.EntityFields, en.Key) {
 				return entity.PluginWrite{}, invalid("attribute %q is not in the plugin's entity_fields", en.Key)
 			}
 		}
+	}
+	if !create && in.Name == "" && in.Status == "" && keys == 0 {
+		return entity.PluginWrite{}, invalid("nothing to update: send a name, a status or attributes")
 	}
 	if changeset.WriteTooLarge(strs, in.Attributes) {
 		return entity.PluginWrite{}, invalid("the entry is too large (a string over %d bytes, over %d strings, or attributes over %d bytes)",

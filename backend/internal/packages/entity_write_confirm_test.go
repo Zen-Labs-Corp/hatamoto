@@ -47,7 +47,8 @@ func TestEntityWriteChange(t *testing.T) {
 		{"fields narrow", entityWriteManifest("story", `"url","text"`), entityWritePkg(t, "2.0.0", "story", `"url"`), "story", "story", false, nil},
 		{"permission dropped", entityWriteManifest("story", `"url"`), entityWritePkg(t, "2.0.0", "", ""), "story", "", false, nil},
 		{"newly asked", entityWriteManifest("", ""), entityWritePkg(t, "2.0.0", "story", `"url"`), "", "story", false, nil},
-		{"unreadable installed", []byte("\x00"), entityWritePkg(t, "2.0.0", "story", `"url"`), "", "story", false, nil},
+		{"unreadable installed", []byte("\x00"), entityWritePkg(t, "2.0.0", "story", `"url"`), "", "story", true, nil},
+		{"unreadable installed, update writes nothing", []byte("\x00"), entityWritePkg(t, "2.0.0", "", ""), "", "", false, nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

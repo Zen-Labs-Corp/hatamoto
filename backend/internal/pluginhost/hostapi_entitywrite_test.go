@@ -138,6 +138,9 @@ func TestEntityWriteGuards(t *testing.T) {
 		"create with an id":         {sdk.FnEntitiesCreate, map[string]any{"id": id, "name": "x"}},
 		"update with a bad id":      {sdk.FnEntitiesUpdate, map[string]any{"id": "nope", "name": "x"}},
 		"update without an id":      {sdk.FnEntitiesUpdate, map[string]any{"name": "x"}},
+		"update with an id only":    {sdk.FnEntitiesUpdate, map[string]any{"id": id}},
+		"update with empty attrs":   {sdk.FnEntitiesUpdate, map[string]any{"id": id, "attributes": map[string]any{}}},
+		"update with a blank name":  {sdk.FnEntitiesUpdate, map[string]any{"id": id, "name": "   "}},
 		"update naming a slug":      {sdk.FnEntitiesUpdate, map[string]any{"id": id, "slug": "other"}},
 		"update bad status":         {sdk.FnEntitiesUpdate, map[string]any{"id": id, "status": "scheduled"}},
 		"update key outside":        {sdk.FnEntitiesUpdate, map[string]any{"id": id, "attributes": map[string]any{"title": "y"}}},
@@ -227,7 +230,7 @@ func TestEntityWriteNotUnavailable(t *testing.T) {
 	r := newWriteRig(t, "capa")
 	for fn, args := range map[string]map[string]any{
 		sdk.FnEntitiesCreate: {"name": "x"},
-		sdk.FnEntitiesUpdate: {"id": uuid.NewString()},
+		sdk.FnEntitiesUpdate: {"id": uuid.NewString(), "name": "x"},
 		sdk.FnEntitiesDelete: {"id": uuid.NewString()},
 	} {
 		if o := r.call(t, "capa", fn, args); code(o) == sdk.ErrUnavailable || !o.OK {

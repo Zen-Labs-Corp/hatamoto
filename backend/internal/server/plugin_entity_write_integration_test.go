@@ -69,6 +69,9 @@ func TestPluginEntityPublicPage_Integration(t *testing.T) {
 	if !hadSite {
 		exec(`INSERT INTO hatamoto_site_config (company_name) VALUES ('PW IT')`)
 	}
+	var prevEnabled bool
+	var prevSettings []byte
+	hadComments := db.Pool().QueryRow(ctx, `SELECT enabled, settings::text FROM hatamoto_comment_settings WHERE id`).Scan(&prevEnabled, &prevSettings) == nil
 	t.Cleanup(func() {
 		c := context.Background()
 		if !hadSite {
@@ -77,7 +80,11 @@ func TestPluginEntityPublicPage_Integration(t *testing.T) {
 		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_admin_audit WHERE actor = 'plugin:fixture' AND detail->>'schema' = $1`, schema)
 		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_entities WHERE schema_id = $1`, schemaID)
 		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_entity_schemas WHERE id = $1`, schemaID)
-		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_comment_settings`)
+		if hadComments {
+			_, _ = db.Pool().Exec(c, `UPDATE hatamoto_comment_settings SET enabled = $1, settings = $2::jsonb WHERE id`, prevEnabled, string(prevSettings))
+		} else {
+			_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_comment_settings`)
+		}
 	})
 
 	srv := New(cfg, db, slog.New(slog.NewTextHandler(io.Discard, nil)))
