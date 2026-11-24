@@ -73,7 +73,7 @@ func newModerationRig(t *testing.T, manifests ...sdk.Manifest) *moderationRig {
 		}
 	}
 	r.api = pluginhost.NewAPI(pluginhost.Services{
-		Comments: pluginCommentReader{r.s}, CommentModerator: pluginCommentModerator{r.s}, Audit: r.s.pluginModerationAudit,
+		Comments: pluginCommentReader{s: r.s}, CommentModerator: pluginCommentModerator{r.s}, Audit: r.s.pluginModerationAudit,
 	}, grants, func(n string) (sdk.Manifest, bool) { m, ok := byName[n]; return m, ok }, logger)
 	if r.res, err = commentfmt.Render("hello"); err != nil {
 		t.Fatal(err)
