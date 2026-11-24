@@ -143,9 +143,9 @@ func TestApplyKeepsWhatTheOwnerHas(t *testing.T) {
 
 func TestApplyRefusalsWriteNothing(t *testing.T) {
 	f := newFake(t).withRegistry(t)
-	_, err := apply(t, f, kitPackage(t, func(k *packages.Kit) { k.Requires = []string{"comment.policy"} }), Accepts{Comments: true}, &enabler{})
+	_, err := apply(t, f, kitPackage(t, func(k *packages.Kit) { k.Requires = []string{"comment.rank"} }), Accepts{Comments: true}, &enabler{})
 	var re *RefusedError
-	if !errors.As(err, &re) || !hasText(re.Refusals, "comment.policy") {
+	if !errors.As(err, &re) || !hasText(re.Refusals, "comment.rank") {
 		t.Fatalf("err = %v", err)
 	}
 	f2 := newFake(t).withRegistry(t)
@@ -183,10 +183,7 @@ func TestApplyCommentsNeedACallback(t *testing.T) {
 	}
 }
 
-func withPolicyFeature(t *testing.T) func(*packages.Kit) {
-	old := present
-	present = []string{"comment.policy"}
-	t.Cleanup(func() { present = old })
+func withPolicyFeature(*testing.T) func(*packages.Kit) {
 	return func(k *packages.Kit) { k.Requires = []string{"comment.policy"} }
 }
 
