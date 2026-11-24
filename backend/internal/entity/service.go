@@ -1018,6 +1018,10 @@ func (s *Service) RestoreVersionIf(ctx context.Context, entityID uuid.UUID, user
 		}
 	}
 
+	if expected != nil && *expected != existing.Version {
+		return nil, &VersionConflictError{Current: existing.Version}
+	}
+
 	// Validate the old attributes still conform to the current schema
 	if err := s.validator.ValidateAttributes(existing.Schema.Schema, ver.Attributes); err != nil {
 		return nil, fmt.Errorf("cannot restore version %d: %w: %w", version, ErrRestoreInvalid, err)
@@ -1041,9 +1045,6 @@ func (s *Service) RestoreVersionIf(ctx context.Context, entityID uuid.UUID, user
 	locked := lockedStatus(existing.Schema, restoredAttrs)
 	if plan, err = s.settleLockedPlan(ctx, existing, locked, plan, authz.ActionEntityVersionRestore, false); err != nil {
 		return nil, err
-	}
-	if expected != nil && *expected != existing.Version {
-		return nil, &VersionConflictError{Current: existing.Version}
 	}
 	if plan.Held {
 		c := heldChange(ReviewRestore, existing, existing.Status)
