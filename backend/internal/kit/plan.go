@@ -352,6 +352,11 @@ func (pl *Plan) planSchemas(ctx context.Context, d Deps) error {
 	}
 	for _, ks := range pl.Kit.Schemas {
 		step := ItemStep{Key: ks.Slug, Name: ks.Name}
+		if _, c, err := splitComments(ks.Settings); err != nil {
+			pl.refuse("content type '%s': comments %s", ks.Slug, err)
+		} else if err := c.check(); err != nil {
+			pl.refuse("content type '%s': comments %s", ks.Slug, err)
+		}
 		if plug, ok := owned[ks.Slug]; ok {
 			step.Action, step.Owner, step.Note = ActionFill, plug, "created by plugin "+plug
 			pl.Schemas = append(pl.Schemas, step)

@@ -7,7 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"encoding/json/jsontext"
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
@@ -193,7 +195,7 @@ func TestApplyPolicyOnlyWithTheTick(t *testing.T) {
 
 	f := newFake(t).withRegistry(t)
 	res, err := apply(t, f, kitPackage(t, edit), Accepts{Comments: true}, &enabler{})
-	if err != nil || f.wrote("comments") != 0 || policyEnabled(t, f) || !hasText(res.Messages, "Community policy left off") || len(res.PolicyOn) != 0 {
+	if err != nil || f.wrote("comments story") != 1 || policyEnabled(t, f) || !hasText(res.Messages, "Community policy left off") || len(res.PolicyOn) != 0 {
 		t.Fatalf("err=%v writes=%v messages=%v", err, f.writes, res.Messages)
 	}
 
@@ -201,7 +203,7 @@ func TestApplyPolicyOnlyWithTheTick(t *testing.T) {
 	if res, err = apply(t, f, kitPackage(t, edit), Accepts{Comments: true, Policy: true}, &enabler{}); err != nil {
 		t.Fatal(err)
 	}
-	if f.wrote("comments story") != 1 || !policyEnabled(t, f) {
+	if f.wrote("comments story") != 2 || !policyEnabled(t, f) { // the create's write, then the switch
 		t.Fatalf("writes=%v settings=%s", f.writes, f.schemas["story"].s.Settings)
 	}
 	st, _ := f.SchemaComments(context.Background(), "story")
@@ -241,6 +243,12 @@ func TestApplyContentTypeOwnedByAPlugin(t *testing.T) {
 	}
 	if !strings.Contains(string(f.schemas["story"].s.Settings), "/item/{slug}") || policyEnabled(t, f) {
 		t.Errorf("settings: %s", f.schemas["story"].s.Settings)
+	}
+	if st, _ := f.SchemaComments(context.Background(), "story"); st.Order != "rank" || !st.HasPolicy || st.Policy.MaxDepth != 32 {
+		t.Errorf("order and policy not filled: %+v", st)
+	}
+	if f.wrote("comments story") != 1 || res.Filled != 1 {
+		t.Errorf("one seam write expected: %v filled=%d", f.writes, res.Filled)
 	}
 	// Again: the keys are there, nothing to fill.
 	before := len(f.writes)
@@ -329,5 +337,55 @@ func TestApplyScopesAPermissionTickToItsPlugin(t *testing.T) {
 	}
 	if !slices.Equal(f.grants["plug-a"], []string{"db", "site.scripts"}) || !slices.Equal(f.grants["plug-b"], []string{"db"}) {
 		t.Errorf("grants a=%v b=%v: the tick must reach only plug-a", f.grants["plug-a"], f.grants["plug-b"])
+	}
+}
+
+func TestApplyCreatesCommentOrderAndPolicyThroughTheSeam(t *testing.T) {
+	f := newFake(t).withRegistry(t)
+	f.pluginCreates = false
+	if _, err := apply(t, f, kitPackage(t, nil), Accepts{}, &enabler{}); err != nil {
+		t.Fatal(err)
+	}
+	if f.wrote("create schema story") != 1 || f.wrote("comments story") != 1 {
+		t.Fatalf("writes = %v", f.writes)
+	}
+	st, _ := f.SchemaComments(context.Background(), "story")
+	if st.Order != "rank" || st.Policy != (comment.Policy{MaxDepth: 32, EditWindowMinutes: 120, SlowModeSeconds: 30}) {
+		t.Errorf("stored: %+v", st)
+	}
+	if !strings.Contains(string(f.schemas["story"].s.Settings), "/item/{slug}") || !strings.Contains(string(f.schemas["story"].s.Settings), `"mode"`) {
+		t.Errorf("the other keys must survive: %s", f.schemas["story"].s.Settings)
+	}
+}
+
+func TestApplyCreateKeepsOrderAndPolicyOutOfRawSettings(t *testing.T) {
+	f := newFake(t).withRegistry(t)
+	f.noSeam = true
+	res, err := apply(t, f, kitPackage(t, nil), Accepts{}, &enabler{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := string(f.schemas["story"].s.Settings); strings.Contains(s, `"order"`) || strings.Contains(s, `"policy"`) {
+		t.Errorf("created settings hold comment order or policy: %s", s)
+	}
+	if !hasText(res.Messages, "Comment order and policy of 'story' left unset") {
+		t.Errorf("messages: %v", res.Messages)
+	}
+}
+
+func TestPlanRefusesABadCommentPolicyBeforeAnyWrite(t *testing.T) {
+	f := newFake(t).withRegistry(t)
+	pl, err := BuildPlan(context.Background(), f.deps(), kitPackage(t, func(k *packages.Kit) {
+		k.Schemas[0].Settings = jsontext.Value(`{"comments":{"policy":{"max_depth":99}}}`)
+	}), Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasText(pl.Refusals, "max_depth") {
+		t.Fatalf("refusals = %v", pl.Refusals)
+	}
+	var re *RefusedError
+	if _, err := Apply(context.Background(), f.deps(), pl, Accepts{}, ApplyOptions{}); !errors.As(err, &re) || len(f.writes) != 0 {
+		t.Errorf("err=%v writes=%v", err, f.writes)
 	}
 }

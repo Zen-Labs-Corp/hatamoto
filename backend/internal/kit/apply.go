@@ -196,18 +196,8 @@ func applySchemas(ctx context.Context, d Deps, pl *Plan, a Accepts, res *Result)
 		case ActionKeep:
 			res.Kept = append(res.Kept, fmt.Sprintf("content type '%s'", ks.Slug))
 		case ActionCreate:
-			settings, err := settingsFor(ks.Settings)
-			if err != nil {
+			if err := createSchema(ctx, d, ks, res); err != nil {
 				return err
-			}
-			_, err = d.Schemas.CreateSchema(ctx, &entity.CreateSchemaInput{Name: ks.Name, Slug: ks.Slug, Schema: ks.Schema, Settings: settings})
-			switch {
-			case errors.Is(err, entity.ErrSlugAlreadyExists):
-				res.Kept = append(res.Kept, fmt.Sprintf("content type '%s'", ks.Slug))
-			case err != nil:
-				return fmt.Errorf("creating content type %s: %w", ks.Slug, err)
-			default:
-				res.created("schemas")
 			}
 		case ActionFill:
 			if err := fillSchema(ctx, d, step, ks, res); err != nil {
@@ -218,26 +208,37 @@ func applySchemas(ctx context.Context, d Deps, pl *Plan, a Accepts, res *Result)
 	return nil
 }
 
-// settingsFor is the kit's schema settings with the community policy forced
-// off: the policy is turned on only by the policy switch, with the owner's tick.
-func settingsFor(raw jsontext.Value) (jsontext.Value, error) {
-	if len(raw) == 0 {
-		return nil, nil
+// createSchema creates the kit's content type: its settings as written, then
+// its comment order and policy (policy off) through the comment settings seam.
+func createSchema(ctx context.Context, d Deps, ks packages.KitSchema, res *Result) error {
+	rest, c, err := splitComments(ks.Settings)
+	if err != nil {
+		return fmt.Errorf("content type %s comments: %w", ks.Slug, err)
 	}
-	var m map[string]any
-	if err := jsonx.Unmarshal(raw, &m); err != nil {
-		return nil, err
+	_, err = d.Schemas.CreateSchema(ctx, &entity.CreateSchemaInput{Name: ks.Name, Slug: ks.Slug, Schema: ks.Schema, Settings: rest})
+	switch {
+	case errors.Is(err, entity.ErrSlugAlreadyExists):
+		res.Kept = append(res.Kept, fmt.Sprintf("content type '%s'", ks.Slug))
+		return nil
+	case err != nil:
+		return fmt.Errorf("creating content type %s: %w", ks.Slug, err)
 	}
-	if c, ok := m["comments"].(map[string]any); ok {
-		if p, ok := c["policy"].(map[string]any); ok {
-			p["enabled"] = false
-		}
+	res.created("schemas")
+	if !c.HasOrder && !c.HasPolicy {
+		return nil
 	}
-	b, err := jsonx.Marshal(m)
-	return jsontext.Value(b), err
+	if d.SchemaComments == nil {
+		res.Messages = append(res.Messages, fmt.Sprintf("Comment order and policy of '%s' left unset: this site cannot write them.", ks.Slug))
+		return nil
+	}
+	if err := d.SchemaComments.SetSchemaComments(ctx, ks.Slug, c.Order, c.policy()); err != nil {
+		return fmt.Errorf("content type %s comments: %w", ks.Slug, err)
+	}
+	return nil
 }
 
-// fillSchema adds the kit's settings keys a plugin-created content type lacks.
+// fillSchema adds the kit's settings a plugin-created content type lacks: the
+// plain keys it has none of, and the comment order and policy it has not stored.
 func fillSchema(ctx context.Context, d Deps, step ItemStep, ks packages.KitSchema, res *Result) error {
 	cur, err := d.Schemas.GetSchemaBySlug(ctx, ks.Slug)
 	if errors.Is(err, entity.ErrSchemaNotFound) {
@@ -246,37 +247,86 @@ func fillSchema(ctx context.Context, d Deps, step ItemStep, ks packages.KitSchem
 	if err != nil {
 		return err
 	}
-	want, err := settingsFor(ks.Settings)
-	if err != nil || len(want) == 0 {
+	rest, c, err := splitComments(ks.Settings)
+	if err != nil {
+		return fmt.Errorf("content type %s comments: %w", ks.Slug, err)
+	}
+	filled, err := fillSettings(ctx, d, cur, rest, ks.Slug)
+	if err != nil {
 		return err
+	}
+	if c.HasOrder || c.HasPolicy {
+		if d.SchemaComments == nil {
+			res.Messages = append(res.Messages, fmt.Sprintf("Comment order and policy of '%s' left unset: this site cannot write them.", ks.Slug))
+		} else if seamed, err := fillComments(ctx, d, ks.Slug, c); err != nil {
+			return err
+		} else if seamed {
+			filled = true
+		}
+	}
+	if !filled {
+		res.Kept = append(res.Kept, fmt.Sprintf("content type '%s'", ks.Slug))
+		return nil
+	}
+	res.Filled++
+	res.changed = true
+	return nil
+}
+
+// fillSettings adds the keys of want the content type has none of.
+func fillSettings(ctx context.Context, d Deps, cur *entity.EntitySchema, want jsontext.Value, slug string) (bool, error) {
+	if len(want) == 0 {
+		return false, nil
 	}
 	var have, add map[string]any
 	if len(cur.Settings) > 0 {
 		if err := jsonx.Unmarshal(cur.Settings, &have); err != nil {
-			return err
+			return false, err
 		}
 	}
 	if have == nil {
 		have = map[string]any{}
 	}
 	if err := jsonx.Unmarshal(want, &add); err != nil {
-		return err
+		return false, err
 	}
 	if !fillMissing(have, add) {
-		res.Kept = append(res.Kept, fmt.Sprintf("content type '%s'", ks.Slug))
-		return nil
+		return false, nil
 	}
 	b, err := jsonx.Marshal(have)
 	if err != nil {
-		return err
+		return false, err
 	}
 	v := jsontext.Value(b)
 	if _, err := d.Schemas.UpdateSchema(ctx, cur.ID, &entity.UpdateSchemaInput{Settings: &v}); err != nil {
-		return fmt.Errorf("updating content type %s: %w", ks.Slug, err)
+		return false, fmt.Errorf("updating content type %s: %w", slug, err)
 	}
-	res.Filled++
-	res.changed = true
-	return nil
+	return true, nil
+}
+
+// fillComments stores the kit's comment order and policy where the type has
+// none, in one seam write. It reports whether it wrote.
+func fillComments(ctx context.Context, d Deps, slug string, c kitComments) (bool, error) {
+	st, err := d.SchemaComments.SchemaComments(ctx, slug)
+	if err != nil {
+		return false, fmt.Errorf("content type %s comments: %w", slug, err)
+	}
+	order, p := st.Order, st.Policy
+	fillOrder := c.HasOrder && st.Order == ""
+	fillPolicy := c.HasPolicy && !st.HasPolicy
+	if !fillOrder && !fillPolicy {
+		return false, nil
+	}
+	if fillOrder {
+		order = c.Order
+	}
+	if fillPolicy {
+		p = c.Policy
+	}
+	if err := d.SchemaComments.SetSchemaComments(ctx, slug, order, p); err != nil {
+		return false, fmt.Errorf("content type %s comments: %w", slug, err)
+	}
+	return true, nil
 }
 
 // fillMissing copies the keys of add that have none in have, recursing into
