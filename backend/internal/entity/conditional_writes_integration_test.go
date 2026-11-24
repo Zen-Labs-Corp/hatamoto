@@ -6,10 +6,9 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
-	"sync"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -45,7 +44,10 @@ func condEdit(svc *Service, id uuid.UUID, version int, attrs string) (*Entity, e
 	return svc.UpdateEntity(context.Background(), id, nil, &UpdateEntityInput{Attributes: &a, ExpectedVersion: &version})
 }
 
-// A restore and an update from the same base: exactly one stores.
+// A restore whose read of the entity is overtaken by an edit before it
+// writes: the edit is kept and the restore reports the conflict. The
+// before-save hook runs after the restore read the entity and before it
+// writes, so the competing edit lands at exactly that point.
 func TestRestoreRacesUpdateIntegration(t *testing.T) {
 	svc, schemaID := condRig(t)
 	ctx := context.Background()
@@ -53,50 +55,38 @@ func TestRestoreRacesUpdateIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	version := e.Version
-	for round := 1; round <= 10; round++ {
-		// Leave the live content different from version 1, so the restore stores.
-		cur, err := condEdit(svc, e.ID, version, fmt.Sprintf(`{"n":1,"round":%d}`, round))
-		if err != nil {
-			t.Fatalf("round %d: setup: %v", round, err)
-		}
-		version = cur.Version
+	// Leave the live content different from version 1, so the restore stores.
+	cur, err := condEdit(svc, e.ID, e.Version, `{"n":1}`)
+	if err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
-		errs := make([]error, 2)
-		var wg sync.WaitGroup
-		wg.Add(2)
-		go func() {
-			defer wg.Done()
-			_, errs[0] = svc.RestoreVersion(ctx, e.ID, nil, e.Version)
-		}()
-		go func() {
-			defer wg.Done()
-			_, errs[1] = condEdit(svc, e.ID, version, fmt.Sprintf(`{"n":2,"round":%d}`, round))
-		}()
-		wg.Wait()
+	var edited *Entity
+	var editErr error
+	svc.SetBeforeSave(func(_ context.Context, in *BeforeSaveInput) error {
+		if in.Operation == "restore" {
+			edited, editErr = condEdit(svc, e.ID, cur.Version, `{"n":2}`)
+		}
+		return nil
+	})
 
-		ok, conflicts := 0, 0
-		for _, err := range errs {
-			switch {
-			case err == nil:
-				ok++
-			case errors.Is(err, ErrVersionConflict):
-				conflicts++
-			default:
-				t.Fatalf("round %d: %v", round, err)
-			}
-		}
-		if ok != 1 || conflicts != 1 {
-			t.Fatalf("round %d: %d stored, %d conflicts (errs %v)", round, ok, conflicts, errs)
-		}
-		got, err := svc.GetEntity(ctx, e.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got.Version != version+1 {
-			t.Fatalf("round %d: version %d, want %d", round, got.Version, version+1)
-		}
-		version = got.Version
+	_, err = svc.RestoreVersion(ctx, e.ID, nil, e.Version)
+	var vc *VersionConflictError
+	if !errors.As(err, &vc) {
+		t.Fatalf("restore: %v, want *VersionConflictError", err)
+	}
+	if editErr != nil {
+		t.Fatalf("competing edit: %v", editErr)
+	}
+	got, err := svc.GetEntity(ctx, e.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Version != edited.Version || got.Version != cur.Version+1 {
+		t.Fatalf("version %d, want %d", got.Version, cur.Version+1)
+	}
+	if strings.ReplaceAll(string(got.Attributes), " ", "") != `{"n":2}` {
+		t.Fatalf("attributes %s, want the edit's", got.Attributes)
 	}
 }
 
