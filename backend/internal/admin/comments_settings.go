@@ -9,17 +9,18 @@ import (
 
 	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
+	"hatamoto.dev/core/internal/comment"
 )
 
 // The spam warnings an owner reads before comments go on. The wording is the
-// product copy; tests compare it exactly.
+// product copy in the comment package; tests compare it exactly.
 const (
-	csetCallout       = "Turning comments on will invite spam. Bots and spammers find comment forms within days. Every comment with a link and every first comment will wait in your moderation queue."
-	csetSecondWarning = "Are you sure? Turning comments on will invite spam to this site. You will need to check the moderation queue regularly."
-	csetTick          = "I understand this will invite spam"
+	csetCallout       = comment.EnableWarning
+	csetSecondWarning = comment.EnableConfirmWarning
+	csetTick          = comment.EnableTick
 
 	// csetNoAddressMsg is the error flash when an owner tries to turn comments on with no site address.
-	csetNoAddressMsg = "Set your site address in Settings > General before turning comments on."
+	csetNoAddressMsg = comment.NoAddressMsg
 )
 
 // commentsNoAddress reports that no site address is configured (PUBLIC_BASE_URL, else the Site
@@ -386,14 +387,29 @@ func (a *Admin) renderCommentEnable(w http.ResponseWriter, r *http.Request, stat
 	a.Render(w, r, status, "settings/comments-enable", v)
 }
 
-// handleCommentEnable turns comments on once the tick is posted. It is the
-// only path that calls SetEnabled(true).
+// enableComments turns comments on, audits it, drops the page cache and refreshes the nav count.
+// It is the only place SetEnabled(true) is called. Its callers are handleCommentEnable and the kit
+// apply, each after the owner's tick and with a site address.
+func (a *Admin) enableComments(r *http.Request) (was bool, err error) {
+	ctx := r.Context()
+	was, err = a.deps.Comments.SetEnabled(ctx, true, csetActor(r))
+	if err != nil {
+		return false, err
+	}
+	a.audit(r, "comments.enable", "comments", map[string]any{"old": was, "new": true})
+	if a.deps.Invalidate != nil {
+		a.deps.Invalidate(ctx)
+	}
+	a.recountCommentsNav()
+	return was, nil
+}
+
+// handleCommentEnable turns comments on once the tick is posted.
 func (a *Admin) handleCommentEnable(w http.ResponseWriter, r *http.Request) {
 	if !a.requireCan(w, r, authz.ActionCommentSettingsManage) {
 		return
 	}
-	svc := a.deps.Comments
-	if svc == nil {
+	if a.deps.Comments == nil {
 		a.unavailable(w, r, "Comments")
 		return
 	}
@@ -406,19 +422,12 @@ func (a *Admin) handleCommentEnable(w http.ResponseWriter, r *http.Request) {
 		a.renderCommentEnable(w, r, http.StatusUnprocessableEntity, "Tick the box to confirm you understand.")
 		return
 	}
-	ctx := r.Context()
-	was, err := svc.SetEnabled(ctx, true, csetActor(r))
-	if err != nil {
+	if _, err := a.enableComments(r); err != nil {
 		a.logger().Error("comments enable", "err", err)
 		a.SetFlash(w, r, "error", "Comments could not be turned on.")
 		Redirect(w, r, a.csetPath())
 		return
 	}
-	a.audit(r, "comments.enable", "comments", map[string]any{"old": was, "new": true})
-	if a.deps.Invalidate != nil {
-		a.deps.Invalidate(ctx)
-	}
-	a.recountCommentsNav()
 	a.SetFlash(w, r, "success", "Comments are on. New comments wait in the moderation queue.")
 	Redirect(w, r, a.csetPath())
 }

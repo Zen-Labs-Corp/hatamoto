@@ -52,6 +52,7 @@ var auditLabels = map[string]string{
 	"cache.clear":                  "Cleared the cache",
 	"cache.preload":                "Preloaded the cache",
 	"spam.settings":                "Changed spam settings",
+	"kit.apply":                    "Applied a kit",
 	"comments.enable":              "Turned comments on",
 	"comments.disable":             "Turned comments off",
 	"comments.settings":            "Changed comment settings",
