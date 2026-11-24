@@ -5,7 +5,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -21,6 +20,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // condEnv is a real server with one draft post and an owner key.
@@ -200,7 +200,7 @@ func TestConditionalRestoreIntegration(t *testing.T) {
 	var body struct {
 		Current int `json:"current_version"`
 	}
-	if err := json.Unmarshal(raw, &body); err != nil || body.Current != cur {
+	if err := jsonx.Unmarshal(raw, &body); err != nil || body.Current != cur {
 		t.Fatalf("body %s: current_version want %d (%v)", raw, cur, err)
 	}
 	if e.version() != cur || e.content() != "second" {

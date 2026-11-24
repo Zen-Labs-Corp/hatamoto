@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -17,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/authzctx"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
 )
 
@@ -133,7 +133,7 @@ func conditionalBody(t *testing.T, rec *httptest.ResponseRecorder) int {
 	var b struct {
 		Current int `json:"current_version"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &b); err != nil {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &b); err != nil {
 		t.Fatalf("body %s: %v", rec.Body, err)
 	}
 	return b.Current

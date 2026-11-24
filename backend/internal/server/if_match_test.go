@@ -1,13 +1,13 @@
 package server
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestParseIfMatch(t *testing.T) {
@@ -74,7 +74,7 @@ func TestWriteVersionConflict(t *testing.T) {
 			Error   string `json:"error"`
 			Current int    `json:"current_version"`
 		}
-		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || body.Current != 10 || body.Error == "" {
+		if err := jsonx.Unmarshal(rec.Body.Bytes(), &body); err != nil || body.Current != 10 || body.Error == "" {
 			t.Fatalf("body %s (%v)", rec.Body.String(), err)
 		}
 	}
