@@ -12,7 +12,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
+	"hatamoto.dev/core/internal/auditstate"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/jsonx"
 )
@@ -274,5 +276,83 @@ func TestPluginWriteOwnerModerationTakesEntry_Integration(t *testing.T) {
 	}
 	if _, err := r.svc.PluginUpdate(ctx, "fixture", e.ID, PluginWrite{Schema: slug, Fields: fields, Status: StatusPublished}); err != nil {
 		t.Fatalf("plugin update after a system transition: %v", err)
+	}
+}
+
+// The audit row is written inside the write's transaction: a hook that refuses
+// (a registered sink) rolls the write back, for create, update and delete.
+func TestPluginWriteAuditFailsClosed_Integration(t *testing.T) {
+	r := newPluginWriteRig(t)
+	ctx := context.Background()
+	fields := []string{"url", "text"}
+	schemaID, slug := r.schema(t, "story", "fixture")
+
+	existing, err := r.svc.PluginCreate(ctx, "fixture", PluginWrite{Schema: slug, Fields: fields, Name: "Kept"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	events := len(r.sink.kinds())
+
+	var actions []string
+	refuse := true
+	r.svc.SetPluginAudit(func(_ context.Context, _ pgx.Tx, ev auditstate.Event) error {
+		actions = append(actions, ev.Action+" "+ev.Actor)
+		if refuse {
+			return errors.New("sink down")
+		}
+		return nil
+	})
+	if _, err := r.svc.PluginCreate(ctx, "fixture", PluginWrite{Schema: slug, Fields: fields, Name: "New"}); err == nil {
+		t.Fatal("create succeeded with a failing audit sink")
+	}
+	if n := r.count(t, schemaID); n != 1 {
+		t.Fatalf("%d rows after a refused create, want 1", n)
+	}
+	if _, err := r.svc.PluginUpdate(ctx, "fixture", existing.ID, PluginWrite{Schema: slug, Fields: fields, Name: "Renamed"}); err == nil {
+		t.Fatal("update succeeded with a failing audit sink")
+	}
+	if _, err := r.svc.PluginDelete(ctx, "fixture", slug, existing.ID); err == nil {
+		t.Fatal("delete succeeded with a failing audit sink")
+	}
+	got, err := r.svc.entityRepo.GetByID(ctx, existing.ID)
+	if err != nil || got.Name != "Kept" {
+		t.Fatalf("row after refused update and delete: %+v, %v", got, err)
+	}
+	if n := len(r.sink.kinds()); n != events {
+		t.Fatalf("%d events for refused writes", n-events)
+	}
+	want := []string{"plugin.entity.create plugin:fixture", "plugin.entity.update plugin:fixture", "plugin.entity.delete plugin:fixture"}
+	if !slices.Equal(actions, want) {
+		t.Fatalf("audit calls = %v, want %v", actions, want)
+	}
+}
+
+// A plugin call cancelled once the write has begun still finishes whole: the
+// audit row and the events of a committed entry are never missing.
+func TestPluginWriteSurvivesCancel_Integration(t *testing.T) {
+	r := newPluginWriteRig(t)
+	fields := []string{"url", "text"}
+	_, slug := r.schema(t, "story", "fixture")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	audited := 0
+	r.svc.SetPluginAudit(func(hctx context.Context, _ pgx.Tx, _ auditstate.Event) error {
+		audited++
+		cancel() // the plugin's call is cancelled while the transaction is open
+		return hctx.Err()
+	})
+	e, err := r.svc.PluginCreate(ctx, "fixture", PluginWrite{Schema: slug, Fields: fields, Name: "Late"})
+	if err != nil {
+		t.Fatalf("create after cancel: %v", err)
+	}
+	if audited != 1 {
+		t.Fatalf("audit calls = %d", audited)
+	}
+	if _, err := r.svc.entityRepo.GetByID(context.Background(), e.ID); err != nil {
+		t.Fatalf("entry missing: %v", err)
+	}
+	if got := r.sink.kinds(); !slices.Equal(got, []EventKind{EventCreated, EventPublished}) {
+		t.Fatalf("events = %v", got)
 	}
 }

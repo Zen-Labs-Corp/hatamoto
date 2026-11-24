@@ -93,7 +93,7 @@ func TestPluginEntityPublicPage_Integration(t *testing.T) {
 	}
 	manifest := sdk.Manifest{Name: "fixture", SDK: "^0.27", Permissions: []string{sdk.PermEntitiesWriteOwn},
 		EntitySchema: schema, EntityFields: []string{"url"}}
-	api := pluginhost.NewAPI(pluginhost.Services{Entities: srv.entityService, EntityWrites: srv.entityService, Audit: srv.pluginAudit},
+	api := pluginhost.NewAPI(pluginhost.Services{Entities: srv.entityService, EntityWrites: srv.entityService},
 		grants, func(string) (sdk.Manifest, bool) { return manifest, true }, nil)
 	call := func(fn string, args any) sdk.CallResponse {
 		t.Helper()

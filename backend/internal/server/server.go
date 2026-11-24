@@ -470,6 +470,7 @@ func (s *Server) setupDependencies() {
 		s.authService.NeverLock(s.cfg.Demo.LoginEmail)
 	}
 	s.entityService = entity.NewService(schemaRepo, entityRepo, s.logger)
+	s.entityService.SetPluginAudit(s.entityAuditTx)
 	s.formUsage = entity.NewFormUsageIndex(s.entityService)
 	// The block and theme_part types are created by code, not a migration.
 	if s.db != nil {

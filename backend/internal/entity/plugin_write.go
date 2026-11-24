@@ -6,12 +6,50 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"hatamoto.dev/core/audit"
+	"hatamoto.dev/core/internal/auditstate"
 	"hatamoto.dev/core/internal/jsonx"
 )
+
+// pluginWriteTimeout bounds a plugin write from begin to the last event. The
+// write runs detached from the calling plugin's context (see detach).
+const pluginWriteTimeout = 30 * time.Second
+
+// Audit actions of the plugin write path, one row per successful write.
+const (
+	auditPluginCreate = "plugin.entity.create"
+	auditPluginUpdate = "plugin.entity.update"
+	auditPluginDelete = "plugin.entity.delete"
+)
+
+// SetPluginAudit sets the hook that writes the audit row of a plugin write
+// inside the write's transaction. An error it returns (a registered sink's
+// refusal) rolls the write back; nil records nothing.
+func (s *Service) SetPluginAudit(f TxAudit) { s.pluginAudit = f }
+
+// detach lets a plugin write finish once begun: a cancelled plugin call must
+// not leave a committed entry without its audit row or events, or an unknown
+// commit. The write is bounded by pluginWriteTimeout instead.
+func detach(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), pluginWriteTimeout)
+}
+
+// auditTx writes one audit row in tx: the actor is the plugin, the target the entry.
+func (s *Service) auditTx(ctx context.Context, tx pgx.Tx, plugin, action string, target uuid.UUID, detail map[string]any) error {
+	if s.pluginAudit == nil {
+		return nil
+	}
+	detail["plugin"] = plugin
+	return s.pluginAudit(ctx, tx, auditstate.Event{
+		Actor: PluginOrigin(plugin), ActorKind: audit.KindPlugin,
+		Action: action, Target: target.String(), Detail: detail,
+	})
+}
 
 // ErrNotPluginOwned reports that the content type, or the entry, is not the
 // calling plugin's. It never says whose it is.
@@ -53,6 +91,8 @@ func (s *Service) PluginCreate(ctx context.Context, plugin string, w PluginWrite
 	if len(w.Attributes) == 0 {
 		w.Attributes = jsontext.Value(`{}`)
 	}
+	ctx, cancel := detach(ctx)
+	defer cancel()
 	var id uuid.UUID
 	var sc *EntitySchema
 	err = s.schemaRepo.InTx(ctx, func(tx pgx.Tx) error {
@@ -63,8 +103,11 @@ func (s *Service) PluginCreate(ctx context.Context, plugin string, w PluginWrite
 			Schema: w.Schema, Name: w.Name, Slug: w.Slug, Locale: w.Locale,
 			Attributes: w.Attributes, Status: status, Origin: PluginOrigin(plugin),
 		})
+		if err != nil {
+			return err
+		}
 		id = res.ID
-		return err
+		return s.auditTx(ctx, tx, plugin, auditPluginCreate, id, map[string]any{"schema": w.Schema, "name": w.Name})
 	})
 	if err != nil {
 		return nil, err
@@ -95,6 +138,8 @@ func (s *Service) PluginUpdate(ctx context.Context, plugin string, id uuid.UUID,
 	if err != nil {
 		return nil, err
 	}
+	ctx, cancel := detach(ctx)
+	defer cancel()
 	var sc *EntitySchema
 	var before *Entity
 	err = s.schemaRepo.InTx(ctx, func(tx pgx.Tx) error {
@@ -116,8 +161,10 @@ func (s *Service) PluginUpdate(ctx context.Context, plugin string, id uuid.UUID,
 		if err != nil {
 			return err
 		}
-		_, err = s.updateTx(ctx, tx, op, cur, raw)
-		return err
+		if _, err = s.updateTx(ctx, tx, op, cur, raw); err != nil {
+			return err
+		}
+		return s.auditTx(ctx, tx, plugin, auditPluginUpdate, id, map[string]any{"schema": w.Schema, "fields": writtenFields(w)})
 	})
 	if err != nil {
 		return nil, err
@@ -135,6 +182,8 @@ func (s *Service) PluginUpdate(ctx context.Context, plugin string, id uuid.UUID,
 // PluginDelete removes an entry the plugin created (hard delete; its comments
 // go with it) and returns the pre-image. It refuses an entry that has children.
 func (s *Service) PluginDelete(ctx context.Context, plugin, schema string, id uuid.UUID) (*Entity, error) {
+	ctx, cancel := detach(ctx)
+	defer cancel()
 	var sc *EntitySchema
 	var pre *Entity
 	err := s.schemaRepo.InTx(ctx, func(tx pgx.Tx) error {
@@ -147,14 +196,34 @@ func (s *Service) PluginDelete(ctx context.Context, plugin, schema string, id uu
 			return err
 		}
 		pre = cur.entity(sc)
-		_, err = deleteTx(ctx, tx, cur)
-		return err
+		if _, err = deleteTx(ctx, tx, cur); err != nil {
+			return err
+		}
+		return s.auditTx(ctx, tx, plugin, auditPluginDelete, id, map[string]any{"schema": schema, "name": pre.Name})
 	})
 	if err != nil {
 		return nil, err
 	}
 	s.emit(ctx, EventDeleted, pre, sc.Slug, func(ev *Event) { ev.Entity = pre })
 	return pre, nil
+}
+
+// writtenFields names what an update sets, sorted: the attribute keys, name and status.
+func writtenFields(w PluginWrite) []string {
+	fields := []string{}
+	if entries, err := jsonx.ObjectEntries(w.Attributes); err == nil {
+		for _, en := range entries {
+			fields = append(fields, en.Key)
+		}
+	}
+	if w.Name != "" {
+		fields = append(fields, "name")
+	}
+	if w.Status != "" {
+		fields = append(fields, "status")
+	}
+	slices.Sort(fields)
+	return fields
 }
 
 // ownedSchemaTx finds the content type slug installed by plugin and locks it

@@ -24,16 +24,10 @@ type EntityWriter interface {
 	PluginDelete(ctx context.Context, plugin, schema string, id uuid.UUID) (*entity.Entity, error)
 }
 
-// entityWriteAudit actions, one audit row per successful write.
-const (
-	auditEntityCreate = "plugin.entity.create"
-	auditEntityUpdate = "plugin.entity.update"
-	auditEntityDelete = "plugin.entity.delete"
-)
-
 // The write functions come in this order: unavailable, argument checks (they do
 // not spend a rate token), the per-plugin limiter, the service call without the
-// visitor's subject (a plugin write is not a person's action), the audit row.
+// visitor's subject (a plugin write is not a person's action). The service
+// writes the audit row in the write's transaction.
 
 func fnEntitiesCreate(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	if a.svc.EntityWrites == nil {
@@ -57,7 +51,6 @@ func fnEntitiesCreate(ctx context.Context, a *API, e *callEnv, raw jsontext.Valu
 	if err != nil {
 		return nil, entityWriteErr(sdk.FnEntitiesCreate, err)
 	}
-	a.audit(ctx, e.plugin, auditEntityCreate, ent.ID.String(), map[string]any{"plugin": e.plugin, "schema": w.Schema, "name": ent.Name})
 	return a.entityDTO(ctx, ent), nil
 }
 
@@ -87,20 +80,6 @@ func fnEntitiesUpdate(ctx context.Context, a *API, e *callEnv, raw jsontext.Valu
 	if err != nil {
 		return nil, entityWriteErr(sdk.FnEntitiesUpdate, err)
 	}
-	fields := []string{}
-	if entries, err := jsonx.ObjectEntries(w.Attributes); err == nil {
-		for _, en := range entries {
-			fields = append(fields, en.Key)
-		}
-	}
-	if w.Name != "" {
-		fields = append(fields, "name")
-	}
-	if w.Status != "" {
-		fields = append(fields, "status")
-	}
-	slices.Sort(fields)
-	a.audit(ctx, e.plugin, auditEntityUpdate, ent.ID.String(), map[string]any{"plugin": e.plugin, "schema": w.Schema, "fields": fields})
 	return a.entityDTO(ctx, ent), nil
 }
 
@@ -122,11 +101,10 @@ func fnEntitiesDelete(ctx context.Context, a *API, e *callEnv, raw jsontext.Valu
 	if err := a.allowWrite(e.plugin, sdk.FnEntitiesDelete); err != nil {
 		return nil, err
 	}
-	pre, err := a.svc.EntityWrites.PluginDelete(authzctx.Without(ctx), e.plugin, e.manifest.EntitySchema, id)
+	_, err = a.svc.EntityWrites.PluginDelete(authzctx.Without(ctx), e.plugin, e.manifest.EntitySchema, id)
 	if err != nil {
 		return nil, entityWriteErr(sdk.FnEntitiesDelete, err)
 	}
-	a.audit(ctx, e.plugin, auditEntityDelete, id.String(), map[string]any{"plugin": e.plugin, "schema": e.manifest.EntitySchema, "name": pre.Name})
 	return struct{}{}, nil
 }
 
@@ -189,11 +167,4 @@ func entityWriteErr(fn string, err error) error {
 		return herr(sdk.ErrNotOwned, "%s: not this plugin's content type or entry", fn)
 	}
 	return err
-}
-
-// audit records a successful plugin write; it never fails the call.
-func (a *API) audit(ctx context.Context, plugin, action, target string, detail map[string]any) {
-	if a.svc.Audit != nil {
-		a.svc.Audit(ctx, plugin, action, target, detail)
-	}
 }

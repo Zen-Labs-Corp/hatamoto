@@ -69,10 +69,7 @@ type Services struct {
 	// EntityWrites serves entities.create/update/delete for the one content type
 	// a plugin owns; nil = unavailable. *entity.Service implements it.
 	EntityWrites EntityWriter
-	// Audit records one audit row for a successful plugin write (action such as
-	// "plugin.entity.create", target the entry id); nil records nothing.
-	Audit func(ctx context.Context, plugin, action, target string, detail map[string]any)
-	Paths EntityPaths // optional: without it entities carry no path/url and cannot be read by path
+	Paths        EntityPaths // optional: without it entities carry no path/url and cannot be read by path
 	// Groups links translations. Without it translation_of is unavailable and
 	// entities carry no translation_group.
 	Groups    TranslationGroups

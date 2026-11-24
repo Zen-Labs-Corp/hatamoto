@@ -69,32 +69,9 @@ func (f *fakeWriter) PluginDelete(ctx context.Context, _, schema string, _ uuid.
 	return &entity.Entity{Name: "gone", Schema: &entity.EntitySchema{Slug: schema}}, nil
 }
 
-type auditRow struct {
-	plugin, action, target string
-	detail                 map[string]any
-}
-
-type auditRec struct {
-	mu   sync.Mutex
-	rows []auditRow
-}
-
-func (r *auditRec) record(_ context.Context, plugin, action, target string, detail map[string]any) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.rows = append(r.rows, auditRow{plugin, action, target, detail})
-}
-
-func (r *auditRec) all() []auditRow {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return append([]auditRow(nil), r.rows...)
-}
-
 type writeRig struct {
-	api   *API
-	fake  *fakeWriter
-	audit *auditRec
+	api  *API
+	fake *fakeWriter
 }
 
 // newWriteRig grants entities.write.own to the plugins in granted; every plugin
@@ -107,8 +84,8 @@ func newWriteRig(t *testing.T, granted ...string) *writeRig {
 			t.Fatal(err)
 		}
 	}
-	r := &writeRig{fake: &fakeWriter{}, audit: &auditRec{}}
-	r.api = NewAPI(Services{EntityWrites: r.fake, Audit: r.audit.record}, g, func(p string) (sdk.Manifest, bool) {
+	r := &writeRig{fake: &fakeWriter{}}
+	r.api = NewAPI(Services{EntityWrites: r.fake}, g, func(p string) (sdk.Manifest, bool) {
 		return sdk.Manifest{Name: p, SDK: "^0.27", Permissions: []string{sdk.PermEntitiesWriteOwn}, EntitySchema: "story", EntityFields: []string{"url", "text"}}, true
 	}, nil)
 	return r
@@ -171,8 +148,8 @@ func TestEntityWriteGuards(t *testing.T) {
 			t.Errorf("%s = %s, want invalid_argument", name, got)
 		}
 	}
-	if r.fake.n() != 0 || len(r.audit.all()) != 0 {
-		t.Fatalf("refused calls reached the service (%d) or the audit (%d)", r.fake.n(), len(r.audit.all()))
+	if r.fake.n() != 0 {
+		t.Fatalf("%d refused calls reached the service", r.fake.n())
 	}
 
 	r.fake.err = entity.ErrNotPluginOwned
@@ -183,9 +160,6 @@ func TestEntityWriteGuards(t *testing.T) {
 		if code(o) != sdk.ErrNotOwned || strings.Contains(o.Error.Message, "story") {
 			t.Errorf("%s ownership refusal = %+v", fn, o.Error)
 		}
-	}
-	if len(r.audit.all()) != 0 {
-		t.Fatalf("a refusal was audited: %+v", r.audit.all())
 	}
 
 	// The service sees the manifest's schema and whitelist, never the plugin's choice.
@@ -230,44 +204,6 @@ func TestEntityWriteRateLimit(t *testing.T) {
 	}
 	if o := r2.call(t, "capa", sdk.FnEntitiesCreate, map[string]any{"name": "x"}); !o.OK {
 		t.Fatalf("refusals spent tokens: %+v", o)
-	}
-}
-
-func TestEntityWriteAudit(t *testing.T) {
-	t.Parallel()
-	r := newWriteRig(t, "capa")
-	created := r.call(t, "capa", sdk.FnEntitiesCreate, map[string]any{"name": "First", "attributes": map[string]any{"url": "u"}})
-	if !created.OK {
-		t.Fatalf("create: %+v", created.Error)
-	}
-	var dto struct{ ID string }
-	if err := jsonx.UnmarshalPinned(created.Result, &dto); err != nil {
-		t.Fatal(err)
-	}
-	id := uuid.NewString()
-	if o := r.call(t, "capa", sdk.FnEntitiesUpdate, map[string]any{"id": id, "name": "Second", "status": "draft", "attributes": map[string]any{"url": "u", "text": "t"}}); !o.OK {
-		t.Fatalf("update: %+v", o.Error)
-	}
-	if o := r.call(t, "capa", sdk.FnEntitiesDelete, map[string]any{"id": id}); !o.OK {
-		t.Fatalf("delete: %+v", o.Error)
-	}
-	rows := r.audit.all()
-	if len(rows) != 3 {
-		t.Fatalf("%d audit rows, want 3: %+v", len(rows), rows)
-	}
-	want := []struct{ action, target string }{
-		{"plugin.entity.create", dto.ID}, {"plugin.entity.update", id}, {"plugin.entity.delete", id},
-	}
-	for i, w := range want {
-		if rows[i].plugin != "capa" || rows[i].action != w.action || rows[i].target != w.target || rows[i].detail["schema"] != "story" {
-			t.Errorf("row %d = %+v, want %+v", i, rows[i], w)
-		}
-	}
-	if rows[0].detail["name"] != "First" || rows[2].detail["name"] != "gone" {
-		t.Errorf("names: %v / %v", rows[0].detail, rows[2].detail)
-	}
-	if f, _ := rows[1].detail["fields"].([]string); strings.Join(f, ",") != "name,status,text,url" {
-		t.Errorf("update fields = %v", rows[1].detail["fields"])
 	}
 }
 

@@ -27,7 +27,6 @@ type writeDBRig struct {
 	t      *testing.T
 	db     *database.DB
 	svc    *entity.Service
-	audit  *auditRec
 	api    *API
 	tag    string
 	grants *GrantStore
@@ -46,11 +45,11 @@ func newWriteDBRig(t *testing.T) *writeDBRig {
 		t.Fatal(err)
 	}
 	t.Cleanup(db.Close)
-	r := &writeDBRig{t: t, db: db, audit: &auditRec{}, grants: NewGrantStore(nil), manif: map[string]sdk.Manifest{},
+	r := &writeDBRig{t: t, db: db, grants: NewGrantStore(nil), manif: map[string]sdk.Manifest{},
 		tag: strings.ReplaceAll(uuid.NewString(), "-", "")[:8]}
 	r.svc = entity.NewService(entity.NewPostgresSchemaRepository(db), entity.NewPostgresEntityRepository(db),
 		slog.New(slog.NewTextHandler(io.Discard, nil)))
-	r.api = NewAPI(Services{Entities: r.svc, EntityWrites: r.svc, Audit: r.audit.record}, r.grants,
+	r.api = NewAPI(Services{Entities: r.svc, EntityWrites: r.svc}, r.grants,
 		func(p string) (sdk.Manifest, bool) { m, ok := r.manif[p]; return m, ok }, nil)
 	return r
 }
@@ -182,9 +181,6 @@ func TestEntitiesWriteOwn_Integration(t *testing.T) {
 	if _, _, _, ok := r.row(dto.ID); ok {
 		t.Fatal("deleted row still there")
 	}
-	if rows := r.audit.all(); len(rows) != 4 { // capa: create, update, delete; other: create
-		t.Fatalf("%d audit rows, want 4: %+v", len(rows), rows)
-	}
 }
 
 // A plugin that was never installed (no hatamoto_packages row, loaded from the
@@ -201,8 +197,5 @@ func TestEntitiesWriteOwnNeverInstalled_Integration(t *testing.T) {
 	}
 	if n := r.count(ownedID, freeID); n != 0 {
 		t.Fatalf("%d rows written", n)
-	}
-	if rows := r.audit.all(); len(rows) != 0 {
-		t.Fatalf("audit rows for refusals: %+v", rows)
 	}
 }

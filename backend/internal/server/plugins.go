@@ -52,7 +52,6 @@ func (s *Server) setupPlugins() {
 		MailQuotas: quotas,
 		Services: pluginhost.Services{
 			Entities:  s.entityService,
-			Audit:     s.pluginAudit,
 			Paths:     pluginEntityPaths{s},
 			Terms:     s.taxonomyService,
 			Menus:     s.menuService,
