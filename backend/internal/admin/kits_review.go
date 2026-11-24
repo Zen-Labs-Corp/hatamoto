@@ -287,7 +287,8 @@ func (a *Admin) handleKitApply(w http.ResponseWriter, r *http.Request) {
 	Redirect(w, r, a.adminPath+"/settings/kits")
 }
 
-// applyKit is the POST both entry points share. It re-plans, refuses on the plan's refusals, and
+// applyKit is the POST both entry points share. It plans once (every plan downloads the
+// packages), refuses on the plan's refusals, and
 // enforces the comments tick on the server: comments go on only with the tick and a site address
 // (Decision 3). On success it audits and returns the result; on any failure it has already
 // re-rendered the review and returns false.
@@ -321,7 +322,7 @@ func (a *Admin) applyKit(w http.ResponseWriter, r *http.Request, name string, sc
 			opts.ActorID = &id
 		}
 	}
-	res, err := svc.Apply(r.Context(), name, acc, opts)
+	res, err := svc.Apply(r.Context(), pl, acc, opts)
 	if err != nil {
 		var ref *kit.RefusedError
 		switch {

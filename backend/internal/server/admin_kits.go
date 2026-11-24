@@ -11,7 +11,8 @@ import (
 	"hatamoto.dev/core/internal/packages"
 )
 
-// kitRegistryTimeout bounds every registry read on an admin page.
+// kitRegistryTimeout bounds the registry index read behind the kit list and the wizard card.
+// Reading and downloading the packages of one kit is not bound by it.
 const kitRegistryTimeout = 3 * time.Second
 
 // kitsAdmin adapts internal/kit to the admin's KitService. It holds no kit logic.
@@ -80,8 +81,6 @@ func (k *kitsAdmin) List(ctx context.Context) ([]admin.KitApplied, []admin.KitEn
 
 // Plan fetches the kit from the registry, checks its signature and trust, and plans it.
 func (k *kitsAdmin) Plan(ctx context.Context, name string) (*kit.Plan, error) {
-	ctx, cancel := context.WithTimeout(ctx, kitRegistryTimeout)
-	defer cancel()
 	idx, err := k.deps.Packages.Registry(ctx)
 	if err != nil {
 		return nil, err
@@ -105,12 +104,8 @@ func (k *kitsAdmin) Plan(ctx context.Context, name string) (*kit.Plan, error) {
 	return kit.BuildPlan(ctx, k.deps, p, kit.Options{Origin: origin, Tier: kitTier(e.Tier, origin, signer)})
 }
 
-// Apply plans the kit again, so what is applied is what the registry serves now, and applies it.
-func (k *kitsAdmin) Apply(ctx context.Context, name string, a kit.Accepts, o kit.ApplyOptions) (*kit.Result, error) {
-	pl, err := k.Plan(ctx, name)
-	if err != nil {
-		return nil, err
-	}
+// Apply applies a plan the caller just read (and checked against the review), so nothing is downloaded twice.
+func (k *kitsAdmin) Apply(ctx context.Context, pl *kit.Plan, a kit.Accepts, o kit.ApplyOptions) (*kit.Result, error) {
 	return kit.Apply(actorCtx(ctx), k.deps, pl, a, o)
 }
 

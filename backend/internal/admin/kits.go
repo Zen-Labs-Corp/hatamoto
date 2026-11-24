@@ -17,8 +17,8 @@ type KitService interface {
 	List(ctx context.Context) (applied []KitApplied, available []KitEntry, err error)
 	// Plan reads what applying the named registry kit would do. Nothing is written.
 	Plan(ctx context.Context, name string) (*kit.Plan, error)
-	// Apply plans the named kit again and applies it.
-	Apply(ctx context.Context, name string, a kit.Accepts, o kit.ApplyOptions) (*kit.Result, error)
+	// Apply applies a plan read by Plan.
+	Apply(ctx context.Context, pl *kit.Plan, a kit.Accepts, o kit.ApplyOptions) (*kit.Result, error)
 }
 
 // KitApplied is one applied kit.

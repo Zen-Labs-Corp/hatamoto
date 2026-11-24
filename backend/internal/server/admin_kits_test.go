@@ -83,3 +83,38 @@ func TestKitTier(t *testing.T) {
 		}
 	}
 }
+
+// deadlinePackages records whether the context of each Registry read had a deadline.
+type deadlinePackages struct {
+	kit.Packages
+	deadlines []time.Duration // 0: none
+}
+
+func (f *deadlinePackages) Registry(ctx context.Context) (*packages.Index, error) {
+	var left time.Duration
+	if d, ok := ctx.Deadline(); ok {
+		left = time.Until(d)
+	}
+	f.deadlines = append(f.deadlines, left)
+	return &packages.Index{}, nil
+}
+
+func TestKitRegistryTimeoutBoundsOnlyTheIndexRead(t *testing.T) {
+	t.Parallel()
+
+	fp := &deadlinePackages{}
+	k := &kitsAdmin{deps: kit.Deps{Packages: fp}, applied: fakeAppliedList{}}
+	if _, _, err := k.List(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = k.Plan(context.Background(), "community") // the kit is not listed: it stops after the index read
+	if len(fp.deadlines) != 2 {
+		t.Fatalf("registry reads = %v", fp.deadlines)
+	}
+	if d := fp.deadlines[0]; d <= 0 || d > kitRegistryTimeout {
+		t.Errorf("List read has deadline %v, want up to %v", d, kitRegistryTimeout)
+	}
+	if d := fp.deadlines[1]; d != 0 {
+		t.Errorf("Plan read has deadline %v: downloads must use the registry's own timeouts", d)
+	}
+}

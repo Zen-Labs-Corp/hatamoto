@@ -22,6 +22,7 @@ type fakeKits struct {
 	result    *kit.Result
 	applyErr  error
 
+	plans    int // Plan calls
 	applies  []fakeKitApply
 	enabling error // what the EnableComments callback returned
 }
@@ -36,11 +37,16 @@ func (f *fakeKits) List(context.Context) ([]KitApplied, []KitEntry, error) {
 	return f.applied, f.available, f.listErr
 }
 
-func (f *fakeKits) Plan(context.Context, string) (*kit.Plan, error) { return f.plan, f.planErr }
-
-func (f *fakeKits) Apply(ctx context.Context, name string, a kit.Accepts, o kit.ApplyOptions) (*kit.Result, error) {
+func (f *fakeKits) Plan(context.Context, string) (*kit.Plan, error) {
 	f.mu.Lock()
-	f.applies = append(f.applies, fakeKitApply{name, a, o})
+	f.plans++
+	f.mu.Unlock()
+	return f.plan, f.planErr
+}
+
+func (f *fakeKits) Apply(ctx context.Context, pl *kit.Plan, a kit.Accepts, o kit.ApplyOptions) (*kit.Result, error) {
+	f.mu.Lock()
+	f.applies = append(f.applies, fakeKitApply{pl.Kit.Name, a, o})
 	f.mu.Unlock()
 	if a.Comments && o.EnableComments != nil {
 		if err := o.EnableComments(ctx); err != nil {

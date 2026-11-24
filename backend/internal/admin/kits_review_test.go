@@ -229,3 +229,17 @@ func TestKitReviewScopesPermissionSwitchesPerPlugin(t *testing.T) {
 		t.Errorf("second plugin switch = %+v", got)
 	}
 }
+
+func TestKitApplyPlansOnce(t *testing.T) {
+	t.Parallel()
+
+	f := kitsFixture()
+	p := newKitsRig(t, f)
+	p.a.deps.Comments, p.a.deps.BaseURL = &fakeComments{}, func(*http.Request) string { return "https://example.com" }
+	if rec := p.do("POST", kitsReviewPath, "owner-token", nil, nil); rec.Code != 303 {
+		t.Fatalf("POST = %d", rec.Code)
+	}
+	if f.plans != 1 {
+		t.Errorf("a POST planned %d times, want 1 (every plan downloads the packages)", f.plans)
+	}
+}
