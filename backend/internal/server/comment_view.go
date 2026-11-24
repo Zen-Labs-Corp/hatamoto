@@ -34,6 +34,9 @@ type commentView struct {
 	captcha func(ctx context.Context) *captchaWidget // nil = no widget
 	now     func() time.Time
 	logf    func(ctx context.Context, msg string, err error)
+	// showDead reports whether the viewer may read dead comments of the content
+	// type's owner plugin; nil = never. A true answer makes the render private.
+	showDead func(ctx context.Context, plugin string, commenterID uuid.UUID) bool
 }
 
 // Codes the theme turns into text; anything else in the query is ignored.
@@ -53,6 +56,9 @@ func (s *Server) fillComments(ctx context.Context, r *http.Request, rr *routeRes
 	cv := commentView{reader: s.comments, now: time.Now, captcha: s.captchaWidgetFor}
 	if s.commentIdentity != nil {
 		cv.device = s.commentIdentity.Device
+	}
+	cv.showDead = func(ctx context.Context, plugin string, cid uuid.UUID) bool {
+		return viewerShowsDead(ctx, s.comments, s.pluginMayModerate, s.cfg.Secret, plugin, cid)
 	}
 	cv.logf = func(ctx context.Context, msg string, err error) {
 		if s.logger != nil {
@@ -117,59 +123,76 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 		return
 	}
 
+	// The viewer: a device cookie the service accepts. It decides own items and,
+	// for dead comments, the owner plugin's show-dead reveal.
+	var cid uuid.UUID
+	var known bool
+	if cookie, err := r.Cookie(identity.CookieName); err == nil && c.device != nil {
+		cid, known = c.device(ctx, cookie.Value)
+	}
+	reveal := known && cfg.OwnerPlugin != "" && c.showDead != nil && c.showDead(ctx, cfg.OwnerPlugin, cid)
+	if reveal && v.Uncacheable != nil {
+		*v.Uncacheable = true // a dead body must never enter the shared cache
+	}
+
 	maxDepth := cfg.Policy.Depth(set.MaxDepth)
 	window := cfg.Policy.EditWindow()
 	newest := cfg.Order.Sort(set.Sort) == comment.SortNewest
 	nodes := newCommentTree()
 	replyable := map[string]string{} // id -> author of the items a reply may target
 	for _, tc := range tp.Comments {
-		it := commentItem(tc)
-		if tc.Depth < maxDepth {
+		it := commentItemAs(tc, reveal)
+		canReply := tc.Depth < maxDepth && !it.Dead
+		if canReply {
 			it.ReplyURL = v.Path + "?creply=" + tc.ID.String() + "#hm-comment-form"
 		}
 		nodes.add(tc.ParentID, it, false)
-		if tc.Depth < maxDepth {
+		if canReply {
 			replyable[it.ID] = it.Author
 		}
 	}
 
 	// Own non-public items, only for a cookie the service accepts. The render
 	// is then private: it must not enter the shared cache.
-	if cookie, err := r.Cookie(identity.CookieName); err == nil && c.device != nil {
-		if cid, ok := c.device(ctx, cookie.Value); ok {
-			own, err := c.reader.ViewerComments(ctx, id, cid)
-			if err != nil {
-				fail("comments: own items", err)
-				return
+	if known {
+		own, err := c.reader.ViewerComments(ctx, id, cid)
+		if err != nil {
+			fail("comments: own items", err)
+			return
+		}
+		now := c.now()
+		nodes.rootsFirst = newest
+		for _, tc := range own {
+			if n := nodes.byID[tc.ID.String()]; n != nil && tc.Status == comment.StatusDead {
+				// Already in the thread as a placeholder: the author sees their own body, once.
+				n.item = commentItemAs(tc, true)
+				n.item.Own = true
+				continue
 			}
-			now := c.now()
-			nodes.rootsFirst = newest
-			for _, tc := range own {
-				it := commentItem(tc)
-				it.Own = true
-				if now.Sub(tc.CreatedAt) < window {
-					setEditable(&it, tc.ID)
-				}
-				// A reply whose parent is off this page shows on the first page only.
-				nodes.add(tc.ParentID, it, page == 1)
+			it := commentItemAs(tc, true)
+			it.Own = true
+			if !it.Dead && now.Sub(tc.CreatedAt) < window {
+				setEditable(&it, tc.ID)
 			}
-			// Their approved comments are already in the thread; inside the
-			// edit window they get the same actions.
-			editable, err := c.reader.EditableComments(ctx, id, cid)
-			if err != nil {
-				fail("comments: editable items", err)
-				return
+			// A reply whose parent is off this page shows on the first page only.
+			nodes.add(tc.ParentID, it, page == 1)
+		}
+		// Their approved comments are already in the thread; inside the
+		// edit window they get the same actions.
+		editable, err := c.reader.EditableComments(ctx, id, cid)
+		if err != nil {
+			fail("comments: editable items", err)
+			return
+		}
+		marked := 0
+		for _, tc := range editable {
+			if n := nodes.byID[tc.ID.String()]; n != nil && now.Sub(tc.CreatedAt) < window {
+				setEditable(&n.item, tc.ID)
+				marked++
 			}
-			marked := 0
-			for _, tc := range editable {
-				if n := nodes.byID[tc.ID.String()]; n != nil && now.Sub(tc.CreatedAt) < window {
-					setEditable(&n.item, tc.ID)
-					marked++
-				}
-			}
-			if (len(own) > 0 || marked > 0) && v.Uncacheable != nil {
-				*v.Uncacheable = true
-			}
+		}
+		if (len(own) > 0 || marked > 0) && v.Uncacheable != nil {
+			*v.Uncacheable = true
 		}
 	}
 
@@ -245,12 +268,25 @@ func setEditable(it *render.CommentItem, id uuid.UUID) {
 	it.DeleteAction = "/-/comments/delete/" + id.String()
 }
 
-func commentItem(tc comment.ThreadComment) render.CommentItem {
-	return render.CommentItem{
+// commentItem maps a stored comment for a viewer with no dead reveal.
+func commentItem(tc comment.ThreadComment) render.CommentItem { return commentItemAs(tc, false) }
+
+// commentItemAs maps a stored comment. A dead one keeps its place in the tree
+// but shows no author and no body unless reveal: the author, or a viewer the
+// owner plugin flagged.
+func commentItemAs(tc comment.ThreadComment, reveal bool) render.CommentItem {
+	it := render.CommentItem{
 		ID: tc.ID.String(), Author: tc.AuthorName, IsSiteAuthor: tc.IsSiteAuthor,
 		Body:      template.HTML(tc.BodyHTML), // #nosec G203 -- stored commentfmt output
 		CreatedAt: tc.CreatedAt, Depth: tc.Depth,
 	}
+	if tc.Status == comment.StatusDead {
+		it.Dead = true
+		if !reveal {
+			it.Author, it.Body, it.IsSiteAuthor = "", "", false
+		}
+	}
+	return it
 }
 
 // commentTree nests a flat, render-ordered list by parent.

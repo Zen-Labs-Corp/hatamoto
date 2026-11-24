@@ -211,20 +211,20 @@ func TestPluginThreadDeadMasking(t *testing.T) {
 }
 
 func TestPluginCommentReaderRevealDead(t *testing.T) {
-	own := comment.EntityInfo{OwnerPlugin: "example", SchemaSlug: "story"}
+	own := comment.EntityConfig{OwnerPlugin: "example", SchemaSlug: "story"}
 	opts := pluginhost.ThreadOpts{Plugin: "example", Schema: "story", IncludeDead: true}
 	if !revealDead(own, opts) {
 		t.Error("owner on its own schema must reveal")
 	}
 	for name, c := range map[string]struct {
-		info comment.EntityInfo
+		info comment.EntityConfig
 		opts pluginhost.ThreadOpts
 	}{
 		"not asked":      {own, pluginhost.ThreadOpts{Plugin: "example", Schema: "story"}},
-		"other schema":   {comment.EntityInfo{OwnerPlugin: "example", SchemaSlug: "page"}, opts},
-		"other plugin":   {comment.EntityInfo{OwnerPlugin: "other", SchemaSlug: "story"}, opts},
-		"owner type":     {comment.EntityInfo{SchemaSlug: "story"}, opts},
-		"empty identity": {comment.EntityInfo{}, pluginhost.ThreadOpts{IncludeDead: true}},
+		"other schema":   {comment.EntityConfig{OwnerPlugin: "example", SchemaSlug: "page"}, opts},
+		"other plugin":   {comment.EntityConfig{OwnerPlugin: "other", SchemaSlug: "story"}, opts},
+		"owner type":     {comment.EntityConfig{SchemaSlug: "story"}, opts},
+		"empty identity": {comment.EntityConfig{}, pluginhost.ThreadOpts{IncludeDead: true}},
 	} {
 		if revealDead(c.info, c.opts) {
 			t.Errorf("%s: must not reveal", name)

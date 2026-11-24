@@ -310,11 +310,13 @@ func (s *Service) Commenter(ctx context.Context, emailHash string) (Commenter, e
 }
 
 // EntityConfig is one entity's resolved comment mode plus its content type's
-// thread order and community policy.
+// thread order, community policy and owner.
 type EntityConfig struct {
-	Mode   Mode
-	Order  Order
-	Policy Policy
+	Mode        Mode
+	Order       Order
+	Policy      Policy
+	OwnerPlugin string // the plugin that created the content type, "" if none
+	SchemaSlug  string
 }
 
 // EntityConfig resolves the comment mode, order and policy of one entity in
@@ -327,14 +329,15 @@ func (s *Service) EntityConfig(ctx context.Context, entityID uuid.UUID) (EntityC
 		return EntityConfig{Mode: ModeOff}, err
 	}
 	var schemaMode, schemaOrder, entityMode *string
+	var owner, slug string
 	var policy []byte
 	var published *time.Time
 	err = s.db.Pool().QueryRow(ctx, `SELECT s.settings->'comments'->>'mode', s.settings->'comments'->>'order',
-			s.settings->'comments'->'policy', ce.mode, e.published_at
+			s.settings->'comments'->'policy', ce.mode, e.published_at, COALESCE(s.origin_plugin, ''), s.slug
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON s.id = e.schema_id
 		LEFT JOIN hatamoto_comment_entities ce ON ce.entity_id = e.id
-		WHERE e.id = $1`, entityID).Scan(&schemaMode, &schemaOrder, &policy, &entityMode, &published)
+		WHERE e.id = $1`, entityID).Scan(&schemaMode, &schemaOrder, &policy, &entityMode, &published, &owner, &slug)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return EntityConfig{Mode: ModeOff}, ErrNotFound
 	}
@@ -342,8 +345,10 @@ func (s *Service) EntityConfig(ctx context.Context, entityID uuid.UUID) (EntityC
 		return EntityConfig{Mode: ModeOff}, err
 	}
 	cfg := EntityConfig{
-		Mode:   ResolveMode(set, deref(schemaMode), deref(entityMode), published, s.utcNow()),
-		Policy: DecodePolicy(policy),
+		Mode:        ResolveMode(set, deref(schemaMode), deref(entityMode), published, s.utcNow()),
+		Policy:      DecodePolicy(policy),
+		OwnerPlugin: owner,
+		SchemaSlug:  slug,
 	}
 	if ValidOrder(deref(schemaOrder)) {
 		cfg.Order = Order(deref(schemaOrder))

@@ -107,7 +107,7 @@ func (r pluginCommentReader) Thread(ctx context.Context, entityID uuid.UUID, pag
 	if err != nil || !ok {
 		return empty, err
 	}
-	tp, err := r.s.comments.ThreadOrdered(ctx, entityID, page, info.Order)
+	tp, err := r.s.comments.Thread(ctx, entityID, page)
 	if err != nil {
 		return empty, err
 	}
@@ -117,7 +117,7 @@ func (r pluginCommentReader) Thread(ctx context.Context, entityID uuid.UUID, pag
 // revealDead reports whether dead comments are shown in full. The owner is the
 // content type's origin plugin read in this call; the schema slug the plugin
 // names is never trusted alone.
-func revealDead(info comment.EntityInfo, opts pluginhost.ThreadOpts) bool {
+func revealDead(info comment.EntityConfig, opts pluginhost.ThreadOpts) bool {
 	return opts.IncludeDead && info.OwnerPlugin != "" &&
 		info.OwnerPlugin == opts.Plugin && info.SchemaSlug == opts.Schema
 }
@@ -171,12 +171,12 @@ func (r pluginCommentReader) scoped(ctx context.Context) context.Context {
 }
 
 // visible reports whether the entity's thread is public, with the entity's
-// comment info.
-func (r pluginCommentReader) visible(ctx context.Context, id uuid.UUID) (comment.EntityInfo, bool, error) {
+// comment config.
+func (r pluginCommentReader) visible(ctx context.Context, id uuid.UUID) (comment.EntityConfig, bool, error) {
 	if r.s.comments == nil || r.s.db == nil {
-		return comment.EntityInfo{}, false, nil
+		return comment.EntityConfig{}, false, nil
 	}
-	info, err := r.s.comments.EntityInfo(ctx, id)
+	info, err := r.s.comments.EntityConfig(ctx, id)
 	if errors.Is(err, comment.ErrNotFound) {
 		return info, false, nil
 	}

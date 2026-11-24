@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/spam"
+	"hatamoto.dev/sdk"
 )
 
 // commentConfirmPrefix is the path of the comment confirmation link.
@@ -181,7 +183,10 @@ func (s *Server) setupComments() {
 			if has, err := s.comments.HasNonPublic(ctx, id); has || err != nil {
 				return has, err
 			}
-			return s.comments.HasEditable(ctx, id)
+			if has, err := s.comments.HasEditable(ctx, id); has || err != nil {
+				return has, err
+			}
+			return anyShowDead(ctx, s.comments, s.pluginMayModerate, secret, id)
 		}, nil)
 	s.comments.Register(commentCacheObserver{
 		drop: s.dropRenderedEntity, all: s.invalidateRendered,
@@ -215,6 +220,51 @@ func (s *Server) setupComments() {
 		Checkers: []comment.Checker{commentsubmit.HookChecker{Engine: s.hooks}},
 		Log:      s.logger,
 	}
+}
+
+// showDeadFlags is the slice of *comment.Service the show-dead checks read.
+type showDeadFlags interface {
+	FlaggedPlugins(ctx context.Context) ([]string, error)
+	ShowDeadPlugins(ctx context.Context, keys map[string]string) ([]string, error)
+}
+
+// viewerShowsDead reports whether plugin flagged the viewer to read dead
+// comments and may moderate. A lookup error is no reveal (fail closed).
+func viewerShowsDead(ctx context.Context, f showDeadFlags, mayModerate func(plugin string) bool, secret, plugin string, commenterID uuid.UUID) bool {
+	if !mayModerate(plugin) {
+		return false
+	}
+	got, err := f.ShowDeadPlugins(ctx, map[string]string{plugin: comment.PluginCommenterKey(secret, plugin, commenterID)})
+	return err == nil && slices.Contains(got, plugin)
+}
+
+// anyShowDead reports whether any plugin that may moderate flagged the viewer:
+// such a viewer's pages are rendered privately (the bypass check).
+func anyShowDead(ctx context.Context, f showDeadFlags, mayModerate func(plugin string) bool, secret string, commenterID uuid.UUID) (bool, error) {
+	flagged, err := f.FlaggedPlugins(ctx)
+	if err != nil {
+		return false, err
+	}
+	keys := map[string]string{}
+	for _, p := range flagged {
+		if mayModerate(p) {
+			keys[p] = comment.PluginCommenterKey(secret, p, commenterID)
+		}
+	}
+	if len(keys) == 0 {
+		return false, nil
+	}
+	got, err := f.ShowDeadPlugins(ctx, keys)
+	return len(got) > 0, err
+}
+
+// pluginMayModerate reports whether the owner granted the plugin comments.moderate.
+func (s *Server) pluginMayModerate(plugin string) bool {
+	if s.plugins == nil {
+		return false
+	}
+	g := s.plugins.Grants()
+	return g != nil && g.Has(plugin, sdk.PermCommentsModerate)
 }
 
 // handleCommentConfirm is the mounted handler: 404 until setupComments built

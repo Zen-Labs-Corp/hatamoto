@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/cache"
+	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/comment/identity"
 	"hatamoto.dev/core/internal/render"
 )
@@ -228,3 +229,75 @@ func TestCommentSlotFlightFollowerFillsOwnBody(t *testing.T) {
 }
 
 func httpGet(path string) *http.Request { return httptest.NewRequest(http.MethodGet, path, nil) }
+
+type fakeShowDead struct {
+	flagged []string
+	shown   map[string]string // plugin -> the key that carries the flag
+	err     error
+	asked   map[string]string
+}
+
+func (f *fakeShowDead) FlaggedPlugins(context.Context) ([]string, error) { return f.flagged, f.err }
+func (f *fakeShowDead) ShowDeadPlugins(_ context.Context, keys map[string]string) ([]string, error) {
+	f.asked = keys
+	var out []string
+	for p, k := range keys {
+		if f.shown[p] == k {
+			out = append(out, p)
+		}
+	}
+	return out, f.err
+}
+
+func TestCommentBypassGrantedShowDeadFlag(t *testing.T) {
+	const secret = "bypass-secret"
+	cid := uuid.New()
+	granted := func(p string) bool { return p == "example" }
+	flags := &fakeShowDead{
+		flagged: []string{"example", "stranger"},
+		shown: map[string]string{
+			"example":  comment.PluginCommenterKey(secret, "example", cid),
+			"stranger": comment.PluginCommenterKey(secret, "stranger", cid),
+		},
+	}
+	ctx := context.Background()
+	if has, err := anyShowDead(ctx, flags, granted, secret, cid); err != nil || !has {
+		t.Fatalf("a granted plugin's flag = %v, %v; want the bypass", has, err)
+	}
+	if _, asked := flags.asked["stranger"]; asked {
+		t.Fatal("a plugin without comments.moderate was consulted")
+	}
+	if has, _ := anyShowDead(ctx, flags, granted, secret, uuid.New()); has {
+		t.Fatal("another commenter has no flag")
+	}
+	if has, _ := anyShowDead(ctx, flags, func(string) bool { return false }, secret, cid); has {
+		t.Fatal("a flag of a plugin without the grant counts")
+	}
+	if has, err := anyShowDead(ctx, &fakeShowDead{err: errors.New("db")}, granted, secret, cid); has || err == nil {
+		t.Fatalf("a lookup error = %v, %v; want an error and no bypass", has, err)
+	}
+	if !viewerShowsDead(ctx, flags, granted, secret, "example", cid) || viewerShowsDead(ctx, flags, granted, secret, "stranger", cid) {
+		t.Fatal("viewerShowsDead must follow the flag and the grant")
+	}
+	if viewerShowsDead(ctx, &fakeShowDead{err: errors.New("db")}, granted, secret, "example", cid) {
+		t.Fatal("a lookup error must not reveal")
+	}
+
+	// Wired as the bypass: the flagged commenter's request applies, others' do not.
+	key := identity.DeviceKey(secret)
+	b := newCommentBypass(
+		func(val string, now time.Time) (identity.DeviceClaims, bool) {
+			return identity.VerifyDevice(key, val, now)
+		},
+		func(ctx context.Context, id uuid.UUID) (bool, error) {
+			return anyShowDead(ctx, flags, granted, secret, id)
+		}, nil)
+	req := func(id uuid.UUID) *http.Request {
+		r := httptest.NewRequest(http.MethodGet, "/post", nil)
+		r.AddCookie(&http.Cookie{Name: identity.CookieName, Value: identity.SignDevice(key, identity.DeviceClaims{CommenterID: id, TokenVersion: 1, Expires: time.Now().Add(time.Hour)})})
+		return r
+	}
+	if !b.applies(req(cid)) || b.applies(req(uuid.New())) {
+		t.Fatal("the bypass must apply to the flagged commenter only")
+	}
+}
