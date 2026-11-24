@@ -342,8 +342,7 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	case err != nil:
 		return Outcome{}, err
 	}
-	// The commenter lookup comes before the checks so comment.check sees the
-	// key; step 11 reuses the result.
+	// The commenter lookup comes before the checks; step 11 reuses the result.
 	var known *comment.Commenter
 	if !admin {
 		cm, err := p.Comments.Commenter(ctx, commenterKey)
@@ -355,11 +354,10 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 			known = &cm
 		}
 	}
+	// The key comes only from the verified device: an address someone typed
+	// proves nothing, so it never names a commenter to the checks.
 	checkCtx := ctx
-	switch {
-	case known != nil:
-		checkCtx = pluginkey.WithCommenter(ctx, known.ID)
-	case req.DeviceCommenter != nil && !admin:
+	if req.DeviceCommenter != nil && !admin {
 		checkCtx = pluginkey.WithCommenter(ctx, *req.DeviceCommenter)
 	}
 	sr, verdict, hold, err := p.assess(checkCtx, spamSet, assessInput{

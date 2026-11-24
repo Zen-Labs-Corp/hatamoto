@@ -725,7 +725,7 @@ encoded as base64url. The purposes are `addr`, `net` and `commenter`. For `addr`
 - The keys follow the client address the server trusts (`trusted_proxies`): a wrong proxy setting gives wrong keys.
 - The host never logs a key.
 
-`commenter_key` is filled for plugins that hold `comments.read`, on every comment event except `comment.deleted`, in `comment.check`, in `comment.draft`, on `comments.thread` items, in `render.page` and on public routes, whenever the visitor has a valid device cookie.
+`commenter_key` is filled for plugins that hold `comments.read`, on every comment event except `comment.deleted`, in `comment.check`, in `comment.draft`, on `comments.thread` items, in `render.page` and on public routes, whenever the visitor has a valid device cookie. In `comment.check` it comes only from that verified device: an email address typed into the form never yields a key.
 
 ## Reserved by the 0.27 contract
 

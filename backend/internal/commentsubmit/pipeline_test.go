@@ -13,6 +13,7 @@ import (
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/comment/identity"
 	"hatamoto.dev/core/internal/commentfmt"
+	"hatamoto.dev/core/internal/pluginkey"
 	"hatamoto.dev/core/internal/spam"
 )
 
@@ -688,4 +689,41 @@ func TestPolicySchemaOffKeepsPostedIdentity(t *testing.T) {
 	if d := h.c.stored[0]; d.AuthorName != "Ada" || d.Email != "ada@example.test" {
 		t.Errorf("draft identity = %q %q", d.AuthorName, d.Email)
 	}
+}
+
+// keyChecker records the commenter the check context names.
+type keyChecker struct {
+	got *uuid.UUID
+	ok  *bool
+}
+
+func (c keyChecker) Check(ctx context.Context, _ comment.CheckInput) (int, []string, error) {
+	id, ok := pluginkey.CommenterFrom(ctx)
+	*c.got, *c.ok = id, ok
+	return 0, nil, nil
+}
+
+func TestCheckKeyOnlyFromVerifiedDevice(t *testing.T) {
+	t.Run("typed email of a known commenter, no device", func(t *testing.T) {
+		h := newHarness(t)
+		h.known(false)
+		var id uuid.UUID
+		var ok bool
+		h.p.Checkers = []comment.Checker{keyChecker{&id, &ok}}
+		h.submit(t)
+		if ok {
+			t.Fatalf("check saw commenter %s from a typed address", id)
+		}
+	})
+	t.Run("verified device", func(t *testing.T) {
+		h := newHarness(t)
+		h.known(true)
+		var id uuid.UUID
+		var ok bool
+		h.p.Checkers = []comment.Checker{keyChecker{&id, &ok}}
+		h.submit(t)
+		if !ok || id != *h.req.DeviceCommenter {
+			t.Fatalf("check commenter = %s, %v; want the device commenter", id, ok)
+		}
+	})
 }
