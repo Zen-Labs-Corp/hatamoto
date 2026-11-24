@@ -39,7 +39,8 @@ func (s *Server) handleCommentFormLive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cs := s.commentSubmit.Comments
-	mode, err := cs.EntityMode(ctx, id)
+	cfg, err := cs.EntityConfig(ctx, id)
+	mode := cfg.Mode
 	if errors.Is(err, comment.ErrNotFound) {
 		http.NotFound(w, r)
 		return
