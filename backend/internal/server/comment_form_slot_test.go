@@ -226,7 +226,7 @@ func TestCommentSlotFillEchoValues(t *testing.T) {
 
 const lockedSlotForm = `<form method="post" action="/-/comments/%s" data-hm-cform><input type="hidden" name="hm_ct" value="__hmcf_tok__">` +
 	`<p __hmcf_hnamed__>as <strong>__hmcf_who__</strong></p><p __hmcf_hin__>signed in</p><p __hmcf_hout__>sign in</p>` +
-	`<textarea name="__hmcf_body__" __hmcf_boff__></textarea></form>`
+	`<textarea name="__hmcf_body__" __hmcf_boff__></textarea><button type="submit" __hmcf_boff__>post</button></form>`
 
 func lockedSlotPage(id uuid.UUID) []byte {
 	return []byte(`<p>__hmcf_who__ __hmcf_boff__</p>` + strings.ReplaceAll(lockedSlotForm, "%s", id.String()) + `<p>__hmcf_hin__</p>`)
@@ -261,7 +261,7 @@ func fillLocked(t *testing.T, slot *commentSlot, cookie string) string {
 func TestCommentSlotLockedPlaceholderSwap(t *testing.T) {
 	calls := 0
 	signedIn := fillLocked(t, lockedSlotFixture("story_author", &calls), "good")
-	for _, want := range []string{`<p >as <strong>story_author</strong></p>`, `<p hidden>signed in</p>`, `<p hidden>sign in</p>`, `<textarea name=`} {
+	for _, want := range []string{`<p >as <strong>story_author</strong></p>`, `<p hidden>signed in</p>`, `<p hidden>sign in</p>`, `<textarea name=`, `<button type="submit" >post`} {
 		if !strings.Contains(signedIn, want) {
 			t.Errorf("signed in lacks %q: %s", want, signedIn)
 		}
@@ -272,7 +272,7 @@ func TestCommentSlotLockedPlaceholderSwap(t *testing.T) {
 
 	calls = 0
 	out := fillLocked(t, lockedSlotFixture("x", &calls), "")
-	for _, want := range []string{`<p hidden>as <strong></strong></p>`, `<p hidden>signed in</p>`, `<p >sign in</p>`, `disabled></textarea>`} {
+	for _, want := range []string{`<p hidden>as <strong></strong></p>`, `<p hidden>signed in</p>`, `<p >sign in</p>`, `disabled></textarea>`, `<button type="submit" disabled>post`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("signed out lacks %q: %s", want, out)
 		}
@@ -283,6 +283,32 @@ func TestCommentSlotLockedPlaceholderSwap(t *testing.T) {
 	// Outside the form span nothing is touched.
 	if !strings.HasPrefix(out, `<p>__hmcf_who__ __hmcf_boff__</p>`) || !strings.HasSuffix(out, `<p>__hmcf_hin__</p>`) {
 		t.Errorf("text outside the span was rewritten: %s", out)
+	}
+}
+
+// With no script at all the per-request fill alone leaves exactly one visible
+// state line, and the body and submit enabled only for a valid device.
+func TestCommentSlotLockedNoScriptSingleLine(t *testing.T) {
+	for _, tc := range []struct {
+		cookie   string
+		name     string
+		visible  string
+		disabled int
+	}{{"good", "story_author", "as <strong>story_author", 0}, {"good", "", "signed in", 0}, {"", "x", "sign in", 2}, {"bad", "x", "sign in", 2}} {
+		calls := 0
+		out := fillLocked(t, lockedSlotFixture(tc.name, &calls), tc.cookie)
+		if n := strings.Count(out, "<p >"); n != 1 || !strings.Contains(out, "<p >"+tc.visible) {
+			t.Errorf("cookie %q name %q: want one visible line %q: %s", tc.cookie, tc.name, tc.visible, out)
+		}
+		if n := strings.Count(out, "<p hidden>"); n != 2 {
+			t.Errorf("cookie %q: %d hidden lines, want 2: %s", tc.cookie, n, out)
+		}
+		if n := strings.Count(out, "disabled"); n != tc.disabled {
+			t.Errorf("cookie %q: %d disabled controls, want %d: %s", tc.cookie, n, tc.disabled, out)
+		}
+		if f := out[strings.Index(out, "<form"):strings.Index(out, "</form>")]; strings.Contains(f, "__hmcf_") {
+			t.Errorf("cookie %q: placeholder left: %s", tc.cookie, out)
+		}
 	}
 }
 

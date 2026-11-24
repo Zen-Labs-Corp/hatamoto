@@ -96,13 +96,20 @@ func TestCommentFormLocked(t *testing.T) {
 	out := commentFormOut(t, &CommentThread{}, form)
 	p := CommentLockedPlaceholders
 	for _, w := range []string{p.Named, p.SignedIn, p.SignedOut, p.BodyOff, p.Who} {
-		if n := strings.Count(out, w); n != 1 {
+		want := 1
+		if w == p.BodyOff {
+			want = 2 // the textarea and the submit button
+		}
+		if n := strings.Count(out, w); n != want {
 			t.Errorf("%s appears %d times:\n%s", w, n, out)
 		}
 	}
 	span := out[strings.Index(out, CommentFormMarker):]
 	if !strings.Contains(span, "Posting as <strong>"+p.Who+"</strong>") || strings.Index(span, p.Named) > strings.Index(span, p.Who) || strings.Index(span, p.Who) > strings.Index(span, p.SignedIn) {
 		t.Errorf("who is not inside the named line:\n%s", out)
+	}
+	if !strings.Contains(out, `type="submit" `+p.BodyOff+`>`) {
+		t.Errorf("submit button does not carry the body switch:\n%s", out)
 	}
 	if !strings.Contains(out, `href="/-/comments/signin"`) {
 		t.Errorf("sign-in link missing:\n%s", out)

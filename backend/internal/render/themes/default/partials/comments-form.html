@@ -18,5 +18,5 @@
 <small class="hm-form__help">{{t $ "comment_links_note"}}</small></div>
 {{block "comments/form-extra" .}}<div class="hm-form__field"><label class="hm-form__check"><input type="checkbox" id="{{.Extra}}" name="{{.Extra}}" value="1"{{if .Notify}} checked{{end}}> <span>{{t $ "comment_notify_replies"}}</span></label></div>
 {{end}}<div class="hm-form__hp" aria-hidden="true"><label>{{t $ "comment_hp_label"}}<input type="text" name="{{.Honeypot}}" tabindex="-1" autocomplete="off"></label></div>
-{{with .Captcha}}<div class="hm-form__captcha" data-hm-captcha="{{.Provider}}" data-sitekey="{{.SiteKey}}"></div>{{end}}<button class="hm-btn hm-form__submit" type="submit">{{t $ "comment_submit"}}</button>
+{{with .Captcha}}<div class="hm-form__captcha" data-hm-captcha="{{.Provider}}" data-sitekey="{{.SiteKey}}"></div>{{end}}<button class="hm-btn hm-form__submit" type="submit"{{if .Locked}} __hmcf_boff__{{end}}>{{t $ "comment_submit"}}</button>
 </form>{{end}}{{else if $.Comments}}<p class="hm-comments__closed">{{t $ "comments_closed"}}</p>{{end}}</div>{{end}}
