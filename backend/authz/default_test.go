@@ -61,6 +61,7 @@ var want = map[authz.Action]struct {
 	"form.submission.manage":          {true, ""},
 	"form.submission.read":            {true, "read:forms"},
 	"import.run":                      {false, ""},
+	"kit.apply":                       {false, ""},
 	"link.insert":                     {true, "write:entities"},
 	"link.rule.manage":                {true, ""},
 	"link.suggest":                    {true, "read:entities"},

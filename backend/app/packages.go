@@ -19,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/editionstate"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/packages"
@@ -29,7 +30,7 @@ import (
 )
 
 // packageCommands are the first words routed to runPackages.
-var packageCommands = map[string]bool{"keys": true, "theme": true, "plugin": true, "package": true, "registry": true, "apikey": true}
+var packageCommands = map[string]bool{"keys": true, "theme": true, "plugin": true, "package": true, "registry": true, "apikey": true, "kit": true}
 
 const packagesUsage = `  keys generate [--name N] [--dir D]       make an ed25519 signing key (N.key secret, N.pub public)
   theme pack <dir> [--key F] [--out F]     build a .hmp theme package, signed with key F
@@ -46,13 +47,16 @@ const packagesUsage = `  keys generate [--name N] [--dir D]       make an ed2551
                                            render the plugins of a signed registry index as one static HTML page
   package install <file|url|name> [--grant P,P|all] [--source upload|url|dev] [--dev] [--confirm]
                                            install a package (docs/PACKAGES.md); a running server applies it within seconds
-` + installOpsUsage
+` + kitUsage + "\n" + installOpsUsage
 
 // runPackages runs the key, pack and install commands. keys and the pack
 // commands need no database.
 func runPackages(ctx context.Context, args []string, logger *slog.Logger, out io.Writer) error {
 	if ok, err := runInstallOps(ctx, args, logger, out); ok {
 		return err
+	}
+	if args[0] == "kit" {
+		return runKit(ctx, args[1:], logger, out)
 	}
 	switch {
 	case args[0] == "keys" && len(args) > 1 && args[1] == "generate":
@@ -303,6 +307,8 @@ func packageManager(ctx context.Context, logger *slog.Logger, devFlag bool) (*pa
 		Pool: db.Pool(), Trust: trust, PluginKey: pluginKey, Entitled: editionstate.Plugin, AllowDev: dev, Engine: eng, Logger: logger,
 		Registry: mainReg, DeveloperRegistry: devReg,
 		MenuSeeder: menu.NewService(menu.NewPostgresRepository(db), logger),
+		// As the server: a plugin's entity_schema creates its content type at install.
+		Schemas: entity.NewService(entity.NewPostgresSchemaRepository(db), entity.NewPostgresEntityRepository(db), logger),
 	})
 	return m, db, dev, why, nil
 }
@@ -407,6 +413,9 @@ func runPackageInstall(ctx context.Context, args []string, logger *slog.Logger, 
 	if err != nil {
 		return err
 	}
+	if p.Kind == packages.KindKit {
+		return packages.ErrKitNotInstallable
+	}
 	if m == nil {
 		if m, db, _, why, err = packageManager(ctx, logger, devFlag); err != nil {
 			return err
@@ -498,12 +507,16 @@ func developerNote(ctx context.Context, m *packages.Manager, p *packages.Package
 	return "developer: " + author + ", key " + row.SignerKeyID
 }
 
+// registryClientOptions are the options of the registry download client; a
+// test that serves a registry on loopback sets AllowPrivate.
+var registryClientOptions = safefetch.ClientOptions{Timeout: 60 * time.Second}
+
 // packageRegistries builds the registries the CLI reads for installs by name:
 // the main one (trusted by the site's keys) and the developer index, which only
 // its listing key signs and which never joins the package trust set. Each is
 // nil when it is off.
 func packageRegistries(pc config.PackageConfig, trust packages.TrustSet) (main, developer *packages.Registry) {
-	client := safefetch.NewClient(safefetch.ClientOptions{Timeout: 60 * time.Second})
+	client := safefetch.NewClient(registryClientOptions)
 	if !pc.RegistryOff() {
 		main = &packages.Registry{URL: pc.RegistryURL, Trust: trust, Limits: packages.DefaultLimits, AllowInsecure: pc.AllowInsecureRegistry, Client: client}
 	}

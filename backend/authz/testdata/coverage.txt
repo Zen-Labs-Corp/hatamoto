@@ -44,6 +44,7 @@ internal/admin/entities.go group entity.read roles=owner,editor  # :85 node vers
 internal/admin/comments_routes.go group comment.moderate,comment.read,comment.settings.read,comment.blocklist.manage roles=owner,editor  # :14 owner or editor
 internal/admin/comments_routes.go group comment.settings.manage roles=owner  # :15 owner
 internal/admin/import.go group import.run roles=owner  # :94
+internal/admin/kits.go group kit.apply roles=owner  # :45 Settings > Kits
 internal/admin/media.go group media.settings.manage roles=owner  # :31 formats, rebuild
 internal/admin/page_editor.go group builder.preset.create roles=owner,editor  # :83
 internal/admin/people.go group person.manage roles=owner,editor  # :25

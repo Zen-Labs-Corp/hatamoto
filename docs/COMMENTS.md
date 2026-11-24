@@ -11,6 +11,8 @@ Only an owner can turn comments on, in Settings > Comments. Turning them on take
 
 Once comments are on, the page shows the trust levels, limits, sort order and captcha settings, and a per-type and per-entry control appears on the schema and entry screens to open, close or hide comments there.
 
+A kit can ask for comments to be turned on ([KITS.md](KITS.md)). It never does so by itself: the review screen in Settings > Kits shows the same two warnings and the owner accepts them with the switch there, or on the command line with `hatamoto kit apply <kit> --accept-comment-warnings`. Without the accept, comments stay off and the kit says so. The switch is recorded in the audit log as `comments.enable`.
+
 Comments cannot be turned on until the site address is set (Settings > General, or `PUBLIC_BASE_URL`): the settings page says so and links there. If comments are already on and the address is removed, Settings > Comments and the Overview card warn, the server logs it once at start, and comments can still be turned off.
 
 ## Moderation
@@ -31,7 +33,7 @@ The Overview shows a Comments card with the newest waiting comments and a link t
 
 ## Community policy (per content type)
 
-A content type can switch comments to a community policy. It is owner-only, under Settings > Comments > Content types, and turning it on takes a warning: "Are you sure? With the community policy on, comments with links and first comments on this content type are posted at once, without review. Spam checks, blocked commenters, duplicates, captcha and surge mode still hold comments." The owner ticks "I understand comments on this type will not wait for review" before the button works. Turning it off needs no confirmation. Editors see the panel read-only, and every change is recorded in the audit log as `comments.policy`.
+A content type can switch comments to a community policy. It is owner-only, under Settings > Comments > Content types, and turning it on takes a warning: "Are you sure? With the community policy on, comments with links and first comments on this content type are posted at once, without review. Spam checks, blocked commenters, duplicates, captcha and surge mode still hold comments." The owner ticks "I understand comments on this type will not wait for review" before the button works. Turning it off needs no confirmation. Editors see the panel read-only, and every change is recorded in the audit log as `comments.policy`. A kit can ask for the policy ([KITS.md](KITS.md)): the review screen and `hatamoto kit apply` show the same warning, the policy goes on only with the owner's switch or `--accept-comment-warnings`, and it is recorded as `comments.policy`.
 
 On a type with the policy on, comments with links and first comments from new commenters are posted at once. Spam checks (including the scores plugins add with `comment.check`), blocked commenters, duplicate bodies, captcha, surge mode and slow mode still hold comments. A commenter who edits an approved comment into one with a link keeps it approved; an edit that the content checks hold still goes back to the queue.
 

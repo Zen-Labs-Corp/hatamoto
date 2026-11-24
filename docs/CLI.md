@@ -34,6 +34,10 @@ hatamoto plugin pack <dir> [--key F] [--out F]
 hatamoto theme dev <dir> [--no-activate]
 hatamoto package install <file|url|name> [--grant P,P|all] [--confirm]
 hatamoto package list [--json]
+hatamoto kit check <dir|file> [--package F] [--expect-name N]
+hatamoto kit pack <dir> --key F [--out F] [--expect-name N]
+hatamoto kit apply <name|file|url> [--accept-comment-warnings] [--grant P,P] [--activate-theme] [--homepage] [--dry-run] [--dev]
+hatamoto kit list
 hatamoto theme activate <name|default> [--force]
 hatamoto apikey create --name N --scopes a,b [--out FILE] [--as EMAIL] [--description D] [--rate-limit N]
 hatamoto admin-url                                                # print the admin address (the full link when PUBLIC_BASE_URL or the site address is set)
@@ -80,6 +84,8 @@ Unattended installs (no admin session needed; each writes the database and a run
 
   A package signed by another key than the index lists, or an update signed by another key than the installed version, is refused and `--confirm` does not change that. On success the line ends with `(developer: <author>, key <id>)`. `HATAMOTO_DEVELOPER_REGISTRY_URL=off` disables the developer index ([PACKAGES.md](PACKAGES.md#developer-packages)).
 - `package list` shows installed plugins and themes with version, source, signer and the active theme; `--json` also reports `allow_unsigned` and `allow_developer`.
+
+- `kit check` and `kit pack` need no database and no network. `kit apply` sets a site up from a signed kit (plugins, theme, content types, pages, menus) and records it; it is audited as `kit.apply`. Comments go on only with `--accept-comment-warnings` and a site address; the community policy of a content type goes on only with the same flag (it accepts that warning too) and needs no address. Permissions the owner must tick (the "Handle with care" ones and `ui.allow:*`) are granted only when named in `--grant`, as `<plugin>:<permission>` (a bare name works when one plugin of the kit asks for it). Applying a second time changes nothing. `kit list` shows the applied kits and the registry's. `package install` refuses a kit. See [KITS.md](KITS.md).
 
 Packages (signing, trust, the registry): see [PACKAGES.md](PACKAGES.md); to publish a plugin or a theme, see [PLUGINS_WRITE_AND_SUBMIT.md](PLUGINS_WRITE_AND_SUBMIT.md#part-2-publish-your-plugin) and [THEMES_WRITE_AND_SUBMIT.md](THEMES_WRITE_AND_SUBMIT.md#part-2-publish-your-theme). `package install` and `theme dev` write the database; a running server applies the change within seconds.
 

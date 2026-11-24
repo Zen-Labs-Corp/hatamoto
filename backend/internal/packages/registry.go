@@ -438,7 +438,7 @@ func ParseIndex(doc []byte, trust TrustSet, now time.Time) (*Index, error) {
 	}
 	valid := idx.Packages[:0]
 	for _, e := range idx.Packages {
-		if (e.Kind == KindPlugin || e.Kind == KindTheme) && namePattern.MatchString(e.Name) && len(e.SHA256) == 64 && e.URL != "" {
+		if (e.Kind == KindPlugin || e.Kind == KindTheme || e.Kind == KindKit) && namePattern.MatchString(e.Name) && len(e.SHA256) == 64 && e.URL != "" {
 			if e.Tier != TierFirstParty && e.Tier != TierCommunity && e.Tier != TierDeveloper {
 				e.Tier = ""
 			}

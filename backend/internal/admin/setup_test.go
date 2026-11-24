@@ -175,6 +175,38 @@ func TestSetupWizardPagesAccessibleAndGolden(t *testing.T) {
 		}
 		pages[name] = rec.Body.String()
 	}
+	// the kit flow (the registry offers one kit)
+	g.a.deps.Kits = kitsFixture()
+	for name, path := range map[string]string{"setup-kit": "/admin/setup/kit", "setup-kit-review": "/admin/setup/kit/community"} {
+		rec := g.do("GET", path, "owner-token", nil, nil)
+		if rec.Code != 200 {
+			t.Fatalf("%s: %d\n%s", name, rec.Code, rec.Body.String())
+		}
+		pages[name] = rec.Body.String()
+	}
+	// the review with the community policy asked for: the comments section and both switches
+	g.a.deps.Kits = &fakeKits{available: kitsFixture().available, plan: kitPolicyPlanFixture()}
+	rec = g.do("GET", "/admin/setup/kit/community", "owner-token", nil, nil)
+	if rec.Code != 200 {
+		t.Fatalf("setup-kit-review-policy: %d\n%s", rec.Code, rec.Body.String())
+	}
+	pages["setup-kit-review-policy"] = rec.Body.String()
+	for _, want := range []string{"Turn comments on", "Use the community policy on Stories", `id="kit-policy"`} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Errorf("setup-kit-review-policy lacks %q", want)
+		}
+	}
+	g.a.deps.Kits = kitsFixture()
+	// the content step with the registry offering kits: the 4th card and Continue
+	rec = g.do("GET", "/admin/setup/content", "owner-token", nil, nil)
+	if rec.Code != 200 {
+		t.Fatalf("setup-content-kits: %d\n%s", rec.Code, rec.Body.String())
+	}
+	pages["setup-content-kits"] = rec.Body.String()
+	if n := contentRadios(rec.Body.String()); n != 4 || !strings.Contains(rec.Body.String(), ">Continue<") {
+		t.Errorf("setup-content-kits: %d cards, want 4 with Continue", n)
+	}
+	g.a.deps.Kits = nil
 	// error states
 	g.count.n = 0
 	rec = g.do("POST", "/admin/setup", "", url.Values{"code": {"nope"}, "email": {"bad"}, "password": {"short"}}, nil)

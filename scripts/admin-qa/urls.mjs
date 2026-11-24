@@ -133,6 +133,7 @@ export const screens = [
   { name: "settings-comments-enable", path: "/admin/settings/comments/enable", mock: null, roles: O },
   { name: "settings-comments-blocklists", path: "/admin/settings/comments/blocklists", mock: null, roles: OE },
   { name: "settings-comments-commenters", path: "/admin/settings/comments/commenters", mock: null, roles: OE },
+  { name: "settings-kits", path: "/admin/settings/kits", mock: null, roles: O, expect: "#kits-available" }, // the list; the registry may be unreachable here, which is its own state (kits-admin.mjs walks the registry-off list)
     // SEO and URLs
   { name: "settings-redirects", path: "/admin/settings/redirects", legacy: "/admin/redirects", mock: "settings-redirects", roles: OE, list: true, states: [newDialog] },
   { name: "settings-redirects-new", path: "/admin/settings/redirects/new", legacy: "/admin/redirects/new", mock: null, roles: OE },
@@ -211,6 +212,10 @@ export const screens = [
 //    a standing approval; standing-approvals.mjs loads the frameplug fixture, meets the password page,
 //    allows the rule and checks the paused state. The install prompt needs an uploaded package and
 //    stays with its Go golden.
+//  - the kit review screen (/admin/settings/kits/{name}) and the wizard kit screens (/admin/setup/kit,
+//    /admin/setup/kit/{name}) need a registry that lists a kit (the server refuses a registry on a
+//    local address) and the wizard a fresh database; kits-admin.mjs walks the registry-off list, and
+//    these screens stay with their Go tests and goldens.
 
 // Mockup screens with no counterpart in a signed-in admin (setup wizard, kit page)
 // stay out of the pairing on purpose: onboarding, components.
@@ -276,6 +281,7 @@ export const crawlIgnore = [
   { re: /^\/admin\/plugins\/[^/?]+\/changesets\/\d+(\/preview)?$/, reason: "changeset pages need a staged changeset; the seeded instance has none (see Not inventoried above)" },
   { re: /^\/admin\/plugins\/[^/?]+\/automatic$/, reason: "the Automatic updates tab needs a plugin that declares a standing approval; the seeded instance has none (see Not inventoried above)" },
   { re: /^\/admin\/changesets\/\d+\/frame\/\d+\/[^/?]+$/, reason: "the changeset preview frame URL is one-time: a crawl would spend its ticket and a reload is a 404 by design" },
+  { re: /^\/admin\/settings\/kits\/[^/?]+$/, reason: "the kit review needs a registry that lists the kit; the harness has none (see Not inventoried above)" },
   { re: /^\/admin\/review\/\d+(\/preview)?$/, reason: "a change's page and preview need a waiting change; the seeded instance has none (review-edit-flow.mjs walks them)" },
   { re: /^\/admin\/plugins\/[^/?]+\/about$/, reason: "the plugin detail page needs a registry entry; the harness has no registry" },
 ];

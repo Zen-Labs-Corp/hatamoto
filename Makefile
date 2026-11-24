@@ -72,6 +72,7 @@ override FIRST_PARTY_OWNERS := zenlabscorp Zen-Labs-Corp
 COMMUNITY_SKIP ?=
 # Theme names to leave out of the theme build (space separated; logged loudly), like COMMUNITY_SKIP.
 THEMES_SKIP ?=
+KITS_SKIP ?=
 # Append-only archive of every signed community .hmp (never wiped by `make registry`;
 # fill it with `make registry-pull-archive` before building, publish it with scripts/publish-registry.sh).
 ARCHIVE_DIR ?= registry/archive
@@ -130,6 +131,7 @@ registry: registry-guard
 	printf '{}' > registry/meta.json
 	env -u HATAMOTO_ALLOW_FILE_REPOS -u HATAMOTO_ALLOW_FILE_ARCHIVES -u HATAMOTO_SDK_REPLACE COMMUNITY_SKIP="$(COMMUNITY_SKIP)" FIRST_PARTY_OWNERS="$(FIRST_PARTY_OWNERS)" ARCHIVE_DIR="$(ARCHIVE_DIR)" HATAMOTO_MIRROR_BASE="$(MIRROR_BASE)" HATAMOTO_TRUST_MIRROR_VENDOR="$(TRUST_MIRROR_VENDOR)" HATAMOTO_BUILD_GOTOOLCHAIN="$(BUILD_GOTOOLCHAIN)" registry/build-community.sh "$(COMMUNITY_DIR)" registry/.hatamoto "$(HATAMOTO_REGISTRY_KEY_FILE)" registry/packages registry/meta.json || exit 1
 	env -u HATAMOTO_ALLOW_FILE_REPOS -u HATAMOTO_ALLOW_FILE_ARCHIVES HATAMOTO_THEMES_SKIP="$(THEMES_SKIP)" registry/build-community-themes.sh "$(COMMUNITY_DIR)" registry/.hatamoto "$(HATAMOTO_REGISTRY_KEY_FILE)" registry/packages registry/meta.json registry/screenshots "$(ARCHIVE_DIR)" || exit 1
+	env -u HATAMOTO_ALLOW_FILE_REPOS -u HATAMOTO_ALLOW_FILE_ARCHIVES HATAMOTO_KITS_SKIP="$(KITS_SKIP)" registry/build-community-kits.sh "$(COMMUNITY_DIR)" registry/.hatamoto "$(HATAMOTO_REGISTRY_KEY_FILE)" registry/packages registry/meta.json "$(ARCHIVE_DIR)" || exit 1
 	registry/.hatamoto registry index registry/packages --meta registry/meta.json --key "$(HATAMOTO_REGISTRY_KEY_FILE)" --out registry/registry.json --url-prefix packages/
 	@if [ "$(REGISTRY_PAGE)" = 1 ]; then \
 	pub="$(HATAMOTO_REGISTRY_KEY_FILE:.key=.pub)"; trust=""; if [ "$$REGISTRY_PAGE_TRUST_SIGNER" = 1 ] && [ -f "$$pub" ]; then trust=$$(jq -r .public "$$pub") || exit 1; fi; \

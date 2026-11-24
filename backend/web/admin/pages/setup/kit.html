@@ -1,0 +1,15 @@
+{{template "layouts/bare" .}}
+{{define "main"}}{{with .Data}}{{template "hm/steps" (dict "Items" .Steps "Label" "Setup progress")}}
+<h1>Choose a kit</h1>
+{{if .Failed}}{{template "hm/flash" (dict "Kind" "error" "Message" .Failed "Inline" true)}}{{end}}
+{{if .Items}}<form method="post" action="{{adminPath}}/setup/kit" class="hm-stack">
+{{template "hm/csrf" $}}
+{{template "hm/radiocard" (dict "Legend" "Which kit should your site start from?" "Name" "kit" "Items" .Items)}}
+{{template "hm/foot"}}
+<span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Back" "Variant" "ghost" "Href" .Back}}</span>
+{{template "hm/button" dict "Label" "Continue" "Variant" "primary" "Type" "submit"}}
+{{template "hm/foot-end"}}
+</form>
+{{else}}{{template "hm/empty" dict "Compact" true "Title" "No kits are available right now." "Body" "The registry could not be read. Go back and choose another start."}}
+{{template "hm/foot"}}{{template "hm/button" dict "Label" "Back" "Variant" "ghost" "Href" .Back}}{{template "hm/foot-end"}}{{end}}
+{{end}}{{end}}

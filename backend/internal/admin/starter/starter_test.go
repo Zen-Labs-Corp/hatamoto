@@ -355,8 +355,8 @@ func TestIsSeedBothShapes(t *testing.T) {
 		`{"starter":true,"page_doc":` + string(doc) + `}`: false,
 		`{"content":"x"}`:                                 false,
 	} {
-		if got := isSeed(&entity.Entity{Attributes: jsontext.Value(attrs)}); got != want {
-			t.Errorf("isSeed(%s) = %v, want %v", attrs, got, want)
+		if got := IsSeed(&entity.Entity{Attributes: jsontext.Value(attrs)}); got != want {
+			t.Errorf("IsSeed(%s) = %v, want %v", attrs, got, want)
 		}
 	}
 }
@@ -435,7 +435,7 @@ func TestNameSeedHomeRenamesTheFirstBootPage(t *testing.T) {
 	if !contains(string(home.Attributes), `"content":"<p>Your site is running.</p>"`) {
 		t.Errorf("other attributes lost: %s", home.Attributes)
 	}
-	if !isSeed(home) {
+	if !IsSeed(home) {
 		t.Error("the renamed page must still count as the seed, so the starter content can replace it later")
 	}
 	if m.flushed != 1 {

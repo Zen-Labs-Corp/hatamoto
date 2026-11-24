@@ -1,0 +1,12 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Kits" "Description" "A kit is a ready-made site from the registry: plugins, a theme, content types, pages and a menu. You review everything before it is applied."}}
+{{template "hm/card-start" dict "ID" "kits-applied" "Title" "Applied" "Heading" "h2"}}
+{{if .Applied}}<div class="hm-stack">{{range .Applied}}<div class="hm-row"><b>{{or .Title .Name}}</b> <span class="hm-muted">v{{.Version}}</span> <span class="hm-muted">applied {{fmtDate .AppliedAt}}{{with .AppliedBy}} by {{.}}{{end}}</span></div>{{end}}</div>
+{{else}}{{template "hm/empty" dict "Compact" true "Title" "No kit applied yet" "Body" "A kit you apply is listed here."}}{{end}}
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "kits-available" "Title" "Available from the registry" "Heading" "h2"}}
+{{if .RegistryErr}}{{template "hm/empty" dict "Compact" true "Title" "The registry is unavailable." "Body" "Try again in a moment. Kits you applied before are listed above."}}
+{{else if .Available}}<div class="hm-stack">{{range .Available}}<div class="hm-row"><b>{{or .Title .Name}}</b> <span class="hm-muted">v{{.Version}}</span> {{template "hm/badge" (dict "Label" (print "signed: " .Tier) "Plain" true)}}{{if .Applied}}{{template "hm/badge" (dict "Label" "Applied" "Kind" "success")}}{{end}} {{template "hm/button" (dict "Label" "Review" "Href" (adminPath "settings" "kits" .Name))}}</div>{{end}}</div>
+{{else}}{{template "hm/empty" dict "Compact" true "Title" "No kits listed" "Body" "The registry does not offer a kit yet."}}{{end}}
+{{template "hm/card-end"}}
+{{end}}{{end}}

@@ -7,7 +7,7 @@
 {{template "hm/radiocard" (dict "Legend" "What should your site start with?" "Name" "content" "Items" .ContentItems)}}
 {{template "hm/foot"}}
 <span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Back" "Variant" "ghost" "Href" .Back}}</span>
-{{template "hm/button" dict "Label" "Finish setup" "Variant" "primary" "Type" "submit"}}
+{{template "hm/button" dict "Label" (or (and .Kits "Continue") "Finish setup") "Variant" "primary" "Type" "submit"}}
 {{template "hm/foot-end"}}
 </form>
 {{end}}{{end}}
