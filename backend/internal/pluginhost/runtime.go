@@ -295,6 +295,12 @@ func (r *Runtime) LoadWith(ctx context.Context, m sdk.Manifest, wasm []byte, ass
 	if err := PagePathsRefusal(m); err != nil {
 		return fail(err)
 	}
+	if err := PagePathPrefixesRefusal(m); err != nil {
+		return fail(err)
+	}
+	if err := EntitySchemaRefusal(m); err != nil {
+		return fail(err)
+	}
 	if len(m.SettingsSchema) > 0 {
 		if _, err := CompileSchema(m.SettingsSchema); err != nil {
 			return fail(err)

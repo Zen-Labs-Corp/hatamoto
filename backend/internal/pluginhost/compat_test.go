@@ -1,10 +1,12 @@
 package pluginhost
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/pluginhost/plugintest"
 	"hatamoto.dev/sdk"
 )
 
@@ -68,6 +70,48 @@ func TestCommercialRangeRefusal(t *testing.T) {
 		err := CommercialRangeRefusal(sdk.Manifest{Name: "pro", SDK: tc.rng, License: sdk.License(tc.license)})
 		if (err != nil) != tc.refuse {
 			t.Errorf("license %q sdk %q: err = %v, refuse want %v", tc.license, tc.rng, err, tc.refuse)
+		}
+	}
+}
+
+func TestPagePathPrefixesRefusal(t *testing.T) {
+	for _, p := range []string{"/item/", "/stories/x/"} {
+		if err := PagePathPrefixesRefusal(sdk.Manifest{Name: "board", PagePathPrefixes: []string{p}}); err != nil {
+			t.Errorf("%s refused: %v", p, err)
+		}
+	}
+	for _, p := range []string{"/", "/p/", "/admin/", "/api/v1/", "/uploads/", "/media/", "/theme/", "/-/", "/sitemap.xml/", "/robots.txt/", "/mcp/"} {
+		if err := PagePathPrefixesRefusal(sdk.Manifest{Name: "board", PagePathPrefixes: []string{p}}); err == nil {
+			t.Errorf("%s accepted", p)
+		}
+	}
+}
+
+func TestEntitySchemaRefusal(t *testing.T) {
+	for _, s := range []string{"story", ""} {
+		if err := EntitySchemaRefusal(sdk.Manifest{Name: "board", EntitySchema: s}); err != nil {
+			t.Errorf("%q refused: %v", s, err)
+		}
+	}
+	for _, s := range []string{"page", "post", "person", "block"} {
+		if err := EntitySchemaRefusal(sdk.Manifest{Name: "board", EntitySchema: s}); err == nil {
+			t.Errorf("%q accepted", s)
+		}
+	}
+}
+
+func TestContractRefusedAtLoad(t *testing.T) {
+	r := newCapaRig(t)
+	for want, mutate := range map[string]func(*sdk.Manifest){
+		"/p/": func(m *sdk.Manifest) { m.PagePathPrefixes = []string{"/p/"} },
+		"entity_schema": func(m *sdk.Manifest) {
+			m.Permissions = append(m.Permissions, sdk.PermEntitiesWriteOwn)
+			m.EntitySchema = "page"
+		},
+	} {
+		st := r.rt.Load(context.Background(), capaManifest(mutate), plugintest.Build(t, "capa"))
+		if st.Loaded || !strings.Contains(st.Error, want) {
+			t.Errorf("%s: loaded=%v error=%q", want, st.Loaded, st.Error)
 		}
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"hatamoto.dev/core/internal/adminpath"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/sdk"
 )
 
@@ -78,6 +79,33 @@ func PagePathsRefusal(m sdk.Manifest) error {
 		if why := adminpath.RedirectPathRefusal(p); why != "" {
 			return fmt.Errorf("plugin %q cannot declare page path %q: %s", m.Name, p, why)
 		}
+	}
+	return nil
+}
+
+// PagePathPrefixesRefusal is nil when no page_path_prefixes entry covers a path
+// core serves: "/" covers all of them, and any other prefix is refused when its
+// first segment is core's (the redirect_paths list). Load and install both report it.
+func PagePathPrefixesRefusal(m sdk.Manifest) error {
+	for _, p := range m.PagePathPrefixes {
+		if p == "/" {
+			return fmt.Errorf("plugin %q cannot declare page path prefix %q: it covers every path core serves", m.Name, p)
+		}
+		if why := adminpath.RedirectPathRefusal(p); why != "" {
+			return fmt.Errorf("plugin %q cannot declare page path prefix %q: %s", m.Name, p, why)
+		}
+	}
+	return nil
+}
+
+// builtinSchemas are core's own entity types; no plugin may own one.
+var builtinSchemas = []string{"page", "post", entity.PersonSchemaSlug, entity.BlockSchemaSlug}
+
+// EntitySchemaRefusal is nil unless entity_schema names a built-in entity type.
+// Load and install both report it.
+func EntitySchemaRefusal(m sdk.Manifest) error {
+	if slices.Contains(builtinSchemas, m.EntitySchema) {
+		return fmt.Errorf("plugin %q cannot declare entity_schema %q: it is a built-in content type", m.Name, m.EntitySchema)
 	}
 	return nil
 }
