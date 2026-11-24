@@ -12,6 +12,7 @@ import (
 
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/commentfmt"
+	"hatamoto.dev/core/internal/pluginhost"
 )
 
 // The plugin read API must see published entities of every public locale of a
@@ -71,15 +72,15 @@ func TestPluginCommentReaderLocales_Integration(t *testing.T) {
 
 	r := pluginCommentReader{s}
 	for name, id := range map[string]uuid.UUID{"en": en, "nl": nl, "und": und} {
-		th, err := r.Thread(ctx, id, 1)
+		th, err := r.Thread(ctx, id, 1, pluginhost.ThreadOpts{})
 		if err != nil || len(th.Items) != 1 {
 			t.Errorf("Thread(%s) = %d items, %v; want 1", name, len(th.Items), err)
 		}
 	}
-	if th, err := r.Thread(ctx, draft, 1); err != nil || len(th.Items) != 0 {
+	if th, err := r.Thread(ctx, draft, 1, pluginhost.ThreadOpts{}); err != nil || len(th.Items) != 0 {
 		t.Errorf("Thread(draft) = %d items, %v; want 0", len(th.Items), err)
 	}
-	if th, err := r.Thread(ctx, hidden, 1); err != nil || len(th.Items) != 0 {
+	if th, err := r.Thread(ctx, hidden, 1, pluginhost.ThreadOpts{}); err != nil || len(th.Items) != 0 {
 		t.Errorf("Thread(hidden locale) = %d items, %v; want 0", len(th.Items), err)
 	}
 	counts, err := r.Counts(ctx, []uuid.UUID{en, nl, und, draft, hidden})

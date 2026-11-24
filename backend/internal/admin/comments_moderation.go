@@ -22,6 +22,7 @@ const (
 	modStatusApproved = "approved"
 	modStatusSpam     = "spam"
 	modStatusTrash    = "trash"
+	modStatusDead     = "dead"
 	modPerPage        = 50
 	modOptionLimit    = 50
 	modMaxQuery       = 200
@@ -30,6 +31,7 @@ const (
 
 var modStatusTabs = []struct{ Value, Label string }{
 	{modStatusPending, "Pending"}, {modStatusApproved, "Approved"}, {modStatusSpam, "Spam"}, {modStatusTrash, "Trash"},
+	{modStatusDead, "Dead"},
 }
 
 var modTrustOptions = []ui.Option{
@@ -230,6 +232,8 @@ func modCount(c CommentCounts, status string) int {
 		return c.Spam
 	case modStatusTrash:
 		return c.Trash
+	case modStatusDead:
+		return c.Dead
 	}
 	return c.Pending
 }
@@ -248,6 +252,12 @@ func (a *Admin) modRow(c CommentRow, tab, back string) ui.Row {
 	who := ui.Cell{Text: name, Notes: []string{modExcerpt(c.BodyRaw)}}
 	if why := heldWhy(c); why != "" {
 		who.Notes = append(who.Notes, why)
+	}
+	if tab == modStatusDead {
+		who.Tag = &ui.Badge{Label: "Dead", Kind: "muted"}
+		if c.DeadBy != "" {
+			who.Notes = append(who.Notes, "Marked dead by plugin "+c.DeadBy+".")
+		}
 	}
 	trust := ui.Cell{}
 	if c.AuthorUserID != "" {
@@ -283,6 +293,12 @@ func (a *Admin) modRow(c CommentRow, tab, back string) ui.Row {
 	case modStatusTrash:
 		approve.Label = "Restore"
 		actions = []ui.Action{approve, spam}
+	case modStatusDead:
+		approve.Label = "Restore"
+		// Delete posts to the bulk handler, which asks on its confirm page first.
+		del := ui.Action{Label: "Delete", Post: a.adminPath + "/comments/bulk", Danger: true,
+			Fields: map[string]string{"back": back, "action": "delete", "id": c.ID}}
+		actions = []ui.Action{approve, trash, del}
 	}
 	return ui.Row{ID: c.ID, Label: "comment by " + name, Cells: []ui.Cell{who, trust, on, when}, Actions: actions}
 }
@@ -554,6 +570,8 @@ func modBulkActions(adminPath, tab string) []ui.BulkAction {
 	case modStatusSpam:
 		out = append(out, ui.BulkAction{Label: "Not spam", Action: target, Value: "approve"})
 	case modStatusTrash:
+		out = append(out, ui.BulkAction{Label: "Restore", Action: target, Value: "approve"})
+	case modStatusDead:
 		out = append(out, ui.BulkAction{Label: "Restore", Action: target, Value: "approve"})
 	}
 	if tab != modStatusSpam {

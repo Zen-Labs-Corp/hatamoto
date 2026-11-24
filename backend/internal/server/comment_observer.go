@@ -17,6 +17,8 @@ type commentCacheObserver struct {
 	drop   func(ctx context.Context, entityID uuid.UUID) // InvalidateRenderedEntity + preload; logs its error
 	all    func(ctx context.Context)                     // global drop, for a settings change
 	forget func(commenterID uuid.UUID)                   // the commenter's cached "has own items" answer
+	// coalesce rate-limits batch drops (rank, dead, restore); nil drops at once.
+	coalesce *dropCoalescer
 }
 
 func (o commentCacheObserver) changed(ctx context.Context, c comment.Comment) {
@@ -33,24 +35,50 @@ func (o commentCacheObserver) OnApproved(ctx context.Context, c comment.Comment)
 // not carry the old status, but approved_at is kept when an approved comment is
 // moved away, and never set for one that was not public. Dropping for spam that
 // never showed would let a bot drive static exports.
+//
+// Inside a batch (purge, entity cascade) nothing is dropped: purge removes only
+// spam and trash, and a cascade runs after the entity itself was dropped.
 func (o commentCacheObserver) OnSpam(ctx context.Context, c comment.Comment) {
-	if c.ApprovedAt != nil {
+	if c.ApprovedAt != nil && !comment.InBatch(ctx) {
 		o.changed(ctx, c)
 	}
 }
 
 func (o commentCacheObserver) OnDeleted(ctx context.Context, c comment.Comment) {
-	if c.ApprovedAt != nil {
+	if c.ApprovedAt != nil && !comment.InBatch(ctx) {
 		o.changed(ctx, c)
 	}
 }
 
-// OnUpdated drops when the comment was or is public: an edit of an approved
-// comment, or an unapproval. OnCreated and OnConfirmed do nothing: an approved
-// one also arrives as OnApproved.
+// OnUpdated drops when the comment was or is shown (approved, or dead as a
+// placeholder): an edit of an approved comment, an unapproval, a move to or
+// from dead. OnCreated and OnConfirmed do nothing: an approved one also arrives
+// as OnApproved. Inside a batch the drop waits for OnBatch (one per entity).
 func (o commentCacheObserver) OnUpdated(ctx context.Context, before, after comment.Comment) {
-	if before.Status == comment.StatusApproved || after.Status == comment.StatusApproved {
-		o.changed(ctx, after)
+	if !shown(before) && !shown(after) {
+		return
+	}
+	if comment.InBatch(ctx) {
+		if after.CommenterID != nil && o.forget != nil {
+			o.forget(*after.CommenterID)
+		}
+		return
+	}
+	o.changed(ctx, after)
+}
+
+func shown(c comment.Comment) bool {
+	return c.Status == comment.StatusApproved || c.Status == comment.StatusDead
+}
+
+// OnBatch drops each touched entity's pages once, through the coalescer.
+func (o commentCacheObserver) OnBatch(ctx context.Context, entityIDs []uuid.UUID) {
+	for _, id := range entityIDs {
+		if o.coalesce != nil {
+			o.coalesce.Drop(ctx, id)
+		} else {
+			o.drop(ctx, id)
+		}
 	}
 }
 

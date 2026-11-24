@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Seed comments for the moderation screens: 3 commenters (new, known, blocked) and 8 comments on two
-# "QA Post" entities: pending (held for a link, held by surge mode), approved, spam, trash and one
+# "QA Post" entities: pending (held for a link, held by surge mode), approved, spam, trash, one dead (marked by the "example" plugin) and one
 # approved reply written by the site owner. Comments stay switched off: the settings row, the block
 # lists and the hashed ip columns are left alone. No draft rows (the hourly purge job deletes them).
 # Idempotent: fixed ids and ON CONFLICT DO NOTHING; the per-entity counts are recomputed at the end.
@@ -42,21 +42,24 @@ INSERT INTO qc (n, id, entity_id, parent_id, status, commenter_id, author_name, 
   (7, 'd0000000-0000-4000-8000-000000000007', (SELECT id FROM hatamoto_entities WHERE name = 'QA Post 2' ORDER BY id LIMIT 1), NULL, 'pending',
      'c0000000-0000-4000-8000-000000000001', 'Ada Pending', 'See https://example.test/more for details.', true, 'hold', '["contains a link","new commenter"]', false, interval '30 minutes'),
   (8, 'd0000000-0000-4000-8000-000000000008', (SELECT id FROM hatamoto_entities WHERE name = 'QA Post 1' ORDER BY id LIMIT 1), 'd0000000-0000-4000-8000-000000000003', 'approved',
-     NULL, 'Site', 'Glad it helped.', false, 'allow', '[]', true, interval '2 days');
+     NULL, 'Site', 'Glad it helped.', false, 'allow', '[]', true, interval '2 days'),
+  (9, 'd0000000-0000-4000-8000-000000000009', (SELECT id FROM hatamoto_entities WHERE name = 'QA Post 2' ORDER BY id LIMIT 1), NULL, 'dead',
+     'c0000000-0000-4000-8000-000000000002', 'spammer99', 'Marked dead by a plugin.', false, 'allow', '[]', false, interval '6 days');
 -- Replies point at a root: its path is that root's one segment (the root may be in this run or already stored).
 -- Skip rows already seeded and rows whose post is missing; take one sequence value per row.
 DELETE FROM qc WHERE entity_id IS NULL OR id IN (SELECT id FROM hatamoto_comments);
 UPDATE qc SET seq = nextval('hatamoto_comments_seq');
 
 INSERT INTO hatamoto_comments (id, seq, entity_id, parent_id, path, depth, status, body_raw, body_html, has_links, link_domains, body_hash,
-                               commenter_id, author_name, author_user_id, spam_verdict, spam_reasons, created_at, updated_at, confirmed_at, approved_at, approved_by)
+                               commenter_id, author_name, author_user_id, spam_verdict, spam_reasons, created_at, updated_at, confirmed_at, approved_at, approved_by, dead_by)
 SELECT q.id, q.seq, q.entity_id, q.parent_id,
        CASE WHEN q.parent_id IS NULL THEN '' ELSE lpad(to_hex(coalesce(pq.seq, p.seq)), 12, '0') || '.' END || lpad(to_hex(q.seq), 12, '0'),
        CASE WHEN q.parent_id IS NULL THEN 1 ELSE 2 END, q.status, q.body, '<p>' || replace(replace(replace(q.body, '&', '&amp;'), '<', '&lt;'), '>', '&gt;') || '</p>',
        q.links, CASE WHEN q.links THEN '{example.test}'::text[] ELSE '{}'::text[] END, '',
        q.commenter_id, q.author_name, CASE WHEN q.site THEN u.id END, q.verdict, q.reasons::jsonb,
        now() - q.age, now() - q.age, now() - q.age,
-       CASE WHEN q.status = 'approved' THEN now() - q.age END, CASE WHEN q.status = 'approved' AND q.site THEN u.id END
+       CASE WHEN q.status = 'approved' THEN now() - q.age END, CASE WHEN q.status = 'approved' AND q.site THEN u.id END,
+       CASE WHEN q.status = 'dead' THEN 'example' END
   FROM qc q
   LEFT JOIN qc pq ON pq.id = q.parent_id
   LEFT JOIN hatamoto_comments p ON p.id = q.parent_id
@@ -71,4 +74,4 @@ SELECT entity_id, count(*) FILTER (WHERE status = 'approved'), count(*) FILTER (
 ON CONFLICT (entity_id) DO UPDATE SET comment_count = EXCLUDED.comment_count, pending_count = EXCLUDED.pending_count, updated_at = now();
 COMMIT;
 SQL
-echo "comments-seed: 3 commenters and 8 comments (pending, approved, spam, trash, a site reply) on QA Post 1 and 2; comments stay off"
+echo "comments-seed: 3 commenters and 9 comments (pending, approved, spam, trash, dead, a site reply) on QA Post 1 and 2; comments stay off"

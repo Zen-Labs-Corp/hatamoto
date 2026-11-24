@@ -327,3 +327,22 @@ func TestImporterLocksAttachBeforeCounts(t *testing.T) {
 		t.Errorf("reply attached to %v, want %v", parent, attach)
 	}
 }
+
+// A dead row was once approved, so it carries approved_at like an approved one.
+func TestImporterDeadRowHasApprovedAt(t *testing.T) {
+	f := newFixture(t)
+	at := time.Now().UTC().AddDate(-1, 0, 0).Truncate(time.Microsecond)
+	batch := []ImportedComment{
+		importRow(f, "1", "", "dead@example.test", StatusDead, at),
+		importRow(f, "2", "", "dead@example.test", StatusPending, at.Add(time.Hour)),
+	}
+	if _, err := f.importer().Import(f.ctx, batch); err != nil {
+		t.Fatal(err)
+	}
+	var dead, pending bool
+	f.scalar(&dead, `SELECT approved_at = $2 FROM hatamoto_comments WHERE entity_id = $1 AND status = 'dead'`, f.entity, at)
+	f.scalar(&pending, `SELECT approved_at IS NULL FROM hatamoto_comments WHERE entity_id = $1 AND status = 'pending'`, f.entity)
+	if !dead || !pending {
+		t.Fatalf("dead approved_at = created: %v, pending approved_at null: %v", dead, pending)
+	}
+}

@@ -90,7 +90,8 @@ func (s *Server) serveOwnComment(w http.ResponseWriter, r *http.Request, ed comm
 		return
 	}
 	if c.CommenterID == nil || *c.CommenterID != commenter ||
-		now.Sub(c.CreatedAt) >= cfg.Policy.EditWindow() || c.Status == comment.StatusTrash {
+		now.Sub(c.CreatedAt) >= cfg.Policy.EditWindow() || c.Status == comment.StatusTrash ||
+		(c.Status == comment.StatusDead && !del) { // an own dead comment can be deleted, not edited
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}

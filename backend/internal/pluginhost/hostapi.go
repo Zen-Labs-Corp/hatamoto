@@ -80,6 +80,10 @@ type Services struct {
 	Forms     *form.Service
 	// Comments serves comments.thread/counts (approved comments only); nil = unavailable.
 	Comments CommentReader
+	// CommentModerator serves the comments.moderate functions; nil = unavailable.
+	CommentModerator CommentModerator
+	// Audit records a plugin's successful write on the owner-visible audit log; nil = not recorded.
+	Audit    func(ctx context.Context, action, target string, detail map[string]any)
 	Mail     Mailer
 	Settings *SettingsStore
 	DB       *PluginDB
@@ -140,7 +144,7 @@ type API struct {
 
 type pluginLimits struct {
 	log, mail, fetch *rate.Limiter
-	writes           *rate.Limiter // entities.create/update/delete, shared by the three
+	writes           *rate.Limiter // entities.* and comments.* writes, one budget
 
 	// Guarded by API.mu.
 	quota int   // mail.send recipients per hour the mail limiter was built for
@@ -267,6 +271,8 @@ func (a *API) toHostError(plugin string, err error) *sdk.HostError {
 		return herr(sdk.ErrUnavailable, "%s", err.Error())
 	case errors.Is(err, changeset.ErrNotOwned):
 		return herr(sdk.ErrNotOwned, "object belongs to the owner")
+	case errors.Is(err, ErrCommentNotOwned):
+		return herr(sdk.ErrNotOwned, "comment is not on the plugin's content type")
 	case errors.Is(err, changeset.ErrNotStaged), errors.Is(err, changeset.ErrExpired):
 		return herr(sdk.ErrUnavailable, "%s", err.Error())
 	case errors.Is(err, changeset.ErrSingleton), errors.Is(err, changeset.ErrInvalidItem), errors.Is(err, changeset.ErrUnknownKind),
@@ -445,10 +451,10 @@ var hostFns = map[string]hostFn{
 	sdk.FnEntitiesCreate:    {perm: sdk.PermEntitiesWriteOwn, run: fnEntitiesCreate},
 	sdk.FnEntitiesUpdate:    {perm: sdk.PermEntitiesWriteOwn, run: fnEntitiesUpdate},
 	sdk.FnEntitiesDelete:    {perm: sdk.PermEntitiesWriteOwn, run: fnEntitiesDelete},
-	sdk.FnCommentsMarkDead:  {perm: sdk.PermCommentsModerate, run: contractStub(sdk.FnCommentsMarkDead)},
-	sdk.FnCommentsRestore:   {perm: sdk.PermCommentsModerate, run: contractStub(sdk.FnCommentsRestore)},
-	sdk.FnCommentsSetRank:   {perm: sdk.PermCommentsModerate, run: contractStub(sdk.FnCommentsSetRank)},
-	sdk.FnCommentsSetViewer: {perm: sdk.PermCommentsModerate, run: contractStub(sdk.FnCommentsSetViewer)},
+	sdk.FnCommentsMarkDead:  {perm: sdk.PermCommentsModerate, run: fnCommentsMarkDead},
+	sdk.FnCommentsRestore:   {perm: sdk.PermCommentsModerate, run: fnCommentsRestore},
+	sdk.FnCommentsSetRank:   {perm: sdk.PermCommentsModerate, run: fnCommentsSetRank},
+	sdk.FnCommentsSetViewer: {perm: sdk.PermCommentsModerate, run: fnCommentsSetViewer},
 	sdk.FnCommentsByAuthor:  {perm: sdk.PermCommentsRead, run: contractStub(sdk.FnCommentsByAuthor)},
 	sdk.FnCommentsSubtree:   {perm: sdk.PermCommentsRead, run: contractStub(sdk.FnCommentsSubtree)},
 }

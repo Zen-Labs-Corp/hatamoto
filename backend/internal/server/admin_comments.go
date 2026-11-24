@@ -169,6 +169,7 @@ func (a commentsAdmin) Counts(ctx context.Context) (admin.CommentCounts, error) 
 		Approved: m[comment.StatusApproved],
 		Spam:     m[comment.StatusSpam],
 		Trash:    m[comment.StatusTrash],
+		Dead:     m[comment.StatusDead],
 	}, nil
 }
 
@@ -184,6 +185,7 @@ func toRow(it comment.QueueItem) admin.CommentRow {
 		BodyRaw:       c.BodyRaw,
 		AuthorName:    c.AuthorName,
 		Trust:         string(it.Trust),
+		DeadBy:        c.DeadBy,
 		ApprovedCount: it.ApprovedCount,
 		HasLinks:      c.HasLinks,
 		Score:         c.SpamScore,

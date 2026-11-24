@@ -11,6 +11,8 @@
 .hm-comment__badge { font-size: 0.75rem; padding: 0.1rem 0.4rem; border: 1px solid var(--ht-line); border-radius: var(--hm-radius-sm); }
 .hm-comment__body > :first-child { margin-top: 0; }
 .hm-comment__body > :last-child { margin-bottom: 0; }
+.hm-comment__dead { color: var(--ht-fg-muted); margin: 0; }
+.hm-comment--dead > .hm-comment__body { opacity: 0.6; }
 .hm-comment__actions { margin: 0.5rem 0 0; font-size: 0.875rem; }
 .hm-comment__edit { margin-top: 0.5rem; }
 .hm-comment__edit textarea { width: 100%; font: inherit; color: inherit; background: var(--hm-bg); border: 1px solid var(--ht-line); border-radius: var(--hm-radius-md); padding: 0.5rem 0.75rem; }

@@ -17,11 +17,15 @@ Comments cannot be turned on until the site address is set (Settings > General, 
 
 Owners and editors moderate every comment. Every comment with a link and every first comment waits in the queue.
 
-The Comments screen in the sidebar lists comments in four tabs: Pending, Approved, Spam and Trash. Search by text and filter by entry, commenter trust or "has links". A held comment shows why it was held, for example a link or a first comment. The sidebar item shows the number of comments waiting, and shows once comments are on or any comment exists.
+The Comments screen in the sidebar lists comments in five tabs: Pending, Approved, Spam, Trash and Dead. Search by text and filter by entry, commenter trust or "has links". A held comment shows why it was held, for example a link or a first comment. The sidebar item shows the number of comments waiting, and shows once comments are on or any comment exists.
 
 Each row can be approved, replied to as the site, edited, marked as spam or trashed. Approving a comment from a new commenter can also vouch for them, which raises their trust level. Marking spam can teach the site to catch the same text, address or links again. Select several rows to approve, mark as spam, trash or delete them together; deleting removes a comment and its replies for good and asks first.
 
-Under Settings > Comments there are two more pages. Commenters lists the people who commented: search them, vouch for or block one, export what is stored about them, sign them out everywhere or erase them. Sign out all devices ends the commenter's sign-in on every device; the trust level stays. Erasing has one behaviour: comments without replies are deleted and the others are made anonymous. Webhooks and plugins hear of the deleted ones (`comment.deleted`), not of the anonymised ones. Blocklists holds the email and link domains that mark a comment as spam, which owners and editors can edit, and the spam texts, addresses and networks learned from Mark as spam, which can only be cleared.
+Under Settings > Comments there are two more pages. Commenters lists the people who commented: search them, vouch for or block one, export what is stored about them, sign them out everywhere or erase them. Sign out all devices ends the commenter's sign-in on every device; the trust level stays. Erasing has one behaviour: comments without replies are deleted and the others are made anonymous. Webhooks and plugins hear of the deleted ones that were once approved (`comment.deleted`). Plugins also hear of the anonymised ones as `comment.updated` (empty author name, body `[deleted]`); webhooks hear nothing of them. Blocklists holds the email and link domains that mark a comment as spam, which owners and editors can edit, and the spam texts, addresses and networks learned from Mark as spam, which can only be cleared.
+
+**Dead comments.** A plugin that created a content type can mark comments on it dead (and restore them). A dead comment is kept for good: the retention job never purges it, its replies stay under it, and it is left out of every comment count. Visitors see a placeholder ("[dead]" in the default theme) instead of the name and text. The author still reads their own comment, and so does a visitor the same plugin flagged to show dead comments; a page read that way is never cached for others. Dead comments cannot be edited, and no reply notification is sent for them. The Dead tab lists them with the plugin that marked them; each row can be restored (it becomes approved), marked as spam, trashed or deleted, and the bulk bar offers the same. Staff mark nothing dead themselves.
+
+**Order.** Besides newest and oldest first, a content type can order comments by rank: higher rank first, then newest, at every level (top-level comments and the replies under each comment). A plugin that owns the type sets the ranks; the site-wide setting is not changed by it. A reply nobody ranked has rank 0, so ranked replies come first and the rest follow newest first.
 
 The Overview shows a Comments card with the newest waiting comments and a link to the queue; it is left out while comments are off and nothing is waiting.
 
@@ -33,7 +37,7 @@ On a type with the policy on, comments with links and first comments from new co
 
 The policy also sets three numbers that replace the site values for that type only: reply depth (1 to 32, default 10), the edit window in minutes (1 to 1440, default 15) and slow mode in seconds (0 turns it off). Other types keep the site settings. A long edit window has a cost: a commenter's own page views are not served from the page cache for that whole window, so a 24 hour window on a busy type means many uncached page views. Built-in types cannot use the policy yet.
 
-Each type can also choose its own thread order: Site default, Newest first or Oldest first. "By rank" is offered only while a plugin that holds `comments.moderate` for the type is installed (or when rank is already stored); the plugin applies the rank.
+Each type can also choose its own thread order: Site default, Newest first or Oldest first. "By rank" is offered only while a plugin that holds `comments.moderate` for the type is installed (or when rank is already stored); core orders the comments by the ranks the plugin stores.
 
 ## Notifications
 
@@ -87,7 +91,7 @@ No raw IP address is stored, only keyed hashes (`ip_hash` and `net_hash`), which
 
 ## Plugins
 
-Plugins can add to a comment's spam score through a hook that never sees the IP address or the email. Not written yet.
+Plugins that hold `comments.moderate` can mark comments dead, restore them and rank them on their own content type, and hear of changes through `comment.updated` and `comment.deleted` (see the plugin API). Plugins can add to a comment's spam score through a hook that never sees the IP address or the email. Not written yet.
 
 ## For developers
 
@@ -126,7 +130,7 @@ The JSON keys in `hatamoto_comment_settings.settings`, with their defaults:
 | `purge_days` | 30 |
 | `notify_mode` | `per_comment` (or `digest`, `off`) |
 
-The default mode for a content type is `entity_schemas.settings.comments.mode`; a page overrides it with its own `mode`. The same `settings.comments` object holds `order` (`newest`, `oldest` or `rank`; a plugin applies `rank`) and `policy` (`enabled`, `max_depth`, `edit_window_minutes`, `slow_mode_seconds`). A bad stored value reads as off or the field default, never as an error, and no migration is involved. `comment.MergeSchemaComments` is the write helper: it rewrites `order` and `policy` and keeps every other key. `Service.EntityConfig` returns the mode, order and policy of an entity in one query; `EntityMode` wraps it. With the policy off, every number is the site value or the fixed one below. Four numbers are fixed in code, not settings: `EditWindow` (15 minutes, unless the type's policy sets another), `DraftTTL` (24 hours), the 90-day spam quiet period a trusted commenter needs and the 15-minute reply-mail window.
+The default mode for a content type is `entity_schemas.settings.comments.mode`; a page overrides it with its own `mode`. The same `settings.comments` object holds `order` (`newest`, `oldest` or `rank`; core sorts by the stored rank, which a plugin writes) and `policy` (`enabled`, `max_depth`, `edit_window_minutes`, `slow_mode_seconds`). A bad stored value reads as off or the field default, never as an error, and no migration is involved. `comment.MergeSchemaComments` is the write helper: it rewrites `order` and `policy` and keeps every other key. `Service.EntityConfig` returns the mode, order and policy of an entity in one query; `EntityMode` wraps it; the config also names the plugin that owns the type. With the policy off, every number is the site value or the fixed one below. Four numbers are fixed in code, not settings: `EditWindow` (15 minutes, unless the type's policy sets another), `DraftTTL` (24 hours), the 90-day spam quiet period a trusted commenter needs and the 15-minute reply-mail window.
 
 ### internal/comment
 

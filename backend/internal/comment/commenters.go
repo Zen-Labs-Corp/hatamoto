@@ -169,7 +169,7 @@ const deletedBody = "[deleted]"
 // EraseByEmail erases one address: comments nobody replied to are deleted, those
 // with replies are anonymised (no name, body replaced, hashes and agent cleared)
 // so the thread keeps its shape, and the commenter row is deleted. Entity counts
-// are recomputed, OnDeleted fires for each deleted comment and OnUpdated for each
+// are recomputed, OnDeleted fires for each deleted comment that was ever announced (pending included) and OnUpdated for each
 // anonymised one (same status, new content). Unknown: ErrNotFound.
 func (s *Service) EraseByEmail(ctx context.Context, email string) (EraseResult, error) {
 	h := s.keys.HashEmail(email)
@@ -258,9 +258,7 @@ func (s *Service) EraseByEmail(ctx context.Context, email string) (EraseResult, 
 	if err != nil {
 		return EraseResult{}, err
 	}
-	for _, c := range deleted {
-		s.obs.each("deleted", func(o Observer) { o.OnDeleted(ctx, c) })
-	}
+	s.announceErased(ctx, deleted)
 	for _, c := range anonymised {
 		// Status is unchanged; before == after tells the cache the content changed.
 		s.obs.each("updated", func(o Observer) { o.OnUpdated(ctx, c, c) })

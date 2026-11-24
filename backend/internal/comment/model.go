@@ -20,6 +20,9 @@ const (
 	StatusApproved Status = "approved"
 	StatusSpam     Status = "spam"
 	StatusTrash    Status = "trash"
+	// StatusDead is a comment a plugin marked dead: public as a placeholder,
+	// never counted, never purged.
+	StatusDead Status = "dead"
 )
 
 // TrustLevel is how far a commenter is trusted.
@@ -238,7 +241,9 @@ type Comment struct {
 	EditedAt             *time.Time
 	ApprovedBy           *uuid.UUID
 	Locale               string
-	NotifyReplies        bool // the commenter asked for reply mail; effective only with ConfirmedAt set
+	NotifyReplies        bool    // the commenter asked for reply mail; effective only with ConfirmedAt set
+	Rank                 float64 // stored order key, higher first; plugin-written
+	DeadBy               string  // plugin that marked the comment dead, "" otherwise
 }
 
 // Commenter is a visitor identified by a hashed email address.
@@ -302,6 +307,8 @@ type ThreadComment struct {
 	BodyHTML     string
 	CreatedAt    time.Time
 	EditedAt     *time.Time
+	Status       Status
+	Rank         float64
 }
 
 // ThreadPage is one page of a thread in render order.
@@ -323,9 +330,10 @@ func CanTransition(from, to Status) bool {
 	allowed := map[Status][]Status{
 		StatusDraft:    {StatusPending, StatusApproved, StatusSpam, StatusTrash},
 		StatusPending:  {StatusApproved, StatusSpam, StatusTrash},
-		StatusApproved: {StatusPending, StatusSpam, StatusTrash},
+		StatusApproved: {StatusPending, StatusSpam, StatusTrash, StatusDead},
 		StatusSpam:     {StatusPending, StatusApproved, StatusTrash},
 		StatusTrash:    {StatusPending, StatusApproved, StatusSpam},
+		StatusDead:     {StatusApproved, StatusSpam, StatusTrash},
 	}
 	for _, t := range allowed[from] {
 		if t == to {

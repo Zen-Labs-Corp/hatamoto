@@ -31,6 +31,7 @@ type fakeCommentReader struct {
 	approved  int
 	own       []comment.ThreadComment
 	editable  []comment.ThreadComment
+	owner     string // EntityConfig.OwnerPlugin
 
 	threadCalls, countCalls, ownCalls int
 	gotPage                           int
@@ -38,7 +39,7 @@ type fakeCommentReader struct {
 
 func (f *fakeCommentReader) Settings(context.Context) (comment.Settings, error) { return f.set, nil }
 func (f *fakeCommentReader) EntityConfig(context.Context, uuid.UUID) (comment.EntityConfig, error) {
-	return comment.EntityConfig{Mode: f.mode, Order: f.order, Policy: f.policy}, f.modeErr
+	return comment.EntityConfig{Mode: f.mode, Order: f.order, Policy: f.policy, OwnerPlugin: f.owner}, f.modeErr
 }
 func (f *fakeCommentReader) Thread(_ context.Context, _ uuid.UUID, page int) (comment.ThreadPage, error) {
 	f.threadCalls++
@@ -408,5 +409,81 @@ func TestCommentViewFollowsTypePolicy(t *testing.T) {
 	f.fake.policy.EditWindowMinutes = 30
 	if r := f.run("/post", cookie).Comments.Items[0]; r.Editable {
 		t.Fatal("editable after the type's 30 minute window")
+	}
+}
+
+func deadFixture() (*viewFixture, comment.ThreadComment) {
+	f := newViewFixture()
+	f.root.Status = comment.StatusDead
+	f.fake.owner = "example"
+	f.fake.thread.Comments = []comment.ThreadComment{f.root, f.reply, f.deep}
+	return f, f.root
+}
+
+func withDevice(f *viewFixture, cid uuid.UUID) func(*http.Request) {
+	f.cv.device = func(context.Context, string) (uuid.UUID, bool) { return cid, true }
+	return func(r *http.Request) { r.AddCookie(&http.Cookie{Name: identity.CookieName, Value: "good"}) }
+}
+
+func TestCommentViewDeadPlaceholderForAnonymous(t *testing.T) {
+	f, dead := deadFixture()
+	f.cv.showDead = func(context.Context, string, uuid.UUID) bool { return true } // never asked without a viewer
+	v := f.run("/post")
+	root := v.Comments.Items[0]
+	if !root.Dead || root.Author != "" || root.Body != "" || root.IsSiteAuthor || root.ReplyURL != "" {
+		t.Fatalf("dead item leaks or is repliable: %+v", root)
+	}
+	if root.ID != dead.ID.String() || len(root.Replies) != 1 || root.Replies[0].Author != "reply" {
+		t.Fatalf("the reply of a dead comment must stay nested: %+v", root)
+	}
+	if *v.Uncacheable {
+		t.Fatal("the anonymous placeholder is the shared, cacheable page")
+	}
+	if strings.Contains(string(v.Comments.Items[0].Body), dead.BodyHTML) {
+		t.Fatal("dead body in the anonymous render")
+	}
+}
+
+func TestCommentViewDeadRevealIsUncacheable(t *testing.T) {
+	f, _ := deadFixture()
+	cid := uuid.New()
+	var asked string
+	f.cv.showDead = func(_ context.Context, plugin string, got uuid.UUID) bool {
+		asked = plugin
+		return got == cid
+	}
+	v := f.run("/post", withDevice(f, cid))
+	root := v.Comments.Items[0]
+	if !root.Dead || root.Author != "root" || root.Body != "<p>root</p>" || asked != "example" {
+		t.Fatalf("reveal: %+v asked %q", root, asked)
+	}
+	if !*v.Uncacheable {
+		t.Fatal("a reveal render must not enter the shared cache")
+	}
+	f.fake.owner = "" // a content type nobody owns has no reveal
+	if v = f.run("/post", withDevice(f, cid)); v.Comments.Items[0].Body != "" {
+		t.Fatal("reveal without an owner plugin")
+	}
+}
+
+func TestCommentViewDeadOwnBodyShownOnce(t *testing.T) {
+	f, dead := deadFixture()
+	cid := uuid.New()
+	f.fake.own = []comment.ThreadComment{dead}
+	v := f.run("/post", withDevice(f, cid))
+	if len(v.Comments.Items) != 2 {
+		t.Fatalf("own dead comment duplicated: %d roots", len(v.Comments.Items))
+	}
+	var mine *render.CommentItem
+	for i := range v.Comments.Items {
+		if v.Comments.Items[i].ID == dead.ID.String() {
+			mine = &v.Comments.Items[i]
+		}
+	}
+	if mine == nil || !mine.Own || !mine.Dead || mine.Body != "<p>root</p>" || mine.Editable || len(mine.Replies) != 1 {
+		t.Fatalf("own dead item = %+v", mine)
+	}
+	if !*v.Uncacheable {
+		t.Fatal("own dead view must be private")
 	}
 }

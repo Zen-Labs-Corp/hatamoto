@@ -225,8 +225,10 @@ func pluginMayUpdate(cur *entitySnapshot, want EntityStatus) error {
 func (s *Service) PluginDelete(ctx context.Context, plugin, schema string, id uuid.UUID) (*Entity, error) {
 	var sc *EntitySchema
 	var pre *Entity
+	var announce func(context.Context) // local: never the shared pending map
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
 		var err error
+		announce = nil
 		if sc, err = ownedSchemaTx(ctx, tx, schema, plugin); err != nil {
 			return err
 		}
@@ -238,7 +240,7 @@ func (s *Service) PluginDelete(ctx context.Context, plugin, schema string, id uu
 			return ErrPluginEntryClosed
 		}
 		pre = cur.entity(sc)
-		if _, err = deleteTx(ctx, tx, cur); err != nil {
+		if _, announce, err = s.deleteEntityTx(ctx, tx, cur); err != nil {
 			return err
 		}
 		return s.auditTx(ctx, tx, plugin, auditPluginDelete, id, map[string]any{"schema": schema, "name": pre.Name})
@@ -248,6 +250,9 @@ func (s *Service) PluginDelete(ctx context.Context, plugin, schema string, id uu
 	}
 	ctx, cancel := afterCommit(ctx)
 	defer cancel()
+	if announce != nil {
+		announce(ctx)
+	}
 	s.emit(ctx, EventDeleted, pre, sc.Slug, func(ev *Event) { ev.Entity = pre })
 	return pre, nil
 }

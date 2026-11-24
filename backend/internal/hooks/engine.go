@@ -53,6 +53,16 @@ type Engine struct {
 	lifeCtx context.Context
 
 	wg sync.WaitGroup
+
+	qmu      sync.Mutex
+	queue    []queuedFire
+	draining bool
+}
+
+type queuedFire struct {
+	caller  context.Context
+	name    string
+	payload any
 }
 
 // Registrar is the untyped hook registration surface. Lower priority runs
@@ -190,7 +200,6 @@ func (e *Engine) Fire(caller context.Context, name string, payload any) {
 	e.mu.RLock()
 	list := append([]actionEntry(nil), e.actions[name]...)
 	parent := e.lifeCtx
-	timeout := e.timeout
 	e.mu.RUnlock()
 	if parent == nil {
 		parent = context.Background()
@@ -199,21 +208,75 @@ func (e *Engine) Fire(caller context.Context, name string, payload any) {
 		parent = valuesOf{Context: parent, vals: caller}
 	}
 	for _, ent := range list {
-		e.wg.Go(func() {
-			defer func() {
-				if r := recover(); r != nil {
-					e.log.Error("hooks: action panicked",
-						slog.String("plugin", ent.plugin), slog.String("hook", name), slog.Any("panic", r))
-				}
-			}()
-			ctx, cancel := context.WithTimeout(parent, timeout)
-			defer cancel()
-			ent.fn(ctx, payload)
-			if ctx.Err() == context.DeadlineExceeded {
-				e.log.Warn("hooks: action exceeded timeout",
-					slog.String("plugin", ent.plugin), slog.String("hook", name), slog.Duration("timeout", timeout))
-			}
-		})
+		e.wg.Go(func() { e.call(parent, ent, name, payload) })
+	}
+}
+
+// call runs one action under the action timeout; a panic is logged, not raised.
+func (e *Engine) call(parent context.Context, ent actionEntry, name string, payload any) {
+	defer func() {
+		if r := recover(); r != nil {
+			e.log.Error("hooks: action panicked",
+				slog.String("plugin", ent.plugin), slog.String("hook", name), slog.Any("panic", r))
+		}
+	}()
+	ctx, cancel := context.WithTimeout(parent, e.actionTimeout())
+	defer cancel()
+	ent.fn(ctx, payload)
+	if ctx.Err() == context.DeadlineExceeded {
+		e.log.Warn("hooks: action exceeded timeout",
+			slog.String("plugin", ent.plugin), slog.String("hook", name), slog.Duration("timeout", e.actionTimeout()))
+	}
+}
+
+func (e *Engine) actionTimeout() time.Duration {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.timeout
+}
+
+// FireQueued is Fire for bulk announcements (a purge, an entity cascade): the
+// events join one FIFO queue that a single goroutine drains, running each
+// event's callbacks one after another, so a burst of thousands costs one
+// goroutine instead of one per callback. Order is kept; a slow callback delays
+// the ones behind it (each is still bounded by the action timeout).
+func (e *Engine) FireQueued(caller context.Context, name string, payload any) {
+	e.qmu.Lock()
+	e.queue = append(e.queue, queuedFire{caller, name, payload})
+	start := !e.draining
+	e.draining = true
+	e.qmu.Unlock()
+	if start {
+		e.wg.Go(e.drain)
+	}
+}
+
+func (e *Engine) drain() {
+	for {
+		e.qmu.Lock()
+		if len(e.queue) == 0 {
+			e.draining = false
+			e.qmu.Unlock()
+			return
+		}
+		q := e.queue[0]
+		e.queue[0] = queuedFire{}
+		e.queue = e.queue[1:]
+		e.qmu.Unlock()
+
+		e.mu.RLock()
+		list := append([]actionEntry(nil), e.actions[q.name]...)
+		parent := e.lifeCtx
+		e.mu.RUnlock()
+		if parent == nil {
+			parent = context.Background()
+		}
+		if q.caller != nil {
+			parent = valuesOf{Context: parent, vals: q.caller}
+		}
+		for _, ent := range list {
+			e.call(parent, ent, q.name, q.payload)
+		}
 	}
 }
 

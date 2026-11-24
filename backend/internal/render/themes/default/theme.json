@@ -153,6 +153,7 @@
     "comment_edit": "Edit",
     "comment_delete": "Delete",
     "comment_save": "Save",
+    "comment_dead": "[dead]",
     "comments_closed": "Comments are closed.",
     "comments_older": "Older comments",
     "comments_pager_label": "Comment pages",

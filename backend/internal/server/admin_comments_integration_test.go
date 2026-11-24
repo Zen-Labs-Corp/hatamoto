@@ -277,6 +277,23 @@ func TestCommentsAdminIntegration(t *testing.T) {
 		t.Errorf("Trash = %d, %v", n, err)
 	}
 
+	// Dead: the queue and counts show it, Restore (Approve) brings it back.
+	if _, err := env.db.Pool().Exec(ctx, `UPDATE hatamoto_comments SET status = 'dead', dead_by = 'example' WHERE id = $1`, c2); err != nil {
+		t.Fatal(err)
+	}
+	if cnt, err := a.Counts(ctx); err != nil || cnt.Dead != 1 {
+		t.Errorf("Counts.Dead = %d, %v, want 1", cnt.Dead, err)
+	}
+	if pg, err := a.Queue(ctx, admin.CommentFilter{Status: "dead", PerPage: 10}); err != nil || len(pg.Rows) != 1 || pg.Rows[0].DeadBy != "example" {
+		t.Errorf("dead Queue = %+v, %v", pg, err)
+	}
+	if n, err := a.Approve(ctx, []string{c2.String()}, actor.String()); err != nil || n != 1 {
+		t.Errorf("Restore of a dead comment = %d, %v", n, err)
+	}
+	if row, err := a.Comment(ctx, c2.String()); err != nil || row.Status != "approved" {
+		t.Errorf("restored = %+v, %v, want approved", row, err)
+	}
+
 	// Entity and type modes.
 	if err := a.SetEntityMode(ctx, ent.ID.String(), "closed"); err != nil {
 		t.Fatal(err)

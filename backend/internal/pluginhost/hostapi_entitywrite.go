@@ -161,7 +161,7 @@ func entityWriteArgs(e *callEnv, in sdk.EntityWrite, create bool) (entity.Plugin
 }
 
 // allowWrite takes a token from the plugin's write limiter (60 per minute,
-// burst 20, shared by the three functions).
+// burst 20, shared by the entity and comment write functions).
 func (a *API) allowWrite(plugin, fn string) error {
 	if !a.limits(plugin).writes.Allow() {
 		return herr(sdk.ErrRateLimited, "%s: 60 per minute", fn)

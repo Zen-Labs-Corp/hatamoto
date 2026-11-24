@@ -139,3 +139,31 @@ func TestCommentConfirm_ForgetsTheOwnItemsAnswer(t *testing.T) {
 		t.Fatal("the confirm did not refresh the own-items answer")
 	}
 }
+
+func TestCommentCacheObserverDeadAndBatch(t *testing.T) {
+	r := newObserverRig()
+	ctx := context.Background()
+	a, b := uuid.New(), uuid.New()
+	approved := comment.Comment{EntityID: a, Status: comment.StatusApproved}
+	dead := comment.Comment{EntityID: a, Status: comment.StatusDead}
+
+	r.o.OnUpdated(ctx, approved, dead) // hiding a body drops
+	r.o.OnUpdated(ctx, dead, approved)
+	if len(r.drops) != 2 {
+		t.Fatalf("dead transitions dropped %d, want 2", len(r.drops))
+	}
+
+	r.drops = nil
+	bctx := comment.WithBatch(ctx)
+	r.o.OnUpdated(bctx, approved, dead)
+	r.o.OnDeleted(bctx, comment.Comment{EntityID: a, Status: comment.StatusApproved, ApprovedAt: ptrTime(time.Now())})
+	if len(r.drops) != 0 {
+		t.Fatalf("per-comment batch events dropped: %v", r.drops)
+	}
+	r.o.OnBatch(ctx, []uuid.UUID{a, b})
+	if len(r.drops) != 2 || r.drops[0] != a || r.drops[1] != b {
+		t.Fatalf("OnBatch drops = %v, want one per entity", r.drops)
+	}
+}
+
+func ptrTime(t time.Time) *time.Time { return &t }

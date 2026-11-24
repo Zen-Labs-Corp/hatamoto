@@ -63,6 +63,28 @@ func TestCommentsListHeldWhy(t *testing.T) {
 	}
 }
 
+func TestCommentsListDeadTab(t *testing.T) {
+	t.Parallel()
+
+	row := modRows()[0]
+	row.Status, row.DeadBy, row.Reasons = "dead", "example", nil
+	p := newCommentsRig(t, &fakeComments{rows: []CommentRow{row}, counts: CommentCounts{Pending: 1, Dead: 3}})
+	body := modGet(t, p, "owner-token", "/admin/comments?status=dead")
+	for _, want := range []string{`comments-seg-dead-n`, ">Dead<", "Marked dead by plugin example.", "Restore", "Trash", "Delete"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("dead tab lacks %q", want)
+		}
+	}
+	for _, id := range []string{"pending", "approved", "spam", "trash", "dead"} {
+		if !strings.Contains(body, `comments-seg-`+id+`-n`) {
+			t.Errorf("segment %s has no count", id)
+		}
+	}
+	if !strings.Contains(modGet(t, p, "owner-token", "/admin/comments?status=bogus"), "1 waiting for review") {
+		t.Error("a bogus status does not fall back to pending")
+	}
+}
+
 func TestCommentsListCountsOnlyUnfiltered(t *testing.T) {
 	t.Parallel()
 

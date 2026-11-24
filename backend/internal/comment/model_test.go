@@ -97,6 +97,15 @@ func TestCanTransition(t *testing.T) {
 		{StatusTrash, StatusPending, true},
 		{StatusApproved, StatusApproved, false},
 		{StatusTrash, StatusTrash, false},
+		{StatusApproved, StatusDead, true},
+		{StatusPending, StatusDead, false},
+		{StatusDead, StatusApproved, true},
+		{StatusDead, StatusTrash, true},
+		{StatusDead, StatusSpam, true},
+		{StatusDead, StatusPending, false},
+		{StatusSpam, StatusDead, false},
+		{StatusTrash, StatusDead, false},
+		{StatusDraft, StatusDead, false},
 		{"bogus", StatusApproved, false},
 	}
 	for _, c := range cases {

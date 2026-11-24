@@ -65,6 +65,10 @@ func (s *Server) setupPlugins() {
 			Packages:  packages.Inspector{}, // verdict for packages.inspect; zero Limits = packages.DefaultLimits
 
 			FetchPerMinute: s.cfg.Plugins.FetchPerMinute,
+
+			// Read at call time: the comment service is built after the plugins.
+			CommentModerator: pluginCommentModerator{s},
+			Audit:            s.pluginModerationAudit,
 		},
 	}
 	if s.entityService != nil { // a nil *Service in the interface would not read as unavailable

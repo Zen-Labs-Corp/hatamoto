@@ -364,6 +364,22 @@ func TestPluginPromptNamesNewEntitiesFilter(t *testing.T) {
 	}
 }
 
+func TestPluginPromptNamesNewCommentsModerate(t *testing.T) {
+	t.Parallel()
+
+	g, _, _ := newPackageRig(t)
+	rec := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin-moderate-update:hello")
+	body := rec.Body.String()
+	if rec.Code != 200 {
+		t.Fatalf("%d", rec.Code)
+	}
+	for _, want := range []string{"needs your confirmation", "<code>comments.moderate</code>", "mark comments on its own content type dead", `name="confirm"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("prompt missing %q", want)
+		}
+	}
+}
+
 func TestPluginPromptNamesNewRedirectPaths(t *testing.T) {
 	t.Parallel()
 
