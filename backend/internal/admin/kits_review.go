@@ -112,8 +112,6 @@ func postedKitTicks(r *http.Request) kitTicks {
 	}
 }
 
-var kitActionLabels = map[kit.Action]string{kit.ActionCreate: "Create", kit.ActionInstall: "Install"}
-
 func newKitReviewView(pl *kit.Plan, t kitTicks) kitReviewView {
 	k := pl.Kit
 	v := kitReviewView{Title: cmp.Or(k.Title, k.Name), Version: k.Version, Tier: pl.Tier, Description: k.Description}

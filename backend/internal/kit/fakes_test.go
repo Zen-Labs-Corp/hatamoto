@@ -116,7 +116,6 @@ type fake struct {
 	failPage string
 
 	writes []string
-	reads  int
 }
 
 func newFake(t testing.TB) *fake {
