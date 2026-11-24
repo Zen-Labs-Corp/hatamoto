@@ -164,7 +164,12 @@ func (s *pgStore) Purge(ctx context.Context, now time.Time) (drafts, tokens, com
 		return 0, 0, 0, err
 	}
 	drafts = tag.RowsAffected()
-	tag, err = pool.Exec(ctx, `DELETE FROM hatamoto_comment_confirmations WHERE created_at < $1`, cutoff)
+	// The newest used sign-in row of a commenter stays: it proves the address
+	// and keeps the commenter row (and its key) out of the delete below.
+	tag, err = pool.Exec(ctx, `DELETE FROM hatamoto_comment_confirmations k WHERE k.created_at < $1
+		AND NOT (k.used_at IS NOT NULL AND k.comment_id IS NULL AND k.created_at = (
+			SELECT max(j.created_at) FROM hatamoto_comment_confirmations j
+			WHERE j.commenter_id = k.commenter_id AND j.used_at IS NOT NULL AND j.comment_id IS NULL))`, cutoff)
 	if err != nil {
 		return drafts, 0, 0, err
 	}

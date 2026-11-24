@@ -425,3 +425,42 @@ func TestSignInAcceptsOrphanedConfirmation(t *testing.T) {
 		t.Errorf("orphan via sign-in = %+v, %v", got, err)
 	}
 }
+
+func TestSignInOnlyCommenterSurvivesPurge(t *testing.T) {
+	e := newIDEnv(t)
+	signIn := func(addr string) {
+		t.Helper()
+		if out, err := e.id.RequestSignIn(e.ctx, SignInRequest{Email: addr}); out != OutcomeCheckEmail || err != nil {
+			t.Fatalf("request %s: (%v, %v)", addr, out, err)
+		}
+	}
+	signIn("kept@example.test")
+	got, err := e.id.ConfirmSignIn(e.ctx, e.mail.lastSignIn(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	signIn("never@example.test") // link never clicked
+	var neverID uuid.UUID
+	e.scalar(&neverID, `SELECT id FROM hatamoto_commenters WHERE id <> $1`, got.CommenterID)
+	before, _, err := e.id.store.TokenVersion(e.ctx, got.CommenterID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	e.clock.advance(25 * time.Hour)
+	e.exec(`UPDATE hatamoto_comment_confirmations SET created_at = created_at - interval '25 hours'`)
+	e.exec(`UPDATE hatamoto_commenters SET last_seen_at = last_seen_at - interval '25 hours'`)
+	if err := e.id.Purge(e.ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	v, found, err := e.id.store.TokenVersion(e.ctx, got.CommenterID)
+	if err != nil || !found || v != before {
+		t.Fatalf("signed-in commenter after purge: version %d found %v err %v, want %d", v, found, err, before)
+	}
+	var n int
+	e.scalar(&n, `SELECT count(*) FROM hatamoto_commenters WHERE id = $1`, neverID)
+	if n != 0 {
+		t.Error("commenter who never clicked the link survived the purge")
+	}
+}
