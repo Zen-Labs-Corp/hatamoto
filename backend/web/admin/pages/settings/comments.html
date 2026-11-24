@@ -49,7 +49,7 @@
 {{if .Owner}}{{range .Types}}{{if and .Supported (not .On)}}{{template "hm/dialog-start" dict "ID" (print "comments-policy-" .Slug) "Title" "Turn the community policy on?" "Static" true}}
 <form id="{{print "comments-policy-" .Slug "-form"}}" method="post" action="{{adminPath}}/settings/comments/types/{{.ID}}" class="hm-stack" data-hm-ack>
 {{template "hm/csrf" $}}
-<input type="hidden" name="policy" value="true"><input type="hidden" name="order" value="{{.OrderValue}}">
+<input type="hidden" name="policy" value="true"><input type="hidden" name="order" value="{{.OrderValue}}" data-hm-from="{{print "comments-type-" .Slug "-order"}}">
 <p>Are you sure? With the community policy on, comments with links and first comments on this content type are posted at once, without review. Spam checks, blocked commenters, duplicates, captcha and surge mode still hold comments.</p>
 {{template "hm/field" dict "ID" (print "comments-policy-understand-" .Slug) "Name" "understand" "Control" "switch" "Value" "1" "Label" "I understand comments on this type will not wait for review"}}
 </form>

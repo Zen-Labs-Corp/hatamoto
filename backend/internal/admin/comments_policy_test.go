@@ -160,3 +160,17 @@ func TestCommentPolicySaveRankNeedsGrant(t *testing.T) {
 		t.Errorf("rank with the grant = %d, order %q", rec.Code, f.types[0].Order)
 	}
 }
+
+func TestCommentPolicyDialogCarriesCardOrder(t *testing.T) {
+	t.Parallel()
+
+	p := newCommentsRig(t, cpolRig(false))
+	body := csetGet(t, p, "owner-token")
+	// The policy-off card's turn-on dialog posts the Order select of the card, read as it submits.
+	if !strings.Contains(body, `data-hm-from="comments-type-articles-order"`) {
+		t.Errorf("turn-on dialog does not read the card's Order select")
+	}
+	if !strings.Contains(body, `id="comments-type-articles-order"`) {
+		t.Error("the Order select has no id to read from")
+	}
+}
