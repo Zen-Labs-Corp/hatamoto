@@ -103,9 +103,11 @@ type fake struct {
 	address string
 	comOn   bool
 	// noSeam leaves Deps.SchemaComments nil; builtin lists slugs the seam refuses.
-	noSeam  bool
-	builtin map[string]bool
-	applied map[string]Applied
+	noSeam bool
+	// failPolicy names a slug whose policy switch-on write fails.
+	failPolicy string
+	builtin    map[string]bool
+	applied    map[string]Applied
 
 	// pluginCreates makes installing a plugin that declares entity_schema
 	// create that content type (what its package does at install).
@@ -264,6 +266,9 @@ func (f *fake) SetSchemaComments(_ context.Context, slug, order string, p commen
 	}
 	if !comment.ValidOrder(order) {
 		return errors.New("bad order")
+	}
+	if p.Enabled && slug == f.failPolicy {
+		return errors.New("policy write failed")
 	}
 	f.write("comments %s", slug)
 	merged, err := comment.MergeSchemaComments(r.s.Settings, &order, &p)

@@ -336,7 +336,12 @@ func (a *Admin) applyKit(w http.ResponseWriter, r *http.Request, name string, sc
 		return nil, false
 	}
 	acc := kit.Accepts{Comments: t.Comments, Policy: t.Policy, ActivateTheme: t.ActivateTheme, Homepage: t.Homepage, Extra: t.Extra}
-	opts := kit.ApplyOptions{EnableComments: func(context.Context) error { _, err := a.enableComments(r); return err }}
+	opts := kit.ApplyOptions{
+		EnableComments: func(context.Context) error { _, err := a.enableComments(r); return err },
+		PolicyOn: func(_ context.Context, ch kit.PolicyChange) {
+			a.audit(r, "comments.policy", ch.SchemaID, map[string]any{"type": ch.Slug, "old": false, "new": true, "changed": []string{"policy"}, "via": "kit:" + name})
+		},
+	}
 	if u := userFrom(r.Context()); u != nil {
 		opts.Actor = u.Email
 		if id, err := uuidOf(u.ID); err == nil {
@@ -356,9 +361,6 @@ func (a *Admin) applyKit(w http.ResponseWriter, r *http.Request, name string, sc
 			a.renderKitReview(w, r, http.StatusInternalServerError, scr, pl, t, "Applying the kit stopped part-way. It is safe to apply again: finished items are skipped.")
 		}
 		return nil, false
-	}
-	for _, ch := range res.PolicyOn {
-		a.audit(r, "comments.policy", ch.SchemaID, map[string]any{"type": ch.Slug, "old": false, "new": true, "changed": []string{"policy"}, "via": "kit:" + name})
 	}
 	if res.Recorded || res.Total() > 0 || res.Filled > 0 { // a second apply that changed nothing leaves no record
 		a.audit(r, "kit.apply", "kit:"+name, map[string]any{"version": pl.Kit.Version, "created": res.Total(), "filled": res.Filled, "kept": len(res.Kept), "skipped": len(res.Skipped), "comments": acc.Comments && pl.Comments.Requested && !pl.Comments.AlreadyOn})

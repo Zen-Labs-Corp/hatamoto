@@ -184,6 +184,8 @@ func runKitApply(ctx context.Context, args []string, logger *slog.Logger, out io
 		}
 		auditCLI(ctx, db.Pool(), logger, "comments.enable", "comments", map[string]any{"old": was, "new": true, "via": "kit:" + k.Name})
 		return nil
+	}, PolicyOn: func(ctx context.Context, ch kit.PolicyChange) {
+		auditCLI(ctx, db.Pool(), logger, "comments.policy", ch.SchemaID, map[string]any{"type": ch.Slug, "old": false, "new": true, "changed": []string{"policy"}, "via": "kit:" + k.Name})
 	}}
 	res, err := kit.Apply(ctx, d, pl, acc, opts)
 	if err != nil {
@@ -202,9 +204,6 @@ func runKitApply(ctx context.Context, args []string, logger *slog.Logger, out io
 	created := map[string]int{}
 	for what, n := range res.Created {
 		created[what] = n
-	}
-	for _, ch := range res.PolicyOn {
-		auditCLI(ctx, db.Pool(), logger, "comments.policy", ch.SchemaID, map[string]any{"type": ch.Slug, "old": false, "new": true, "changed": []string{"policy"}, "via": "kit:" + k.Name})
 	}
 	auditCLI(ctx, db.Pool(), logger, "kit.apply", "kit:"+k.Name, map[string]any{
 		"version": k.Version, "created": created, "filled": res.Filled, "kept": len(res.Kept), "skipped": len(res.Skipped),

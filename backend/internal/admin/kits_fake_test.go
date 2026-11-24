@@ -58,6 +58,11 @@ func (f *fakeKits) Apply(ctx context.Context, pl *kit.Plan, a kit.Accepts, o kit
 		return nil, f.applyErr
 	}
 	if f.result != nil {
+		for _, ch := range f.result.PolicyOn {
+			if o.PolicyOn != nil {
+				o.PolicyOn(ctx, ch)
+			}
+		}
 		return f.result, nil
 	}
 	return &kit.Result{Created: map[string]int{}}, nil

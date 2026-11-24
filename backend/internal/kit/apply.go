@@ -46,6 +46,10 @@ type ApplyOptions struct {
 	// EnableComments turns comments on (the caller's audited path). It is
 	// called only with Accepts.Comments.
 	EnableComments func(context.Context) error
+	// PolicyOn is called right after the community policy is turned on for
+	// one content type, so the caller audits it even when a later step fails.
+	// It may be nil.
+	PolicyOn func(context.Context, PolicyChange)
 }
 
 // PolicyChange is one content type whose community policy an apply turned on.
@@ -432,7 +436,7 @@ func applySwitches(ctx context.Context, d Deps, pl *Plan, a Accepts, o ApplyOpti
 	if pl.Policy.Available {
 		if !a.Policy {
 			res.Messages = append(res.Messages, "Community policy left off: you did not accept its warning.")
-		} else if err := turnPolicyOn(ctx, d, pl, res); err != nil {
+		} else if err := turnPolicyOn(ctx, d, pl, o, res); err != nil {
 			return err
 		}
 	}
@@ -441,7 +445,7 @@ func applySwitches(ctx context.Context, d Deps, pl *Plan, a Accepts, o ApplyOpti
 
 // turnPolicyOn switches the community policy on for each requested type that
 // does not have it yet, keeping the order and the numbers the type stores.
-func turnPolicyOn(ctx context.Context, d Deps, pl *Plan, res *Result) error {
+func turnPolicyOn(ctx context.Context, d Deps, pl *Plan, o ApplyOptions, res *Result) error {
 	var slugs []string
 	for _, slug := range pl.Policy.Requested {
 		st, err := d.SchemaComments.SchemaComments(ctx, slug)
@@ -459,7 +463,11 @@ func turnPolicyOn(ctx context.Context, d Deps, pl *Plan, res *Result) error {
 		if err := d.SchemaComments.SetSchemaComments(ctx, slug, st.Order, p); err != nil {
 			return fmt.Errorf("community policy for %s: %w", slug, err)
 		}
-		res.PolicyOn = append(res.PolicyOn, PolicyChange{Slug: slug, SchemaID: st.ID})
+		ch := PolicyChange{Slug: slug, SchemaID: st.ID}
+		res.PolicyOn = append(res.PolicyOn, ch)
+		if o.PolicyOn != nil {
+			o.PolicyOn(ctx, ch)
+		}
 		slugs = append(slugs, slug)
 	}
 	if len(slugs) > 0 {

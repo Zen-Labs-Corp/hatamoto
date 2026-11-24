@@ -212,6 +212,49 @@ func TestApplyPolicyOnlyWithTheTick(t *testing.T) {
 	}
 }
 
+// policyAudit collects what the PolicyOn callback saw.
+type policyAudit struct{ got []PolicyChange }
+
+func (a *policyAudit) on(_ context.Context, ch PolicyChange) { a.got = append(a.got, ch) }
+
+func twoPolicyTypes(k *packages.Kit) {
+	k.Requires = []string{"comment.policy"}
+	second := k.Schemas[0]
+	second.Slug, second.Name = "review", "Reviews"
+	k.Schemas = append(k.Schemas, second)
+	k.Switches.CommentPolicy = []string{"story", "review"}
+}
+
+func applyAudited(t *testing.T, f *fake, au *policyAudit) (*Result, error) {
+	t.Helper()
+	pl, err := BuildPlan(context.Background(), f.deps(), kitPackage(t, twoPolicyTypes), Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return Apply(context.Background(), f.deps(), pl, Accepts{Comments: true, Policy: true}, ApplyOptions{Actor: "owner", EnableComments: (&enabler{}).enable, PolicyOn: au.on})
+}
+
+func TestApplyAuditsEachPolicyOnce(t *testing.T) {
+	f := newFake(t).withRegistry(t)
+	au := &policyAudit{}
+	res, err := applyAudited(t, f, au)
+	if err != nil || len(au.got) != 2 || len(res.PolicyOn) != 2 || au.got[0].Slug != "story" || au.got[1].Slug != "review" {
+		t.Fatalf("err=%v audited=%v", err, au.got)
+	}
+}
+
+func TestApplyAuditsAPolicyWhenALaterOneFails(t *testing.T) {
+	f := newFake(t).withRegistry(t)
+	f.failPolicy = "review"
+	au := &policyAudit{}
+	if _, err := applyAudited(t, f, au); err == nil {
+		t.Fatal("want the second policy write to fail")
+	}
+	if len(au.got) != 1 || au.got[0].Slug != "story" {
+		t.Errorf("audited = %v, want story once", au.got)
+	}
+}
+
 func TestApplyPolicyTwiceChangesNothing(t *testing.T) {
 	edit := withPolicyFeature(t)
 	f := newFake(t).withRegistry(t)
