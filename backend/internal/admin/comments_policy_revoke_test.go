@@ -71,3 +71,17 @@ func TestCommentPolicyRevokeButtonNamesTheType(t *testing.T) {
 		t.Errorf("Revoke button has no name for its card: %s", notes)
 	}
 }
+
+func TestCommentPolicyRevokeDropsGrantTheManifestNoLongerAsks(t *testing.T) {
+	t.Parallel()
+
+	p := newCommentsRig(t, cpolRig(false))
+	plugins := cpolPlugins("db", "entities.filter2", "comments.moderate")
+	p.a.deps.Growth.Plugins = plugins
+	if rec := csetPost(p, cpolNotesURL+"/revoke", "owner-token", url.Values{}, nil); rec.Code != 303 {
+		t.Fatalf("revoke with a stale grant = %d", rec.Code)
+	}
+	if got := plugins.list[0].Granted; !slices.Equal(got, []string{"db"}) {
+		t.Errorf("granted after revoke = %v", got)
+	}
+}

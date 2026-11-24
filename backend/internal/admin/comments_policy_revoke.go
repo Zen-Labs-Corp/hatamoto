@@ -43,7 +43,10 @@ func (a *Admin) handleCommentPolicyRevoke(w http.ResponseWriter, r *http.Request
 		a.notFound(w, r, "Moderating plugin", a.csetPath(), "Back to comments")
 		return
 	}
-	keep := slices.DeleteFunc(slices.Clone(holder.Granted), func(p string) bool { return p == string(sdk.PermCommentsModerate) })
+	// Grant refuses a permission the manifest no longer asks for, so drop those too.
+	keep := slices.DeleteFunc(slices.Clone(holder.Granted), func(p string) bool {
+		return p == string(sdk.PermCommentsModerate) || !slices.Contains(holder.Permissions, p)
+	})
 	switch err := pa.Grant(ctx, holder.Name, keep); {
 	case errors.Is(err, ErrPluginNotFound):
 		a.notFound(w, r, "Moderating plugin", a.csetPath(), "Back to comments")
