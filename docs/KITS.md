@@ -180,6 +180,8 @@ location. A kit never overwrites something the owner edited. The order is fixed:
   Comments > Content types, with its limits: reply depth 1 to 32, edit window
   1 to 1440 minutes, slow mode 0 to 86400 seconds, and a known order (newest,
   oldest or rank). A bad value refuses the kit before anything changes.
+  Order `rank` is stored as given but changes nothing until a plugin supplies
+  ranks; until then threads use the default sort.
   `policy.enabled` in `kit.json` is ignored: the policy goes on only for the
   types in `switches.comment_policy`, with the owner's accept of its warning
   ("Are you sure? With the community policy on, comments with links and first

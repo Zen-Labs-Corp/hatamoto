@@ -94,7 +94,7 @@ func runKitApply(ctx context.Context, args []string, logger *slog.Logger, out io
 	var accept, activate, homepage, dry, dev bool
 	pos, err := flagSet("kit apply", args, func(fs *flag.FlagSet) {
 		fs.BoolVar(&accept, "accept-comment-warnings", false, "turn comments (and the community policy) on after reading the warnings printed")
-		fs.StringVar(&grant, "grant", "", "permissions to grant beyond what the kit grants itself: comma separated (site.scripts and ui.allow:* only when named here)")
+		fs.StringVar(&grant, "grant", "", "permissions to grant beyond what the kit grants itself, comma separated, as <plugin>:<permission> (or a bare name when one plugin asks for it); \"Handle with care\" permissions and ui.allow:* are granted only when named here")
 		fs.BoolVar(&activate, "activate-theme", false, "make the kit's theme the active one (implied on a fresh site)")
 		fs.BoolVar(&homepage, "homepage", false, "make the kit's home page the home page (implied on a fresh site)")
 		fs.BoolVar(&dry, "dry-run", false, "print what would happen and change nothing")

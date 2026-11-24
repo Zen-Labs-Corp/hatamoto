@@ -195,8 +195,8 @@ func kitTypeNames(pl *kit.Plan, slugs []string) string {
 	return strings.Join(names, ", ")
 }
 
-// kitExtra is the switch of one permission the kit leaves to the owner (site.scripts, ui.allow:*, or
-// every permission when the kit has no grant). The wording comes from permtext.
+// kitExtra is the switch of one permission the kit leaves to the owner (the "Handle with care"
+// permissions, ui.allow:*, or every permission when the kit has no grant), scoped as <plugin>:<perm>. The wording comes from permtext.
 func kitExtra(plugin, perm string, on bool) kitReviewExtra {
 	e := kitReviewExtra{ID: "perm-" + plugin + "-" + strings.NewReplacer(".", "-", ":", "-").Replace(perm), Value: kit.ExtraKey(plugin, perm), On: on, Label: perm}
 	if can := permtext.Group([]string{perm}, false, false).Can; len(can) > 0 {
