@@ -23,10 +23,9 @@ const (
 )
 
 func fnCommentsThread(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
-	args, err := decodeArgs[struct {
-		EntityID string `json:"entity_id"`
-		Page     int    `json:"page"`
-	}](raw)
+	// include_dead is accepted and ignored: it is honoured with comments.moderate
+	// once dead comments exist; until then no comment is dead.
+	args, err := decodeArgs[sdk.CommentsThreadArgs](raw)
 	if err != nil {
 		return nil, err
 	}

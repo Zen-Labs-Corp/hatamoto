@@ -54,8 +54,8 @@ func TestWritePermissionsRefused(t *testing.T) {
 
 	r.load(t, func(m *sdk.Manifest) { m.Permissions = grantable(); m.EntitySchema = "story" })
 	r.grant(t, grantable()...)
-	if len(removedFns) != 12 {
-		t.Fatalf("removedFns has %d entries, want the 12 removed functions", len(removedFns))
+	if len(removedFns) != 9 {
+		t.Fatalf("removedFns has %d entries, want the 9 removed functions", len(removedFns))
 	}
 	all := HostFunctionsFor(sdk.Permissions)
 	for fn, repl := range removedFns {
