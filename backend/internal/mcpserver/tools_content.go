@@ -254,6 +254,7 @@ func (s *Server) registerContent() {
 		Locale        string `json:"locale,omitempty" jsonschema:"BCP 47 language tag; omit to keep the stored locale"`
 		Attributes    object `json:"attributes,omitempty" jsonschema:"REPLACES all attributes: send the whole object"`
 		ChangeSummary string `json:"change_summary,omitempty"`
+		Version       *int   `json:"version,omitempty" jsonschema:"the entity's version from entities_get; when set, a stale version is refused and nothing is stored"`
 		// The byline: a person entity (schema "person") or the site organisation.
 		BylinePersonID *string `json:"byline_person_id,omitempty" jsonschema:"id of a person entity to credit as the author"`
 		BylineOrg      *bool   `json:"byline_org,omitempty" jsonschema:"true credits the site organisation instead of a person; false clears it"`
@@ -304,9 +305,14 @@ func (s *Server) registerContent() {
 				summary += " " + in.ChangeSummary
 			}
 			up.ChangeSummary = &summary
+			up.ExpectedVersion = in.Version
 			e, err := s.d.Entities.UpdateEntity(ctx, id, key.CreatedBy, up)
 			if res, ok := pendingReview(id, err); ok {
 				return res, nil
+			}
+			var vc *entity.VersionConflictError
+			if errors.As(err, &vc) && in.Version != nil {
+				return nil, codedErr(codeConflict, "stale version %d; current version is %d (re-read with entities_get)", *in.Version, vc.Current)
 			}
 			if err != nil {
 				return nil, err
@@ -319,20 +325,28 @@ func (s *Server) registerContent() {
 			return s.summary(ctx, e, true), nil
 		})
 
+	type statusIn struct {
+		ID      string `json:"id"`
+		Version *int   `json:"version,omitempty" jsonschema:"the entity's version from entities_get; when set, a stale version is refused"`
+	}
 	setStatus := func(name, desc string, to entity.EntityStatus) {
 		action := authz.ActionEntityUnpublish
 		if to == entity.StatusPublished {
 			action = authz.ActionEntityPublish
 		}
 		register(s, toolSpec{name: name, description: desc, scope: writeScope, action: action, write: true, idempotent: true, destructive: to != entity.StatusPublished},
-			func(ctx context.Context, key *hmauth.APIKey, in idIn) (any, error) {
+			func(ctx context.Context, key *hmauth.APIKey, in statusIn) (any, error) {
 				id, err := parseID("id", in.ID)
 				if err != nil {
 					return nil, err
 				}
-				e, err := s.d.Entities.UpdateEntityStatus(ctx, id, key.CreatedBy, to)
+				e, err := s.d.Entities.UpdateEntityStatusIf(ctx, id, key.CreatedBy, to, in.Version)
 				if res, ok := pendingReview(id, err); ok {
 					return res, nil
+				}
+				var vc *entity.VersionConflictError
+				if errors.As(err, &vc) && in.Version != nil {
+					return nil, codedErr(codeConflict, "stale version %d; current version is %d (re-read with entities_get)", *in.Version, vc.Current)
 				}
 				if err != nil {
 					return nil, err
@@ -345,7 +359,7 @@ func (s *Server) registerContent() {
 				return s.summary(ctx, e, true), nil
 			})
 	}
-	setStatus("entities_publish", "Publish an entity: it becomes public at its URL, in the sitemap and in llms.txt.", entity.StatusPublished)
+	setStatus("entities_publish", "Publish an entity: it becomes public at its URL, in the sitemap and in llms.txt. Optional version (from entities_get): a stale one is refused with 'conflict: ... current version is N'; re-read and retry.", entity.StatusPublished)
 	setStatus("entities_unpublish", "Take an entity off the site (back to draft).", entity.StatusDraft)
 
 	// Schemas.
