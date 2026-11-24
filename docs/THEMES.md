@@ -45,6 +45,7 @@ my-theme/
     registry.html       optional: a plugin or theme detail page, see Routes
     404.html            defines "content" for not-found
     comment-confirm.html  optional: the page behind the comment confirmation link, see Comments
+    comment-signin.html   optional: the comment sign-in and sign-out page, see Comments
     error.html          defines "content" for 5xx
   partials/
     head.html header.html nav.html footer.html section.html scripts.html
@@ -320,6 +321,22 @@ and `N` is the count for the first three. The theme chooses the words.
   unquoted, in a script or in a URL. A theme that omits them still works; its form comes
   back blank.
 - Never add a website or URL field. Comments have none.
+- **Locked form.** When a plugin fixes the commenter name (`.CommentForm.Locked`),
+  the form shows a state line instead of the name and email inputs. Keep the
+  three lines and the body switch of the default partial; the server swaps
+  each slot per visitor, and exactly one line is visible:
+  `__hmcf_hnamed__` (line shown when signed in with a known name),
+  `__hmcf_hin__` (signed in, no name known yet), `__hmcf_hout__` (not signed in)
+  sit in attribute-name position and become `""` or `hidden`; `__hmcf_boff__`
+  sits on the textarea and becomes `""` or `disabled`; `__hmcf_who__` sits in
+  text position (inside the named line) and becomes the HTML-escaped name.
+  Never print them anywhere else. `.CommentForm.SignInURL`
+  (`/-/comments/signin`) is the sign-in and sign-out page; a theme may link to
+  it from anywhere. A theme without these slots shows no state lines.
+- `.Comments.Error` also has `sign_in` (the visitor is not signed in) and
+  `draft` (the plugin refused or could not supply a name). For `draft` print
+  `.Comments.ErrorText` when set (plain text from the plugin, escaped by
+  `html/template`) and the theme's own text otherwise.
 - `data-hm-captcha` marks where a captcha widget goes when the owner enabled one
   (`.CommentForm.Captcha` is set).
 
@@ -330,6 +347,15 @@ and `Action`. Keep the `<form method="post" action="{{.Action}}">` with a
 submit button: a GET never confirms anything. The page is `noindex`, sent
 `no-store` with `Referrer-Policy: no-referrer`, and runs no page scripts, so do
 not add any.
+
+**The sign-in page.** `/-/comments/signin` is rendered with
+`layouts/comment-signin.html`, which defines `content` and reads
+`.CommentSignIn`: `State` is `form` (ask for the email: input named
+`.EmailName`, prefilled with `.Email`, `.Error` set after a bad address),
+`sent`, `in` (a sign-out button), `out`, `link` (the mailed link opened: a
+sign-in button) or `invalid` (expired link). The states with a button post to
+`.Action` and carry `.Token` as the hidden field `hm_ct` when set. The page is
+`noindex` and runs no page scripts, so do not add any.
 
 **Styles.** The default theme loads `/theme/assets/comments.css` from the
 section, so the comment styles cost nothing on pages without comments. A theme

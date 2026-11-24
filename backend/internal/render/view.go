@@ -172,6 +172,8 @@ type PageView struct {
 	PostsByAuthor func(limit, page int) PostsPage
 	// CommentConfirm is set only for the comment confirmation page.
 	CommentConfirm *CommentConfirmView
+	// CommentSignIn is set only for the comment sign-in page.
+	CommentSignIn *CommentSignInView
 	// Comments is the public thread; nil when comments are off, hidden or in
 	// preview, and themes then render nothing. CommentForm is nil when closed.
 	Comments     *CommentThread

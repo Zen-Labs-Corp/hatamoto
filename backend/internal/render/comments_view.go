@@ -11,13 +11,17 @@ import (
 //
 // Notice and Error carry a code the theme turns into text (so the words stay
 // in theme.json and stay overridable). Notice: "check_email", "posted".
-// Error: "body_empty", "body_long", "name", "email", "email_domain", "closed".
+// Error: "body_empty", "body_long", "name", "email", "email_domain", "sign_in",
+// "draft", "closed". ErrorText is a plugin's public refusal for error "draft":
+// plain text, set only on the POST response that re-renders the form; the
+// theme prints it escaped instead of the coded text.
 type CommentThread struct {
 	Items              []CommentItem
 	Total, Page, Pages int
 	PrevURL, NextURL   string
 	PageLinks          []CommentPageLink // the numbered pager; empty with one page
 	Notice, Error      string
+	ErrorText          string
 	Newest             bool
 }
 
@@ -65,6 +69,12 @@ type CommentForm struct {
 	MaxBody  int
 	HX       bool
 
+	// Locked marks a schema whose commenter name is fixed by a plugin: the
+	// form shows a state line instead of the name and email inputs. SignInURL
+	// is where the visitor signs in or out.
+	Locked    bool
+	SignInURL string
+
 	// BodyValue, NameValue and EmailValue are set only when a fixable error
 	// sends the form back; they hold CommentValuePlaceholders, which the server
 	// replaces with the escaped typed values. Notify re-checks the reply opt-in.
@@ -95,4 +105,13 @@ var CommentFormPlaceholders = CommentForm{
 // the token and names, so typed text is never rewritten.
 var CommentValuePlaceholders = CommentForm{
 	BodyValue: "__hmcf_vbody__", NameValue: "__hmcf_vname__", EmailValue: "__hmcf_vemail__",
+}
+
+// CommentLockedPlaceholders are the slots of the locked form variant. Named,
+// SignedIn, SignedOut and BodyOff sit in attribute-name position inside the
+// marked form span; the server swaps each for "" or "hidden"/"disabled".
+// Who sits in text position and is swapped for the HTML-escaped name (or "").
+// Exactly one of the three lines is visible per request.
+var CommentLockedPlaceholders = struct{ Named, SignedIn, SignedOut, BodyOff, Who string }{
+	"__hmcf_hnamed__", "__hmcf_hin__", "__hmcf_hout__", "__hmcf_boff__", "__hmcf_who__",
 }
