@@ -22,11 +22,14 @@ type Comments interface {
 	Confirm(ctx context.Context, id uuid.UUID) (comment.Comment, error)
 	Settings(ctx context.Context) (comment.Settings, error)
 	MatchBlocks(ctx context.Context, p comment.Probe) ([]comment.Block, error)
+	EnsureCommenter(ctx context.Context, email string) (uuid.UUID, error)
+	FindCommenter(ctx context.Context, email string) (id uuid.UUID, ok bool, err error)
 }
 
-// Mailer sends the confirmation mail.
+// Mailer sends the confirmation and sign-in mails.
 type Mailer interface {
 	SendCommentConfirmation(ctx context.Context, to string, d email.CommentConfirmationData) error
+	SendCommentSignIn(ctx context.Context, to string, d email.CommentSignInData) error
 }
 
 // SiteInfo returns the site name and the configured base URL (never a request
@@ -35,8 +38,13 @@ type SiteInfo func(ctx context.Context) (name, baseURL string)
 
 type store interface {
 	Issue(ctx context.Context, r issueRow, l Limits) (bool, error)
+	// NetworkLimited reports whether the ip or net cap is already reached,
+	// without recording anything.
+	NetworkLimited(ctx context.Context, ipHash, netHash string, now time.Time, l Limits) (bool, error)
 	Peek(ctx context.Context, hash []byte, now time.Time) (commentID, entityID, commenterID uuid.UUID, ok bool, err error)
-	Consume(ctx context.Context, hash []byte, now time.Time) (commentID, commenterID uuid.UUID, ok bool, err error)
+	PeekSignIn(ctx context.Context, hash []byte, now time.Time) (commenterID uuid.UUID, ok bool, err error)
+	// Consume spends a comment token (signIn false) or a sign-in token (true).
+	Consume(ctx context.Context, hash []byte, now time.Time, signIn bool) (commentID, commenterID uuid.UUID, ok bool, err error)
 	// Release un-spends a token whose confirmation failed.
 	Release(ctx context.Context, hash []byte) error
 	TokenVersion(ctx context.Context, commenterID uuid.UUID) (int, bool, error)
@@ -158,7 +166,7 @@ func (s *Service) RequestConfirmation(ctx context.Context, req ConfirmRequest) (
 		return 0, err
 	}
 	limited, err := s.store.Issue(ctx, issueRow{
-		Hash: hash, CommentID: c.ID, CommenterID: *c.CommenterID,
+		Hash: hash, CommentID: &c.ID, CommenterID: *c.CommenterID,
 		IPHash: c.IPHash, NetHash: c.NetHash, Now: s.now(),
 	}, s.limits)
 	if err != nil {
@@ -213,7 +221,7 @@ func (s *Service) Confirm(ctx context.Context, raw string) (Confirmed, error) {
 	if !ok {
 		return Confirmed{}, ErrTokenInvalid
 	}
-	commentID, commenterID, ok, err := s.store.Consume(ctx, hash, s.now())
+	commentID, commenterID, ok, err := s.store.Consume(ctx, hash, s.now(), false)
 	if err != nil {
 		return Confirmed{}, err
 	}
@@ -238,6 +246,115 @@ func (s *Service) Confirm(ctx context.Context, raw string) (Confirmed, error) {
 		s.release(ctx, hash)
 		return Confirmed{}, err
 	}
+	return Confirmed{
+		Comment: c, CommenterID: commenterID, TokenVersion: ver,
+		CookieLifetime: s.cookieLifetime(ctx),
+	}, nil
+}
+
+// SignInRequest is a request for a sign-in link without a comment.
+type SignInRequest struct{ Email, IPHash, NetHash string }
+
+// RequestSignIn mails a single-use sign-in link unless a send limit is hit.
+// Only a malformed or disposable address is an error; every other path,
+// including an unknown address, returns OutcomeCheckEmail. The send limits are
+// shared with confirmation mails.
+func (s *Service) RequestSignIn(ctx context.Context, req SignInRequest) (Outcome, error) {
+	if err := s.CheckEmail(ctx, req.Email); err != nil {
+		return 0, err
+	}
+	name, base := s.site(ctx)
+	if base == "" {
+		s.log.Warn("comment sign-in not sent: no site address")
+		return OutcomeCheckEmail, nil
+	}
+	// An address with no commenter yet gets a row (and its sealed email) only
+	// once the network limits allow a mail: a limited client stores nothing.
+	commenterID, found, err := s.comments.FindCommenter(ctx, req.Email)
+	if err != nil {
+		return 0, err
+	}
+	if !found {
+		limited, err := s.store.NetworkLimited(ctx, req.IPHash, req.NetHash, s.now(), s.limits)
+		if err != nil {
+			return 0, err
+		}
+		if limited {
+			s.log.Debug("comment sign-in not sent: limit reached")
+			return OutcomeCheckEmail, nil
+		}
+		if commenterID, err = s.comments.EnsureCommenter(ctx, req.Email); err != nil {
+			return 0, err
+		}
+	}
+	raw, hash, err := NewToken()
+	if err != nil {
+		return 0, err
+	}
+	limited, err := s.store.Issue(ctx, issueRow{
+		Hash: hash, CommenterID: commenterID,
+		IPHash: req.IPHash, NetHash: req.NetHash, Now: s.now(),
+	}, s.limits)
+	if err != nil {
+		return 0, err
+	}
+	if limited {
+		s.log.Debug("comment sign-in not sent: limit reached")
+		return OutcomeCheckEmail, nil
+	}
+	url := strings.TrimRight(base, "/") + "/-/comments/signin/" + raw
+	if err := s.mailer.SendCommentSignIn(ctx, req.Email, email.CommentSignInData{
+		SiteName: name, URL: url, ExpiresIn: "24 hours",
+	}); err != nil {
+		s.log.Warn("comment sign-in mail failed")
+	}
+	return OutcomeCheckEmail, nil
+}
+
+// PeekSignIn checks a sign-in token without consuming it (GET of the link).
+func (s *Service) PeekSignIn(ctx context.Context, raw string) error {
+	hash, ok := HashToken(raw)
+	if !ok {
+		return ErrTokenInvalid
+	}
+	_, ok, err := s.store.PeekSignIn(ctx, hash, s.now())
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrTokenInvalid
+	}
+	return nil
+}
+
+// ConfirmSignIn consumes a sign-in token (POST of the link). The result has no
+// Comment. A token whose comment was deleted afterwards (comment_id set NULL)
+// is accepted: the mail went to the address owner.
+func (s *Service) ConfirmSignIn(ctx context.Context, raw string) (Confirmed, error) {
+	hash, ok := HashToken(raw)
+	if !ok {
+		return Confirmed{}, ErrTokenInvalid
+	}
+	_, commenterID, ok, err := s.store.Consume(ctx, hash, s.now(), true)
+	if err != nil {
+		return Confirmed{}, err
+	}
+	if !ok {
+		return Confirmed{}, ErrTokenInvalid
+	}
+	ver, found, err := s.store.TokenVersion(ctx, commenterID)
+	if err != nil {
+		s.release(ctx, hash)
+		return Confirmed{}, err
+	}
+	if !found {
+		return Confirmed{}, ErrTokenInvalid
+	}
+	return Confirmed{CommenterID: commenterID, TokenVersion: ver, CookieLifetime: s.cookieLifetime(ctx)}, nil
+}
+
+// cookieLifetime is the configured device cookie lifetime.
+func (s *Service) cookieLifetime(ctx context.Context) time.Duration {
 	set, err := s.comments.Settings(ctx)
 	if err != nil {
 		s.log.Warn("comment settings unavailable, using defaults for the device cookie")
@@ -246,10 +363,7 @@ func (s *Service) Confirm(ctx context.Context, raw string) (Confirmed, error) {
 	if days < 1 {
 		days = comment.Defaults().DeviceCookieDays
 	}
-	return Confirmed{
-		Comment: c, CommenterID: commenterID, TokenVersion: ver,
-		CookieLifetime: time.Duration(days) * 24 * time.Hour,
-	}, nil
+	return time.Duration(days) * 24 * time.Hour
 }
 
 const releaseTimeout = 3 * time.Second
@@ -275,6 +389,21 @@ func (s *Service) Cookie(c Confirmed, secure bool) *http.Cookie {
 		}),
 		Path:     "/",
 		MaxAge:   int(c.CookieLifetime / time.Second),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   secure,
+	}
+}
+
+// ClearCookie builds the hm_c cookie that removes this browser's sign-in. It
+// does not touch token_version: a copied cookie stays valid until it expires or
+// an admin revokes the commenter.
+func (s *Service) ClearCookie(secure bool) *http.Cookie {
+	return &http.Cookie{
+		Name:     CookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   secure,

@@ -1,0 +1,21 @@
+{{define "content"}}{{with .CommentSignIn}}<section class="hm-error">
+<div class="hm-container">
+<p class="hm-error__code">{{$.Site.Name}}</p>
+{{if eq .State "invalid"}}<h1>{{t $ "comment_link_expired_title"}}</h1>
+<p>{{t $ "comment_signin_invalid"}}</p>
+{{else}}<h1>{{t $ "comment_signin_title"}}</h1>
+{{if eq .State "sent"}}<p role="status">{{t $ "comment_signin_sent"}}</p>
+{{else if eq .State "out"}}<p role="status">{{t $ "comment_signin_out"}}</p>
+{{else if eq .State "in"}}<p>{{t $ "comment_signin_in"}}</p>
+<form method="post" action="{{.Action}}">{{with .Token}}<input type="hidden" name="hm_ct" value="{{.}}">{{end}}<button class="hm-btn" type="submit">{{t $ "comment_sign_out"}}</button></form>
+{{else if eq .State "link"}}<p>{{t $ "comment_signin_link"}}</p>
+<form method="post" action="{{.Action}}">{{with .Token}}<input type="hidden" name="hm_ct" value="{{.}}">{{end}}<button class="hm-btn" type="submit">{{t $ "comment_sign_in"}}</button></form>
+{{else}}<p>{{t $ "comment_signin_intro"}}</p>
+{{if .Error}}<p class="hm-form__error" role="alert">{{t $ "comment_signin_error"}}</p>
+{{end}}<form class="hm-form" method="post" action="{{.Action}}">{{with .Token}}<input type="hidden" name="hm_ct" value="{{.}}">{{end}}
+<div class="hm-form__field"><label class="hm-form__label" for="{{.EmailName}}">{{t $ "comment_signin_email"}}</label>
+<input id="{{.EmailName}}" name="{{.EmailName}}" type="email" autocomplete="email" maxlength="254"{{with .Email}} value="{{.}}"{{end}} required></div>
+<button class="hm-btn hm-form__submit" type="submit">{{t $ "comment_signin_send"}}</button>
+</form>
+{{end}}{{end}}</div>
+</section>{{end}}{{end}}

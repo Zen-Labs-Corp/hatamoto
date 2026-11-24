@@ -59,7 +59,7 @@ var requiredTemplates = []string{"head", "header", "nav", "footer", "section", "
 
 // fixedLayouts are the layouts a theme may ship; the embedded default ships
 // all of them, so the lookup always ends somewhere.
-var fixedLayouts = []string{"page", "single", "home", "archive", "taxonomy", "author", "search", "registry", "404", "error", "coming-soon", "comment-confirm"}
+var fixedLayouts = []string{"page", "single", "home", "archive", "taxonomy", "author", "search", "registry", "404", "error", "coming-soon", "comment-confirm", "comment-signin"}
 
 // layoutPrefixes name the family layouts: single-<schema>, archive-<schema>
 // and taxonomy-<kind>.
@@ -744,7 +744,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	// Exceptions the gate cannot cover: sanitiser gaps and scripts a third-party
 	// theme hardcodes; the sandbox CSP and the bridge port are the backstop.
 	framed := v.Preview || v.Canvas
-	editor := framed || v.Access != nil || v.CommentConfirm != nil // access and comment-confirm pages run no plugin or page scripts
+	editor := framed || v.Access != nil || v.CommentConfirm != nil || v.CommentSignIn != nil // access, comment-confirm and comment-signin pages run no plugin or page scripts
 	d.PluginHead, d.PluginBody = pluginAssetMarkup(!editor)
 	d.PluginHead += docCSS.head()
 	var islands template.HTML

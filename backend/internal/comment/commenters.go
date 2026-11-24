@@ -258,8 +258,13 @@ func (s *Service) EraseByEmail(ctx context.Context, email string) (EraseResult, 
 	if err != nil {
 		return EraseResult{}, err
 	}
+	// The commenter row is gone: announced rows must not link back to it.
+	for i := range deleted {
+		deleted[i].CommenterID = nil
+	}
 	s.announceErased(ctx, deleted)
 	for _, c := range anonymised {
+		c.CommenterID = nil
 		// Status is unchanged; before == after tells the cache the content changed.
 		s.obs.each("updated", func(o Observer) { o.OnUpdated(ctx, c, c) })
 	}

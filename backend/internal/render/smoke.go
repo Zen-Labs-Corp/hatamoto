@@ -47,7 +47,7 @@ func (e *Engine) smokeRender(chain Chain) error {
 	if err != nil {
 		return err
 	}
-	for _, kind := range []string{KindPage, KindSingle, KindHome, KindArchive, KindTaxonomy, KindAuthor, KindSearch, KindRegistry, "404", "error", "coming-soon", "comment-confirm"} {
+	for _, kind := range []string{KindPage, KindSingle, KindHome, KindArchive, KindTaxonomy, KindAuthor, KindSearch, KindRegistry, "404", "error", "coming-soon", "comment-confirm", "comment-signin"} {
 		v := smokeView(kind)
 		cands := layoutCandidates(kind, "post")
 		status := 200
@@ -60,6 +60,8 @@ func (e *Engine) smokeRender(chain Chain) error {
 			cands, status = []string{"coming-soon"}, 200
 		case "comment-confirm":
 			cands, status = []string{"comment-confirm"}, 200
+		case "comment-signin":
+			cands, status = []string{"comment-signin"}, 200
 		case KindTaxonomy:
 			cands = layoutCandidates(kind, "category")
 		}
@@ -96,6 +98,9 @@ func smokeView(kind string) *PageView {
 	}
 	if kind == "comment-confirm" {
 		v.CommentConfirm = &CommentConfirmView{EntityTitle: "Hello", Action: "/-/comments/confirm/x"}
+	}
+	if kind == "comment-signin" {
+		v.CommentSignIn = &CommentSignInView{State: CommentSignInForm, Action: "/-/comments/signin", EmailName: "email"}
 	}
 	if kind == KindRegistry {
 		v.Registry = &RegistryPageView{Type: "plugin", ListName: "Plugins", ListURL: "/plugins", Plugin: &PluginCard{

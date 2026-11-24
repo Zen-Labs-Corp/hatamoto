@@ -161,6 +161,10 @@ type renderHandlers struct {
 	// commentBypass sends a visitor with own non-public comments around the
 	// shared page cache; nil = never.
 	commentBypass *commentBypass
+	// commentDevice finds the commenter behind the request's hm_c cookie (nil:
+	// none). The render.page chain asks lazily, only for a plugin that holds
+	// comments.read.
+	commentDevice func(*http.Request) (uuid.UUID, bool)
 }
 
 // newRenderHandlers wires the handlers to the server's services. pageCache may
@@ -194,6 +198,7 @@ func (s *Server) newRenderHandlers(engine pageRenderer, pageCache *cache.Cache) 
 		runtime:       s.pageRuntime,
 		slot:          s.commentSlot,
 		commentBypass: s.commentBypass,
+		commentDevice: s.commentDevice,
 
 		cspExtras:        s.cspExtras,
 		pluginCSP:        s.pluginCSPHosts,

@@ -91,6 +91,10 @@ func allowedExtraPattern(pattern string, expected map[string]bool) bool {
 		return method == "GET"
 	case "/-/comments/confirm/{token}", "/-/comments/unsubscribe/{token}": // comment confirmation and unsubscribe links: GET shows a button, POST acts
 		return method == "GET" || method == "POST"
+	case "/-/comments/signin", "/-/comments/signin/{token}": // commenter sign-in: GET shows a form or button, POST acts
+		return method == "GET" || method == "POST"
+	case "/-/comments/signout": // commenter sign-out (this browser only)
+		return method == "POST"
 	case "/-/comments/form/{entityID}": // static mode: live comment form fragment
 		return method == "GET"
 	case "/-/comments/{entityID}", "/-/comments/edit/{commentID}", "/-/comments/delete/{commentID}": // public comment post, and edit/delete of one's own

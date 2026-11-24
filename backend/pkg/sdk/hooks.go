@@ -119,8 +119,7 @@ var (
 	// CommentDraftF (SDK 0.27) names the author of a draft on a schema whose
 	// community policy locks the name: return the canonical AuthorName or set
 	// Reject. Any error, trap or timeout rejects the draft (fail closed). It is
-	// registered only while the plugin holds comments.read, and not called until
-	// the change that calls it ships.
+	// registered only while the plugin holds comments.read.
 	CommentDraftF = Filter[CommentDraft]{"comment.draft"}
 )
 

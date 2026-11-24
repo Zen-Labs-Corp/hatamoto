@@ -39,12 +39,19 @@ type commentView struct {
 	showDead func(ctx context.Context, plugin string, commenterID uuid.UUID) bool
 }
 
+// lockCommentForm turns form into the locked variant (no name or email input, a
+// sign-in line), used when the entity's content type has the community policy.
+func lockCommentForm(form *render.CommentForm) {
+	form.Locked, form.SignInURL = true, commentSignInPath
+}
+
 // Codes the theme turns into text; anything else in the query is ignored.
 var (
 	commentNotices = map[string]bool{"check_email": true, "posted": true}
 	commentErrors  = map[string]bool{
 		commentsubmit.CodeBodyEmpty: true, commentsubmit.CodeBodyLong: true, commentsubmit.CodeName: true,
-		commentsubmit.CodeEmail: true, commentsubmit.CodeEmailDomain: true, "closed": true,
+		commentsubmit.CodeEmail: true, commentsubmit.CodeEmailDomain: true, commentsubmit.CodeSignIn: true,
+		commentsubmit.CodeDraft: true, "closed": true,
 	}
 )
 
@@ -218,6 +225,9 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 	}
 	if echo != nil && commentErrors[echo.Code] {
 		thread.Error = echo.Code
+		if echo.Code == commentsubmit.CodeDraft {
+			thread.ErrorText = echo.Message // only the POST response carries it, never a URL
+		}
 	}
 	v.Comments = thread
 	v.CommentCount = counts[id].Approved
@@ -257,6 +267,9 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 		if w := c.captcha(ctx); w != nil && w.provider != "" {
 			p.Captcha = &render.CommentCaptcha{Provider: w.provider, SiteKey: w.siteKey}
 		}
+	}
+	if cfg.Policy.Enabled {
+		lockCommentForm(&p)
 	}
 	v.CommentForm = &p
 }

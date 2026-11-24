@@ -25,8 +25,9 @@ const limitWindow = 24 * time.Hour
 type pgStore struct{ db *database.DB }
 
 type issueRow struct {
-	Hash                   []byte
-	CommentID, CommenterID uuid.UUID
+	Hash        []byte
+	CommentID   *uuid.UUID // nil for a sign-in without a comment
+	CommenterID uuid.UUID
 	// IPHash and NetHash are the stored comment's hashes; "" when the IP was
 	// unparsable, which is never counted.
 	IPHash, NetHash string
@@ -78,6 +79,28 @@ func (s *pgStore) Issue(ctx context.Context, r issueRow, l Limits) (limited bool
 	return limited, err
 }
 
+// NetworkLimited reports whether the ip_hash or net_hash cap is reached. It is
+// a pre-check: Issue still enforces every cap under its locks.
+func (s *pgStore) NetworkLimited(ctx context.Context, ipHash, netHash string, now time.Time, l Limits) (bool, error) {
+	since := now.Add(-limitWindow)
+	for _, c := range []struct {
+		col, val string
+		max      int
+	}{{"ip_hash", ipHash, l.PerIP}, {"net_hash", netHash, l.PerNet}} {
+		if c.val == "" {
+			continue
+		}
+		var n int
+		if err := s.db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_comment_confirmations WHERE `+c.col+` = $1 AND created_at > $2`, c.val, since).Scan(&n); err != nil {
+			return false, err
+		}
+		if n >= c.max {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // Peek looks a token up without consuming it. The comment must still be a draft.
 func (s *pgStore) Peek(ctx context.Context, hash []byte, now time.Time) (commentID, entityID, commenterID uuid.UUID, ok bool, err error) {
 	err = s.db.Pool().QueryRow(ctx, `SELECT k.comment_id, m.entity_id, k.commenter_id
@@ -94,16 +117,37 @@ func (s *pgStore) Peek(ctx context.Context, hash []byte, now time.Time) (comment
 	return commentID, entityID, commenterID, true, nil
 }
 
-// Consume spends a token in one statement that locks only its own row.
-func (s *pgStore) Consume(ctx context.Context, hash []byte, now time.Time) (commentID, commenterID uuid.UUID, ok bool, err error) {
+// PeekSignIn looks a sign-in token (one without a comment) up without
+// consuming it and returns its commenter.
+func (s *pgStore) PeekSignIn(ctx context.Context, hash []byte, now time.Time) (commenterID uuid.UUID, ok bool, err error) {
+	err = s.db.Pool().QueryRow(ctx, `SELECT commenter_id FROM hatamoto_comment_confirmations
+		WHERE token_hash = $1 AND used_at IS NULL AND expires_at > $2 AND comment_id IS NULL`,
+		hash, now).Scan(&commenterID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, false, nil
+	}
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+	return commenterID, true, nil
+}
+
+// Consume spends a token in one statement that locks only its own row. A
+// comment token (signIn false) must carry a comment, a sign-in token must not;
+// commentID is uuid.Nil for the latter.
+func (s *pgStore) Consume(ctx context.Context, hash []byte, now time.Time, signIn bool) (commentID, commenterID uuid.UUID, ok bool, err error) {
+	var cid *uuid.UUID
 	err = s.db.Pool().QueryRow(ctx, `UPDATE hatamoto_comment_confirmations SET used_at = $2
-		WHERE token_hash = $1 AND used_at IS NULL AND expires_at > $2 AND comment_id IS NOT NULL
-		RETURNING comment_id, commenter_id`, hash, now).Scan(&commentID, &commenterID)
+		WHERE token_hash = $1 AND used_at IS NULL AND expires_at > $2 AND (comment_id IS NULL) = $3
+		RETURNING comment_id, commenter_id`, hash, now, signIn).Scan(&cid, &commenterID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return uuid.Nil, uuid.Nil, false, nil
 	}
 	if err != nil {
 		return uuid.Nil, uuid.Nil, false, err
+	}
+	if cid != nil {
+		commentID = *cid
 	}
 	return commentID, commenterID, true, nil
 }
@@ -142,11 +186,23 @@ func (s *pgStore) Purge(ctx context.Context, now time.Time) (drafts, tokens, com
 		return 0, 0, 0, err
 	}
 	drafts = tag.RowsAffected()
-	tag, err = pool.Exec(ctx, `DELETE FROM hatamoto_comment_confirmations WHERE created_at < $1`, cutoff)
+	// The newest used sign-in row of a commenter stays: it proves the address
+	// and keeps the commenter row (and its key) out of the delete below. Its
+	// network hashes are blanked right after.
+	tag, err = pool.Exec(ctx, `DELETE FROM hatamoto_comment_confirmations k WHERE k.created_at < $1
+		AND NOT (k.used_at IS NOT NULL AND k.comment_id IS NULL AND k.created_at = (
+			SELECT max(j.created_at) FROM hatamoto_comment_confirmations j
+			WHERE j.commenter_id = k.commenter_id AND j.used_at IS NOT NULL AND j.comment_id IS NULL))`, cutoff)
 	if err != nil {
 		return drafts, 0, 0, err
 	}
 	tokens = tag.RowsAffected()
+	// The kept row holds no network data past the 24 hour window. The send
+	// limits only count the last 24 hours, so blanking changes none of them.
+	if _, err = pool.Exec(ctx, `UPDATE hatamoto_comment_confirmations SET ip_hash = '', net_hash = ''
+		WHERE created_at < $1 AND used_at IS NOT NULL AND comment_id IS NULL AND (ip_hash <> '' OR net_hash <> '')`, cutoff); err != nil {
+		return drafts, tokens, 0, err
+	}
 	tag, err = pool.Exec(ctx, `DELETE FROM hatamoto_commenters m
 		WHERE m.trust_level = 'new' AND m.approved_count = 0 AND m.first_approved_at IS NULL AND m.last_spam_at IS NULL
 		AND m.last_seen_at < $1

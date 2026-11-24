@@ -423,6 +423,10 @@ func (r *Runtime) action(m sdk.Manifest, hook, export string) func(context.Conte
 		if isCommentEvent(hook) && !r.caps.grants.Has(name, sdk.PermCommentsRead) {
 			return // comment events carry author name and body: only plugins granted comments.read see them
 		}
+		if ev, ok := payload.(sdk.CommentEvent); ok && hook != sdk.CommentDeleted.Name {
+			ev.CommenterKey = r.commenterKeyFor(ctx, name) // this plugin's copy; the shared event stays keyless
+			payload = ev
+		}
 		in, err := jsonx.MarshalPinned(payload)
 		if err == nil {
 			_, err = r.host.Call(ctx, name, export, in)

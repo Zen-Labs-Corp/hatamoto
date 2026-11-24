@@ -13,6 +13,7 @@ import (
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/comment/identity"
 	"hatamoto.dev/core/internal/commentfmt"
+	"hatamoto.dev/core/internal/pluginkey"
 	"hatamoto.dev/core/internal/spam"
 )
 
@@ -22,6 +23,7 @@ type fakeComments struct {
 	set       comment.Settings
 	mode      comment.Mode
 	policy    comment.Policy
+	schema    string
 	modeErr   error
 	commenter *comment.Commenter
 	blocks    []comment.Block
@@ -33,7 +35,7 @@ type fakeComments struct {
 
 func (f *fakeComments) Settings(context.Context) (comment.Settings, error) { return f.set, nil }
 func (f *fakeComments) EntityConfig(context.Context, uuid.UUID) (comment.EntityConfig, error) {
-	return comment.EntityConfig{Mode: f.mode, Policy: f.policy}, f.modeErr
+	return comment.EntityConfig{SchemaSlug: f.schema, Mode: f.mode, Policy: f.policy}, f.modeErr
 }
 func (f *fakeComments) Store(_ context.Context, d comment.Draft) (comment.Comment, error) {
 	f.stored = append(f.stored, d)
@@ -573,5 +575,176 @@ func TestSubmitTypedOnlyOnInvalid(t *testing.T) {
 				t.Fatalf("Typed = %+v, want nil", out.Typed)
 			}
 		})
+	}
+}
+
+// fakePolicy opens the signed-in email; whether a schema has the policy comes
+// from the entity config (fakeComments.policy), as in production.
+type fakePolicy struct{ email string }
+
+func (f fakePolicy) CommenterEmail(_ context.Context, id uuid.UUID) (comment.Commenter, string, error) {
+	return comment.Commenter{ID: id}, f.email, nil
+}
+
+type fakeDrafter struct {
+	name string
+	err  error
+}
+
+func (f fakeDrafter) Name(context.Context, uuid.UUID, string) (string, error) { return f.name, f.err }
+
+type schemaChecker struct{ schema *string }
+
+func (c schemaChecker) Check(_ context.Context, in comment.CheckInput) (int, []string, error) {
+	*c.schema = in.Schema
+	return 0, nil, nil
+}
+
+// policyHarness is a policy-schema submit with a signed-in device.
+func policyHarness(t *testing.T) *harness {
+	t.Helper()
+	h := newHarness(t)
+	h.known(true)
+	h.c.schema, h.c.policy = "story", comment.Policy{Enabled: true}
+	h.p.Policy = fakePolicy{email: "grace@example.test"}
+	h.p.Drafter = fakeDrafter{name: "Grace H."}
+	return h
+}
+
+func TestPolicySchemaUsesDraftAndOpenedEmail(t *testing.T) {
+	h := policyHarness(t)
+	var schema string
+	h.p.Checkers = []comment.Checker{schemaChecker{&schema}}
+	out := h.submit(t) // the post carries the name Ada and ada@example.test
+	if out.Kind != Posted || len(h.c.stored) != 1 {
+		t.Fatalf("kind = %d stored = %d", out.Kind, len(h.c.stored))
+	}
+	if d := h.c.stored[0]; d.AuthorName != "Grace H." || d.Email != "grace@example.test" {
+		t.Errorf("draft identity = %q %q", d.AuthorName, d.Email)
+	}
+	if schema != "story" {
+		t.Errorf("check schema = %q", schema)
+	}
+}
+
+func TestPolicySchemaRefusals(t *testing.T) {
+	t.Run("no device", func(t *testing.T) {
+		h := policyHarness(t)
+		h.req.DeviceCommenter = nil
+		out := h.submit(t)
+		if out.Kind != Invalid || out.Code != CodeSignIn || out.Typed == nil || out.Typed.Body == "" || len(h.c.stored) != 0 {
+			t.Fatalf("out = %+v stored = %d", out, len(h.c.stored))
+		}
+	})
+	t.Run("no email", func(t *testing.T) {
+		h := policyHarness(t)
+		h.p.Policy = fakePolicy{}
+		if out := h.submit(t); out.Code != CodeSignIn || len(h.c.stored) != 0 {
+			t.Fatalf("out = %+v", out)
+		}
+	})
+	t.Run("draft unavailable", func(t *testing.T) {
+		h := policyHarness(t)
+		h.p.Drafter = fakeDrafter{err: ErrDraftUnavailable}
+		out := h.submit(t)
+		if out.Kind != Invalid || out.Code != CodeDraft || out.Message != "" || len(h.c.stored) != 0 {
+			t.Fatalf("out = %+v", out)
+		}
+	})
+	t.Run("draft rejected", func(t *testing.T) {
+		h := policyHarness(t)
+		h.p.Drafter = fakeDrafter{err: &DraftRejected{Message: "Pick a name first"}}
+		out := h.submit(t)
+		if out.Kind != Invalid || out.Code != CodeDraft || out.Message != "Pick a name first" || out.Typed == nil || len(h.c.stored) != 0 {
+			t.Fatalf("out = %+v", out)
+		}
+	})
+	t.Run("no drafter", func(t *testing.T) {
+		h := policyHarness(t)
+		h.p.Drafter = nil
+		if out := h.submit(t); out.Code != CodeDraft {
+			t.Fatalf("out = %+v", out)
+		}
+	})
+}
+
+func TestPolicySchemaAdminUnchanged(t *testing.T) {
+	h := policyHarness(t)
+	admin := uuid.New()
+	h.req.AdminUserID, h.req.AdminName, h.req.DeviceCommenter = &admin, "Site", nil
+	h.p.Drafter = fakeDrafter{err: ErrDraftUnavailable}
+	out := h.submit(t)
+	if out.Kind != Posted || h.c.stored[0].AuthorName != "Site" {
+		t.Fatalf("out = %+v", out)
+	}
+}
+
+func TestPolicySchemaOffKeepsPostedIdentity(t *testing.T) {
+	h := policyHarness(t)
+	h.c.policy.Enabled = false
+	h.p.Drafter = fakeDrafter{err: ErrDraftUnavailable}
+	h.submit(t)
+	if d := h.c.stored[0]; d.AuthorName != "Ada" || d.Email != "ada@example.test" {
+		t.Errorf("draft identity = %q %q", d.AuthorName, d.Email)
+	}
+}
+
+// keyChecker records the commenter the check context names.
+type keyChecker struct {
+	got *uuid.UUID
+	ok  *bool
+}
+
+func (c keyChecker) Check(ctx context.Context, _ comment.CheckInput) (int, []string, error) {
+	id, ok := pluginkey.CommenterFrom(ctx)
+	*c.got, *c.ok = id, ok
+	return 0, nil, nil
+}
+
+func TestCheckKeyOnlyFromVerifiedDevice(t *testing.T) {
+	t.Run("typed email of a known commenter, no device", func(t *testing.T) {
+		h := newHarness(t)
+		h.known(false)
+		var id uuid.UUID
+		var ok bool
+		h.p.Checkers = []comment.Checker{keyChecker{&id, &ok}}
+		h.submit(t)
+		if ok {
+			t.Fatalf("check saw commenter %s from a typed address", id)
+		}
+	})
+	t.Run("verified device", func(t *testing.T) {
+		h := newHarness(t)
+		h.known(true)
+		var id uuid.UUID
+		var ok bool
+		h.p.Checkers = []comment.Checker{keyChecker{&id, &ok}}
+		h.submit(t)
+		if !ok || id != *h.req.DeviceCommenter {
+			t.Fatalf("check commenter = %s, %v; want the device commenter", id, ok)
+		}
+	})
+}
+
+func TestHoldEditCheckGetsSchemaAndKey(t *testing.T) {
+	h := policyHarness(t)
+	var schema string
+	var id uuid.UUID
+	var ok bool
+	h.p.Checkers = []comment.Checker{schemaChecker{&schema}, keyChecker{&id, &ok}}
+	h.p.Spam.Settings = spamSettings{*h.sp}
+	res, err := commentfmt.Render("A fine edit.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = h.p.HoldEdit(context.Background(), EditCheck{
+		EntityID: h.req.EntityID, Schema: "story", Name: "Ada", Body: "A fine edit.", Rendered: res, BodyChanged: true,
+		IP: h.req.IP, Now: t0, Commenter: h.req.DeviceCommenter,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if schema != "story" || !ok || id != *h.req.DeviceCommenter {
+		t.Errorf("edit check saw schema %q, key %s (%v)", schema, id, ok)
 	}
 }

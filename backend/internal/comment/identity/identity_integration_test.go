@@ -5,6 +5,7 @@ package identity
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -18,8 +19,28 @@ import (
 
 // recMailer records every confirmation mail.
 type recMailer struct {
-	mu    sync.Mutex
-	calls []sent
+	mu      sync.Mutex
+	calls   []sent
+	signIns []email.CommentSignInData
+}
+
+func (m *recMailer) SendCommentSignIn(_ context.Context, _ string, d email.CommentSignInData) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.signIns = append(m.signIns, d)
+	return nil
+}
+
+// lastSignIn returns the raw token of the most recent sign-in mail.
+func (m *recMailer) lastSignIn(t *testing.T) string {
+	t.Helper()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.signIns) == 0 {
+		t.Fatal("no sign-in mail was sent")
+	}
+	url := m.signIns[len(m.signIns)-1].URL
+	return url[strings.LastIndex(url, "/")+1:]
 }
 
 func (m *recMailer) SendCommentConfirmation(_ context.Context, to string, d email.CommentConfirmationData) error {
@@ -300,5 +321,178 @@ func TestIdentityIntegration_TokenSingleUse(t *testing.T) {
 	}
 	if _, err := e.id.Confirm(e.ctx, tok); !errors.Is(err, ErrTokenInvalid) {
 		t.Errorf("after moderator approval: %v, want ErrTokenInvalid", err)
+	}
+}
+
+func TestSignInWithoutComment(t *testing.T) {
+	e := newIDEnv(t)
+	signIn := func(addr string) (Outcome, error) {
+		return e.id.RequestSignIn(e.ctx, SignInRequest{Email: addr, IPHash: "ip-s", NetHash: "net-s"})
+	}
+	// A known address (it has a comment) and an unknown one look the same.
+	known := e.draft("known@example.test", "192.0.2.1")
+	if known.CommenterID == nil {
+		t.Fatal("no commenter")
+	}
+	var comments int
+	e.scalar(&comments, `SELECT count(*) FROM hatamoto_comments`)
+	for _, addr := range []string{"known@example.test", "new@example.test"} {
+		if out, err := signIn(addr); out != OutcomeCheckEmail || err != nil {
+			t.Fatalf("%s: (%v, %v)", addr, out, err)
+		}
+	}
+	if n := len(e.mail.signIns); n != 2 {
+		t.Fatalf("sign-in mails = %d, want 2", n)
+	}
+	var after int
+	e.scalar(&after, `SELECT count(*) FROM hatamoto_comments`)
+	if after != comments {
+		t.Errorf("comments %d -> %d: sign-in must not create one", comments, after)
+	}
+
+	tok := e.mail.lastSignIn(t)
+	if err := e.id.PeekSignIn(e.ctx, tok); err != nil {
+		t.Fatalf("peek: %v", err)
+	}
+	if err := e.id.PeekSignIn(e.ctx, tok); err != nil {
+		t.Fatalf("second peek (must not consume): %v", err)
+	}
+	if _, err := e.id.Confirm(e.ctx, tok); !errors.Is(err, ErrTokenInvalid) {
+		t.Errorf("sign-in token accepted by Confirm: %v", err)
+	}
+	got, err := e.id.ConfirmSignIn(e.ctx, tok)
+	if err != nil || got.CommenterID == uuid.Nil || got.CookieLifetime <= 0 {
+		t.Fatalf("ConfirmSignIn = %+v, %v", got, err)
+	}
+	if _, err := e.id.ConfirmSignIn(e.ctx, tok); !errors.Is(err, ErrTokenInvalid) {
+		t.Errorf("replay: %v", err)
+	}
+	if err := e.id.PeekSignIn(e.ctx, tok); !errors.Is(err, ErrTokenInvalid) {
+		t.Errorf("peek after use: %v", err)
+	}
+
+	// A comment token is refused by ConfirmSignIn.
+	c := e.draft("known@example.test", "198.51.100.9")
+	if out, err := e.request(c, "known@example.test"); out != OutcomeCheckEmail || err != nil {
+		t.Fatal(out, err)
+	}
+	if _, err := e.id.ConfirmSignIn(e.ctx, e.mail.last(t)); !errors.Is(err, ErrTokenInvalid) {
+		t.Errorf("comment token accepted by ConfirmSignIn: %v", err)
+	}
+
+	// Disposable and malformed addresses are visible errors.
+	if _, err := signIn("x@mailinator.com"); !errors.Is(err, ErrEmailNotAccepted) {
+		t.Errorf("disposable: %v", err)
+	}
+	if _, err := signIn("nope"); !errors.Is(err, ErrEmailInvalid) {
+		t.Errorf("malformed: %v", err)
+	}
+}
+
+func TestSignInSharesLimits(t *testing.T) {
+	e := newIDEnv(t)
+	for i := 0; i < 4; i++ {
+		if out, err := e.id.RequestSignIn(e.ctx, SignInRequest{Email: "a@example.test"}); out != OutcomeCheckEmail || err != nil {
+			t.Fatalf("request %d: (%v, %v)", i, out, err)
+		}
+	}
+	if n := len(e.mail.signIns); n != 3 {
+		t.Errorf("sign-in mails = %d, want 3 (4th is silent)", n)
+	}
+	// The same budget counts confirmation mails.
+	c := e.draft("a@example.test", "192.0.2.50")
+	if out, err := e.request(c, "a@example.test"); out != OutcomeCheckEmail || err != nil {
+		t.Fatal(out, err)
+	}
+	if e.mail.count() != 0 {
+		t.Errorf("confirmation sent past the shared limit")
+	}
+}
+
+func TestSignInAcceptsOrphanedConfirmation(t *testing.T) {
+	e := newIDEnv(t)
+	c := e.draft("o@example.test", "192.0.2.7")
+	if out, err := e.request(c, "o@example.test"); out != OutcomeCheckEmail || err != nil {
+		t.Fatal(out, err)
+	}
+	tok := e.mail.last(t)
+	e.exec(`DELETE FROM hatamoto_comments WHERE id = $1`, c.ID) // comment_id becomes NULL
+	if _, err := e.id.Confirm(e.ctx, tok); !errors.Is(err, ErrTokenInvalid) {
+		t.Fatalf("Confirm on an orphan: %v", err)
+	}
+	// Confirm consumed nothing it could use; the row is still unused.
+	got, err := e.id.ConfirmSignIn(e.ctx, tok)
+	if err != nil || got.CommenterID != *c.CommenterID {
+		t.Errorf("orphan via sign-in = %+v, %v", got, err)
+	}
+}
+
+func TestSignInOnlyCommenterSurvivesPurge(t *testing.T) {
+	e := newIDEnv(t)
+	signIn := func(addr string) {
+		t.Helper()
+		if out, err := e.id.RequestSignIn(e.ctx, SignInRequest{Email: addr, IPHash: "ip-keep", NetHash: "net-keep"}); out != OutcomeCheckEmail || err != nil {
+			t.Fatalf("request %s: (%v, %v)", addr, out, err)
+		}
+	}
+	signIn("kept@example.test")
+	got, err := e.id.ConfirmSignIn(e.ctx, e.mail.lastSignIn(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	signIn("never@example.test") // link never clicked
+	var neverID uuid.UUID
+	e.scalar(&neverID, `SELECT id FROM hatamoto_commenters WHERE id <> $1`, got.CommenterID)
+	before, _, err := e.id.store.TokenVersion(e.ctx, got.CommenterID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	e.clock.advance(25 * time.Hour)
+	e.exec(`UPDATE hatamoto_comment_confirmations SET created_at = created_at - interval '25 hours'`)
+	e.exec(`UPDATE hatamoto_commenters SET last_seen_at = last_seen_at - interval '25 hours'`)
+	if err := e.id.Purge(e.ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	v, found, err := e.id.store.TokenVersion(e.ctx, got.CommenterID)
+	if err != nil || !found || v != before {
+		t.Fatalf("signed-in commenter after purge: version %d found %v err %v, want %d", v, found, err, before)
+	}
+	var rows, hashed int
+	e.scalar(&rows, `SELECT count(*) FROM hatamoto_comment_confirmations WHERE commenter_id = $1 AND used_at IS NOT NULL`, got.CommenterID)
+	e.scalar(&hashed, `SELECT count(*) FROM hatamoto_comment_confirmations WHERE commenter_id = $1 AND (ip_hash <> '' OR net_hash <> '')`, got.CommenterID)
+	if rows != 1 || hashed != 0 {
+		t.Errorf("kept sign-in rows = %d, rows with network hashes = %d, want 1 and 0", rows, hashed)
+	}
+	var n int
+	e.scalar(&n, `SELECT count(*) FROM hatamoto_commenters WHERE id = $1`, neverID)
+	if n != 0 {
+		t.Error("commenter who never clicked the link survived the purge")
+	}
+}
+
+func TestSignInOverLimitStoresNoCommenter(t *testing.T) {
+	e := newIDEnv(t)
+	count := func() (n int) {
+		e.scalar(&n, `SELECT count(*) FROM hatamoto_commenters`)
+		return n
+	}
+	for i := 0; i < DefaultLimits.PerIP; i++ {
+		addr := fmt.Sprintf("u%d@example.test", i)
+		if out, err := e.id.RequestSignIn(e.ctx, SignInRequest{Email: addr, IPHash: "ip-x", NetHash: "net-x"}); out != OutcomeCheckEmail || err != nil {
+			t.Fatalf("request %d: (%v, %v)", i, out, err)
+		}
+	}
+	before := count()
+	out, err := e.id.RequestSignIn(e.ctx, SignInRequest{Email: "over@example.test", IPHash: "ip-x", NetHash: "net-x"})
+	if out != OutcomeCheckEmail || err != nil {
+		t.Fatalf("over the limit: (%v, %v), want the neutral outcome", out, err)
+	}
+	if got := count(); got != before {
+		t.Errorf("commenters %d -> %d: a limited request stored a row", before, got)
+	}
+	if n := len(e.mail.signIns); n != DefaultLimits.PerIP {
+		t.Errorf("sign-in mails = %d, want %d", n, DefaultLimits.PerIP)
 	}
 }

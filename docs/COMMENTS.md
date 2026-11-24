@@ -37,6 +37,8 @@ A content type can switch comments to a community policy. It is owner-only, unde
 
 On a type with the policy on, comments with links and first comments from new commenters are posted at once. Spam checks (including the scores plugins add with `comment.check`), blocked commenters, duplicate bodies, captcha, surge mode and slow mode still hold comments. A commenter who edits an approved comment into one with a link keeps it approved; an edit that the content checks hold still goes back to the queue.
 
+The same switch (`settings.comments.policy.enabled` on the content type) is what makes a type a sign-in type in the identity flow below: its form has no name or email input, a post needs a signed-in browser, and the name comes from the `comment.draft` hook. There is no second setting, and `Service.EntityConfig` is the one read of it.
+
 The policy also sets three numbers that replace the site values for that type only: reply depth (1 to 32, default 10), the edit window in minutes (1 to 1440, default 15) and slow mode in seconds (0 turns it off). Other types keep the site settings. A long edit window has a cost: a commenter's own page views are not served from the page cache for that whole window, so a 24 hour window on a busy type means many uncached page views. Built-in types cannot use the policy yet.
 
 Each type can also choose its own thread order: Site default, Newest first or Oldest first. "By rank" is offered only while a plugin that holds `comments.moderate` for the type is installed (or when rank is already stored); core orders the comments by the ranks the plugin stores.
@@ -83,7 +85,7 @@ No raw IP address is stored, only keyed hashes (`ip_hash` and `net_hash`), which
 
 **Plugin keys.** A plugin that holds `client.key` receives its own keys of the visitor (`addr_key` and `area_key` on `comment.check`), derived with separate keys and the plugin's name, never the stored `ip_hash` or `net_hash`. They are pseudonymous personal data. An IPv4 `addr_key` can be brute-forced by anyone who holds the server secret. The keys change only if the server secret changes.
 
-**Purging.** The daily retention job deletes spam and trash `purge_days` (default 30) after their last status change (`updated_at`). One that still has replies is not deleted: its text, name, hashes and user agent are blanked so the thread stays intact. The hourly job removes unconfirmed drafts after 24 hours and used or expired form tokens. The daily job also prunes reply-notification rows and moderator-notification rows of comments that are no longer held.
+**Purging.** The daily retention job deletes spam and trash `purge_days` (default 30) after their last status change (`updated_at`). One that still has replies is not deleted: its text, name, hashes and user agent are blanked so the thread stays intact. The hourly job removes unconfirmed drafts after 24 hours and used or expired form tokens. Each commenter's newest used sign-in confirmation row is kept without its network hashes (`ip_hash` and `net_hash` are blanked after 24 hours) while the commenter exists, and is removed when they are erased. The daily job also prunes reply-notification rows and moderator-notification rows of comments that are no longer held.
 
 **Export.** The owner can export everything stored for an email address: the address, trust level, approved count and dates of the commenter, and for each of their comments its ids, status, name, text, `ip_hash`, `net_hash`, the user agent, the reply opt-in, the spam score, verdict and reasons, the locale and the dates. Fields computed from the body (`body_html`, `body_hash`, link data, path and depth) and internal references (the stored address hash and sealed copy, the approving user) are left out.
 
@@ -168,6 +170,7 @@ Routes, all under the reserved `/-/` segment (the word `comments` itself is not 
 - `POST /-/comments/edit/{commentID}` edits one (the field is `body`).
 - `POST /-/comments/delete/{commentID}` moves one to the trash.
 - `GET` and `POST /-/comments/confirm/{token}` is the confirmation link, see Identity.
+- `GET` and `POST /-/comments/signin`, `GET` and `POST /-/comments/signin/{token}` and `POST /-/comments/signout` are the standalone sign-in and sign-out, see Identity.
 
 All of them answer `404` while the site switch is off, sit behind the site-access gate (maintenance, coming-soon and password modes refuse them), are limited per IP network and are sent `Cache-Control: no-store`. A post answers `303` to the page: `#comment-<id>` when posted, `?cnotice=check_email#hm-comments` when it waits for the email, `?cnotice=posted#hm-comments` when it was dropped (see below) and `?cerror=closed#hm-comments` when the page is closed. The exception is an error the visitor can fix (`body_empty`, `body_long`, `name`, `email`, `email_domain`): that answers `200` with the page itself, the error at `#hm-comment-form` and the name, email, comment, reply opt-in and reply target as typed, under a fresh token and new field names. It is sent `private, no-cache, no-store`. The typed values are only in that response body, never in a URL or a cookie. With `HX-Request: true` the same form comes back as a fragment. `?cerror=<code>` remains a code a `GET` can read, as a fallback when the page cannot be rendered. A dropped post never gets its values back.
 
@@ -215,9 +218,20 @@ The link works once and for 24 hours. Only its SHA-256 is stored, in `hatamoto_c
 
 Disposable email domains come from `hatamoto_comment_blocks` (kind `email_domain`, seeded, editable by the owner) and are refused with a neutral message.
 
-The hourly job `comment_drafts_purge` deletes drafts with status `draft` older than 24 hours, old confirmation rows and commenters that only ever had drafts.
+The hourly job `comment_drafts_purge` deletes drafts with status `draft` older than 24 hours, old confirmation rows and commenters that only ever had drafts. The newest used sign-in row of each commenter is the exception: it stays, with `ip_hash` and `net_hash` blanked, so the commenter survives; it goes when the commenter is erased. The send limits count only the last 24 hours, so blanking changes none of them.
 
-Set the site address before enabling comments: without it no confirmation mail is sent.
+**Sign-in and sign-out without a comment.** A visitor can sign in on their own, which a schema with a sign-in policy needs before the form unlocks:
+
+1. `GET /-/comments/signin` shows the email form (theme layout `comment-signin`), or, when this browser holds a valid `hm_c`, a Sign out button. A GET never signs anyone in or out.
+2. `POST /-/comments/signin` takes an email address and always answers with the same "check your email" page, whether or not the address is known, so the page cannot be used to find out who has commented. Only a malformed or blocked address is refused, with the form again. The mail uses the same limits as confirmation mails (3 per address, 10 per `ip_hash`, 30 per `net_hash` per 24 hours); over the limit the page is the same and nothing is sent.
+3. The mailed link, `/-/comments/signin/<token>`, works once for 24 hours. Its page has one Sign in button (a scanner that fetches the link consumes nothing); the same-origin POST sets `hm_c` and redirects to `/-/comments/signin`.
+4. `POST /-/comments/signout` clears `hm_c` on this browser and redirects to `/-/comments/signin?out=1`. It does not bump `token_version`: a copied cookie stays valid until it expires or an admin revokes the commenter's devices.
+
+Both POSTs refuse a browser that is not same-origin (`403`) and need a single-use form token (`hm_ct`, subject `signin` or `signout`); a missing or used token shows the form again with a fresh one. The routes are limited per client like the confirm link, are sent `no-store`, `noindex` and `no-referrer`, are not cached, and the link token is redacted in logs. A sign-in link whose comment was deleted afterwards still works, because the mail went to the address owner.
+
+Without a mail service the sign-in routes answer `404` like the confirm link; a locked form still shows its sign-in line, and that link leads to the 404. On such a site sign-out therefore happens by the `hm_c` cookie expiring.
+
+Set the site address before enabling comments: without it no confirmation or sign-in mail is sent.
 
 ### Comment counts
 

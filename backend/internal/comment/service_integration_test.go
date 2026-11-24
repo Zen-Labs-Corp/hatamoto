@@ -660,6 +660,46 @@ func TestEraseByEmail(t *testing.T) {
 	}
 }
 
+type commenterIDRecorder struct {
+	NopObserver
+	seen []*uuid.UUID
+}
+
+func (r *commenterIDRecorder) OnUpdated(_ context.Context, _, after Comment) {
+	r.seen = append(r.seen, after.CommenterID)
+}
+func (r *commenterIDRecorder) OnDeleted(_ context.Context, c Comment) {
+	r.seen = append(r.seen, c.CommenterID)
+}
+
+// The rows an erase announces must not carry the erased commenter's id.
+func TestEraseAnnouncesWithoutCommenterID(t *testing.T) {
+	f := newFixture(t)
+	for _, body := range []string{"has a reply", "leaf"} {
+		d := f.draft("erase-ids@example.test", body)
+		d.Status = StatusApproved
+		c := f.store(d)
+		if body == "has a reply" {
+			r := f.draft("someone@example.test", "reply")
+			r.ParentID, r.Status = &c.ID, StatusApproved
+			f.store(r)
+		}
+	}
+	rec := &commenterIDRecorder{}
+	f.svc.Register(rec)
+	if _, err := f.svc.EraseByEmail(f.ctx, "erase-ids@example.test"); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.seen) != 2 {
+		t.Fatalf("announced %d rows, want 2 (one updated, one deleted)", len(rec.seen))
+	}
+	for i, id := range rec.seen {
+		if id != nil {
+			t.Errorf("announced row %d carries commenter id %v", i, id)
+		}
+	}
+}
+
 type deleteRecorder struct {
 	NopObserver
 	ids     *[]uuid.UUID

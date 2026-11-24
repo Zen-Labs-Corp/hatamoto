@@ -487,3 +487,15 @@ func TestCommentViewDeadOwnBodyShownOnce(t *testing.T) {
 		t.Fatal("own dead view must be private")
 	}
 }
+
+func TestCommentViewLocksFormByTypePolicy(t *testing.T) {
+	f := newViewFixture()
+	if v := f.run("/post"); v.CommentForm == nil || v.CommentForm.Locked {
+		t.Fatalf("policy off: %+v", v.CommentForm)
+	}
+	f.fake.policy = comment.Policy{Enabled: true}
+	v := f.run("/post")
+	if v.CommentForm == nil || !v.CommentForm.Locked || v.CommentForm.SignInURL != commentSignInPath {
+		t.Fatalf("policy on: %+v", v.CommentForm)
+	}
+}

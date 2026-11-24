@@ -19,7 +19,7 @@ import (
 // interpolated.
 const threadSelect = `
 SELECT c.id, c.parent_id, c.depth, c.author_name, c.author_user_id IS NOT NULL,
-       c.body_html, c.created_at, c.edited_at, c.status, c.rank, r.rk, r.roots, (SELECT d FROM dir)
+       c.body_html, c.created_at, c.edited_at, c.status, c.rank, c.commenter_id, r.rk, r.roots, (SELECT d FROM dir)
 FROM roots r
 JOIN hatamoto_comments c
   ON c.entity_id = $1 AND c.status IN ('approved', 'dead')
@@ -94,7 +94,7 @@ func (s *Service) Thread(ctx context.Context, entityID uuid.UUID, page int) (Thr
 		var status string
 		var rk, roots int64
 		if err := rows.Scan(&tc.ID, &tc.ParentID, &tc.Depth, &tc.AuthorName, &tc.IsSiteAuthor,
-			&tc.BodyHTML, &tc.CreatedAt, &tc.EditedAt, &status, &tc.Rank, &rk, &roots, &order); err != nil {
+			&tc.BodyHTML, &tc.CreatedAt, &tc.EditedAt, &status, &tc.Rank, &tc.CommenterID, &rk, &roots, &order); err != nil {
 			return ThreadPage{}, err
 		}
 		tc.Status = Status(status)
@@ -311,7 +311,9 @@ func (s *Service) Commenter(ctx context.Context, emailHash string) (Commenter, e
 }
 
 // EntityConfig is one entity's resolved comment mode plus its content type's
-// thread order, community policy and owner.
+// thread order, community policy and owner. Policy.Enabled
+// (settings.comments.policy.enabled) is the one flag that decides a policy
+// schema: the sign-in form, the locked name and the hold rules all read it here.
 type EntityConfig struct {
 	Mode        Mode
 	Order       Order

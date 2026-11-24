@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/comment/identity"
 	"hatamoto.dev/core/internal/commentsubmit"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/render"
@@ -27,6 +28,11 @@ type commentSlot struct {
 	hashIP            func(ip string) (ipHash, netHash string) // comment.Keys.HashIP
 	now               func() time.Time
 	on                func() bool
+	// verify checks the hm_c signature and expiry only (no database): the slot
+	// shows the signed-in state of a locked form from it. names memoises the
+	// "Posting as" name. Both nil: every locked form reads as signed out.
+	verify func(val string, now time.Time) (identity.DeviceClaims, bool)
+	names  *signedNames
 }
 
 // off reports whether the comments site switch is known to be off. A nil slot
@@ -39,6 +45,9 @@ func (c *commentSlot) off() bool { return c != nil && c.on != nil && !c.on() }
 type commentEcho struct {
 	EntityID uuid.UUID
 	Code     string // commentsubmit.Code*
+	// Message is a plugin's public refusal text for CodeDraft. Like Typed it
+	// lives on the POST response's context only; it is never put in a URL.
+	Message  string
 	ParentID string // "" or a usable parent id
 	Typed    *commentsubmit.Typed
 }
@@ -113,17 +122,54 @@ func (c *commentSlot) fill(r *http.Request, body []byte) ([]byte, bool) {
 	if e := commentEchoFrom(r.Context()); e != nil && e.EntityID == id && e.Typed != nil {
 		vb, vn, ve = textareaValue(e.Typed.Body), html.EscapeString(e.Typed.Name), html.EscapeString(e.Typed.Email)
 	}
-	p, v := render.CommentFormPlaceholders, render.CommentValuePlaceholders
+	p, v, l := render.CommentFormPlaceholders, render.CommentValuePlaceholders, render.CommentLockedPlaceholders
+	named, signedIn, signedOut, bodyOff, who := c.lockedState(r, span, id)
 	filled := strings.NewReplacer(
 		p.Token, tok, p.Body, names.Body, p.Name, names.Name,
 		p.Email, names.Email, p.Honeypot, names.Honeypot, p.Extra, names.Extra,
 		v.BodyValue, vb, v.NameValue, vn, v.EmailValue, ve,
+		l.Named, named, l.SignedIn, signedIn, l.SignedOut, signedOut, l.BodyOff, bodyOff, l.Who, who,
 	).Replace(string(span))
 	out := make([]byte, 0, len(body)-len(span)+len(filled))
 	out = append(out, body[:start]...)
 	out = append(out, filled...)
 	out = append(out, body[end:]...)
 	return out, true
+}
+
+// lockedState decides the three state lines and the body switch of a locked
+// form (render.CommentLockedPlaceholders): a signed-in visitor sees "Posting
+// as <name>" or, with no name on record, "Signed in on this browser"; anyone
+// else sees the sign-in line and a disabled body. The signature alone decides
+// (a revoked device sees the signed-in form and gets sign_in on its post). The
+// name is looked up only for a signed-in visitor on a locked span, and who is
+// already HTML-escaped. An unlocked span needs none of it and costs nothing.
+func (c *commentSlot) lockedState(r *http.Request, span []byte, entity uuid.UUID) (named, signedIn, signedOut, bodyOff, who string) {
+	if !bytes.Contains(span, []byte(render.CommentLockedPlaceholders.Who)) {
+		return
+	}
+	const hidden = "hidden"
+	claims, ok := c.signedClaims(r)
+	if !ok {
+		return hidden, hidden, "", "disabled", ""
+	}
+	signedOut = hidden
+	if name := c.names.get(r.Context(), claims.CommenterID, entity); name != "" {
+		return "", hidden, signedOut, "", html.EscapeString(name)
+	}
+	return hidden, "", signedOut, "", ""
+}
+
+// signedClaims verifies the request's hm_c cookie by signature only.
+func (c *commentSlot) signedClaims(r *http.Request) (identity.DeviceClaims, bool) {
+	if c.verify == nil {
+		return identity.DeviceClaims{}, false
+	}
+	ck, err := r.Cookie(identity.CookieName)
+	if err != nil {
+		return identity.DeviceClaims{}, false
+	}
+	return c.verify(ck.Value, c.now())
 }
 
 // commentFormSpan returns the byte range of the first real <form> tag that

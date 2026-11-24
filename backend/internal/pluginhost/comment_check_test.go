@@ -10,8 +10,11 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/google/uuid"
+
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/core/internal/pluginhost/plugintest"
+	"hatamoto.dev/core/internal/pluginkey"
 	"hatamoto.dev/sdk"
 )
 
@@ -38,23 +41,34 @@ func newCommentRig(t *testing.T) *commentRig {
 // holds comments.read.
 func (r *commentRig) load(t *testing.T, mode string, grant bool) {
 	t.Helper()
+	r.loadAs(t, "commentcheck", mode, grant)
+}
+
+// loadAs is load under another plugin name (the same wasm).
+func (r *commentRig) loadAs(t *testing.T, name, mode string, grant bool) {
+	t.Helper()
 	m := sdk.Manifest{
-		Name: "commentcheck", Version: "0.1.0", SDK: "^0.25",
+		Name: name, Version: "0.1.0", SDK: "^0.25",
 		Permissions: []string{sdk.PermCommentsRead, sdk.PermKV, sdk.PermClientKey},
 		Config:      map[string]string{"mode": mode},
 	}
-	m.Limits.HookTimeoutsMS = map[string]uint64{sdk.CommentCheckF.Name: 200}
+	m.Limits.HookTimeoutsMS = map[string]uint64{sdk.CommentCheckF.Name: 200, sdk.CommentDraftF.Name: 200}
 	if st := r.rt.Load(context.Background(), m, plugintest.Build(t, "commentcheck")); !st.Loaded {
-		t.Fatalf("commentcheck not loaded: %s", st.Error)
+		t.Fatalf("%s not loaded: %s", name, st.Error)
 	}
 	if grant {
-		r.grant(t, sdk.PermCommentsRead)
+		r.grantTo(t, name, sdk.PermCommentsRead)
 	}
 }
 
 func (r *commentRig) grant(t *testing.T, perms ...string) {
 	t.Helper()
-	if _, err := r.rt.Grant(context.Background(), "commentcheck", perms); err != nil {
+	r.grantTo(t, "commentcheck", perms...)
+}
+
+func (r *commentRig) grantTo(t *testing.T, name string, perms ...string) {
+	t.Helper()
+	if _, err := r.rt.Grant(context.Background(), name, perms); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -192,6 +206,24 @@ func TestCommentCheckPayloadKeys(t *testing.T) {
 		if strings.Contains(strings.Join(got.Reasons, " "), bad) {
 			t.Errorf("payload leaks %q", bad)
 		}
+	}
+}
+
+func TestCommentCheckCommenterKey(t *testing.T) {
+	r := newCommentRig(t)
+	r.configureKeys()
+	r.load(t, "keys", true)
+	id := uuid.New()
+	got, err := r.check(pluginkey.WithCommenter(context.Background(), id))
+	if err != nil || !slices.Equal(got.Reasons, []string{"commentcheck: body,body_hash,commenter_key,link_domains"}) {
+		t.Fatalf("got %+v %v", got, err)
+	}
+	if got.CommenterKey != "" {
+		t.Errorf("the merged value carries commenter_key %q", got.CommenterKey)
+	}
+	// An unknown commenter (a new address) gets no key.
+	if got, err := r.check(context.Background()); err != nil || !slices.Equal(got.Reasons, []string{"commentcheck: body,body_hash,link_domains"}) {
+		t.Fatalf("no commenter: %+v %v", got, err)
 	}
 }
 

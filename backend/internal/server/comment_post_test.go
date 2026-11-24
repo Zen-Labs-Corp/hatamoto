@@ -31,6 +31,7 @@ const (
 type postComments struct {
 	set    comment.Settings
 	mode   comment.Mode
+	policy comment.Policy
 	known  *comment.Commenter
 	used   map[string]bool
 	stored []comment.Draft
@@ -42,7 +43,7 @@ type postComments struct {
 
 func (f *postComments) Settings(context.Context) (comment.Settings, error) { return f.set, nil }
 func (f *postComments) EntityConfig(context.Context, uuid.UUID) (comment.EntityConfig, error) {
-	return comment.EntityConfig{Mode: f.mode}, nil
+	return comment.EntityConfig{SchemaSlug: "story", Mode: f.mode, Policy: f.policy}, nil
 }
 func (f *postComments) Store(_ context.Context, d comment.Draft) (comment.Comment, error) {
 	f.stored = append(f.stored, d)

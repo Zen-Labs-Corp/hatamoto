@@ -11,9 +11,10 @@ import (
 // hardcodedAllowlist lists the visible runs the default theme may keep as
 // literals, keyed "<path>: <text>", each with the reason it is not a string.
 var hardcodedAllowlist = map[string]string{
-	"partials/header.html: 旗本":         "decorative logo mark, hidden from assistive tech",
-	"sections/contact_form.html: Yes":  "machine value submitted by the consent checkbox",
-	"sections/contact_form.html: true": "machine value submitted by the checkbox",
+	"partials/header.html: 旗本":                  "decorative logo mark, hidden from assistive tech",
+	"sections/contact_form.html: Yes":           "machine value submitted by the consent checkbox",
+	"sections/contact_form.html: true":          "machine value submitted by the checkbox",
+	"partials/comments-form.html: __hmcf_who__": "server slot swapped for the commenter's name, not a string",
 }
 
 var (

@@ -30,6 +30,7 @@ func (r *Runtime) commentCheckFilter(m sdk.Manifest, generic func(context.Contex
 		send := in
 		send.Score, send.Reasons = 0, nil
 		send.AddrKey, send.AreaKey = r.clientKeys(ctx, m.Name)
+		send.CommenterKey = r.commenterKeyFor(ctx, m.Name) // this plugin's copy only; never copied back
 		res, err := generic(ctx, send)
 		if err != nil {
 			return v, err

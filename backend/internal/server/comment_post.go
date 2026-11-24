@@ -107,6 +107,9 @@ func (s *Server) handleCommentPost(w http.ResponseWriter, r *http.Request) {
 	}
 	if cid := out.Comment.CommenterID; cid != nil {
 		s.commentBypass.forget(*cid) // the sender must see the new item on the next load
+		if s.commentSlot != nil {
+			s.commentSlot.names.forget(*cid) // and the name the comment.draft hook just gave
+		}
 	}
 
 	var notice, errCode string
@@ -128,7 +131,7 @@ func (s *Server) handleCommentPost(w http.ResponseWriter, r *http.Request) {
 	}
 	var echo *commentEcho
 	if out.Kind == commentsubmit.Invalid {
-		e := commentEcho{EntityID: id, Code: out.Code, Typed: out.Typed}
+		e := commentEcho{EntityID: id, Code: out.Code, Typed: out.Typed, Message: out.Message}
 		if req.ParentID != nil {
 			e.ParentID = req.ParentID.String()
 		}
@@ -239,9 +242,12 @@ func (s *Server) commentDevice(r *http.Request) (uuid.UUID, bool) {
 // commentSlot.fill). Callers must have checked that renderEngine, commentSlot
 // and commentSubmit are wired.
 func (s *Server) commentFormView(ctx context.Context, id uuid.UUID, path, locale string, parent *uuid.UUID,
-	notice, errCode string, echo *commentEcho) *render.PageView {
+	notice, errCode string, echo *commentEcho, locked bool) *render.PageView {
 	v := &render.PageView{Path: path, Locale: locale, EntityID: id.String()}
 	v.Comments = &render.CommentThread{Notice: notice, Error: errCode}
+	if echo != nil && echo.Code == commentsubmit.CodeDraft && errCode == commentsubmit.CodeDraft {
+		v.Comments.ErrorText = echo.Message // the response body only, never a URL
+	}
 	if errCode != "closed" {
 		form := render.CommentFormPlaceholders
 		form.Action = "/-/comments/" + id.String()
@@ -270,11 +276,21 @@ func (s *Server) commentFormView(ctx context.Context, id uuid.UUID, path, locale
 				form.Captcha = &render.CommentCaptcha{Provider: cw.provider, SiteKey: cw.siteKey}
 			}
 		}
+		if locked {
+			lockCommentForm(&form)
+		}
 		v.CommentForm = &form
 		v.CommentsOpen = true
 	}
 	s.applyStrings(ctx, v)
 	return v
+}
+
+// logCommentErr logs a non-fatal comment read failure.
+func (s *Server) logCommentErr(ctx context.Context, msg string, err error) {
+	if s.logger != nil {
+		s.logger.WarnContext(ctx, msg, "error", err)
+	}
 }
 
 // writeCommentFragment answers an htmx post: the form partial with a fresh
@@ -291,7 +307,12 @@ func (s *Server) writeCommentFragment(w http.ResponseWriter, r *http.Request, id
 	if out.Kind == commentsubmit.Invalid {
 		parent = req.ParentID // keep the reply target on a retry
 	}
-	v := s.commentFormView(ctx, id, path, req.Locale, parent, notice, errCode, echo)
+	cfg, err := s.commentSubmit.Comments.EntityConfig(ctx, id)
+	if err != nil { // a failed read must not offer a policy schema's free name field
+		s.logCommentErr(ctx, "comments: policy", err)
+		cfg.Policy.Enabled = true
+	}
+	v := s.commentFormView(ctx, id, path, req.Locale, parent, notice, errCode, echo, cfg.Policy.Enabled)
 
 	var item *render.CommentItem
 	if out.Kind == commentsubmit.Posted && out.Comment.ParentID == nil && req.ParentID == nil {

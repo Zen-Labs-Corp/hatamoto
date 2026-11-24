@@ -15,6 +15,7 @@ import (
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/comment/identity"
 	"hatamoto.dev/core/internal/commentfmt"
+	"hatamoto.dev/core/internal/pluginkey"
 	"hatamoto.dev/core/internal/spam"
 )
 
@@ -35,6 +36,8 @@ const (
 	CodeName        = "name"
 	CodeEmail       = "email"
 	CodeEmailDomain = "email_domain"
+	CodeSignIn      = "sign_in" // policy schema: no signed-in commenter with an address
+	CodeDraft       = "draft"   // policy schema: the comment.draft chain gave no name
 )
 
 // duplicateWindow is how far back an identical body counts as a duplicate.
@@ -84,6 +87,9 @@ type Outcome struct {
 	Comment comment.Comment // Posted and CheckEmail
 	Code    string          // Invalid
 	Typed   *Typed          // Invalid only
+	// Message is a plugin's public reject text: Invalid with CodeDraft only.
+	// It is shown on the POST response and never put in a URL.
+	Message string
 }
 
 // Typed is what the sender typed. Submit returns it only with Invalid (an
@@ -106,6 +112,19 @@ type Comments interface {
 	Keys() comment.Keys
 }
 
+// PolicyReader is optional: nil means no schema has the community policy. Which
+// schema has it comes from Comments.EntityConfig (Policy.Enabled), the flag the
+// Settings > Comments panel writes; the reader only opens the signed-in email.
+type PolicyReader interface {
+	CommenterEmail(context.Context, uuid.UUID) (comment.Commenter, string, error)
+}
+
+// DraftNamer asks the comment.draft hook for the locked name. The contract
+// sends author_name empty, so there is no typed-name argument.
+type DraftNamer interface {
+	Name(ctx context.Context, commenter uuid.UUID, schema string) (string, error)
+}
+
 // Identity is the part of *identity.Service the pipeline uses.
 type Identity interface {
 	CheckEmail(context.Context, string) error
@@ -122,6 +141,8 @@ type Pipeline struct {
 	NameKey  []byte
 	Limits   *Limits
 	Checkers []comment.Checker
+	Policy   PolicyReader // nil: no schema has the community policy
+	Drafter  DraftNamer
 	Log      *slog.Logger
 	// OnSurge, if set, is called while surge mode is active: when it starts and at
 	// most once a minute after. It must return at once (the caller sends mail elsewhere).
@@ -171,6 +192,8 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 		return Outcome{Kind: NotFound}, nil
 	}
 
+	signIn := cfg.Policy.Enabled && p.Policy != nil
+
 	// 2. Single-use token. The form field names derive from it, so the email
 	// (and its limit bucket) is only known after this step.
 	keys := p.Comments.Keys()
@@ -209,6 +232,33 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 		return Outcome{Kind: Invalid, Code: code, Typed: &Typed{
 			Body: body, Name: req.Post.Get(names.Name), Email: typedEmail, Notify: notify,
 		}}, nil
+	}
+	if signIn && !admin {
+		// Policy schema: the identity is the signed-in commenter, never the post.
+		if req.DeviceCommenter == nil {
+			return fixable(CodeSignIn)
+		}
+		_, opened, err := p.Policy.CommenterEmail(ctx, *req.DeviceCommenter)
+		if errors.Is(err, comment.ErrNotFound) || (err == nil && opened == "") {
+			return fixable(CodeSignIn)
+		}
+		if err != nil {
+			return Outcome{}, err
+		}
+		email = opened
+		if p.Drafter == nil {
+			return fixable(CodeDraft)
+		}
+		drafted, err := p.Drafter.Name(ctx, *req.DeviceCommenter, cfg.SchemaSlug)
+		if err != nil {
+			out, _ := fixable(CodeDraft)
+			var dr *DraftRejected
+			if errors.As(err, &dr) {
+				out.Message = dr.Message
+			}
+			return out, nil
+		}
+		name = drafted
 	}
 
 	// 5. Limits. An admin is keyed by account, not by an email.
@@ -286,8 +336,26 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	case err != nil:
 		return Outcome{}, err
 	}
-	sr, verdict, hold, err := p.assess(ctx, spamSet, assessInput{
-		EntityID: req.EntityID, Name: name, Body: body, Email: email, Rendered: rendered,
+	// The commenter lookup comes before the checks; step 11 reuses the result.
+	var known *comment.Commenter
+	if !admin {
+		cm, err := p.Comments.Commenter(ctx, commenterKey)
+		switch {
+		case errors.Is(err, comment.ErrNotFound):
+		case err != nil:
+			return Outcome{}, err
+		default:
+			known = &cm
+		}
+	}
+	// The key comes only from the verified device: an address someone typed
+	// proves nothing, so it never names a commenter to the checks.
+	checkCtx := ctx
+	if req.DeviceCommenter != nil && !admin {
+		checkCtx = pluginkey.WithCommenter(ctx, *req.DeviceCommenter)
+	}
+	sr, verdict, hold, err := p.assess(checkCtx, spamSet, assessInput{
+		Schema: cfg.SchemaSlug, EntityID: req.EntityID, Name: name, Body: body, Email: email, Rendered: rendered,
 		IPHash: ipHash, NetHash: netHash, Issued: issued, IssuedOK: true, Now: now, IP: req.IP,
 	})
 	if err != nil {
@@ -297,19 +365,12 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	// 11. Trust and status.
 	trust := comment.TrustNew
 	confirmed := false
-	if !admin {
-		cm, err := p.Comments.Commenter(ctx, commenterKey)
-		switch {
-		case errors.Is(err, comment.ErrNotFound):
-		case err != nil:
-			return Outcome{}, err
-		default:
-			trust = comment.EvaluateTrust(comment.TrustStats{
-				Current: cm.Trust, ApprovedCount: cm.ApprovedCount,
-				FirstApprovedAt: cm.FirstApprovedAt, LastSpamAt: cm.LastSpamAt,
-			}, set.Thresholds, now)
-			confirmed = req.DeviceCommenter != nil && cm.ID == *req.DeviceCommenter
-		}
+	if known != nil {
+		trust = comment.EvaluateTrust(comment.TrustStats{
+			Current: known.Trust, ApprovedCount: known.ApprovedCount,
+			FirstApprovedAt: known.FirstApprovedAt, LastSpamAt: known.LastSpamAt,
+		}, set.Thresholds, now)
+		confirmed = req.DeviceCommenter != nil && known.ID == *req.DeviceCommenter
 	}
 	status, why := comment.Decide(comment.DecideInput{
 		Verdict: verdict, HasLinks: rendered.HasLinks, Trust: trust, AdminAuthor: admin, Surge: surge,
@@ -365,6 +426,7 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 // assessInput is what the content checks look at, for a new comment or an edit.
 type assessInput struct {
 	EntityID       uuid.UUID
+	Schema         string
 	Name, Body     string
 	Email          string
 	Rendered       commentfmt.Result
@@ -408,7 +470,7 @@ func (p *Pipeline) assess(ctx context.Context, spamSet spam.Settings, in assessI
 	// plugin host can derive keys for plugins holding client.key; CheckInput never has it.
 	ctx = clientkey.WithIP(ctx, in.IP)
 	score, checkReasons, hold := comment.RunCheckers(ctx, p.Checkers, comment.CheckInput{
-		EntityID: in.EntityID, Body: body, LinkDomains: rendered.LinkDomains, BodyHash: rendered.BodyHash,
+		EntityID: in.EntityID, Schema: in.Schema, Body: body, LinkDomains: rendered.LinkDomains, BodyHash: rendered.BodyHash,
 		IPHash: in.IPHash, NetHash: in.NetHash,
 	}, comment.DefaultCheckTimeout)
 	if score != 0 || len(checkReasons) > 0 {
@@ -436,6 +498,7 @@ func (p *Pipeline) assess(ctx context.Context, spamSet spam.Settings, in assessI
 // EditCheck is an edit of a comment, as the handler parsed it.
 type EditCheck struct {
 	EntityID uuid.UUID
+	Schema   string // the entity's content type slug, for comment.check
 	Name     string
 	Body     string
 	Rendered commentfmt.Result
@@ -444,6 +507,9 @@ type EditCheck struct {
 	BodyChanged bool
 	IP          string
 	Now         time.Time
+	// Commenter is the verified device commenter (the editor); comment.check
+	// gets its key, as on a new post.
+	Commenter *uuid.UUID
 }
 
 // HoldEdit runs the content checks of a new post on an edited body and reports
@@ -454,9 +520,12 @@ func (p *Pipeline) HoldEdit(ctx context.Context, e EditCheck) (bool, error) {
 	if err != nil {
 		spamSet = spam.Defaults()
 	}
+	if e.Commenter != nil {
+		ctx = pluginkey.WithCommenter(ctx, *e.Commenter)
+	}
 	ipHash, netHash := p.Comments.Keys().HashIP(e.IP)
 	_, verdict, _, err := p.assess(ctx, spamSet, assessInput{
-		EntityID: e.EntityID, Name: e.Name, Body: e.Body, Rendered: e.Rendered,
+		Schema: e.Schema, EntityID: e.EntityID, Name: e.Name, Body: e.Body, Rendered: e.Rendered,
 		IPHash: ipHash, NetHash: netHash, Now: e.Now.UTC(), SkipDuplicates: !e.BodyChanged, IP: e.IP,
 	})
 	return verdict != "allow", err

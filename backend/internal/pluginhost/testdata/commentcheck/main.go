@@ -63,9 +63,39 @@ func init() {
 		}
 		return c, nil
 	})
+	// comment.draft: the config mode "draft-*" picks the answer.
+	guest.OnFilter(sdk.CommentDraftF, func(d sdk.CommentDraft) (sdk.CommentDraft, error) {
+		mode, _ := guest.Config("mode")
+		switch mode {
+		case "draft-name":
+			d.AuthorName = "name-" + d.CommenterKey[:6]
+		case "draft-echo": // what the host sent, as the name
+			d.AuthorName = "schema=" + d.Schema + ";name=" + d.AuthorName + ";reject=" + d.Reject
+		case "draft-reject":
+			d.Reject = "Pick a name first"
+		case "draft-reject-err":
+			return d, guest.Reject("no")
+		case "draft-reject-long":
+			d.Reject = "a\x07" + strings.Repeat("\u00e9", 150)
+		case "draft-empty":
+			d.AuthorName = "  "
+		case "draft-sleep":
+			for end := time.Now().Add(5 * time.Second); time.Now().Before(end); {
+			}
+		}
+		return d, nil
+	})
 	guest.OnAction(sdk.CommentApproved, func(ev sdk.CommentEvent) error {
+		if err := guest.Call(sdk.FnKVSet, map[string]any{"key": "k:" + ev.ID, "value": ev.CommenterKey}, nil); err != nil {
+			return err
+		}
 		return guest.Call(sdk.FnKVSet, map[string]any{"key": "c:" + ev.ID, "value": ev.Status}, nil)
 	})
+	for _, a := range []sdk.Action[sdk.CommentEvent]{sdk.CommentCreated, sdk.CommentUpdated, sdk.CommentDeleted} {
+		guest.OnAction(a, func(ev sdk.CommentEvent) error {
+			return guest.Call(sdk.FnKVSet, map[string]any{"key": a.Name + ":" + ev.ID, "value": ev.CommenterKey}, nil)
+		})
+	}
 }
 
 //go:wasmexport filter_comment_check
@@ -73,3 +103,15 @@ func filterCommentCheck() int32 { return guest.Run(sdk.CommentCheckF.Export()) }
 
 //go:wasmexport on_comment_approved
 func onCommentApproved() int32 { return guest.Run(sdk.CommentApproved.Export()) }
+
+//go:wasmexport filter_comment_draft
+func filterCommentDraft() int32 { return guest.Run(sdk.CommentDraftF.Export()) }
+
+//go:wasmexport on_comment_created
+func onCommentCreated() int32 { return guest.Run(sdk.CommentCreated.Export()) }
+
+//go:wasmexport on_comment_updated
+func onCommentUpdated() int32 { return guest.Run(sdk.CommentUpdated.Export()) }
+
+//go:wasmexport on_comment_deleted
+func onCommentDeleted() int32 { return guest.Run(sdk.CommentDeleted.Export()) }

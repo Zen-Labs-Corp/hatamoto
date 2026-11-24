@@ -77,7 +77,7 @@ func (s *Server) handleCommentFormLive(w http.ResponseWriter, r *http.Request) {
 			locale = tag
 		}
 	}
-	v := s.commentFormView(ctx, id, path, locale, parent, notice, errCode, nil)
+	v := s.commentFormView(ctx, id, path, locale, parent, notice, errCode, nil, cfg.Policy.Enabled)
 	var buf bytes.Buffer
 	if err := s.renderEngine.RenderCommentsFragment(&buf, v, nil); err != nil {
 		s.commentFail(w, r, "comment form: render", err)

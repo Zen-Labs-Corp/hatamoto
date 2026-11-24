@@ -94,6 +94,7 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 		capture:            capture,
 		preview:            s.handlePreviewShare,
 		commentConfirm:     s.handleCommentConfirm,
+		commentSignIn:      s.handleCommentSignIn,
 		commentUnsubscribe: s.handleCommentUnsubscribe,
 		commentPost:        s.handleCommentPost,
 		commentEdit:        s.handleCommentEdit,
@@ -146,6 +147,11 @@ type renderRoutes struct {
 	// /-/comments/confirm/{token}. Mounted outside capture and the page cache:
 	// GET only shows a button, POST confirms.
 	commentConfirm http.HandlerFunc
+	// commentSignIn (optional) serves the standalone commenter sign-in and
+	// sign-out: GET/POST /-/comments/signin, GET/POST /-/comments/signin/{token},
+	// POST /-/comments/signout. Outside capture and the page cache; GET only
+	// shows a page or a button.
+	commentSignIn http.HandlerFunc
 	// commentUnsubscribe (optional) serves the unsubscribe link of comment mail,
 	// /-/comments/unsubscribe/{token}: GET shows a button, POST (also the
 	// one-click request) turns the mail off. Mounted whether or not comments
@@ -234,6 +240,17 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 		h := confirmLimiter.Middleware(rt.commentConfirm).ServeHTTP
 		r.HandleFunc("GET "+commentConfirmPrefix+"{token}", h) // GET also matches HEAD
 		r.HandleFunc("POST "+commentConfirmPrefix+"{token}", h)
+	}
+
+	if rt.commentSignIn != nil {
+		// Same budget class as the confirm link: the link token is a bearer secret.
+		signInLimiter := middleware.NewRateLimiter(1, 20)
+		h := signInLimiter.Middleware(rt.commentSignIn).ServeHTTP
+		r.HandleFunc("GET "+commentSignInPath, h)
+		r.HandleFunc("POST "+commentSignInPath, h)
+		r.HandleFunc("GET "+commentSignInPrefix+"{token}", h)
+		r.HandleFunc("POST "+commentSignInPrefix+"{token}", h)
+		r.HandleFunc("POST "+commentSignOutPath, h)
 	}
 
 	if rt.commentUnsubscribe != nil {

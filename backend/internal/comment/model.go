@@ -309,6 +309,7 @@ type ThreadComment struct {
 	EditedAt     *time.Time
 	Status       Status
 	Rank         float64
+	CommenterID  *uuid.UUID // host-only: never rendered, never in an sdk value
 }
 
 // ThreadPage is one page of a thread in render order.

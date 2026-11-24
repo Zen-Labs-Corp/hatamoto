@@ -6,12 +6,15 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"hatamoto.dev/core/internal/clientkey"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/pluginkey"
 	"hatamoto.dev/core/internal/statichost"
 	"hatamoto.dev/sdk"
 )
@@ -79,6 +82,8 @@ func (s *Server) handlePluginPublicRoute(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	r = r.WithContext(withVisitorIP(r))
+	// The commenter is looked up only if the route's plugin holds comments.read.
+	r = r.WithContext(pluginkey.WithCommenterResolver(r.Context(), func(context.Context) (uuid.UUID, bool) { return s.commentDevice(r) }))
 	s.plugins.PublicRoutes().Serve(w, r, plugin, rest, nil)
 }
 

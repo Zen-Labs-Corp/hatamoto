@@ -28,6 +28,9 @@ func (r *Runtime) hookFilter(m sdk.Manifest, hook, export string) func(context.C
 	if hook == sdk.CommentCheckF.Name {
 		return r.commentCheckFilter(m, generic)
 	}
+	if hook == sdk.CommentDraftF.Name {
+		return r.commentDraftFilter(m, generic)
+	}
 	if hook == sdk.RenderHead.Name {
 		return noteRenderFailure(hook, r.headScriptGate(m.Name, generic))
 	}
@@ -67,6 +70,7 @@ func (r *Runtime) hookFilter(m sdk.Manifest, hook, export string) func(context.C
 		in.SetCookies, in.Hide = nil, nil
 		// Visitor keys exist only on this per-plugin copy, never on the chain value.
 		in.AddrKey, in.NetKey = r.clientKeys(ctx, m.Name)
+		in.CommenterKey = r.commenterKeyFor(ctx, m.Name)
 		if !m.FullPageBlocks() {
 			in.Blocks = slimBlocks(pc.Blocks)
 		}

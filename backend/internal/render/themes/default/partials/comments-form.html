@@ -1,19 +1,22 @@
 {{define "comments/form"}}<div id="hm-comment-form">
 {{with $.Comments}}{{if .Notice}}<p class="hm-form__success" role="status">{{if eq .Notice "check_email"}}{{t $ "comment_notice_check_email"}}{{else}}{{t $ "comment_notice_posted"}}{{end}}</p>
-{{end}}{{if .Error}}<p class="hm-form__error" role="alert">{{if eq .Error "body_empty"}}{{t $ "comment_error_body_empty"}}{{else if eq .Error "body_long"}}{{t $ "comment_error_body_long"}}{{else if eq .Error "name"}}{{t $ "comment_error_name"}}{{else if eq .Error "email"}}{{t $ "comment_error_email"}}{{else if eq .Error "email_domain"}}{{t $ "comment_error_email_domain"}}{{else}}{{t $ "comment_error_closed"}}{{end}}</p>
+{{end}}{{if .Error}}<p class="hm-form__error" role="alert">{{if eq .Error "body_empty"}}{{t $ "comment_error_body_empty"}}{{else if eq .Error "body_long"}}{{t $ "comment_error_body_long"}}{{else if eq .Error "name"}}{{t $ "comment_error_name"}}{{else if eq .Error "email"}}{{t $ "comment_error_email"}}{{else if eq .Error "email_domain"}}{{t $ "comment_error_email_domain"}}{{else if eq .Error "sign_in"}}{{t $ "comment_error_sign_in"}}{{else if eq .Error "draft"}}{{if .ErrorText}}{{.ErrorText}}{{else}}{{t $ "comment_error_draft"}}{{end}}{{else}}{{t $ "comment_error_closed"}}{{end}}</p>
 {{end}}{{end}}{{if $.CommentForm}}{{with $.CommentForm}}<form class="hm-form hm-comments__form" method="post" action="{{.Action}}" data-hm-cform hx-post="{{.Action}}" hx-target="#hm-comment-form" hx-swap="outerHTML">
 <input type="hidden" name="hm_ct" value="{{.Token}}">
 <input type="hidden" name="parent" value="{{.ParentID}}">
 {{if .ReplyTo}}<p class="hm-comments__replying">{{t $ "comment_reply"}}: <strong>{{.ReplyTo}}</strong> <a href="#hm-comments">{{t $ "comment_cancel_reply"}}</a></p>
-{{end}}<div class="hm-form__field"><label class="hm-form__label" for="{{.Name}}">{{t $ "comment_name"}}</label>
+{{end}}{{if .Locked}}<p class="hm-form__help" __hmcf_hnamed__>{{t $ "comment_posting_as"}} <strong>__hmcf_who__</strong> <a href="{{.SignInURL}}">{{t $ "comment_sign_out"}}</a></p>
+<p class="hm-form__help" __hmcf_hin__>{{t $ "comment_signed_in"}} <a href="{{.SignInURL}}">{{t $ "comment_sign_out"}}</a></p>
+<p class="hm-form__help" __hmcf_hout__>{{t $ "comment_sign_in_needed"}} <a href="{{.SignInURL}}">{{t $ "comment_sign_in"}}</a></p>
+{{else}}<div class="hm-form__field"><label class="hm-form__label" for="{{.Name}}">{{t $ "comment_name"}}</label>
 <input id="{{.Name}}" name="{{.Name}}" type="text" autocomplete="name" maxlength="80"{{if eq .Focus "name"}} autofocus{{end}}{{with .NameValue}} value="{{.}}"{{end}} required></div>
 <div class="hm-form__field"><label class="hm-form__label" for="{{.Email}}">{{t $ "comment_email"}}</label>
 <input id="{{.Email}}" name="{{.Email}}" type="email" autocomplete="email" maxlength="254"{{if eq .Focus "email"}} autofocus{{end}}{{with .EmailValue}} value="{{.}}"{{end}} required>
 <small class="hm-form__help">{{t $ "comment_email_hint"}}</small></div>
-<div class="hm-form__field"><label class="hm-form__label" for="{{.Body}}">{{t $ "comment_body"}}</label>
-<textarea id="{{.Body}}" name="{{.Body}}" rows="5"{{if .MaxBody}} maxlength="{{.MaxBody}}"{{end}}{{if eq .Focus "body"}} autofocus{{end}} required>{{.BodyValue}}</textarea>
+{{end}}<div class="hm-form__field"><label class="hm-form__label" for="{{.Body}}">{{t $ "comment_body"}}</label>
+<textarea id="{{.Body}}" name="{{.Body}}" rows="5"{{if .Locked}} __hmcf_boff__{{end}}{{if .MaxBody}} maxlength="{{.MaxBody}}"{{end}}{{if eq .Focus "body"}} autofocus{{end}} required>{{.BodyValue}}</textarea>
 <small class="hm-form__help">{{t $ "comment_links_note"}}</small></div>
 {{block "comments/form-extra" .}}<div class="hm-form__field"><label class="hm-form__check"><input type="checkbox" id="{{.Extra}}" name="{{.Extra}}" value="1"{{if .Notify}} checked{{end}}> <span>{{t $ "comment_notify_replies"}}</span></label></div>
 {{end}}<div class="hm-form__hp" aria-hidden="true"><label>{{t $ "comment_hp_label"}}<input type="text" name="{{.Honeypot}}" tabindex="-1" autocomplete="off"></label></div>
-{{with .Captcha}}<div class="hm-form__captcha" data-hm-captcha="{{.Provider}}" data-sitekey="{{.SiteKey}}"></div>{{end}}<button class="hm-btn hm-form__submit" type="submit">{{t $ "comment_submit"}}</button>
+{{with .Captcha}}<div class="hm-form__captcha" data-hm-captcha="{{.Provider}}" data-sitekey="{{.SiteKey}}"></div>{{end}}<button class="hm-btn hm-form__submit" type="submit"{{if .Locked}} __hmcf_boff__{{end}}>{{t $ "comment_submit"}}</button>
 </form>{{end}}{{else if $.Comments}}<p class="hm-comments__closed">{{t $ "comments_closed"}}</p>{{end}}</div>{{end}}

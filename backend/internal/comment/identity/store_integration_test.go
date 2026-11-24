@@ -144,7 +144,7 @@ func (f *fixture) issueWith(c comment.Comment, now time.Time, l Limits) (raw str
 	if err != nil {
 		f.t.Fatal(err)
 	}
-	limited, err = f.store.Issue(f.ctx, issueRow{Hash: hash, CommentID: c.ID, CommenterID: *c.CommenterID,
+	limited, err = f.store.Issue(f.ctx, issueRow{Hash: hash, CommentID: &c.ID, CommenterID: *c.CommenterID,
 		IPHash: c.IPHash, NetHash: c.NetHash, Now: now}, l)
 	if err != nil {
 		f.t.Fatal(err)
@@ -183,11 +183,11 @@ func TestStore_ConsumeIsSingleUse(t *testing.T) {
 	if used != nil {
 		t.Fatal("Peek consumed the token")
 	}
-	cid, mid, ok, err = f.store.Consume(f.ctx, h, now)
+	cid, mid, ok, err = f.store.Consume(f.ctx, h, now, false)
 	if err != nil || !ok || cid != c.ID || mid != *c.CommenterID {
 		t.Fatalf("Consume = %v %v %v %v", cid, mid, ok, err)
 	}
-	if _, _, ok, err := f.store.Consume(f.ctx, h, now); err != nil || ok {
+	if _, _, ok, err := f.store.Consume(f.ctx, h, now, false); err != nil || ok {
 		t.Errorf("second Consume ok = %v err = %v, want refused", ok, err)
 	}
 	if _, _, _, ok, err := f.store.Peek(f.ctx, h, now); err != nil || ok {
@@ -201,13 +201,13 @@ func TestStore_ReleaseRestoresAConsumedToken(t *testing.T) {
 	now := time.Now().UTC()
 	raw, _ := f.issue(c, now)
 	h := mustHash(t, raw)
-	if _, _, ok, err := f.store.Consume(f.ctx, h, now); err != nil || !ok {
+	if _, _, ok, err := f.store.Consume(f.ctx, h, now, false); err != nil || !ok {
 		t.Fatalf("Consume ok = %v err = %v", ok, err)
 	}
 	if err := f.store.Release(f.ctx, h); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, ok, err := f.store.Consume(f.ctx, h, now); err != nil || !ok {
+	if _, _, ok, err := f.store.Consume(f.ctx, h, now, false); err != nil || !ok {
 		t.Errorf("Consume after Release ok = %v err = %v, want accepted", ok, err)
 	}
 }
@@ -233,10 +233,10 @@ func TestStore_ExpiredTokenRejected(t *testing.T) {
 	if _, _, _, ok, err := f.store.Peek(f.ctx, h, late); err != nil || ok {
 		t.Errorf("Peek after expiry ok = %v err = %v", ok, err)
 	}
-	if _, _, ok, err := f.store.Consume(f.ctx, h, late); err != nil || ok {
+	if _, _, ok, err := f.store.Consume(f.ctx, h, late, false); err != nil || ok {
 		t.Errorf("Consume after expiry ok = %v err = %v", ok, err)
 	}
-	if _, _, ok, err := f.store.Consume(f.ctx, h, now); err != nil || !ok {
+	if _, _, ok, err := f.store.Consume(f.ctx, h, now, false); err != nil || !ok {
 		t.Errorf("Consume before expiry ok = %v err = %v, want accepted", ok, err)
 	}
 }
@@ -328,7 +328,7 @@ func TestStore_IssueConcurrent(t *testing.T) {
 				t.Error(err)
 				return
 			}
-			if _, err := f.store.Issue(f.ctx, issueRow{Hash: hash, CommentID: c.ID, CommenterID: *c.CommenterID,
+			if _, err := f.store.Issue(f.ctx, issueRow{Hash: hash, CommentID: &c.ID, CommenterID: *c.CommenterID,
 				IPHash: c.IPHash, NetHash: c.NetHash, Now: now}, DefaultLimits); err != nil {
 				t.Error(err)
 			}
@@ -368,7 +368,7 @@ func TestStore_IssueConcurrentAcrossCommenters(t *testing.T) {
 						t.Error(err)
 						return
 					}
-					if _, err := f.store.Issue(f.ctx, issueRow{Hash: hash, CommentID: c.ID, CommenterID: *c.CommenterID,
+					if _, err := f.store.Issue(f.ctx, issueRow{Hash: hash, CommentID: &c.ID, CommenterID: *c.CommenterID,
 						IPHash: c.IPHash, NetHash: c.NetHash, Now: now}, tc.limits); err != nil {
 						t.Error(err)
 					}
