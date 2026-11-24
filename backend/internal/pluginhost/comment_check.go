@@ -17,7 +17,8 @@ const (
 // commentCheckFilter wraps a plugin's comment.check filter: the plugin sees the
 // payload with Score 0 and no Reasons, and only its Score (cut to
 // 0..sdk.CommentCheckMaxScore) and Reasons (at most 8, 200 bytes, prefixed with
-// the plugin name) are added to the chain value. Every other field it returns is
+// the plugin name) are added to the chain value. Only a plugin holding client.key
+// is sent addr_key and area_key, on its own copy. Every other field it returns is
 // ignored, so no plugin can change what the next one sees. Any error is returned
 // as is: the chain runs under hooks.Engine.ApplyClosed, which holds the comment.
 func (r *Runtime) commentCheckFilter(m sdk.Manifest, generic func(context.Context, any) (any, error)) func(context.Context, any) (any, error) {
@@ -28,6 +29,7 @@ func (r *Runtime) commentCheckFilter(m sdk.Manifest, generic func(context.Contex
 		}
 		send := in
 		send.Score, send.Reasons = 0, nil
+		send.AddrKey, send.AreaKey = r.clientKeys(ctx, m.Name)
 		res, err := generic(ctx, send)
 		if err != nil {
 			return v, err

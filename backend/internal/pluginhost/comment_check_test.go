@@ -40,7 +40,7 @@ func (r *commentRig) load(t *testing.T, mode string, grant bool) {
 	t.Helper()
 	m := sdk.Manifest{
 		Name: "commentcheck", Version: "0.1.0", SDK: "^0.25",
-		Permissions: []string{sdk.PermCommentsRead, sdk.PermKV},
+		Permissions: []string{sdk.PermCommentsRead, sdk.PermKV, sdk.PermClientKey},
 		Config:      map[string]string{"mode": mode},
 	}
 	m.Limits.HookTimeoutsMS = map[string]uint64{sdk.CommentCheckF.Name: 200}
