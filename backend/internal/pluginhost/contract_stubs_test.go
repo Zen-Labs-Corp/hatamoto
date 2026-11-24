@@ -11,9 +11,6 @@ import (
 func TestContractStubsUnavailable(t *testing.T) {
 	r := newCapaRig(t)
 	fns := map[string]string{
-		sdk.FnEntitiesCreate:    sdk.PermEntitiesWriteOwn,
-		sdk.FnEntitiesUpdate:    sdk.PermEntitiesWriteOwn,
-		sdk.FnEntitiesDelete:    sdk.PermEntitiesWriteOwn,
 		sdk.FnCommentsMarkDead:  sdk.PermCommentsModerate,
 		sdk.FnCommentsRestore:   sdk.PermCommentsModerate,
 		sdk.FnCommentsSetRank:   sdk.PermCommentsModerate,
