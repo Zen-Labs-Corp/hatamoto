@@ -50,6 +50,8 @@ var (
 	ErrPermission           = errors.New("permission not requested by the plugin")
 	ErrUnknownSource        = errors.New("unknown package source")
 	ErrUninstalling         = errors.New("this package is being uninstalled; finish the uninstall first")
+	ErrKitNotInstallable    = errors.New("a kit is applied with `hatamoto kit apply` or Settings > Kits, not installed")
+	ErrNotAKit              = errors.New("not a kit package")
 	ErrSignerNotAllowed     = errors.New("only first-party packages can be installed here (public demo)")
 )
 
@@ -344,6 +346,9 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	p, err := ParseNew(raw, DefaultLimits)
 	if err != nil {
 		return nil, err
+	}
+	if p.Kind == KindKit {
+		return nil, ErrKitNotInstallable
 	}
 	grant, err := m.checkPolicy(ctx, p, req.Source)
 	if err != nil {
@@ -809,6 +814,29 @@ func newCSPHosts(installed jsontext.Value, p *Package) []string {
 func (m *Manager) CheckPolicy(ctx context.Context, p *Package, src Source) error {
 	_, err := m.checkPolicy(ctx, p, src)
 	return err
+}
+
+// VerifyKit parses raw as a kit and runs the trust policy Install runs, without
+// storing anything: a kit is applied and recorded, never installed.
+func (m *Manager) VerifyKit(ctx context.Context, raw []byte, src Source) (*Package, Origin, error) {
+	if src == SourceDev && !m.AllowDev {
+		return nil, 0, ErrDevDisabled
+	}
+	p, err := ParseNew(raw, DefaultLimits)
+	if err != nil {
+		return nil, 0, err
+	}
+	if p.Kind != KindKit {
+		return nil, 0, fmt.Errorf("%w: %s is a %s", ErrNotAKit, p.Name, p.Kind)
+	}
+	grant, err := m.checkPolicy(ctx, p, src)
+	if err != nil {
+		return nil, 0, err
+	}
+	if grant != nil {
+		return p, OriginDeveloper, nil
+	}
+	return p, Classify(p.Name, signerOf(p)), nil
 }
 
 // PolicyOrigin is CheckPolicy that also returns the origin the package would be

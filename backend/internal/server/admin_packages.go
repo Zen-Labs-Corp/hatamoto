@@ -349,6 +349,10 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	case packages.KindTheme:
 		m, _ := pkg.ThemeMeta()
 		sum.Description = m.Description
+	case packages.KindKit:
+		k, _ := pkg.Kit()
+		sum.Description = k.Description
+		sum.Problem = "A kit is applied from Settings > Kits, not installed here."
 	}
 	if pkg.Signature != nil {
 		sum.Signed, sum.Signer = true, pkg.Signature.Signer
