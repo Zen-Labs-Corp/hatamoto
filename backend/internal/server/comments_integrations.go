@@ -10,6 +10,7 @@ import (
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/hooks"
+	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/sdk"
 )
 
@@ -90,17 +91,25 @@ func commentEvent(c comment.Comment) sdk.CommentEvent {
 // so a plugin cannot probe what is not public.
 type pluginCommentReader struct{ s *Server }
 
-func (r pluginCommentReader) Thread(ctx context.Context, entityID uuid.UUID, page int) (sdk.CommentThread, error) {
+func (r pluginCommentReader) Thread(ctx context.Context, entityID uuid.UUID, page int, opts pluginhost.ThreadOpts) (sdk.CommentThread, error) {
 	empty := sdk.CommentThread{Items: []sdk.CommentItem{}, Page: max(page, 1)}
-	ok, err := r.visible(ctx, entityID)
+	info, ok, err := r.visible(ctx, entityID)
 	if err != nil || !ok {
 		return empty, err
 	}
-	tp, err := r.s.comments.Thread(ctx, entityID, page)
+	tp, err := r.s.comments.ThreadOrdered(ctx, entityID, page, info.Order)
 	if err != nil {
 		return empty, err
 	}
-	return pluginThread(tp), nil
+	return pluginThread(tp, revealDead(info, opts)), nil
+}
+
+// revealDead reports whether dead comments are shown in full. The owner is the
+// content type's origin plugin read in this call; the schema slug the plugin
+// names is never trusted alone.
+func revealDead(info comment.EntityInfo, opts pluginhost.ThreadOpts) bool {
+	return opts.IncludeDead && info.OwnerPlugin != "" &&
+		info.OwnerPlugin == opts.Plugin && info.SchemaSlug == opts.Schema
 }
 
 func (r pluginCommentReader) Counts(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]int, error) {
@@ -151,39 +160,48 @@ func (r pluginCommentReader) scoped(ctx context.Context) context.Context {
 	return ctx
 }
 
-// visible reports whether the entity's thread is public.
-func (r pluginCommentReader) visible(ctx context.Context, id uuid.UUID) (bool, error) {
+// visible reports whether the entity's thread is public, with the entity's
+// comment info.
+func (r pluginCommentReader) visible(ctx context.Context, id uuid.UUID) (comment.EntityInfo, bool, error) {
 	if r.s.comments == nil || r.s.db == nil {
-		return false, nil
+		return comment.EntityInfo{}, false, nil
 	}
-	mode, err := r.s.comments.EntityMode(ctx, id)
+	info, err := r.s.comments.EntityInfo(ctx, id)
 	if errors.Is(err, comment.ErrNotFound) {
-		return false, nil
+		return info, false, nil
 	}
 	if err != nil {
-		return false, err
+		return info, false, err
 	}
-	if mode == comment.ModeOff || mode == comment.ModeHidden {
-		return false, nil
+	if info.Mode == comment.ModeOff || info.Mode == comment.ModeHidden {
+		return info, false, nil
 	}
 	if _, err := entity.NewPostgresPublicRepository(r.s.db).GetPublishedByID(r.scoped(ctx), id); err != nil {
 		if errors.Is(err, entity.ErrEntityNotFound) {
-			return false, nil
+			return info, false, nil
 		}
-		return false, err
+		return info, false, err
 	}
-	return true, nil
+	return info, true, nil
 }
 
-// pluginThread keeps only the fields a plugin may see.
-func pluginThread(tp comment.ThreadPage) sdk.CommentThread {
+// pluginThread keeps only the fields a plugin may see. A dead comment keeps
+// its author and body only with reveal; otherwise they are blanked.
+func pluginThread(tp comment.ThreadPage, reveal bool) sdk.CommentThread {
 	items := make([]sdk.CommentItem, 0, len(tp.Comments))
 	for _, c := range tp.Comments {
-		items = append(items, sdk.CommentItem{
+		it := sdk.CommentItem{
 			ID: c.ID.String(), ParentID: idString(c.ParentID), Depth: c.Depth,
 			AuthorName: c.AuthorName, Staff: c.IsSiteAuthor, BodyHTML: c.BodyHTML,
-			CreatedAt: c.CreatedAt.UTC(),
-		})
+			CreatedAt: c.CreatedAt.UTC(), Rank: c.Rank, Status: "approved",
+		}
+		if c.Status == comment.StatusDead {
+			it.Status = "dead"
+			if !reveal {
+				it.AuthorName, it.BodyHTML, it.Staff = "", "", false
+			}
+		}
+		items = append(items, it)
 	}
 	return sdk.CommentThread{Items: items, Page: tp.Page, HasMore: tp.HasMore}
 }

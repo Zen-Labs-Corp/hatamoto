@@ -21,10 +21,11 @@ type fakeCommentReader struct {
 	thread  sdk.CommentThread
 	counts  map[uuid.UUID]int
 	gotPage int
+	gotOpts ThreadOpts
 }
 
-func (f *fakeCommentReader) Thread(_ context.Context, _ uuid.UUID, page int) (sdk.CommentThread, error) {
-	f.gotPage = page
+func (f *fakeCommentReader) Thread(_ context.Context, _ uuid.UUID, page int, opts ThreadOpts) (sdk.CommentThread, error) {
+	f.gotPage, f.gotOpts = page, opts
 	return f.thread, nil
 }
 
@@ -119,6 +120,27 @@ func TestCommentsHostThread(t *testing.T) {
 	}
 	if o := r.do(t, sdk.FnCommentsThread, map[string]any{"entity_id": "nope"}); o.Code != sdk.ErrInvalidArgument {
 		t.Errorf("bad id: %+v", o)
+	}
+}
+
+func TestCommentsHostThreadIncludeDead(t *testing.T) {
+	id := uuid.NewString()
+	fake := &fakeCommentReader{}
+	r := newCommentsRig(t, fake)
+	r.load(t, func(m *sdk.Manifest) {
+		m.Permissions = append(m.Permissions, sdk.PermCommentsRead, sdk.PermCommentsModerate, sdk.PermEntitiesWriteOwn)
+		m.EntitySchema = "story"
+	})
+	r.grant(t, sdk.PermCommentsRead)
+	if o := r.do(t, sdk.FnCommentsThread, map[string]any{"entity_id": id, "include_dead": true}); o.Code != "" || fake.gotOpts.IncludeDead {
+		t.Fatalf("without comments.moderate: %+v opts %+v, want include_dead dropped", o, fake.gotOpts)
+	}
+	r.grant(t, sdk.PermCommentsRead, sdk.PermCommentsModerate, sdk.PermEntitiesWriteOwn)
+	if o := r.do(t, sdk.FnCommentsThread, map[string]any{"entity_id": id, "include_dead": true}); o.Code != "" || !fake.gotOpts.IncludeDead || fake.gotOpts.Plugin == "" {
+		t.Fatalf("with comments.moderate: %+v opts %+v, want include_dead passed", o, fake.gotOpts)
+	}
+	if o := r.do(t, sdk.FnCommentsThread, map[string]any{"entity_id": id}); o.Code != "" || fake.gotOpts.IncludeDead {
+		t.Fatalf("not asked: %+v opts %+v", o, fake.gotOpts)
 	}
 }
 

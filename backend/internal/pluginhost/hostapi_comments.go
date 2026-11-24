@@ -15,8 +15,16 @@ import (
 // return approved comments of public entities only, and no email, hash, IP or
 // user agent.
 type CommentReader interface {
-	Thread(ctx context.Context, entityID uuid.UUID, page int) (sdk.CommentThread, error)
+	Thread(ctx context.Context, entityID uuid.UUID, page int, opts ThreadOpts) (sdk.CommentThread, error)
 	Counts(ctx context.Context, entityIDs []uuid.UUID) (map[uuid.UUID]int, error)
+}
+
+// ThreadOpts is the caller's identity and what it asked for. IncludeDead is
+// already gated on comments.moderate; the reader still decides ownership from
+// the content type's origin plugin at call time and never trusts Schema alone.
+type ThreadOpts struct {
+	Plugin, Schema string
+	IncludeDead    bool
 }
 
 const (
@@ -24,9 +32,7 @@ const (
 	maxCommentPage     = 10_000
 )
 
-func fnCommentsThread(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
-	// include_dead is accepted and ignored: it is honoured with comments.moderate
-	// once dead comments exist; until then no comment is dead.
+func fnCommentsThread(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[sdk.CommentsThreadArgs](raw)
 	if err != nil {
 		return nil, err
@@ -38,7 +44,12 @@ func fnCommentsThread(ctx context.Context, a *API, _ *callEnv, raw jsontext.Valu
 	if a.svc.Comments == nil {
 		return nil, unavailable("comments")
 	}
-	return a.svc.Comments.Thread(ctx, id, clamp(args.Page, 1, maxCommentPage))
+	// include_dead is honoured only with comments.moderate.
+	opts := ThreadOpts{
+		Plugin: e.plugin, Schema: e.manifest.EntitySchema,
+		IncludeDead: args.IncludeDead && a.grants.Has(e.plugin, sdk.PermCommentsModerate),
+	}
+	return a.svc.Comments.Thread(ctx, id, clamp(args.Page, 1, maxCommentPage), opts)
 }
 
 func fnCommentsCounts(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {

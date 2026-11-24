@@ -12,6 +12,7 @@ import (
 
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/sdk"
 )
 
@@ -143,7 +144,7 @@ func TestCommentEventNeverLeaksPrivateFields(t *testing.T) {
 func TestPluginCommentReaderWithoutComments(t *testing.T) {
 	r := pluginCommentReader{&Server{}}
 	id := uuid.New()
-	th, err := r.Thread(context.Background(), id, 0)
+	th, err := r.Thread(context.Background(), id, 0, pluginhost.ThreadOpts{})
 	if err != nil || th.Items == nil || len(th.Items) != 0 || th.Page != 1 {
 		t.Fatalf("thread %+v err %v", th, err)
 	}
@@ -163,7 +164,7 @@ func TestPluginCommentReaderThreadMapping(t *testing.T) {
 	edited := now
 	th := pluginThread(comment.ThreadPage{Page: 2, HasMore: true, Comments: []comment.ThreadComment{
 		{ID: uuid.New(), ParentID: &parent, Depth: 1, AuthorName: "Bo", IsSiteAuthor: true, BodyHTML: "<p>x</p>", CreatedAt: now, EditedAt: &edited},
-	}})
+	}}, false)
 	if th.Page != 2 || !th.HasMore || len(th.Items) != 1 {
 		t.Fatalf("thread %+v", th)
 	}
@@ -171,7 +172,49 @@ func TestPluginCommentReaderThreadMapping(t *testing.T) {
 	if it.ParentID != parent.String() || it.Depth != 1 || !it.Staff || it.AuthorName != "Bo" || it.BodyHTML != "<p>x</p>" {
 		t.Errorf("item %+v", it)
 	}
-	if empty := pluginThread(comment.ThreadPage{Page: 1}); empty.Items == nil {
+	if empty := pluginThread(comment.ThreadPage{Page: 1}, false); empty.Items == nil {
 		t.Error("empty thread must have non-nil items")
+	}
+	if it.Status != "approved" {
+		t.Errorf("status %q, want approved", it.Status)
+	}
+}
+
+func TestPluginThreadDeadMasking(t *testing.T) {
+	tp := comment.ThreadPage{Comments: []comment.ThreadComment{
+		{ID: uuid.New(), AuthorName: "Bo", IsSiteAuthor: true, BodyHTML: "<p>x</p>", Status: comment.StatusDead, Rank: 2.5},
+		{ID: uuid.New(), AuthorName: "Al", BodyHTML: "<p>y</p>", Status: comment.StatusApproved, Rank: 1},
+	}}
+	masked := pluginThread(tp, false).Items
+	if d := masked[0]; d.Status != "dead" || d.AuthorName != "" || d.BodyHTML != "" || d.Staff || d.Rank != 2.5 {
+		t.Errorf("dead without reveal: %+v", d)
+	}
+	if a := masked[1]; a.Status != "approved" || a.BodyHTML != "<p>y</p>" || a.Rank != 1 {
+		t.Errorf("approved: %+v", a)
+	}
+	if d := pluginThread(tp, true).Items[0]; d.Status != "dead" || d.AuthorName != "Bo" || d.BodyHTML != "<p>x</p>" || !d.Staff {
+		t.Errorf("dead with reveal: %+v", d)
+	}
+}
+
+func TestPluginCommentReaderRevealDead(t *testing.T) {
+	own := comment.EntityInfo{OwnerPlugin: "example", SchemaSlug: "story"}
+	opts := pluginhost.ThreadOpts{Plugin: "example", Schema: "story", IncludeDead: true}
+	if !revealDead(own, opts) {
+		t.Error("owner on its own schema must reveal")
+	}
+	for name, c := range map[string]struct {
+		info comment.EntityInfo
+		opts pluginhost.ThreadOpts
+	}{
+		"not asked":      {own, pluginhost.ThreadOpts{Plugin: "example", Schema: "story"}},
+		"other schema":   {comment.EntityInfo{OwnerPlugin: "example", SchemaSlug: "page"}, opts},
+		"other plugin":   {comment.EntityInfo{OwnerPlugin: "other", SchemaSlug: "story"}, opts},
+		"owner type":     {comment.EntityInfo{SchemaSlug: "story"}, opts},
+		"empty identity": {comment.EntityInfo{}, pluginhost.ThreadOpts{IncludeDead: true}},
+	} {
+		if revealDead(c.info, c.opts) {
+			t.Errorf("%s: must not reveal", name)
+		}
 	}
 }
