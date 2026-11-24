@@ -509,11 +509,8 @@ document.addEventListener("DOMContentLoaded", () => syncAckAll(document));
 window.addEventListener("pageshow", () => syncAckAll(document));
 document.addEventListener("htmx:afterSettle", (evt) => syncAckAll(evt.target));
 
-// input[data-hm-from=<id>]: a hidden input that posts the current value of another control, set
-// as its form submits (the turn-on dialog carries the card's Order select, which is in another form).
-document.addEventListener("submit", (evt) => {
-  for (const i of evt.target.querySelectorAll?.("input[data-hm-from]") || []) {
-    const src = document.getElementById(i.dataset.hmFrom);
-    if (src) i.value = src.value;
-  }
+// input[data-hm-from=<id>] posts the current value of the control with that id on submit.
+document.addEventListener("submit", (e) => {
+  for (const i of e.target.querySelectorAll?.("input[data-hm-from]") || [])
+    i.value = document.getElementById(i.dataset.hmFrom)?.value ?? i.value;
 }, true);
