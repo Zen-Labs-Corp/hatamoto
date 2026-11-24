@@ -26,6 +26,10 @@ import (
 
 type nopMailer struct{}
 
+func (nopMailer) SendCommentSignIn(context.Context, string, email.CommentSignInData) error {
+	return nil
+}
+
 func (nopMailer) SendCommentConfirmation(context.Context, string, email.CommentConfirmationData) error {
 	return nil
 }

@@ -32,6 +32,10 @@ func (f *fakeComments) Confirm(_ context.Context, id uuid.UUID) (comment.Comment
 	return comment.Comment{ID: id, Status: comment.StatusApproved}, f.confirmErr
 }
 
+func (f *fakeComments) EnsureCommenter(context.Context, string) (uuid.UUID, error) {
+	return uuid.New(), nil
+}
+
 func (f *fakeComments) Settings(context.Context) (comment.Settings, error) {
 	return f.settings, f.setErr
 }
@@ -41,9 +45,20 @@ type sent struct {
 	d  email.CommentConfirmationData
 }
 
+type signInSent struct {
+	to string
+	d  email.CommentSignInData
+}
+
 type fakeMailer struct {
-	calls []sent
-	err   error
+	calls   []sent
+	signIns []signInSent
+	err     error
+}
+
+func (f *fakeMailer) SendCommentSignIn(_ context.Context, to string, d email.CommentSignInData) error {
+	f.signIns = append(f.signIns, signInSent{to, d})
+	return f.err
 }
 
 func (f *fakeMailer) SendCommentConfirmation(_ context.Context, to string, d email.CommentConfirmationData) error {
@@ -88,7 +103,11 @@ func (f *fakeStore) Peek(context.Context, []byte, time.Time) (a, b, c uuid.UUID,
 	return uuid.New(), uuid.New(), uuid.New(), f.peekOK, nil
 }
 
-func (f *fakeStore) Consume(context.Context, []byte, time.Time) (a, b uuid.UUID, ok bool, err error) {
+func (f *fakeStore) PeekSignIn(context.Context, []byte, time.Time) (uuid.UUID, bool, error) {
+	return uuid.New(), f.peekOK, nil
+}
+
+func (f *fakeStore) Consume(context.Context, []byte, time.Time, bool) (a, b uuid.UUID, ok bool, err error) {
 	return uuid.New(), uuid.New(), true, nil
 }
 
@@ -417,5 +436,32 @@ func TestConfirm_ReleasesTokenOnTransientVersionError(t *testing.T) {
 	}
 	if e.st.released != 1 || len(e.c.confirmed) != 0 {
 		t.Errorf("released = %d, confirmed = %d; want the token released before any confirm", e.st.released, len(e.c.confirmed))
+	}
+}
+
+func TestClearCookie(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	for _, secure := range []bool{true, false} {
+		c := e.svc.ClearCookie(secure)
+		if c.Name != CookieName || c.Value != "" || c.Path != "/" || c.MaxAge != -1 ||
+			!c.HttpOnly || c.SameSite != http.SameSiteLaxMode || c.Secure != secure {
+			t.Errorf("ClearCookie(%v) = %+v", secure, c)
+		}
+	}
+}
+
+func TestRequestSignIn_SameOutcomeAndLink(t *testing.T) {
+	e := newEnv(t)
+	out, err := e.svc.RequestSignIn(context.Background(), SignInRequest{Email: "a@example.test", IPHash: "ip"})
+	if out != OutcomeCheckEmail || err != nil || len(e.m.signIns) != 1 {
+		t.Fatalf("(%v, %v), mails %d", out, err, len(e.m.signIns))
+	}
+	if u := e.m.signIns[0].d.URL; !strings.HasPrefix(u, "https://example.test/-/comments/signin/") {
+		t.Errorf("url = %q", u)
+	}
+	e.base = ""
+	if out, err := e.svc.RequestSignIn(context.Background(), SignInRequest{Email: "a@example.test"}); out != OutcomeCheckEmail || err != nil || len(e.m.signIns) != 1 {
+		t.Errorf("no base: (%v, %v), mails %d", out, err, len(e.m.signIns))
 	}
 }

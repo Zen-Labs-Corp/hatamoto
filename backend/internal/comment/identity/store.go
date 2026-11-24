@@ -25,8 +25,9 @@ const limitWindow = 24 * time.Hour
 type pgStore struct{ db *database.DB }
 
 type issueRow struct {
-	Hash                   []byte
-	CommentID, CommenterID uuid.UUID
+	Hash        []byte
+	CommentID   *uuid.UUID // nil for a sign-in without a comment
+	CommenterID uuid.UUID
 	// IPHash and NetHash are the stored comment's hashes; "" when the IP was
 	// unparsable, which is never counted.
 	IPHash, NetHash string
@@ -94,16 +95,37 @@ func (s *pgStore) Peek(ctx context.Context, hash []byte, now time.Time) (comment
 	return commentID, entityID, commenterID, true, nil
 }
 
-// Consume spends a token in one statement that locks only its own row.
-func (s *pgStore) Consume(ctx context.Context, hash []byte, now time.Time) (commentID, commenterID uuid.UUID, ok bool, err error) {
+// PeekSignIn looks a sign-in token (one without a comment) up without
+// consuming it and returns its commenter.
+func (s *pgStore) PeekSignIn(ctx context.Context, hash []byte, now time.Time) (commenterID uuid.UUID, ok bool, err error) {
+	err = s.db.Pool().QueryRow(ctx, `SELECT commenter_id FROM hatamoto_comment_confirmations
+		WHERE token_hash = $1 AND used_at IS NULL AND expires_at > $2 AND comment_id IS NULL`,
+		hash, now).Scan(&commenterID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, false, nil
+	}
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+	return commenterID, true, nil
+}
+
+// Consume spends a token in one statement that locks only its own row. A
+// comment token (signIn false) must carry a comment, a sign-in token must not;
+// commentID is uuid.Nil for the latter.
+func (s *pgStore) Consume(ctx context.Context, hash []byte, now time.Time, signIn bool) (commentID, commenterID uuid.UUID, ok bool, err error) {
+	var cid *uuid.UUID
 	err = s.db.Pool().QueryRow(ctx, `UPDATE hatamoto_comment_confirmations SET used_at = $2
-		WHERE token_hash = $1 AND used_at IS NULL AND expires_at > $2 AND comment_id IS NOT NULL
-		RETURNING comment_id, commenter_id`, hash, now).Scan(&commentID, &commenterID)
+		WHERE token_hash = $1 AND used_at IS NULL AND expires_at > $2 AND (comment_id IS NULL) = $3
+		RETURNING comment_id, commenter_id`, hash, now, signIn).Scan(&cid, &commenterID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return uuid.Nil, uuid.Nil, false, nil
 	}
 	if err != nil {
 		return uuid.Nil, uuid.Nil, false, err
+	}
+	if cid != nil {
+		commentID = *cid
 	}
 	return commentID, commenterID, true, nil
 }

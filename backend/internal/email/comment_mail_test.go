@@ -79,3 +79,26 @@ func TestSendCommentConfirmation_TitleQuotedPlainly(t *testing.T) {
 		t.Errorf("text part must not escape the title:\n%s", data)
 	}
 }
+
+func TestSendCommentSignIn(t *testing.T) {
+	srv := smtptest.Start(t, smtptest.Options{})
+	svc := newSink(t, sinkConfig(srv, SecurityNone))
+	err := svc.SendCommentSignIn(context.Background(), "v@example.test", CommentSignInData{
+		SiteName: "Site S", URL: "https://example.test/-/comments/signin/TOKEN", ExpiresIn: "24 hours",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	msgs := srv.Messages()
+	if len(msgs) != 1 {
+		t.Fatalf("messages = %d, want 1", len(msgs))
+	}
+	for _, want := range []string{"Subject: Sign in to Site S", "https://example.test/-/comments/signin/TOKEN", "24 hours"} {
+		if !strings.Contains(msgs[0].Data, want) {
+			t.Errorf("message lacks %q:\n%s", want, msgs[0].Data)
+		}
+	}
+	if strings.ContainsAny(msgs[0].Data, "\u2013\u2014") {
+		t.Error("the mail must not contain dashes used as punctuation")
+	}
+}
