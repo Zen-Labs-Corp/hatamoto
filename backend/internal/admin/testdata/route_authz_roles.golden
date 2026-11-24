@@ -411,6 +411,8 @@ POST /admin/settings/comments/commenters/{id}/erase anon=303 read-only=403 autho
 POST /admin/settings/comments/commenters/{id}/{action} anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/comments/enable anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/comments/switch anon=303 read-only=403 author=403 contributor=403 reviewer=403
+POST /admin/settings/comments/types/{id} anon=303 read-only=403 author=403 contributor=403 reviewer=403
+POST /admin/settings/comments/types/{id}/revoke anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/email anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/email/log/{id}/resend anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/email/reset anon=303 read-only=403 author=403 contributor=403 reviewer=403
