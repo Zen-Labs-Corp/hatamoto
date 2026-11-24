@@ -204,6 +204,29 @@ o10=$W/out10
 [ "$(git -C "$o10" remote get-url origin)" = "https://github.com/Zen-Labs-Corp/hatamoto-sdk.git" ] || fail "default remote changed: $(git -C "$o10" remote get-url origin)"
 pass "HATAMOTO_SDK_REMOTE sets the target, --remote overrides, default unchanged"
 
+# 13. --tag publishes a release candidate; the final then adds only the tag.
+write_version 0.9.0 && release_commit "core: sdk 0.9.0"
+r13=$W/r13.git; bare "$r13"
+out=$(publish --remote "file://$r13" --tag v0.9.0-rc.1) || fail "rc dry run failed: $out"
+grep -q "v0.9.0-rc.1" <<<"$out" || fail "rc dry run: tag not named: $out"
+[ -z "$(git --git-dir="$r13" for-each-ref)" ] || fail "rc dry run changed the remote"
+publish --remote "file://$r13" --tag v0.9.0-rc.1 --push >/dev/null || fail "rc push failed"
+[ "$(rtree "$r13" v0.9.0-rc.1)" = "$(sdktree)" ] || fail "rc: tree differs"
+git --git-dir="$r13" rev-parse -q --verify refs/tags/v0.9.0 >/dev/null && fail "rc: the final tag was created"
+main_count=$(git --git-dir="$r13" rev-list --count main)
+publish --remote "file://$r13" --push >/dev/null || fail "final push after rc failed"
+[ "$(git --git-dir="$r13" rev-parse v0.9.0)" = "$(git --git-dir="$r13" rev-parse v0.9.0-rc.1)" ] || fail "final tag is not on the rc commit"
+[ "$(git --git-dir="$r13" rev-list --count main)" = "$main_count" ] || fail "final after rc created a commit"
+for bad in v9.9.9-rc.1 v0.10.0-rc.1 0.9.0 v0.9.0-rc v0.9.0-beta.1 v0.9.0-rc.1x v0.9.0-rc.0; do
+  refused "does not match Version" --remote "file://$r13" --tag "$bad"
+done
+refused "--tag needs a value" --tag
+refs13=$(git --git-dir="$r13" for-each-ref)
+printf '// changed\n' >>"$core/backend/pkg/sdk/guest/guest.go"; release_commit "core: change sdk tree"
+refused "v0.9.0-rc.1 exists with a different tree" --remote "file://$r13" --tag v0.9.0-rc.1 --push
+[ "$(git --git-dir="$r13" for-each-ref)" = "$refs13" ] || fail "rc refusal changed the remote"
+pass "--tag publishes a release candidate of the same tree"
+
 # 12. The script has no force path.
 if grep -n -e '--force' -e '+refs' -e '--mirror' "$SCRIPT"; then fail "publish-sdk.sh contains a force or mirror push"; fi
 pass "no force push path"
