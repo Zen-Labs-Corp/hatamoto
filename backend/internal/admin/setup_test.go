@@ -184,6 +184,19 @@ func TestSetupWizardPagesAccessibleAndGolden(t *testing.T) {
 		}
 		pages[name] = rec.Body.String()
 	}
+	// the review with the community policy asked for: the comments section and both switches
+	g.a.deps.Kits = &fakeKits{available: kitsFixture().available, plan: kitPolicyPlanFixture()}
+	rec = g.do("GET", "/admin/setup/kit/community", "owner-token", nil, nil)
+	if rec.Code != 200 {
+		t.Fatalf("setup-kit-review-policy: %d\n%s", rec.Code, rec.Body.String())
+	}
+	pages["setup-kit-review-policy"] = rec.Body.String()
+	for _, want := range []string{"Turn comments on", "Use the community policy on Stories", `id="kit-policy"`} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Errorf("setup-kit-review-policy lacks %q", want)
+		}
+	}
+	g.a.deps.Kits = kitsFixture()
 	// the content step with the registry offering kits: the 4th card and Continue
 	rec = g.do("GET", "/admin/setup/content", "owner-token", nil, nil)
 	if rec.Code != 200 {
