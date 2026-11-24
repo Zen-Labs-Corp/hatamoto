@@ -65,7 +65,10 @@ type RouteRegistry struct {
 	public bool
 	// keys returns a plugin's client.key visitor keys for a request context.
 	keys func(ctx context.Context, plugin string) (addrKey, netKey string)
-	m    atomic.Pointer[map[string]*pluginRouter]
+	// keyed reports whether a plugin holds client.key: its public responses
+	// are per visitor whether or not this request produced a key.
+	keyed func(plugin string) bool
+	m     atomic.Pointer[map[string]*pluginRouter]
 }
 
 // NewRouteRegistry returns a registry serving either the admin or the public
@@ -230,7 +233,7 @@ func (g *RouteRegistry) Serve(w http.ResponseWriter, r *http.Request, plugin, re
 		writeJSONError(w, http.StatusBadGateway, "plugin error")
 		return
 	}
-	g.writeRouteResponse(w, r, res, pr.m, req.AddrKey != "")
+	g.writeRouteResponse(w, r, res, pr.m, g.public && g.keyed != nil && g.keyed(plugin))
 }
 
 func (g *RouteRegistry) writeRouteResponse(w http.ResponseWriter, r *http.Request, res sdk.HTTPResponse, m sdk.Manifest, keyed bool) {

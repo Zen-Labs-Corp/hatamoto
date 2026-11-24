@@ -11,8 +11,13 @@ import (
 // a deriver (server secret), the client.key grant (checked per call, so a revoke
 // is immediate) and a client address in ctx. They are never logged.
 func (r *Runtime) clientKeys(ctx context.Context, plugin string) (addr, net string) {
-	if r.caps.keys == nil || r.caps.grants == nil || !r.caps.grants.Has(plugin, sdk.PermClientKey) {
+	if r.caps.keys == nil || !r.hasClientKey(plugin) {
 		return "", ""
 	}
 	return r.caps.keys.For(plugin, clientkey.IPFrom(ctx))
+}
+
+// hasClientKey reports whether the owner granted the plugin client.key.
+func (r *Runtime) hasClientKey(plugin string) bool {
+	return r.caps.grants != nil && r.caps.grants.Has(plugin, sdk.PermClientKey)
 }

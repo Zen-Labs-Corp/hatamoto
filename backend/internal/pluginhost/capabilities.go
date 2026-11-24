@@ -64,6 +64,7 @@ func (r *Runtime) Configure(c Config) {
 	r.caps.admin = NewRouteRegistry(r.host.Call, false, r.log)
 	r.caps.public = NewRouteRegistry(r.host.Call, true, r.log)
 	r.caps.admin.keys, r.caps.public.keys = r.clientKeys, r.clientKeys
+	r.caps.admin.keyed, r.caps.public.keyed = r.hasClientKey, r.hasClientKey
 }
 
 // SetMailQuota applies the plugin's new mail.send quota to its running

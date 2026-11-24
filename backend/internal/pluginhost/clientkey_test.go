@@ -154,3 +154,26 @@ func TestClientKeyRevoke(t *testing.T) {
 		t.Errorf("revoked plugin still gets keys: %+v", got)
 	}
 }
+
+// A plugin holding client.key is never shared-cacheable, even for a request
+// that carries no address (and so no key).
+func TestClientKeyGrantMarksRoutePrivate(t *testing.T) {
+	r := keyRig(t)
+	r.load(t, func(m *sdk.Manifest) {
+		withKeys(m)
+		m.Cookies = nil // cookies alone make a route private
+		m.Routes = append(m.Routes, sdk.Route{Method: "GET", Path: "/cache", Public: true})
+	})
+	cc := func() string {
+		rec := httptest.NewRecorder()
+		r.rt.PublicRoutes().Serve(rec, httptest.NewRequest("GET", "/p/capa/cache", nil), "capa", "cache", nil)
+		return rec.Header().Get("Cache-Control")
+	}
+	if got := cc(); got != "public, s-maxage=600" {
+		t.Fatalf("not granted: Cache-Control = %q", got)
+	}
+	r.grant(t, sdk.PermClientKey)
+	if got := cc(); got != "no-store" {
+		t.Errorf("granted, no address: Cache-Control = %q, want no-store", got)
+	}
+}
