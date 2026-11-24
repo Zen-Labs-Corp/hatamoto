@@ -209,3 +209,70 @@ func TestPluginWriteNotOwnedSchema_Integration(t *testing.T) {
 		t.Fatalf("events for refused writes: %v", got)
 	}
 }
+
+// An owner's moderation takes the entry away from the plugin: a status change
+// to any status, a rename and a bulk-style status change all set origin
+// 'owner', so the plugin's next update or delete is not_owned. A system
+// transition (no user) leaves the origin alone.
+func TestPluginWriteOwnerModerationTakesEntry_Integration(t *testing.T) {
+	r := newPluginWriteRig(t)
+	ctx := context.Background()
+	fields := []string{"url", "text"}
+	_, slug := r.schema(t, "story", "fixture")
+	owner := uuid.New()
+	if _, err := r.db.Pool().Exec(ctx, `INSERT INTO hatamoto_users (id, email, password_hash, name, role) VALUES ($1, $2, 'x', 'Owner', 'editor')`,
+		owner, owner.String()+"@example.test"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = r.db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_users WHERE id = $1`, owner)
+	})
+
+	cases := map[string]func(id uuid.UUID) error{
+		"draft": func(id uuid.UUID) error {
+			_, err := r.svc.UpdateEntityStatus(ctx, id, &owner, StatusDraft)
+			return err
+		},
+		"archived": func(id uuid.UUID) error {
+			_, err := r.svc.UpdateEntityStatus(ctx, id, &owner, StatusArchived)
+			return err
+		},
+		"rename": func(id uuid.UUID) error {
+			n := "Renamed"
+			_, err := r.svc.UpdateEntity(ctx, id, &owner, &UpdateEntityInput{Name: &n})
+			return err
+		},
+		"attribute": func(id uuid.UUID) error {
+			a := jsontext.Value(`{"text":"edited"}`)
+			_, err := r.svc.UpdateEntity(ctx, id, &owner, &UpdateEntityInput{Attributes: &a})
+			return err
+		},
+	}
+	for name, act := range cases {
+		e, err := r.svc.PluginCreate(ctx, "fixture", PluginWrite{Schema: slug, Fields: fields, Name: name, Attributes: jsontext.Value(`{"text":"x"}`)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := act(e.ID); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if _, err := r.svc.PluginUpdate(ctx, "fixture", e.ID, PluginWrite{Schema: slug, Fields: fields, Status: StatusPublished}); !errors.Is(err, ErrNotPluginOwned) {
+			t.Fatalf("%s: plugin update after owner write: %v, want ErrNotPluginOwned", name, err)
+		}
+		if _, err := r.svc.PluginDelete(ctx, "fixture", slug, e.ID); !errors.Is(err, ErrNotPluginOwned) {
+			t.Fatalf("%s: plugin delete after owner write: %v, want ErrNotPluginOwned", name, err)
+		}
+	}
+
+	// A system transition (no user) is not an owner action.
+	e, err := r.svc.PluginCreate(ctx, "fixture", PluginWrite{Schema: slug, Fields: fields, Name: "system"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.svc.UpdateEntityStatus(ctx, e.ID, nil, StatusDraft); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.svc.PluginUpdate(ctx, "fixture", e.ID, PluginWrite{Schema: slug, Fields: fields, Status: StatusPublished}); err != nil {
+		t.Fatalf("plugin update after a system transition: %v", err)
+	}
+}

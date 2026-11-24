@@ -617,7 +617,7 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 		    updated_by = $6,
 		    version = CASE WHEN $4 IS NOT NULL THEN version + 1 ELSE version END,
 		    updated_at = CASE WHEN $15 THEN updated_at ELSE NOW() END,
-		    origin = CASE WHEN $17 THEN 'owner' ELSE origin END
+		    origin = CASE WHEN $17 OR (NOT $15 AND origin LIKE 'plugin:%') THEN 'owner' ELSE origin END
 		WHERE id = $1
 		RETURNING id, schema_id, name, slug, locale, status, attributes, metadata,
 		          version, created_by, updated_by, created_at, updated_at, published_at, parent_id, author_id, byline_person_id, byline_org, sort_order
@@ -718,7 +718,8 @@ func (r *PostgresEntityRepository) updateStatus(ctx context.Context, id uuid.UUI
 		        WHEN published_at IS NULL OR published_at > $4::timestamptz THEN $4::timestamptz
 		        ELSE published_at
 		    END,
-		    updated_at = NOW()
+		    updated_at = NOW(),
+		    origin = CASE WHEN $3::uuid IS NOT NULL AND origin LIKE 'plugin:%' THEN 'owner' ELSE origin END
 		WHERE id = $1 AND ($5::int IS NULL OR version = $5)
 		RETURNING id, schema_id, name, slug, locale, status, attributes, metadata,
 		          version, created_by, updated_by, created_at, updated_at, published_at
@@ -778,7 +779,8 @@ func (r *PostgresEntityRepository) Schedule(ctx context.Context, id uuid.UUID, u
 	var e Entity
 	err = q.QueryRow(ctx, `
 		UPDATE hatamoto_entities
-		SET status = 'scheduled', published_at = $2, updated_by = $3, updated_at = NOW()
+		SET status = 'scheduled', published_at = $2, updated_by = $3, updated_at = NOW(),
+		    origin = CASE WHEN $3::uuid IS NOT NULL AND origin LIKE 'plugin:%' THEN 'owner' ELSE origin END
 		WHERE id = $1
 		RETURNING id, schema_id, name, slug, locale, status, attributes, metadata,
 		          version, created_by, updated_by, created_at, updated_at, published_at`,
