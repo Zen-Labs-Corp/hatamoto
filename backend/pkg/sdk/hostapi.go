@@ -90,9 +90,7 @@ const (
 	FnDBExec          = "db.exec"          // {sql, args?} -> {rows_affected}
 )
 
-// Host functions of the SDK 0.27 contract. Until the change that implements one
-// ships, a granted call answers ErrUnavailable ("<fn> is not available"): treat
-// it as "feature off", never as a crash. entities.create|update|delete reuse the
+// Host functions of the SDK 0.27 contract. entities.create|update|delete reuse the
 // names SDK 0.17 removed; the removed permission entities.write stays removed.
 const (
 	FnEntitiesCreate    = "entities.create"     // entities.write.own: EntityWrite -> Entity (as entities.get); entity_schema only; status "published" (default) or "draft"; origin plugin:<name>
@@ -102,7 +100,7 @@ const (
 	FnCommentsRestore   = "comments.restore"    // comments.moderate: CommentIDsArgs (1..MaxCommentIDs) -> CommentsChanged
 	FnCommentsSetRank   = "comments.set_rank"   // comments.moderate: CommentRankArgs (1..MaxCommentRankItems) -> CommentsChanged
 	FnCommentsSetViewer = "comments.set_viewer" // comments.moderate: CommentViewerArgs -> {}
-	FnCommentsByAuthor  = "comments.by_author"  // comments.read: CommentsByAuthorArgs -> CommentThread (newest first, 50 per page, approved only)
+	FnCommentsByAuthor  = "comments.by_author"  // comments.read: CommentsByAuthorArgs -> CommentThread (newest first, 50 per page; approved, and dead only with include_dead + comments.moderate on the plugin's own type; listed by the comment's own status, so a reply under a hidden parent still appears)
 	FnCommentsSubtree   = "comments.subtree"    // comments.read: CommentSubtreeArgs -> CommentSubtree
 )
 
