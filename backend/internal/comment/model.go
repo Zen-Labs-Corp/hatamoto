@@ -20,6 +20,9 @@ const (
 	StatusApproved Status = "approved"
 	StatusSpam     Status = "spam"
 	StatusTrash    Status = "trash"
+	// StatusDead is a comment a plugin marked dead: public as a placeholder,
+	// never counted, never purged.
+	StatusDead Status = "dead"
 )
 
 // TrustLevel is how far a commenter is trusted.
@@ -62,6 +65,9 @@ type Sort string
 const (
 	SortNewest Sort = "newest"
 	SortOldest Sort = "oldest"
+	// SortRank orders by the stored rank. Per content type only: the site
+	// Settings.Sort stays newest or oldest.
+	SortRank Sort = "rank"
 )
 
 // Thresholds are the four numbers behind the known and trusted levels.
@@ -238,7 +244,9 @@ type Comment struct {
 	EditedAt             *time.Time
 	ApprovedBy           *uuid.UUID
 	Locale               string
-	NotifyReplies        bool // the commenter asked for reply mail; effective only with ConfirmedAt set
+	NotifyReplies        bool    // the commenter asked for reply mail; effective only with ConfirmedAt set
+	Rank                 float64 // stored order key, higher first; plugin-written
+	DeadBy               string  // plugin that marked the comment dead, "" otherwise
 }
 
 // Commenter is a visitor identified by a hashed email address.
@@ -292,6 +300,15 @@ type Edited struct {
 	Hold bool
 }
 
+// ParseOrder maps a stored order name to a Sort, or "" when it is unknown.
+func ParseOrder(s string) Sort {
+	switch Sort(s) {
+	case SortNewest, SortOldest, SortRank:
+		return Sort(s)
+	}
+	return ""
+}
+
 // ThreadComment is the public view: never body_raw, hashes or email.
 type ThreadComment struct {
 	ID           uuid.UUID
@@ -302,6 +319,8 @@ type ThreadComment struct {
 	BodyHTML     string
 	CreatedAt    time.Time
 	EditedAt     *time.Time
+	Status       Status
+	Rank         float64
 }
 
 // ThreadPage is one page of a thread in render order.
@@ -322,10 +341,11 @@ var (
 func CanTransition(from, to Status) bool {
 	allowed := map[Status][]Status{
 		StatusDraft:    {StatusPending, StatusApproved, StatusSpam, StatusTrash},
-		StatusPending:  {StatusApproved, StatusSpam, StatusTrash},
-		StatusApproved: {StatusPending, StatusSpam, StatusTrash},
+		StatusPending:  {StatusApproved, StatusSpam, StatusTrash, StatusDead},
+		StatusApproved: {StatusPending, StatusSpam, StatusTrash, StatusDead},
 		StatusSpam:     {StatusPending, StatusApproved, StatusTrash},
 		StatusTrash:    {StatusPending, StatusApproved, StatusSpam},
+		StatusDead:     {StatusApproved, StatusTrash},
 	}
 	for _, t := range allowed[from] {
 		if t == to {

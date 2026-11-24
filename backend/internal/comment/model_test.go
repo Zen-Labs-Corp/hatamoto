@@ -97,11 +97,29 @@ func TestCanTransition(t *testing.T) {
 		{StatusTrash, StatusPending, true},
 		{StatusApproved, StatusApproved, false},
 		{StatusTrash, StatusTrash, false},
+		{StatusApproved, StatusDead, true},
+		{StatusPending, StatusDead, true},
+		{StatusDead, StatusApproved, true},
+		{StatusDead, StatusTrash, true},
+		{StatusDead, StatusSpam, false},
+		{StatusDead, StatusPending, false},
+		{StatusSpam, StatusDead, false},
+		{StatusTrash, StatusDead, false},
+		{StatusDraft, StatusDead, false},
 		{"bogus", StatusApproved, false},
 	}
 	for _, c := range cases {
 		if got := CanTransition(c.from, c.to); got != c.want {
 			t.Errorf("CanTransition(%s, %s) = %v, want %v", c.from, c.to, got, c.want)
+		}
+	}
+}
+
+func TestParseOrder(t *testing.T) {
+	t.Parallel()
+	for in, want := range map[string]Sort{"newest": SortNewest, "oldest": SortOldest, "rank": SortRank, "": "", "bogus": ""} {
+		if got := ParseOrder(in); got != want {
+			t.Errorf("ParseOrder(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

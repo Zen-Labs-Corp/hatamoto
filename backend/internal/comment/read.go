@@ -209,15 +209,19 @@ func (s *Service) Queue(ctx context.Context, f QueueFilter) ([]QueueItem, error)
 		var status string
 		var reasons []byte
 		var trust string
+		var deadBy *string
 		var item QueueItem
 		if err := rows.Scan(&c.ID, &c.EntityID, &c.ParentID, &c.Path, &c.Depth, &status, &c.BodyRaw, &c.BodyHTML,
 			&c.HasLinks, &c.LinkDomains, &c.BodyHash, &c.CommenterID, &c.AuthorName, &c.AuthorUserID,
 			&c.IPHash, &c.NetHash, &c.UserAgent, &c.SpamScore, &c.SpamVerdict, &reasons, &c.CreatedAt,
 			&c.UpdatedAt, &c.ConfirmedAt, &c.ApprovedAt, &c.ApprovedBy, &c.EditedAt, &c.Locale, &c.NotifyReplies,
-			&trust, &item.ApprovedCount); err != nil {
+			&c.Rank, &deadBy, &trust, &item.ApprovedCount); err != nil {
 			return nil, err
 		}
 		c.Status = Status(status)
+		if deadBy != nil {
+			c.DeadBy = *deadBy
+		}
 		c.SpamReasons = decodeReasons(reasons)
 		item.Comment, item.Trust = c, TrustLevel(trust)
 		out = append(out, item)

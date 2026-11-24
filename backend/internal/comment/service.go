@@ -60,20 +60,25 @@ func (s *Service) utcNow() time.Time { return s.now().UTC() }
 const commentColumns = `id, entity_id, parent_id, path, depth, status, body_raw, body_html, has_links,
 	link_domains, body_hash, commenter_id, author_name, author_user_id, ip_hash, net_hash, user_agent,
 	spam_score, spam_verdict, spam_reasons, created_at, updated_at, confirmed_at, approved_at,
-	approved_by, edited_at, locale, notify_replies`
+	approved_by, edited_at, locale, notify_replies, rank, dead_by`
 
 func scanComment(row pgx.Row) (Comment, error) {
 	var c Comment
 	var status string
 	var reasons []byte
+	var deadBy *string
 	err := row.Scan(&c.ID, &c.EntityID, &c.ParentID, &c.Path, &c.Depth, &status, &c.BodyRaw, &c.BodyHTML,
 		&c.HasLinks, &c.LinkDomains, &c.BodyHash, &c.CommenterID, &c.AuthorName, &c.AuthorUserID,
 		&c.IPHash, &c.NetHash, &c.UserAgent, &c.SpamScore, &c.SpamVerdict, &reasons, &c.CreatedAt,
-		&c.UpdatedAt, &c.ConfirmedAt, &c.ApprovedAt, &c.ApprovedBy, &c.EditedAt, &c.Locale, &c.NotifyReplies)
+		&c.UpdatedAt, &c.ConfirmedAt, &c.ApprovedAt, &c.ApprovedBy, &c.EditedAt, &c.Locale, &c.NotifyReplies,
+		&c.Rank, &deadBy)
 	if err != nil {
 		return Comment{}, err
 	}
 	c.Status = Status(status)
+	if deadBy != nil {
+		c.DeadBy = *deadBy
+	}
 	if len(reasons) > 0 {
 		if err := jsonx.Unmarshal(reasons, &c.SpamReasons, jsonx.StoredLoose); err != nil {
 			c.SpamReasons = nil
