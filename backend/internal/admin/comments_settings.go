@@ -229,6 +229,12 @@ func (a *Admin) handleCommentSettings(w http.ResponseWriter, r *http.Request) {
 // renderCommentSettings shows the page with vals in the site settings form
 // (the posted values after a refused save) and errs beside their fields.
 func (a *Admin) renderCommentSettings(w http.ResponseWriter, r *http.Request, status int, s CommentSettings, vals url.Values, errs []csetError) {
+	a.renderCommentSettingsPosted(w, r, status, s, vals, errs, nil)
+}
+
+// renderCommentSettingsPosted is renderCommentSettings with one content type
+// card showing a refused post.
+func (a *Admin) renderCommentSettingsPosted(w http.ResponseWriter, r *http.Request, status int, s CommentSettings, vals url.Values, errs []csetError, posted *cpolPosted) {
 	d := commentSettingsView{Enabled: s.Enabled, Owner: a.can(r.Context(), authz.ActionCommentSettingsManage), NoAddress: a.commentsNoAddress(r), S: s}
 	byName := map[string]string{}
 	for _, e := range errs {
@@ -249,7 +255,7 @@ func (a *Admin) renderCommentSettings(w http.ResponseWriter, r *http.Request, st
 	}
 	d.Cards = csetCards(vals, byName)
 	if s.Enabled {
-		d.Types = a.cpolTypes(r, a.deps.Comments, s.Sort)
+		d.Types = a.cpolTypes(r, a.deps.Comments, s.Sort, posted)
 	}
 	v := a.NewView(w, r, "Comments")
 	v.Section, v.Tab = "comments", "comments"

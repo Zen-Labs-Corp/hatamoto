@@ -94,9 +94,18 @@ func cpolView(c SchemaCommentConfig, siteSort string, vals url.Values, errs map[
 	return t
 }
 
+// cpolPosted is a refused post to one content type: its values and the
+// messages by field name.
+type cpolPosted struct {
+	ID   string
+	Vals url.Values
+	Errs map[string]string
+}
+
 // cpolTypes lists the content type cards with one service call. It is empty
-// when the store cannot hold a policy.
-func (a *Admin) cpolTypes(r *http.Request, svc CommentsService, siteSort string) []cpolType {
+// when the store cannot hold a policy. posted, when not nil, fills one card
+// with a refused post.
+func (a *Admin) cpolTypes(r *http.Request, svc CommentsService, siteSort string, posted *cpolPosted) []cpolType {
 	if !svc.Supports("schema-policy") {
 		return nil
 	}
@@ -107,6 +116,10 @@ func (a *Admin) cpolTypes(r *http.Request, svc CommentsService, siteSort string)
 	}
 	out := make([]cpolType, 0, len(cfgs))
 	for _, c := range cfgs {
+		if posted != nil && posted.ID == c.ID {
+			out = append(out, cpolView(c, siteSort, posted.Vals, posted.Errs))
+			continue
+		}
 		out = append(out, cpolView(c, siteSort, nil, nil))
 	}
 	return out

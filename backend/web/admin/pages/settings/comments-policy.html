@@ -1,0 +1,13 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Turn the community policy on?"}}
+<form method="post" action="{{adminPath}}/settings/comments/types/{{.Type.ID}}" class="hm-stack" data-hm-ack>
+{{template "hm/csrf" $}}
+<input type="hidden" name="policy" value="true"><input type="hidden" name="order" value="{{.Vals.Get "order"}}">
+{{if .Vals.Has "max_depth"}}<input type="hidden" name="max_depth" value="{{.Vals.Get "max_depth"}}">{{end}}{{if .Vals.Has "edit_window_minutes"}}<input type="hidden" name="edit_window_minutes" value="{{.Vals.Get "edit_window_minutes"}}">{{end}}{{if .Vals.Has "slow_mode_seconds"}}<input type="hidden" name="slow_mode_seconds" value="{{.Vals.Get "slow_mode_seconds"}}">{{end}}
+{{template "hm/card-start" dict "ID" "comments-policy-confirm" "Title" "Confirm" "Heading" "h2"}}<div class="hm-stack">
+<p>Content type: {{.Type.Name}}.</p>
+<p>Are you sure? With the community policy on, comments with links and first comments on this content type are posted at once, without review. Spam checks, blocked commenters, duplicates, captcha and surge mode still hold comments.</p>
+{{template "hm/field" dict "ID" "comments-policy-understand" "Name" "understand" "Control" "switch" "Value" "1" "Label" "I understand comments on this type will not wait for review" "Error" .Err}}
+</div>{{template "hm/foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" (adminPath "settings" "comments")}}{{template "hm/button" dict "Label" "Turn on" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "data-hm-ack-submit" "")}}{{template "hm/foot-end"}}{{template "hm/card-end"}}
+</form>
+{{end}}{{end}}
