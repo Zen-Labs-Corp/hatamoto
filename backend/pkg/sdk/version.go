@@ -137,9 +137,19 @@ package sdk
 // commercial plugin is installed and run only by a host whose edition holds a
 // plugin key and entitles it. An older host ignores the field, so a commercial
 // plugin declares ^0.26 to keep those hosts from loading it.
-const Version = "0.26.0"
+//
+// 0.27.0 is additive over 0.26: the manifest fields page_query (at most 16 keys
+// handed to render.page), page_path_prefixes (at most 8 path prefixes that narrow
+// render.page like page_paths), entity_schema + entity_fields (the one schema a
+// plugin may write); the permissions client.key, entities.write.own and
+// comments.moderate; the host functions entities.create|update|delete,
+// comments.mark_dead|restore|set_rank|set_viewer|by_author|subtree; the
+// comment.updated action and comment.draft filter; commenter_key, addr_key and
+// net_key on PageContext and HTTPRequest. A plugin that relies on any of them
+// declares ^0.27: an older host ignores the fields and refuses the new permissions.
+const Version = "0.27.0"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.
 // Caret ranges before 1.0 stop at the next minor, so a purely additive minor
 // lists its predecessors here. 0.4 plugins were native Go.
-var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0", "0.22.0", "0.22.2", "0.23.0", "0.24.0", "0.25.0"}
+var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0", "0.22.0", "0.22.2", "0.23.0", "0.24.0", "0.25.0", "0.26.0"}
