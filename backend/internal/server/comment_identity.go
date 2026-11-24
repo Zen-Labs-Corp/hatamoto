@@ -174,6 +174,8 @@ func (s *Server) setupComments() {
 	s.commentSlot = &commentSlot{
 		tokenKey: spam.CommentTokenKey(secret), nameKey: spam.FieldNameKey(secret),
 		hashIP: s.comments.Keys().HashIP, now: time.Now, on: on,
+		verify: func(v string, t time.Time) (identity.DeviceClaims, bool) { return identity.VerifyDevice(devKey, v, t) },
+		names:  newSignedNames(s.comments.LastAuthorName, time.Now),
 	}
 	// A visitor with a comment of their own that is not public yet, or still
 	// editable, gets an uncached page.
@@ -220,6 +222,10 @@ func (s *Server) setupComments() {
 		OnSurge:  s.commentSurgeHook(),
 		Checkers: []comment.Checker{commentsubmit.HookChecker{Engine: s.hooks}},
 		Log:      s.logger,
+		Policy:   s.comments,
+	}
+	if s.hooks != nil { // without a hook engine the Drafter stays nil: policy posts fail closed
+		s.commentSubmit.Drafter = commentsubmit.HookDrafter{Engine: s.hooks, Log: s.logger}
 	}
 }
 

@@ -33,6 +33,7 @@ type commentPostHooks struct {
 	entity commentEntityLookup
 	admin  func(r *http.Request) (id uuid.UUID, name string, ok bool)
 	device func(ctx context.Context, val string) (uuid.UUID, bool)
+	policy commentPolicyFn
 }
 
 // handleCommentPost takes a public comment post (POST /-/comments/{entityID}).
@@ -107,6 +108,9 @@ func (s *Server) handleCommentPost(w http.ResponseWriter, r *http.Request) {
 	}
 	if cid := out.Comment.CommenterID; cid != nil {
 		s.commentBypass.forget(*cid) // the sender must see the new item on the next load
+		if s.commentSlot != nil {
+			s.commentSlot.names.forget(*cid) // and the name the comment.draft hook just gave
+		}
 	}
 
 	var notice, errCode string
@@ -128,7 +132,7 @@ func (s *Server) handleCommentPost(w http.ResponseWriter, r *http.Request) {
 	}
 	var echo *commentEcho
 	if out.Kind == commentsubmit.Invalid {
-		e := commentEcho{EntityID: id, Code: out.Code, Typed: out.Typed}
+		e := commentEcho{EntityID: id, Code: out.Code, Typed: out.Typed, Message: out.Message}
 		if req.ParentID != nil {
 			e.ParentID = req.ParentID.String()
 		}
@@ -242,6 +246,9 @@ func (s *Server) commentFormView(ctx context.Context, id uuid.UUID, path, locale
 	notice, errCode string, echo *commentEcho) *render.PageView {
 	v := &render.PageView{Path: path, Locale: locale, EntityID: id.String()}
 	v.Comments = &render.CommentThread{Notice: notice, Error: errCode}
+	if echo != nil && echo.Code == commentsubmit.CodeDraft && errCode == commentsubmit.CodeDraft {
+		v.Comments.ErrorText = echo.Message // the response body only, never a URL
+	}
 	if errCode != "closed" {
 		form := render.CommentFormPlaceholders
 		form.Action = "/-/comments/" + id.String()
@@ -270,11 +277,30 @@ func (s *Server) commentFormView(ctx context.Context, id uuid.UUID, path, locale
 				form.Captcha = &render.CommentCaptcha{Provider: cw.provider, SiteKey: cw.siteKey}
 			}
 		}
+		lockCommentForm(ctx, s.commentPolicy(), id, &form, s.logCommentErr)
 		v.CommentForm = &form
 		v.CommentsOpen = true
 	}
 	s.applyStrings(ctx, v)
 	return v
+}
+
+// commentPolicy is the policy lookup of the comment service, nil without one.
+func (s *Server) commentPolicy() commentPolicyFn {
+	if s.commentPost.policy != nil {
+		return s.commentPost.policy
+	}
+	if s.comments == nil {
+		return nil
+	}
+	return s.comments.PolicyInfo
+}
+
+// logCommentErr logs a non-fatal comment read failure.
+func (s *Server) logCommentErr(ctx context.Context, msg string, err error) {
+	if s.logger != nil {
+		s.logger.WarnContext(ctx, msg, "error", err)
+	}
 }
 
 // writeCommentFragment answers an htmx post: the form partial with a fresh

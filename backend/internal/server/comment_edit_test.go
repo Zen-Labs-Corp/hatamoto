@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -282,5 +283,23 @@ func TestCommentEditWindowFollowsTypePolicy(t *testing.T) {
 	r.ed.c.CreatedAt = r.now.Add(-time.Hour)
 	if w := r.do(false, editForm("late")); w.Code != http.StatusForbidden || r.ed.edited != nil {
 		t.Fatalf("edit past the type window: %d edited=%v", w.Code, r.ed.edited)
+	}
+}
+
+// An edit changes the body only: the stored author_name (a locked name from the
+// comment.draft hook included) is never rewritten, because Edited has no name.
+func TestEditKeepsAuthorName(t *testing.T) {
+	r := newEditRig()
+	r.ed.c.AuthorName = "story_author"
+	if w := r.do(false, editForm("a fine rewording")); w.Code != http.StatusSeeOther {
+		t.Fatalf("status %d", w.Code)
+	}
+	if r.ed.edited == nil {
+		t.Fatal("no edit")
+	}
+	for i := range reflect.TypeOf(*r.ed.edited).NumField() {
+		if strings.Contains(strings.ToLower(reflect.TypeOf(*r.ed.edited).Field(i).Name), "name") {
+			t.Errorf("Edited carries a name field %q", reflect.TypeOf(*r.ed.edited).Field(i).Name)
+		}
 	}
 }

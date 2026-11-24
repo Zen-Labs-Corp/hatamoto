@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/comment"
+	"hatamoto.dev/core/internal/comment/identity"
 	"hatamoto.dev/core/internal/commentsubmit"
 	"hatamoto.dev/core/internal/spam"
 )
@@ -220,5 +221,90 @@ func TestCommentSlotFillEchoValues(t *testing.T) {
 	out = echoFill(t, slot, page, &commentEcho{EntityID: id, Typed: &commentsubmit.Typed{Body: "\nhi"}})
 	if !strings.Contains(out, ">\n\nhi</textarea>") {
 		t.Fatalf("leading newline not kept: %s", out)
+	}
+}
+
+const lockedSlotForm = `<form method="post" action="/-/comments/%s" data-hm-cform><input type="hidden" name="hm_ct" value="__hmcf_tok__">` +
+	`<p __hmcf_hnamed__>as <strong>__hmcf_who__</strong></p><p __hmcf_hin__>signed in</p><p __hmcf_hout__>sign in</p>` +
+	`<textarea name="__hmcf_body__" __hmcf_boff__></textarea></form>`
+
+func lockedSlotPage(id uuid.UUID) []byte {
+	return []byte(`<p>__hmcf_who__ __hmcf_boff__</p>` + strings.ReplaceAll(lockedSlotForm, "%s", id.String()) + `<p>__hmcf_hin__</p>`)
+}
+
+func lockedSlotFixture(name string, calls *int) *commentSlot {
+	slot, _ := slotFixture(true)
+	slot.verify = func(v string, _ time.Time) (identity.DeviceClaims, bool) {
+		return identity.DeviceClaims{CommenterID: uuid.New()}, v == "good"
+	}
+	slot.names = newSignedNames(func(context.Context, uuid.UUID, uuid.UUID) (string, error) {
+		*calls++
+		return name, nil
+	}, time.Now)
+	return slot
+}
+
+func fillLocked(t *testing.T, slot *commentSlot, cookie string) string {
+	t.Helper()
+	r := httptest.NewRequest("GET", "/p", nil)
+	r.RemoteAddr = "203.0.113.9:1234"
+	if cookie != "" {
+		r.AddCookie(&http.Cookie{Name: identity.CookieName, Value: cookie})
+	}
+	out, ok := slot.fill(r, lockedSlotPage(uuid.New()))
+	if !ok {
+		t.Fatal("not filled")
+	}
+	return string(out)
+}
+
+func TestCommentSlotLockedPlaceholderSwap(t *testing.T) {
+	calls := 0
+	signedIn := fillLocked(t, lockedSlotFixture("story_author", &calls), "good")
+	for _, want := range []string{`<p >as <strong>story_author</strong></p>`, `<p hidden>signed in</p>`, `<p hidden>sign in</p>`, `<textarea name=`} {
+		if !strings.Contains(signedIn, want) {
+			t.Errorf("signed in lacks %q: %s", want, signedIn)
+		}
+	}
+	if strings.Contains(signedIn, "disabled") {
+		t.Error("signed in: body disabled")
+	}
+
+	calls = 0
+	out := fillLocked(t, lockedSlotFixture("x", &calls), "")
+	for _, want := range []string{`<p hidden>as <strong></strong></p>`, `<p hidden>signed in</p>`, `<p >sign in</p>`, `disabled></textarea>`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("signed out lacks %q: %s", want, out)
+		}
+	}
+	if calls != 0 {
+		t.Error("a signed-out view looked a name up")
+	}
+	// Outside the form span nothing is touched.
+	if !strings.HasPrefix(out, `<p>__hmcf_who__ __hmcf_boff__</p>`) || !strings.HasSuffix(out, `<p>__hmcf_hin__</p>`) {
+		t.Errorf("text outside the span was rewritten: %s", out)
+	}
+}
+
+func TestCommentSlotLockedNameIsEscapedAndNotRewritten(t *testing.T) {
+	calls := 0
+	hostile := `<script>alert(1)</script> __hmcf_tok__ __hmcf_hin__`
+	out := fillLocked(t, lockedSlotFixture(hostile, &calls), "good")
+	if strings.Contains(out, "<script>") {
+		t.Errorf("name not escaped: %s", out)
+	}
+	if !strings.Contains(out, "&lt;script&gt;alert(1)&lt;/script&gt; __hmcf_tok__ __hmcf_hin__") {
+		t.Errorf("name rewritten in a second pass: %s", out)
+	}
+}
+
+func TestCommentSlotUnlockedSpanNeverLooksUpAName(t *testing.T) {
+	calls := 0
+	slot := lockedSlotFixture("story_author", &calls)
+	r := httptest.NewRequest("GET", "/p", nil)
+	r.RemoteAddr = "203.0.113.9:1234"
+	r.AddCookie(&http.Cookie{Name: identity.CookieName, Value: "good"})
+	if _, ok := slot.fill(r, slotPage(uuid.New())); !ok || calls != 0 {
+		t.Errorf("unlocked span: ok=%v lookups=%d", ok, calls)
 	}
 }
