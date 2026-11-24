@@ -11,6 +11,7 @@ import (
 // CheckInput is what a comment.check hook sees: never the raw IP or email.
 type CheckInput struct {
 	EntityID    uuid.UUID
+	Schema      string // entity schema slug
 	Body        string // body_raw
 	LinkDomains []string
 	BodyHash    string
