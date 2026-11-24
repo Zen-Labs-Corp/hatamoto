@@ -28,6 +28,8 @@ signature.json              written by `hatamoto theme|plugin pack --key`
 README.md  LICENSE  CHANGELOG.md   allowed at the root, ignored by the host
 ```
 
+`kit.json` (kind `kit`) is reserved for kits, see [KITS.md](KITS.md); this release does not install them.
+
 Anything else at the root, any other top-level directory, hidden files
 (`.git`, `.env`) and `node_modules` are refused (`pack` skips them). A plugin
 package needs `plugin.wasm` (optional when it ships `widgets/`: a widget-only pack has no code) and a valid `plugin.json` (name `^[a-z][a-z0-9-]{1,39}$`,

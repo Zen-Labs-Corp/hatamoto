@@ -374,6 +374,13 @@ func parseID(s string) (uuid.UUID, error) {
 
 func unavailable(what string) error { return herr(sdk.ErrUnavailable, "%s is not available", what) }
 
+// contractStub answers a host function the SDK 0.27 contract names before the
+// change that implements it ships. The grant check runs first (Call), so only a
+// granted plugin sees unavailable. The owning change replaces its rows.
+func contractStub(fn string) func(context.Context, *API, *callEnv, jsontext.Value) (any, error) {
+	return func(context.Context, *API, *callEnv, jsontext.Value) (any, error) { return nil, unavailable(fn) }
+}
+
 func clamp(v, def, max int) int {
 	switch {
 	case v <= 0:
@@ -426,6 +433,17 @@ var hostFns = map[string]hostFn{
 	sdk.FnCommentsThread:       {perm: sdk.PermCommentsRead, run: fnCommentsThread},
 	sdk.FnCommentsCounts:       {perm: sdk.PermCommentsRead, run: fnCommentsCounts},
 	sdk.FnFormsSubmissions:     {perm: sdk.PermFormsRead, run: fnFormsSubmissions},
+
+	// SDK 0.27 contract: names and permissions only, bodies come with the changes that own them.
+	sdk.FnEntitiesCreate:    {perm: sdk.PermEntitiesWriteOwn, run: contractStub(sdk.FnEntitiesCreate)},
+	sdk.FnEntitiesUpdate:    {perm: sdk.PermEntitiesWriteOwn, run: contractStub(sdk.FnEntitiesUpdate)},
+	sdk.FnEntitiesDelete:    {perm: sdk.PermEntitiesWriteOwn, run: contractStub(sdk.FnEntitiesDelete)},
+	sdk.FnCommentsMarkDead:  {perm: sdk.PermCommentsModerate, run: contractStub(sdk.FnCommentsMarkDead)},
+	sdk.FnCommentsRestore:   {perm: sdk.PermCommentsModerate, run: contractStub(sdk.FnCommentsRestore)},
+	sdk.FnCommentsSetRank:   {perm: sdk.PermCommentsModerate, run: contractStub(sdk.FnCommentsSetRank)},
+	sdk.FnCommentsSetViewer: {perm: sdk.PermCommentsModerate, run: contractStub(sdk.FnCommentsSetViewer)},
+	sdk.FnCommentsByAuthor:  {perm: sdk.PermCommentsRead, run: contractStub(sdk.FnCommentsByAuthor)},
+	sdk.FnCommentsSubtree:   {perm: sdk.PermCommentsRead, run: contractStub(sdk.FnCommentsSubtree)},
 }
 
 func fnPermissions(_ context.Context, a *API, e *callEnv, _ jsontext.Value) (any, error) {

@@ -27,7 +27,7 @@ func TestWarnSet(t *testing.T) {
 		}
 	}
 	slices.Sort(got)
-	want := []string{"builder.island", "entities.filter", "http.fetch.any", "site.scripts"}
+	want := []string{"builder.island", "client.key", "comments.moderate", "entities.filter", "entities.write.own", "http.fetch.any", "site.scripts"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("warn set = %v, want %v", got, want)
 	}
@@ -131,5 +131,29 @@ func TestTagLinesNameTheScriptHosts(t *testing.T) {
 	}
 	if got := TagLines("", []string{"a.example"}, "analytics", false); len(got) != 2 || strings.Contains(got[0].Text, "WebSocket") {
 		t.Errorf("minimal = %+v", got)
+	}
+}
+
+func TestContractPermText(t *testing.T) {
+	for p, want := range map[string]Text{
+		sdk.PermClientKey: {
+			Help:  "Sees a pseudonymous key for each visitor's address and network on its pages and routes (not the address itself). The key is stable, so the plugin can recognise a returning visitor and block a network. It is personal data: your privacy notice should say so.",
+			Short: "Pseudonymous visitor keys.", Warn: true,
+		},
+		sdk.PermEntitiesWriteOwn: {
+			Help:  "Creates, edits and deletes entries of ONE content type it declares, and publishes them at once, without your review. Rate limited and logged in the audit log. It cannot touch any other content.",
+			Short: "Creates and edits content in its own content type.", Warn: true,
+		},
+		sdk.PermCommentsModerate: {
+			Help:  "Marks comments on its own content type dead or restores them and sets their order, without your review. It cannot post comments or touch other content types. Logged in the audit log.",
+			Short: "Moderates comments on its own content type.", Warn: true,
+		},
+	} {
+		if got := Lookup(p); got != want {
+			t.Errorf("Lookup(%q) = %+v, want %+v", p, got, want)
+		}
+	}
+	if h := Help(sdk.PermCommentsRead); !strings.HasSuffix(h, "and see a pseudonymous key for each commenter") {
+		t.Errorf("comments.read Help = %q", h)
 	}
 }

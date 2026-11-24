@@ -2,12 +2,15 @@
 # publish-sdk.sh - export backend/pkg/sdk to the public SDK repository.
 #
 # Usage:
-#     scripts/publish-sdk.sh [--rev REV] [--remote URL] [--out DIR | --push]
+#     scripts/publish-sdk.sh [--rev REV] [--remote URL] [--tag TAG] [--out DIR | --push]
 #
 #   --rev REV     core commit to export (default HEAD). The export reads REV, never the
 #                 working copy, so it works from any worktree and with a dirty tree.
 #   --remote URL  the SDK repository (default $HATAMOTO_SDK_REMOTE, else
 #                 https://github.com/Zen-Labs-Corp/hatamoto-sdk.git; the public cut-over moves it)
+#   --tag TAG     the tag to publish (default v<Version>). Only v<Version> or v<Version>-rc.N: a
+#                 release candidate exports the same tree as the final, so publishing the final
+#                 later from that tree adds only the tag.  An rc is refused once v<Version> exists.
 #   --out DIR     materialize the result as a local git checkout in DIR (created or reused;
 #                 branch main, tag v<Version>, origin = URL). No network: the previous state
 #                 is whatever DIR already holds.
@@ -16,7 +19,7 @@
 #   (neither)     dry run: read the remote and print what would happen.
 #
 # core stays the source of truth: the SDK repository is a one-way export whose tree is
-# exactly backend/pkg/sdk at REV. The tag is v<Version> with Version taken from
+# exactly backend/pkg/sdk at REV. The tag is v<Version> (or --tag) with Version taken from
 # backend/pkg/sdk/version.go. The first release is a single parentless commit (no private
 # history); later releases add one commit on top of the repository's main. A tag that already
 # exists must point at the same tree (then nothing happens), else the run is refused.
@@ -28,11 +31,12 @@ set -Eeuo pipefail
 
 die() { echo "publish-sdk: $*" >&2; exit 1; }
 
-rev=HEAD remote=${HATAMOTO_SDK_REMOTE:-https://github.com/Zen-Labs-Corp/hatamoto-sdk.git} out= push=0
+rev=HEAD remote=${HATAMOTO_SDK_REMOTE:-https://github.com/Zen-Labs-Corp/hatamoto-sdk.git} out= push=0 tag_arg=
 while [ $# -gt 0 ]; do
   case "$1" in
     --rev) [ $# -ge 2 ] || die "--rev needs a value"; rev=$2; shift 2 ;;
     --remote) [ $# -ge 2 ] || die "--remote needs a value"; remote=$2; shift 2 ;;
+    --tag) [ $# -ge 2 ] || die "--tag needs a value"; tag_arg=$2; shift 2 ;;
     --out) [ $# -ge 2 ] || die "--out needs a value"; out=$2; shift 2 ;;
     --push) push=1; shift ;;
     -h|--help) sed -n '2,/^set /{/^set /!p}' "$0"; exit 0 ;;
@@ -47,6 +51,11 @@ git rev-parse --verify -q "$rev^{commit}" >/dev/null || die "unknown revision $r
 version=$(git show "$rev:backend/pkg/sdk/version.go" 2>/dev/null | sed -n 's/^const Version = "\(.*\)"$/\1/p') || true
 [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "cannot read a X.Y.Z const Version from backend/pkg/sdk/version.go at $rev"
 tag=v$version
+if [ -n "$tag_arg" ]; then
+  rc_re="^v${version//./\\.}-rc\\.[1-9][0-9]*\$"
+  [ "$tag_arg" = "$tag" ] || [[ $tag_arg =~ $rc_re ]] || die "--tag $tag_arg does not match Version $version (use $tag or $tag-rc.N)"
+  tag=$tag_arg
+fi
 tree=$(git rev-parse "$rev:backend/pkg/sdk") || die "no backend/pkg/sdk at $rev"
 name=${HATAMOTO_PUBLIC_NAME:-Zen Labs Corporation} email=${HATAMOTO_PUBLIC_EMAIL:-release@hatamoto.dev}
 [ -n "$name" ] && [ -n "$email" ] || die "HATAMOTO_PUBLIC_NAME and HATAMOTO_PUBLIC_EMAIL must not be empty"
@@ -82,7 +91,7 @@ if [ -n "$out" ]; then
 else
   G=$scratch/repo.git
   git init -q --bare "$G"
-  remote_refs=$(git ls-remote "$remote" refs/heads/main "refs/tags/$tag") || die "cannot read $remote"
+  remote_refs=$(git ls-remote "$remote" refs/heads/main "refs/tags/$tag" "refs/tags/v$version") || die "cannot read $remote"
   if grep -q "	refs/heads/main$" <<<"$remote_refs"; then
     git --git-dir="$G" fetch -q "$remote" refs/heads/main:refs/remotes/origin/main || die "cannot fetch main from $remote"
   fi
@@ -95,9 +104,16 @@ g() { git --git-dir="$G" "$@"; }
 
 # A tag that exists must carry the same tree: then there is nothing to do.
 if existing=$(g rev-parse -q --verify "refs/tags/$tag^{tree}"); then
-  [ "$existing" = "$tree" ] || die "refusing: $tag exists with a different tree (bump Version in backend/pkg/sdk/version.go before publishing a change)"
+  [ "$existing" = "$tree" ] || die "refusing: $tag exists with a different tree (bump Version in backend/pkg/sdk/version.go before publishing a change, or use the next -rc.N)"
   echo "publish-sdk: $tag is already published with this tree; nothing to do"
   exit 0
+fi
+
+# A release candidate is never published once its final exists: main would move past the release.
+if [ "$tag" != "v$version" ]; then
+  if [ -n "$out" ]; then g rev-parse -q --verify "refs/tags/v$version" >/dev/null && final_exists=1 || final_exists=0
+  else final_exists=0; ! grep -q "	refs/tags/v$version$" <<<"$remote_refs" || final_exists=1; fi
+  [ "$final_exists" = 0 ] || die "refusing: $tag is a release candidate but v$version is already published (use a new Version for further changes)"
 fi
 
 # Rebuild the tree from the plain files of REV (never from the core object store, so no

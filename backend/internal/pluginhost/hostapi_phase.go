@@ -81,16 +81,22 @@ var fnPhases = map[string]phaseSet{
 	sdk.FnChangesetPropose:        phTransform,
 	sdk.FnChangesetMediaAlt:       phTransform,
 
-	sdk.FnKVGet:            phNone,
-	sdk.FnKVSet:            phNone,
-	sdk.FnKVDelete:         phNone,
-	sdk.FnKVList:           phNone,
-	sdk.FnDBQuery:          phNone,
-	sdk.FnDBExec:           phNone,
-	sdk.FnMailSend:         phNone,
-	sdk.FnFormsList:        phNone,
-	sdk.FnCommentsThread:   phNone,
-	sdk.FnCommentsCounts:   phNone,
+	sdk.FnKVGet:          phNone,
+	sdk.FnKVSet:          phNone,
+	sdk.FnKVDelete:       phNone,
+	sdk.FnKVList:         phNone,
+	sdk.FnDBQuery:        phNone,
+	sdk.FnDBExec:         phNone,
+	sdk.FnMailSend:       phNone,
+	sdk.FnFormsList:      phNone,
+	sdk.FnCommentsThread: phNone,
+	sdk.FnCommentsCounts: phNone,
+
+	// SDK 0.27: writes and moderation never happen inside a run.
+	sdk.FnEntitiesCreate: phNone, sdk.FnEntitiesUpdate: phNone, sdk.FnEntitiesDelete: phNone,
+	sdk.FnCommentsMarkDead: phNone, sdk.FnCommentsRestore: phNone,
+	sdk.FnCommentsSetRank: phNone, sdk.FnCommentsSetViewer: phNone,
+	sdk.FnCommentsByAuthor: phNone, sdk.FnCommentsSubtree: phNone,
 	sdk.FnFormsSubmissions: phNone,
 }
 
@@ -107,12 +113,12 @@ var runOnly = map[string]bool{
 
 // removedFns are the direct write functions SDK 0.17 removed, with the
 // changeset function that replaces each. Calling one is `unavailable`, not
-// `unknown_function`, so a plugin built for an older SDK sees why.
+// `unknown_function`, so a plugin built for an older SDK sees why. SDK 0.27
+// reuses entities.create, entities.update and entities.delete under
+// entities.write.own, so they are no longer listed; the permission
+// entities.write stays removed.
 var removedFns = map[string]string{
-	"entities.create":     sdk.FnChangesetEntityUpsert,
-	"entities.update":     sdk.FnChangesetEntityUpsert,
 	"entities.set_status": sdk.FnChangesetEntityUpsert,
-	"entities.delete":     sdk.FnChangesetDelete,
 	"terms.save":          sdk.FnChangesetTermUpsert,
 	"terms.delete":        sdk.FnChangesetDelete,
 	"menus.save":          sdk.FnChangesetMenuUpsert,

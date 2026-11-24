@@ -74,7 +74,7 @@ const (
 	FnFormsList        = "forms.list"
 	FnFormsSubmissions = "forms.submissions" // {form_slug, limit?, offset?}
 
-	FnCommentsThread = "comments.thread" // {entity_id, page?} -> CommentThread (approved only)
+	FnCommentsThread = "comments.thread" // {entity_id, page?, include_dead? (honoured only with comments.moderate)} -> CommentThread; args CommentsThreadArgs
 	FnCommentsCounts = "comments.counts" // {entity_ids (1..100)} -> CommentCounts (approved only)
 
 	FnSettingsGet     = "settings.get"     // {} -> the plugin's own settings object
@@ -89,6 +89,91 @@ const (
 	FnDBQuery         = "db.query"         // {sql, args?} -> {columns, rows, truncated}
 	FnDBExec          = "db.exec"          // {sql, args?} -> {rows_affected}
 )
+
+// Host functions of the SDK 0.27 contract. Until the change that implements one
+// ships, a granted call answers ErrUnavailable ("<fn> is not available"): treat
+// it as "feature off", never as a crash. entities.create|update|delete reuse the
+// names SDK 0.17 removed; the removed permission entities.write stays removed.
+const (
+	FnEntitiesCreate    = "entities.create"     // entities.write.own: EntityWrite -> Entity (as entities.get); entity_schema only; status "published" (default) or "draft"; origin plugin:<name>
+	FnEntitiesUpdate    = "entities.update"     // entities.write.own: EntityWrite{id, name?, attributes? (entity_fields only), status?} -> Entity; own-origin entries of entity_schema
+	FnEntitiesDelete    = "entities.delete"     // entities.write.own: EntityDeleteArgs -> {}; hard delete of an own-origin entry of entity_schema
+	FnCommentsMarkDead  = "comments.mark_dead"  // comments.moderate: CommentIDsArgs (1..MaxCommentIDs) -> CommentsChanged
+	FnCommentsRestore   = "comments.restore"    // comments.moderate: CommentIDsArgs (1..MaxCommentIDs) -> CommentsChanged
+	FnCommentsSetRank   = "comments.set_rank"   // comments.moderate: CommentRankArgs (1..MaxCommentRankItems) -> CommentsChanged
+	FnCommentsSetViewer = "comments.set_viewer" // comments.moderate: CommentViewerArgs -> {}
+	FnCommentsByAuthor  = "comments.by_author"  // comments.read: CommentsByAuthorArgs -> CommentThread (newest first, 50 per page, approved only)
+	FnCommentsSubtree   = "comments.subtree"    // comments.read: CommentSubtreeArgs -> CommentSubtree
+)
+
+// Limits of the SDK 0.27 comment host functions.
+const (
+	MaxCommentIDs       = 100
+	MaxCommentRankItems = 200
+)
+
+// EntityWrite is the argument of entities.create and entities.update (SDK 0.27).
+type EntityWrite struct {
+	ID         string         `json:"id,omitempty"` // update only
+	Name       string         `json:"name,omitempty"`
+	Slug       string         `json:"slug,omitempty"`   // create only
+	Locale     string         `json:"locale,omitempty"` // create only
+	Attributes jsontext.Value `json:"attributes,omitempty"`
+	Status     string         `json:"status,omitempty"` // "published" (create default) or "draft"
+}
+
+// EntityDeleteArgs is the argument of entities.delete (SDK 0.27).
+type EntityDeleteArgs struct {
+	ID string `json:"id"`
+}
+
+// CommentsThreadArgs is the argument of comments.thread.
+type CommentsThreadArgs struct {
+	EntityID    string `json:"entity_id"`
+	Page        int    `json:"page,omitempty"`
+	IncludeDead bool   `json:"include_dead,omitempty"` // honoured only with comments.moderate
+}
+
+// CommentIDsArgs is the argument of comments.mark_dead and comments.restore (SDK 0.27).
+type CommentIDsArgs struct {
+	IDs []string `json:"ids"`
+}
+
+// CommentRankItem is one comment's rank in comments.set_rank (SDK 0.27).
+type CommentRankItem struct {
+	ID   string  `json:"id"`
+	Rank float64 `json:"rank"`
+}
+
+// CommentRankArgs is the argument of comments.set_rank (SDK 0.27).
+type CommentRankArgs struct {
+	Items []CommentRankItem `json:"items"`
+}
+
+// CommentsChanged is the result of the comment moderation functions (SDK 0.27).
+type CommentsChanged struct {
+	Changed int `json:"changed"`
+}
+
+// CommentViewerArgs is the argument of comments.set_viewer (SDK 0.27).
+type CommentViewerArgs struct {
+	CommenterKey string `json:"commenter_key"`
+	ShowDead     bool   `json:"show_dead"`
+}
+
+// CommentsByAuthorArgs is the argument of comments.by_author (SDK 0.27).
+type CommentsByAuthorArgs struct {
+	CommenterKey string `json:"commenter_key"`
+	Page         int    `json:"page,omitempty"`
+	IncludeDead  bool   `json:"include_dead,omitempty"` // honoured only with comments.moderate
+}
+
+// CommentSubtreeArgs is the argument of comments.subtree (SDK 0.27).
+type CommentSubtreeArgs struct {
+	CommentID   string `json:"comment_id"`
+	Page        int    `json:"page,omitempty"`
+	IncludeDead bool   `json:"include_dead,omitempty"` // honoured only with comments.moderate
+}
 
 // Host functions of a run (SDK 0.17.0). They work only inside a run, in the
 // phase noted, and need no permission. Content is written by staging items
@@ -137,6 +222,13 @@ type HTTPRequest struct {
 	// Cookies are the request cookies the manifest's `cookies` list declares,
 	// by their short names. Public routes only.
 	Cookies map[string]string `json:"cookies,omitempty"`
+	// CommenterKey (needs comments.read), AddrKey and NetKey (need client.key) are
+	// per-plugin pseudonymous keys of the signed-in commenter and of the visitor's
+	// address and network (SDK 0.27). Public routes only, empty on admin routes.
+	// Absent until the change that fills them ships.
+	CommenterKey string `json:"commenter_key,omitempty"`
+	AddrKey      string `json:"addr_key,omitempty"`
+	NetKey       string `json:"net_key,omitempty"`
 }
 
 // HTTPUser is the signed-in user behind an admin route request.

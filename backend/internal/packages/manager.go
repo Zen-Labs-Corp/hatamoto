@@ -89,6 +89,10 @@ type ConfirmationRequired struct {
 	// NewEntitiesFilter: the update newly asks for entities.filter (it sees
 	// and may change every save); it counts as widened access too.
 	NewEntitiesFilter bool
+	// NewClientKey, NewEntityWrite and NewCommentsModerate: the update newly
+	// asks for client.key, entities.write.own or comments.moderate (SDK 0.27);
+	// each counts as widened access too.
+	NewClientKey, NewEntityWrite, NewCommentsModerate bool
 	// NewCSPHosts are page-security (csp) hosts the update adds; it counts as
 	// widened access too.
 	NewCSPHosts []string
@@ -119,7 +123,7 @@ func (e *ConfirmationRequired) Error() string {
 		why = append(why, fmt.Sprintf("it is signed by %s, not %s", orUnsigned(e.NewSigner), orUnsigned(e.OldSigner)))
 	}
 	if e.WidenedAccess {
-		why = append(why, "it can reach further than the installed version (new web addresses, http.fetch.any or JavaScript on your pages, site.scripts, reviewing every save with entities.filter, redirecting visitors from new pages, or a tag loading from new hosts)")
+		why = append(why, "it can reach further than the installed version (new web addresses, http.fetch.any or JavaScript on your pages, site.scripts, reviewing every save with entities.filter, pseudonymous visitor keys (client.key), writing its own content type (entities.write.own), moderating comments (comments.moderate), redirecting visitors from new pages, or a tag loading from new hosts)")
 	}
 	if len(e.Missing) > 0 {
 		why = append(why, fmt.Sprintf("the active theme would lose %d section type(s) the content uses", len(e.Missing)))
@@ -367,6 +371,15 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		}
 		if err := pluginhost.PagePathsRefusal(man); err != nil {
 			return nil, &ParseError{Msg: err.Error()}
+		}
+		if err := pluginhost.PagePathPrefixesRefusal(man); err != nil {
+			return nil, &ParseError{Msg: err.Error()}
+		}
+		if err := pluginhost.EntitySchemaRefusal(man); err != nil {
+			return nil, &ParseError{Msg: err.Error()}
+		}
+		if err := checkEntitySchemaShipped(p, man); err != nil {
+			return nil, err
 		}
 		if err := checkCommunityCSP(origin, man); err != nil {
 			return nil, err
@@ -617,6 +630,9 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 		// A plugin that already holds the grant (kept from before it was a
 		// permission) is not asked again when it starts to list it.
 		c.NewEntitiesFilter = newEntitiesFilter(prev.Manifest, p) && !m.holdsGrant(ctx, p.Name, sdk.PermEntitiesFilter)
+		c.NewClientKey = newlyAsks(prev.Manifest, p, sdk.PermClientKey)
+		c.NewEntityWrite = newlyAsks(prev.Manifest, p, sdk.PermEntitiesWriteOwn)
+		c.NewCommentsModerate = newlyAsks(prev.Manifest, p, sdk.PermCommentsModerate)
 		c.NewCSPHosts = newCSPHosts(prev.Manifest, p)
 		c.NewRequestHeaders = newRequestHeaders(prev.Manifest, p)
 		c.NewRedirectPaths = newRedirectPaths(prev.Manifest, p)
@@ -627,7 +643,7 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 			c.NewTagHosts, c.TagCategoryChanged = newTagAccess(prevPkg, p)
 		}
 		c.TagCompareFailed = loadErr != nil
-		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || c.NewEntitiesFilter || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0 || len(c.NewRedirectPaths) > 0 || len(c.NewTagHosts) > 0 || c.TagCategoryChanged || c.TagCompareFailed
+		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || c.NewEntitiesFilter || c.NewClientKey || c.NewEntityWrite || c.NewCommentsModerate || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0 || len(c.NewRedirectPaths) > 0 || len(c.NewTagHosts) > 0 || c.TagCategoryChanged || c.TagCompareFailed
 	}
 	if !c.Downgrade && !c.SignerChange && !c.WidenedAccess && len(c.Missing) == 0 {
 		return nil, nil
@@ -670,6 +686,14 @@ func newEntitiesFilter(installed jsontext.Value, p *Package) bool {
 	_ = decodeManifest(installed, &old)
 	next, err := p.PluginManifest()
 	return err == nil && slices.Contains(next.Permissions, sdk.PermEntitiesFilter) && !slices.Contains(old.Permissions, sdk.PermEntitiesFilter)
+}
+
+// newlyAsks reports whether the update lists perm and the installed manifest did not.
+func newlyAsks(installed jsontext.Value, p *Package, perm sdk.Permission) bool {
+	var old sdk.Manifest
+	_ = decodeManifest(installed, &old)
+	next, err := p.PluginManifest()
+	return err == nil && slices.Contains(next.Permissions, perm) && !slices.Contains(old.Permissions, perm)
 }
 
 // newRedirectPaths lists the redirect_paths the update declares that the

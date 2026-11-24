@@ -49,6 +49,10 @@ A manifest that uses most fields:
 | `cron` | no | Scheduled calls, at most 16. |
 | `redirect_paths` | no | Exact public paths the `request.redirect` filter is called for, at most 16 (SDK 0.22; declare `^0.22`, see [The sdk range](#the-sdk-range)). Paths are matched decoded: declare `/café`, not `/caf%C3%A9` (a `%` is refused). |
 | `page_paths` | no | Exact public paths the `render.page` filter is called for and that stay uncached, at most 16 (SDK 0.24; optional range bump, see [The sdk range](#the-sdk-range)). No trailing slash (except `/`); the request path is matched after the trailing slash is dropped. Otherwise the rules of `redirect_paths`; core paths are refused. Request paths, not pages: a locale-prefixed or alternate URL of the same content is not covered and is page-cached. |
+| `page_query` | no | (reserved: read once the implementing change ships) Query keys `render.page` reads, at most 16 (SDK 0.27; declare `^0.27`). Keys are `[A-Za-z0-9_-]`, 1 to 64 bytes. The host passes the first value of each declared key; a value over 256 bytes is dropped. |
+| `page_path_prefixes` | no | (reserved: read once the implementing change ships) Path prefixes `render.page` is called for and that stay uncached, at most 8 (SDK 0.27; declare `^0.27`). Each starts and ends with `/`; `/` and core paths are refused. `/item/` matches `/item/<x>`, not `/item`. |
+| `entity_schema` | no | (reserved: read once the implementing change ships) The one content type the plugin owns (SDK 0.27; declare `^0.27`): a slug matching `^[a-z]([a-z0-9]\|-[a-z0-9]){0,39}$`. Needs `entities.write.own`; `page`, `post`, `person` and `block` are refused; the package ships `schemas/<slug>.json`. |
+| `entity_fields` | no | (reserved: read once the implementing change ships) Attribute keys the plugin may write on its `entity_schema`, at most 16, each `[a-z][a-z0-9_]*` (SDK 0.27; declare `^0.27`). Needs `entity_schema`. |
 | `request_headers` | no | Extra request header names passed to this plugin's routes (for example `Stripe-Signature`), at most 8. `Authorization`, `Cookie`, `Proxy-Authorization` and every header that carries the visitor's address are refused. The plugin page lists them. |
 | `csp` | no | Hosts to add to your public pages' Content-Security-Policy: `script_src`, `connect_src`, `frame_src`, `img_src`, each at most 8 entries of the form `https://host` or `https://*.host`. No keywords, no `*`, no path or port. The owner sees them in the permission prompt and on the plugin page. Community plugins may only list `img_src`; anything else is refused at install with "Community plugins may only add image hosts." An update that adds a host asks the owner to confirm again. Hosts apply to the public pages only while the plugin is enabled; `script_src` and `connect_src` take effect, `img_src` and `frame_src` are no-ops while the site policy already allows every https image and frame. |
 | `cookies` | no | Cookie names `render.page` and the plugin's public routes may read and set, at most 8. |
@@ -67,9 +71,11 @@ The range uses npm rules: `>=x`, `>x`, `<=x`, `<x`, `=x`, a bare version, `^x` a
 
 A plugin that uses `csp`, `request_headers`, `translation_of`, `changeset.media.alt` or shipped content types must declare `^0.18`: an older host ignores those fields without an error. `page_paths` does not force a range bump, but an older host ignores it and calls the `render.page` filter on every page, so a plugin that keeps a lower range must still check `p.Path` in its filter to stay correct there; declare `^0.24` to rely on the host doing the scoping.
 
+A plugin that uses `page_query`, `page_path_prefixes`, `entity_schema` or `entity_fields`, or asks for `client.key`, `entities.write.own` or `comments.moderate`, declares `^0.27`: an older host ignores the fields and refuses the permissions.
+
 A plugin that uses `redirect_paths`, the `request.redirect` filter or its `limits.hook_timeouts_ms` key must declare `^0.22`, so that an older host refuses it instead of silently dropping the redirects.
 
-The server serves SDK `0.26.0` (`sdk.Version` in `backend/pkg/sdk/version.go`) and also plugins built for `0.5.0` to `0.25.0` (`sdk.CompatibleWith`). It refuses a plugin whose range contains neither the current version nor one in that list. So `"sdk": "^0.8"` loads because `0.8.0` is in the list. A new plugin declares `^0.11` until your users run Hatamoto `v0.31.0` (the release that ships SDK 0.12.0), then `^0.12`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. Declare `^0.22.2` for the camera: `^0.22` also matches a 0.22.1 host. A plugin that asks for `entities.filter` declares `^0.23`, because an older host refuses the unknown permission name. A plugin that asks for `comments.read` declares `^0.25` for the same reason. A plugin with `"license": "commercial"` declares `^0.26` or later: a host older than 0.26 ignores the field, so install refuses a commercial plugin whose range admits one. (SDK releases are plain `vX.Y.Z` tags in the public SDK repository.)
+The server serves SDK `0.27.0` (`sdk.Version` in `backend/pkg/sdk/version.go`) and also plugins built for `0.5.0` to `0.26.0` (`sdk.CompatibleWith`). It refuses a plugin whose range contains neither the current version nor one in that list. So `"sdk": "^0.8"` loads because `0.8.0` is in the list. A new plugin declares `^0.11` until your users run Hatamoto `v0.31.0` (the release that ships SDK 0.12.0), then `^0.12`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. Declare `^0.22.2` for the camera: `^0.22` also matches a 0.22.1 host. A plugin that asks for `entities.filter` declares `^0.23`, because an older host refuses the unknown permission name. A plugin that asks for `comments.read` declares `^0.25` for the same reason. A plugin with `"license": "commercial"` declares `^0.26` or later: a host older than 0.26 ignores the field, so install refuses a commercial plugin whose range admits one. (SDK releases are plain `vX.Y.Z` tags in the public SDK repository.)
 
 ## Permissions
 
@@ -81,7 +87,14 @@ redirects.read  forms.read  comments.read
 settings  log  mail.send  http.fetch  http.fetch.any  kv  db
 builder.data  builder.island  site.scripts
 entities.filter
+client.key  entities.write.own  comments.moderate
 ```
+
+Three of them are warning permissions (SDK 0.27, declare `^0.27`):
+
+- `client.key`: pseudonymous keys for each visitor's address and network.
+- `entities.write.own`: creates, edits and deletes entries of the one content type in `entity_schema`, published at once.
+- `comments.moderate`: marks comments on that content type dead or restores them and sets their order.
 
 The manifest only lists what the plugin asks for. The owner decides what it gets, and a plugin always loads even with nothing granted.
 

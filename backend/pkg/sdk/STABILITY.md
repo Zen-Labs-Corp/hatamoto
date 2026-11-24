@@ -13,7 +13,7 @@ the name is given. Where it is project policy only, the text says so. Paths in c
 |---|---|---|
 | Product (the `hatamoto` binary) | `vX.Y.Z`, git tag `vX.Y.Z` | `v1.1.0` |
 | Go module for the product source | `hatamoto.dev/core`, git tag `backend/vX.Y.Z`, created by `scripts/tag-release.sh` | follows the product |
-| Plugin SDK (`hatamoto.dev/sdk`) | semantic, git tag `vA.B.C` in the public `Zen-Labs-Corp/hatamoto-sdk` repository, exported from this repository by `scripts/publish-sdk.sh` | `0.26.0` |
+| Plugin SDK (`hatamoto.dev/sdk`) | semantic, git tag `vA.B.C` in the public `Zen-Labs-Corp/hatamoto-sdk` repository, exported from this repository by `scripts/publish-sdk.sh` | `0.27.0` |
 | Plugin manifest | the `sdk` range in `plugin.json` | follows the SDK |
 | Theme contract | `data-hm-contract` on `<html>` | `1` |
 | HTTP API | `/api/v1` path prefix | `v1` |
@@ -71,6 +71,8 @@ The 0.25.0 bump is additive over 0.24: the `comments.read` permission (a new per
 
 The 0.26.0 bump is additive over 0.25: the `license` manifest field (`""` or `"commercial"`; a new install refuses any other value, while an installed plugin that carries one, even a non-string, keeps loading as a normal plugin), the `License` type and the `LicenseCommercial` constant. Existing plugins are unaffected. A host whose edition registered a plugin key installs and loads a commercial plugin only when the key signed it and the edition entitles it by plugin name; the trusted keys, the unsigned opt-in, the developer index and the plugin directory never admit one, and any failure refuses the plugin. A host older than 0.26 ignores the field, so a commercial plugin declares `^0.26` or later and install refuses a range that admits an older host.
 
+The 0.27.0 bump is additive over 0.26: the manifest fields `page_query` (at most 16 keys handed to `render.page`), `page_path_prefixes` (at most 8 path prefixes that narrow `render.page` like `page_paths`), `entity_schema` + `entity_fields` (the one schema a plugin may write); the permissions `client.key`, `entities.write.own` and `comments.moderate` (all three warning permissions); the host functions `entities.create|update|delete`, `comments.mark_dead|restore|set_rank|set_viewer|by_author|subtree`; the `comment.updated` action and `comment.draft` filter; `commenter_key`, `addr_key` and `net_key` on `PageContext` and `HTTPRequest`. A plugin that relies on any of them declares `^0.27`: an older host ignores the fields and refuses the new permissions. Until the change that implements one ships, each new host function answers `unavailable`; a plugin must treat it as a feature that is off. The SDK repository carries `v0.27.0-rc.1`, so plugins can build against the contract before the release; the final `v0.27.0` is the same tree unless doc-comment or test fixes landed in the SDK after the rc (then a new rc or the release note says so); after the rc, a change to an SDK type or name needs a new rc. A 0.27 plugin that declares `page_path_prefixes` or `page_query` on a host that does not read those fields yet behaves as if they were absent: a `render.page` filter with only prefixes runs unscoped and uncached, as the `page_paths` rule says.
+
 The 0.22.2 bump is additive over 0.22.1: the `ui` manifest block gains `allow` (`camera`), the owner grant `ui.allow:camera` and the page call `hatamoto.camera.capture()`, with `AdminUI.Allow`, `UIAllowCamera`, `PermUICamera`, `ValidGrant` and `Manifest.Asked`. The result shape (`ok`, `image`, `width`, `height`) and the error codes `cancelled`, `denied` and `unavailable` are stable. A host older than 0.22.2 ignores the field and the grant. Only plugins that ask for the camera see a change: `ui.allow:camera` can appear in `permissions[]` and `granted[]` of `/api/v1/plugins`, and in `requested` and `granted` of the `permissions()` host call. Nothing else changed.
 
 The 0.22.1 bump is additive over 0.22.0: `permissions()` gains `mail` (`recipients_per_hour`) for a plugin granted `mail.send`, with the `PermissionsResult` and `MailQuota` types. No existing output changed.
@@ -120,8 +122,8 @@ The `sdk` range in `plugin.json` is the handshake between a plugin and a host. A
 SDK version (`sdk.Version`) and every version in `sdk.CompatibleWith`, and refuses a plugin whose range
 matches none of them.
 
-- Every 0.x SDK minor from 0.5 stays served until SDK 1.0. Today `Version` is `0.26.0` and
-  `CompatibleWith` is `0.5.0` to `0.25.0`. Dropping an entry is a breaking change and is announced like
+- Every 0.x SDK minor from 0.5 stays served until SDK 1.0. Today `Version` is `0.27.0` and
+  `CompatibleWith` is `0.5.0` to `0.26.0`. Dropping an entry is a breaking change and is announced like
   any other.
 - A newer host serves older ranges. An older host refuses a newer range: a host that serves 0.22 refuses
   a plugin that declares `^0.23`. Declare the oldest range your plugin needs.

@@ -1,6 +1,6 @@
 # ADR 0005: Comments in core
 
-Status: accepted (2026-11-20)
+Status: accepted (2026-11-20), amended (2026-11)
 
 Reverses: the [`docs/ROADMAP.md`](../ROADMAP.md) section 8 line "Comments,
 e-commerce, ..." (comments only; the rest of that line stays out of scope).
@@ -12,9 +12,14 @@ described below is not one (Decision 4).
 1. Comments are off on every install, new or upgraded. Only an owner turns them
    on, after two warnings that comments invite spam.
 2. A commenter is a confirmed email address. No accounts, passwords, social
-   login, profile pages or website field.
+   login, profile pages or website field. A content type with the community
+   policy on is the one opt-in exception: there a commenter can sign in without
+   writing a comment and keeps one name a plugin assigns (Decision 9).
 3. Every comment with a link, and every comment from a new commenter, waits for
-   a moderator. Owners and editors moderate everything.
+   a moderator. Owners and editors moderate everything. The community policy,
+   which only an owner turns on for a content type after a warning, is the one
+   opt-in exception: it skips the link hold and the new-commenter hold; every
+   other hold stays (Decision 9).
 4. No raw IP address is stored. Core keeps keyed hashes of the address and its
    network only.
 5. Core's spam protection runs on the site. Core sends no comment data, hash or
@@ -191,19 +196,58 @@ partials. The form is plain HTML with a POST and a redirect, so posting needs no
 JavaScript. htmx is only an optional enhancement where a theme already loads
 it.
 
-### 9. Built for a later plugin
+### 9. Plugins and community content types (amended 2026-11)
 
-Votes, karma, ranking and accounts are not part of core comments. A Hacker News
-style plugin can add them later in its own schema, keyed to comment ids. Core
-adds no plugin write API in this work.
+Votes, karma, scores and profiles stay out of core: a plugin keeps them in its
+own database, keyed to commenter keys and comment ids. Core adds the following,
+each with the invariant it keeps.
+
+**9.1 Commenter key.** A plugin that may read comments sees a pseudonymous key
+for each commenter: an HMAC of the commenter id, the plugin name and the server
+secret. It is never the email and never a stored hash, and it is never sent to
+webhooks. Each plugin has its own key space, so two plugins cannot link a
+commenter.
+
+**9.2 Plugin moderation.** A plugin the owner granted `comments.moderate` can
+mark a comment dead, restore it, set its rank and set a viewer's show-dead
+flag, only for comments on the plugin's own `entity_schema`. Every call is
+audited and rate limited. There is no API that creates a comment: comments are
+posted only through core's form.
+
+**9.3 Dead state.** Dead is a sixth comment status. A dead comment is kept
+forever and never purged automatically. The public thread hides it unless the
+viewer's show-dead flag is set or the viewer is its author. Replies of a dead
+comment stay visible.
+
+**9.4 Rank.** Each comment has a stored `rank` that the plugin writes in
+batches. When a schema's comment order is `rank`, core orders each sibling
+level by it, in Go and bounded by the page.
+
+**9.5 Community policy.** Only an owner turns it on, per content type, after a
+warning. It skips the link hold and the new-commenter hold, allows a depth of
+up to 32 levels, and sets the edit window and slow mode per schema. Every other
+hold stays: spam verdict, duplicate, blocked commenter, captcha and surge. It
+is stored as `settings.comments.policy` on the entity schema.
+
+**9.6 Standalone sign-in and sign-out.** A commenter can sign in with an email
+link and a device cookie without a draft comment, and can sign out.
+
+**9.7 Locked author name.** On a policy schema the form's name field is hidden
+and filled through the `comment.draft` filter. There are no renames.
+
+**9.8 Plugin-created entries.** A plugin granted `entities.write.own` can
+create entries of the one content type it declares; that is specified in
+[`docs/PLUGIN_API.md`](../PLUGIN_API.md). Comments on those entries stay core.
 
 ## Out of scope
 
 - SSO, OAuth, social login and passkeys for commenters.
 - A website or author URL field.
-- Votes, karma, ranking, password accounts and public profiles.
+- Votes, karma, scores, password accounts and public profiles in core (a plugin
+  keeps them; core stores only the rank a plugin writes, Decision 9).
 - Reactions, emoji, rich media and mentions.
-- A plugin write API for comments.
+- A plugin API that creates comments: comments are posted only through core's
+  form (plugins may moderate comments on their own content type, Decision 9).
 - Any shared or federated spam list, hosted spam service or data-sharing
   contract.
 

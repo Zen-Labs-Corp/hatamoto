@@ -140,6 +140,25 @@ type Manifest struct {
 	// additionally refuses paths it serves itself (SDK 0.24).
 	PagePaths []string `json:"page_paths,omitempty"`
 
+	// PageQuery (SDK 0.27) names the query keys handed to render.page in
+	// PageContext.Query: the first value of each declared key only; a value longer
+	// than MaxPageQueryValueBytes is dropped (key absent). At most MaxPageQueryKeys
+	// keys of [A-Za-z0-9_-], 1 to 64 bytes, no duplicates. An older host ignores it.
+	PageQuery []string `json:"page_query,omitempty"`
+	// PagePathPrefixes (SDK 0.27) narrow render.page like PagePaths, by prefix. Each
+	// starts and ends with "/" ("/item/" matches "/item/<anything>", not "/item"),
+	// 2 to 256 bytes, otherwise the PagePaths rules. At most MaxPagePathPrefixes. The
+	// host refuses "/" and prefixes under paths core serves. Matching pages are uncached.
+	PagePathPrefixes []string `json:"page_path_prefixes,omitempty"`
+	// EntitySchema (SDK 0.27) is the one entity schema the plugin writes
+	// (entities.write.own) and moderates comments on (comments.moderate). The package
+	// ships it as schemas/<slug>.json. Requires entities.write.own.
+	EntitySchema string `json:"entity_schema,omitempty"`
+	// EntityFields (SDK 0.27) are the attribute keys entities.create|update may set
+	// on EntitySchema; the name and status are always writable. At most
+	// MaxEntityFields keys of [a-z][a-z0-9_]*, 1 to 64 bytes. Requires EntitySchema.
+	EntityFields []string `json:"entity_fields,omitempty"`
+
 	// RequestHeaders are extra request header names (for example a webhook
 	// signature) passed to this plugin's routes, on top of the fixed list.
 	// Credentials and the visitor's address can never be listed
@@ -527,7 +546,24 @@ const (
 	MaxRedirectPathLen = 256
 	// MaxPagePaths caps Manifest.PagePaths.
 	MaxPagePaths = 16
-	MinCronEvery = time.Minute
+	// MaxPageQueryKeys caps Manifest.PageQuery.
+	MaxPageQueryKeys = 16
+	// MaxPageQueryValueBytes is the longest query value handed to render.page.
+	MaxPageQueryValueBytes = 256
+	// MaxPagePathPrefixes caps Manifest.PagePathPrefixes.
+	MaxPagePathPrefixes = 8
+	// MaxEntityFields caps Manifest.EntityFields.
+	MaxEntityFields = 16
+	// MaxEntitySchemaLen caps the length of Manifest.EntitySchema.
+	MaxEntitySchemaLen = 40
+	MinCronEvery       = time.Minute
+)
+
+var (
+	pageQueryKeyPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+	// entitySchemaPattern is core's package schema slug rule (dashes, no underscore).
+	entitySchemaPattern = regexp.MustCompile(`^[a-z]([a-z0-9]|-[a-z0-9]){0,39}$`)
+	entityFieldPattern  = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 )
 
 // identPattern is a cron job, template func or section name.
@@ -760,6 +796,15 @@ func (m Manifest) validateCapabilities() error {
 	if err := m.validatePagePaths(); err != nil {
 		return err
 	}
+	if err := m.validatePageQuery(); err != nil {
+		return err
+	}
+	if err := m.validatePagePathPrefixes(); err != nil {
+		return err
+	}
+	if err := m.validateEntityWrite(); err != nil {
+		return err
+	}
 	if m.CSP != nil {
 		if err := m.CSP.validate(); err != nil {
 			return fmt.Errorf("sdk: plugin %q: %w", m.Name, err)
@@ -810,6 +855,86 @@ func (m Manifest) validatePagePaths() error {
 			return fmt.Errorf("sdk: plugin %q: duplicate page_paths %q", m.Name, p)
 		}
 		seen[p] = true
+	}
+	return nil
+}
+
+// validatePageQuery checks the declared render.page query keys.
+func (m Manifest) validatePageQuery() error {
+	if len(m.PageQuery) > MaxPageQueryKeys {
+		return fmt.Errorf("sdk: plugin %q: more than %d page_query keys", m.Name, MaxPageQueryKeys)
+	}
+	seen := map[string]bool{}
+	for _, k := range m.PageQuery {
+		if !pageQueryKeyPattern.MatchString(k) {
+			return fmt.Errorf("sdk: plugin %q: page_query %q: 1 to 64 letters, digits, - or _", m.Name, k)
+		}
+		if seen[k] {
+			return fmt.Errorf("sdk: plugin %q: duplicate page_query %q", m.Name, k)
+		}
+		seen[k] = true
+	}
+	return nil
+}
+
+// validatePagePathPrefixes checks the declared render.page path prefixes: the
+// page_paths shape rules, a leading and a trailing slash, and at least one
+// segment. Which prefixes the host reserves for itself is the host's business.
+func (m Manifest) validatePagePathPrefixes() error {
+	if len(m.PagePathPrefixes) > MaxPagePathPrefixes {
+		return fmt.Errorf("sdk: plugin %q: more than %d page_path_prefixes", m.Name, MaxPagePathPrefixes)
+	}
+	seen := map[string]bool{}
+	for _, p := range m.PagePathPrefixes {
+		if len(p) < 2 || !strings.HasSuffix(p, "/") {
+			return fmt.Errorf("sdk: plugin %q: page_path_prefixes %q: must start and end with / and name at least one segment", m.Name, p)
+		}
+		if err := checkRedirectPath(p); err != nil {
+			return fmt.Errorf("sdk: plugin %q: page_path_prefixes %q: %w", m.Name, p, err)
+		}
+		if seen[p] {
+			return fmt.Errorf("sdk: plugin %q: duplicate page_path_prefixes %q", m.Name, p)
+		}
+		seen[p] = true
+	}
+	return nil
+}
+
+// validateEntityWrite checks entity_schema and entity_fields against each other
+// and against the permissions that need them.
+func (m Manifest) validateEntityWrite() error {
+	writes := slices.Contains(m.Permissions, PermEntitiesWriteOwn)
+	moderates := slices.Contains(m.Permissions, PermCommentsModerate)
+	if m.EntitySchema == "" {
+		if writes {
+			return fmt.Errorf("sdk: plugin %q: permission %q needs entity_schema", m.Name, PermEntitiesWriteOwn)
+		}
+		if moderates {
+			return fmt.Errorf("sdk: plugin %q: permission %q needs entity_schema", m.Name, PermCommentsModerate)
+		}
+		if len(m.EntityFields) > 0 {
+			return fmt.Errorf("sdk: plugin %q: entity_fields needs entity_schema", m.Name)
+		}
+		return nil
+	}
+	if len(m.EntitySchema) > MaxEntitySchemaLen || !entitySchemaPattern.MatchString(m.EntitySchema) {
+		return fmt.Errorf("sdk: plugin %q: entity_schema %q: lowercase letters, digits and single dashes, starting with a letter, at most %d", m.Name, m.EntitySchema, MaxEntitySchemaLen)
+	}
+	if !writes {
+		return fmt.Errorf("sdk: plugin %q: entity_schema needs the %s permission", m.Name, PermEntitiesWriteOwn)
+	}
+	if len(m.EntityFields) > MaxEntityFields {
+		return fmt.Errorf("sdk: plugin %q: more than %d entity_fields", m.Name, MaxEntityFields)
+	}
+	seen := map[string]bool{}
+	for _, f := range m.EntityFields {
+		if !entityFieldPattern.MatchString(f) {
+			return fmt.Errorf("sdk: plugin %q: entity_fields %q: lowercase letters, digits and _, starting with a letter, at most 64 bytes", m.Name, f)
+		}
+		if seen[f] {
+			return fmt.Errorf("sdk: plugin %q: duplicate entity_fields %q", m.Name, f)
+		}
+		seen[f] = true
 	}
 	return nil
 }
