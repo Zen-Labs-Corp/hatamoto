@@ -37,7 +37,8 @@ A plugin always loads. What it may do is decided by the owner, and nothing is gr
 | `menus.read` | `menus.list`, `menus.get` |
 | `media.read` | `media.get`, `media.list` |
 | `redirects.read` | `redirects.list` |
-| removed in 0.17 | `entities.write`, `terms.write`, `menus.write`, `media.write` and `redirects.write` no longer exist. A manifest that lists one is refused at load. Content is staged in a run with the `changeset.*` functions, which need no permission (see [Runs and changesets](#runs-and-changesets)) |
+| `entities.write.own` (SDK 0.27) | `entities.create`, `entities.update`, `entities.delete`, on the one content type the manifest names in `entity_schema` and only on entries the plugin created (origin `plugin:<name>`). `attributes` keys must be in `entity_fields`; `status` is `published` (the create default) or `draft`. Entries go live at once, without the owner's review, and every write is audited. 60 writes a minute per plugin, burst 20 (`rate_limited`); an entry or type that is not the plugin's is `not_owned`. Any edit or status change by the owner takes the entry away from the plugin. Declare `^0.27` |
+| removed in 0.17 | `terms.write`, `menus.write`, `media.write` and `redirects.write` no longer exist, and neither does the old `entities.write` (its narrow successor is `entities.write.own`, above). A manifest that lists one is refused at load. Content is staged in a run with the `changeset.*` functions, which need no permission (see [Runs and changesets](#runs-and-changesets)) |
 | `forms.read` | `forms.list`, `forms.submissions`, and delivery of the `form.submitted` action |
 | `comments.read` | `comments.thread`, `comments.counts`, delivery of the `comment.*` actions, and the `comment.check` filter; there is no write function for comments |
 | `settings` | `settings.get` (the plugin's own settings) |
