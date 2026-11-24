@@ -37,18 +37,13 @@ func (r *Runtime) hookFilter(m sdk.Manifest, hook, export string) func(context.C
 	if hook != sdk.RenderPage.Name {
 		return noteRenderFailure(hook, generic)
 	}
-	// A plugin that declared page_paths is called only for them; every other
-	// page is the chain's value unchanged (no call, so no failure to note).
-	var only map[string]bool
-	if len(m.PagePaths) > 0 {
-		only = make(map[string]bool, len(m.PagePaths))
-		for _, p := range m.PagePaths {
-			only[p] = true
-		}
-	}
+	// A plugin that declared page_paths or page_path_prefixes is called only
+	// there; every other page is the chain's value unchanged (no call, so no
+	// failure to note).
+	scope := newPageScope(m.PagePaths, m.PagePathPrefixes)
 	return noteRenderFailure(hook, func(ctx context.Context, v any) (any, error) {
 		pc, ok := v.(sdk.PageContext)
-		if !ok || (only != nil && !only[pc.Path]) {
+		if !ok || (!scope.everywhere() && !scope.matches(pc.Path)) {
 			return v, nil
 		}
 		// The plugin sees only its own namespaced cookies it declared (under
@@ -206,7 +201,8 @@ func NewPageFilter(rt *Runtime, engine *hooks.Engine) *PageFilter {
 func (p *PageFilter) Active() bool { return p != nil && p.engine.HasFilter(sdk.RenderPage.Name) }
 
 // Applies reports whether the render.page chain must run for path: a plugin
-// that declared no page_paths handles every page, one that did only its own.
+// that declared no page_paths or page_path_prefixes handles every page, one
+// that did only its own.
 // Such a page is request-dependent and must not be shared-cached.
 func (p *PageFilter) Applies(path string) bool {
 	if p == nil {

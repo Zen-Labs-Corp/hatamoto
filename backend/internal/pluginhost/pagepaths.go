@@ -3,38 +3,79 @@ package pluginhost
 import (
 	"maps"
 	"slices"
+	"strings"
 
 	"hatamoto.dev/sdk"
 )
 
-// pageIndex is the render.page path snapshot: every loaded plugin that
-// registered the filter, by name, with its page_paths (empty = site-wide).
-// Several plugins may declare the same path.
-type pageIndex struct {
-	byPlugin map[string][]string
-	siteWide int            // plugins with no page_paths
-	paths    map[string]int // declared path -> number of plugins declaring it
+// pageScope is where a render.page plugin runs: exact paths and path
+// prefixes (a prefix "/item/" matches "/item/<x>", never "/item"). Empty means
+// everywhere. The hook (one plugin) and the index (union of all) share it.
+type pageScope struct {
+	paths    map[string]int // path -> number of plugins declaring it
+	prefixes []string
 }
 
-func newPageIndex(by map[string][]string) *pageIndex {
-	idx := &pageIndex{byPlugin: by, paths: map[string]int{}}
-	for _, paths := range by {
-		if len(paths) == 0 {
-			idx.siteWide++
-		}
-		for _, p := range paths {
-			idx.paths[p]++
+// newPageScope builds a scope; duplicate prefixes are dropped, duplicate
+// paths are counted.
+func newPageScope(paths, prefixes []string) pageScope {
+	s := pageScope{paths: make(map[string]int, len(paths))}
+	for _, p := range paths {
+		s.paths[p]++
+	}
+	s.prefixes = slices.Clone(prefixes)
+	slices.Sort(s.prefixes)
+	s.prefixes = slices.Compact(s.prefixes)
+	return s
+}
+
+func (s pageScope) everywhere() bool { return len(s.paths) == 0 && len(s.prefixes) == 0 }
+
+// matches is lock-free and allocation-free.
+func (s pageScope) matches(path string) bool {
+	if s.paths[path] > 0 {
+		return true
+	}
+	for _, p := range s.prefixes {
+		if len(path) > len(p) && strings.HasPrefix(path, p) {
+			return true
 		}
 	}
+	return false
+}
+
+// pageEntry is one render.page plugin's declarations.
+type pageEntry struct{ paths, prefixes, query []string }
+
+// pageIndex is the render.page snapshot: every loaded plugin that registered
+// the filter, by name. A plugin with neither page_paths nor page_path_prefixes
+// is site-wide. Several plugins may declare the same path.
+type pageIndex struct {
+	byPlugin map[string]pageEntry
+	siteWide int       // plugins with neither page_paths nor page_path_prefixes
+	union    pageScope // every declared path (counted) and prefix
+}
+
+func newPageIndex(by map[string]pageEntry) *pageIndex {
+	idx := &pageIndex{byPlugin: by}
+	var paths, prefixes []string
+	for _, e := range by {
+		if len(e.paths) == 0 && len(e.prefixes) == 0 {
+			idx.siteWide++
+		}
+		paths = append(paths, e.paths...)
+		prefixes = append(prefixes, e.prefixes...)
+	}
+	idx.union = newPageScope(paths, prefixes)
 	return idx
 }
 
 // pagePlugins returns a copy of the current per-plugin map. Callers hold pageMu.
-func (r *Runtime) pagePlugins() map[string][]string {
+func (r *Runtime) pagePlugins() map[string]pageEntry {
 	if idx := r.pageIdx.Load(); idx != nil {
 		return maps.Clone(idx.byPlugin)
 	}
-	return map[string][]string{}
+	return map[string]pageEntry{}
 }
 
 // claimPagePaths records m after a load (only if it registered render.page);
@@ -45,7 +86,11 @@ func (r *Runtime) claimPagePaths(m sdk.Manifest, hooksGot []string) {
 	by := r.pagePlugins()
 	delete(by, m.Name)
 	if slices.Contains(hooksGot, sdk.RenderPage.Name) {
-		by[m.Name] = slices.Clone(m.PagePaths)
+		by[m.Name] = pageEntry{
+			paths:    slices.Clone(m.PagePaths),
+			prefixes: slices.Clone(m.PagePathPrefixes),
+			query:    slices.Clone(m.PageQuery),
+		}
 	}
 	r.pageIdx.Store(newPageIndex(by))
 }
@@ -67,7 +112,7 @@ func (r *Runtime) releasePagePaths(name string) {
 // removers (Load, Unload, Reregister, grant changes) release or re-add the
 // entry at once; a new remover must keep it, or a removed filter would cancel
 // out an unknown one.
-// Lock-free: one atomic load and a map lookup per request.
+// Lock-free: one atomic load, a map lookup and a short prefix loop per request.
 func (r *Runtime) pageFiltered(path string, n int) bool {
 	if n == 0 {
 		return false
@@ -76,5 +121,5 @@ func (r *Runtime) pageFiltered(path string, n int) bool {
 	if idx == nil {
 		return true
 	}
-	return n > len(idx.byPlugin) || idx.siteWide > 0 || idx.paths[path] > 0
+	return n > len(idx.byPlugin) || idx.siteWide > 0 || idx.union.matches(path)
 }
