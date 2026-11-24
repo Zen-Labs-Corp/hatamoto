@@ -73,7 +73,7 @@ func TestPublicRouteWithCookiesIsNotSharedCacheable(t *testing.T) {
 		if tc.cc != "" {
 			res.Headers = map[string]string{"Cache-Control": tc.cc}
 		}
-		g.writeRouteResponse(rec, httptest.NewRequest("GET", "/x", nil), res, sdk.Manifest{Name: "capa", Cookies: tc.cookies})
+		g.writeRouteResponse(rec, httptest.NewRequest("GET", "/x", nil), res, sdk.Manifest{Name: "capa", Cookies: tc.cookies}, false)
 		if got := rec.Header().Get("Cache-Control"); got != tc.want || (rec.Header().Get("Vary") == "Cookie") != tc.vary {
 			t.Errorf("%s: Cache-Control=%q Vary=%q", name, rec.Header().Get("Cache-Control"), rec.Header().Get("Vary"))
 		}

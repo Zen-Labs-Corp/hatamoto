@@ -68,6 +68,9 @@ func init() {
 				res.SetCookies = append(res.SetCookies, sdk.SetCookie{Name: n, Value: "v-" + n, MaxAge: 60})
 			}
 			return res, nil
+		case req.Path == "/keys" || req.Path == "/keys-admin":
+			b, _ := marshal(map[string]string{"addr_key": req.AddrKey, "net_key": req.NetKey})
+			return sdk.HTTPResponse{Body: string(b)}, nil
 		case req.Path == "/redirect":
 			return sdk.HTTPResponse{Status: 302, Headers: map[string]string{"Location": req.Query["to"][0]}}, nil
 		case req.Path == "/cache":
@@ -115,6 +118,10 @@ func init() {
 			for k, v := range p.Query {
 				p.Blocks = append(p.Blocks, sdk.Block{ID: "q:" + k, Type: "content", Title: v, Content: map[string]any{"headline": "q:" + k + "=" + v, "body": "<p>q</p>"}})
 			}
+			return p, nil
+		}
+		if p.Path == "/echo-keys" { // reports the visitor keys the host passed in
+			p.Blocks = []sdk.Block{{ID: "keys", Type: "content", Title: p.AddrKey + "|" + p.NetKey}}
 			return p, nil
 		}
 		if p.Cookies["unlock"] != "1" {

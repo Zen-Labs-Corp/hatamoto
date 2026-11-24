@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"hatamoto.dev/core/internal/clientkey"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/wasmhost"
@@ -37,6 +38,8 @@ type Config struct {
 	Scheduler Scheduler
 	// MailQuotas is the owner-set mail.send quota; nil means the default for every plugin.
 	MailQuotas MailQuotas
+	// ClientKeys derives the client.key visitor keys; nil (no server secret) means no plugin ever gets one.
+	ClientKeys *clientkey.Deriver
 }
 
 type capabilities struct {
@@ -46,6 +49,7 @@ type capabilities struct {
 	admin  *RouteRegistry
 	public *RouteRegistry
 	db     *PluginDB
+	keys   *clientkey.Deriver
 }
 
 // Configure sets the capabilities. Call it before loading plugins.
@@ -54,11 +58,12 @@ func (r *Runtime) Configure(c Config) {
 		c.Grants = NewGrantStore(nil)
 	}
 	c.Services.MailQuotas = c.MailQuotas
-	r.caps = capabilities{grants: c.Grants, cron: c.Scheduler, db: c.Services.DB}
+	r.caps = capabilities{grants: c.Grants, cron: c.Scheduler, db: c.Services.DB, keys: c.ClientKeys}
 	r.caps.api = NewAPI(c.Services, c.Grants, r.manifest, r.log)
 	r.host.SetHostCall(r.caps.api.Call)
 	r.caps.admin = NewRouteRegistry(r.host.Call, false, r.log)
 	r.caps.public = NewRouteRegistry(r.host.Call, true, r.log)
+	r.caps.admin.keys, r.caps.public.keys = r.clientKeys, r.clientKeys
 }
 
 // SetMailQuota applies the plugin's new mail.send quota to its running

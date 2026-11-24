@@ -63,7 +63,9 @@ type RouteRegistry struct {
 	call   Caller
 	log    *slog.Logger
 	public bool
-	m      atomic.Pointer[map[string]*pluginRouter]
+	// keys returns a plugin's client.key visitor keys for a request context.
+	keys func(ctx context.Context, plugin string) (addrKey, netKey string)
+	m    atomic.Pointer[map[string]*pluginRouter]
 }
 
 // NewRouteRegistry returns a registry serving either the admin or the public
@@ -202,6 +204,9 @@ func (g *RouteRegistry) Serve(w http.ResponseWriter, r *http.Request, plugin, re
 	}
 	if g.public {
 		req.Cookies = routeCookies(r, pr.m)
+		if g.keys != nil {
+			req.AddrKey, req.NetKey = g.keys(r.Context(), plugin)
+		}
 	}
 	if utf8.Valid(body) {
 		req.Body = string(body)
@@ -225,10 +230,10 @@ func (g *RouteRegistry) Serve(w http.ResponseWriter, r *http.Request, plugin, re
 		writeJSONError(w, http.StatusBadGateway, "plugin error")
 		return
 	}
-	g.writeRouteResponse(w, r, res, pr.m)
+	g.writeRouteResponse(w, r, res, pr.m, req.AddrKey != "")
 }
 
-func (g *RouteRegistry) writeRouteResponse(w http.ResponseWriter, r *http.Request, res sdk.HTTPResponse, m sdk.Manifest) {
+func (g *RouteRegistry) writeRouteResponse(w http.ResponseWriter, r *http.Request, res sdk.HTTPResponse, m sdk.Manifest, keyed bool) {
 	status := res.Status
 	if status == 0 {
 		status = http.StatusOK
@@ -275,15 +280,16 @@ func (g *RouteRegistry) writeRouteResponse(w http.ResponseWriter, r *http.Reques
 	if len(res.SetCookies) > 0 {
 		h.Set("Cache-Control", "no-store") // a response that sets a cookie is never cached
 	}
-	if !g.public || len(m.Cookies) > 0 {
+	if !g.public || len(m.Cookies) > 0 || keyed {
 		// Admin responses are per user, and so is a public response of a
-		// plugin that reads cookies: never shared-cacheable.
+		// plugin that reads cookies or was given visitor keys: never
+		// shared-cacheable.
 		if cc := strings.ToLower(h.Get("Cache-Control")); strings.Contains(cc, "public") || strings.Contains(cc, "s-maxage") {
 			h.Set("Cache-Control", "no-store")
 		} else if !strings.Contains(cc, "private") && !strings.Contains(cc, "no-store") {
 			h.Set("Cache-Control", "private, "+h.Get("Cache-Control"))
 		}
-		if g.public {
+		if g.public && len(m.Cookies) > 0 {
 			h.Add("Vary", "Cookie")
 		}
 	}
