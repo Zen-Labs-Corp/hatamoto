@@ -1,8 +1,8 @@
 # Kits
 
-The `kit.json` format (version 1) is fixed here. The kit commands, the apply
-code and the registry listing arrive in a later release; until then core does
-not read kit packages.
+The `kit.json` format (version 1) is fixed here, together with how a kit is
+applied: from the command line (`hatamoto kit apply`) or from Settings > Kits,
+and how a registry lists kits.
 
 ## What a kit is
 
@@ -148,13 +148,126 @@ location. A kit never overwrites something the owner edited. The order is fixed:
 8. Write the audit entry `kit.apply` (an owner-only action).
 9. Invalidate the cache once.
 
+### Apply in detail
+
+- **Ensure by key.** A content type is found by its slug, a page by its slug
+  (inside its content type), a menu by its location. Missing: created. Present:
+  **kept**, which means left exactly as the owner has it; nothing is
+  overwritten, reordered or republished. Content types that exist but lack some
+  of the kit's `settings` get only the missing settings filled in.
+- **Plugins and themes** that are already installed are kept, at the installed
+  version. Only a name the registry lists, at a version that satisfies `range`,
+  is installed. A plugin a kit asks for is installed with the permissions the
+  kit's `grant` names (see Rules) plus the ones the owner ticks.
+- **Fresh site.** A site is fresh when it runs the default theme and still has
+  the home page created at first start. On a fresh site the theme's `activate`
+  and the `homepage` switch are applied without an extra tick; on any other
+  site they are applied only when the owner ticks them (`--activate-theme` and
+  `--homepage` on the command line).
+- **Menu locations.** A menu is created only at a location the active theme
+  declares. When the location is already held by a menu, or the theme does not
+  declare it, the menu is skipped and listed with a message.
+- **Comments.** `switches.comments` turns comments on only with the owner's
+  accept of both warnings and only when the site has an address (Settings >
+  General, or `PUBLIC_BASE_URL`). Without an address the apply is refused
+  before anything is changed. The owner can leave the switch off and turn
+  comments on later in Settings > Comments.
+- **Content type owned by a plugin.** When the plugin that creates a content
+  type (`entity_schema`) is part of the kit, an existing content type is kept
+  and only its `settings` are filled in. When the slug belongs to another
+  plugin, the kit is refused.
+- **Interrupted runs.** An apply is not one transaction. Every step can be run
+  again, and the record is written last, so running the same command again
+  finishes what a failed run left. A run that changes nothing reports
+  `already applied: nothing to change`.
+- **No uninstall.** Nothing a kit created is tracked for removal; delete it in
+  the admin like any other content.
+- **Visibility.** The command line cannot load a plugin into a running server
+  or clear its caches: the server loads a new plugin within a few seconds, and
+  a `url_pattern` is visible once the server has refreshed its URL registry.
+
+## The applied record
+
+Table `hatamoto_applied_kits`, one row per kit name:
+
+| Column | Meaning |
+|---|---|
+| `name` | the kit name (primary key) |
+| `version` | the version last applied |
+| `applied_by` | who applied it: an owner's email, or `cli` |
+| `applied_at` | when (UTC) |
+| `summary` | JSON: counts of what was created, filled, kept and skipped |
+
+Applying again updates the row only when something changed or the version is
+new. The audit log gets one `kit.apply` entry per apply that did work (an
+owner-only action; the target is `kit:<name>`). Turning comments on from a kit
+also writes `comments.enable`.
+
+## Features
+
+Core knows a fixed list of feature names a kit may put in `requires`:
+`comment.policy`, `comment.rank`, `comment.signin` and `plugin.entity-write`.
+`kit.Features()` (package `internal/kit`) returns the ones this build has. The
+change that ships a feature adds its name to that list, and a name is never
+added before the feature works. `hatamoto kit check` prints a note for each
+required name this build does not have yet ("needs a newer Hatamoto") and for
+each name it does not know at all.
+
 ## Command line
 
-These command names are reserved; they are not available yet.
-
 ```
-hatamoto kit apply <name|file|url> [--accept-comment-warnings] [--grant P,P] [--dry-run]
-hatamoto kit check <dir|file>
-hatamoto kit pack <dir> --key F
+hatamoto kit check <dir|file> [--package F] [--expect-name N]
+hatamoto kit pack <dir> --key F [--out F] [--expect-name N]
+hatamoto kit apply <name|file|url> [--accept-comment-warnings] [--grant P,P] [--activate-theme] [--homepage] [--dry-run] [--dev]
 hatamoto kit list
 ```
+
+- `check` validates a kit directory or a packed file without a key, a database
+  or the network, and prints `kit <name> <version>: ok`. `--package F` names a
+  packed `.hmp`; `--expect-name N` refuses a kit with another name (registry
+  builders use both).
+- `pack` builds a signed `.hmp` from a directory. `--out` defaults to
+  `<name>-<version>.hmp`.
+- `apply` takes a registry name, an `https` URL or a file. It prints the
+  signer, what it resolved, both comment warnings (when the kit asks for
+  comments), then each step, and records the kit. `--accept-comment-warnings`
+  accepts the warnings and turns comments (and the community policy, when the
+  site can) on; without it the command says `comments left off`. `--grant P,P`
+  names permissions beyond what the kit's `grant` gives; `site.scripts` and
+  `ui.allow:*` are granted only when named here. `--dry-run` prints the steps
+  and changes nothing. `--dev` allows an unsigned dev kit (never in
+  production). A refused kit prints each reason, changes nothing and exits 1.
+  Running the command again prints `kit <name> <version> is already applied:
+  nothing to change`.
+- `list` shows the applied kits, then the kits the registry offers (marking the
+  applied ones). When the registry cannot be read it prints
+  `registry: unavailable`.
+
+`package install` refuses a kit file and points to `kit apply`.
+
+## In the admin
+
+Settings > Kits lists the applied kits and the kits the registry offers, each
+with a review screen that shows the same steps and the same ticks (comment
+warnings, homepage, theme, extra permissions). The setup wizard offers the same
+choice once on a fresh site. Applying is an owner action, `kit.apply`.
+
+## In the registry
+
+A registry lists a kit as an entry of kind `kit`; older clients ignore it.
+The registry builder reads one manifest per kit, `manifests/kits/<name>.json`
+in the plugins repository:
+
+| Field | Meaning |
+|---|---|
+| `name` | the kit name (also the file name) |
+| `title`, `about` | display name and one line |
+| `features` | the names the kit lists in `requires`, for the listing |
+| `repo`, `commit`, `subdir` | where the kit directory lives, pinned to a commit |
+| `author`, `license` | shown in the listing |
+| `archive_grant` | permission to keep a copy of the archive |
+| `homepage` | optional link |
+
+The built file is `<name>.kit.hmp`, so a kit and a plugin may share a name. A
+release is tagged `kit-<name>/v<version>`. Kits are never mirrored: the
+registry signs the pinned build and nothing else.

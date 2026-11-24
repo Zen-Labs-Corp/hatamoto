@@ -28,7 +28,7 @@ signature.json              written by `hatamoto theme|plugin pack --key`
 README.md  LICENSE  CHANGELOG.md   allowed at the root, ignored by the host
 ```
 
-`kit.json` (kind `kit`) is reserved for kits, see [KITS.md](KITS.md); this release does not install them.
+`kit.json` (kind `kit`) is a kit, see [KITS.md](KITS.md). A kit is applied with `hatamoto kit apply` or in Settings > Kits and recorded; `package install` refuses it. A registry may list kits as entries of kind `kit`; clients that predate kits ignore them.
 
 Anything else at the root, any other top-level directory, hidden files
 (`.git`, `.env`) and `node_modules` are refused (`pack` skips them). A plugin
@@ -445,6 +445,7 @@ hatamoto theme check <dir> | --archive F --sha256 H | --package F [--registry] [
 hatamoto plugin pack <dir> [--key F] [--out F]
 hatamoto theme dev <dir> --dev [--no-activate] [--confirm]
 hatamoto package install <file|url|name> [--grant P,P|all] [--source upload|url|dev] [--dev] [--confirm]
+hatamoto kit check <dir|file> | kit pack <dir> --key F | kit apply <name|file|url> | kit list   (see KITS.md)
 hatamoto registry index <dir> --key F [--meta F] [--out F] [--url-prefix P] [--valid-days N]
 hatamoto registry page <registry.json> [--out F] [--title T] [--intro T] [--write-url U] [--submit-url U] [--install-hint T] [--trusted-key K]
 ```

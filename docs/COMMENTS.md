@@ -11,6 +11,8 @@ Only an owner can turn comments on, in Settings > Comments. Turning them on take
 
 Once comments are on, the page shows the trust levels, limits, sort order and captcha settings, and a per-type and per-entry control appears on the schema and entry screens to open, close or hide comments there.
 
+A kit can ask for comments to be turned on ([KITS.md](KITS.md)). It never does so by itself: the review screen in Settings > Kits shows the same two warnings and the owner accepts them with the switch there, or on the command line with `hatamoto kit apply <kit> --accept-comment-warnings`. Without the accept, comments stay off and the kit says so. The switch is recorded in the audit log as `comments.enable`.
+
 Comments cannot be turned on until the site address is set (Settings > General, or `PUBLIC_BASE_URL`): the settings page says so and links there. If comments are already on and the address is removed, Settings > Comments and the Overview card warn, the server logs it once at start, and comments can still be turned off.
 
 ## Moderation
