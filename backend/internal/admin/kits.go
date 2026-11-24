@@ -44,6 +44,8 @@ type kitsListView struct {
 func (a *Admin) mountKits(authed *httpx.Group) {
 	owner := authed.Group("", a.RequireCan(authz.ActionKitApply))
 	owner.HandleFunc("GET /settings/kits", a.handleKits)
+	owner.HandleFunc("GET /settings/kits/{name}", a.handleKitReview)
+	owner.HandleFunc("POST /settings/kits/{name}", a.handleKitApply)
 }
 
 func (a *Admin) handleKits(w http.ResponseWriter, r *http.Request) {

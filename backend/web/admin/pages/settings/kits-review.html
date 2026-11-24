@@ -1,0 +1,4 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Title "ChipBadges" .Chips "Description" .Description}}
+{{template "hm/kit-review" (dict "V" . "CSRF" $.CSRF)}}
+{{end}}{{end}}

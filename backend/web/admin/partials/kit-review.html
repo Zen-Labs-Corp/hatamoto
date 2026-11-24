@@ -1,0 +1,35 @@
+{{/* hm/kit-review: the kit review screen shared by the wizard and Settings > Kits (a dict with V, a kitReviewView, and CSRF). One POST form; every switch starts as the view says and Apply is never disabled by markup: the server enforces the comments tick and the site address. Warnings and permission wording come from Go fields (comment copy, permtext), never from this file. */}}
+{{define "hm/kit-review"}}{{with .V}}<form method="post" action="{{.Action}}" class="hm-stack">
+{{template "hm/csrf" $}}
+{{if .Err}}{{template "hm/flash" (dict "Kind" "error" "Message" .Err "Inline" true)}}{{end}}
+{{if .Refusals}}{{template "hm/callout-start" (dict "Kind" "danger" "Title" "This kit cannot be applied" "ID" "kit-refusals")}}<p>This kit cannot be applied to this site:</p><ul>{{range .Refusals}}<li>{{.}}</li>{{end}}</ul>{{template "hm/callout-end"}}{{end}}
+{{template "hm/card-start" dict "ID" "kit-will" "Title" "This kit will" "Heading" "h2"}}<div class="hm-stack">
+{{range .Plugins}}<div class="hm-stack">
+<p class="hm-row">{{template "hm/badge" (dict "Label" (or (and .Install "Install") "Already installed") "Plain" true)}} <span>plugin <b>{{.Name}}</b> <span class="hm-muted">{{.Version}}</span></span></p>
+{{if .Statements}}<ul class="hm-permlist">{{range .Statements}}<li class="hm-permlist__item hm-permlist__item--{{.Kind}}"><span class="hm-permlist__icon" aria-hidden="true">{{icon .Icon}}</span><div><b>{{.Title}}</b>{{if .Warn}} {{template "hm/badge" (dict "Kind" "warning" "Label" "Handle with care")}}{{end}}{{with .Sub}}<br><span class="hm-muted">{{.}}</span>{{end}}</div></li>{{end}}</ul>{{end}}
+{{range .Extra}}{{template "hm/field" dict "ID" .ID "Name" "permission" "Control" "switch" "Value" .Value "Label" .Label "Checked" .On "Help" .Help}}{{end}}
+</div>{{end}}
+{{range $i, $t := .Themes}}<div class="hm-stack">
+<p class="hm-row">{{template "hm/badge" (dict "Label" (or (and $t.Install "Install") "Already installed") "Plain" true)}} <span>theme <b>{{$t.Name}}</b> <span class="hm-muted">{{$t.Version}}</span></span></p>
+{{if $t.Activate}}{{template "hm/field" dict "ID" (printf "kit-theme-%d" $i) "Name" "activate_theme" "Control" "switch" "Value" "1" "Label" "Also make it the active theme." "Checked" $t.ActivateOn}}{{end}}
+</div>{{end}}
+{{range .ContentTypes}}<p class="hm-row">{{template "hm/badge" (dict "Label" "Create" "Plain" true)}} <span>content type <b>{{.Name}}</b>{{with .Pattern}} <code>{{.}}</code>{{end}}</span></p>{{end}}
+{{if .Pages}}<p class="hm-row">{{template "hm/badge" (dict "Label" "Create" "Plain" true)}} <span>pages {{range $i, $p := .Pages}}{{if $i}}, {{end}}{{$p}}{{end}}</span></p>{{end}}
+{{range .Menus}}<p class="hm-row">{{template "hm/badge" (dict "Label" "Create" "Plain" true)}} <span>menu <b>{{.Name}}</b>{{if .Items}}: {{range $i, $it := .Items}}{{if $i}} | {{end}}{{$it}}{{end}}{{end}}</span></p>{{end}}
+{{if .Homepage.Page}}{{template "hm/field" dict "ID" "kit-homepage" "Name" "homepage" "Control" "switch" "Value" "1" "Label" (printf "Use %s as the homepage." .Homepage.Page) "Checked" .Homepage.On}}{{end}}
+{{range .Skipped}}<p class="hm-muted">Left out: {{.}}</p>{{end}}
+</div>{{template "hm/card-end"}}
+{{if or .Comments.Requested .Policy.Message .Policy.Available}}{{template "hm/card-start" dict "ID" "kit-comments" "Title" "Comments" "Heading" "h2"}}<div class="hm-stack">
+{{if .Comments.Requested}}{{if .Comments.AlreadyOn}}<p class="hm-muted">Comments are already on.</p>
+{{else}}{{template "hm/callout" (dict "Kind" "warning" "Body" .Comments.Warning)}}
+{{template "hm/callout" (dict "Kind" "warning" "Body" .Comments.Confirm)}}
+{{if .Comments.NoAddress}}{{template "hm/callout-start" (dict "Kind" "warning" "ID" "kit-no-address")}}<p>{{.Comments.NoAddressMsg}}</p>{{template "hm/button" dict "Label" "Go to Settings > General" "Href" (print (adminPath "settings" "general") "#identity")}}{{template "hm/callout-end"}}{{end}}
+{{template "hm/field" dict "ID" "kit-comments-on" "Name" "comments" "Control" "switch" "Value" "1" "Label" "Turn comments on." "Checked" .Comments.On}}{{end}}{{end}}
+{{if .Policy.Available}}{{template "hm/callout" (dict "Kind" "warning" "Body" .Policy.Warning)}}
+{{template "hm/field" dict "ID" "kit-policy" "Name" "policy" "Control" "switch" "Value" "1" "Label" .Policy.Label "Checked" .Policy.On}}
+{{else if .Policy.Message}}<p class="hm-muted">{{.Policy.Message}}</p>{{end}}
+</div>{{template "hm/card-end"}}{{end}}
+{{if .Kept}}<p class="hm-muted">Already on this site (kept as is): {{range $i, $k := .Kept}}{{if $i}}, {{end}}{{$k}}{{end}}.</p>{{end}}
+{{range .Messages}}<p class="hm-muted">{{.}}</p>{{end}}
+{{template "hm/foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" .CancelHref}}{{if not .Refusals}}{{template "hm/button" dict "Label" "Apply kit" "Variant" "primary" "Type" "submit"}}{{end}}{{template "hm/foot-end"}}
+</form>{{end}}{{end}}
