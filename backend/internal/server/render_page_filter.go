@@ -24,7 +24,7 @@ func (h *renderHandlers) applyPageFilter(r *http.Request, path string, v *render
 		in.Blocks = append(in.Blocks, sdk.Block{ID: s.ID, Type: s.Type, Title: s.Title, Content: s.Content, Hidden: s.IsVisible != nil && !*s.IsVisible})
 		byID[s.ID] = s
 	}
-	out := h.pageFilter.Apply(r.Context(), in)
+	out := h.pageFilter.Apply(withVisitorIP(r), in)
 
 	sections := make([]render.Section, 0, len(out.Blocks))
 	for i, b := range out.Blocks {

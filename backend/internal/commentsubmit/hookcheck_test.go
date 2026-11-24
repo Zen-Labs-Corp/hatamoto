@@ -3,12 +3,15 @@ package commentsubmit
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/clientkey"
 	"hatamoto.dev/core/internal/comment"
+	"hatamoto.dev/core/internal/commentfmt"
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/spam"
@@ -149,5 +152,62 @@ func TestCheckPayloadWire(t *testing.T) {
 	}
 	if want := `{"body":"b","body_hash":"h"}`; string(got) != want {
 		t.Fatalf("got %s, want %s", got, want)
+	}
+}
+
+// ipChecker records the address the pipeline put in the context.
+type ipChecker struct {
+	ip *string
+	in *comment.CheckInput
+}
+
+func (c ipChecker) Check(ctx context.Context, in comment.CheckInput) (int, []string, error) {
+	*c.ip, *c.in = clientkey.IPFrom(ctx), in
+	return 0, nil, nil
+}
+
+func TestCommentCheckClientKeys(t *testing.T) {
+	var ip string
+	var in comment.CheckInput
+	h := newHarness(t)
+	h.p.Checkers = []comment.Checker{ipChecker{&ip, &in}}
+	h.p.Spam.Settings = spamSettings{*h.sp}
+
+	// An edit carries the address in the context; the check input never does.
+	res, err := commentfmt.Render("A fine edit.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.p.HoldEdit(context.Background(), EditCheck{
+		EntityID: h.req.EntityID, Name: "Ada", Body: "A fine edit.", Rendered: res, BodyChanged: true, IP: "203.0.113.7", Now: t0,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if ip != "203.0.113.7" {
+		t.Errorf("edit: checker saw ip %q", ip)
+	}
+	ip = ""
+	if out := h.submit(t); out.Kind != Posted && out.Kind != CheckEmail {
+		t.Fatalf("submit: %v", out.Kind)
+	}
+	if ip != "203.0.113.7" {
+		t.Errorf("new comment: checker saw ip %q", ip)
+	}
+	if strings.Contains(fmt.Sprintf("%+v", in), "203.0.113.7") {
+		t.Errorf("CheckInput carries the address: %+v", in)
+	}
+}
+
+// The hook checker passes the context on but adds no address or key itself:
+// the plugin host derives keys per plugin from the context.
+func TestHookCheckerPayloadHasNoAddress(t *testing.T) {
+	f := &fakeEngine{count: 1, apply: func(_ context.Context, v any) (any, error) { return v, nil }}
+	ctx := clientkey.WithIP(context.Background(), "203.0.113.7")
+	if _, _, err := (HookChecker{Engine: f}).Check(ctx, comment.CheckInput{Body: "hi", LinkDomains: []string{"a.test"}, BodyHash: "h", IPHash: "ip", NetHash: "net"}); err != nil {
+		t.Fatal(err)
+	}
+	want := CheckPayload{Body: "hi", LinkDomains: []string{"a.test"}, BodyHash: "h"}
+	if !reflect.DeepEqual(f.got, want) {
+		t.Fatalf("payload %+v, want %+v", f.got, want)
 	}
 }

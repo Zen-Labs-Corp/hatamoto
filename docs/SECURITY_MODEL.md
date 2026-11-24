@@ -72,6 +72,10 @@ unapproved comment through the host API, and it has no function to write or
 moderate comments. The `comment.check` filter fails closed: an error, trap,
 timeout, reject or open circuit breaker holds the comment for moderation.
 
+The `client.key` keys are bound to the plugin name, not to the package or its
+signer: a different package installed later under the same name and granted
+`client.key` derives the same keys for the same visitors.
+
 ### Static hosting islands
 
 With static hosting on, pages are served from a static origin (for example `https://static.example.net`) and the interactive parts (forms, comments, search, the beacon, public plugin routes) stay on the live origin (`https://live.example.net`).
@@ -333,6 +337,7 @@ Residual risks, stated plainly:
 | With `HATAMOTO_TRUSTED_CDN=cloudflare`, `CF-Connecting-IP` is believed only behind a Cloudflare edge address (a forged header from any other peer is ignored), and the CDN ranges never count as trusted proxies for scheme or host. The preset trusts any Cloudflare address, so the origin should accept traffic only from Cloudflare; a firewall on Cloudflare's ranges still admits other accounts, while Authenticated Origin Pulls (zone-level, your own certificate) restricts traffic to your own zone; a Cloudflare Worker can only present a Cloudflare address | `internal/middleware` | `TestGetIP_CDN`, `TestGetIP_CDNDoesNotWidenProxyTrust`, `TestClientIPInfo`, `TestGetIP_ConcurrentSwap` |
 | `HATAMOTO_TRUSTED_CDN` accepts `cloudflare` or `off` and rejects any other name | `internal/config` | `TestTrustedCDNParsing` |
 | `HATAMOTO_TRUSTED_PROXIES` accepts CIDRs and addresses and rejects anything else | `internal/config` | `TestTrustedProxiesParsing` |
+| Plugins never receive a client address; with `client.key` they get per-plugin HMAC keys of the address and its /24 or /64 (HMAC-SHA256, purpose `plugin-client/addr` or `plugin-client/net`, plugin name in the input), never core's comment hashes, never logged. Keys follow `GetClientIP`, so a wrong trusted-proxy setting gives wrong keys | `internal/clientkey`, `internal/pluginhost` | `TestClientKey*`, `TestHashIPUnchanged` |
 | The site's base URL follows forwarded headers only from trusted proxies | `internal/server` | `TestDetermineBaseURLHonoursForwardedHeadersOnlyFromTrustedProxies` |
 | Unsafe admin methods need a session-bound synchronizer token. The admin sets no readable CSRF cookie; the legacy `hatamoto_csrf` cookie is only cleared | `internal/admin` | `TestCSRFOnUnsafeMethods`, `TestGuardUnsafeNeedsToken` |
 | The JSON API's optional cookie (`ENABLE_COOKIE_AUTH=true`) needs a CSRF token on unsafe methods; API-key calls are exempt and cookie calls are not | `internal/middleware` | `TestCSRF`, `TestCSRFEmptyKeyNeverMatches`, `TestCSRFSkippedForAPIKeyAuthType` |

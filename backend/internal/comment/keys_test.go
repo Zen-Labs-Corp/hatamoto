@@ -83,3 +83,21 @@ func TestKeysSealEmail(t *testing.T) {
 		t.Error("damaged blob should not open")
 	}
 }
+
+// TestHashIPUnchanged pins the stored ip_hash/net_hash values: a change here
+// silently breaks every stored hash and block list.
+func TestHashIPUnchanged(t *testing.T) {
+	t.Parallel()
+	k := NewKeys("secret-a")
+	for _, c := range []struct{ ip, addr, net string }{
+		{"192.0.2.10", "3zDcc95wgQC5St9J5e0FROrwaDC5jfeUuOf_aLLCJ0g", "96dwUG1_fBPh6PjU65yhRlJSdWOjAARfqMctTY1flvg"},
+		{"::ffff:192.0.2.10", "3zDcc95wgQC5St9J5e0FROrwaDC5jfeUuOf_aLLCJ0g", "96dwUG1_fBPh6PjU65yhRlJSdWOjAARfqMctTY1flvg"},
+		{"2001:db8::1", "AHqyHdQBrfJCwkiMmV2sHr6VaUhLnBnB68X161JsDr0", "GNMB4rerCHYMgbLOXhHhICGXuauFISbkzdazCoLpdcQ"},
+		{"fe80::1%eth0", "bQDGxnpZVih1lfRon1-iD97mX4OhTw-0_jxZ9Lw2jxs", "bqjW4jmFJQeOMtJAvZgb4M6swjnQNq23y_2EEiwf37U"},
+		{"not an ip", "", ""},
+	} {
+		if a, n := k.HashIP(c.ip); a != c.addr || n != c.net {
+			t.Errorf("HashIP(%q) = %q, %q; want %q, %q", c.ip, a, n, c.addr, c.net)
+		}
+	}
+}
