@@ -166,10 +166,48 @@ func TestCommenterIndexListError(t *testing.T) {
 		t.Fatal("want the list error")
 	}
 	f.err = nil
+	if _, ok, err := x.resolve(ctx, "plugin-a", key); ok || err != nil || f.calls != 1 {
+		t.Fatalf("retry within the gap: ok %v err %v calls %d, want backoff", ok, err, f.calls)
+	}
+	f.clock = f.clock.Add(keyMissGap)
 	if _, ok, err := x.resolve(ctx, "plugin-a", key); err != nil || !ok {
-		t.Fatalf("retry within the gap: ok %v err %v", ok, err)
+		t.Fatalf("retry after the gap: ok %v err %v", ok, err)
 	}
 	if f.calls != 2 {
 		t.Fatalf("calls = %d, want 2", f.calls)
+	}
+}
+
+// A scan outlives a caller whose deadline is shorter than the scan, so the
+// next caller finds the finished index instead of restarting it.
+func TestCommenterIndexScanOutlivesCaller(t *testing.T) {
+	f := &fakeCommenters{stamps: []comment.CommenterStamp{stamp(1)}}
+	x, d := newTestIndex(f)
+	release := make(chan struct{})
+	x.list = func(ctx context.Context, since time.Time) ([]comment.CommenterStamp, error) {
+		<-release
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		return f.list(ctx, since)
+	}
+	key := d.Commenter("plugin-a", f.stamps[0].ID)
+	short, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if _, _, err := x.resolve(short, "plugin-a", key); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("err = %v, want the caller's deadline", err)
+	}
+	// A waiter whose ctx ends while the scan runs does not block on it.
+	waiter, cancel2 := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel2()
+	if _, _, err := x.resolve(waiter, "plugin-a", key); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("waiter err = %v", err)
+	}
+	close(release)
+	if id, ok, err := x.resolve(context.Background(), "plugin-a", key); err != nil || !ok || id != f.stamps[0].ID {
+		t.Fatalf("after the scan: %v %v %v", id, ok, err)
+	}
+	if f.calls != 1 {
+		t.Fatalf("scans = %d, want 1", f.calls)
 	}
 }
