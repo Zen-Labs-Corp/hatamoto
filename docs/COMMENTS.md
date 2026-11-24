@@ -83,7 +83,7 @@ No raw IP address is stored, only keyed hashes (`ip_hash` and `net_hash`), which
 
 **Plugin keys.** A plugin that holds `client.key` receives its own keys of the visitor (`addr_key` and `area_key` on `comment.check`), derived with separate keys and the plugin's name, never the stored `ip_hash` or `net_hash`. They are pseudonymous personal data. An IPv4 `addr_key` can be brute-forced by anyone who holds the server secret. The keys change only if the server secret changes.
 
-**Purging.** The daily retention job deletes spam and trash `purge_days` (default 30) after their last status change (`updated_at`). One that still has replies is not deleted: its text, name, hashes and user agent are blanked so the thread stays intact. The hourly job removes unconfirmed drafts after 24 hours and used or expired form tokens. The daily job also prunes reply-notification rows and moderator-notification rows of comments that are no longer held.
+**Purging.** The daily retention job deletes spam and trash `purge_days` (default 30) after their last status change (`updated_at`). One that still has replies is not deleted: its text, name, hashes and user agent are blanked so the thread stays intact. The hourly job removes unconfirmed drafts after 24 hours and used or expired form tokens. Each commenter's newest used sign-in confirmation row is kept without its network hashes (`ip_hash` and `net_hash` are blanked after 24 hours) while the commenter exists, and is removed when they are erased. The daily job also prunes reply-notification rows and moderator-notification rows of comments that are no longer held.
 
 **Export.** The owner can export everything stored for an email address: the address, trust level, approved count and dates of the commenter, and for each of their comments its ids, status, name, text, `ip_hash`, `net_hash`, the user agent, the reply opt-in, the spam score, verdict and reasons, the locale and the dates. Fields computed from the body (`body_html`, `body_hash`, link data, path and depth) and internal references (the stored address hash and sealed copy, the approving user) are left out.
 
@@ -216,7 +216,7 @@ The link works once and for 24 hours. Only its SHA-256 is stored, in `hatamoto_c
 
 Disposable email domains come from `hatamoto_comment_blocks` (kind `email_domain`, seeded, editable by the owner) and are refused with a neutral message.
 
-The hourly job `comment_drafts_purge` deletes drafts with status `draft` older than 24 hours, old confirmation rows and commenters that only ever had drafts.
+The hourly job `comment_drafts_purge` deletes drafts with status `draft` older than 24 hours, old confirmation rows and commenters that only ever had drafts. The newest used sign-in row of each commenter is the exception: it stays, with `ip_hash` and `net_hash` blanked, so the commenter survives; it goes when the commenter is erased. The send limits count only the last 24 hours, so blanking changes none of them.
 
 **Sign-in and sign-out without a comment.** A visitor can sign in on their own, which a schema with a sign-in policy needs before the form unlocks:
 
@@ -227,7 +227,7 @@ The hourly job `comment_drafts_purge` deletes drafts with status `draft` older t
 
 Both POSTs refuse a browser that is not same-origin (`403`) and need a single-use form token (`hm_ct`, subject `signin` or `signout`); a missing or used token shows the form again with a fresh one. The routes are limited per client like the confirm link, are sent `no-store`, `noindex` and `no-referrer`, are not cached, and the link token is redacted in logs. A sign-in link whose comment was deleted afterwards still works, because the mail went to the address owner.
 
-Without a mail service the sign-in routes answer `404` like the confirm link; a locked form still shows its sign-in line, and that link leads to the 404.
+Without a mail service the sign-in routes answer `404` like the confirm link; a locked form still shows its sign-in line, and that link leads to the 404. On such a site sign-out therefore happens by the `hm_c` cookie expiring.
 
 Set the site address before enabling comments: without it no confirmation or sign-in mail is sent.
 

@@ -431,7 +431,7 @@ func TestSignInOnlyCommenterSurvivesPurge(t *testing.T) {
 	e := newIDEnv(t)
 	signIn := func(addr string) {
 		t.Helper()
-		if out, err := e.id.RequestSignIn(e.ctx, SignInRequest{Email: addr}); out != OutcomeCheckEmail || err != nil {
+		if out, err := e.id.RequestSignIn(e.ctx, SignInRequest{Email: addr, IPHash: "ip-keep", NetHash: "net-keep"}); out != OutcomeCheckEmail || err != nil {
 			t.Fatalf("request %s: (%v, %v)", addr, out, err)
 		}
 	}
@@ -458,6 +458,12 @@ func TestSignInOnlyCommenterSurvivesPurge(t *testing.T) {
 	v, found, err := e.id.store.TokenVersion(e.ctx, got.CommenterID)
 	if err != nil || !found || v != before {
 		t.Fatalf("signed-in commenter after purge: version %d found %v err %v, want %d", v, found, err, before)
+	}
+	var rows, hashed int
+	e.scalar(&rows, `SELECT count(*) FROM hatamoto_comment_confirmations WHERE commenter_id = $1 AND used_at IS NOT NULL`, got.CommenterID)
+	e.scalar(&hashed, `SELECT count(*) FROM hatamoto_comment_confirmations WHERE commenter_id = $1 AND (ip_hash <> '' OR net_hash <> '')`, got.CommenterID)
+	if rows != 1 || hashed != 0 {
+		t.Errorf("kept sign-in rows = %d, rows with network hashes = %d, want 1 and 0", rows, hashed)
 	}
 	var n int
 	e.scalar(&n, `SELECT count(*) FROM hatamoto_commenters WHERE id = $1`, neverID)

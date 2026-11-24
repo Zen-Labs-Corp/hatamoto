@@ -187,7 +187,8 @@ func (s *pgStore) Purge(ctx context.Context, now time.Time) (drafts, tokens, com
 	}
 	drafts = tag.RowsAffected()
 	// The newest used sign-in row of a commenter stays: it proves the address
-	// and keeps the commenter row (and its key) out of the delete below.
+	// and keeps the commenter row (and its key) out of the delete below. Its
+	// network hashes are blanked right after.
 	tag, err = pool.Exec(ctx, `DELETE FROM hatamoto_comment_confirmations k WHERE k.created_at < $1
 		AND NOT (k.used_at IS NOT NULL AND k.comment_id IS NULL AND k.created_at = (
 			SELECT max(j.created_at) FROM hatamoto_comment_confirmations j
@@ -196,6 +197,12 @@ func (s *pgStore) Purge(ctx context.Context, now time.Time) (drafts, tokens, com
 		return drafts, 0, 0, err
 	}
 	tokens = tag.RowsAffected()
+	// The kept row holds no network data past the 24 hour window. The send
+	// limits only count the last 24 hours, so blanking changes none of them.
+	if _, err = pool.Exec(ctx, `UPDATE hatamoto_comment_confirmations SET ip_hash = '', net_hash = ''
+		WHERE created_at < $1 AND used_at IS NOT NULL AND comment_id IS NULL AND (ip_hash <> '' OR net_hash <> '')`, cutoff); err != nil {
+		return drafts, tokens, 0, err
+	}
 	tag, err = pool.Exec(ctx, `DELETE FROM hatamoto_commenters m
 		WHERE m.trust_level = 'new' AND m.approved_count = 0 AND m.first_approved_at IS NULL AND m.last_spam_at IS NULL
 		AND m.last_seen_at < $1
