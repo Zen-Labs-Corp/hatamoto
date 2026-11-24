@@ -54,8 +54,12 @@ func (s *Service) Thread(ctx context.Context, entityID uuid.UUID, page int) (Thr
 	if page < 1 {
 		page = 1
 	}
+	order, _, err := schemaComments(ctx, s.db.Pool(), entityID)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return ThreadPage{}, err
+	}
 	q := threadNewestSQL
-	if set.Sort == SortOldest {
+	if order.Sort(set.Sort) == SortOldest {
 		q = threadOldestSQL
 	}
 	offset := (page - 1) * set.PageSize
@@ -237,27 +241,65 @@ func (s *Service) Commenter(ctx context.Context, emailHash string) (Commenter, e
 	return c, nil
 }
 
-// EntityMode resolves the comment mode of one entity. With comments off it
-// answers ModeOff without a query. An unknown entity is ErrNotFound.
-func (s *Service) EntityMode(ctx context.Context, entityID uuid.UUID) (Mode, error) {
+// EntityConfig is one entity's resolved comment mode plus its content type's
+// thread order and community policy.
+type EntityConfig struct {
+	Mode   Mode
+	Order  Order
+	Policy Policy
+}
+
+// EntityConfig resolves the comment mode, order and policy of one entity in
+// one query. With comments off it answers ModeOff (zero Order and Policy)
+// without a query. An unknown entity is ErrNotFound. A bad stored order or
+// policy reads as unset, never as an error.
+func (s *Service) EntityConfig(ctx context.Context, entityID uuid.UUID) (EntityConfig, error) {
 	set, err := s.Settings(ctx)
 	if err != nil || !set.Enabled {
-		return ModeOff, err
+		return EntityConfig{Mode: ModeOff}, err
 	}
-	var schemaMode, entityMode *string
+	var schemaMode, schemaOrder, entityMode *string
+	var policy []byte
 	var published *time.Time
-	err = s.db.Pool().QueryRow(ctx, `SELECT s.settings->'comments'->>'mode', ce.mode, e.published_at
+	err = s.db.Pool().QueryRow(ctx, `SELECT s.settings->'comments'->>'mode', s.settings->'comments'->>'order',
+			s.settings->'comments'->'policy', ce.mode, e.published_at
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON s.id = e.schema_id
 		LEFT JOIN hatamoto_comment_entities ce ON ce.entity_id = e.id
-		WHERE e.id = $1`, entityID).Scan(&schemaMode, &entityMode, &published)
+		WHERE e.id = $1`, entityID).Scan(&schemaMode, &schemaOrder, &policy, &entityMode, &published)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ModeOff, ErrNotFound
+		return EntityConfig{Mode: ModeOff}, ErrNotFound
 	}
 	if err != nil {
-		return ModeOff, err
+		return EntityConfig{Mode: ModeOff}, err
 	}
-	return ResolveMode(set, deref(schemaMode), deref(entityMode), published, s.utcNow()), nil
+	cfg := EntityConfig{
+		Mode:   ResolveMode(set, deref(schemaMode), deref(entityMode), published, s.utcNow()),
+		Policy: DecodePolicy(policy),
+	}
+	if ValidOrder(deref(schemaOrder)) {
+		cfg.Order = Order(deref(schemaOrder))
+	}
+	return cfg, nil
+}
+
+// EntityMode resolves the comment mode of one entity. With comments off it
+// answers ModeOff without a query. An unknown entity is ErrNotFound.
+func (s *Service) EntityMode(ctx context.Context, entityID uuid.UUID) (Mode, error) {
+	cfg, err := s.EntityConfig(ctx, entityID)
+	return cfg.Mode, err
+}
+
+// Sort is the root order for a type: newest and oldest override the site sort;
+// rank and "" keep it (the rank order is applied by a plugin).
+func (o Order) Sort(site Sort) Sort {
+	switch o {
+	case OrderNewest:
+		return SortNewest
+	case OrderOldest:
+		return SortOldest
+	}
+	return site
 }
 
 func deref(s *string) string {
