@@ -683,31 +683,42 @@ func (a commentsAdmin) SchemaCommentConfigs(ctx context.Context) ([]admin.Schema
 	}
 	out := make([]admin.SchemaCommentConfig, 0, len(schemas))
 	for _, sch := range schemas {
-		// One schema with unreadable settings has no comment config; it must not hide the others.
-		m, err := schemaSettings(sch.Settings)
+		cfg, _, err := schemaCommentConfig(sch)
 		if err != nil {
-			m = nil
+			return nil, err
 		}
-		cm, _ := m["comments"].(map[string]any)
-		mode, _ := cm["mode"].(string)
-		order, _ := cm["order"].(string)
-		if !comment.ValidOrder(order) {
-			order = ""
-		}
-		var rawPolicy []byte
-		if pm, ok := cm["policy"]; ok {
-			if rawPolicy, err = jsonx.Marshal(pm); err != nil {
-				return nil, err
-			}
-		}
-		p := comment.DecodePolicy(rawPolicy)
-		out = append(out, admin.SchemaCommentConfig{
-			ID: sch.ID.String(), Slug: sch.Slug, Name: sch.Name, Builtin: sch.IsBuiltin,
-			Mode: mode, Order: order,
-			Policy: admin.CommentPolicy{Enabled: p.Enabled, MaxDepth: p.MaxDepth, EditWindowMinutes: p.EditWindowMinutes, SlowModeSeconds: p.SlowModeSeconds},
-		})
+		out = append(out, cfg)
 	}
 	return out, nil
+}
+
+// schemaCommentConfig reads one schema's comment settings. A schema with
+// unreadable settings has an empty config (it must not hide the others);
+// hasPolicy reports whether settings.comments.policy is stored.
+func schemaCommentConfig(sch *entity.EntitySchema) (cfg admin.SchemaCommentConfig, hasPolicy bool, err error) {
+	m, err := schemaSettings(sch.Settings)
+	if err != nil {
+		m = nil
+	}
+	cm, _ := m["comments"].(map[string]any)
+	mode, _ := cm["mode"].(string)
+	order, _ := cm["order"].(string)
+	if !comment.ValidOrder(order) {
+		order = ""
+	}
+	var rawPolicy []byte
+	pm, hasPolicy := cm["policy"]
+	if hasPolicy {
+		if rawPolicy, err = jsonx.Marshal(pm); err != nil {
+			return cfg, false, err
+		}
+	}
+	p := comment.DecodePolicy(rawPolicy)
+	return admin.SchemaCommentConfig{
+		ID: sch.ID.String(), Slug: sch.Slug, Name: sch.Name, Builtin: sch.IsBuiltin,
+		Mode: mode, Order: order,
+		Policy: admin.CommentPolicy{Enabled: p.Enabled, MaxDepth: p.MaxDepth, EditWindowMinutes: p.EditWindowMinutes, SlowModeSeconds: p.SlowModeSeconds},
+	}, hasPolicy, nil
 }
 
 func (a commentsAdmin) SetSchemaComments(ctx context.Context, schemaID, order string, p admin.CommentPolicy) error {

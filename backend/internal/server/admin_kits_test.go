@@ -2,10 +2,12 @@ package server
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"errors"
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/kit"
 	"hatamoto.dev/core/internal/packages"
 )
@@ -116,5 +118,14 @@ func TestKitRegistryTimeoutBoundsOnlyTheIndexRead(t *testing.T) {
 	}
 	if d := fp.deadlines[1]; d != 0 {
 		t.Errorf("Plan read has deadline %v: downloads must use the registry's own timeouts", d)
+	}
+}
+
+func TestSchemaCommentConfigIgnoresJunkSettings(t *testing.T) {
+	for _, raw := range []string{`[1]`, `not json`, `{"comments":"x"}`, ``} {
+		cfg, has, err := schemaCommentConfig(&entity.EntitySchema{Slug: "odd", Settings: jsontext.Value(raw)})
+		if err != nil || has || cfg.Slug != "odd" || cfg.Order != "" || cfg.Policy.Enabled {
+			t.Errorf("settings %q: cfg=%+v has=%v err=%v", raw, cfg, has, err)
+		}
 	}
 }

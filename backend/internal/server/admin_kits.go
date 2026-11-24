@@ -29,7 +29,7 @@ type kitsAdmin struct {
 func (s *Server) newKitsAdmin() *kitsAdmin {
 	deps := kit.Wire(kit.Services{
 		Manager: s.packages, Entities: s.entityService, Menus: s.menuService, Site: s.siteConfig,
-		Comments: s.comments, Pool: s.db.Pool(), Address: s.kitAddress, Log: s.logger,
+		Comments: s.comments, SchemaComments: s.kitSchemaComments(), Pool: s.db.Pool(), Address: s.kitAddress, Log: s.logger,
 	})
 	return &kitsAdmin{deps: deps, applied: kit.AppliedStore{Pool: s.db.Pool()}, verify: s.packages.VerifyKit}
 }
@@ -109,7 +109,7 @@ func (k *kitsAdmin) Apply(ctx context.Context, pl *kit.Plan, a kit.Accepts, o ki
 	return kit.Apply(actorCtx(ctx), k.deps, pl, a, o)
 }
 
-// kitTier is the signer label (Decision 16): the registry's tier when it lists one, else
+// kitTier is the signer label: the registry's tier when it lists one, else
 // first-party for a first-party key, developer for a developer grant, community otherwise.
 func kitTier(entryTier string, origin packages.Origin, signer string) string {
 	switch {
