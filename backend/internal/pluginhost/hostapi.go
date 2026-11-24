@@ -66,7 +66,10 @@ type TranslationGroups interface {
 // functions fail with "unavailable".
 type Services struct {
 	Entities *entity.Service
-	Paths    EntityPaths // optional: without it entities carry no path/url and cannot be read by path
+	// EntityWrites serves entities.create/update/delete for the one content type
+	// a plugin owns; nil = unavailable. *entity.Service implements it.
+	EntityWrites EntityWriter
+	Paths        EntityPaths // optional: without it entities carry no path/url and cannot be read by path
 	// Groups links translations. Without it translation_of is unavailable and
 	// entities carry no translation_group.
 	Groups    TranslationGroups
@@ -137,6 +140,7 @@ type API struct {
 
 type pluginLimits struct {
 	log, mail, fetch *rate.Limiter
+	writes           *rate.Limiter // entities.create/update/delete, shared by the three
 
 	// Guarded by API.mu.
 	quota int   // mail.send recipients per hour the mail limiter was built for
@@ -180,6 +184,8 @@ func (a *API) limitsLocked(plugin string) *pluginLimits {
 			mail:  rate.NewLimiter(rate.Limit(quota)/3600, burstFor(quota)),
 			quota: quota,
 			fetch: rate.NewLimiter(rate.Every(time.Minute/time.Duration(perMin)), min(perMin, 60)),
+			// 60 writes per minute, burst 20; fixed, not owner-tunable.
+			writes: rate.NewLimiter(rate.Every(time.Second), 20),
 		}
 		a.limiters[plugin] = l
 	}
@@ -435,9 +441,10 @@ var hostFns = map[string]hostFn{
 	sdk.FnFormsSubmissions:     {perm: sdk.PermFormsRead, run: fnFormsSubmissions},
 
 	// SDK 0.27 contract: names and permissions only, bodies come with the changes that own them.
-	sdk.FnEntitiesCreate:    {perm: sdk.PermEntitiesWriteOwn, run: contractStub(sdk.FnEntitiesCreate)},
-	sdk.FnEntitiesUpdate:    {perm: sdk.PermEntitiesWriteOwn, run: contractStub(sdk.FnEntitiesUpdate)},
-	sdk.FnEntitiesDelete:    {perm: sdk.PermEntitiesWriteOwn, run: contractStub(sdk.FnEntitiesDelete)},
+	// (entities.create|update|delete are implemented in hostapi_entitywrite.go.)
+	sdk.FnEntitiesCreate:    {perm: sdk.PermEntitiesWriteOwn, run: fnEntitiesCreate},
+	sdk.FnEntitiesUpdate:    {perm: sdk.PermEntitiesWriteOwn, run: fnEntitiesUpdate},
+	sdk.FnEntitiesDelete:    {perm: sdk.PermEntitiesWriteOwn, run: fnEntitiesDelete},
 	sdk.FnCommentsMarkDead:  {perm: sdk.PermCommentsModerate, run: contractStub(sdk.FnCommentsMarkDead)},
 	sdk.FnCommentsRestore:   {perm: sdk.PermCommentsModerate, run: contractStub(sdk.FnCommentsRestore)},
 	sdk.FnCommentsSetRank:   {perm: sdk.PermCommentsModerate, run: contractStub(sdk.FnCommentsSetRank)},

@@ -183,19 +183,25 @@ type ConfirmInfo struct {
 	Downgrade, SignerChange bool
 	// WidenedAccess is set when an update can call web addresses the installed
 	// version could not; it also clears the plugin's grants.
-	WidenedAccess          bool
-	NewHosts               []string
-	NewFetchAny            bool
-	NewIsland              bool
-	NewScripts             bool
-	NewEntitiesFilter      bool
-	NewCSPHosts            []string
-	NewRequestHeaders      []string
-	NewRedirectPaths       []string
-	NewTagHosts            []string
-	TagCategoryChanged     bool
-	OldVersion, NewVersion string
-	OldSigner, NewSigner   string
+	WidenedAccess     bool
+	NewHosts          []string
+	NewFetchAny       bool
+	NewIsland         bool
+	NewScripts        bool
+	NewEntitiesFilter bool
+	// NewEntityWrite: the update newly asks for entities.write.own;
+	// EntitySchemaChanged: it writes another content type (OldEntitySchema ->
+	// NewEntitySchema); NewEntityFields: keys it may now write.
+	NewEntityWrite, EntitySchemaChanged bool
+	OldEntitySchema, NewEntitySchema    string
+	NewEntityFields                     []string
+	NewCSPHosts                         []string
+	NewRequestHeaders                   []string
+	NewRedirectPaths                    []string
+	NewTagHosts                         []string
+	TagCategoryChanged                  bool
+	OldVersion, NewVersion              string
+	OldSigner, NewSigner                string
 	// Missing are section types the active theme would lose.
 	Missing []MissingSection
 }
@@ -223,7 +229,10 @@ type PackageSummary struct {
 	RequestHeaders []string
 	// ContentTypes are the names of the entity types the plugin installs.
 	ContentTypes []string
-	CSP          []permtext.CSPLine
+	// EntitySchema is the one content type the plugin may write
+	// (entity_schema), EntitySchemaName its display name.
+	EntitySchema, EntitySchemaName string
+	CSP                            []permtext.CSPLine
 	// Tags are the tags of a tag pack; the prompt shows them instead of
 	// permissions.
 	Tags []TagInfo

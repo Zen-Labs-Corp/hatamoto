@@ -612,34 +612,40 @@ func ownedOrStaged(ctx context.Context, tx pgx.Tx, p StandingPolicy, origin, ref
 
 // Size limits for an automatic create. Past any of them the entry waits for a
 // person, which keeps the scans below (and the library lookup, whose array is
-// at most a few times maxCreateStrings long) bounded by a constant.
+// at most a few times MaxCreateStrings long) bounded by a constant. A plugin
+// write into its own content type is held to the same caps.
 const (
-	maxCreateString     = 64 << 10
-	maxCreateStrings    = 4096
-	maxCreateAttributes = 256 << 10
+	MaxCreateString     = 64 << 10
+	MaxCreateStrings    = 4096
+	MaxCreateAttributes = 256 << 10
 )
 
-// createTooLarge reports whether a create item is over a size limit: the
-// attributes JSON, any single string, or the number of strings (map keys
-// included). It only measures, so it is safe to run before any decoding.
+// createTooLarge reports whether a create item is over a size limit.
 func createTooLarge(pl entityPayload) bool {
-	if len(pl.Attributes) > maxCreateAttributes {
-		return true
-	}
-	strs := 0
-	over := func(s string) bool {
-		strs++
-		return len(s) > maxCreateString || strs > maxCreateStrings
-	}
 	own := []string{pl.Name, pl.Slug, pl.Locale}
 	if pl.SEO != nil {
 		own = append(own, pl.SEO.MetaTitle, pl.SEO.MetaDescription, pl.SEO.Robots)
 	}
-	if slices.ContainsFunc(own, over) {
+	return WriteTooLarge(own, pl.Attributes)
+}
+
+// WriteTooLarge reports whether strs plus the attributes JSON is over a size
+// limit: the attributes size, any single string, or the number of strings (map
+// keys included). It only measures, so it is safe to run before any decoding.
+func WriteTooLarge(strs []string, attrs jsontext.Value) bool {
+	if len(attrs) > MaxCreateAttributes {
 		return true
 	}
-	attrs, ok := decodeObject(pl.Attributes)
-	return ok && tooLargeValue(attrs, over)
+	n := 0
+	over := func(s string) bool {
+		n++
+		return len(s) > MaxCreateString || n > MaxCreateStrings
+	}
+	if slices.ContainsFunc(strs, over) {
+		return true
+	}
+	obj, ok := decodeObject(attrs)
+	return ok && tooLargeValue(obj, over)
 }
 
 func tooLargeValue(v any, over func(string) bool) bool {

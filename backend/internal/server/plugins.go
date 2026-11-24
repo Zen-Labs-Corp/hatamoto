@@ -67,6 +67,9 @@ func (s *Server) setupPlugins() {
 			FetchPerMinute: s.cfg.Plugins.FetchPerMinute,
 		},
 	}
+	if s.entityService != nil { // a nil *Service in the interface would not read as unavailable
+		cfg.Services.EntityWrites = s.entityService
+	}
 	if s.db != nil {
 		cfg.Services.Groups = entity.NewGroupStore(s.db.Pool())
 	}

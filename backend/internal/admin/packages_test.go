@@ -116,6 +116,19 @@ func (f *fakePackages) Inspect(_ context.Context, data []byte) (PackageSummary, 
 		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"kv", "entities.filter"},
 			Signed: true, Signer: "abc123", Updating: true, InstalledVersion: "2.0.0", Granted: []string{"kv"},
 			Confirm: &ConfirmInfo{Name: name, WidenedAccess: true, NewEntitiesFilter: true, OldVersion: "2.0.0", NewVersion: "2.1.0", OldSigner: "abc123", NewSigner: "abc123"}}, nil
+	case strings.HasPrefix(s, "plugin-entity-write:"): // a first install that may write one content type
+		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-entity-write:"), Version: "1.0.0", Permissions: []string{"entities.write.own"},
+			EntitySchema: "story", EntitySchemaName: "Stories", Signed: true, Signer: "abc123"}, nil
+	case strings.HasPrefix(s, "plugin-write-update:"): // an update that newly asks for entities.write.own
+		name := strings.TrimPrefix(s, "plugin-write-update:")
+		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"kv", "entities.write.own"}, EntitySchema: "story", EntitySchemaName: "Stories",
+			Signed: true, Signer: "abc123", Updating: true, InstalledVersion: "2.0.0", Granted: []string{"kv"},
+			Confirm: &ConfirmInfo{Name: name, WidenedAccess: true, NewEntityWrite: true, NewEntitySchema: "story", OldVersion: "2.0.0", NewVersion: "2.1.0", OldSigner: "abc123", NewSigner: "abc123"}}, nil
+	case strings.HasPrefix(s, "plugin-write-widen:"): // an update that writes another content type and more fields
+		name := strings.TrimPrefix(s, "plugin-write-widen:")
+		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"entities.write.own"}, EntitySchema: "note", EntitySchemaName: "Notes",
+			Signed: true, Signer: "abc123", Updating: true, InstalledVersion: "2.0.0", Granted: []string{"entities.write.own"},
+			Confirm: &ConfirmInfo{Name: name, WidenedAccess: true, EntitySchemaChanged: true, OldEntitySchema: "story", NewEntitySchema: "note", NewEntityFields: []string{"text"}, OldVersion: "2.0.0", NewVersion: "2.1.0", OldSigner: "abc123", NewSigner: "abc123"}}, nil
 	case strings.HasPrefix(s, "plugin-redirects:"): // an update that newly declares redirect paths
 		name := strings.TrimPrefix(s, "plugin-redirects:")
 		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"kv"},

@@ -63,6 +63,7 @@ type Service struct {
 	logger         *slog.Logger
 	linkSync       EntityLinkSync
 	events         EventSink
+	pluginAudit    TxAudit // audit hook of the plugin write path; nil = none
 	beforeSave     BeforeSaveFunc
 	urls           *URLRegistry
 	onSchemaChange func()

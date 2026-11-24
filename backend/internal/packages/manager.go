@@ -93,6 +93,13 @@ type ConfirmationRequired struct {
 	// asks for client.key, entities.write.own or comments.moderate (SDK 0.27);
 	// each counts as widened access too.
 	NewClientKey, NewEntityWrite, NewCommentsModerate bool
+	// EntitySchemaChanged: the update writes (and moderates) another content
+	// type than the installed version (OldEntitySchema -> NewEntitySchema, both
+	// set); NewEntityFields are entity_fields keys the update adds on the same
+	// type. Both count as widened access too.
+	EntitySchemaChanged              bool
+	OldEntitySchema, NewEntitySchema string
+	NewEntityFields                  []string
 	// NewCSPHosts are page-security (csp) hosts the update adds; it counts as
 	// widened access too.
 	NewCSPHosts []string
@@ -633,6 +640,7 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 		c.NewClientKey = newlyAsks(prev.Manifest, p, sdk.PermClientKey)
 		c.NewEntityWrite = newlyAsks(prev.Manifest, p, sdk.PermEntitiesWriteOwn)
 		c.NewCommentsModerate = newlyAsks(prev.Manifest, p, sdk.PermCommentsModerate)
+		c.OldEntitySchema, c.NewEntitySchema, c.EntitySchemaChanged, c.NewEntityFields = entityWriteChange(prev.Manifest, p)
 		c.NewCSPHosts = newCSPHosts(prev.Manifest, p)
 		c.NewRequestHeaders = newRequestHeaders(prev.Manifest, p)
 		c.NewRedirectPaths = newRedirectPaths(prev.Manifest, p)
@@ -643,7 +651,7 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 			c.NewTagHosts, c.TagCategoryChanged = newTagAccess(prevPkg, p)
 		}
 		c.TagCompareFailed = loadErr != nil
-		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || c.NewEntitiesFilter || c.NewClientKey || c.NewEntityWrite || c.NewCommentsModerate || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0 || len(c.NewRedirectPaths) > 0 || len(c.NewTagHosts) > 0 || c.TagCategoryChanged || c.TagCompareFailed
+		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || c.NewEntitiesFilter || c.NewClientKey || c.NewEntityWrite || c.NewCommentsModerate || c.EntitySchemaChanged || len(c.NewEntityFields) > 0 || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0 || len(c.NewRedirectPaths) > 0 || len(c.NewTagHosts) > 0 || c.TagCategoryChanged || c.TagCompareFailed
 	}
 	if !c.Downgrade && !c.SignerChange && !c.WidenedAccess && len(c.Missing) == 0 {
 		return nil, nil
@@ -694,6 +702,37 @@ func newlyAsks(installed jsontext.Value, p *Package, perm sdk.Permission) bool {
 	_ = decodeManifest(installed, &old)
 	next, err := p.PluginManifest()
 	return err == nil && slices.Contains(next.Permissions, perm) && !slices.Contains(old.Permissions, perm)
+}
+
+// entityWriteChange compares entity_schema and entity_fields of the installed
+// manifest with the update's. "" -> X is NewEntityWrite's case; X -> "" and
+// dropped keys narrow access, so none of them is reported. An installed
+// manifest that cannot be decoded counts as a change when the update writes.
+func entityWriteChange(installed jsontext.Value, p *Package) (oldSchema, newSchema string, changed bool, newFields []string) {
+	var old sdk.Manifest
+	oldErr := decodeManifest(installed, &old)
+	next, err := p.PluginManifest()
+	if err != nil {
+		return old.EntitySchema, "", false, nil
+	}
+	oldSchema, newSchema = old.EntitySchema, next.EntitySchema
+	if oldErr != nil && newSchema != "" {
+		// The installed manifest cannot be read, so what the plugin may write
+		// today is unknown: fail toward asking.
+		return "", newSchema, true, nil
+	}
+	if oldSchema == "" || newSchema == "" {
+		return oldSchema, newSchema, false, nil
+	}
+	if oldSchema != newSchema {
+		return oldSchema, newSchema, true, nil
+	}
+	for _, f := range next.EntityFields {
+		if !slices.Contains(old.EntityFields, f) {
+			newFields = append(newFields, f)
+		}
+	}
+	return oldSchema, newSchema, false, newFields
 }
 
 // newRedirectPaths lists the redirect_paths the update declares that the
@@ -877,7 +916,8 @@ type UninstallOpts struct {
 // cannot be installed over), its permissions are revoked, with dropData its
 // schema, role, stored values and settings are dropped, and only then is the row
 // deleted. With DropContentTypes the entity types the plugin installed and
-// their content go too (types the owner made are never touched). A failure
+// their content go too (types the owner made are never touched); without it the
+// entries the plugin wrote become the owner's. A failure
 // leaves the row uninstalling; call Uninstall again. Core content is never
 // touched.
 func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, opts UninstallOpts) error {
@@ -925,6 +965,24 @@ func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, opts Un
 	if opts.DropContentTypes && m.Schemas != nil {
 		if droppedTypes, err = m.Schemas.RemovePluginSchemas(ctx, name); err != nil {
 			return fmt.Errorf("removing the content types of %q (uninstall is unfinished; try again): %w", name, err)
+		}
+	} else if m.Schemas != nil {
+		// The owner keeps the content, so the entries in the plugin's own content
+		// types are the owner's now: a later package that reuses this name must
+		// not inherit write access to them. Entries a changeset put into other
+		// types stay as they are, and updated_at is left alone (the entities
+		// trigger honours hatamoto.import).
+		err := pgx.BeginFunc(ctx, m.Pool, func(tx pgx.Tx) error {
+			if _, err := tx.Exec(ctx, `SELECT set_config('hatamoto.import', 'on', true)`); err != nil {
+				return err
+			}
+			_, err := tx.Exec(ctx, `UPDATE hatamoto_entities e SET origin = 'owner'
+				FROM hatamoto_entity_schemas s
+				WHERE s.id = e.schema_id AND s.origin_plugin = $1 AND e.origin = $2`, name, entity.PluginOrigin(name))
+			return err
+		})
+		if err != nil {
+			return fmt.Errorf("handing the entries of %q to the owner (uninstall is unfinished; try again): %w", name, err)
 		}
 	}
 	if opts.DropData {

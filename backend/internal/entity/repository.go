@@ -29,6 +29,9 @@ type SchemaRepository interface {
 	// InTx runs fn in one transaction: it commits when fn returns nil and
 	// rolls back otherwise.
 	InTx(ctx context.Context, fn func(tx pgx.Tx) error) error
+	// InTxDetachedCommit is InTx with COMMIT on a context ctx's cancellation
+	// cannot reach, bounded by commitTimeout (see database.WithTxDetachedCommit).
+	InTxDetachedCommit(ctx context.Context, commitTimeout time.Duration, fn func(tx pgx.Tx) error) error
 	// GetByIDForUpdate reads a schema and locks its row until tx ends, so a
 	// read-modify-write of its settings cannot interleave with another one.
 	GetByIDForUpdate(ctx context.Context, tx pgx.Tx, id uuid.UUID) (*EntitySchema, error)
@@ -139,6 +142,12 @@ func (r *PostgresSchemaRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 // InTx runs fn in one transaction.
 func (r *PostgresSchemaRepository) InTx(ctx context.Context, fn func(tx pgx.Tx) error) error {
 	return r.db.WithTx(ctx, fn)
+}
+
+// InTxDetachedCommit runs fn in one transaction on ctx and commits on a context
+// that ctx's cancellation cannot reach.
+func (r *PostgresSchemaRepository) InTxDetachedCommit(ctx context.Context, commitTimeout time.Duration, fn func(tx pgx.Tx) error) error {
+	return r.db.WithTxDetachedCommit(ctx, commitTimeout, fn)
 }
 
 // GetByIDForUpdate reads a schema and locks its row until tx ends.
