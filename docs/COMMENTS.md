@@ -37,7 +37,7 @@ On a type with the policy on, comments with links and first comments from new co
 
 The policy also sets three numbers that replace the site values for that type only: reply depth (1 to 32, default 10), the edit window in minutes (1 to 1440, default 15) and slow mode in seconds (0 turns it off). Other types keep the site settings. A long edit window has a cost: a commenter's own page views are not served from the page cache for that whole window, so a 24 hour window on a busy type means many uncached page views. Built-in types cannot use the policy yet.
 
-Each type can also choose its own thread order: Site default, Newest first or Oldest first. "By rank" is offered only while a plugin that holds `comments.moderate` for the type is installed (or when rank is already stored); the plugin applies the rank.
+Each type can also choose its own thread order: Site default, Newest first or Oldest first. "By rank" is offered only while a plugin that holds `comments.moderate` for the type is installed (or when rank is already stored); core orders the comments by the ranks the plugin stores.
 
 ## Notifications
 
@@ -130,7 +130,7 @@ The JSON keys in `hatamoto_comment_settings.settings`, with their defaults:
 | `purge_days` | 30 |
 | `notify_mode` | `per_comment` (or `digest`, `off`) |
 
-The default mode for a content type is `entity_schemas.settings.comments.mode`; a page overrides it with its own `mode`. The same `settings.comments` object holds `order` (`newest`, `oldest` or `rank`; a plugin applies `rank`) and `policy` (`enabled`, `max_depth`, `edit_window_minutes`, `slow_mode_seconds`). A bad stored value reads as off or the field default, never as an error, and no migration is involved. `comment.MergeSchemaComments` is the write helper: it rewrites `order` and `policy` and keeps every other key. `Service.EntityConfig` returns the mode, order and policy of an entity in one query; `EntityMode` wraps it. With the policy off, every number is the site value or the fixed one below. Four numbers are fixed in code, not settings: `EditWindow` (15 minutes, unless the type's policy sets another), `DraftTTL` (24 hours), the 90-day spam quiet period a trusted commenter needs and the 15-minute reply-mail window.
+The default mode for a content type is `entity_schemas.settings.comments.mode`; a page overrides it with its own `mode`. The same `settings.comments` object holds `order` (`newest`, `oldest` or `rank`; core sorts by the stored rank, which a plugin writes) and `policy` (`enabled`, `max_depth`, `edit_window_minutes`, `slow_mode_seconds`). A bad stored value reads as off or the field default, never as an error, and no migration is involved. `comment.MergeSchemaComments` is the write helper: it rewrites `order` and `policy` and keeps every other key. `Service.EntityConfig` returns the mode, order and policy of an entity in one query; `EntityMode` wraps it; the config also names the plugin that owns the type. With the policy off, every number is the site value or the fixed one below. Four numbers are fixed in code, not settings: `EditWindow` (15 minutes, unless the type's policy sets another), `DraftTTL` (24 hours), the 90-day spam quiet period a trusted commenter needs and the 15-minute reply-mail window.
 
 ### internal/comment
 

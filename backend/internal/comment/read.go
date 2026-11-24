@@ -365,7 +365,7 @@ func (s *Service) EntityMode(ctx context.Context, entityID uuid.UUID) (Mode, err
 }
 
 // Sort is the root order for a type: newest and oldest override the site sort;
-// rank and "" keep it (the rank order is applied by a plugin).
+// rank and "" keep it. The view uses this only to place items it adds itself.
 func (o Order) Sort(site Sort) Sort {
 	switch o {
 	case OrderNewest:
