@@ -277,6 +277,12 @@ func TestPluginWriteOwnerModeration_Integration(t *testing.T) {
 			t.Fatalf("update of an archived entry (status %q): %v, want ErrPluginEntryClosed", st, err)
 		}
 	}
+	if _, err := r.svc.PluginDelete(ctx, "fixture", slug, e.ID); !errors.Is(err, ErrPluginEntryClosed) {
+		t.Fatalf("delete of an archived entry: %v, want ErrPluginEntryClosed", err)
+	}
+	if _, err := r.svc.entityRepo.GetByID(ctx, e.ID); err != nil {
+		t.Fatalf("archived entry must survive a refused plugin delete: %v", err)
+	}
 }
 
 func TestPluginWriteAuditFailsClosed_Integration(t *testing.T) {

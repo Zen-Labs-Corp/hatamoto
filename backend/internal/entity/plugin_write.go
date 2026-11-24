@@ -202,9 +202,12 @@ func (s *Service) PluginUpdate(ctx context.Context, plugin string, id uuid.UUID,
 
 // pluginMayUpdate is the owner's moderation of a plugin's entry. A plugin may
 // edit a published or draft entry; it may publish only one that has never been
-// published (published_at is kept when an entry is unpublished), so a story the
-// owner took down stays down. Anything else (archived, scheduled) is the
-// owner's.
+// published (published_at is kept when an entry is unpublished), so the plugin
+// cannot republish what was published and then unpublished. Anything else
+// (archived, scheduled) is the owner's. This is not a takedown guarantee: the
+// plugin can still delete its unpublished drafts and create new entries, so
+// against a misbehaving plugin the owner revokes entities.write.own or
+// uninstalls it. A changeset revert or an import can reset published_at.
 func pluginMayUpdate(cur *entitySnapshot, want EntityStatus) error {
 	st := EntityStatus(cur.Status)
 	if st != StatusPublished && st != StatusDraft {
@@ -217,7 +220,8 @@ func pluginMayUpdate(cur *entitySnapshot, want EntityStatus) error {
 }
 
 // PluginDelete removes an entry the plugin created (hard delete; its comments
-// go with it) and returns the pre-image. It refuses an entry that has children.
+// go with it) and returns the pre-image. It refuses an entry that has children
+// and, like an update, one that is neither published nor draft (the owner's).
 func (s *Service) PluginDelete(ctx context.Context, plugin, schema string, id uuid.UUID) (*Entity, error) {
 	var sc *EntitySchema
 	var pre *Entity
@@ -229,6 +233,9 @@ func (s *Service) PluginDelete(ctx context.Context, plugin, schema string, id uu
 		cur, err := lockOwnedTx(ctx, tx, plugin, sc.ID, id)
 		if err != nil {
 			return err
+		}
+		if st := EntityStatus(cur.Status); st != StatusPublished && st != StatusDraft {
+			return ErrPluginEntryClosed
 		}
 		pre = cur.entity(sc)
 		if _, err = deleteTx(ctx, tx, cur); err != nil {
