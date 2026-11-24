@@ -99,21 +99,27 @@ func (x *commenterIndex) resolve(ctx context.Context, plugin, key string) (uuid.
 		<-p.sem
 		return uuid.Nil, false, nil
 	}
-	done := make(chan error, 1)
+	type result struct {
+		id  uuid.UUID
+		ok  bool
+		err error
+	}
+	done := make(chan result, 1)
 	go func() {
 		defer func() { <-p.sem }()
-		done <- x.scan(context.WithoutCancel(ctx), plugin, p)
+		err := x.scan(context.WithoutCancel(ctx), plugin, p)
+		id, ok := p.ids[key] // still holding the slot: no other scan writes
+		done <- result{id, ok, err}
 	}()
 	select {
-	case err := <-done:
-		if err != nil {
-			return uuid.Nil, false, err
+	case r := <-done:
+		if r.err != nil {
+			return uuid.Nil, false, r.err
 		}
+		return r.id, r.ok, nil
 	case <-ctx.Done():
 		return uuid.Nil, false, ctx.Err()
 	}
-	id, ok := p.ids[key] // the scan is over and its goroutine no longer writes
-	return id, ok, nil
 }
 
 // scan lists and derives under the plugin's sem.
@@ -126,8 +132,8 @@ func (x *commenterIndex) scan(ctx context.Context, plugin string, p *pluginKeys)
 		since = p.watermark.Add(-keyScanOverlap)
 	}
 	rows, err := x.list(ctx, since)
-	p.lastScan = x.now()
 	if err != nil {
+		p.lastScan = x.now()
 		return err
 	}
 	for _, r := range rows {
@@ -139,6 +145,7 @@ func (x *commenterIndex) scan(ctx context.Context, plugin string, p *pluginKeys)
 		}
 	}
 	p.scanned = true
+	p.lastScan = x.now()
 	if full {
 		p.lastFull = p.lastScan
 	}

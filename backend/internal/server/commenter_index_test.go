@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -210,4 +211,43 @@ func TestCommenterIndexScanOutlivesCaller(t *testing.T) {
 	if f.calls != 1 {
 		t.Fatalf("scans = %d, want 1", f.calls)
 	}
+}
+
+// Concurrent misses and scans must not race on the key map (run with -race).
+func TestCommenterIndexConcurrentResolve(t *testing.T) {
+	f := &fakeCommenters{}
+	for i := 0; i < 50; i++ {
+		f.stamps = append(f.stamps, stamp(i))
+	}
+	d := pluginkey.New("test-secret")
+	var mu sync.Mutex
+	var tick int
+	x := newCommenterIndex(func(ctx context.Context, since time.Time) ([]comment.CommenterStamp, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return f.list(ctx, since)
+	}, d.Commenter)
+	// Every call sees a later time, so the miss guard never holds a scan back.
+	x.now = func() time.Time {
+		mu.Lock()
+		defer mu.Unlock()
+		tick++
+		return time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC).Add(time.Duration(tick) * time.Hour)
+	}
+	var wg sync.WaitGroup
+	for g := 0; g < 8; g++ {
+		wg.Add(1)
+		go func(g int) {
+			defer wg.Done()
+			for i := 0; i < 50; i++ {
+				id := f.stamps[(g+i)%len(f.stamps)].ID
+				if got, ok, err := x.resolve(context.Background(), "plugin-a", d.Commenter("plugin-a", id)); err != nil || (ok && got != id) {
+					t.Errorf("resolve = %v %v %v", got, ok, err)
+					return
+				}
+				x.resolve(context.Background(), "plugin-a", fmt.Sprintf("%043d", g*1000+i))
+			}
+		}(g)
+	}
+	wg.Wait()
 }
