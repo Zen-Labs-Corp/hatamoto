@@ -104,3 +104,26 @@ func TestPublicRouteCommenterKey(t *testing.T) {
 		t.Error("keyFor must be set on the public registry and not on the admin one")
 	}
 }
+
+// A public response built from a commenter key is per visitor: never
+// shared-cacheable. Without a key the plugin's own caching stands.
+func TestPublicRouteCommenterKeyNotShared(t *testing.T) {
+	m := &sdk.Manifest{Name: "capa", Routes: []sdk.Route{{Method: "GET", Path: "/k", Public: true}}}
+	call := func(context.Context, string, string, []byte) ([]byte, error) {
+		return jsonx.MarshalPinned(sdk.HTTPResponse{Body: "x", Headers: map[string]string{"Cache-Control": "public, s-maxage=600"}})
+	}
+	cc := func(key string) string {
+		g := NewRouteRegistry(call, true, nil)
+		g.keyFor = func(context.Context, string) string { return key }
+		g.Set("capa", m)
+		rec := httptest.NewRecorder()
+		g.Serve(rec, httptest.NewRequest("GET", "/p/capa/k", nil), "capa", "k", nil)
+		return rec.Header().Get("Cache-Control")
+	}
+	if got := cc("key-capa"); got != "no-store" {
+		t.Errorf("with commenter key: Cache-Control = %q, want no-store", got)
+	}
+	if got := cc(""); got != "public, s-maxage=600" {
+		t.Errorf("without commenter key: Cache-Control = %q, want the plugin's own", got)
+	}
+}

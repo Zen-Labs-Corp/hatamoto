@@ -239,7 +239,10 @@ func (g *RouteRegistry) Serve(w http.ResponseWriter, r *http.Request, plugin, re
 		writeJSONError(w, http.StatusBadGateway, "plugin error")
 		return
 	}
-	g.writeRouteResponse(w, r, res, pr.m, g.public && g.keyed != nil && g.keyed(plugin))
+	// A response built from a visitor key (client.key or commenter_key) is per
+	// visitor even when the key came from this request alone.
+	keyed := g.public && (req.CommenterKey != "" || g.keyed != nil && g.keyed(plugin))
+	g.writeRouteResponse(w, r, res, pr.m, keyed)
 }
 
 func (g *RouteRegistry) writeRouteResponse(w http.ResponseWriter, r *http.Request, res sdk.HTTPResponse, m sdk.Manifest, keyed bool) {
