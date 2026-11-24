@@ -56,3 +56,4 @@ backend/internal/supervisor/testdata/**                    backend  ./internal/s
 backend/internal/pluginhost/testdata/**                    backend  ./internal/pluginhost
 backend/internal/*.go                                      backend  ./authz
 backend/web/admin/*.html                                   backend  ./authz
+backend/internal/kit/testdata/**                           backend  ./app
