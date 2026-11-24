@@ -48,7 +48,8 @@ func (a *Admin) handleCommentPolicySave(w http.ResponseWriter, r *http.Request) 
 	}
 	_ = r.ParseForm() // a malformed body leaves the form empty: nothing changes
 	form := r.PostForm
-	next, order, errs := cpolParse(form, *cur)
+	_, rankOK := a.cpolModerators()[cur.Slug]
+	next, order, errs := cpolParse(form, *cur, rankOK)
 	if len(errs) == 0 && !cur.Policy.Enabled && next.Enabled && form.Get("understand") != "1" {
 		v := a.NewView(w, r, "Turn the community policy on?")
 		v.Section, v.Tab = "comments", "comments"
@@ -95,8 +96,9 @@ func (a *Admin) handleCommentPolicySave(w http.ResponseWriter, r *http.Request) 
 }
 
 // cpolParse reads the posted switch, numbers and order over the stored
-// values. An absent field keeps the stored value; a bad one is an error.
-func cpolParse(form url.Values, cur SchemaCommentConfig) (next CommentPolicy, order string, errs map[string]string) {
+// values. An absent field keeps the stored value; a bad one is an error. "rank"
+// is accepted while a plugin holds comments.moderate for the type, or when stored.
+func cpolParse(form url.Values, cur SchemaCommentConfig, rankOK bool) (next CommentPolicy, order string, errs map[string]string) {
 	next, order, errs = cur.Policy, cur.Order, map[string]string{}
 	if form.Has("policy") {
 		next.Enabled = form.Get("policy") == "true"
@@ -116,7 +118,7 @@ func cpolParse(form url.Values, cur SchemaCommentConfig) (next CommentPolicy, or
 	}
 	if form.Has("order") {
 		order = form.Get("order")
-		if order != "" && order != "newest" && order != "oldest" && order != cur.Order {
+		if order != "" && order != "newest" && order != "oldest" && order != cur.Order && !(rankOK && order == "rank") {
 			errs["order"] = "Choose the site default, newest first or oldest first."
 		}
 	}

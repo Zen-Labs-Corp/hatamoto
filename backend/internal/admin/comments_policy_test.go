@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -106,5 +107,56 @@ func TestCommentPolicyHiddenWhileCommentsOff(t *testing.T) {
 	p := newCommentsRig(t, f)
 	if body := csetGet(t, p, "owner-token"); strings.Contains(body, "Community policy") {
 		t.Error("panel shown while comments are off")
+	}
+}
+
+func cpolPlugins(granted ...string) *fakePlugins {
+	return &fakePlugins{list: []PluginInfo{
+		{Name: "ranker", EntitySchema: "notes", Permissions: []string{"comments.moderate", "db"}, Granted: granted},
+		{Name: "other", EntitySchema: "elsewhere", Permissions: []string{"comments.moderate"}, Granted: []string{"comments.moderate"}},
+	}}
+}
+
+func TestCommentPolicyModerationRow(t *testing.T) {
+	t.Parallel()
+
+	p := newCommentsRig(t, cpolRig(false))
+	p.a.deps.Growth.Plugins = cpolPlugins("db", "comments.moderate")
+	body := csetGet(t, p, "owner-token")
+	notes, articles := cpolCard(t, body, "notes"), cpolCard(t, body, "articles")
+	for _, want := range []string{"Plugin moderation", "ranker may mark comments dead / restore and set their order", `<option value="rank"`} {
+		if !strings.Contains(notes, want) {
+			t.Errorf("notes card lacks %q", want)
+		}
+	}
+	if strings.Contains(notes, "other may") {
+		t.Error("a plugin scoped to another type is listed")
+	}
+	for _, bad := range []string{"Plugin moderation", `<option value="rank"`} {
+		if strings.Contains(articles, bad) {
+			t.Errorf("articles card has %q", bad)
+		}
+	}
+}
+
+func TestCommentPolicyNoModerationWithoutGrant(t *testing.T) {
+	t.Parallel()
+
+	p := newCommentsRig(t, cpolRig(false))
+	p.a.deps.Growth.Plugins = cpolPlugins("db")
+	body := csetGet(t, p, "owner-token")
+	if notes := cpolCard(t, body, "notes"); strings.Contains(notes, "Plugin moderation") || strings.Contains(notes, `<option value="rank"`) {
+		t.Errorf("notes card shows moderation without the grant: %s", notes)
+	}
+}
+
+func TestCommentPolicySaveRankNeedsGrant(t *testing.T) {
+	t.Parallel()
+
+	f := cpolRig(false)
+	p := newCommentsRig(t, f)
+	p.a.deps.Growth.Plugins = cpolPlugins("comments.moderate")
+	if rec := csetPost(p, cpolNotesURL, "owner-token", url.Values{"order": {"rank"}}, nil); rec.Code != 303 || f.types[0].Order != "rank" {
+		t.Errorf("rank with the grant = %d, order %q", rec.Code, f.types[0].Order)
 	}
 }

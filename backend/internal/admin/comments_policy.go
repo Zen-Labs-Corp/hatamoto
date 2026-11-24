@@ -3,9 +3,11 @@ package admin
 import (
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 
 	"hatamoto.dev/core/internal/admin/ui"
+	"hatamoto.dev/sdk"
 )
 
 // Wording of the community policy warnings. The templates carry the same text
@@ -33,6 +35,7 @@ type cpolType struct {
 	Order                     []ui.Option
 	Numbers                   []csetNumber // only while the policy is on
 	OrderError                string
+	Moderator                 string // plugin holding comments.moderate for this type, "" when none
 }
 
 // cpolModeLabel is how a type's comment mode reads on its card.
@@ -48,7 +51,7 @@ func cpolModeLabel(mode string) string {
 
 // cpolOrderOptions are the order choices. "" follows the site sort; a stored
 // "rank" is shown selected so a save keeps it.
-func cpolOrderOptions(order, siteSort string) []ui.Option {
+func cpolOrderOptions(order, siteSort string, rank bool) []ui.Option {
 	site := "Newest first"
 	if siteSort == "oldest" {
 		site = "Oldest first"
@@ -58,7 +61,7 @@ func cpolOrderOptions(order, siteSort string) []ui.Option {
 		{Value: "newest", Label: "Newest first"},
 		{Value: "oldest", Label: "Oldest first"},
 	}
-	if order == "rank" {
+	if rank || order == "rank" {
 		opts = append(opts, ui.Option{Value: "rank", Label: "By rank"})
 	}
 	for i := range opts {
@@ -69,15 +72,15 @@ func cpolOrderOptions(order, siteSort string) []ui.Option {
 
 // cpolView builds a card. vals, when not nil, are the posted values (after a
 // refused save) and errs the messages by field name.
-func cpolView(c SchemaCommentConfig, siteSort string, vals url.Values, errs map[string]string) cpolType {
+func cpolView(c SchemaCommentConfig, siteSort, moderator string, vals url.Values, errs map[string]string) cpolType {
 	t := cpolType{
 		ID: c.ID, Slug: c.Slug, Name: c.Name, ModeLabel: cpolModeLabel(c.Mode),
-		Supported: !c.Builtin, On: c.Policy.Enabled, OrderValue: c.Order, OrderError: errs["order"],
+		Supported: !c.Builtin, On: c.Policy.Enabled, OrderValue: c.Order, OrderError: errs["order"], Moderator: moderator,
 	}
 	if vals != nil {
 		t.OrderValue = vals.Get("order")
 	}
-	t.Order = cpolOrderOptions(t.OrderValue, siteSort)
+	t.Order = cpolOrderOptions(t.OrderValue, siteSort, moderator != "")
 	if !t.On {
 		return t
 	}
@@ -114,13 +117,33 @@ func (a *Admin) cpolTypes(r *http.Request, svc CommentsService, siteSort string,
 		a.logger().Error("comment content types", "err", err)
 		return nil
 	}
+	mods := a.cpolModerators()
 	out := make([]cpolType, 0, len(cfgs))
 	for _, c := range cfgs {
 		if posted != nil && posted.ID == c.ID {
-			out = append(out, cpolView(c, siteSort, posted.Vals, posted.Errs))
+			out = append(out, cpolView(c, siteSort, mods[c.Slug].Name, posted.Vals, posted.Errs))
 			continue
 		}
-		out = append(out, cpolView(c, siteSort, nil, nil))
+		out = append(out, cpolView(c, siteSort, mods[c.Slug].Name, nil, nil))
+	}
+	return out
+}
+
+// cpolModerators maps a content type slug to the first plugin that holds
+// comments.moderate and declares that type as its entity schema. Grants are
+// per plugin; the manifest's entity_schema is the scope.
+func (a *Admin) cpolModerators() map[string]PluginInfo {
+	out := map[string]PluginInfo{}
+	if a.deps.Growth.Plugins == nil {
+		return out
+	}
+	for _, p := range a.deps.Growth.Plugins.Plugins() {
+		if p.EntitySchema == "" || !slices.Contains(p.Granted, string(sdk.PermCommentsModerate)) {
+			continue
+		}
+		if _, taken := out[p.EntitySchema]; !taken {
+			out[p.EntitySchema] = p
+		}
 	}
 	return out
 }

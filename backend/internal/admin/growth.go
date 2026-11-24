@@ -203,6 +203,8 @@ type PluginInfo struct {
 	RequestHeaders []string
 	// RedirectPaths are the exact public paths it may redirect visitors from.
 	RedirectPaths []string
+	// EntitySchema is the manifest's entity_schema, "" when none.
+	EntitySchema string
 	// ContentTypes are the entity types the plugin installs when enabled.
 	ContentTypes []string
 	// CSP is what it adds to the public pages' security policy.
