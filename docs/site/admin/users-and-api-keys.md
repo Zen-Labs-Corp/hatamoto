@@ -96,6 +96,36 @@ curl -X PATCH -H "X-API-Key: <your-key>" -H "Content-Type: application/json" \
 
 A wrong field answers `422` with a `fields` list that names each one. **Read SEO settings** is enough for `GET` on the same address.
 
+### Edit safely when several programs write
+
+Every entity has a version that counts its content versions. `GET /api/v1/entities/{id}` and every successful change return it as the `ETag` header, a strong tag such as `"9"`. Send it back as `If-Match` and the change is applied only if nobody changed the entry in between:
+
+```bash
+curl -i -H "X-API-Key: <your-key>" https://example.com/api/v1/entities/<id>
+# ETag: "9"
+
+curl -X PATCH -H "X-API-Key: <your-key>" -H "Content-Type: application/json" \
+  -H 'If-Match: "9"' -d '{"name": "New title"}' \
+  https://example.com/api/v1/entities/<id>
+```
+
+If the entry has moved on, nothing is written and the answer is `412` with the current version, also as the `ETag` header:
+
+```json
+{"error":"entity changed: current version is 10","current_version":10}
+```
+
+Read the entry again, redo the change and retry. The check is atomic with the write: of two writers holding the same tag, exactly one succeeds.
+
+- `If-Match` works on `PUT` and `PATCH /api/v1/entities/{id}`, `PATCH /api/v1/entities/{id}/status` and `POST /api/v1/entities/{id}/restore/{version}`. On a restore, the `{version}` in the address is the version to restore and `If-Match` is the current version you expect.
+- The header is optional. Without it a change is applied as before.
+- Send one strong tag (`"9"`) or `*` (any existing entry). A weak tag (`W/"9"`), a list of tags or anything else malformed answers `400`.
+- The tag follows the content version. A status change does not advance it, so two status changes with the same tag can both succeed.
+- A change that only moves the entry (`position` alone) does not check the tag.
+- A restore never overwrites an edit stored while it ran. Without `If-Match` (or with `*`) it answers `409` with `current_version`; with a stale tag, `412`.
+- `If-Match: *` on an entry that does not exist answers `404`.
+- The API sends no CORS headers, so a web page on another origin cannot read the `ETag`.
+
 ### Turn on two-step sign-in
 
 Two-step sign-in asks for a second proof after the password. Each person sets it up under **Profile > Security**, after confirming their password.
