@@ -238,16 +238,20 @@ func (s *Service) PluginDelete(ctx context.Context, plugin, schema string, id uu
 			return ErrPluginEntryClosed
 		}
 		pre = cur.entity(sc)
-		if _, err = deleteTx(ctx, tx, cur); err != nil {
+		if _, err = s.deleteTx(ctx, tx, cur); err != nil {
 			return err
 		}
 		return s.auditTx(ctx, tx, plugin, auditPluginDelete, id, map[string]any{"schema": schema, "name": pre.Name})
 	})
 	if err != nil {
+		s.DropCascade(id) // rolled back: nothing is announced
 		return nil, err
 	}
 	ctx, cancel := afterCommit(ctx)
 	defer cancel()
+	if announce := s.takeCascade(id); announce != nil {
+		announce(ctx)
+	}
 	s.emit(ctx, EventDeleted, pre, sc.Slug, func(ev *Event) { ev.Entity = pre })
 	return pre, nil
 }
