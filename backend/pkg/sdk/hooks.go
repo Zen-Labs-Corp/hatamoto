@@ -63,6 +63,10 @@ var (
 	// holds ids and status only. It may arrive twice for one comment. It reaches
 	// only plugins granted comments.read.
 	CommentDeleted = Action[CommentEvent]{"comment.deleted"}
+	// CommentUpdated (SDK 0.27) fires when a comment is edited, marked dead or
+	// restored (never on a rank change). It reaches only plugins granted
+	// comments.read. Registered, but not fired until the change that fires it ships.
+	CommentUpdated = Action[CommentEvent]{"comment.updated"}
 
 	JSONLDEnrich = Filter[JSONLDDoc]{"jsonld.enrich"}
 	SitemapURLsF = Filter[SitemapURLs]{"sitemap.urls"}
@@ -111,6 +115,13 @@ var (
 	// moderation (fail closed, like entity.before_save). It is registered only
 	// while the plugin holds comments.read.
 	CommentCheckF = Filter[CommentCheck]{"comment.check"}
+
+	// CommentDraftF (SDK 0.27) names the author of a draft on a schema whose
+	// community policy locks the name: return the canonical AuthorName or set
+	// Reject. Any error, trap or timeout rejects the draft (fail closed). It is
+	// registered only while the plugin holds comments.read, and not called until
+	// the change that calls it ships.
+	CommentDraftF = Filter[CommentDraft]{"comment.draft"}
 )
 
 // ActionNames and FilterNames list every built-in hook, in a stable order.
@@ -118,11 +129,11 @@ var (
 	ActionNames = []string{
 		EntityCreated.Name, EntityUpdated.Name, EntityPublished.Name, EntityDeleted.Name, ImportCompleted.Name,
 		AgentHit.Name, AgentFirstCrawl.Name, FormSubmitted.Name,
-		CommentCreated.Name, CommentApproved.Name, CommentSpam.Name, CommentDeleted.Name,
+		CommentCreated.Name, CommentApproved.Name, CommentSpam.Name, CommentDeleted.Name, CommentUpdated.Name,
 	}
 	FilterNames = []string{
 		JSONLDEnrich.Name, SitemapURLsF.Name, RenderHead.Name, RenderPage.Name, EntityBeforeSave.Name, BuilderData.Name, RenderSiteGraph.Name, RequestRedirect.Name,
-		CommentCheckF.Name,
+		CommentCheckF.Name, CommentDraftF.Name,
 	}
 )
 
