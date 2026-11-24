@@ -47,6 +47,7 @@ func (h HookChecker) Check(ctx context.Context, in comment.CheckInput) (score in
 		return 0, nil, nil
 	}
 	out, err := h.Engine.ApplyClosed(ctx, HookName, CheckPayload{
+		Schema:      in.Schema,
 		Body:        in.Body,
 		LinkDomains: in.LinkDomains,
 		BodyHash:    in.BodyHash,

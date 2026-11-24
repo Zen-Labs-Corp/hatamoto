@@ -575,3 +575,117 @@ func TestSubmitTypedOnlyOnInvalid(t *testing.T) {
 		})
 	}
 }
+
+type fakePolicy struct {
+	info  comment.PolicyInfo
+	email string
+}
+
+func (f fakePolicy) PolicyInfo(context.Context, uuid.UUID) (comment.PolicyInfo, error) {
+	return f.info, nil
+}
+func (f fakePolicy) CommenterEmail(_ context.Context, id uuid.UUID) (comment.Commenter, string, error) {
+	return comment.Commenter{ID: id}, f.email, nil
+}
+
+type fakeDrafter struct {
+	name string
+	err  error
+}
+
+func (f fakeDrafter) Name(context.Context, uuid.UUID, string) (string, error) { return f.name, f.err }
+
+type schemaChecker struct{ schema *string }
+
+func (c schemaChecker) Check(_ context.Context, in comment.CheckInput) (int, []string, error) {
+	*c.schema = in.Schema
+	return 0, nil, nil
+}
+
+// policyHarness is a policy-schema submit with a signed-in device.
+func policyHarness(t *testing.T) *harness {
+	t.Helper()
+	h := newHarness(t)
+	h.known(true)
+	h.p.Policy = fakePolicy{info: comment.PolicyInfo{Schema: "story", Enabled: true}, email: "grace@example.test"}
+	h.p.Drafter = fakeDrafter{name: "Grace H."}
+	return h
+}
+
+func TestPolicySchemaUsesDraftAndOpenedEmail(t *testing.T) {
+	h := policyHarness(t)
+	var schema string
+	h.p.Checkers = []comment.Checker{schemaChecker{&schema}}
+	out := h.submit(t) // the post carries the name Ada and ada@example.test
+	if out.Kind != Posted || len(h.c.stored) != 1 {
+		t.Fatalf("kind = %d stored = %d", out.Kind, len(h.c.stored))
+	}
+	if d := h.c.stored[0]; d.AuthorName != "Grace H." || d.Email != "grace@example.test" {
+		t.Errorf("draft identity = %q %q", d.AuthorName, d.Email)
+	}
+	if schema != "story" {
+		t.Errorf("check schema = %q", schema)
+	}
+}
+
+func TestPolicySchemaRefusals(t *testing.T) {
+	t.Run("no device", func(t *testing.T) {
+		h := policyHarness(t)
+		h.req.DeviceCommenter = nil
+		out := h.submit(t)
+		if out.Kind != Invalid || out.Code != CodeSignIn || out.Typed == nil || out.Typed.Body == "" || len(h.c.stored) != 0 {
+			t.Fatalf("out = %+v stored = %d", out, len(h.c.stored))
+		}
+	})
+	t.Run("no email", func(t *testing.T) {
+		h := policyHarness(t)
+		h.p.Policy = fakePolicy{info: comment.PolicyInfo{Schema: "story", Enabled: true}}
+		if out := h.submit(t); out.Code != CodeSignIn || len(h.c.stored) != 0 {
+			t.Fatalf("out = %+v", out)
+		}
+	})
+	t.Run("draft unavailable", func(t *testing.T) {
+		h := policyHarness(t)
+		h.p.Drafter = fakeDrafter{err: ErrDraftUnavailable}
+		out := h.submit(t)
+		if out.Kind != Invalid || out.Code != CodeDraft || out.Message != "" || len(h.c.stored) != 0 {
+			t.Fatalf("out = %+v", out)
+		}
+	})
+	t.Run("draft rejected", func(t *testing.T) {
+		h := policyHarness(t)
+		h.p.Drafter = fakeDrafter{err: &DraftRejected{Message: "Pick a name first"}}
+		out := h.submit(t)
+		if out.Kind != Invalid || out.Code != CodeDraft || out.Message != "Pick a name first" || out.Typed == nil || len(h.c.stored) != 0 {
+			t.Fatalf("out = %+v", out)
+		}
+	})
+	t.Run("no drafter", func(t *testing.T) {
+		h := policyHarness(t)
+		h.p.Drafter = nil
+		if out := h.submit(t); out.Code != CodeDraft {
+			t.Fatalf("out = %+v", out)
+		}
+	})
+}
+
+func TestPolicySchemaAdminUnchanged(t *testing.T) {
+	h := policyHarness(t)
+	admin := uuid.New()
+	h.req.AdminUserID, h.req.AdminName, h.req.DeviceCommenter = &admin, "Site", nil
+	h.p.Drafter = fakeDrafter{err: ErrDraftUnavailable}
+	out := h.submit(t)
+	if out.Kind != Posted || h.c.stored[0].AuthorName != "Site" {
+		t.Fatalf("out = %+v", out)
+	}
+}
+
+func TestPolicySchemaOffKeepsPostedIdentity(t *testing.T) {
+	h := policyHarness(t)
+	h.p.Policy = fakePolicy{info: comment.PolicyInfo{Schema: "story"}}
+	h.p.Drafter = fakeDrafter{err: ErrDraftUnavailable}
+	h.submit(t)
+	if d := h.c.stored[0]; d.AuthorName != "Ada" || d.Email != "ada@example.test" {
+		t.Errorf("draft identity = %q %q", d.AuthorName, d.Email)
+	}
+}
