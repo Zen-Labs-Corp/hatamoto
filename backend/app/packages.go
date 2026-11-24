@@ -29,7 +29,7 @@ import (
 )
 
 // packageCommands are the first words routed to runPackages.
-var packageCommands = map[string]bool{"keys": true, "theme": true, "plugin": true, "package": true, "registry": true, "apikey": true}
+var packageCommands = map[string]bool{"keys": true, "theme": true, "plugin": true, "package": true, "registry": true, "apikey": true, "kit": true}
 
 const packagesUsage = `  keys generate [--name N] [--dir D]       make an ed25519 signing key (N.key secret, N.pub public)
   theme pack <dir> [--key F] [--out F]     build a .hmp theme package, signed with key F
@@ -46,13 +46,16 @@ const packagesUsage = `  keys generate [--name N] [--dir D]       make an ed2551
                                            render the plugins of a signed registry index as one static HTML page
   package install <file|url|name> [--grant P,P|all] [--source upload|url|dev] [--dev] [--confirm]
                                            install a package (docs/PACKAGES.md); a running server applies it within seconds
-` + installOpsUsage
+` + kitUsage + "\n" + installOpsUsage
 
 // runPackages runs the key, pack and install commands. keys and the pack
 // commands need no database.
 func runPackages(ctx context.Context, args []string, logger *slog.Logger, out io.Writer) error {
 	if ok, err := runInstallOps(ctx, args, logger, out); ok {
 		return err
+	}
+	if args[0] == "kit" {
+		return runKit(ctx, args[1:], logger, out)
 	}
 	switch {
 	case args[0] == "keys" && len(args) > 1 && args[1] == "generate":
@@ -406,6 +409,9 @@ func runPackageInstall(ctx context.Context, args []string, logger *slog.Logger, 
 	p, err := packages.ParseNew(data, packages.DefaultLimits)
 	if err != nil {
 		return err
+	}
+	if p.Kind == packages.KindKit {
+		return packages.ErrKitNotInstallable
 	}
 	if m == nil {
 		if m, db, _, why, err = packageManager(ctx, logger, devFlag); err != nil {
