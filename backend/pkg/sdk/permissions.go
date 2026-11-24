@@ -61,8 +61,24 @@ const (
 	PermUICamera Permission = "ui.allow:camera"
 
 	// PermCommentsRead lets a plugin read approved comments, hear about
-	// comment.created|approved|spam|deleted and register comment.check.
+	// comment.created|approved|spam|deleted and register comment.check. From
+	// SDK 0.27 it also receives commenter_key on comment payloads.
 	PermCommentsRead Permission = "comments.read"
+
+	// PermClientKey (SDK 0.27.0) delivers per-plugin pseudonymous keys of the
+	// visitor's address and network (addr_key, net_key on PageContext and
+	// HTTPRequest; addr_key, area_key on CommentCheck), never the address.
+	PermClientKey Permission = "client.key"
+
+	// PermEntitiesWriteOwn (SDK 0.27.0) lets entities.create|update|delete write
+	// entries of the one schema the manifest declares in entity_schema; they are
+	// published without review. A manifest asking for it must declare entity_schema.
+	PermEntitiesWriteOwn Permission = "entities.write.own"
+
+	// PermCommentsModerate (SDK 0.27.0) lets comments.mark_dead|restore|set_rank|
+	// set_viewer act on comments of the plugin's entity_schema only, and makes
+	// include_dead count on reads. There is no comment create function.
+	PermCommentsModerate Permission = "comments.moderate"
 )
 
 // Permissions lists every capability, in a stable order.
@@ -72,6 +88,7 @@ var Permissions = []Permission{
 	PermSettings, PermLog, PermMailSend, PermHTTPFetch, PermHTTPFetchAny, PermKV, PermDB,
 	PermBuilderData, PermBuilderIsland, PermSiteScripts,
 	PermPackagesInspect, PermEntitiesFilter, PermCommentsRead,
+	PermClientKey, PermEntitiesWriteOwn, PermCommentsModerate,
 }
 
 // ValidPermission reports whether p is a known capability.

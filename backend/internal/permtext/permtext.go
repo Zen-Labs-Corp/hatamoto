@@ -22,11 +22,23 @@ var texts = map[string]Text{
 	sdk.PermMediaRead:     {Help: "Read the media library"},
 	sdk.PermRedirectsRead: {Help: "Read redirects"},
 	sdk.PermFormsRead:     {Help: "Hear about form submissions"},
-	sdk.PermCommentsRead:  {Help: "Read approved comments, hear about new, approved, spam and deleted comments, and add to the spam score of new comments"},
-	sdk.PermSettings:      {Help: "Store its own settings"},
-	sdk.PermLog:           {Help: "Write to the server log"},
-	sdk.PermMailSend:      {Help: "Send email"},
-	sdk.PermHTTPFetch:     {Help: "Call other web addresses it lists"},
+	sdk.PermCommentsRead:  {Help: "Read approved comments, hear about new, approved, spam and deleted comments, add to the spam score of new comments and see a pseudonymous key for each commenter"},
+	sdk.PermClientKey: {
+		Help:  "Sees a pseudonymous key for each visitor's address and network on its pages and routes (not the address itself). The key is stable, so the plugin can recognise a returning visitor and block a network. It is personal data: your privacy notice should say so.",
+		Short: "Pseudonymous visitor keys.", Warn: true,
+	},
+	sdk.PermEntitiesWriteOwn: {
+		Help:  "Creates, edits and deletes entries of ONE content type it declares, and publishes them at once, without your review. Rate limited and logged in the audit log. It cannot touch any other content.",
+		Short: "Creates and edits content in its own content type.", Warn: true,
+	},
+	sdk.PermCommentsModerate: {
+		Help:  "Marks comments on its own content type dead or restores them and sets their order, without your review. It cannot post comments or touch other content types. Logged in the audit log.",
+		Short: "Moderates comments on its own content type.", Warn: true,
+	},
+	sdk.PermSettings:  {Help: "Store its own settings"},
+	sdk.PermLog:       {Help: "Write to the server log"},
+	sdk.PermMailSend:  {Help: "Send email"},
+	sdk.PermHTTPFetch: {Help: "Call other web addresses it lists"},
 	sdk.PermHTTPFetchAny: {
 		Help:  "WARNING: send requests to ANY public web address, including addresses typed into its settings. Treat it as a way out to the internet from this server.",
 		Short: "Any web address.", Warn: true,
