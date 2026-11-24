@@ -1,0 +1,7 @@
+{{template "layouts/bare" .}}
+{{define "main"}}{{with .Data}}{{template "hm/steps" (dict "Items" .Steps "Label" "Setup progress")}}
+<h1>{{.Title}}</h1>
+<p class="hm-row">{{range .Chips}}{{template "hm/badge" .}}{{end}}</p>
+{{with .Description}}<p class="hm-muted">{{.}}</p>{{end}}
+{{template "hm/kit-review" (dict "V" . "CSRF" $.CSRF)}}
+{{end}}{{end}}

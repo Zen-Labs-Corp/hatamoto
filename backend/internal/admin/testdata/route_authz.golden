@@ -245,6 +245,8 @@ GET /admin/setup/admin-address/strength anon=303 editor=403 owner=404
 GET /admin/setup/content anon=303 editor=403 owner=404
 GET /admin/setup/done anon=303 editor=403 owner=200
 GET /admin/setup/email anon=303 editor=403 owner=404
+GET /admin/setup/kit anon=303 editor=403 owner=404
+GET /admin/setup/kit/{name} anon=303 editor=403 owner=404
 GET /admin/setup/site anon=303 editor=403 owner=404
 GET /admin/setup/theme anon=303 editor=403 owner=404
 GET /admin/sudo anon=303 editor=200 owner=200
@@ -539,6 +541,8 @@ POST /admin/setup/admin-address anon=303 editor=403 owner=404
 POST /admin/setup/admin-address/regenerate anon=303 editor=403 owner=404
 POST /admin/setup/content anon=303 editor=403 owner=404
 POST /admin/setup/email anon=303 editor=403 owner=404
+POST /admin/setup/kit anon=303 editor=403 owner=404
+POST /admin/setup/kit/{name} anon=303 editor=403 owner=404
 POST /admin/setup/site anon=303 editor=403 owner=404
 POST /admin/setup/theme anon=303 editor=403 owner=404
 POST /admin/sudo anon=303 editor=503 owner=503

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/starter"
@@ -57,6 +58,7 @@ type setupData struct {
 	// content
 	Choice string
 	Failed string
+	Kits   bool // the kit card is shown, so the step continues instead of finishing
 	// admin address
 	Addr         *addressForm
 	AddrLockText string // set when the address cannot be changed here
@@ -92,6 +94,7 @@ func (a *Admin) mountSetup(public, authed *httpx.Group) {
 	owner.HandleFunc("POST /setup/theme", a.handleSetupTheme)
 	owner.HandleFunc("GET /setup/content", a.handleSetupContentForm)
 	owner.HandleFunc("POST /setup/content", a.handleSetupContent)
+	a.mountSetupKit(owner)
 	authed.Group("", a.RequireCan(authz.ActionSetupRun)).HandleFunc("GET /setup/done", a.handleSetupDone)
 }
 
@@ -417,13 +420,30 @@ func (a *Admin) handleSetupTheme(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.adminPath+"/setup/content", http.StatusSeeOther)
 }
 
-// contentItems are the three starting points of the Content step.
-func contentItems(choice string) []ui.RadioCardItem {
-	return []ui.RadioCardItem{
+// contentItems are the starting points of the Content step; "Start from a kit" is the fourth, offered
+// only when the registry lists a kit.
+func contentItems(choice string, kits bool) []ui.RadioCardItem {
+	items := []ui.RadioCardItem{
 		{Value: "empty", Title: "Start empty", Description: "Just a home page.", Checked: choice == "empty"},
 		{Value: "starter", Title: "Install starter content", Description: "About and Contact pages, two blog posts, menus and a contact form.", Checked: choice == "starter"},
 		{Value: "wordpress", Title: "Import from WordPress", Description: "Copy your pages, posts, media and menus and keep every old address working. Continues to the importer.", Checked: choice == "wordpress"},
 	}
+	if kits {
+		items = append(items, ui.RadioCardItem{Value: "kit", Title: "Start from a kit", Description: "Install a ready-made site from the registry in one step: plugins, a theme, content types, pages and a menu. You review everything first.", Checked: choice == "kit"})
+	}
+	return items
+}
+
+// kitsOffered reports that the "Start from a kit" card is shown: the kit service is wired and the
+// registry lists at least one kit within 3 seconds. Any error hides the card.
+func (a *Admin) kitsOffered(r *http.Request) bool {
+	if a.deps.Kits == nil {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+	_, available, err := a.deps.Kits.List(ctx)
+	return err == nil && len(available) > 0
 }
 
 func (a *Admin) renderContent(w http.ResponseWriter, r *http.Request, status int, choice, failed string) {
@@ -432,7 +452,8 @@ func (a *Admin) renderContent(w http.ResponseWriter, r *http.Request, status int
 	}
 	v := a.NewView(w, r, "Start with content")
 	v.Wide = true
-	v.Data = setupData{Steps: steps(5), Choice: choice, Failed: failed, ContentItems: contentItems(choice), Back: a.adminPath + "/setup/theme"}
+	kits := a.kitsOffered(r)
+	v.Data = setupData{Steps: steps(5), Choice: choice, Failed: failed, ContentItems: contentItems(choice, kits), Kits: kits, Back: a.adminPath + "/setup/theme"}
 	a.Render(w, r, status, "setup/content", v)
 }
 
@@ -442,30 +463,25 @@ func (a *Admin) handleSetupContentForm(w http.ResponseWriter, r *http.Request) {
 
 func (a *Admin) handleSetupContent(w http.ResponseWriter, r *http.Request) {
 	choice := r.PostFormValue("content")
-	if choice != "empty" && choice != "starter" && choice != "wordpress" {
+	if choice != "empty" && choice != "starter" && choice != "wordpress" && choice != "kit" {
 		a.renderContent(w, r, http.StatusUnprocessableEntity, "empty", "Choose one of the options.")
 		return
 	}
-	// The theme step ran before this one and seeded the locations its theme
-	// declares on activation. The starter builds its own Header and Footer, so
-	// for that choice the core seed runs after it and finds the locations held;
-	// the other choices seed first.
-	seed := func() {
-		if fn := a.deps.Content.SeedNewSiteMenus; fn != nil {
-			if err := fn(r.Context()); err != nil {
-				a.logger().Error("setup: seed menus failed", "err", err)
-			}
+	if choice == "kit" {
+		// Setup stays open: the kit applies on its own screens, then finishSetup runs.
+		if !a.kitsOffered(r) {
+			a.renderContent(w, r, http.StatusUnprocessableEntity, "empty", "Kits are not available right now. Choose one of the other options.")
+			return
 		}
+		http.Redirect(w, r, a.adminPath+"/setup/kit", http.StatusSeeOther)
+		return
 	}
-	if choice != "starter" {
-		seed()
-	}
-	u := userFrom(r.Context())
 	if choice == "starter" {
 		if a.deps.Starter == nil {
 			a.renderContent(w, r, http.StatusServiceUnavailable, choice, "Starter content is not available.")
 			return
 		}
+		u := userFrom(r.Context())
 		opts := starter.Options{SiteName: a.siteName(r.Context()), NotifyEmail: u.Email}
 		if id, err := uuidOf(u.ID); err == nil {
 			opts.UserID = &id
@@ -477,31 +493,16 @@ func (a *Admin) handleSetupContent(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		a.SetFlash(w, r, "success", starterSummary(res))
-		seed()
-	} else if a.deps.Starter != nil {
-		// The server made the home page before this wizard asked for the site
-		// name; the starter content renames it, the other choices do it here.
-		// Best effort: it never blocks finishing setup.
-		opts := starter.Options{SiteName: a.siteName(r.Context())}
-		if id, err := uuidOf(u.ID); err == nil {
-			opts.UserID = &id
+		// The theme step seeded the locations its theme declares. The starter built its own
+		// Header and Footer, so the core seed runs after it and finds the locations held.
+		a.seedMenus(r)
+		if err := a.completeSetup(r); err != nil {
+			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "We could not finish setup.")
+			return
 		}
-		if _, err := a.deps.Starter.NameSeedHome(r.Context(), opts); err != nil {
-			a.logger().Warn("setup: naming the home page failed", "err", err)
-		}
-	}
-	if _, err := a.deps.Site.Update(r.Context(), siteUpdateDone()); err != nil {
-		a.logger().Error("setup: mark complete failed", "err", err)
+	} else if err := a.finishSetup(r); err != nil {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "We could not finish setup.")
 		return
-	}
-	a.invalidate(r.Context())
-	// Setup is complete now, so an install that never answered the Stats step
-	// gets the default. Best effort: it never blocks finishing setup.
-	if a.deps.Stats != nil {
-		if err := a.deps.Stats.ApplyDefault(r.Context()); err != nil {
-			a.logger().Warn("setup: install stats default failed", "err", err)
-		}
 	}
 	if choice == "wordpress" {
 		// Setup is finished; the import wizard takes over from here.
@@ -509,6 +510,51 @@ func (a *Admin) handleSetupContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, a.adminPath+"/setup/done", http.StatusSeeOther)
+}
+
+// seedMenus seeds the core menu locations. Best effort: it never blocks setup.
+func (a *Admin) seedMenus(r *http.Request) {
+	if fn := a.deps.Content.SeedNewSiteMenus; fn != nil {
+		if err := fn(r.Context()); err != nil {
+			a.logger().Error("setup: seed menus failed", "err", err)
+		}
+	}
+}
+
+// finishSetup ends a choice that adds no content of its own: it seeds the menus, gives the first-boot
+// home page the site name and marks setup complete. A kit applies first, so the menus it created
+// hold their locations and the core seed leaves them alone.
+func (a *Admin) finishSetup(r *http.Request) error {
+	a.seedMenus(r)
+	if a.deps.Starter != nil {
+		// The server made the home page before this wizard asked for the site name; the starter
+		// content renames it, the other choices do it here. Best effort.
+		opts := starter.Options{SiteName: a.siteName(r.Context())}
+		if u := userFrom(r.Context()); u != nil {
+			if id, err := uuidOf(u.ID); err == nil {
+				opts.UserID = &id
+			}
+		}
+		if _, err := a.deps.Starter.NameSeedHome(r.Context(), opts); err != nil {
+			a.logger().Warn("setup: naming the home page failed", "err", err)
+		}
+	}
+	return a.completeSetup(r)
+}
+
+// completeSetup marks setup complete and gives an install that never answered the Stats step the default.
+func (a *Admin) completeSetup(r *http.Request) error {
+	if _, err := a.deps.Site.Update(r.Context(), siteUpdateDone()); err != nil {
+		a.logger().Error("setup: mark complete failed", "err", err)
+		return err
+	}
+	a.invalidate(r.Context())
+	if a.deps.Stats != nil {
+		if err := a.deps.Stats.ApplyDefault(r.Context()); err != nil {
+			a.logger().Warn("setup: install stats default failed", "err", err)
+		}
+	}
+	return nil
 }
 
 func (a *Admin) handleSetupDone(w http.ResponseWriter, r *http.Request) {

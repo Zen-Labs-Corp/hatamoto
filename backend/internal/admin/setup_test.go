@@ -175,6 +175,16 @@ func TestSetupWizardPagesAccessibleAndGolden(t *testing.T) {
 		}
 		pages[name] = rec.Body.String()
 	}
+	// the kit flow (the registry offers one kit)
+	g.a.deps.Kits = kitsFixture()
+	for name, path := range map[string]string{"setup-kit": "/admin/setup/kit", "setup-kit-review": "/admin/setup/kit/community"} {
+		rec := g.do("GET", path, "owner-token", nil, nil)
+		if rec.Code != 200 {
+			t.Fatalf("%s: %d\n%s", name, rec.Code, rec.Body.String())
+		}
+		pages[name] = rec.Body.String()
+	}
+	g.a.deps.Kits = nil
 	// error states
 	g.count.n = 0
 	rec = g.do("POST", "/admin/setup", "", url.Values{"code": {"nope"}, "email": {"bad"}, "password": {"short"}}, nil)
