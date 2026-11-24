@@ -51,6 +51,7 @@ A wrapper module may also register an agent publishing policy ([ADR 0016](adr/00
 - `entities_reorder` takes `id`, `position` (1-based among the siblings of the same type, parent and language; 0 or less means last) and optionally `parent_id` or `clear_parent`. A pure reorder stores no version, keeps `updated_at` and leaves a plugin's entity with the plugin; a move to another parent changes the address (the old one redirects) and counts as an edit. `terms_reorder` does the same for a term (write:terms scope). Loops and `query` show the result with `order: "manual"`.
 - `media_upload` takes base64. The encoded size is checked against the media size limit (`MEDIA_MAX_SIZE_MB`, default 10) before decoding; the type is sniffed from the bytes and must match the file extension (jpg, png, gif, webp, pdf, mp4, webm; never SVG).
 - `entities_update` replaces `attributes` as a whole: read, change, send back.
+- `entities_update`, `entities_publish` and `entities_unpublish` take an optional `version`: the `entity.version` that `entities_get` returned. When it is set and the entity has moved on, the call is refused with `conflict: stale version X; current version is Y (re-read with entities_get)` and nothing is stored; the check is atomic with the write. Omitted, the call behaves as before. The version counts content versions, so a status change does not advance it.
 - An `entities_update` that changes the body, slug, parent or an SEO field of an entity a plugin imported takes it over: the plugin's later changeset items for it get `not_owned` until an owner or editor hands it back from the editor. Sending the stored values back changes nothing. The takeover appears in the audit as an `entities_take_over` call. See [Ownership](PLUGIN_API.md#ownership).
 - Every entity has a `locale` (a BCP 47 tag such as `en` or `fr`). `entities_create` and `entities_update` take an optional `locale`; empty on create stores the site language (`und`, all languages, when the entity type is marked "Shared across languages" and the site has more than one language), omitted on update keeps the stored one. Entity results include `locale`. A slug is unique per schema and locale, and the public site serves only entities in the site language.
 - The byline is separate from `attributes`: `entities_update` takes `byline_person_id` (the id of an entity of the `person` schema), `byline_org` (`true` credits the site organisation) or `clear_byline`. A non-person id is refused. Entity results include `byline_person_id` and `byline_org` when set. REST `PATCH /api/v1/entities/{id}` accepts the same `byline_person_id` and `byline_org`, plus `clear_author` to remove the byline.
@@ -141,13 +142,13 @@ With `publish: true` a page that is not yet published (a draft, but also a sched
 
 ### Conflicts and errors
 
-`version` is required. It must be the version `builder_get` returned: a stale one is refused with `conflict: stale version 2; current version is 3 (re-read with builder_get)` and nothing is stored. Read again, redo the edit on the new layout, retry. The version only moves when the layout changes: an `apply` that changes nothing returns the same version with `changed: false`. The check and the write are not one atomic step, as in the admin builder: two writers within the same few milliseconds can both pass.
+`version` is required. It must be the version `builder_get` returned: a stale one is refused with `conflict: stale version 2; current version is 3 (re-read with builder_get)` and nothing is stored. Read again, redo the edit on the new layout, retry. The version only moves when the layout changes: an `apply` that changes nothing returns the same version with `changed: false`. The version is compared under the row lock, in the same transaction as the write: of two writers holding the same version exactly one stores, the other gets `conflict:`.
 
 Builder errors start with a stable code, then a colon:
 
 | Prefix | Meaning |
 |---|---|
-| `conflict:` | Stale `version`; the text names the current one. |
+| `conflict:` | Stale `version` (builder tools, `entities_update`, `entities_publish`, `entities_unpublish`); the text names the current one. |
 | `invalid_page_doc:` | An op or the resulting layout was refused: the message names the cause. Rules from the admin save show their code first, for example `invalid_page_doc: part_slot: ...` (a slot outside a layout part) or `ref_cycle` (a block that would embed itself). |
 | `not_builder:` | The entity is not edited with the page builder (post, person) or has the legacy layout. |
 | `limit:` | More than 500 ops, ops over 1 MiB, more than 50 `ids`, or a render over 2 MiB. |
