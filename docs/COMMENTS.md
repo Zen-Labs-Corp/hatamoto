@@ -31,9 +31,9 @@ A content type can switch comments to a community policy. It is owner-only, unde
 
 On a type with the policy on, comments with links and first comments from new commenters are posted at once. Spam checks (including the scores plugins add with `comment.check`), blocked commenters, duplicate bodies, captcha, surge mode and slow mode still hold comments. A commenter who edits an approved comment into one with a link keeps it approved; an edit that the content checks hold still goes back to the queue.
 
-The policy also sets three numbers that replace the site values for that type only: reply depth (1 to 32, default 10), the edit window in minutes (1 to 1440, default 15) and slow mode in seconds (0 turns it off). Other types keep the site settings. Built-in types cannot use the policy yet.
+The policy also sets three numbers that replace the site values for that type only: reply depth (1 to 32, default 10), the edit window in minutes (1 to 1440, default 15) and slow mode in seconds (0 turns it off). Other types keep the site settings. A long edit window has a cost: a commenter's own page views are not served from the page cache for that whole window, so a 24 hour window on a busy type means many uncached page views. Built-in types cannot use the policy yet.
 
-Each type can also choose its own thread order: Site default, Newest first or Oldest first.
+Each type can also choose its own thread order: Site default, Newest first or Oldest first. "By rank" is offered only while a plugin that holds `comments.moderate` for the type is installed (or when rank is already stored); the plugin applies the rank.
 
 ## Notifications
 
