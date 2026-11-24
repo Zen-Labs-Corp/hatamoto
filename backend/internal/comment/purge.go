@@ -88,7 +88,9 @@ func (s *Service) announceDeleted(ctx context.Context, cs []Comment) {
 // entities of the comments that had been public, because the observers skip the
 // page drop inside a batch.
 func (s *Service) announceErased(ctx context.Context, cs []Comment) {
-	s.announce(ctx, cs, func(c Comment) bool { return c.ApprovedAt != nil })
+	s.announce(ctx, cs, func(c Comment) bool {
+		return c.Status != StatusDraft && (c.ApprovedAt != nil || c.SpamVerdict != "spam")
+	})
 	shown := map[uuid.UUID]bool{}
 	for _, c := range cs {
 		if c.ApprovedAt != nil {
