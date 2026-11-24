@@ -31,6 +31,7 @@ How the guides are written and published: [`site/README.md`](site/README.md), [`
 | [THEMES.md](THEMES.md) | the theme contract: layouts, partials, template functions, sections |
 | [WIDGET_PACKS.md](WIDGET_PACKS.md) | builder widgets and data sources supplied by a package |
 | [PACKAGES.md](PACKAGES.md) | `.hmp` packages, signing and the registry |
+| [KITS.md](KITS.md) | the kit.json format: one-step site setup packages (format fixed, commands to come) |
 | [MCP.md](MCP.md) | the MCP server: tools, scopes, API keys |
 | [WEBHOOKS.md](WEBHOOKS.md) | outgoing webhooks and their payloads |
 | [CLI.md](CLI.md) | every `hatamoto` command |
