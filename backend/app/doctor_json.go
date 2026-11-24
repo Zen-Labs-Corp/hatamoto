@@ -68,6 +68,7 @@ var doctorRegistry = map[string]colCheck{
 	"hatamoto_static_export_runs.errors":           {decode: decodeAs[[]string]()},
 	"hatamoto_webhooks.headers":                    {decode: decodeAs[map[string]string]()},
 	"hatamoto_admin_audit.detail":                  opaque,
+	"hatamoto_applied_kits.summary":                opaque,
 	"hatamoto_ai_files_state.changes":              opaque,
 	"hatamoto_ai_files_state.snapshot":             opaque,
 	"hatamoto_changesets.stages":                   {decode: decodeAs[[]changeset.StageSpec](), shape: keynorm.ShapeOf(reflect.TypeFor[[]changeset.StageSpec]())},
