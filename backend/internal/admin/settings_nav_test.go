@@ -285,7 +285,7 @@ func TestSettingsNavGroups(t *testing.T) {
 	}
 	for g, want := range map[string]string{
 		"Site":    "general branding locales users access-security email privacy-tracking",
-		"Content": "entity-models seo redirects linking comments",
+		"Content": "entity-models seo redirects linking comments kits",
 		"System":  "integrations performance updates jobs hosting backups-recovery tools",
 	} {
 		if got := strings.Join(members[g], " "); got != want {
@@ -393,13 +393,13 @@ func TestBrandingSectionIsOwnerOnly(t *testing.T) {
 	}
 }
 
-// Media lives in the main menu, so Settings keeps 19 sections (the 15 of the
-// regrouping plus Branding, Jobs, Comments and Hosting).
+// Media lives in the main menu, so Settings keeps 20 sections (the 15 of the
+// regrouping plus Branding, Jobs, Comments, Hosting and Kits).
 func TestSettingsSectionCount(t *testing.T) {
 	t.Parallel()
 
-	if got := len(settingsFor("/admin", roleViewer("owner"))); got != 19 {
-		t.Errorf("owner Settings sections = %d, want 19", got)
+	if got := len(settingsFor("/admin", roleViewer("owner"))); got != 20 {
+		t.Errorf("owner Settings sections = %d, want 20", got)
 	}
 }
 
@@ -428,6 +428,15 @@ func TestSettingsNavFollowsAuthz(t *testing.T) {
 	owner := tabsOf(roleViewer("owner"))
 	if has(owner, "general") || !has(owner, "types") {
 		t.Errorf("owner without settings.manage: %v", owner)
+	}
+
+	authztest.Use(t, except(authz.ActionKitApply, false))
+	if owner := tabsOf(roleViewer("owner")); has(owner, "kits") || !has(owner, "types") {
+		t.Errorf("owner without kit.apply: %v", owner)
+	}
+	authztest.Use(t, authz.Default())
+	if !has(tabsOf(roleViewer("owner")), "kits") || has(tabsOf(roleViewer("editor")), "kits") {
+		t.Error("Kits must show for an owner and not for an editor")
 	}
 
 	authztest.Use(t, except(authz.ActionSettingsManage, true))

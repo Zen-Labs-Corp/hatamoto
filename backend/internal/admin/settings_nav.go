@@ -57,7 +57,7 @@ type settingsSectionDef struct {
 var settingsLive = map[string]bool{
 	"types": true, "taxonomies": true, "users": true,
 	"menus":     true,
-	"redirects": true, "linking": true, "comments": true, "comment-blocklists": true, "commenters": true, "templates": true,
+	"redirects": true, "linking": true, "comments": true, "kits": true, "comment-blocklists": true, "commenters": true, "templates": true,
 	"themes": true, "blocks": true, "colours": true, "fonts": true, "additional-css": true, "design-system": true, "presets": true, "parts": true,
 	"import": true, "general": true, "branding": true, "export": true, "performance": true, "memory": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
@@ -135,6 +135,9 @@ var settingsRegistry = []settingsSectionDef{
 		{ID: "comments", Label: "Comments", Final: "/settings/comments", Cap: authz.ActionCommentSettingsRead},
 		{ID: "comment-blocklists", Label: "Blocklists", Final: "/settings/comments/blocklists", Cap: authz.ActionCommentBlocklistManage},
 		{ID: "commenters", Label: "Commenters", Final: "/settings/comments/commenters", Cap: authz.ActionCommentRead},
+	}},
+	{ID: "kits", Label: "Kits", Icon: "puzzle", Desc: "Apply a ready-made site from the registry: plugins, a theme, content types, pages and a menu.", Group: "Content", Tabs: []settingsTabDef{
+		{ID: "kits", Label: "Kits", Final: "/settings/kits", Cap: authz.ActionKitApply},
 	}},
 	{ID: "integrations", Label: "Integrations", Icon: "key", Desc: "API keys for scripts and webhooks that send signed POSTs when content changes.", Group: "System", Tabs: []settingsTabDef{
 		{ID: "api", Label: "API keys", Final: "/settings/api-keys", Cap: authz.ActionAPIKeyManage},

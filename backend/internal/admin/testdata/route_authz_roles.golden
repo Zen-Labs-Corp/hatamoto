@@ -157,6 +157,8 @@ GET /admin/settings/import/wordpress/{id}/cancel anon=303 read-only=403 author=4
 GET /admin/settings/import/wordpress/{id}/options anon=303 read-only=403 author=403 contributor=403 reviewer=403
 GET /admin/settings/integrations anon=303 read-only=403 author=403 contributor=403 reviewer=403
 GET /admin/settings/jobs anon=303 read-only=403 author=403 contributor=403 reviewer=403
+GET /admin/settings/kits anon=303 read-only=403 author=403 contributor=403 reviewer=403
+GET /admin/settings/kits/{name} anon=303 read-only=403 author=403 contributor=403 reviewer=403
 GET /admin/settings/linking anon=303 read-only=503 author=503 contributor=503 reviewer=503
 GET /admin/settings/linking/equity anon=303 read-only=503 author=503 contributor=503 reviewer=503
 GET /admin/settings/linking/equity/{id} anon=303 read-only=503 author=503 contributor=503 reviewer=503
@@ -243,6 +245,8 @@ GET /admin/setup/admin-address/strength anon=303 read-only=403 author=403 contri
 GET /admin/setup/content anon=303 read-only=403 author=403 contributor=403 reviewer=403
 GET /admin/setup/done anon=303 read-only=403 author=403 contributor=403 reviewer=403
 GET /admin/setup/email anon=303 read-only=403 author=403 contributor=403 reviewer=403
+GET /admin/setup/kit anon=303 read-only=403 author=403 contributor=403 reviewer=403
+GET /admin/setup/kit/{name} anon=303 read-only=403 author=403 contributor=403 reviewer=403
 GET /admin/setup/site anon=303 read-only=403 author=403 contributor=403 reviewer=403
 GET /admin/setup/theme anon=303 read-only=403 author=403 contributor=403 reviewer=403
 GET /admin/sudo anon=303 read-only=200 author=200 contributor=200 reviewer=200
@@ -438,6 +442,7 @@ POST /admin/settings/import/wordpress/{id}/cancel anon=303 read-only=403 author=
 POST /admin/settings/import/wordpress/{id}/resume anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/import/wordpress/{id}/start anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/jobs/{id}/run anon=303 read-only=403 author=403 contributor=403 reviewer=403
+POST /admin/settings/kits/{name} anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/linking/import anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/linking/rules anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/linking/rules/bulk anon=303 read-only=403 author=403 contributor=403 reviewer=403
@@ -536,6 +541,8 @@ POST /admin/setup/admin-address anon=303 read-only=403 author=403 contributor=40
 POST /admin/setup/admin-address/regenerate anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/setup/content anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/setup/email anon=303 read-only=403 author=403 contributor=403 reviewer=403
+POST /admin/setup/kit anon=303 read-only=403 author=403 contributor=403 reviewer=403
+POST /admin/setup/kit/{name} anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/setup/site anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/setup/theme anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/sudo anon=303 read-only=503 author=503 contributor=503 reviewer=503
