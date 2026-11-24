@@ -352,3 +352,27 @@ func TestIndexWithoutTagsUnchanged(t *testing.T) {
 		t.Error("index without tag packs contains tags")
 	}
 }
+
+func TestParseIndexKeepsKitsAndDropsUnknownKinds(t *testing.T) {
+	key := newKey(t)
+	doc := signedIndex(t, key, func(idx *Index) {
+		idx.Packages = []Entry{
+			{Kind: KindKit, Name: "community", Version: "1.0.0", URL: "p/community.kit.hmp", SHA256: strings.Repeat("a", 64), Tier: TierCommunity, Tags: []TagSummary{{Name: "x"}}},
+			{Kind: "bundle", Name: "future", Version: "1.0.0", URL: "p/future.hmp", SHA256: strings.Repeat("b", 64)},
+		}
+	})
+	idx, err := ParseIndex(doc, trust(t, key), time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(idx.Packages) != 1 {
+		t.Fatalf("packages = %+v, want only the kit", idx.Packages)
+	}
+	e, ok := idx.Find(KindKit, "community")
+	if !ok || e.Tags != nil {
+		t.Fatalf("Find(kit) = %+v, %v", e, ok)
+	}
+	if _, ok := idx.Find(KindPlugin, "community"); ok {
+		t.Error("a kit must not be found as a plugin")
+	}
+}

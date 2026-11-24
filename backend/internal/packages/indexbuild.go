@@ -1,6 +1,7 @@
 package packages
 
 import (
+	"cmp"
 	"encoding/hex"
 	"fmt"
 	"net/url"
@@ -260,6 +261,12 @@ func BuildIndexWith(dir, urlPrefix string, key Key, now time.Time, validity time
 				return nil, fmt.Errorf("%s: %w", f, err)
 			}
 			e.Description = m.Description
+		case KindKit:
+			k, err := p.Kit()
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", f, err)
+			}
+			e.Description = cmp.Or(k.Description, k.Title)
 		}
 		if m, ok := opts.Meta[p.Name]; ok {
 			if err := m.validate(p.Name, p.Kind); err != nil {
