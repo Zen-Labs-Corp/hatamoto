@@ -289,7 +289,14 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 			p.Captcha = &render.CommentCaptcha{Provider: w.provider, SiteKey: w.siteKey}
 		}
 	}
-	lockCommentForm(ctx, c.policy, id, &p, c.logf)
+	// A failed policy read renders the locked form for this visitor only: a
+	// guessed state must not enter the shared page cache.
+	lockCommentForm(ctx, c.policy, id, &p, func(ctx context.Context, msg string, err error) {
+		c.logf(ctx, msg, err)
+		if v.Uncacheable != nil {
+			*v.Uncacheable = true
+		}
+	})
 	v.CommentForm = &p
 }
 

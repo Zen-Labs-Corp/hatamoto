@@ -487,3 +487,21 @@ func TestCommentViewDeadOwnBodyShownOnce(t *testing.T) {
 		t.Fatal("own dead view must be private")
 	}
 }
+
+func TestCommentViewPolicyErrorStaysOutOfCache(t *testing.T) {
+	f := newViewFixture()
+	f.cv.policy = func(context.Context, uuid.UUID) (comment.PolicyInfo, error) {
+		return comment.PolicyInfo{}, errors.New("db busy")
+	}
+	v := f.run("/post")
+	if v.CommentForm == nil || !v.CommentForm.Locked {
+		t.Fatalf("form after a policy error: %+v", v.CommentForm)
+	}
+	if !*v.Uncacheable {
+		t.Error("a guessed locked form was left cacheable")
+	}
+	f.cv.policy = func(context.Context, uuid.UUID) (comment.PolicyInfo, error) { return comment.PolicyInfo{}, nil }
+	if v := f.run("/post"); *v.Uncacheable || v.CommentForm.Locked {
+		t.Errorf("a clean policy read: uncacheable %v locked %v", *v.Uncacheable, v.CommentForm.Locked)
+	}
+}
