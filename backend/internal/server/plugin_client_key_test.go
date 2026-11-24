@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -33,7 +34,6 @@ func keyServer(t *testing.T) (http.Handler, *Server, *pluginhost.Runtime) {
 		m.Permissions = append(m.Permissions, sdk.PermClientKey)
 		m.Routes = append(m.Routes, sdk.Route{Method: "GET", Path: "/keys", Public: true})
 	})
-	rt.Configure(pluginhost.Config{ClientKeys: clientkey.New("test-secret")})
 	if _, err := rt.Grant(context.Background(), "capa", []sdk.Permission{sdk.PermClientKey}); err != nil {
 		t.Fatal(err)
 	}
@@ -61,5 +61,32 @@ func TestSyntheticRenderGetsNoClientKey(t *testing.T) {
 		if strings.Contains(w.Body.String(), key) {
 			t.Errorf("%s render gave the plugin a visitor key", name)
 		}
+	}
+}
+
+// A request through the trusted proxy reaches a client.key plugin with keys
+// derived from the forwarded visitor, on a public plugin route and on a
+// filtered page render.
+func TestClientKeysReachPluginThroughProxy(t *testing.T) {
+	h, s, rt := keyServer(t)
+	want, _ := clientkey.New("test-secret").For("capa", "203.0.113.7")
+	proxied := func(r *http.Request) {
+		r.RemoteAddr = "127.0.0.1:5000"
+		r.Header.Set("X-Forwarded-For", "203.0.113.7")
+	}
+
+	req := httptest.NewRequest("GET", "/p/capa/keys", nil)
+	proxied(req)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), want) {
+		t.Errorf("public route: %d %s, want key %s", rec.Code, rec.Body, want)
+	}
+
+	f := newRenderFixture(t)
+	f.h.pageFilter = pluginhost.NewPageFilter(rt, s.hooks)
+	f.next = membersPage
+	if body := f.get("/echo-keys", proxied).Body.String(); !strings.Contains(body, want) {
+		t.Errorf("filtered page render has no key %s:\n%s", want, body)
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"hatamoto.dev/core/internal/cache"
+	"hatamoto.dev/core/internal/clientkey"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
@@ -41,7 +42,7 @@ func capaRuntimeWith(t *testing.T, s *Server, mutate func(*sdk.Manifest)) *plugi
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { rt.Close(context.Background()) })
-	rt.Configure(pluginhost.Config{})
+	rt.Configure(pluginhost.Config{ClientKeys: clientkey.New("test-secret")}) // a plugin still needs the client.key grant
 	m := capaManifest()
 	if mutate != nil {
 		mutate(&m)
