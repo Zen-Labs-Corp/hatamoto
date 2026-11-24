@@ -74,7 +74,11 @@ func (k *kitsAdmin) List(ctx context.Context) ([]admin.KitApplied, []admin.KitEn
 	}
 	available := make([]admin.KitEntry, len(entries))
 	for i, e := range entries {
-		available[i] = admin.KitEntry{Name: e.Name, Title: e.Title, Description: e.Description, Version: e.Version, Tier: kitTier(e.Tier, packages.OriginSelfBuilt, ""), Applied: done[e.Name]}
+		desc := e.Description
+		if desc == "" { // the registry's one-line "about" stands in when the entry has no description
+			desc, _, _ = strings.Cut(e.About, "\n")
+		}
+		available[i] = admin.KitEntry{Name: e.Name, Title: e.Title, Description: desc, Version: e.Version, Tier: kitTier(e.Tier, packages.OriginSelfBuilt, ""), Applied: done[e.Name]}
 	}
 	return applied, available, nil
 }

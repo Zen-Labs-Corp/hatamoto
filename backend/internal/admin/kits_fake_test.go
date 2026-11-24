@@ -72,7 +72,7 @@ func (f *fakeKits) Apply(ctx context.Context, pl *kit.Plan, a kit.Accepts, o kit
 func kitsFixture() *fakeKits {
 	return &fakeKits{
 		applied:   []KitApplied{{Name: "community", Title: "Community site", Version: "1.0.0", AppliedBy: "owner@example.org", AppliedAt: time.Date(2026, 11, 24, 9, 0, 0, 0, time.UTC)}},
-		available: []KitEntry{{Name: "community", Title: "Community site", Version: "1.0.0", Tier: "first-party", Applied: true}, {Name: "journal", Title: "Journal", Version: "0.3.0", Tier: "community"}},
+		available: []KitEntry{{Name: "community", Title: "Community site", Description: "A ranked community with threaded comments.", Version: "1.0.0", Tier: "first-party", Applied: true}, {Name: "journal", Title: "Journal", Description: "A quiet place for long posts.", Version: "0.3.0", Tier: "community"}},
 		plan:      kitPlanFixture(),
 	}
 }
