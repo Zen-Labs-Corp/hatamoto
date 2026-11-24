@@ -406,3 +406,75 @@ func (c *cancellingSink) Emit(ctx context.Context, ev Event) {
 	}
 	c.recordingSink.Emit(ctx, ev)
 }
+
+// fakeCascade counts the announcements its collected closures fire.
+type fakeCascade struct{ fired int }
+
+func (f *fakeCascade) CollectForEntity(context.Context, Querier, uuid.UUID) (func(context.Context), error) {
+	return func(context.Context) { f.fired++ }, nil
+}
+
+// A plugin delete announces what it cascades once, after its commit, and
+// nothing when the audit write rolls it back.
+func TestPluginDeleteCascadeAnnouncedAfterCommit_Integration(t *testing.T) {
+	r := newPluginWriteRig(t)
+	ctx := context.Background()
+	fc := &fakeCascade{}
+	r.svc.SetDeleteCascade(fc, nil)
+	_, slug := r.schema(t, "story", "fixture")
+	fields := []string{"url", "text"}
+	kept, err := r.svc.PluginCreate(ctx, "fixture", PluginWrite{Schema: slug, Fields: fields, Name: "Kept"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gone, err := r.svc.PluginCreate(ctx, "fixture", PluginWrite{Schema: slug, Fields: fields, Name: "Gone"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r.svc.SetPluginAudit(func(context.Context, pgx.Tx, auditstate.Event) error { return errors.New("sink down") })
+	if _, err := r.svc.PluginDelete(ctx, "fixture", slug, kept.ID); err == nil {
+		t.Fatal("delete succeeded with a failing audit sink")
+	}
+	if fc.fired != 0 {
+		t.Fatalf("%d announcements after a rolled-back delete, want 0", fc.fired)
+	}
+	if r.svc.takeCascade(kept.ID) != nil {
+		t.Fatal("a plugin delete left an announcement in the shared map")
+	}
+
+	r.svc.SetPluginAudit(func(context.Context, pgx.Tx, auditstate.Event) error { return nil })
+	if _, err := r.svc.PluginDelete(ctx, "fixture", slug, gone.ID); err != nil {
+		t.Fatal(err)
+	}
+	if fc.fired != 1 {
+		t.Fatalf("%d announcements after a committed delete, want 1", fc.fired)
+	}
+}
+
+// A failed plugin delete of E leaves a changeset delete's held announcement
+// for E alone.
+func TestPluginDeleteErrorKeepsChangesetAnnouncement_Integration(t *testing.T) {
+	r := newPluginWriteRig(t)
+	ctx := context.Background()
+	r.svc.SetDeleteCascade(&fakeCascade{}, nil)
+	_, slug := r.schema(t, "story", "fixture")
+	id := uuid.New() // as if a changeset delete of id is in flight
+	fired := 0
+	r.svc.holdCascade(id, func(context.Context) { fired++ })
+
+	if _, err := r.svc.PluginDelete(ctx, "fixture", slug, id); !errors.Is(err, ErrEntityNotFound) {
+		t.Fatalf("delete of a missing entry: %v", err)
+	}
+	if _, err := r.svc.PluginDelete(ctx, "other", slug, id); !errors.Is(err, ErrNotPluginOwned) {
+		t.Fatalf("delete of another plugin's type: %v", err)
+	}
+	announce := r.svc.takeCascade(id)
+	if announce == nil {
+		t.Fatal("a failed plugin delete dropped the changeset delete's announcement")
+	}
+	announce(ctx)
+	if fired != 1 {
+		t.Fatalf("fired = %d", fired)
+	}
+}

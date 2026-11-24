@@ -158,34 +158,44 @@ func (s *Service) ApplyChangesetTx(ctx context.Context, tx pgx.Tx, op TxOp) (res
 // deleteTx removes the entity inside tx. What the delete cascades is read first
 // and held until AfterChangeset: nothing is announced for a rolled-back delete.
 func (s *Service) deleteTx(ctx context.Context, tx pgx.Tx, cur *entitySnapshot) (TxResult, error) {
+	res, announce, err := s.deleteEntityTx(ctx, tx, cur)
+	if err != nil {
+		return TxResult{}, err
+	}
+	s.holdCascade(cur.ID, announce)
+	return res, nil
+}
+
+// deleteEntityTx is deleteTx without holding the announcement: it returns it,
+// for a caller that fires it after its own commit.
+func (s *Service) deleteEntityTx(ctx context.Context, tx pgx.Tx, cur *entitySnapshot) (TxResult, func(context.Context), error) {
 	var kids bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_entities WHERE parent_id = $1)`, cur.ID).Scan(&kids); err != nil {
-		return TxResult{}, fmt.Errorf("failed to check children: %w", err)
+		return TxResult{}, nil, fmt.Errorf("failed to check children: %w", err)
 	}
 	if kids {
-		return TxResult{}, ErrHasChildren
+		return TxResult{}, nil, ErrHasChildren
 	}
 	rows, err := tx.Query(ctx, `SELECT term_id FROM hatamoto_entity_terms WHERE entity_id = $1 ORDER BY term_id`, cur.ID)
 	if err != nil {
-		return TxResult{}, fmt.Errorf("failed to read term links: %w", err)
+		return TxResult{}, nil, fmt.Errorf("failed to read term links: %w", err)
 	}
 	cur.Terms, err = pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
 	if err != nil {
-		return TxResult{}, fmt.Errorf("failed to read term links: %w", err)
+		return TxResult{}, nil, fmt.Errorf("failed to read term links: %w", err)
 	}
 	before, err := jsonx.Marshal(cur)
 	if err != nil {
-		return TxResult{}, err
+		return TxResult{}, nil, err
 	}
 	announce, err := s.collectCascade(ctx, tx, cur.ID)
 	if err != nil {
-		return TxResult{}, err
+		return TxResult{}, nil, err
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_entities WHERE id = $1`, cur.ID); err != nil {
-		return TxResult{}, fmt.Errorf("failed to delete entity: %w", err)
+		return TxResult{}, nil, fmt.Errorf("failed to delete entity: %w", err)
 	}
-	s.holdCascade(cur.ID, announce)
-	return TxResult{ID: cur.ID, Slug: cur.Slug, Before: before, Deleted: true}, nil
+	return TxResult{ID: cur.ID, Slug: cur.Slug, Before: before, Deleted: true}, announce, nil
 }
 
 func (s *Service) createTx(ctx context.Context, tx pgx.Tx, op TxOp) (TxResult, error) {
