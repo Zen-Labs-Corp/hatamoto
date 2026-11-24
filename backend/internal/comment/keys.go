@@ -4,9 +4,9 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
-	"net/netip"
 	"strings"
 
+	"hatamoto.dev/core/internal/clientkey"
 	"hatamoto.dev/core/internal/secretbox"
 )
 
@@ -55,20 +55,11 @@ func (k Keys) HashEmail(email string) string { return mac(k.emailHash, Normalize
 // for IPv4 (4-in-6 addresses are unmapped first) or the /64 for IPv6. An
 // unparsable ip returns "", "". The address itself is never stored.
 func (k Keys) HashIP(ip string) (ipHash, netHash string) {
-	addr, err := netip.ParseAddr(strings.TrimSpace(ip))
-	if err != nil {
+	addr, network, ok := clientkey.Prefix(ip)
+	if !ok {
 		return "", ""
 	}
-	addr = addr.Unmap().WithZone("")
-	bits := 64
-	if addr.Is4() {
-		bits = 24
-	}
-	net, err := addr.Prefix(bits)
-	if err != nil {
-		return "", ""
-	}
-	return mac(k.ipHash, addr.String()), mac(k.netHash, net.String())
+	return mac(k.ipHash, addr), mac(k.netHash, network)
 }
 
 func emailAAD(emailHash string) []byte { return []byte("comment-email:" + emailHash) }
