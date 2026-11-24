@@ -1,0 +1,43 @@
+{
+  "name": "community",
+  "version": "1.0.0",
+  "kit": 1,
+  "sdk": "^0.27",
+  "title": "Community",
+  "description": "A community site with ranked stories and threaded comments.",
+  "plugins": [{"name": "community-plug", "range": "^1", "grant": "all"}],
+  "themes": [{"name": "community-look", "range": "^1", "activate": true}],
+  "schemas": [
+    {
+      "slug": "story",
+      "name": "Stories",
+      "schema": {"type": "object", "properties": {"url": {"type": "string"}}},
+      "settings": {
+        "url_pattern": "/item/{slug}",
+        "comments": {
+          "mode": "open",
+          "order": "rank",
+          "policy": {"enabled": true, "max_depth": 32, "edit_window_minutes": 120, "slow_mode_seconds": 30}
+        }
+      }
+    }
+  ],
+  "pages": [
+    {"slug": "latest", "name": "Latest", "blocks": [{"type": "rich-text", "props": {"html": "<p>Latest</p>"}}], "homepage": true},
+    {"slug": "newest", "name": "Newest", "blocks": [{"type": "rich-text", "props": {"html": "<p>Newest</p>"}}]},
+    {"slug": "submit", "name": "Submit", "blocks": [{"type": "rich-text", "props": {"html": "<p>Submit</p>"}}]},
+    {"slug": "guidelines", "name": "Guidelines", "blocks": [{"type": "rich-text", "props": {"html": "<p>Guidelines</p>"}}]}
+  ],
+  "menus": [
+    {
+      "location": "header",
+      "name": "Header",
+      "items": [
+        {"label": "Latest", "url": "/latest"},
+        {"label": "Newest", "url": "/newest"},
+        {"label": "Submit", "url": "/submit"}
+      ]
+    }
+  ],
+  "switches": {"comments": true, "comment_policy": ["story"], "homepage": "latest"}
+}

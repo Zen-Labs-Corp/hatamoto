@@ -32,11 +32,15 @@ type Schemas interface {
 	GetSchemaBySlug(ctx context.Context, slug string) (*entity.EntitySchema, error)
 	CreateSchema(ctx context.Context, in *entity.CreateSchemaInput) (*entity.EntitySchema, error)
 	UpdateSchema(ctx context.Context, id uuid.UUID, in *entity.UpdateSchemaInput) (*entity.EntitySchema, error)
+	// SchemaOrigin is the plugin whose package installed the type, "" for one
+	// the owner (or an earlier apply) created.
+	SchemaOrigin(ctx context.Context, slug string) (string, error)
 }
 
-// Pages is the page store. GetPage returns (nil, nil) when the slug is free.
+// Pages is the page store. GetPage looks a slug up inside one content type and
+// returns (nil, nil) when it is free.
 type Pages interface {
-	GetPage(ctx context.Context, slug string) (*entity.Entity, error)
+	GetPage(ctx context.Context, schemaSlug, slug string) (*entity.Entity, error)
 	CreatePublished(ctx context.Context, in *entity.CreateEntityInput, by *uuid.UUID) (*entity.Entity, error)
 }
 
