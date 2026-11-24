@@ -4,15 +4,20 @@ package server
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/commentfmt"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/pluginkey"
+	"hatamoto.dev/sdk"
 )
 
 // The plugin read API must see published entities of every public locale of a
@@ -97,5 +102,255 @@ func TestPluginCommentReaderLocales_Integration(t *testing.T) {
 	}
 	if counts[hidden] != 0 {
 		t.Errorf("Counts(hidden locale) = %d, want 0", counts[hidden])
+	}
+}
+
+// readRig is a server with comments on and one entity of a content type owned
+// by plugin-a, plus helpers to seed commenters and comments straight into the table.
+type readRig struct {
+	t      *testing.T
+	s      *Server
+	keys   *pluginkey.Deriver
+	reader pluginCommentReader
+	owned  uuid.UUID // published, on plugin-a's type "item"
+	seq    int
+}
+
+func newReadRig(t *testing.T) *readRig {
+	t.Helper()
+	ctx := context.Background()
+	env := newWireEnv(t, nil)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	s := New(env.cfg, env.db, logger)
+	s.comments = comment.New(env.db, env.cfg.Secret, logger)
+	set, err := s.comments.Settings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	set.Enabled = true
+	if err := s.comments.SaveSettings(ctx, set, nil); err != nil {
+		t.Fatal(err)
+	}
+	keys := pluginkey.New("test-secret")
+	r := &readRig{t: t, s: s, keys: keys, reader: pluginCommentReader{s: s, keys: keys,
+		authors: newCommenterIndex(s.comments.CommentersSince, keys.Commenter)}}
+	r.owned = r.entity("item", "plugin-a", "published", "")
+	return r
+}
+
+func (r *readRig) exec(q string, args ...any) {
+	r.t.Helper()
+	if _, err := r.s.db.Pool().Exec(context.Background(), q, args...); err != nil {
+		r.t.Fatalf("%s: %v", q, err)
+	}
+}
+
+// entity creates a content type (origin plugin may be "") and one entity on it.
+func (r *readRig) entity(slug, origin, status, mode string) uuid.UUID {
+	r.t.Helper()
+	sid, id := uuid.New(), uuid.New()
+	var o *string
+	if origin != "" {
+		o = &origin
+	}
+	r.exec(`INSERT INTO hatamoto_entity_schemas (id,name,slug,schema,settings,origin_plugin) VALUES ($1,$2,$2,'{"type":"object"}','{"url_pattern":"/{slug}"}',$3)`, sid, slug, o)
+	r.exec(`INSERT INTO hatamoto_entities (id,schema_id,name,slug,locale,status,published_at,attributes)
+		VALUES ($1,$2,$3,$3,'en',$4,now(),'{}'::jsonb)`, id, sid, slug+"-e", status)
+	if mode != "" {
+		r.exec(`INSERT INTO hatamoto_comment_entities (entity_id, mode) VALUES ($1, $2)`, id, mode)
+	}
+	return id
+}
+
+func (r *readRig) commenter(tag string) uuid.UUID {
+	r.t.Helper()
+	var id uuid.UUID
+	if err := r.s.db.Pool().QueryRow(context.Background(),
+		`INSERT INTO hatamoto_commenters (email_hash, email_sealed) VALUES ('h-'||$1::text, '\x00') RETURNING id`, tag).Scan(&id); err != nil {
+		r.t.Fatal(err)
+	}
+	return id
+}
+
+// comment inserts a comment (parent may be nil, who may be nil) and returns its id and path.
+func (r *readRig) comment(ent uuid.UUID, parent *uuid.UUID, who *uuid.UUID, status, body string) uuid.UUID {
+	r.t.Helper()
+	r.seq++
+	var id uuid.UUID
+	err := r.s.db.Pool().QueryRow(context.Background(), `
+		WITH s AS (SELECT nextval('hatamoto_comments_seq') AS v),
+		     p AS (SELECT path, depth FROM hatamoto_comments WHERE id = $2)
+		INSERT INTO hatamoto_comments (seq, entity_id, parent_id, path, depth, status, author_name, body_raw, body_html, created_at, updated_at, commenter_id)
+		SELECT s.v, $1, $2, COALESCE((SELECT path || '.' FROM p), '') || lpad(to_hex(s.v), 12, '0'),
+		       COALESCE((SELECT depth FROM p), 0) + 1, $3, 'Author', 'raw', $4, now() + $5 * interval '1 second', now(), $6
+		FROM s RETURNING id`, ent, parent, status, "<p>"+body+"</p>", r.seq, who).Scan(&id)
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	return id
+}
+
+func itemIDs(items []sdk.CommentItem) []string {
+	out := make([]string, len(items))
+	for i, it := range items {
+		out[i] = it.ID
+	}
+	return out
+}
+
+func sameIDs(t *testing.T, step string, items []sdk.CommentItem, want ...uuid.UUID) {
+	t.Helper()
+	got := itemIDs(items)
+	if len(got) != len(want) {
+		t.Fatalf("%s: got %v, want %v", step, got, want)
+	}
+	for i := range want {
+		if got[i] != want[i].String() {
+			t.Fatalf("%s: got %v, want %v", step, got, want)
+		}
+	}
+}
+
+func TestPluginCommentReaderByAuthor_Integration(t *testing.T) {
+	ctx := context.Background()
+	r := newReadRig(t)
+	cid := r.commenter("a")
+	hidden := r.entity("hidden-type", "", "published", "hidden")
+	draft := r.entity("draft-type", "", "draft", "")
+	other := r.entity("other-type", "plugin-a", "published", "")
+
+	approved1 := r.comment(r.owned, nil, &cid, "approved", "one")
+	approved2 := r.comment(other, nil, &cid, "approved", "two")
+	dead := r.comment(r.owned, nil, &cid, "dead", "gone")
+	deadOther := r.comment(other, nil, &cid, "dead", "gone too")
+	r.comment(r.owned, nil, &cid, "pending", "wait")
+	r.comment(hidden, nil, &cid, "approved", "no")
+	r.comment(draft, nil, &cid, "approved", "no")
+	r.comment(r.owned, nil, nil, "approved", "staff")
+
+	keyA := r.keys.Commenter("plugin-a", cid)
+	opts := pluginhost.ThreadOpts{Plugin: "plugin-a", Schema: "item"}
+
+	th, err := r.reader.ByAuthor(ctx, keyA, 1, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sameIDs(t, "approved only", th.Items, approved2, approved1)
+	for _, it := range th.Items {
+		if it.CommenterKey != keyA || it.Status != "approved" {
+			t.Errorf("item %+v", it)
+		}
+	}
+
+	opts.IncludeDead = true
+	th, err = r.reader.ByAuthor(ctx, keyA, 1, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sameIDs(t, "include_dead on the owner type", th.Items, dead, approved2, approved1)
+	if d := th.Items[0]; d.Status != "dead" || d.BodyHTML != "<p>gone</p>" || d.CommenterKey != keyA {
+		t.Errorf("revealed dead item = %+v", d)
+	}
+
+	// The rule is per content type: naming the other type reveals its dead row only.
+	th, err = r.reader.ByAuthor(ctx, keyA, 1, pluginhost.ThreadOpts{Plugin: "plugin-a", Schema: "other-type", IncludeDead: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sameIDs(t, "other type", th.Items, deadOther, approved2, approved1)
+	// A plugin that is not the owner never gets a dead row, not even a placeholder.
+	keyB := r.keys.Commenter("plugin-b", cid)
+	th, err = r.reader.ByAuthor(ctx, keyB, 1, pluginhost.ThreadOpts{Plugin: "plugin-b", Schema: "item", IncludeDead: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sameIDs(t, "non-owner", th.Items, approved2, approved1)
+	for _, it := range th.Items {
+		if it.Status == "dead" || it.BodyHTML == "" {
+			t.Errorf("non-owner item %+v", it)
+		}
+	}
+
+	// A key of another plugin resolves nobody; so does a random key, no keys, no index.
+	opts.IncludeDead = false
+	for name, c := range map[string]struct {
+		rd  pluginCommentReader
+		key string
+	}{
+		"other plugin's key": {r.reader, keyB},
+		"random key":         {r.reader, strings.Repeat("A", 43)},
+		"no keys":            {pluginCommentReader{s: r.s}, keyA},
+	} {
+		got, err := c.rd.ByAuthor(ctx, c.key, 1, opts)
+		if err != nil || got.Items == nil || len(got.Items) != 0 {
+			t.Errorf("%s: %+v, %v; want an empty page", name, got, err)
+		}
+	}
+
+	all, _ := jsonx.Marshal(th)
+	for _, bad := range []string{"email", "hash", "\"ip", "dead_by"} {
+		if strings.Contains(string(all), bad) {
+			t.Errorf("result contains %q: %s", bad, all)
+		}
+	}
+}
+
+func TestPluginCommentReaderSubtree_Integration(t *testing.T) {
+	ctx := context.Background()
+	r := newReadRig(t)
+	cid := r.commenter("a")
+	root := r.comment(r.owned, nil, &cid, "approved", "root")
+	a := r.comment(r.owned, &root, &cid, "approved", "a")
+	b := r.comment(r.owned, &a, &cid, "approved", "b")
+	c := r.comment(r.owned, &b, &cid, "approved", "c")
+	opts := pluginhost.ThreadOpts{Plugin: "plugin-a", Schema: "item"}
+	key := r.keys.Commenter("plugin-a", cid)
+
+	sub, err := r.reader.Subtree(ctx, b, 1, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sameIDs(t, "ancestors", sub.Ancestors, root, a)
+	sameIDs(t, "items", sub.Items, b, c)
+	if sub.Items[0].CommenterKey != key || sub.Page != 1 || sub.HasMore {
+		t.Errorf("subtree = %+v", sub)
+	}
+
+	r.exec(`UPDATE hatamoto_comments SET status = 'dead' WHERE id = $1`, a)
+	sub, err = r.reader.Subtree(ctx, b, 1, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sameIDs(t, "dead ancestor kept", sub.Ancestors, root, a)
+	sameIDs(t, "replies under dead kept", sub.Items, b, c)
+	if d := sub.Ancestors[1]; d.Status != "dead" || d.AuthorName != "" || d.BodyHTML != "" || d.CommenterKey != "" {
+		t.Errorf("unrevealed dead ancestor = %+v", d)
+	}
+	opts.IncludeDead = true
+	sub, err = r.reader.Subtree(ctx, b, 1, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := sub.Ancestors[1]; d.Status != "dead" || d.BodyHTML != "<p>a</p>" || d.CommenterKey != key {
+		t.Errorf("revealed dead ancestor = %+v", d)
+	}
+	opts.IncludeDead = false
+	r.exec(`UPDATE hatamoto_comments SET status = 'approved' WHERE id = $1`, a)
+
+	hiddenEnt := r.entity("hidden-type", "", "published", "hidden")
+	draftEnt := r.entity("draft-type", "", "draft", "")
+	pending := r.comment(r.owned, nil, &cid, "pending", "p")
+	underPending := r.comment(r.owned, &pending, &cid, "approved", "u")
+	for name, id := range map[string]uuid.UUID{
+		"pending target":     pending,
+		"under pending":      underPending,
+		"hidden-mode entity": r.comment(hiddenEnt, nil, &cid, "approved", "h"),
+		"unpublished entity": r.comment(draftEnt, nil, &cid, "approved", "d"),
+		"unknown":            uuid.New(),
+	} {
+		got, err := r.reader.Subtree(ctx, id, 1, opts)
+		if !errors.Is(err, pluginhost.ErrCommentNotFound) || len(got.Items) != 0 || len(got.Ancestors) != 0 {
+			t.Errorf("%s: %+v, %v; want ErrCommentNotFound", name, got, err)
+		}
 	}
 }

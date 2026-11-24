@@ -296,3 +296,36 @@ func TestPluginCommentReaderRevealDead(t *testing.T) {
 		}
 	}
 }
+
+func TestPluginItemsKeys(t *testing.T) {
+	commenter, other := uuid.New(), uuid.New()
+	now := time.Now()
+	cs := []comment.ThreadComment{
+		{ID: uuid.New(), AuthorName: "Staff", IsSiteAuthor: true, BodyHTML: "<p>s</p>", CreatedAt: now, Status: comment.StatusApproved},
+		{ID: uuid.New(), AuthorName: "Al", BodyHTML: "<p>a</p>", CreatedAt: now, Status: comment.StatusApproved, CommenterID: &commenter},
+		{ID: uuid.New(), AuthorName: "Bo", BodyHTML: "<p>b</p>", CreatedAt: now, Status: comment.StatusDead, CommenterID: &other},
+	}
+	key := func(id uuid.UUID) string { return "k-" + id.String() }
+
+	got := pluginItems(cs, false, key)
+	if got[0].CommenterKey != "" {
+		t.Error("a staff row carries a key")
+	}
+	if got[1].CommenterKey != key(commenter) || got[1].Status != "approved" {
+		t.Errorf("commenter row = %+v", got[1])
+	}
+	if d := got[2]; d.Status != "dead" || d.CommenterKey != "" || d.AuthorName != "" || d.BodyHTML != "" || d.Staff {
+		t.Errorf("unrevealed dead row = %+v", d)
+	}
+	if d := pluginItems(cs, true, key)[2]; d.CommenterKey != key(other) || d.AuthorName != "Bo" || d.BodyHTML != "<p>b</p>" {
+		t.Errorf("revealed dead row = %+v", d)
+	}
+	for _, it := range pluginItems(cs, true, nil) {
+		if it.CommenterKey != "" {
+			t.Errorf("a read without keys carries a key: %+v", it)
+		}
+	}
+	if empty := pluginItems(nil, false, key); empty == nil || len(empty) != 0 {
+		t.Errorf("empty input = %#v, want a non-nil empty slice", empty)
+	}
+}

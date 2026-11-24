@@ -19,6 +19,12 @@ type CommentReader interface {
 	Counts(ctx context.Context, entityIDs []uuid.UUID) (map[uuid.UUID]int, error)
 }
 
+// ErrCommentNotFound is a CommentReader's answer for a comment a plugin may not
+// read: unknown, pending/spam/trash/draft, under such an ancestor or on a
+// non-public entity (a dead comment is not one of them: it is a placeholder).
+// The host function maps it to not_found "comment not found".
+var ErrCommentNotFound = errors.New("comment not found")
+
 // ThreadOpts is the caller's identity and what it asked for. IncludeDead is
 // already gated on comments.moderate; the reader still decides ownership from
 // the content type's origin plugin at call time and never trusts Schema alone.
