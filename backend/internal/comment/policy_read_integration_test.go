@@ -26,7 +26,7 @@ func TestEntityConfigReadsModeOrderPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := EntityConfig{Mode: ModeClosed, Order: OrderOldest, Policy: Policy{Enabled: true, MaxDepth: 20, EditWindowMinutes: 60, SlowModeSeconds: 5}}
+	want := EntityConfig{Mode: ModeClosed, Order: OrderOldest, Policy: Policy{Enabled: true, MaxDepth: 20, EditWindowMinutes: 60, SlowModeSeconds: 5}, SchemaSlug: "cmm-note"}
 	if cfg != want {
 		t.Errorf("config = %+v, want %+v", cfg, want)
 	}
