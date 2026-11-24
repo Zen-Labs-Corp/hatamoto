@@ -429,6 +429,13 @@ func TestReviewGateStaleExpectedVersionStatusAndRestore(t *testing.T) {
 	if !errors.Is(err, ErrVersionConflict) || len(gate.subs) != 0 {
 		t.Fatalf("status: err = %v, submits %d", err, len(gate.subs))
 	}
+	// Control: with the current version the same call is held and staged.
+	current := d.Version
+	_, err = g.svc.UpdateEntityStatusIf(asRole("author", me), d.ID, &me, StatusPublished, &current)
+	sent(t, err, 42)
+	if len(gate.subs) != 1 {
+		t.Fatalf("status control: submits %d, want 1", len(gate.subs))
+	}
 
 	p := g.entity(t, &me, StatusPublished)
 	if _, err := g.repo.CreateVersion(context.Background(), p.ID, 1, jsontext.Value(`{"title":"Old","body":"W"}`), &me, nil); err != nil {
@@ -436,7 +443,13 @@ func TestReviewGateStaleExpectedVersionStatusAndRestore(t *testing.T) {
 	}
 	stale = p.Version + 1
 	_, err = g.svc.RestoreVersionIf(asRole("author", me), p.ID, &me, 1, &stale)
-	if !errors.Is(err, ErrVersionConflict) || len(gate.subs) != 0 || g.repo.updated != 0 {
+	if !errors.Is(err, ErrVersionConflict) || len(gate.subs) != 1 || g.repo.updated != 0 {
 		t.Fatalf("restore: err = %v, submits %d, updates %d", err, len(gate.subs), g.repo.updated)
+	}
+	current = p.Version
+	_, err = g.svc.RestoreVersionIf(asRole("author", me), p.ID, &me, 1, &current)
+	sent(t, err, 42)
+	if len(gate.subs) != 2 || g.repo.updated != 0 {
+		t.Fatalf("restore control: submits %d, updates %d, want 2 and 0", len(gate.subs), g.repo.updated)
 	}
 }
