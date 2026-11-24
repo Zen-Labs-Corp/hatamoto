@@ -65,7 +65,7 @@ var (
 	CommentDeleted = Action[CommentEvent]{"comment.deleted"}
 	// CommentUpdated (SDK 0.27) fires when a comment is edited, marked dead or
 	// restored (never on a rank change). It reaches only plugins granted
-	// comments.read. Registered, but not fired until the change that fires it ships.
+	// comments.read.
 	CommentUpdated = Action[CommentEvent]{"comment.updated"}
 
 	JSONLDEnrich = Filter[JSONLDDoc]{"jsonld.enrich"}

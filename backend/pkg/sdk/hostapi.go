@@ -222,8 +222,8 @@ type HTTPRequest struct {
 	Cookies map[string]string `json:"cookies,omitempty"`
 	// CommenterKey (needs comments.read), AddrKey and NetKey (need client.key) are
 	// per-plugin pseudonymous keys of the signed-in commenter and of the visitor's
-	// address and network (SDK 0.27). Public routes only, empty on admin routes.
-	// Absent until the change that fills them ships.
+	// address and network (SDK 0.27). Public routes only, empty on admin routes
+	// and absent without the grant.
 	CommenterKey string `json:"commenter_key,omitempty"`
 	AddrKey      string `json:"addr_key,omitempty"`
 	NetKey       string `json:"net_key,omitempty"`
