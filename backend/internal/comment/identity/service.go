@@ -23,6 +23,7 @@ type Comments interface {
 	Settings(ctx context.Context) (comment.Settings, error)
 	MatchBlocks(ctx context.Context, p comment.Probe) ([]comment.Block, error)
 	EnsureCommenter(ctx context.Context, email string) (uuid.UUID, error)
+	FindCommenter(ctx context.Context, email string) (id uuid.UUID, ok bool, err error)
 }
 
 // Mailer sends the confirmation and sign-in mails.
@@ -37,6 +38,9 @@ type SiteInfo func(ctx context.Context) (name, baseURL string)
 
 type store interface {
 	Issue(ctx context.Context, r issueRow, l Limits) (bool, error)
+	// NetworkLimited reports whether the ip or net cap is already reached,
+	// without recording anything.
+	NetworkLimited(ctx context.Context, ipHash, netHash string, now time.Time, l Limits) (bool, error)
 	Peek(ctx context.Context, hash []byte, now time.Time) (commentID, entityID, commenterID uuid.UUID, ok bool, err error)
 	PeekSignIn(ctx context.Context, hash []byte, now time.Time) (commenterID uuid.UUID, ok bool, err error)
 	// Consume spends a comment token (signIn false) or a sign-in token (true).
@@ -264,9 +268,24 @@ func (s *Service) RequestSignIn(ctx context.Context, req SignInRequest) (Outcome
 		s.log.Warn("comment sign-in not sent: no site address")
 		return OutcomeCheckEmail, nil
 	}
-	commenterID, err := s.comments.EnsureCommenter(ctx, req.Email)
+	// An address with no commenter yet gets a row (and its sealed email) only
+	// once the network limits allow a mail: a limited client stores nothing.
+	commenterID, found, err := s.comments.FindCommenter(ctx, req.Email)
 	if err != nil {
 		return 0, err
+	}
+	if !found {
+		limited, err := s.store.NetworkLimited(ctx, req.IPHash, req.NetHash, s.now(), s.limits)
+		if err != nil {
+			return 0, err
+		}
+		if limited {
+			s.log.Debug("comment sign-in not sent: limit reached")
+			return OutcomeCheckEmail, nil
+		}
+		if commenterID, err = s.comments.EnsureCommenter(ctx, req.Email); err != nil {
+			return 0, err
+		}
 	}
 	raw, hash, err := NewToken()
 	if err != nil {

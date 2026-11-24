@@ -36,6 +36,10 @@ func (f *fakeComments) EnsureCommenter(context.Context, string) (uuid.UUID, erro
 	return uuid.New(), nil
 }
 
+func (f *fakeComments) FindCommenter(context.Context, string) (uuid.UUID, bool, error) {
+	return uuid.Nil, false, nil
+}
+
 func (f *fakeComments) Settings(context.Context) (comment.Settings, error) {
 	return f.settings, f.setErr
 }
@@ -97,6 +101,19 @@ func (f *fakeStore) Issue(_ context.Context, r issueRow, l Limits) (bool, error)
 	}
 	f.rows = append(f.rows, r)
 	return false, nil
+}
+
+func (f *fakeStore) NetworkLimited(_ context.Context, ip, net string, _ time.Time, l Limits) (bool, error) {
+	var nIP, nNet int
+	for _, r := range f.rows {
+		if ip != "" && r.IPHash == ip {
+			nIP++
+		}
+		if net != "" && r.NetHash == net {
+			nNet++
+		}
+	}
+	return nIP >= l.PerIP || nNet >= l.PerNet, nil
 }
 
 func (f *fakeStore) Peek(context.Context, []byte, time.Time) (a, b, c uuid.UUID, ok bool, err error) {

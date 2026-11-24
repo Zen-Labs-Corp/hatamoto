@@ -79,6 +79,28 @@ func (s *pgStore) Issue(ctx context.Context, r issueRow, l Limits) (limited bool
 	return limited, err
 }
 
+// NetworkLimited reports whether the ip_hash or net_hash cap is reached. It is
+// a pre-check: Issue still enforces every cap under its locks.
+func (s *pgStore) NetworkLimited(ctx context.Context, ipHash, netHash string, now time.Time, l Limits) (bool, error) {
+	since := now.Add(-limitWindow)
+	for _, c := range []struct {
+		col, val string
+		max      int
+	}{{"ip_hash", ipHash, l.PerIP}, {"net_hash", netHash, l.PerNet}} {
+		if c.val == "" {
+			continue
+		}
+		var n int
+		if err := s.db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_comment_confirmations WHERE `+c.col+` = $1 AND created_at > $2`, c.val, since).Scan(&n); err != nil {
+			return false, err
+		}
+		if n >= c.max {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // Peek looks a token up without consuming it. The comment must still be a draft.
 func (s *pgStore) Peek(ctx context.Context, hash []byte, now time.Time) (commentID, entityID, commenterID uuid.UUID, ok bool, err error) {
 	err = s.db.Pool().QueryRow(ctx, `SELECT k.comment_id, m.entity_id, k.commenter_id

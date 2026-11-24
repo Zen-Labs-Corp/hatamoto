@@ -30,6 +30,16 @@ func (s *Service) PolicyInfo(ctx context.Context, entityID uuid.UUID) (PolicyInf
 	return p, err
 }
 
+// FindCommenter returns the id of the commenter with this address without
+// creating one. ok is false when there is none.
+func (s *Service) FindCommenter(ctx context.Context, email string) (id uuid.UUID, ok bool, err error) {
+	err = s.db.Pool().QueryRow(ctx, `SELECT id FROM hatamoto_commenters WHERE email_hash = $1`, s.keys.HashEmail(email)).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, false, nil
+	}
+	return id, err == nil, err
+}
+
 // EnsureCommenter creates the commenter row for email if it is missing and
 // returns its id.
 func (s *Service) EnsureCommenter(ctx context.Context, email string) (uuid.UUID, error) {

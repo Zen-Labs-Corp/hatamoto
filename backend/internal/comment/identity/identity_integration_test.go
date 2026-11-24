@@ -5,6 +5,7 @@ package identity
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -462,5 +463,30 @@ func TestSignInOnlyCommenterSurvivesPurge(t *testing.T) {
 	e.scalar(&n, `SELECT count(*) FROM hatamoto_commenters WHERE id = $1`, neverID)
 	if n != 0 {
 		t.Error("commenter who never clicked the link survived the purge")
+	}
+}
+
+func TestSignInOverLimitStoresNoCommenter(t *testing.T) {
+	e := newIDEnv(t)
+	count := func() (n int) {
+		e.scalar(&n, `SELECT count(*) FROM hatamoto_commenters`)
+		return n
+	}
+	for i := 0; i < DefaultLimits.PerIP; i++ {
+		addr := fmt.Sprintf("u%d@example.test", i)
+		if out, err := e.id.RequestSignIn(e.ctx, SignInRequest{Email: addr, IPHash: "ip-x", NetHash: "net-x"}); out != OutcomeCheckEmail || err != nil {
+			t.Fatalf("request %d: (%v, %v)", i, out, err)
+		}
+	}
+	before := count()
+	out, err := e.id.RequestSignIn(e.ctx, SignInRequest{Email: "over@example.test", IPHash: "ip-x", NetHash: "net-x"})
+	if out != OutcomeCheckEmail || err != nil {
+		t.Fatalf("over the limit: (%v, %v), want the neutral outcome", out, err)
+	}
+	if got := count(); got != before {
+		t.Errorf("commenters %d -> %d: a limited request stored a row", before, got)
+	}
+	if n := len(e.mail.signIns); n != DefaultLimits.PerIP {
+		t.Errorf("sign-in mails = %d, want %d", n, DefaultLimits.PerIP)
 	}
 }
