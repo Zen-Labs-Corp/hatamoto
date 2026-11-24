@@ -9,8 +9,9 @@ var KnownFeatures = []string{"comment.policy", "comment.rank", "comment.signin",
 // that makes it work: comment.policy is the per-type community policy (Settings >
 // Comments > Content types), which a kit turns on through Deps.SchemaComments;
 // comment.rank is the rank sort of a comment type (order "rank"), which orders
-// every sibling level by the rank a plugin writes.
-var present = []string{"comment.policy", "comment.rank"}
+// every sibling level by the rank a plugin writes; plugin.entity-write is a plugin
+// writing entries of the one content type it owns (entities.write.own).
+var present = []string{"comment.policy", "comment.rank", "plugin.entity-write"}
 
 // Features returns the feature names this core has.
 func Features() []string { return slices.Clone(present) }

@@ -228,7 +228,7 @@ turns on writes `comments.policy`.
 Core knows a fixed list of feature names a kit may put in `requires`:
 `comment.policy`, `comment.rank`, `comment.signin` and `plugin.entity-write`.
 `kit.Features()` (package `internal/kit`) returns the ones this build has. This
-build has `comment.policy` and `comment.rank`; the others are not available yet. A name is added
+build has `comment.policy`, `comment.rank` and `plugin.entity-write`; `comment.signin` is not available yet. A name is added
 only by the change that makes the feature work. `hatamoto kit check` prints a note for each
 required name this build does not have yet ("needs a newer Hatamoto") and for
 each name it does not know at all.

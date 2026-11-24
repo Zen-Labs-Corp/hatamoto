@@ -38,6 +38,15 @@ func TestFeaturesReportCommentPolicy(t *testing.T) {
 	}
 }
 
+func TestFeaturesReportPluginEntityWrite(t *testing.T) {
+	if !slices.Contains(Features(), "plugin.entity-write") {
+		t.Fatalf("Features = %v", Features())
+	}
+	if got := Missing([]string{"plugin.entity-write"}); len(got) != 0 {
+		t.Fatalf("Missing = %v", got)
+	}
+}
+
 func TestFeaturesReportCommentRank(t *testing.T) {
 	if !slices.Contains(Features(), "comment.rank") {
 		t.Fatalf("Features = %v", Features())

@@ -127,6 +127,16 @@ func TestPlanRefusals(t *testing.T) {
 	}
 }
 
+func TestPlanRequiresPluginEntityWrite(t *testing.T) {
+	f := newFake(t).withRegistry(t)
+	pl := mustPlan(t, f, kitPackage(t, func(k *packages.Kit) {
+		k.Requires = []string{"comment.policy", "comment.rank", "plugin.entity-write"}
+	}))
+	if len(pl.Refusals) != 0 {
+		t.Fatalf("refusals: %v", pl.Refusals)
+	}
+}
+
 func TestPlanOwnerCreatedTypeIsKept(t *testing.T) {
 	f := newFake(t).withRegistry(t)
 	f.schemas["story"] = &schemaRec{s: &entity.EntitySchema{ID: uuid.New(), Slug: "story"}}
