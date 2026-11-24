@@ -11,12 +11,8 @@ import (
 func TestContractStubsUnavailable(t *testing.T) {
 	r := newCapaRig(t)
 	fns := map[string]string{
-		sdk.FnCommentsMarkDead:  sdk.PermCommentsModerate,
-		sdk.FnCommentsRestore:   sdk.PermCommentsModerate,
-		sdk.FnCommentsSetRank:   sdk.PermCommentsModerate,
-		sdk.FnCommentsSetViewer: sdk.PermCommentsModerate,
-		sdk.FnCommentsByAuthor:  sdk.PermCommentsRead,
-		sdk.FnCommentsSubtree:   sdk.PermCommentsRead,
+		sdk.FnCommentsByAuthor: sdk.PermCommentsRead,
+		sdk.FnCommentsSubtree:  sdk.PermCommentsRead,
 	}
 	perms := []string{sdk.PermEntitiesWriteOwn, sdk.PermCommentsModerate, sdk.PermCommentsRead}
 	r.load(t, func(m *sdk.Manifest) { m.Permissions = append(m.Permissions, perms...); m.EntitySchema = "story" })
