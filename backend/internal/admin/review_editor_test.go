@@ -320,6 +320,24 @@ func TestReviewRefusalsAreNotServerErrors(t *testing.T) {
 	}
 }
 
+// A restore that loses a race with another edit is an ordinary outcome: a flash
+// and a redirect to the versions page, not a 500 page.
+func TestRestoreConflictIsNotAServerError(t *testing.T) {
+	c, users := newRolesRig(t, func(d *Deps) {
+		d.Content.Entities = reviewRefusing{EntityStore: d.Content.Entities, err: &entity.VersionConflictError{Current: 2}}
+	})
+	author := users[user.RoleAuthor]
+	tok := c.freshToken(author.ID)
+	e := c.entityBy(author, entity.StatusDraft)
+
+	path := "/admin/entities/" + e.ID.String() + "/versions"
+	rec := c.do("POST", path+"/1/restore", tok, url.Values{}, nil)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("restore = %d, want 303\n%s", rec.Code, rec.Body.String())
+	}
+	has(t, c.next(rec, path), "changed while you were restoring")
+}
+
 // Another person's change is waiting: the save is refused with what the user
 // typed still in the form (422), and the blog editor keeps the recovery copy.
 func TestReviewEditorPendingRefusalKeepsInput(t *testing.T) {
