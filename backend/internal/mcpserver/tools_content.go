@@ -360,7 +360,7 @@ func (s *Server) registerContent() {
 			})
 	}
 	setStatus("entities_publish", "Publish an entity: it becomes public at its URL, in the sitemap and in llms.txt. Optional version (from entities_get): a stale one is refused with 'conflict: ... current version is N'; re-read and retry.", entity.StatusPublished)
-	setStatus("entities_unpublish", "Take an entity off the site (back to draft).", entity.StatusDraft)
+	setStatus("entities_unpublish", "Take an entity off the site (back to draft). Optional version (from entities_get): a stale one is refused with 'conflict: ... current version is N'; re-read and retry.", entity.StatusDraft)
 
 	// Schemas.
 	register(s, toolSpec{name: "schemas_list", description: "List the content types (schemas).", scope: readScope, action: authz.ActionSchemaRead, idempotent: true},
