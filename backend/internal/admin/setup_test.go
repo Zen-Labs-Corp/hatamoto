@@ -184,6 +184,15 @@ func TestSetupWizardPagesAccessibleAndGolden(t *testing.T) {
 		}
 		pages[name] = rec.Body.String()
 	}
+	// the content step with the registry offering kits: the 4th card and Continue
+	rec = g.do("GET", "/admin/setup/content", "owner-token", nil, nil)
+	if rec.Code != 200 {
+		t.Fatalf("setup-content-kits: %d\n%s", rec.Code, rec.Body.String())
+	}
+	pages["setup-content-kits"] = rec.Body.String()
+	if n := contentRadios(rec.Body.String()); n != 4 || !strings.Contains(rec.Body.String(), ">Continue<") {
+		t.Errorf("setup-content-kits: %d cards, want 4 with Continue", n)
+	}
 	g.a.deps.Kits = nil
 	// error states
 	g.count.n = 0
