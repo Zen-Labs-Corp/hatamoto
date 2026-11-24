@@ -225,6 +225,8 @@ refs13=$(git --git-dir="$r13" for-each-ref)
 printf '// changed\n' >>"$core/backend/pkg/sdk/guest/guest.go"; release_commit "core: change sdk tree"
 refused "v0.9.0-rc.1 exists with a different tree" --remote "file://$r13" --tag v0.9.0-rc.1 --push
 [ "$(git --git-dir="$r13" for-each-ref)" = "$refs13" ] || fail "rc refusal changed the remote"
+refused "v0.9.0 is already published" --remote "file://$r13" --tag v0.9.0-rc.2 --push
+[ "$(git --git-dir="$r13" for-each-ref)" = "$refs13" ] || fail "rc-after-final refusal changed the remote"
 pass "--tag publishes a release candidate of the same tree"
 
 # 12. The script has no force path.

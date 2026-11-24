@@ -10,7 +10,7 @@
 #                 https://github.com/Zen-Labs-Corp/hatamoto-sdk.git; the public cut-over moves it)
 #   --tag TAG     the tag to publish (default v<Version>). Only v<Version> or v<Version>-rc.N: a
 #                 release candidate exports the same tree as the final, so publishing the final
-#                 later from that tree adds only the tag.
+#                 later from that tree adds only the tag.  An rc is refused once v<Version> exists.
 #   --out DIR     materialize the result as a local git checkout in DIR (created or reused;
 #                 branch main, tag v<Version>, origin = URL). No network: the previous state
 #                 is whatever DIR already holds.
@@ -91,7 +91,7 @@ if [ -n "$out" ]; then
 else
   G=$scratch/repo.git
   git init -q --bare "$G"
-  remote_refs=$(git ls-remote "$remote" refs/heads/main "refs/tags/$tag") || die "cannot read $remote"
+  remote_refs=$(git ls-remote "$remote" refs/heads/main "refs/tags/$tag" "refs/tags/v$version") || die "cannot read $remote"
   if grep -q "	refs/heads/main$" <<<"$remote_refs"; then
     git --git-dir="$G" fetch -q "$remote" refs/heads/main:refs/remotes/origin/main || die "cannot fetch main from $remote"
   fi
@@ -107,6 +107,13 @@ if existing=$(g rev-parse -q --verify "refs/tags/$tag^{tree}"); then
   [ "$existing" = "$tree" ] || die "refusing: $tag exists with a different tree (bump Version in backend/pkg/sdk/version.go before publishing a change, or use the next -rc.N)"
   echo "publish-sdk: $tag is already published with this tree; nothing to do"
   exit 0
+fi
+
+# A release candidate is never published once its final exists: main would move past the release.
+if [ "$tag" != "v$version" ]; then
+  if [ -n "$out" ]; then g rev-parse -q --verify "refs/tags/v$version" >/dev/null && final_exists=1 || final_exists=0
+  else final_exists=0; ! grep -q "	refs/tags/v$version$" <<<"$remote_refs" || final_exists=1; fi
+  [ "$final_exists" = 0 ] || die "refusing: $tag is a release candidate but v$version is already published (use a new Version for further changes)"
 fi
 
 # Rebuild the tree from the plain files of REV (never from the core object store, so no
