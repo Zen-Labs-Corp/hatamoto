@@ -329,7 +329,7 @@ var (
 func CanTransition(from, to Status) bool {
 	allowed := map[Status][]Status{
 		StatusDraft:    {StatusPending, StatusApproved, StatusSpam, StatusTrash},
-		StatusPending:  {StatusApproved, StatusSpam, StatusTrash, StatusDead},
+		StatusPending:  {StatusApproved, StatusSpam, StatusTrash},
 		StatusApproved: {StatusPending, StatusSpam, StatusTrash, StatusDead},
 		StatusSpam:     {StatusPending, StatusApproved, StatusTrash},
 		StatusTrash:    {StatusPending, StatusApproved, StatusSpam},

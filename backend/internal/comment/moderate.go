@@ -68,7 +68,7 @@ func sortedUUIDs(set map[uuid.UUID]bool) []uuid.UUID {
 	return out
 }
 
-// MarkDead moves the plugin's approved and pending comments among ids to dead
+// MarkDead moves the plugin's approved comments among ids to dead
 // and returns how many moved. All ids must be on the plugin's own content type
 // or nothing changes (ErrNotOwned). Observers run after commit: OnUpdated per
 // moved comment with a WithBatch context, then one OnBatch.
@@ -110,7 +110,7 @@ func (s *Service) moveBatch(ctx context.Context, sc Scope, ids []uuid.UUID, to S
 				rows.Close()
 				return err
 			}
-			if (to == StatusDead && (c.Status == StatusApproved || c.Status == StatusPending)) ||
+			if (to == StatusDead && c.Status == StatusApproved) ||
 				(to == StatusApproved && c.Status == StatusDead) {
 				before[c.ID] = c
 				movable = append(movable, c.ID)

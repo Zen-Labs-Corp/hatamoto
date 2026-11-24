@@ -71,16 +71,16 @@ func TestMarkDeadRestoreOwnSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n != 2 || f.statusOf(a.id) != StatusDead || f.statusOf(p.id) != StatusDead || f.statusOf(sp.id) != StatusSpam {
+	if n != 1 || f.statusOf(a.id) != StatusDead || f.statusOf(p.id) != StatusPending || f.statusOf(sp.id) != StatusSpam {
 		t.Fatalf("changed = %d, statuses %s %s %s", n, f.statusOf(a.id), f.statusOf(p.id), f.statusOf(sp.id))
 	}
-	f.wantCounts(0, 0, "after mark dead")
+	f.wantCounts(0, 1, "after mark dead")
 	var by string
 	f.scalar(&by, `SELECT dead_by FROM hatamoto_comments WHERE id = $1`, a.id)
 	if by != "example" {
 		t.Errorf("dead_by = %q", by)
 	}
-	if len(rec.updated) != 2 || len(rec.batches) != 1 || len(rec.batches[0]) != 1 || rec.batches[0][0] != f.entity {
+	if len(rec.updated) != 1 || len(rec.batches) != 1 || len(rec.batches[0]) != 1 || rec.batches[0][0] != f.entity {
 		t.Errorf("events: %d updated, batches %v", len(rec.updated), rec.batches)
 	}
 
@@ -89,11 +89,11 @@ func TestMarkDeadRestoreOwnSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n != 2 || f.statusOf(a.id) != StatusApproved || f.statusOf(p.id) != StatusApproved || f.statusOf(sp.id) != StatusSpam {
+	if n != 1 || f.statusOf(a.id) != StatusApproved || f.statusOf(p.id) != StatusPending || f.statusOf(sp.id) != StatusSpam {
 		t.Fatalf("restore changed = %d", n)
 	}
-	f.wantCounts(2, 0, "after restore")
-	if len(rec.updated) != 2 || !rec.inBatch[0] || !rec.inBatch[1] || len(rec.batches) != 1 {
+	f.wantCounts(1, 1, "after restore")
+	if len(rec.updated) != 1 || !rec.inBatch[0] || len(rec.batches) != 1 {
 		t.Errorf("restore events: %d updated %v, %d batches", len(rec.updated), rec.inBatch, len(rec.batches))
 	}
 	f.scalar(&by, `SELECT COALESCE(dead_by, '') FROM hatamoto_comments WHERE id = $1`, a.id)
