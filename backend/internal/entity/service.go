@@ -708,8 +708,21 @@ func carryStoredDoc(ex *Entity, caller jsontext.Value) jsontext.Value {
 	return carried
 }
 
+// conditionalStatusUpdater is implemented by repositories that can compare the
+// version under the row lock when they change the status.
+type conditionalStatusUpdater interface {
+	UpdateStatusIf(ctx context.Context, id uuid.UUID, userID *uuid.UUID, status EntityStatus, expected *int) (*Entity, error)
+}
+
 // UpdateEntityStatus changes an entity's status.
 func (s *Service) UpdateEntityStatus(ctx context.Context, id uuid.UUID, userID *uuid.UUID, status EntityStatus) (*Entity, error) {
+	return s.UpdateEntityStatusIf(ctx, id, userID, status, nil)
+}
+
+// UpdateEntityStatusIf is UpdateEntityStatus refused with a
+// *VersionConflictError when expected is set and the entity's version is no
+// longer *expected. The version itself is not changed by a status change.
+func (s *Service) UpdateEntityStatusIf(ctx context.Context, id uuid.UUID, userID *uuid.UUID, status EntityStatus, expected *int) (*Entity, error) {
 	if !ValidStatus(status) {
 		return nil, ErrInvalidStatus
 	}
@@ -723,6 +736,9 @@ func (s *Service) UpdateEntityStatus(ctx context.Context, id uuid.UUID, userID *
 	var reuse bool
 	var plan ReviewPlan
 	prev, prevErr := s.entityRepo.GetByID(ctx, id)
+	if expected != nil && prevErr != nil {
+		return nil, prevErr
+	}
 	if hasSubject(ctx) {
 		if prevErr != nil {
 			return nil, prevErr
@@ -755,12 +771,30 @@ func (s *Service) UpdateEntityStatus(ctx context.Context, id uuid.UUID, userID *
 	if reuse {
 		return nil, errReuseStatus
 	}
+	if expected != nil && *expected != prev.Version {
+		return nil, &VersionConflictError{Current: prev.Version}
+	}
 	if plan.Held {
 		return nil, s.sendForReview(ctx, heldChange(ReviewPublish, prev, status), plan)
 	}
 
-	entity, err := s.entityRepo.UpdateStatus(ctx, id, userID, status)
+	var entity *Entity
+	var err error
+	if expected == nil {
+		entity, err = s.entityRepo.UpdateStatus(ctx, id, userID, status)
+	} else if cu, ok := s.entityRepo.(conditionalStatusUpdater); ok {
+		entity, err = cu.UpdateStatusIf(ctx, id, userID, status, expected)
+	} else {
+		err = errors.New("conditional status changes are not supported by this store")
+	}
 	if err != nil {
+		if errors.Is(err, ErrVersionConflict) {
+			s.logger.Info("status change lost to a concurrent edit",
+				slog.String("entity_id", id.String()),
+				slog.String("status", string(status)),
+			)
+			return nil, err
+		}
 		s.logger.Error("failed to update entity status",
 			slog.String("entity_id", id.String()),
 			slog.String("status", string(status)),
@@ -950,6 +984,14 @@ func (s *Service) GetVersion(ctx context.Context, entityID uuid.UUID, version in
 
 // RestoreVersion restores an entity to a previous version.
 func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID *uuid.UUID, version int) (*Entity, error) {
+	return s.RestoreVersionIf(ctx, entityID, userID, version, nil)
+}
+
+// RestoreVersionIf restores version as a new version. The write is conditional
+// on the version read here, so an edit stored in between is never overwritten
+// (*VersionConflictError). A non-nil expected is the caller's own precondition
+// on the current version and is checked first.
+func (s *Service) RestoreVersionIf(ctx context.Context, entityID uuid.UUID, userID *uuid.UUID, version int, expected *int) (*Entity, error) {
 	// Get the version to restore
 	ver, err := s.entityRepo.GetVersion(ctx, entityID, version)
 	if err != nil {
@@ -974,6 +1016,10 @@ func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID
 		if err := askAgentPolicy(ctx, existing, agentpolicystate.ActionEdit); err != nil {
 			return nil, err
 		}
+	}
+
+	if expected != nil && *expected != existing.Version {
+		return nil, &VersionConflictError{Current: existing.Version}
 	}
 
 	// Validate the old attributes still conform to the current schema
@@ -1009,14 +1055,24 @@ func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID
 		return nil, s.sendForReview(ctx, c, plan)
 	}
 
-	// Update with the old attributes
+	// Update with the old attributes, only if nobody stored a version since
+	// existing was read.
+	readVersion := existing.Version
 	entity, err := s.entityRepo.Update(ctx, entityID, userID, &UpdateEntityInput{
-		Attributes:    &restoredAttrs,
-		ChangeSummary: &changeSummary,
-		Status:        locked,
-		TakeOwnership: structuralAttrsChanged(existing.Schema, ver.Attributes, existing.Attributes),
+		Attributes:      &restoredAttrs,
+		ChangeSummary:   &changeSummary,
+		Status:          locked,
+		TakeOwnership:   structuralAttrsChanged(existing.Schema, ver.Attributes, existing.Attributes),
+		ExpectedVersion: &readVersion,
 	})
 	if err != nil {
+		if errors.Is(err, ErrVersionConflict) {
+			s.logger.Info("restore lost to a concurrent edit",
+				slog.String("entity_id", entityID.String()),
+				slog.Int("version", version),
+			)
+			return nil, err
+		}
 		s.logger.Error("failed to restore entity version",
 			slog.String("entity_id", entityID.String()),
 			slog.Int("version", version),

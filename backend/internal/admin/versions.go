@@ -330,6 +330,9 @@ func (a *Admin) handleVersionRestore(w http.ResponseWriter, r *http.Request) {
 		case isReviewRefusal(err):
 			a.SetFlash(w, r, "error", sentence(err.Error()))
 			Redirect(w, r, a.adminPath+"/entities/"+id+"/versions")
+		case errors.Is(err, entity.ErrVersionConflict):
+			a.SetFlash(w, r, "error", "This entry was changed while you were restoring, so nothing was restored. Check the current version and restore again.")
+			Redirect(w, r, a.adminPath+"/entities/"+id+"/versions")
 		case errors.Is(err, entity.ErrVersionNotFound):
 			a.ErrorBack(w, r, http.StatusNotFound, "Version not found", "That version no longer exists.", a.adminPath+"/entities/"+id+"/versions", "Back to versions")
 		case errors.Is(err, entity.ErrValidationFailed) || errors.Is(err, entity.ErrRestoreInvalid):

@@ -96,6 +96,38 @@ curl -X PATCH -H "X-API-Key: <your-key>" -H "Content-Type: application/json" \
 
 A wrong field answers `422` with a `fields` list that names each one. **Read SEO settings** is enough for `GET` on the same address.
 
+### Edit safely when several programs write
+
+Every entity has a version that counts the versions of its content (its `attributes`). `GET /api/v1/entities/{id}` and every successful update, status change and restore return it as the `ETag` header, a strong tag such as `"9"` (creating an entry sets none). Send it back as `If-Match` and the change is applied only if nobody changed the entry in between:
+
+```bash
+curl -i -H "X-API-Key: <your-key>" https://example.com/api/v1/entities/<id>
+# ETag: "9"
+
+curl -X PATCH -H "X-API-Key: <your-key>" -H "Content-Type: application/json" \
+  -H 'If-Match: "9"' -d '{"attributes": { ...every attribute you read, with your change... }}' \
+  https://example.com/api/v1/entities/<id>
+```
+
+`attributes` is replaced as a whole, so send back everything you read with your change. Per-entry SEO fields (such as `meta_title`) are attributes too and advance the version.
+
+If the entry has moved on, nothing is written and the answer is `412` with the current version, also as the `ETag` header:
+
+```json
+{"error":"entity changed: current version is 10","current_version":10}
+```
+
+Read the entry again, redo the change and retry. The check is atomic with the write: of two writers holding the same tag, exactly one succeeds.
+
+- `If-Match` works on `PUT` and `PATCH /api/v1/entities/{id}`, `PATCH /api/v1/entities/{id}/status` and `POST /api/v1/entities/{id}/restore/{version}`. On a restore, the `{version}` in the address is the version to restore and `If-Match` is the current version you expect.
+- The header is optional. Without it a change is applied as before. `If-Match` on `DELETE` is ignored.
+- Send one tag (`"9"`) or `*` (any existing entry). When the response is compressed, the tag may arrive weakened as `W/"9"`; send it back exactly as received, both forms mean version 9. A list of tags or anything else malformed answers `400`.
+- The tag follows the attribute (content) version. Changes to the name, slug, locale, the separate `metadata` column, parent, byline and status do not advance it, so two such changes made with the same tag can both succeed. Use the tag to protect content edits.
+- A change that only moves the entry (`position`, optionally with `parent_id` or `clear_parent`) does not check the tag.
+- A restore never overwrites an edit stored while it ran. Without `If-Match` (or with `*`) it answers `409` with `current_version`; with a stale tag, `412`.
+- `If-Match: *` on an entry that does not exist answers `404`.
+- The API sends no CORS headers, so a web page on another origin cannot read the `ETag`.
+
 ### Turn on two-step sign-in
 
 Two-step sign-in asks for a second proof after the password. Each person sets it up under **Profile > Security**, after confirming their password.

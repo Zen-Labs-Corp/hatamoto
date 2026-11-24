@@ -352,6 +352,7 @@ func (s *Server) handleGetEntity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	setETag(w, ent.Version)
 	writeJSON(w, http.StatusOK, ent)
 }
 
@@ -363,6 +364,11 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid entity ID")
+		return
+	}
+	m, err := parseIfMatch(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -377,8 +383,10 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	input := body.UpdateEntityInput
-	// decided before the API-key summary below, which would make every key request look like an edit
+	// decided before the expected version and the API-key summary are set, which would make every request look like an edit
 	moveOnly := body.Position != nil && isMoveOnly(input)
+	// A move-only request stores no content version, so it does not evaluate the tag.
+	input.ExpectedVersion = m.expected()
 
 	if k, ok := middleware.GetAPIKey(r.Context()); ok {
 		input.ChangeSummary = apiKeySummary(k.Name, input.ChangeSummary)
@@ -426,6 +434,7 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 	}
 	s.logTookOwnership(r, "update", ent, claims.UserID)
 
+	setETag(w, ent.Version)
 	writeJSON(w, http.StatusOK, ent)
 }
 
@@ -445,6 +454,7 @@ func (s *Server) writeEntityUpdateError(w http.ResponseWriter, err error) {
 	case errors.Is(err, entity.ErrValidationFailed):
 		writeError(w, http.StatusBadRequest, err.Error())
 	case writeEntityRefError(w, err):
+	case writeVersionConflict(w, err, http.StatusPreconditionFailed):
 	case errors.Is(err, entity.ErrRejectedByPlugin):
 		writeError(w, http.StatusUnprocessableEntity, err.Error())
 	default:
@@ -463,6 +473,11 @@ func (s *Server) handleUpdateEntityStatus(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "invalid entity ID")
 		return
 	}
+	m, err := parseIfMatch(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	var input entity.UpdateStatusInput
 	if err := parseJSON(r, &input); err != nil {
@@ -472,7 +487,7 @@ func (s *Server) handleUpdateEntityStatus(w http.ResponseWriter, r *http.Request
 
 	s.logAPIKeyWrite(r, "status", idStr)
 
-	ent, err := s.entityService.UpdateEntityStatus(r.Context(), id, &claims.UserID, input.Status)
+	ent, err := s.entityService.UpdateEntityStatusIf(r.Context(), id, &claims.UserID, input.Status, m.expected())
 	if err != nil {
 		if s.writeReviewOutcome(w, err) || writeNotAllowed(w, err) {
 			return
@@ -485,11 +500,15 @@ func (s *Server) handleUpdateEntityStatus(w http.ResponseWriter, r *http.Request
 			writeError(w, http.StatusBadRequest, "invalid status")
 			return
 		}
+		if writeVersionConflict(w, err, http.StatusPreconditionFailed) {
+			return
+		}
 		s.logger.Error("failed to update entity status", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update entity status")
 		return
 	}
 
+	setETag(w, ent.Version)
 	writeJSON(w, http.StatusOK, ent)
 }
 
@@ -604,12 +623,17 @@ func (s *Server) handleRestoreEntityVersion(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusBadRequest, "invalid version number")
 		return
 	}
+	m, err := parseIfMatch(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	// The service sets the restore summary itself, so a key restore is
 	// attributed through this log line (id+name) and the version's changed_by.
 	s.logAPIKeyWrite(r, "restore", idStr)
 
-	ent, err := s.entityService.RestoreVersion(r.Context(), id, &claims.UserID, version)
+	ent, err := s.entityService.RestoreVersionIf(r.Context(), id, &claims.UserID, version, m.expected())
 	if err != nil {
 		if s.writeReviewOutcome(w, err) || writeNotAllowed(w, err) {
 			return
@@ -629,6 +653,15 @@ func (s *Server) handleRestoreEntityVersion(w http.ResponseWriter, r *http.Reque
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		// A named version that went stale is a failed precondition; a race
+		// the caller did not name is a plain conflict.
+		conflict := http.StatusConflict
+		if m.strong() {
+			conflict = http.StatusPreconditionFailed
+		}
+		if writeVersionConflict(w, err, conflict) {
+			return
+		}
 		if errors.Is(err, entity.ErrRejectedByPlugin) {
 			writeError(w, http.StatusUnprocessableEntity, err.Error())
 			return
@@ -639,6 +672,7 @@ func (s *Server) handleRestoreEntityVersion(w http.ResponseWriter, r *http.Reque
 	}
 	s.logTookOwnership(r, "restore", ent, claims.UserID)
 
+	setETag(w, ent.Version)
 	writeJSON(w, http.StatusOK, ent)
 }
 

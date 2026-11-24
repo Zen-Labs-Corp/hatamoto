@@ -679,6 +679,17 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 
 // UpdateStatus changes an entity's status.
 func (r *PostgresEntityRepository) UpdateStatus(ctx context.Context, id uuid.UUID, userID *uuid.UUID, status EntityStatus) (*Entity, error) {
+	return r.updateStatus(ctx, id, userID, status, nil)
+}
+
+// UpdateStatusIf changes an entity's status only while its version is still
+// *expected (nil: unconditional). The version itself does not change: it
+// counts content versions, and a status change stores none.
+func (r *PostgresEntityRepository) UpdateStatusIf(ctx context.Context, id uuid.UUID, userID *uuid.UUID, status EntityStatus, expected *int) (*Entity, error) {
+	return r.updateStatus(ctx, id, userID, status, expected)
+}
+
+func (r *PostgresEntityRepository) updateStatus(ctx context.Context, id uuid.UUID, userID *uuid.UUID, status EntityStatus, expected *int) (*Entity, error) {
 	conn, err := r.db.GetConn(ctx)
 	if err != nil {
 		return nil, err
@@ -708,7 +719,7 @@ func (r *PostgresEntityRepository) UpdateStatus(ctx context.Context, id uuid.UUI
 		        ELSE published_at
 		    END,
 		    updated_at = NOW()
-		WHERE id = $1
+		WHERE id = $1 AND ($5::int IS NULL OR version = $5)
 		RETURNING id, schema_id, name, slug, locale, status, attributes, metadata,
 		          version, created_by, updated_by, created_at, updated_at, published_at
 	`
@@ -720,14 +731,25 @@ func (r *PostgresEntityRepository) UpdateStatus(ctx context.Context, id uuid.UUI
 	defer finish.rollback()
 
 	var e Entity
-	err = q.QueryRow(ctx, query, id, status, userID, publishedAt).Scan(
+	err = q.QueryRow(ctx, query, id, status, userID, publishedAt, expected).Scan(
 		&e.ID, &e.SchemaID, &e.Name, &e.Slug, &e.Locale, &e.Status, &e.Attributes, &e.Metadata,
 		&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt,
 	)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrEntityNotFound
+			if expected == nil {
+				return nil, ErrEntityNotFound
+			}
+			var current int
+			verr := q.QueryRow(ctx, `SELECT version FROM hatamoto_entities WHERE id = $1`, id).Scan(&current)
+			if errors.Is(verr, pgx.ErrNoRows) {
+				return nil, ErrEntityNotFound
+			}
+			if verr != nil {
+				return nil, fmt.Errorf("failed to read entity version: %w", verr)
+			}
+			return nil, &VersionConflictError{Current: current}
 		}
 		return nil, fmt.Errorf("failed to update entity status: %w", err)
 	}
