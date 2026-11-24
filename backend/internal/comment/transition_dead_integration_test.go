@@ -52,6 +52,19 @@ func TestTransitionDead(t *testing.T) {
 	}
 	f.wantCounts(0, 0, "approved -> dead")
 
+	if _, err := f.svc.MarkSpam(f.ctx, seeded.id, nil, Learn{}); err != nil {
+		t.Fatalf("dead -> spam: %v", err)
+	}
+	if got := f.statusOf(seeded.id); got != StatusSpam {
+		t.Fatalf("status after MarkSpam = %s, want spam", got)
+	}
+	if _, err := f.svc.transition(f.ctx, seeded.id, StatusApproved, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.transition(f.ctx, seeded.id, StatusDead, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+
 	if _, err := f.svc.Trash(f.ctx, seeded.id); err != nil {
 		t.Fatal(err)
 	}

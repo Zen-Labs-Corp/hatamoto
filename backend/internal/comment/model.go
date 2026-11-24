@@ -333,7 +333,7 @@ func CanTransition(from, to Status) bool {
 		StatusApproved: {StatusPending, StatusSpam, StatusTrash, StatusDead},
 		StatusSpam:     {StatusPending, StatusApproved, StatusTrash},
 		StatusTrash:    {StatusPending, StatusApproved, StatusSpam},
-		StatusDead:     {StatusApproved, StatusTrash},
+		StatusDead:     {StatusApproved, StatusSpam, StatusTrash},
 	}
 	for _, t := range allowed[from] {
 		if t == to {

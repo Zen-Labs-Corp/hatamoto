@@ -101,7 +101,7 @@ func TestCanTransition(t *testing.T) {
 		{StatusPending, StatusDead, false},
 		{StatusDead, StatusApproved, true},
 		{StatusDead, StatusTrash, true},
-		{StatusDead, StatusSpam, false},
+		{StatusDead, StatusSpam, true},
 		{StatusDead, StatusPending, false},
 		{StatusSpam, StatusDead, false},
 		{StatusTrash, StatusDead, false},
