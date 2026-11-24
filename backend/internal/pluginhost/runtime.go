@@ -383,10 +383,7 @@ func (r *Runtime) register(m sdk.Manifest) []string {
 		if hook == sdk.BuilderData.Name && !r.offersBuilderData(m) {
 			continue // not granted or no declared sources: the filter is not registered
 		}
-		if hook == sdk.EntityBeforeSave.Name && !r.caps.grants.Has(name, sdk.PermEntitiesFilter) {
-			continue // not granted: the filter is not registered
-		}
-		if hook == sdk.CommentCheckF.Name && !r.caps.grants.Has(name, sdk.PermCommentsRead) {
+		if p := filterGrant(hook); p != "" && !r.caps.grants.Has(name, p) {
 			continue // not granted: the filter is not registered
 		}
 		if r.host.HasExport(name, export) {
@@ -395,6 +392,18 @@ func (r *Runtime) register(m sdk.Manifest) []string {
 		}
 	}
 	return got
+}
+
+// filterGrant is the permission a built-in filter needs before it is
+// registered at all ("" = none). builder.data keeps its own check.
+func filterGrant(hook string) sdk.Permission {
+	switch hook {
+	case sdk.EntityBeforeSave.Name:
+		return sdk.PermEntitiesFilter
+	case sdk.CommentCheckF.Name, sdk.CommentDraftF.Name:
+		return sdk.PermCommentsRead
+	}
+	return ""
 }
 
 // offersBuilderData reports whether the plugin answers builder.data: it
@@ -428,7 +437,7 @@ func (r *Runtime) action(m sdk.Manifest, hook, export string) func(context.Conte
 // isCommentEvent reports whether h is one of the comment actions.
 func isCommentEvent(h string) bool {
 	switch h {
-	case sdk.CommentCreated.Name, sdk.CommentApproved.Name, sdk.CommentSpam.Name, sdk.CommentDeleted.Name:
+	case sdk.CommentCreated.Name, sdk.CommentApproved.Name, sdk.CommentSpam.Name, sdk.CommentDeleted.Name, sdk.CommentUpdated.Name:
 		return true
 	}
 	return false
