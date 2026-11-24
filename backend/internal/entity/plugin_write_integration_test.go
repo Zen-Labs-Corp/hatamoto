@@ -115,7 +115,7 @@ func TestPluginWrite_Integration(t *testing.T) {
 	if got := r.sink.kinds(); !slices.Equal(got, []EventKind{EventCreated, EventPublished, EventUpdated}) {
 		t.Fatalf("update events = %v", got)
 	}
-	up, err = r.svc.PluginUpdate(ctx, "fixture", e.ID, PluginWrite{Schema: slug, Fields: fields, Attributes: jsontext.Value(`{"url":null}`), Status: StatusPublished})
+	up, err = r.svc.PluginUpdate(ctx, "fixture", e.ID, PluginWrite{Schema: slug, Fields: fields, Attributes: jsontext.Value(`{"url":null}`)})
 	if err != nil {
 		t.Fatalf("update null: %v", err)
 	}
@@ -123,11 +123,12 @@ func TestPluginWrite_Integration(t *testing.T) {
 	if err := jsonx.Unmarshal(up.Attributes, &attrs); err != nil {
 		t.Fatal(err)
 	}
-	if len(attrs) != 1 || attrs["text"] != "changed" || up.Status != StatusPublished {
+	if len(attrs) != 1 || attrs["text"] != "changed" || up.Status != StatusDraft {
 		t.Fatalf("after null: %s %s", up.Attributes, up.Status)
 	}
-	if got := r.sink.kinds(); got[len(got)-1] != EventPublished {
-		t.Fatalf("draft -> published events = %v", got)
+	// The plugin unpublished it itself above; publishing again is the owner's.
+	if _, err := r.svc.PluginUpdate(ctx, "fixture", e.ID, PluginWrite{Schema: slug, Fields: fields, Status: StatusPublished}); !errors.Is(err, ErrPluginRepublish) {
+		t.Fatalf("republish: %v", err)
 	}
 
 	// Refused: key outside the whitelist, status archived.
@@ -212,75 +213,72 @@ func TestPluginWriteNotOwnedSchema_Integration(t *testing.T) {
 	}
 }
 
-// An owner's moderation takes the entry away from the plugin: a status change
-// to any status, a rename and a bulk-style status change all set origin
-// 'owner', so the plugin's next update or delete is not_owned. A system
-// transition (no user) leaves the origin alone.
-func TestPluginWriteOwnerModerationTakesEntry_Integration(t *testing.T) {
+// The owner moderates a plugin's entry by unpublishing or archiving it. The
+// plugin may publish only an entry that was never published, and may not
+// touch an archived one; the entry stays the plugin's otherwise.
+func TestPluginWriteOwnerModeration_Integration(t *testing.T) {
 	r := newPluginWriteRig(t)
 	ctx := context.Background()
 	fields := []string{"url", "text"}
 	_, slug := r.schema(t, "story", "fixture")
-	owner := uuid.New()
-	if _, err := r.db.Pool().Exec(ctx, `INSERT INTO hatamoto_users (id, email, password_hash, name, role) VALUES ($1, $2, 'x', 'Owner', 'editor')`,
-		owner, owner.String()+"@example.test"); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		_, _ = r.db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_users WHERE id = $1`, owner)
-	})
-
-	cases := map[string]func(id uuid.UUID) error{
-		"draft": func(id uuid.UUID) error {
-			_, err := r.svc.UpdateEntityStatus(ctx, id, &owner, StatusDraft)
-			return err
-		},
-		"archived": func(id uuid.UUID) error {
-			_, err := r.svc.UpdateEntityStatus(ctx, id, &owner, StatusArchived)
-			return err
-		},
-		"rename": func(id uuid.UUID) error {
-			n := "Renamed"
-			_, err := r.svc.UpdateEntity(ctx, id, &owner, &UpdateEntityInput{Name: &n})
-			return err
-		},
-		"attribute": func(id uuid.UUID) error {
-			a := jsontext.Value(`{"text":"edited"}`)
-			_, err := r.svc.UpdateEntity(ctx, id, &owner, &UpdateEntityInput{Attributes: &a})
-			return err
-		},
-	}
-	for name, act := range cases {
-		e, err := r.svc.PluginCreate(ctx, "fixture", PluginWrite{Schema: slug, Fields: fields, Name: name, Attributes: jsontext.Value(`{"text":"x"}`)})
+	create := func(name string, st EntityStatus) *Entity {
+		t.Helper()
+		e, err := r.svc.PluginCreate(ctx, "fixture", PluginWrite{Schema: slug, Fields: fields, Name: name, Status: st})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := act(e.ID); err != nil {
-			t.Fatalf("%s: %v", name, err)
-		}
-		if _, err := r.svc.PluginUpdate(ctx, "fixture", e.ID, PluginWrite{Schema: slug, Fields: fields, Status: StatusPublished}); !errors.Is(err, ErrNotPluginOwned) {
-			t.Fatalf("%s: plugin update after owner write: %v, want ErrNotPluginOwned", name, err)
-		}
-		if _, err := r.svc.PluginDelete(ctx, "fixture", slug, e.ID); !errors.Is(err, ErrNotPluginOwned) {
-			t.Fatalf("%s: plugin delete after owner write: %v, want ErrNotPluginOwned", name, err)
-		}
+		return e
+	}
+	update := func(id uuid.UUID, st EntityStatus) error {
+		_, err := r.svc.PluginUpdate(ctx, "fixture", id, PluginWrite{Schema: slug, Fields: fields, Status: st, Name: "again"})
+		return err
 	}
 
-	// A system transition (no user) is not an owner action.
-	e, err := r.svc.PluginCreate(ctx, "fixture", PluginWrite{Schema: slug, Fields: fields, Name: "system"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	// Owner unpublishes: published_at stays set and the plugin cannot republish.
+	e := create("taken down", "")
 	if _, err := r.svc.UpdateEntityStatus(ctx, e.ID, nil, StatusDraft); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := r.svc.PluginUpdate(ctx, "fixture", e.ID, PluginWrite{Schema: slug, Fields: fields, Status: StatusPublished}); err != nil {
-		t.Fatalf("plugin update after a system transition: %v", err)
+	if got, err := r.svc.entityRepo.GetByID(ctx, e.ID); err != nil || got.PublishedAt == nil {
+		t.Fatalf("owner unpublish must keep published_at: %v %v", got, err)
+	}
+	if err := update(e.ID, StatusPublished); !errors.Is(err, ErrPluginRepublish) {
+		t.Fatalf("republish after owner unpublish: %v, want ErrPluginRepublish", err)
+	}
+	if err := update(e.ID, ""); err != nil {
+		t.Fatalf("plugin may still edit a draft: %v", err)
+	}
+
+	// The plugin's own unpublish is final too.
+	e = create("self", "")
+	if err := update(e.ID, StatusDraft); err != nil {
+		t.Fatal(err)
+	}
+	if err := update(e.ID, StatusPublished); !errors.Is(err, ErrPluginRepublish) {
+		t.Fatalf("republish after plugin unpublish: %v, want ErrPluginRepublish", err)
+	}
+
+	// A draft the plugin created may be published once.
+	e = create("draft", StatusDraft)
+	if err := update(e.ID, StatusPublished); err != nil {
+		t.Fatalf("first publish of a draft: %v", err)
+	}
+	if got := r.sink.kinds(); got[len(got)-1] != EventPublished {
+		t.Fatalf("draft -> published events = %v", got)
+	}
+
+	// Archived is the owner's.
+	e = create("archived", "")
+	if _, err := r.svc.UpdateEntityStatus(ctx, e.ID, nil, StatusArchived); err != nil {
+		t.Fatal(err)
+	}
+	for _, st := range []EntityStatus{"", StatusDraft, StatusPublished} {
+		if err := update(e.ID, st); !errors.Is(err, ErrPluginEntryClosed) {
+			t.Fatalf("update of an archived entry (status %q): %v, want ErrPluginEntryClosed", st, err)
+		}
 	}
 }
 
-// The audit row is written inside the write's transaction: a hook that refuses
-// (a registered sink) rolls the write back, for create, update and delete.
 func TestPluginWriteAuditFailsClosed_Integration(t *testing.T) {
 	r := newPluginWriteRig(t)
 	ctx := context.Background()

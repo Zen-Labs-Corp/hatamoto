@@ -175,5 +175,8 @@ func entityWriteErr(fn string, err error) error {
 	if errors.Is(err, entity.ErrNotPluginOwned) {
 		return herr(sdk.ErrNotOwned, "%s: not this plugin's content type or entry", fn)
 	}
+	if errors.Is(err, entity.ErrPluginRepublish) || errors.Is(err, entity.ErrPluginEntryClosed) {
+		return herr(sdk.ErrInvalidArgument, "%s: %s", fn, err)
+	}
 	return err
 }

@@ -55,6 +55,14 @@ func (s *Service) auditTx(ctx context.Context, tx pgx.Tx, plugin, action string,
 // calling plugin's. It never says whose it is.
 var ErrNotPluginOwned = errors.New("not owned by this plugin")
 
+// ErrPluginRepublish reports a plugin asking to publish an entry that was
+// published before and is not now: the owner (or the plugin) took it down.
+var ErrPluginRepublish = errors.New("only the owner can republish this entry")
+
+// ErrPluginEntryClosed reports an update of an entry whose status is neither
+// published nor draft (archived, scheduled, ...): the owner set it aside.
+var ErrPluginEntryClosed = errors.New("only the owner can change this entry")
+
 // ErrFieldNotWritable reports an attribute key outside the plugin's entity_fields.
 var ErrFieldNotWritable = fmt.Errorf("%w: attribute is not one the plugin may write", ErrValidationFailed)
 
@@ -150,6 +158,9 @@ func (s *Service) PluginUpdate(ctx context.Context, plugin string, id uuid.UUID,
 		if err != nil {
 			return err
 		}
+		if err := pluginMayUpdate(cur, status); err != nil {
+			return err
+		}
 		before = cur.entity(sc)
 		op := TxOp{ID: &id, Name: w.Name, Status: status}
 		if len(w.Attributes) > 0 {
@@ -177,6 +188,22 @@ func (s *Service) PluginUpdate(ctx context.Context, plugin string, id uuid.UUID,
 	s.reindexLinks([]uuid.UUID{id})
 	s.emitSaved(ctx, before, e)
 	return e, nil
+}
+
+// pluginMayUpdate is the owner's moderation of a plugin's entry. A plugin may
+// edit a published or draft entry; it may publish only one that has never been
+// published (published_at is kept when an entry is unpublished), so a story the
+// owner took down stays down. Anything else (archived, scheduled) is the
+// owner's.
+func pluginMayUpdate(cur *entitySnapshot, want EntityStatus) error {
+	st := EntityStatus(cur.Status)
+	if st != StatusPublished && st != StatusDraft {
+		return ErrPluginEntryClosed
+	}
+	if want == StatusPublished && st != StatusPublished && cur.PublishedAt != nil {
+		return ErrPluginRepublish
+	}
+	return nil
 }
 
 // PluginDelete removes an entry the plugin created (hard delete; its comments
