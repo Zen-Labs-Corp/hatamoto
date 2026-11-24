@@ -160,12 +160,12 @@ func TestKitPackageParsesAndVerifies(t *testing.T) {
 	if err := trust(t, k).Verify(p); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := parse(t, mustPack(t, themeFiles())).Kit(); err == nil {
+	if _, err := parse(t, mustPackKit(t, themeFiles())).Kit(); err == nil {
 		t.Fatal("Kit() of a theme must fail")
 	}
 }
 
-func mustPack(t *testing.T, files map[string][]byte) []byte {
+func mustPackKit(t *testing.T, files map[string][]byte) []byte {
 	t.Helper()
 	raw, err := PackFiles(files, nil)
 	if err != nil {
