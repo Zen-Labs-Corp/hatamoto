@@ -117,6 +117,36 @@ func TestCommenterIndexBackDatedRow(t *testing.T) {
 	}
 }
 
+// A failed full rescan is not retried by every miss: the next one waits
+// keyFullFailBackoff, and misses in between do cheap delta scans.
+func TestCommenterIndexFullRescanBackoff(t *testing.T) {
+	f := &fakeCommenters{stamps: []comment.CommenterStamp{stamp(30)}}
+	x, d := newTestIndex(f)
+	ctx := context.Background()
+	if _, ok, _ := x.resolve(ctx, "plugin-a", d.Commenter("plugin-a", f.stamps[0].ID)); !ok {
+		t.Fatal("first commenter not found")
+	}
+	miss := func() {
+		t.Helper()
+		f.clock = f.clock.Add(keyMissGap)
+		x.resolve(ctx, "plugin-a", fmt.Sprintf("%043d", f.calls))
+	}
+	f.clock = f.clock.Add(keyFullRescanGap)
+	f.err = errors.New("timeout")
+	miss() // the due full rescan fails
+	f.err = nil
+	n := len(f.since)
+	miss()
+	if f.since[n].IsZero() {
+		t.Fatal("full rescan retried inside the backoff")
+	}
+	f.clock = f.clock.Add(keyFullFailBackoff)
+	miss()
+	if !f.since[len(f.since)-1].IsZero() {
+		t.Fatal("no full rescan after the backoff")
+	}
+}
+
 func TestCommenterIndexMissGuard(t *testing.T) {
 	f := &fakeCommenters{stamps: []comment.CommenterStamp{stamp(1)}}
 	x, _ := newTestIndex(f)
