@@ -143,9 +143,9 @@ func TestApplyKeepsWhatTheOwnerHas(t *testing.T) {
 
 func TestApplyRefusalsWriteNothing(t *testing.T) {
 	f := newFake(t).withRegistry(t)
-	_, err := apply(t, f, kitPackage(t, func(k *packages.Kit) { k.Requires = []string{"comment.signin"} }), Accepts{Comments: true}, &enabler{})
+	_, err := apply(t, f, kitPackage(t, func(k *packages.Kit) { k.Requires = []string{"example.missing"} }), Accepts{Comments: true}, &enabler{})
 	var re *RefusedError
-	if !errors.As(err, &re) || !hasText(re.Refusals, "comment.signin") {
+	if !errors.As(err, &re) || !hasText(re.Refusals, "example.missing") {
 		t.Fatalf("err = %v", err)
 	}
 	f2 := newFake(t).withRegistry(t)

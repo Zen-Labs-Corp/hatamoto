@@ -21,7 +21,7 @@ func TestFeaturesSubsetOfKnown(t *testing.T) {
 }
 
 func TestMissing(t *testing.T) {
-	if got := Missing([]string{"comment.signin"}); !slices.Equal(got, []string{"comment.signin"}) {
+	if got := Missing([]string{"example.missing"}); !slices.Equal(got, []string{"example.missing"}) {
 		t.Fatalf("Missing = %v", got)
 	}
 	if got := Missing(nil); len(got) != 0 {
@@ -52,6 +52,15 @@ func TestFeaturesReportCommentRank(t *testing.T) {
 		t.Fatalf("Features = %v", Features())
 	}
 	if got := Missing([]string{"comment.rank"}); len(got) != 0 {
+		t.Fatalf("Missing = %v", got)
+	}
+}
+
+func TestFeaturesHasCommentSignIn(t *testing.T) {
+	if !slices.Contains(Features(), "comment.signin") {
+		t.Fatalf("Features = %v", Features())
+	}
+	if got := Missing([]string{"comment.signin"}); len(got) != 0 {
 		t.Fatalf("Missing = %v", got)
 	}
 }
