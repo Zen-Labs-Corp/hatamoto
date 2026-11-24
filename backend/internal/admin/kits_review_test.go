@@ -108,7 +108,7 @@ func TestKitApplyCommentsTickedWithoutAddress(t *testing.T) {
 	p := newKitsRig(t, f)
 	svc := &fakeComments{}
 	p.a.deps.Comments, p.a.deps.BaseURL = svc, func(*http.Request) string { return "" }
-	rec := p.do("POST", kitsReviewPath, "owner-token", url.Values{"comments": {"1"}}, nil)
+	rec := p.do("POST", kitsReviewPath, "owner-token", url.Values{"comments": {"1"}, "plan": {f.plan.Fingerprint()}}, nil)
 	if rec.Code != 422 || !strings.Contains(rec.Body.String(), html.EscapeString(csetNoAddressMsg)) {
 		t.Fatalf("POST = %d, want 422 with the no-address message", rec.Code)
 	}
@@ -128,7 +128,7 @@ func TestKitApplyWithoutCommentsTick(t *testing.T) {
 	p := newKitsRig(t, f)
 	svc := &fakeComments{}
 	p.a.deps.Comments, p.a.deps.BaseURL = svc, func(*http.Request) string { return "https://example.com" }
-	rec := p.do("POST", kitsReviewPath, "owner-token", url.Values{"homepage": {"1"}, "permission": {"community-plug:site.scripts"}}, nil)
+	rec := p.do("POST", kitsReviewPath, "owner-token", url.Values{"homepage": {"1"}, "permission": {"community-plug:site.scripts"}, "plan": {f.plan.Fingerprint()}}, nil)
 	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/kits" {
 		t.Fatalf("POST = %d %q", rec.Code, rec.Header().Get("Location"))
 	}
@@ -154,7 +154,7 @@ func TestKitApplyCommentsTickedWithAddress(t *testing.T) {
 	p := newKitsRig(t, f)
 	svc := &fakeComments{}
 	p.a.deps.Comments, p.a.deps.BaseURL = svc, func(*http.Request) string { return "https://example.com" }
-	rec := p.do("POST", kitsReviewPath, "owner-token", url.Values{"comments": {"1"}}, nil)
+	rec := p.do("POST", kitsReviewPath, "owner-token", url.Values{"comments": {"1"}, "plan": {f.plan.Fingerprint()}}, nil)
 	if rec.Code != 303 {
 		t.Fatalf("POST = %d", rec.Code)
 	}
@@ -177,7 +177,7 @@ func TestKitApplyRefusalsAre422(t *testing.T) {
 	f.plan.Refusals = []string{"plugin community-plug is not listed in the registry", "this kit needs SDK ^9"}
 	p := newKitsRig(t, f)
 	for _, m := range []string{"GET", "POST"} {
-		rec := p.do(m, kitsReviewPath, "owner-token", url.Values{"comments": {"1"}}, nil)
+		rec := p.do(m, kitsReviewPath, "owner-token", url.Values{"comments": {"1"}, "plan": {f.plan.Fingerprint()}}, nil)
 		body := rec.Body.String()
 		if rec.Code != 422 {
 			t.Fatalf("%s = %d, want 422", m, rec.Code)
@@ -230,13 +230,37 @@ func TestKitReviewScopesPermissionSwitchesPerPlugin(t *testing.T) {
 	}
 }
 
+func TestKitApplyRefusesAChangedKit(t *testing.T) {
+	t.Parallel()
+
+	f := kitsFixture()
+	reviewed := f.plan.Fingerprint()
+	f.plan.Plugins[0].Version = "1.1.0" // the registry moved on after the review
+	f.plan.Plugins[0].Raw = []byte("a newer package")
+	p := newKitsRig(t, f)
+	p.a.deps.Comments, p.a.deps.BaseURL = &fakeComments{}, func(*http.Request) string { return "https://example.com" }
+	for name, form := range map[string]url.Values{
+		"old fingerprint": {"plan": {reviewed}, "permission": {"community-plug:site.scripts"}},
+		"no fingerprint":  {"permission": {"community-plug:site.scripts"}},
+	} {
+		rec := p.do("POST", kitsReviewPath, "owner-token", form, nil)
+		body := rec.Body.String()
+		if rec.Code != 422 || !strings.Contains(body, "The kit changed since you opened it") || !strings.Contains(body, f.plan.Fingerprint()) {
+			t.Errorf("%s: POST = %d, want 422 with the review of the new plan", name, rec.Code)
+		}
+	}
+	if len(f.applies) != 0 || len(p.events) != 0 {
+		t.Errorf("a changed kit was applied: %+v", f.applies)
+	}
+}
+
 func TestKitApplyPlansOnce(t *testing.T) {
 	t.Parallel()
 
 	f := kitsFixture()
 	p := newKitsRig(t, f)
 	p.a.deps.Comments, p.a.deps.BaseURL = &fakeComments{}, func(*http.Request) string { return "https://example.com" }
-	if rec := p.do("POST", kitsReviewPath, "owner-token", nil, nil); rec.Code != 303 {
+	if rec := p.do("POST", kitsReviewPath, "owner-token", url.Values{"plan": {f.plan.Fingerprint()}}, nil); rec.Code != 303 {
 		t.Fatalf("POST = %d", rec.Code)
 	}
 	if f.plans != 1 {

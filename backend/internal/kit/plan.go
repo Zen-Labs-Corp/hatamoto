@@ -2,6 +2,8 @@ package kit
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json/jsontext"
 	"errors"
 	"fmt"
@@ -89,7 +91,9 @@ type HomepageStep struct{ Page string }
 
 // Plan is what applying a kit would do. Building it writes nothing.
 type Plan struct {
-	Kit    *packages.Kit
+	Kit *packages.Kit
+	// Digest is the kit package's signed digest.
+	Digest [32]byte
 	Signer string // key id of the signature, "" when unsigned
 	Tier   string // first-party, developer or community (or the registry's label)
 	// Fresh is a site on the default theme with the first-boot home page.
@@ -117,7 +121,7 @@ func BuildPlan(ctx context.Context, d Deps, p *packages.Package, o Options) (*Pl
 	if err != nil {
 		return nil, err
 	}
-	pl := &Plan{Kit: k, Tier: tierOf(o)}
+	pl := &Plan{Kit: k, Digest: p.Digest, Tier: tierOf(o)}
 	if p.Signature != nil {
 		pl.Signer = p.Signature.Signer
 	}
@@ -469,4 +473,17 @@ func (pl *Plan) planSwitches(ctx context.Context, d Deps) error {
 		}
 	}
 	return nil
+}
+
+// Fingerprint identifies what a plan resolved: the kit's name, version and
+// digest, and for every plugin and theme its version, the hash of the package
+// to install and the permissions it asks for. The review carries it and Apply
+// refuses when a new plan differs, so the owner applies what they reviewed.
+func (pl *Plan) Fingerprint() string {
+	h := sha256.New()
+	fmt.Fprintf(h, "kit %s %s %x\n", pl.Kit.Name, pl.Kit.Version, pl.Digest)
+	for _, st := range slices.Concat(pl.Plugins, pl.Themes) {
+		fmt.Fprintf(h, "%s %s %s %x %q\n", st.Kind, st.Name, st.Version, sha256.Sum256(st.Raw), st.Asked)
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }

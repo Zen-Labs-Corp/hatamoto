@@ -131,7 +131,7 @@ func TestSetupKitApplyFinishesSetup(t *testing.T) {
 	f := kitsFixture()
 	f.result = &kit.Result{Created: map[string]int{"plugins": 1}}
 	g := newSetupKitRig(t, f)
-	rec := g.do("POST", "/admin/setup/kit/community", "owner-token", url.Values{"homepage": {"1"}}, nil)
+	rec := g.do("POST", "/admin/setup/kit/community", "owner-token", url.Values{"homepage": {"1"}, "plan": {f.plan.Fingerprint()}}, nil)
 	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/done" {
 		t.Fatalf("POST = %d %q", rec.Code, rec.Header().Get("Location"))
 	}
@@ -155,7 +155,7 @@ func TestSetupKitFailedApplyLeavesSetupOpen(t *testing.T) {
 	f := kitsFixture()
 	f.applyErr = errors.New("boom")
 	g := newSetupKitRig(t, f)
-	rec := g.do("POST", "/admin/setup/kit/community", "owner-token", nil, nil)
+	rec := g.do("POST", "/admin/setup/kit/community", "owner-token", url.Values{"plan": {f.plan.Fingerprint()}}, nil)
 	if rec.Code != 500 || !strings.Contains(rec.Body.String(), "safe to apply again") {
 		t.Errorf("POST = %d", rec.Code)
 	}

@@ -278,3 +278,25 @@ func TestGrantFor(t *testing.T) {
 		})
 	}
 }
+
+func TestPlanFingerprintFollowsWhatWasResolved(t *testing.T) {
+	f := newFake(t).withRegistry(t)
+	base := mustPlan(t, f, kitPackage(t, nil))
+	if again := mustPlan(t, f, kitPackage(t, nil)); again.Fingerprint() != base.Fingerprint() {
+		t.Fatal("the same registry gave two fingerprints")
+	}
+	for name, edit := range map[string]func(*Plan){
+		"kit version":    func(p *Plan) { p.Kit.Version = "9.9.9" },
+		"kit digest":     func(p *Plan) { p.Digest[0]++ },
+		"plugin version": func(p *Plan) { p.Plugins[0].Version = "9.9.9" },
+		"plugin package": func(p *Plan) { p.Plugins[0].Raw = []byte("other") },
+		"plugin asks":    func(p *Plan) { p.Plugins[0].Asked = append(slices.Clone(p.Plugins[0].Asked), "http.fetch.any") },
+		"theme package":  func(p *Plan) { p.Themes[0].Raw = []byte("other") },
+	} {
+		p := mustPlan(t, f, kitPackage(t, nil))
+		edit(p)
+		if p.Fingerprint() == base.Fingerprint() {
+			t.Errorf("%s does not change the fingerprint", name)
+		}
+	}
+}

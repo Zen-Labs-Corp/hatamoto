@@ -38,6 +38,8 @@ type kitReviewView struct {
 
 	Action, CancelHref string
 	Err                string
+	// Fingerprint identifies the plan on screen; the form posts it back so Apply can tell the kit changed.
+	Fingerprint string
 }
 
 type kitReviewPlugin struct {
@@ -115,7 +117,7 @@ func newKitReviewView(pl *kit.Plan, t kitTicks) kitReviewView {
 	k := pl.Kit
 	v := kitReviewView{Title: cmp.Or(k.Title, k.Name), Version: k.Version, Tier: pl.Tier, Description: k.Description}
 	v.Chips = []ui.Badge{{Label: "v" + k.Version, Plain: true}, {Label: "signed: " + pl.Tier, Plain: true}}
-	v.Kept, v.Refusals = pl.Kept, pl.Refusals
+	v.Kept, v.Refusals, v.Fingerprint = pl.Kept, pl.Refusals, pl.Fingerprint()
 	for _, m := range pl.Messages {
 		if m != pl.Policy.Message { // the policy note has its own line
 			v.Messages = append(v.Messages, m)
@@ -287,8 +289,8 @@ func (a *Admin) handleKitApply(w http.ResponseWriter, r *http.Request) {
 	Redirect(w, r, a.adminPath+"/settings/kits")
 }
 
-// applyKit is the POST both entry points share. It plans once (every plan downloads the
-// packages), refuses on the plan's refusals, and
+// applyKit is the POST both entry points share. It plans once, refuses when the plan is not the one
+// the owner reviewed (the form's fingerprint), refuses on the plan's refusals, and
 // enforces the comments tick on the server: comments go on only with the tick and a site address
 // (Decision 3). On success it audits and returns the result; on any failure it has already
 // re-rendered the review and returns false.
@@ -306,6 +308,10 @@ func (a *Admin) applyKit(w http.ResponseWriter, r *http.Request, name string, sc
 		return nil, false
 	}
 	t := postedKitTicks(r)
+	if r.PostForm.Get("plan") != pl.Fingerprint() {
+		a.renderKitReview(w, r, http.StatusUnprocessableEntity, scr, pl, defaultKitTicks(pl), "The kit changed since you opened it. Review what it will do now, then apply it.")
+		return nil, false
+	}
 	if len(pl.Refusals) > 0 {
 		a.renderKitReview(w, r, http.StatusUnprocessableEntity, scr, pl, t, "")
 		return nil, false

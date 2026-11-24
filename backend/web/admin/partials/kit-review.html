@@ -1,6 +1,7 @@
 {{/* hm/kit-review: the kit review screen shared by the wizard and Settings > Kits (a dict with V, a kitReviewView, and CSRF). One POST form; every switch starts as the view says and Apply is never disabled by markup: the server enforces the comments tick and the site address. Warnings and permission wording come from Go fields (comment copy, permtext), never from this file. */}}
 {{define "hm/kit-review"}}{{with .V}}<form method="post" action="{{.Action}}" class="hm-stack">
 {{template "hm/csrf" $}}
+<input type="hidden" name="plan" value="{{.Fingerprint}}">
 {{if .Err}}{{template "hm/flash" (dict "Kind" "error" "Message" .Err "Inline" true)}}{{end}}
 {{if .Refusals}}{{template "hm/callout-start" (dict "Kind" "danger" "Title" "This kit cannot be applied" "ID" "kit-refusals")}}<p>This kit cannot be applied to this site:</p><ul>{{range .Refusals}}<li>{{.}}</li>{{end}}</ul>{{template "hm/callout-end"}}{{end}}
 {{template "hm/card-start" dict "ID" "kit-will" "Title" "This kit will" "Heading" "h2"}}<div class="hm-stack">
