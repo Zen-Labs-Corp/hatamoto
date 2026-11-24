@@ -3,6 +3,7 @@ package comment
 import (
 	"context"
 	"errors"
+	"sort"
 	"strings"
 	"time"
 
@@ -12,47 +13,59 @@ import (
 	"hatamoto.dev/core/internal/jsonx"
 )
 
-// Thread SQL: one statement. threadSelect joins the page of approved top-level
-// comments (the roots CTE of threadRootsSQL) to each root's approved subtree by
+// Thread SQL: one statement. threadSelect joins the page of top-level comments
+// (approved or dead; the roots CTE of threadRootsSQL) to each root's subtree by
 // a path range scan. The root order is picked inside the statement; nothing is
 // interpolated.
 const threadSelect = `
 SELECT c.id, c.parent_id, c.depth, c.author_name, c.author_user_id IS NOT NULL,
-       c.body_html, c.created_at, c.edited_at, r.rk, r.roots
+       c.body_html, c.created_at, c.edited_at, c.status, c.rank, r.rk, r.roots, (SELECT d FROM dir)
 FROM roots r
 JOIN hatamoto_comments c
-  ON c.entity_id = $1 AND c.status = 'approved'
+  ON c.entity_id = $1 AND c.status IN ('approved', 'dead')
  AND c.path >= r.path AND c.path < r.path || '/'
 ORDER BY r.rk, c.path`
 
-// threadRootsSQL picks the roots in the content type's own order (newest or
-// oldest) or, when the type sets none, in the site sort ($4). The direction is
-// resolved inside the statement, so Thread stays one query; each branch keeps
-// its own index-friendly ORDER BY and only one of them is not empty.
+// threadRootsSQL picks the roots in the content type's own order (newest,
+// oldest or rank) or, when the type sets none, in the site sort ($4). The order
+// is resolved inside the statement, so Thread stays one query; each branch keeps
+// its own index-friendly ORDER BY and only one of them is not empty. The
+// resolved order comes back on every row so Thread can order the replies.
 const threadRootsSQL = `WITH dir AS (
-    SELECT COALESCE((SELECT CASE s.settings->'comments'->>'order' WHEN 'newest' THEN 'newest' WHEN 'oldest' THEN 'oldest' END
+    SELECT COALESCE((SELECT CASE s.settings->'comments'->>'order' WHEN 'newest' THEN 'newest' WHEN 'oldest' THEN 'oldest' WHEN 'rank' THEN 'rank' END
                      FROM hatamoto_entities e JOIN hatamoto_entity_schemas s ON s.id = e.schema_id
                      WHERE e.id = $1), $4::text) AS d
 ), roots AS (
     (SELECT path, row_number() OVER (ORDER BY created_at DESC, seq DESC) AS rk,
             count(*) OVER () AS roots
      FROM hatamoto_comments
-     WHERE entity_id = $1 AND parent_id IS NULL AND status = 'approved' AND (SELECT d FROM dir) = 'newest'
+     WHERE entity_id = $1 AND parent_id IS NULL AND status IN ('approved', 'dead') AND (SELECT d FROM dir) = 'newest'
      ORDER BY created_at DESC, seq DESC
      LIMIT $2 OFFSET $3)
     UNION ALL
     (SELECT path, row_number() OVER (ORDER BY created_at ASC, seq ASC) AS rk,
             count(*) OVER () AS roots
      FROM hatamoto_comments
-     WHERE entity_id = $1 AND parent_id IS NULL AND status = 'approved' AND (SELECT d FROM dir) = 'oldest'
+     WHERE entity_id = $1 AND parent_id IS NULL AND status IN ('approved', 'dead') AND (SELECT d FROM dir) = 'oldest'
      ORDER BY created_at ASC, seq ASC
+     LIMIT $2 OFFSET $3)
+    UNION ALL
+    (SELECT path, row_number() OVER (ORDER BY rank DESC, created_at DESC, seq DESC) AS rk,
+            count(*) OVER () AS roots
+     FROM hatamoto_comments
+     WHERE entity_id = $1 AND parent_id IS NULL AND status IN ('approved', 'dead') AND (SELECT d FROM dir) = 'rank'
+     ORDER BY rank DESC, created_at DESC, seq DESC
      LIMIT $2 OFFSET $3)
 )` + threadSelect
 
-// Thread returns one page of the approved tree in render order with one query
-// (the settings come from the cache): roots by the sort setting, each followed
-// by its subtree in path order, replies oldest first. A reply whose parent is
-// not approved is dropped with its subtree. Only public fields are selected.
+// Thread returns one page of the tree in render order with one query (the
+// settings come from the cache): roots by the content type's order (the site
+// sort when it sets none), each followed by its subtree in path order, replies
+// oldest first (by rank, then newest first, in a rank type). Approved and dead
+// comments are returned; a reply whose parent is neither is dropped with its
+// subtree. A dead row keeps its BodyHTML and AuthorName: hiding them from
+// viewers who may not see them is the caller's job. Only public fields are
+// selected.
 func (s *Service) Thread(ctx context.Context, entityID uuid.UUID, page int) (ThreadPage, error) {
 	set, err := s.Settings(ctx)
 	if err != nil {
@@ -74,13 +87,16 @@ func (s *Service) Thread(ctx context.Context, entityID uuid.UUID, page int) (Thr
 
 	out := ThreadPage{Page: page, Pages: page, Comments: []ThreadComment{}}
 	kept := map[uuid.UUID]bool{}
+	var order string // the resolved root order, the same on every row
 	for rows.Next() {
 		var tc ThreadComment
+		var status string
 		var rk, roots int64
 		if err := rows.Scan(&tc.ID, &tc.ParentID, &tc.Depth, &tc.AuthorName, &tc.IsSiteAuthor,
-			&tc.BodyHTML, &tc.CreatedAt, &tc.EditedAt, &rk, &roots); err != nil {
+			&tc.BodyHTML, &tc.CreatedAt, &tc.EditedAt, &status, &tc.Rank, &rk, &roots, &order); err != nil {
 			return ThreadPage{}, err
 		}
+		tc.Status = Status(status)
 		out.Pages = int((roots + int64(set.PageSize) - 1) / int64(set.PageSize))
 		if rk > int64(offset+set.PageSize) { // rk counts from the first root, not from the page
 			out.HasMore = true
@@ -92,7 +108,52 @@ func (s *Service) Thread(ctx context.Context, entityID uuid.UUID, page int) (Thr
 		kept[tc.ID] = true
 		out.Comments = append(out.Comments, tc)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return ThreadPage{}, err
+	}
+	if Order(order) == OrderRank {
+		out.Comments = rankOrder(out.Comments)
+	}
+	return out, nil
+}
+
+// rankOrder re-sorts the replies of a page: roots keep their input order, the
+// children of each parent go by rank (highest first), then newest first, then
+// id; the result is the depth-first flattening. The input lists every parent
+// before its children.
+func rankOrder(cs []ThreadComment) []ThreadComment {
+	kids := map[uuid.UUID][]ThreadComment{}
+	var roots []ThreadComment
+	for _, c := range cs {
+		if c.ParentID == nil {
+			roots = append(roots, c)
+			continue
+		}
+		kids[*c.ParentID] = append(kids[*c.ParentID], c)
+	}
+	out := make([]ThreadComment, 0, len(cs))
+	var walk func(c ThreadComment)
+	walk = func(c ThreadComment) {
+		out = append(out, c)
+		ch := kids[c.ID]
+		sort.SliceStable(ch, func(i, j int) bool {
+			a, b := ch[i], ch[j]
+			if a.Rank != b.Rank {
+				return a.Rank > b.Rank
+			}
+			if !a.CreatedAt.Equal(b.CreatedAt) {
+				return a.CreatedAt.After(b.CreatedAt)
+			}
+			return a.ID.String() < b.ID.String()
+		})
+		for _, k := range ch {
+			walk(k)
+		}
+	}
+	for _, r := range roots {
+		walk(r)
+	}
+	return out
 }
 
 // EntityCounts are the approved and pending counts of one entity.

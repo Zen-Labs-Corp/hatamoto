@@ -114,12 +114,3 @@ func TestCanTransition(t *testing.T) {
 		}
 	}
 }
-
-func TestParseOrder(t *testing.T) {
-	t.Parallel()
-	for in, want := range map[string]Sort{"newest": SortNewest, "oldest": SortOldest, "rank": SortRank, "": "", "bogus": ""} {
-		if got := ParseOrder(in); got != want {
-			t.Errorf("ParseOrder(%q) = %q, want %q", in, got, want)
-		}
-	}
-}

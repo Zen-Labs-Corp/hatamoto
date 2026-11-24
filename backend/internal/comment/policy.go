@@ -34,7 +34,8 @@ const (
 // Order is a content type's own thread order, stored in settings.comments.order.
 type Order string
 
-// Thread orders. "" means the site sort; OrderRank is applied by a plugin.
+// Thread orders. "" means the site sort; OrderRank sorts siblings by the stored rank,
+// which a plugin writes.
 const (
 	OrderNewest Order = "newest"
 	OrderOldest Order = "oldest"

@@ -65,9 +65,6 @@ type Sort string
 const (
 	SortNewest Sort = "newest"
 	SortOldest Sort = "oldest"
-	// SortRank orders by the stored rank. Per content type only: the site
-	// Settings.Sort stays newest or oldest.
-	SortRank Sort = "rank"
 )
 
 // Thresholds are the four numbers behind the known and trusted levels.
@@ -298,15 +295,6 @@ type Edited struct {
 	// Hold sends an approved comment back to moderation (the content checks
 	// of a new post held the edited text).
 	Hold bool
-}
-
-// ParseOrder maps a stored order name to a Sort, or "" when it is unknown.
-func ParseOrder(s string) Sort {
-	switch Sort(s) {
-	case SortNewest, SortOldest, SortRank:
-		return Sort(s)
-	}
-	return ""
 }
 
 // ThreadComment is the public view: never body_raw, hashes or email.

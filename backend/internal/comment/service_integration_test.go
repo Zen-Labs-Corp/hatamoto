@@ -1072,3 +1072,69 @@ func TestReplyParent(t *testing.T) {
 		}
 	}
 }
+
+func TestThreadDeadKeepsSubtree(t *testing.T) {
+	f := newFixture(t)
+	f.enable()
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	root := f.seedComment(nil, base, StatusApproved)
+	dead := f.seedComment(&root, base.Add(time.Minute), StatusDead)
+	reply := f.seedComment(&dead, base.Add(2*time.Minute), StatusApproved)
+	f.seedComment(&root, base.Add(3*time.Minute), StatusSpam)
+
+	page, err := f.svc.Thread(f.ctx, f.entity, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Comments) != 3 {
+		t.Fatalf("comments = %d, want 3 (root, dead, reply)", len(page.Comments))
+	}
+	if page.Comments[1].ID != dead.id || page.Comments[1].Status != StatusDead {
+		t.Errorf("second item = %s %q, want the dead comment", page.Comments[1].ID, page.Comments[1].Status)
+	}
+	if page.Comments[2].ID != reply.id || page.Comments[2].Status != StatusApproved {
+		t.Errorf("third item = %s %q, want the approved reply", page.Comments[2].ID, page.Comments[2].Status)
+	}
+}
+
+func TestThreadRankOrder(t *testing.T) {
+	f := newFixture(t)
+	f.enable()
+	f.exec(`UPDATE hatamoto_entity_schemas SET settings = jsonb_build_object('comments', jsonb_build_object('order', 'rank'))
+		WHERE slug = 'cmm-note'`)
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	low := f.seedComment(nil, base.Add(3*time.Minute), StatusApproved)
+	high := f.seedComment(nil, base, StatusApproved)
+	tie := f.seedComment(nil, base.Add(time.Minute), StatusApproved)
+	f.exec(`UPDATE hatamoto_comments SET rank = 10 WHERE id = $1`, high.id)
+	f.exec(`UPDATE hatamoto_comments SET rank = 10 WHERE id = $1`, tie.id)
+	oldReply := f.seedComment(&high, base.Add(time.Hour), StatusApproved)
+	topReply := f.seedComment(&high, base.Add(2*time.Hour), StatusApproved)
+	f.exec(`UPDATE hatamoto_comments SET rank = 4 WHERE id = $1`, oldReply.id)
+
+	cfg, err := f.svc.EntityConfig(f.ctx, f.entity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Order != OrderRank {
+		t.Fatalf("EntityConfig order = %q, want rank", cfg.Order)
+	}
+	n := f.counter.Count()
+	page, err := f.svc.Thread(f.ctx, f.entity, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := f.counter.Count() - n; got != 1 {
+		t.Fatalf("Thread ran %d statements, want 1", got)
+	}
+	// roots: rank 10 newest first (tie), then rank 0; replies: rank 4 before rank 0.
+	want := []uuid.UUID{tie.id, high.id, oldReply.id, topReply.id, low.id}
+	if len(page.Comments) != len(want) {
+		t.Fatalf("comments = %d, want %d", len(page.Comments), len(want))
+	}
+	for i, id := range want {
+		if page.Comments[i].ID != id {
+			t.Errorf("position %d = %s, want %s", i, page.Comments[i].ID, id)
+		}
+	}
+}
