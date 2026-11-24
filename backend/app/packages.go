@@ -504,12 +504,16 @@ func developerNote(ctx context.Context, m *packages.Manager, p *packages.Package
 	return "developer: " + author + ", key " + row.SignerKeyID
 }
 
+// registryClientOptions are the options of the registry download client; a
+// test that serves a registry on loopback sets AllowPrivate.
+var registryClientOptions = safefetch.ClientOptions{Timeout: 60 * time.Second}
+
 // packageRegistries builds the registries the CLI reads for installs by name:
 // the main one (trusted by the site's keys) and the developer index, which only
 // its listing key signs and which never joins the package trust set. Each is
 // nil when it is off.
 func packageRegistries(pc config.PackageConfig, trust packages.TrustSet) (main, developer *packages.Registry) {
-	client := safefetch.NewClient(safefetch.ClientOptions{Timeout: 60 * time.Second})
+	client := safefetch.NewClient(registryClientOptions)
 	if !pc.RegistryOff() {
 		main = &packages.Registry{URL: pc.RegistryURL, Trust: trust, Limits: packages.DefaultLimits, AllowInsecure: pc.AllowInsecureRegistry, Client: client}
 	}
