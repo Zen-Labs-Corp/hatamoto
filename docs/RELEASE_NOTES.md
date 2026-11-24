@@ -1,5 +1,12 @@
 # Release notes
 
+## Unreleased: render.page page_query and page_path_prefixes (SDK 0.27)
+
+- **Plugin authors.** A `render.page` plugin can declare `page_query` (up to 16 query keys, for example `p`): the payload's `query` then holds the first value of each declared key present, and a value over 256 bytes is dropped. Values are passed as received, so escape them on output. It can also declare `page_path_prefixes` (up to 8, for example `/item/`): the filter runs for every page under a prefix (`/item/<x>`, not `/item`), and a plugin that declares only prefixes is not called elsewhere. `/` and prefixes whose first segment core serves are refused at load and install.
+- **Page cache.** Pages under a declared prefix are private, uncached and per visitor, like `page_paths`. The query never changes which pages are filtered or cached. A URL under a prefix that resolves to no page is a 404 rendered afresh on every request; it does not call the plugin.
+- **Compatibility.** Additive. A host before this change ignores both fields: it passes no query, and a plugin that declares only `page_path_prefixes` is called on every page there (site-wide, uncached). Declare `sdk` `^0.27` to rely on them.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: conditional writes (If-Match) and a restore race fix
 
 - **What.** `GET /api/v1/entities/{id}` and every successful entity update, status change and restore (`PUT`/`PATCH`, `PATCH .../status`, `POST .../restore/{version}`) return the attribute (content) version as the `ETag`. An optional `If-Match` on those writes (one strong tag, or `*`) applies the change only while the version still matches; otherwise nothing is written and the answer is `412` with `current_version` and the current `ETag`. A list or a malformed value is `400`. After compression the tag may arrive weakened as `W/"9"`; send it back exactly as received and it is read as version 9. The version tracks the attribute (content) version: changes to the name, slug, locale, the separate `metadata` column, parent, byline and status do not advance it, so two such changes made with the same tag can both succeed. MCP `entities_update`, `entities_publish` and `entities_unpublish` take an optional `version`; a stale one is refused with `conflict: stale version X; current version is Y (re-read with entities_get)`. The comparison is atomic with the write. See [Edit safely when several programs write](site/admin/users-and-api-keys.md#edit-safely-when-several-programs-write).
