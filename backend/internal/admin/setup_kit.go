@@ -97,7 +97,7 @@ func (a *Admin) handleSetupKitReview(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleSetupKitApply applies the kit, then finishes setup: the kit goes first so its menus win over
-// the core seed (Decision 14).
+// the core seed.
 func (a *Admin) handleSetupKitApply(w http.ResponseWriter, r *http.Request) {
 	if !a.requireCan(w, r, authz.ActionKitApply) {
 		return
