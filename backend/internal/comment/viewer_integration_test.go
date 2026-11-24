@@ -118,3 +118,26 @@ func TestEditableComments(t *testing.T) {
 		t.Error("an expired window still counts as editable")
 	}
 }
+
+func TestEditableWindowFollowsTypePolicy(t *testing.T) {
+	f := newFixture(t)
+	f.setComments(`{"policy":{"enabled":true,"edit_window_minutes":120}}`)
+	c := f.storeAs("w@example.test", "late", "", StatusApproved)
+	f.exec(`UPDATE hatamoto_comments SET created_at = now() - interval '60 minutes' WHERE id = $1`, c.ID)
+	got, err := f.svc.EditableComments(f.ctx, f.entity, *c.CommenterID)
+	if err != nil || len(got) != 1 {
+		t.Fatalf("EditableComments inside the type window = %+v, %v; want 1", got, err)
+	}
+	if has, err := f.svc.HasEditable(f.ctx, *c.CommenterID); err != nil || !has {
+		t.Errorf("HasEditable inside the type window = %v, %v", has, err)
+	}
+	f.exec(`UPDATE hatamoto_comments SET created_at = now() - interval '121 minutes' WHERE id = $1`, c.ID)
+	if has, _ := f.svc.HasEditable(f.ctx, *c.CommenterID); has {
+		t.Error("an expired type window still counts as editable")
+	}
+	f.setComments(`{"policy":{"enabled":false}}`)
+	f.exec(`UPDATE hatamoto_comments SET created_at = now() - interval '60 minutes' WHERE id = $1`, c.ID)
+	if has, _ := f.svc.HasEditable(f.ctx, *c.CommenterID); has {
+		t.Error("policy off must use the default 15 minute window")
+	}
+}
