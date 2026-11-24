@@ -9,11 +9,18 @@ on this design).
 Breaks: the plugin contract in [`docs/PLUGIN_API.md`](../PLUGIN_API.md). This
 ships as core 1.1.0 and SDK 0.17.
 
+Amended by: [ADR 0005](0005-comments-in-core.md) Decision 9 (2026-11), one
+owner-granted exception to rules 1 and 7.
+
 ## The rules in plain words
 
 1. A plugin never changes the live site. It prepares a changeset; the owner
    previews the site with it, then publishes or discards it. A published
    changeset can be undone as a whole.
+   Since SDK 0.27 the one exception is a plugin the owner granted
+   `entities.write.own` (entries of the one content type it declares) or
+   `comments.moderate` (comments on that type): warned at install, rate limited
+   and logged in the audit log.
 2. A changeset nobody publishes or discards within 72 hours is deleted, with its
    staged files.
 3. Risky changes (links to new sites, redirects, hidden characters, deletions,
@@ -29,6 +36,10 @@ ships as core 1.1.0 and SDK 0.17.
    part that sees the site cannot reach the internet.
 7. There is no way to write to the live site directly: no legacy function, no
    compatibility mode, no switch.
+   Since SDK 0.27 the one exception is a plugin the owner granted
+   `entities.write.own` (entries of the one content type it declares) or
+   `comments.moderate` (comments on that type): warned at install, rate limited
+   and logged in the audit log.
 8. Settings that weaken these rules exist only on the server, never in the
    admin.
 9. Every plugin gets the same limits, first-party plugins included.
