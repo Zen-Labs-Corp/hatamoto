@@ -11,6 +11,7 @@ import (
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/pluginkey"
 	"hatamoto.dev/sdk"
 )
 
@@ -40,7 +41,18 @@ func (o *commentEventObserver) OnConfirmed(ctx context.Context, c comment.Commen
 	o.arrived(ctx, c)
 }
 
+// withCommenter puts the commenter's id on the context of an event. Only the id
+// travels: pluginhost derives each plugin's key from it per delivery, so the
+// shared event value stays keyless and webhooks never see a key or an id.
+func withCommenter(ctx context.Context, c comment.Comment) context.Context {
+	if c.CommenterID == nil {
+		return ctx
+	}
+	return pluginkey.WithCommenter(ctx, *c.CommenterID)
+}
+
 func (o *commentEventObserver) arrived(ctx context.Context, c comment.Comment) {
+	ctx = withCommenter(ctx, c)
 	switch c.Status {
 	case comment.StatusPending, comment.StatusApproved:
 		o.fire(ctx, sdk.CommentCreated.Name, commentEvent(c))
@@ -50,14 +62,14 @@ func (o *commentEventObserver) arrived(ctx context.Context, c comment.Comment) {
 }
 
 func (o *commentEventObserver) OnApproved(ctx context.Context, c comment.Comment) {
-	o.fire(ctx, sdk.CommentApproved.Name, commentEvent(c))
+	o.fire(withCommenter(ctx, c), sdk.CommentApproved.Name, commentEvent(c))
 }
 
 func (o *commentEventObserver) OnSpam(ctx context.Context, c comment.Comment) {
 	if _, quiet := o.quietSpam.LoadAndDelete(c.ID); quiet {
 		return
 	}
-	o.fire(ctx, sdk.CommentSpam.Name, commentEvent(c))
+	o.fire(withCommenter(ctx, c), sdk.CommentSpam.Name, commentEvent(c))
 }
 
 // OnUpdated announces an edit, an unapproval and a move to or from dead; the
@@ -103,7 +115,10 @@ func commentEvent(c comment.Comment) sdk.CommentEvent {
 // are returned; anything else (comments not set up, site switch off, unknown
 // or unpublished entity) is an empty thread or a zero count, never an error,
 // so a plugin cannot probe what is not public.
-type pluginCommentReader struct{ s *Server }
+type pluginCommentReader struct {
+	s    *Server
+	keys *pluginkey.Deriver // nil: items carry no commenter key
+}
 
 func (r pluginCommentReader) Thread(ctx context.Context, entityID uuid.UUID, page int, opts pluginhost.ThreadOpts) (sdk.CommentThread, error) {
 	empty := sdk.CommentThread{Items: []sdk.CommentItem{}, Page: max(page, 1)}
@@ -115,7 +130,8 @@ func (r pluginCommentReader) Thread(ctx context.Context, entityID uuid.UUID, pag
 	if err != nil {
 		return empty, err
 	}
-	return pluginThread(tp, revealDead(info, opts)), nil
+	key := func(id uuid.UUID) string { return r.keys.Commenter(opts.Plugin, id) }
+	return pluginThread(tp, revealDead(info, opts), key), nil
 }
 
 // revealDead reports whether dead comments are shown in full. The owner is the
@@ -200,8 +216,10 @@ func (r pluginCommentReader) visible(ctx context.Context, id uuid.UUID) (comment
 }
 
 // pluginThread keeps only the fields a plugin may see. A dead comment keeps
-// its author and body only with reveal; otherwise they are blanked.
-func pluginThread(tp comment.ThreadPage, reveal bool) sdk.CommentThread {
+// its author, body and commenter key only with reveal; otherwise they are
+// blanked. key derives the calling plugin's pseudonymous key for a commenter
+// (nil: no keys); staff rows have no commenter and so no key.
+func pluginThread(tp comment.ThreadPage, reveal bool, key func(uuid.UUID) string) sdk.CommentThread {
 	items := make([]sdk.CommentItem, 0, len(tp.Comments))
 	for _, c := range tp.Comments {
 		it := sdk.CommentItem{
@@ -213,7 +231,12 @@ func pluginThread(tp comment.ThreadPage, reveal bool) sdk.CommentThread {
 			it.Status = "dead"
 			if !reveal {
 				it.AuthorName, it.BodyHTML, it.Staff = "", "", false
+				items = append(items, it)
+				continue
 			}
+		}
+		if key != nil && c.CommenterID != nil {
+			it.CommenterKey = key(*c.CommenterID)
 		}
 		items = append(items, it)
 	}

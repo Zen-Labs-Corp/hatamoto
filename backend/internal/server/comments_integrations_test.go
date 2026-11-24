@@ -13,6 +13,7 @@ import (
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/pluginkey"
 	"hatamoto.dev/sdk"
 )
 
@@ -144,7 +145,7 @@ func TestCommentEventNeverLeaksPrivateFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, bad := range []string{"SECRET-RAW", "IPHASH-X", "NETHASH-X", "UA-X", "BODYHASH-X", "REASON-X", "VERDICT-X", c.CommenterID.String(), c.AuthorUserID.String()} {
+	for _, bad := range []string{"SECRET-RAW", "IPHASH-X", "NETHASH-X", "UA-X", "BODYHASH-X", "REASON-X", "VERDICT-X", c.CommenterID.String(), c.AuthorUserID.String(), "commenter_key"} {
 		if strings.Contains(string(b), bad) {
 			t.Errorf("payload leaks %q: %s", bad, b)
 		}
@@ -155,7 +156,7 @@ func TestCommentEventNeverLeaksPrivateFields(t *testing.T) {
 }
 
 func TestPluginCommentReaderWithoutComments(t *testing.T) {
-	r := pluginCommentReader{&Server{}}
+	r := pluginCommentReader{s: &Server{}}
 	id := uuid.New()
 	th, err := r.Thread(context.Background(), id, 0, pluginhost.ThreadOpts{})
 	if err != nil || th.Items == nil || len(th.Items) != 0 || th.Page != 1 {
@@ -175,37 +176,66 @@ func TestPluginCommentReaderThreadMapping(t *testing.T) {
 	parent := uuid.New()
 	now := time.Now()
 	edited := now
-	th := pluginThread(comment.ThreadPage{Page: 2, HasMore: true, Comments: []comment.ThreadComment{
+	commenter := uuid.New()
+	page := comment.ThreadPage{Page: 2, HasMore: true, Comments: []comment.ThreadComment{
 		{ID: uuid.New(), ParentID: &parent, Depth: 1, AuthorName: "Bo", IsSiteAuthor: true, BodyHTML: "<p>x</p>", CreatedAt: now, EditedAt: &edited},
-	}}, false)
-	if th.Page != 2 || !th.HasMore || len(th.Items) != 1 {
+		{ID: uuid.New(), AuthorName: "Cy", BodyHTML: "<p>y</p>", CreatedAt: now, CommenterID: &commenter},
+	}}
+	th := pluginThread(page, false, nil)
+	if th.Page != 2 || !th.HasMore || len(th.Items) != 2 {
 		t.Fatalf("thread %+v", th)
 	}
 	it := th.Items[0]
 	if it.ParentID != parent.String() || it.Depth != 1 || !it.Staff || it.AuthorName != "Bo" || it.BodyHTML != "<p>x</p>" {
 		t.Errorf("item %+v", it)
 	}
-	if empty := pluginThread(comment.ThreadPage{Page: 1}, false); empty.Items == nil {
+	if th.Items[1].CommenterKey != "" {
+		t.Error("a thread read without keys carries a key")
+	}
+	if empty := pluginThread(comment.ThreadPage{Page: 1}, false, nil); empty.Items == nil {
 		t.Error("empty thread must have non-nil items")
 	}
 	if it.Status != "approved" {
 		t.Errorf("status %q, want approved", it.Status)
 	}
+
+	// Two plugins get different keys for the same commenter; the staff row has none.
+	keys := pluginkey.New("test-secret")
+	a := pluginThread(page, false, func(id uuid.UUID) string { return keys.Commenter("plugin-a", id) })
+	b := pluginThread(page, false, func(id uuid.UUID) string { return keys.Commenter("plugin-b", id) })
+	if a.Items[0].CommenterKey != "" || b.Items[0].CommenterKey != "" {
+		t.Error("a staff item carries a commenter key")
+	}
+	if a.Items[1].CommenterKey == "" || a.Items[1].CommenterKey == b.Items[1].CommenterKey {
+		t.Errorf("keys: plugin-a %q, plugin-b %q", a.Items[1].CommenterKey, b.Items[1].CommenterKey)
+	}
+	if strings.Contains(a.Items[1].CommenterKey, commenter.String()) {
+		t.Error("the key contains the commenter id")
+	}
 }
 
 func TestPluginThreadDeadMasking(t *testing.T) {
+	commenterID := uuid.New()
 	tp := comment.ThreadPage{Comments: []comment.ThreadComment{
 		{ID: uuid.New(), AuthorName: "Bo", IsSiteAuthor: true, BodyHTML: "<p>x</p>", Status: comment.StatusDead, Rank: 2.5},
 		{ID: uuid.New(), AuthorName: "Al", BodyHTML: "<p>y</p>", Status: comment.StatusApproved, Rank: 1},
 	}}
-	masked := pluginThread(tp, false).Items
+	masked := pluginThread(tp, false, nil).Items
 	if d := masked[0]; d.Status != "dead" || d.AuthorName != "" || d.BodyHTML != "" || d.Staff || d.Rank != 2.5 {
 		t.Errorf("dead without reveal: %+v", d)
 	}
 	if a := masked[1]; a.Status != "approved" || a.BodyHTML != "<p>y</p>" || a.Rank != 1 {
 		t.Errorf("approved: %+v", a)
 	}
-	if d := pluginThread(tp, true).Items[0]; d.Status != "dead" || d.AuthorName != "Bo" || d.BodyHTML != "<p>x</p>" || !d.Staff {
+	keyed := comment.ThreadPage{Comments: []comment.ThreadComment{{ID: uuid.New(), Status: comment.StatusDead, CommenterID: &commenterID}}}
+	key := func(uuid.UUID) string { return "k" }
+	if d := pluginThread(keyed, false, key).Items[0]; d.CommenterKey != "" {
+		t.Errorf("dead without reveal carries a key: %+v", d)
+	}
+	if d := pluginThread(keyed, true, key).Items[0]; d.CommenterKey != "k" {
+		t.Errorf("dead with reveal lost its key: %+v", d)
+	}
+	if d := pluginThread(tp, true, nil).Items[0]; d.Status != "dead" || d.AuthorName != "Bo" || d.BodyHTML != "<p>x</p>" || !d.Staff {
 		t.Errorf("dead with reveal: %+v", d)
 	}
 }

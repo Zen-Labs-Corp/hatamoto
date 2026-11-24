@@ -70,7 +70,7 @@ func TestPluginCommentReaderLocales_Integration(t *testing.T) {
 	}
 	en, nl, und, draft, hidden := seed("en", "published"), seed("nl", "published"), seed("und", "published"), seed("nl", "draft"), seed("fr", "published")
 
-	r := pluginCommentReader{s}
+	r := pluginCommentReader{s: s}
 	for name, id := range map[string]uuid.UUID{"en": en, "nl": nl, "und": und} {
 		th, err := r.Thread(ctx, id, 1, pluginhost.ThreadOpts{})
 		if err != nil || len(th.Items) != 1 {

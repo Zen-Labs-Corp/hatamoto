@@ -12,6 +12,7 @@ import (
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/pluginkey"
 )
 
 // pluginClientKeys derives the client.key keys from the server secret; no
@@ -58,6 +59,10 @@ func (s *Server) setupPlugins() {
 	pdb.AllowPublicObjects = s.cfg.Plugins.AllowPublicDBObjects
 	s.pluginDB = pdb
 	pdb.WarnPublicObjects(ctx)
+	var keys *pluginkey.Deriver
+	if s.cfg != nil {
+		keys = pluginkey.New(s.cfg.Secret) // nil without a secret: no keys
+	}
 	cfg := pluginhost.Config{
 		Grants:     grants,
 		MailQuotas: quotas,
@@ -70,7 +75,7 @@ func (s *Server) setupPlugins() {
 			Media:     s.mediaService,
 			Redirects: s.redirectService,
 			Forms:     s.formService,
-			Comments:  pluginCommentReader{s},
+			Comments:  pluginCommentReader{s: s, keys: keys},
 			Settings:  s.pluginSettings,
 			DB:        pdb,
 			Fetcher:   s.pluginFetcher(),
@@ -85,6 +90,9 @@ func (s *Server) setupPlugins() {
 	}
 	if s.entityService != nil { // a nil *Service in the interface would not read as unavailable
 		cfg.Services.EntityWrites = s.entityService
+	}
+	if keys != nil {
+		cfg.CommenterKey = keys.Commenter
 	}
 	if s.db != nil {
 		cfg.Services.Groups = entity.NewGroupStore(s.db.Pool())

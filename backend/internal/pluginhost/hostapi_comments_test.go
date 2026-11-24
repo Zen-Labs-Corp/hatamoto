@@ -118,6 +118,9 @@ func TestCommentsHostThread(t *testing.T) {
 			t.Errorf("page %d reached the reader as %d, want %d", page, fake.gotPage, want)
 		}
 	}
+	if fake.gotOpts.Plugin == "" {
+		t.Error("the calling plugin's name did not reach the reader")
+	}
 	if o := r.do(t, sdk.FnCommentsThread, map[string]any{"entity_id": "nope"}); o.Code != sdk.ErrInvalidArgument {
 		t.Errorf("bad id: %+v", o)
 	}
