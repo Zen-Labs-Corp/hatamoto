@@ -414,12 +414,21 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 	now := s.utcNow()
 	var gone Comment
+	var replies []Comment
 	err = s.db.WithTx(ctx, func(tx pgx.Tx) error {
 		c, err := selectForUpdate(ctx, tx, id)
 		if err != nil {
 			return err
 		}
 		gone = c
+		subtree, err := tx.Query(ctx, `SELECT `+commentColumns+` FROM hatamoto_comments
+			WHERE path > $1 AND path < $1 || '/' AND status <> 'draft' ORDER BY path`, c.Path)
+		if err != nil {
+			return err
+		}
+		if replies, err = collectComments(subtree); err != nil {
+			return err
+		}
 		rows, err := tx.Query(ctx, `SELECT DISTINCT commenter_id FROM hatamoto_comments
 			WHERE commenter_id IS NOT NULL AND path >= $1 AND path < $1 || '/'
 			ORDER BY commenter_id`, c.Path)
@@ -456,6 +465,7 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 	s.obs.each("deleted", func(o Observer) { o.OnDeleted(ctx, gone) })
+	s.announceDeleted(ctx, replies)
 	return nil
 }
 
