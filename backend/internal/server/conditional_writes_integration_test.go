@@ -240,6 +240,9 @@ func TestConditionalStatusIntegration(t *testing.T) {
 }
 
 // A restore and an edit holding the same tag: one wins, the other gets 412.
+// Each round first writes fresh content, so the restore always changes the
+// attributes: once a restore has won, restoring the same version again is a
+// no-op (no new version) and would let the racing edit win as well.
 func TestConditionalRestoreRacesPatchIntegration(t *testing.T) {
 	e := newCondEnv(t)
 	if code, _, raw := e.do(http.MethodPatch, "", `{"attributes":{"content":"first"}}`, ""); code != http.StatusOK {
@@ -248,6 +251,9 @@ func TestConditionalRestoreRacesPatchIntegration(t *testing.T) {
 	var old int
 	e.scan(&old, `SELECT version FROM hatamoto_entity_versions WHERE entity_id = $1 LIMIT 1`, e.postID)
 	for round := 0; round < 10; round++ {
+		if code, _, raw := e.do(http.MethodPatch, "", fmt.Sprintf(`{"attributes":{"content":"pre%d"}}`, round), ""); code != http.StatusOK {
+			t.Fatalf("round %d: setup edit = %d %s", round, code, raw)
+		}
 		n := e.etag()
 		before := e.version()
 		var restoreCode, patchCode int
