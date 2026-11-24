@@ -5,6 +5,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"strings"
@@ -292,6 +293,47 @@ func TestPluginCommentReaderByAuthor_Integration(t *testing.T) {
 		if strings.Contains(string(all), bad) {
 			t.Errorf("result contains %q: %s", bad, all)
 		}
+	}
+}
+
+// The owner rule in the by_author SQL must match revealDead, which thread and
+// subtree use: a dead comment comes back if and only if revealDead says so.
+func TestPluginCommentReaderByAuthorRevealParity_Integration(t *testing.T) {
+	ctx := context.Background()
+	r := newReadRig(t)
+	revealed := 0
+	for i, c := range []struct {
+		name, origin, slug string
+		opts               pluginhost.ThreadOpts
+	}{
+		{"owner asks", "plugin-a", "t1", pluginhost.ThreadOpts{Plugin: "plugin-a", Schema: "t1", IncludeDead: true}},
+		{"not asked", "plugin-a", "t2", pluginhost.ThreadOpts{Plugin: "plugin-a", Schema: "t2"}},
+		{"other schema named", "plugin-a", "t3", pluginhost.ThreadOpts{Plugin: "plugin-a", Schema: "item", IncludeDead: true}},
+		{"other plugin", "plugin-b", "t4", pluginhost.ThreadOpts{Plugin: "plugin-a", Schema: "t4", IncludeDead: true}},
+		{"type without owner", "", "t5", pluginhost.ThreadOpts{Plugin: "plugin-a", Schema: "t5", IncludeDead: true}},
+		{"no plugin", "plugin-a", "t6", pluginhost.ThreadOpts{Schema: "t6", IncludeDead: true}},
+	} {
+		cid := r.commenter(fmt.Sprint("parity", i))
+		ent := r.entity(c.slug, c.origin, "published", "")
+		dead := r.comment(ent, nil, &cid, "dead", "gone")
+		want := revealDead(comment.EntityConfig{OwnerPlugin: c.origin, SchemaSlug: c.slug}, c.opts)
+		if want {
+			revealed++
+		}
+		th, err := r.reader.ByAuthor(ctx, r.keys.Commenter(c.opts.Plugin, cid), 1, c.opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := len(th.Items) == 1 && th.Items[0].ID == dead.String() && th.Items[0].BodyHTML != ""
+		if got != want {
+			t.Errorf("%s: by_author reveals dead = %v, revealDead = %v (items %+v)", c.name, got, want, th.Items)
+		}
+		if !want && len(th.Items) != 0 {
+			t.Errorf("%s: unrevealed dead row listed: %+v", c.name, th.Items)
+		}
+	}
+	if revealed != 1 {
+		t.Fatalf("table reveals %d cases, want 1", revealed)
 	}
 }
 
