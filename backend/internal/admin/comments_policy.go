@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 
 	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
@@ -104,8 +105,26 @@ func cpolView(c SchemaCommentConfig, siteSort, moderator string, vals url.Values
 // messages by field name.
 type cpolPosted struct {
 	ID   string
+	Slug string
+	Name string
 	Vals url.Values
 	Errs map[string]string
+}
+
+// cpolFieldErrors lists a refused post's messages for the error summary at
+// the top of the page, in card order, each linked to its field.
+func cpolFieldErrors(p *cpolPosted) []ui.FieldError {
+	var out []ui.FieldError
+	add := func(name, label string) {
+		if msg, ok := p.Errs[name]; ok {
+			out = append(out, ui.FieldError{ID: "comments-type-" + p.Slug + "-" + strings.ReplaceAll(name, "_", "-"), Label: p.Name + ": " + label, Message: msg})
+		}
+	}
+	add("order", "Order")
+	for _, f := range cpolFields {
+		add(f.Name, f.Label)
+	}
+	return out
 }
 
 // cpolTypes lists the content type cards with one service call. It is empty

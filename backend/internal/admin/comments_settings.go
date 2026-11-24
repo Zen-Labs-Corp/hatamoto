@@ -253,6 +253,9 @@ func (a *Admin) renderCommentSettingsPosted(w http.ResponseWriter, r *http.Reque
 		}
 		d.FormErrors = append(d.FormErrors, ui.FieldError{ID: csetFieldID(e.Name), Label: label, Message: e.Message})
 	}
+	if posted != nil {
+		d.FormErrors = append(d.FormErrors, cpolFieldErrors(posted)...)
+	}
 	d.Cards = csetCards(vals, byName)
 	if s.Enabled {
 		d.Types = a.cpolTypes(r, a.deps.Comments, s.Sort, posted)

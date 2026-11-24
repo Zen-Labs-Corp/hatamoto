@@ -148,3 +148,14 @@ func TestCommentPolicyBuiltinAndUnknown(t *testing.T) {
 		t.Errorf("unknown type = %d", rec.Code)
 	}
 }
+
+func TestCommentPolicyBadNumberInErrorSummary(t *testing.T) {
+	t.Parallel()
+
+	p := newCommentsRig(t, cpolRig(false))
+	rec := csetPost(p, cpolNotesURL, "owner-token", url.Values{"max_depth": {"33"}}, nil)
+	body := rec.Body.String()
+	if rec.Code != 422 || !strings.Contains(body, `href="#comments-type-notes-max-depth"`) {
+		t.Errorf("no summary link to the refused field (%d)", rec.Code)
+	}
+}

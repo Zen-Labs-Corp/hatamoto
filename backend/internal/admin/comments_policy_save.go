@@ -82,7 +82,7 @@ func (a *Admin) handleCommentPolicySave(w http.ResponseWriter, r *http.Request) 
 			a.serverError(w, r, "The comment settings could not be loaded", err)
 			return
 		}
-		a.renderCommentSettingsPosted(w, r, http.StatusUnprocessableEntity, s, csetValues(s), nil, &cpolPosted{ID: id, Vals: form, Errs: errs})
+		a.renderCommentSettingsPosted(w, r, http.StatusUnprocessableEntity, s, csetValues(s), nil, &cpolPosted{ID: id, Slug: cur.Slug, Name: cur.Name, Vals: form, Errs: errs})
 		return
 	}
 	a.audit(r, "comments.policy", id, map[string]any{
