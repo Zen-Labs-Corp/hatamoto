@@ -310,6 +310,39 @@ func TestCommentsAdminIntegration(t *testing.T) {
 	if err := a.SetSchemaMode(ctx, builtinID.String(), "closed"); !errors.Is(err, admin.ErrCommentsUnsupported) {
 		t.Errorf("built-in SetSchemaMode err = %v", err)
 	}
+	// Per-type community policy keeps the mode and unknown keys.
+	must(a.SetSchemaMode(ctx, sch.ID.String(), "closed"))
+	tpol := admin.CommentPolicy{Enabled: true, MaxDepth: 32, EditWindowMinutes: 120, SlowModeSeconds: 30}
+	must(a.SetSchemaComments(ctx, sch.ID.String(), "oldest", tpol))
+	cfgs, err := a.SchemaCommentConfigs(ctx)
+	must(err)
+	var got *admin.SchemaCommentConfig
+	for i := range cfgs {
+		if cfgs[i].ID == sch.ID.String() {
+			got = &cfgs[i]
+		}
+	}
+	if got == nil || got.Mode != "closed" || got.Order != "oldest" || got.Policy != tpol {
+		t.Errorf("SchemaCommentConfigs = %+v", got)
+	}
+	if kept, err := entities.GetSchema(ctx, sch.ID); err != nil || !strings.Contains(string(kept.Settings), "url_pattern") {
+		t.Errorf("schema settings lost url_pattern: %s, %v", kept.Settings, err)
+	}
+	badPol := tpol
+	badPol.MaxDepth = 33
+	var pfe *admin.CommentFieldError
+	if err := a.SetSchemaComments(ctx, sch.ID.String(), "", badPol); !errors.As(err, &pfe) || pfe.Field != "max_depth" {
+		t.Errorf("max_depth 33 err = %v", err)
+	}
+	if err := a.SetSchemaComments(ctx, builtinID.String(), "", tpol); !errors.Is(err, admin.ErrCommentsUnsupported) {
+		t.Errorf("built-in SetSchemaComments err = %v", err)
+	}
+	if err := a.SetSchemaComments(ctx, uuid.NewString(), "", tpol); !errors.Is(err, admin.ErrCommentNotFound) {
+		t.Errorf("unknown SetSchemaComments err = %v", err)
+	}
+	must(a.SetSchemaComments(ctx, sch.ID.String(), "", admin.CommentPolicy{MaxDepth: 10, EditWindowMinutes: 15}))
+	must(a.SetSchemaMode(ctx, sch.ID.String(), ""))
+
 	opts, err := a.EntityOptions(ctx, 10)
 	must(err)
 	if len(opts) != 1 || opts[0].ID != ent.ID.String() || opts[0].Title != "Cmm Entity" {

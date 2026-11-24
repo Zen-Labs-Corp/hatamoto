@@ -42,7 +42,7 @@ var commentLikeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 func (a commentsAdmin) Supports(feature string) bool {
 	switch feature {
-	case "privacy", "blocklists", "entity-options", "schema-mode":
+	case "privacy", "blocklists", "entity-options", "schema-mode", "schema-policy":
 		return true
 	}
 	return false // "schema-mode-builtin" waits for a follow-up
@@ -670,6 +670,77 @@ func (a commentsAdmin) SetSchemaMode(ctx context.Context, schemaID, mode string)
 		return err
 	}
 	// UpdateSchema's schema hook already drops every rendered page; this event tells comment observers about the type default.
+	a.svc.TypeModeChanged(ctx)
+	return nil
+}
+
+func (a commentsAdmin) SchemaCommentConfigs(ctx context.Context) ([]admin.SchemaCommentConfig, error) {
+	schemas, err := a.entities.ListSchemas(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]admin.SchemaCommentConfig, 0, len(schemas))
+	for _, sch := range schemas {
+		m, err := schemaSettings(sch.Settings)
+		if err != nil {
+			return nil, err
+		}
+		cm, _ := m["comments"].(map[string]any)
+		mode, _ := cm["mode"].(string)
+		order, _ := cm["order"].(string)
+		if !comment.ValidOrder(order) {
+			order = ""
+		}
+		var rawPolicy []byte
+		if pm, ok := cm["policy"]; ok {
+			if rawPolicy, err = jsonx.Marshal(pm); err != nil {
+				return nil, err
+			}
+		}
+		p := comment.DecodePolicy(rawPolicy)
+		out = append(out, admin.SchemaCommentConfig{
+			ID: sch.ID.String(), Slug: sch.Slug, Name: sch.Name, Builtin: sch.IsBuiltin,
+			Mode: mode, Order: order,
+			Policy: admin.CommentPolicy{Enabled: p.Enabled, MaxDepth: p.MaxDepth, EditWindowMinutes: p.EditWindowMinutes, SlowModeSeconds: p.SlowModeSeconds},
+		})
+	}
+	return out, nil
+}
+
+func (a commentsAdmin) SetSchemaComments(ctx context.Context, schemaID, order string, p admin.CommentPolicy) error {
+	id, err := uuid.Parse(schemaID)
+	if err != nil {
+		return admin.ErrCommentNotFound
+	}
+	sch, err := a.entities.GetSchema(ctx, id)
+	if errors.Is(err, entity.ErrSchemaNotFound) {
+		return admin.ErrCommentNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if sch.IsBuiltin && !a.Supports("schema-mode-builtin") {
+		return admin.ErrCommentsUnsupported
+	}
+	pol := comment.Policy{Enabled: p.Enabled, MaxDepth: p.MaxDepth, EditWindowMinutes: p.EditWindowMinutes, SlowModeSeconds: p.SlowModeSeconds}
+	if err := pol.Validate(); err != nil {
+		var fe *comment.FieldError
+		if errors.As(err, &fe) {
+			return &admin.CommentFieldError{Field: strings.TrimPrefix(fe.Field, "policy."), Message: fe.Message}
+		}
+		return err
+	}
+	if !comment.ValidOrder(order) {
+		return &admin.CommentFieldError{Field: "order", Message: "must be newest, oldest or the site default"}
+	}
+	raw, err := comment.MergeSchemaComments(sch.Settings, &order, &pol)
+	if err != nil {
+		return err
+	}
+	merged := jsontext.Value(raw)
+	if _, err := a.entities.UpdateSchema(ctx, id, &entity.UpdateSchemaInput{Settings: &merged}); err != nil {
+		return err
+	}
 	a.svc.TypeModeChanged(ctx)
 	return nil
 }

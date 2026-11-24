@@ -23,6 +23,7 @@ type fakeComments struct {
 	lastMode   string
 	entity     EntityComments
 	schemaMode string
+	types      []SchemaCommentConfig
 	supports   map[string]bool
 	blocklists []Blocklist
 	commenters []CommenterRow
@@ -220,6 +221,32 @@ func (f *fakeComments) SetSchemaMode(_ context.Context, schemaID, mode string) e
 	f.lastMode = mode
 	f.schemaMode = mode
 	return nil
+}
+
+func (f *fakeComments) SchemaCommentConfigs(context.Context) ([]SchemaCommentConfig, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]SchemaCommentConfig(nil), f.types...), f.err
+}
+
+func (f *fakeComments) SetSchemaComments(_ context.Context, schemaID, order string, p CommentPolicy) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return f.err
+	}
+	for i := range f.types {
+		if f.types[i].ID != schemaID {
+			continue
+		}
+		if f.types[i].Builtin && !f.supports["schema-mode-builtin"] {
+			return ErrCommentsUnsupported
+		}
+		f.record("schema-comments", "", schemaID)
+		f.types[i].Order, f.types[i].Policy = order, p
+		return nil
+	}
+	return ErrCommentNotFound
 }
 
 func (f *fakeComments) EntityOptions(_ context.Context, limit int) ([]EntityOption, error) {
