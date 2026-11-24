@@ -115,8 +115,10 @@ owner edits or deletes like any other.
 - A `range` is checked against the single version the registry lists for that
   name. A mismatch refuses the kit.
 - `grant: "all"` grants every permission in the plugin's manifest **except**
-  `site.scripts` and `ui.allow:*`. Those two are separate ticks on the review
-  screen.
+  every permission the install prompt marks "Handle with care" (for example
+  `site.scripts`, `builder.island`, `http.fetch.any`, `entities.filter`,
+  `client.key`) and `ui.allow:*`. Those are separate ticks on the review
+  screen, and a `grant` list cannot grant them either.
 - `switches` are requests, applied only with the owner's ticks:
   `comments: true` needs the two comment warnings; `homepage` and a theme's
   `activate` are separate ticks and default to off. On an existing site a kit
@@ -233,8 +235,8 @@ hatamoto kit list
   comments), then each step, and records the kit. `--accept-comment-warnings`
   accepts the warnings and turns comments (and the community policy, when the
   site can) on; without it the command says `comments left off`. `--grant P,P`
-  names permissions beyond what the kit's `grant` gives; `site.scripts` and
-  `ui.allow:*` are granted only when named here. `--dry-run` prints the steps
+  names permissions beyond what the kit's `grant` gives; those
+  "Handle with care" permissions and `ui.allow:*` are granted only when named here. `--dry-run` prints the steps
   and changes nothing. `--dev` allows an unsigned dev kit (never in
   production). A refused kit prints each reason, changes nothing and exits 1.
   Running the command again prints `kit <name> <version> is already applied:

@@ -265,6 +265,8 @@ func TestGrantFor(t *testing.T) {
 		{"list with site.scripts", packages.KitGrant{Perms: []string{"db", "site.scripts"}}, asked, []string{"db"}, []string{"settings", "site.scripts", "ui.allow:camera"}, nil},
 		{"list naming an unasked permission", packages.KitGrant{Perms: []string{"db", "entities.read"}}, []string{"db", "settings"}, []string{"db"}, []string{"settings"}, []string{"entities.read"}},
 		{"list naming ui.allow", packages.KitGrant{Perms: []string{"ui.allow:camera"}}, []string{"ui.allow:camera"}, nil, []string{"ui.allow:camera"}, nil},
+		{"all leaves every warned permission to the owner", packages.KitGrant{All: true}, []string{"db", "builder.island", "http.fetch.any", "entities.filter", "client.key", "entities.write.own", "comments.moderate"}, []string{"db"}, []string{"builder.island", "http.fetch.any", "entities.filter", "client.key", "entities.write.own", "comments.moderate"}, nil},
+		{"a list cannot grant a warned permission", packages.KitGrant{Perms: []string{"builder.island", "http.fetch.any"}}, []string{"builder.island", "http.fetch.any"}, nil, []string{"builder.island", "http.fetch.any"}, nil},
 		{"all with nothing asked", packages.KitGrant{All: true}, nil, nil, nil, nil},
 	}
 	for _, tt := range tests {
