@@ -531,12 +531,6 @@ func Parse(raw []byte, lim Limits) (*Package, error) {
 		if err != nil {
 			return nil, refuse("%s: %v", KitManifest, err)
 		}
-		if !namePattern.MatchString(k.Name) {
-			return nil, refuse("%s: invalid kit name %q (want %s)", KitManifest, k.Name, namePattern)
-		}
-		if !semverPattern.MatchString(k.Version) {
-			return nil, refuse("%s: version %q is not semver", KitManifest, k.Version)
-		}
 		p.Name, p.Version = k.Name, k.Version
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].name < entries[j].name })

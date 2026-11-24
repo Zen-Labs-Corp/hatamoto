@@ -144,9 +144,15 @@ type KitSwitches struct {
 
 // parseKit decodes kit.json strictly: an unknown key refuses the kit.
 func parseKit(b []byte) (*Kit, error) {
+	if err := checkKitSize(b); err != nil {
+		return nil, err
+	}
 	var k Kit
 	if err := jsonx.Unmarshal(b, &k, jsonx.StrictNoUnknown); err != nil {
 		return nil, refuse("%v", err)
+	}
+	if err := k.validate(); err != nil {
+		return nil, err
 	}
 	return &k, nil
 }

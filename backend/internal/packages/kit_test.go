@@ -105,9 +105,9 @@ func TestKitGrantForms(t *testing.T) {
 	if g := k.Plugins[0].Grant; g.All || g.Perms != nil {
 		t.Fatalf("absent grant = %+v", g)
 	}
-	k, _ = parseKit([]byte(wrap(`,"grant":[]`)))
-	if k.Plugins[0].Grant.Perms == nil {
-		t.Fatal("an empty list must stay distinguishable from an absent grant")
+	var empty KitGrant
+	if err := jsonx.Unmarshal([]byte(`[]`), &empty); err != nil || empty.Perms == nil {
+		t.Fatalf("an empty list must stay distinguishable from an absent grant: %+v, %v", empty, err)
 	}
 	for _, bad := range []string{`,"grant":"db"`, `,"grant":3`, `,"grant":{}`} {
 		if _, err := parseKit([]byte(wrap(bad))); err == nil {
