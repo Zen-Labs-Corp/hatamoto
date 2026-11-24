@@ -112,6 +112,41 @@ func TestCommentEventUpdated(t *testing.T) {
 	}
 }
 
+// ctxCommenterObserver records the commenter each event's context carries.
+func ctxCommenterObserver() (*commentEventObserver, *[]uuid.UUID) {
+	var got []uuid.UUID
+	o := &commentEventObserver{fire: func(ctx context.Context, _ string, _ sdk.CommentEvent) {
+		id, _ := pluginkey.CommenterFrom(ctx)
+		got = append(got, id)
+	}}
+	return o, &got
+}
+
+func TestCommentEventUpdatedCarriesTheAuthorNotTheCaller(t *testing.T) {
+	moderator := uuid.New()
+	ctx := pluginkey.WithCommenter(context.Background(), moderator)
+	o, got := ctxCommenterObserver()
+
+	c := testComment(comment.StatusApproved)
+	c.AuthorUserID = nil
+	dead := c
+	dead.Status = comment.StatusDead
+	o.OnUpdated(ctx, c, dead)
+	o.OnUpdated(context.Background(), c, dead) // the author's own edit: no commenter on the context
+	if len(*got) != 2 || (*got)[0] != *c.CommenterID || (*got)[1] != *c.CommenterID {
+		t.Errorf("commenters = %v, want the author %v twice", *got, *c.CommenterID)
+	}
+
+	staff := testComment(comment.StatusApproved)
+	staff.CommenterID = nil // staff and anonymised rows have none
+	*got = nil
+	o.OnUpdated(ctx, staff, staff)
+	o.OnDeleted(ctx, staff)
+	if len(*got) != 2 || (*got)[0] != uuid.Nil || (*got)[1] != uuid.Nil {
+		t.Errorf("commenters = %v, want none (not the caller's %v)", *got, moderator)
+	}
+}
+
 func TestCommentEventDeletedCarriesIDsOnly(t *testing.T) {
 	ctx := context.Background()
 	o, got := recordingCommentObserver()

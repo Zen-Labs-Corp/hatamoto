@@ -41,12 +41,14 @@ func (o *commentEventObserver) OnConfirmed(ctx context.Context, c comment.Commen
 	o.arrived(ctx, c)
 }
 
-// withCommenter puts the commenter's id on the context of an event. Only the id
-// travels: pluginhost derives each plugin's key from it per delivery, so the
-// shared event value stays keyless and webhooks never see a key or an id.
+// withCommenter puts the comment's commenter id on the context of an event. Only
+// the id travels: pluginhost derives each plugin's key from it per delivery, so
+// the shared event value stays keyless and webhooks never see a key or an id. A
+// comment without a commenter (staff, anonymised) hides any commenter the
+// caller's context holds, so a moderator's key never lands on someone else's comment.
 func withCommenter(ctx context.Context, c comment.Comment) context.Context {
 	if c.CommenterID == nil {
-		return ctx
+		return pluginkey.WithCommenter(ctx, uuid.Nil)
 	}
 	return pluginkey.WithCommenter(ctx, *c.CommenterID)
 }
@@ -78,7 +80,7 @@ func (o *commentEventObserver) OnUpdated(ctx context.Context, _, after comment.C
 	if after.Status == comment.StatusDraft {
 		return
 	}
-	o.fire(ctx, sdk.CommentUpdated.Name, commentEvent(after))
+	o.fire(withCommenter(ctx, after), sdk.CommentUpdated.Name, commentEvent(after))
 }
 
 // OnDeleted carries ids and status only: the comment is gone.
@@ -86,7 +88,7 @@ func (o *commentEventObserver) OnDeleted(ctx context.Context, c comment.Comment)
 	if c.Status == comment.StatusDraft {
 		return // never announced
 	}
-	o.fire(ctx, sdk.CommentDeleted.Name, sdk.CommentEvent{
+	o.fire(withCommenter(ctx, c), sdk.CommentDeleted.Name, sdk.CommentEvent{
 		ID: c.ID.String(), EntityID: c.EntityID.String(), ParentID: idString(c.ParentID),
 		Status: string(c.Status),
 	})
