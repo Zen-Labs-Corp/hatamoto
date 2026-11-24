@@ -35,6 +35,7 @@ func (a *Admin) mountComments(authed *httpx.Group) {
 	owner.HandleFunc("GET /settings/comments/enable", a.handleCommentEnablePage)
 	owner.HandleFunc("POST /settings/comments/enable", a.handleCommentEnable)
 	owner.HandleFunc("POST /settings/comments/types/{id}", a.handleCommentPolicySave)
+	owner.HandleFunc("POST /settings/comments/types/{id}/revoke", a.handleCommentPolicyRevoke)
 	owner.HandleFunc("POST /settings/types/{id}/comments", a.handleSchemaComments)
 	sudo.HandleFunc("GET /settings/comments/commenters/{id}/export", a.handleCommenterExport)
 	sudo.HandleFunc("GET /settings/comments/commenters/{id}/erase", a.handleCommenterErasePage)

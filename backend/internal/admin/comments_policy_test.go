@@ -112,7 +112,7 @@ func TestCommentPolicyHiddenWhileCommentsOff(t *testing.T) {
 
 func cpolPlugins(granted ...string) *fakePlugins {
 	return &fakePlugins{list: []PluginInfo{
-		{Name: "ranker", EntitySchema: "notes", Permissions: []string{"comments.moderate", "db"}, Granted: granted},
+		{Name: "ranker", EntitySchema: "notes", Permissions: []string{"comments.moderate", "comments.read", "db"}, Granted: granted},
 		{Name: "other", EntitySchema: "elsewhere", Permissions: []string{"comments.moderate"}, Granted: []string{"comments.moderate"}},
 	}}
 }

@@ -33,8 +33,9 @@
 {{template "hm/callout-start" (dict "Kind" "warning" "ID" (print "comments-type-" .Slug "-warning"))}}Links and first-time commenters are posted at once, not held.{{template "hm/callout-end"}}
 {{range .Numbers}}{{template "hm/field" dict "ID" .ID "Name" .Name "Label" .Label "Type" "number" "Value" .Value "Help" .Help "Error" .Error "Attrs" (attrmap "min" (printf "%d" .Min) "max" (printf "%d" .Max) "step" "1")}}
 {{end}}{{else}}{{template "hm/field" dict "ID" (print "comments-type-" .Slug "-policy") "Name" "policy" "Control" "switch" "Value" "true" "OffValue" "off" "Label" "Community policy" "Checked" false "Help" "Links and new commenters are held." "Attrs" (cond (and $.Data.Owner .Supported) (attrmap "data-hm-open" (print "comments-policy-" .Slug) "aria-haspopup" "dialog") (attrmap))}}
-{{end}}{{with .Moderator}}<p>Plugin moderation: {{.}} may mark comments dead / restore and set their order.</p>
-{{end}}</fieldset>
+{{end}}{{if .Moderator}}<p>Plugin moderation: {{.Moderator}} may mark comments dead / restore and set their order.</p>
+{{if .CanRevoke}}{{template "hm/button" dict "Label" "Revoke" "Variant" "danger" "Href" .ModeratorHref "Attrs" (attrmap "data-hm-post" (print (adminPath) "/settings/comments/types/" .ID "/revoke") "data-hm-confirm" "Remove this plugin's permission to moderate comments on this content type? The plugin keeps running." "data-hm-confirm-label" "Revoke" "data-hm-danger" "")}}
+{{end}}{{end}}</fieldset>
 {{if and $.Data.Owner .Supported}}{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}{{else}}{{template "hm/card-end"}}{{end}}
 </form>
 {{end}}{{end}}{{end}}{{if and .Owner (not .Enabled) (not .NoAddress)}}{{template "hm/dialog-start" dict "ID" "comments-enable" "Title" "Turn comments on?" "Static" true}}

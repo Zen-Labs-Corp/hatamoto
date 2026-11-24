@@ -408,6 +408,7 @@ POST /admin/settings/comments/commenters/{id}/{action} -> admin.(*Admin).handleC
 POST /admin/settings/comments/enable -> admin.(*Admin).handleCommentEnable-fm
 POST /admin/settings/comments/switch -> admin.(*Admin).handleCommentSwitch-fm
 POST /admin/settings/comments/types/{id} -> admin.(*Admin).handleCommentPolicySave-fm
+POST /admin/settings/comments/types/{id}/revoke -> admin.(*Admin).handleCommentPolicyRevoke-fm
 POST /admin/settings/email -> admin.(*Admin).handleEmailSave-fm
 POST /admin/settings/email/log/{id}/resend -> admin.(*Admin).handleEmailLogResend-fm
 POST /admin/settings/email/reset -> admin.(*Admin).handleEmailReset-fm

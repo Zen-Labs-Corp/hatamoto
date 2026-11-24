@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 
+	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/sdk"
 )
@@ -35,6 +36,8 @@ type cpolType struct {
 	Order                     []ui.Option
 	Numbers                   []csetNumber // only while the policy is on
 	OrderError                string
+	CanRevoke                 bool   // the viewer may remove the moderator's grant
+	ModeratorHref             string // the plugin's Permissions page: the link without script
 	Moderator                 string // plugin holding comments.moderate for this type, "" when none
 }
 
@@ -118,13 +121,18 @@ func (a *Admin) cpolTypes(r *http.Request, svc CommentsService, siteSort string,
 		return nil
 	}
 	mods := a.cpolModerators()
+	canRevoke := a.can(r.Context(), authz.ActionCommentSettingsManage) && a.can(r.Context(), authz.ActionPluginManage)
 	out := make([]cpolType, 0, len(cfgs))
 	for _, c := range cfgs {
+		t := cpolView(c, siteSort, mods[c.Slug].Name, nil, nil)
 		if posted != nil && posted.ID == c.ID {
-			out = append(out, cpolView(c, siteSort, mods[c.Slug].Name, posted.Vals, posted.Errs))
-			continue
+			t = cpolView(c, siteSort, mods[c.Slug].Name, posted.Vals, posted.Errs)
 		}
-		out = append(out, cpolView(c, siteSort, mods[c.Slug].Name, nil, nil))
+		t.CanRevoke = canRevoke && t.Moderator != ""
+		if t.CanRevoke {
+			t.ModeratorHref = a.pluginURL(t.Moderator, "permissions")
+		}
+		out = append(out, t)
 	}
 	return out
 }
