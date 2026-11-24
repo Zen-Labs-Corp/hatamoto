@@ -19,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/editionstate"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/packages"
@@ -306,6 +307,8 @@ func packageManager(ctx context.Context, logger *slog.Logger, devFlag bool) (*pa
 		Pool: db.Pool(), Trust: trust, PluginKey: pluginKey, Entitled: editionstate.Plugin, AllowDev: dev, Engine: eng, Logger: logger,
 		Registry: mainReg, DeveloperRegistry: devReg,
 		MenuSeeder: menu.NewService(menu.NewPostgresRepository(db), logger),
+		// As the server: a plugin's entity_schema creates its content type at install.
+		Schemas: entity.NewService(entity.NewPostgresSchemaRepository(db), entity.NewPostgresEntityRepository(db), logger),
 	})
 	return m, db, dev, why, nil
 }
