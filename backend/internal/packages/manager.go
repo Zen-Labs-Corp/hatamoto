@@ -368,6 +368,15 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		if err := pluginhost.PagePathsRefusal(man); err != nil {
 			return nil, &ParseError{Msg: err.Error()}
 		}
+		if err := pluginhost.PagePathPrefixesRefusal(man); err != nil {
+			return nil, &ParseError{Msg: err.Error()}
+		}
+		if err := pluginhost.EntitySchemaRefusal(man); err != nil {
+			return nil, &ParseError{Msg: err.Error()}
+		}
+		if err := checkEntitySchemaShipped(p, man); err != nil {
+			return nil, err
+		}
 		if err := checkCommunityCSP(origin, man); err != nil {
 			return nil, err
 		}
