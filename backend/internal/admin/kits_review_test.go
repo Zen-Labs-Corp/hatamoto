@@ -151,6 +151,7 @@ func TestKitApplyCommentsTickedWithAddress(t *testing.T) {
 	t.Parallel()
 
 	f := kitsFixture()
+	f.result = &kit.Result{Created: map[string]int{}, Recorded: true} // turning comments on records the kit
 	p := newKitsRig(t, f)
 	svc := &fakeComments{}
 	p.a.deps.Comments, p.a.deps.BaseURL = svc, func(*http.Request) string { return "https://example.com" }
@@ -265,5 +266,82 @@ func TestKitApplyPlansOnce(t *testing.T) {
 	}
 	if f.plans != 1 {
 		t.Errorf("a POST planned %d times, want 1 (every plan downloads the packages)", f.plans)
+	}
+}
+
+func TestKitReviewShowsPolicyWarning(t *testing.T) {
+	t.Parallel()
+
+	f := kitsFixture()
+	f.plan = kitPolicyPlanFixture()
+	p := newKitsRig(t, f)
+	rec := p.do("GET", kitsReviewPath, "owner-token", nil, nil)
+	body := rec.Body.String()
+	if rec.Code != 200 {
+		t.Fatalf("GET = %d", rec.Code)
+	}
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %v", issues)
+	}
+	for _, want := range []string{html.EscapeString(comment.PolicyConfirmWarning), html.EscapeString(comment.PolicyTick), "Use the community policy on Stories."} {
+		if !strings.Contains(body, want) {
+			t.Errorf("page lacks %q", want)
+		}
+	}
+	i := strings.Index(body, `id="kit-policy"`)
+	if i < 0 {
+		t.Fatal("no policy switch")
+	}
+	tag := body[strings.LastIndex(body[:i], "<input"):]
+	if tag = tag[:strings.Index(tag, ">")]; strings.Contains(tag, " checked") || !strings.Contains(tag, "aria-describedby") {
+		t.Errorf("the policy switch must start unticked and carry its help: %s", tag)
+	}
+}
+
+func TestKitReviewPolicyAlreadyOn(t *testing.T) {
+	t.Parallel()
+
+	f := kitsFixture()
+	f.plan = kitPolicyPlanFixture()
+	f.plan.Policy = kit.PolicyStep{AlreadyOn: []string{"story"}}
+	p := newKitsRig(t, f)
+	body := p.do("GET", kitsReviewPath, "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "already on for Stories") || strings.Contains(body, `id="kit-policy"`) {
+		t.Errorf("already-on review wrong: %s", body)
+	}
+}
+
+func TestKitApplyPolicyAudits(t *testing.T) {
+	t.Parallel()
+
+	f := kitsFixture()
+	f.plan = kitPolicyPlanFixture()
+	f.result = &kit.Result{Created: map[string]int{}, Recorded: true, PolicyOn: []kit.PolicyChange{{Slug: "story", SchemaID: "schema-1"}}}
+	p := newKitsRig(t, f)
+	rec := p.do("POST", kitsReviewPath, "owner-token", url.Values{"policy": {"1"}, "plan": {f.plan.Fingerprint()}}, nil)
+	if rec.Code != 303 || len(f.applies) != 1 || !f.applies[0].A.Policy {
+		t.Fatalf("POST = %d, applies %+v", rec.Code, f.applies)
+	}
+	var actions []string
+	for _, e := range p.events {
+		actions = append(actions, e.Action)
+	}
+	if strings.Join(actions, ",") != "comments.policy,kit.apply" {
+		t.Fatalf("audit actions = %v", actions)
+	}
+	e := p.events[0]
+	if e.Target != "schema-1" || e.Detail["type"] != "story" || e.Detail["new"] != true || e.Detail["via"] != "kit:community" {
+		t.Errorf("comments.policy event = %+v", e)
+	}
+}
+
+func TestKitApplyNothingChangedNoAudit(t *testing.T) {
+	t.Parallel()
+
+	f := kitsFixture()
+	p := newKitsRig(t, f)
+	rec := p.do("POST", kitsReviewPath, "owner-token", url.Values{"plan": {f.plan.Fingerprint()}}, nil)
+	if rec.Code != 303 || len(p.events) != 0 {
+		t.Errorf("POST = %d, audit = %+v", rec.Code, p.events)
 	}
 }

@@ -10,7 +10,7 @@ import (
 
 // The kit review partial is shared by the wizard and Settings > Kits. It uses switches only, takes
 // every warning from Go fields (the comment copy), starts with the CSRF field and never disables
-// Apply in markup: the server enforces the comments tick (Decision 3).
+// Apply in markup: the server enforces the comments tick.
 func TestKitReviewPartial(t *testing.T) {
 	t.Parallel()
 
@@ -18,7 +18,7 @@ func TestKitReviewPartial(t *testing.T) {
 	if strings.Contains(src, `type="checkbox"`) || regexp.MustCompile(`"Control" "checkbox"`).MatchString(src) {
 		t.Error("kit-review has a checkbox: use hm/field Control \"switch\"")
 	}
-	for _, lit := range []string{comment.EnableWarning, comment.EnableConfirmWarning, comment.EnableTick, "invite spam"} {
+	for _, lit := range []string{comment.EnableWarning, comment.EnableConfirmWarning, comment.EnableTick, comment.PolicyConfirmWarning, comment.PolicyTick, "invite spam"} {
 		if strings.Contains(src, lit) {
 			t.Errorf("kit-review has the literal warning %q: print the Go field", lit)
 		}

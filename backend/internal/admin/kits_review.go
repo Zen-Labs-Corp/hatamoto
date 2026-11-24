@@ -84,8 +84,9 @@ type kitReviewComments struct {
 type kitReviewPolicy struct {
 	Available, On bool
 	Label         string
-	Warning       string
+	Warning, Tick string
 	Message       string
+	AlreadyOn     string // "The community policy is already on for Stories."
 }
 
 // kitTicks are the owner's switches: from the form after a refused post, or the defaults of a fresh GET.
@@ -172,11 +173,26 @@ func newKitReviewView(pl *kit.Plan, t kitTicks) kitReviewView {
 	}
 	c := pl.Comments
 	v.Comments = kitReviewComments{Requested: c.Requested, AlreadyOn: c.AlreadyOn, On: t.Comments, Warning: c.Warnings[0], Confirm: c.Warnings[1], NoAddress: c.NoAddress, NoAddressMsg: csetNoAddressMsg}
-	if len(pl.Policy.Requested) > 0 {
-		v.Policy = kitReviewPolicy{Available: pl.Policy.Available && pl.Policy.Warning != "", On: t.Policy, Warning: pl.Policy.Warning, Message: pl.Policy.Message}
-		v.Policy.Label = "Use the community policy on " + strings.Join(pl.Policy.Requested, ", ") + "."
+	if len(pl.Policy.Requested) > 0 || len(pl.Policy.AlreadyOn) > 0 {
+		v.Policy = kitReviewPolicy{Available: pl.Policy.Available && pl.Policy.Warning != "", On: t.Policy, Warning: pl.Policy.Warning, Tick: pl.Policy.Tick, Message: pl.Policy.Message}
+		v.Policy.Label = "Use the community policy on " + kitTypeNames(pl, pl.Policy.Requested) + "."
+		if len(pl.Policy.AlreadyOn) > 0 {
+			v.Policy.AlreadyOn = "The community policy is already on for " + kitTypeNames(pl, pl.Policy.AlreadyOn) + "."
+		}
 	}
 	return v
+}
+
+// kitTypeNames lists content types by the name the kit gives them (the slug when it has none).
+func kitTypeNames(pl *kit.Plan, slugs []string) string {
+	names := make([]string, len(slugs))
+	for i, slug := range slugs {
+		names[i] = slug
+		if j := slices.IndexFunc(pl.Kit.Schemas, func(s packages.KitSchema) bool { return s.Slug == slug }); j >= 0 && pl.Kit.Schemas[j].Name != "" {
+			names[i] = pl.Kit.Schemas[j].Name
+		}
+	}
+	return strings.Join(names, ", ")
 }
 
 // kitExtra is the switch of one permission the kit leaves to the owner (site.scripts, ui.allow:*, or
@@ -291,8 +307,7 @@ func (a *Admin) handleKitApply(w http.ResponseWriter, r *http.Request) {
 
 // applyKit is the POST both entry points share. It plans once, refuses when the plan is not the one
 // the owner reviewed (the form's fingerprint), refuses on the plan's refusals, and
-// enforces the comments tick on the server: comments go on only with the tick and a site address
-// (Decision 3). On success it audits and returns the result; on any failure it has already
+// enforces the comments tick on the server: comments go on only with the tick and a site address. On success it audits and returns the result; on any failure it has already
 // re-rendered the review and returns false.
 func (a *Admin) applyKit(w http.ResponseWriter, r *http.Request, name string, scr kitScreen) (*kit.Result, bool) {
 	svc, ok := a.kitService(w, r)
@@ -342,7 +357,12 @@ func (a *Admin) applyKit(w http.ResponseWriter, r *http.Request, name string, sc
 		}
 		return nil, false
 	}
-	a.audit(r, "kit.apply", "kit:"+name, map[string]any{"version": pl.Kit.Version, "created": res.Total(), "filled": res.Filled, "kept": len(res.Kept), "skipped": len(res.Skipped), "comments": acc.Comments && pl.Comments.Requested && !pl.Comments.AlreadyOn})
+	for _, ch := range res.PolicyOn {
+		a.audit(r, "comments.policy", ch.SchemaID, map[string]any{"type": ch.Slug, "old": false, "new": true, "changed": []string{"policy"}, "via": "kit:" + name})
+	}
+	if res.Recorded || res.Total() > 0 || res.Filled > 0 { // a second apply that changed nothing leaves no record
+		a.audit(r, "kit.apply", "kit:"+name, map[string]any{"version": pl.Kit.Version, "created": res.Total(), "filled": res.Filled, "kept": len(res.Kept), "skipped": len(res.Skipped), "comments": acc.Comments && pl.Comments.Requested && !pl.Comments.AlreadyOn})
+	}
 	a.invalidate(r.Context())
 	return res, true
 }

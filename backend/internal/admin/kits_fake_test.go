@@ -93,3 +93,11 @@ func kitPlanFixture() *kit.Plan {
 		Kept:     []string{"menu 'Footer'"},
 	}
 }
+
+// kitPolicyPlanFixture is kitPlanFixture with the community policy asked for on its content type.
+func kitPolicyPlanFixture() *kit.Plan {
+	pl := kitPlanFixture()
+	pl.Kit.Requires = []string{"comment.policy"}
+	pl.Policy = kit.PolicyStep{Requested: []string{"story"}, Available: true, Warning: comment.PolicyConfirmWarning, Tick: comment.PolicyTick}
+	return pl
+}

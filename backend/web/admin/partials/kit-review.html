@@ -20,15 +20,15 @@
 {{if .Homepage.Page}}{{template "hm/field" dict "ID" "kit-homepage" "Name" "homepage" "Control" "switch" "Value" "1" "Label" (printf "Use %s as the homepage." .Homepage.Page) "Checked" .Homepage.On}}{{end}}
 {{range .Skipped}}<p class="hm-muted">Left out: {{.}}</p>{{end}}
 </div>{{template "hm/card-end"}}
-{{if or .Comments.Requested .Policy.Message .Policy.Available}}{{template "hm/card-start" dict "ID" "kit-comments" "Title" "Comments" "Heading" "h2"}}<div class="hm-stack">
+{{if or .Comments.Requested .Policy.Message .Policy.Available .Policy.AlreadyOn}}{{template "hm/card-start" dict "ID" "kit-comments" "Title" "Comments" "Heading" "h2"}}<div class="hm-stack">
 {{if .Comments.Requested}}{{if .Comments.AlreadyOn}}<p class="hm-muted">Comments are already on.</p>
 {{else}}{{template "hm/callout" (dict "Kind" "warning" "Body" .Comments.Warning)}}
 {{template "hm/callout" (dict "Kind" "warning" "Body" .Comments.Confirm)}}
 {{if .Comments.NoAddress}}{{template "hm/callout-start" (dict "Kind" "warning" "ID" "kit-no-address")}}<p>{{.Comments.NoAddressMsg}}</p>{{template "hm/button" dict "Label" "Go to Settings > General" "Href" (print (adminPath "settings" "general") "#identity")}}{{template "hm/callout-end"}}{{end}}
 {{template "hm/field" dict "ID" "kit-comments-on" "Name" "comments" "Control" "switch" "Value" "1" "Label" "Turn comments on." "Checked" .Comments.On}}{{end}}{{end}}
 {{if .Policy.Available}}{{template "hm/callout" (dict "Kind" "warning" "Body" .Policy.Warning)}}
-{{template "hm/field" dict "ID" "kit-policy" "Name" "policy" "Control" "switch" "Value" "1" "Label" .Policy.Label "Checked" .Policy.On}}
-{{else if .Policy.Message}}<p class="hm-muted">{{.Policy.Message}}</p>{{end}}
+{{template "hm/field" dict "ID" "kit-policy" "Name" "policy" "Control" "switch" "Value" "1" "Label" .Policy.Label "Help" .Policy.Tick "Checked" .Policy.On}}
+{{else if .Policy.Message}}<p class="hm-muted">{{.Policy.Message}}</p>{{end}}{{if .Policy.AlreadyOn}}<p class="hm-muted">{{.Policy.AlreadyOn}}</p>{{end}}
 </div>{{template "hm/card-end"}}{{end}}
 {{if .Kept}}<p class="hm-muted">Already on this site (kept as is): {{range $i, $k := .Kept}}{{if $i}}, {{end}}{{$k}}{{end}}.</p>{{end}}
 {{range .Messages}}<p class="hm-muted">{{.}}</p>{{end}}
