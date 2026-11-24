@@ -7,7 +7,7 @@ on nothing but the standard library, never imports Hatamoto core packages, and t
 module has its own `go.mod`.
 
 ```sh
-go get hatamoto.dev/sdk@v0.26.0
+go get hatamoto.dev/sdk@v0.27.0   # or @v0.27.0-rc.1 before the release
 ```
 
 Releases are plain `vX.Y.Z` tags of this repository, where `X.Y.Z` is the `Version`
@@ -41,6 +41,7 @@ needs in `plugin.json` (the examples in the core repository declare `^0.8` or `^
 
 | SDK | Change |
 |---|---|
+| 0.27.0 | Additive over 0.26: the manifest fields `page_query` (at most 16 keys handed to `render.page`), `page_path_prefixes` (at most 8 path prefixes that narrow `render.page` like `page_paths`), `entity_schema` + `entity_fields` (the one schema a plugin may write); the permissions `client.key`, `entities.write.own` and `comments.moderate` (all three warning permissions); the host functions `entities.create|update|delete`, `comments.mark_dead|restore|set_rank|set_viewer|by_author|subtree`; the `comment.updated` action and `comment.draft` filter; `commenter_key`, `addr_key` and `net_key` on `PageContext` and `HTTPRequest`. A plugin that relies on any of them declares `^0.27`: an older host ignores the fields and refuses the new permissions. |
 | 0.26.0 | Additive over 0.25: manifest field `license` (`""` or `"commercial"` for a new install; when loaded, anything but exact `"commercial"` is a normal plugin). A commercial plugin installs and runs only on a host whose edition registered a plugin key, is signed by that key and is entitled; a plugin that sets it declares `^0.26`, because an older host ignores the field. |
 | 0.25.0 | Additive over 0.24: permission `comments.read`; actions `comment.created`, `comment.approved`, `comment.spam` and `comment.deleted` (`CommentEvent`, no email, hash, IP address, user agent, spam score or raw body); filter `comment.check` (`CommentCheck`: `body`, `link_domains`, `body_hash` in, `score` 0 to 100 and `reasons` out; it may only add to the spam score and any failure holds the comment); host functions `comments.thread` and `comments.counts` (approved comments only). Nothing is delivered without the grant; a plugin that asks for it declares `^0.25`. |
 | 0.24.0 | Additive over 0.23: manifest field `page_paths` (up to 16 exact public request paths, no trailing slash except `/`, otherwise the shape rules of `redirect_paths`, reserved core paths refused by the host). A `render.page` plugin that declares it is called only for those paths and only they are uncached; without it the filter stays site-wide. Request paths, not pages: locale or alternate URLs are not covered and are page-cached. Older hosts ignore the field and call the filter on every page, so check `p.Path` in the filter unless you declare `^0.24`. |
