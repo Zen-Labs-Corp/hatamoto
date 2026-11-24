@@ -559,7 +559,6 @@ const (
 	MinCronEvery       = time.Minute
 )
 
-// identPattern is a cron job, template func or section name.
 var (
 	pageQueryKeyPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 	// entitySchemaPattern is core's package schema slug rule (dashes, no underscore).
@@ -567,6 +566,7 @@ var (
 	entityFieldPattern  = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 )
 
+// identPattern is a cron job, template func or section name.
 var identPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,31}$`)
 
 // cookieNamePattern restricts declared cookie names to a safe token.
