@@ -681,9 +681,10 @@ func (a commentsAdmin) SchemaCommentConfigs(ctx context.Context) ([]admin.Schema
 	}
 	out := make([]admin.SchemaCommentConfig, 0, len(schemas))
 	for _, sch := range schemas {
+		// One schema with unreadable settings has no comment config; it must not hide the others.
 		m, err := schemaSettings(sch.Settings)
 		if err != nil {
-			return nil, err
+			m = nil
 		}
 		cm, _ := m["comments"].(map[string]any)
 		mode, _ := cm["mode"].(string)
@@ -732,6 +733,9 @@ func (a commentsAdmin) SetSchemaComments(ctx context.Context, schemaID, order st
 	}
 	if !comment.ValidOrder(order) {
 		return &admin.CommentFieldError{Field: "order", Message: "must be newest, oldest or the site default"}
+	}
+	if _, err := schemaSettings(sch.Settings); err != nil {
+		return &admin.CommentFieldError{Field: "order", Message: "this content type's settings are not readable, so they cannot be changed here"}
 	}
 	raw, err := comment.MergeSchemaComments(sch.Settings, &order, &pol)
 	if err != nil {

@@ -340,6 +340,17 @@ func TestCommentsAdminIntegration(t *testing.T) {
 	if err := a.SetSchemaComments(ctx, uuid.NewString(), "", tpol); !errors.Is(err, admin.ErrCommentNotFound) {
 		t.Errorf("unknown SetSchemaComments err = %v", err)
 	}
+	// A schema whose settings are not an object neither hides the other types nor turns a save into a 500.
+	var oddID uuid.UUID
+	sel(&oddID, `INSERT INTO hatamoto_entity_schemas (name, slug, schema, settings) VALUES ('Cmm Odd', 'cmm-odd', '{"type":"object"}', '[1]') RETURNING id`)
+	if cfgs, err := a.SchemaCommentConfigs(ctx); err != nil || len(cfgs) < 2 {
+		t.Errorf("SchemaCommentConfigs with a bad schema = %d configs, %v", len(cfgs), err)
+	}
+	if err := a.SetSchemaComments(ctx, oddID.String(), "", tpol); !errors.As(err, &pfe) || pfe.Field != "order" {
+		t.Errorf("bad-settings SetSchemaComments err = %v", err)
+	}
+	must2 := func(_ any, err error) { must(err) }
+	must2(env.db.Pool().Exec(ctx, `DELETE FROM hatamoto_entity_schemas WHERE id = $1`, oddID))
 	must(a.SetSchemaComments(ctx, sch.ID.String(), "", admin.CommentPolicy{MaxDepth: 10, EditWindowMinutes: 15}))
 	must(a.SetSchemaMode(ctx, sch.ID.String(), ""))
 
