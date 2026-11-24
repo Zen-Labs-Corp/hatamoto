@@ -224,7 +224,8 @@ type FormAttribution struct {
 	Last  *FormTouch `json:"last,omitzero"`
 }
 
-// CommentEvent is the payload of comment.created|approved|spam|deleted (since 0.25.0).
+// CommentEvent is the payload of comment.created|approved|spam|deleted (since 0.25.0)
+// and of comment.updated (SDK 0.27).
 // It never carries the commenter's email, any hash, IP address, user agent,
 // spam score/reasons or the raw body. comment.deleted carries ids and status only.
 type CommentEvent struct {
@@ -234,9 +235,12 @@ type CommentEvent struct {
 	AuthorName string    `json:"author_name,omitempty"`
 	Staff      bool      `json:"staff,omitempty"`     // written by a signed-in owner/editor
 	BodyHTML   string    `json:"body_html,omitempty"` // sanitised once on write
-	Status     string    `json:"status"`              // pending|approved|spam|trash
+	Status     string    `json:"status"`              // pending|approved|spam|trash|dead
 	Locale     string    `json:"locale,omitempty"`
 	CreatedAt  time.Time `json:"created_at,omitzero"` // left out on comment.deleted
+	// CommenterKey (SDK 0.27, needs comments.read) is the plugin's pseudonymous
+	// key of the signed-in commenter; absent for staff and never sent to webhooks.
+	CommenterKey string `json:"commenter_key,omitempty"`
 }
 
 // CommentCheckMaxScore is the most one comment.check plugin can add; larger
@@ -247,7 +251,8 @@ const CommentCheckMaxScore = 100
 
 // CommentCheck is the value of the comment.check filter: the raw body text,
 // the domains it links to and a site-keyed hash of the normalised body. Never
-// an IP address, a network hash, an email, a name or the entity.
+// an IP address, a network hash, an email, a name or the entity id; since SDK
+// 0.27 also the entity schema slug and per-plugin pseudonymous keys.
 // Score and Reasons are output only and arrive empty; the host keeps at most
 // 8 reasons of 200 bytes each, prefixed with the plugin name.
 type CommentCheck struct {
@@ -256,9 +261,17 @@ type CommentCheck struct {
 	BodyHash    string   `json:"body_hash,omitempty"`
 	Score       int      `json:"score,omitempty"`
 	Reasons     []string `json:"reasons,omitempty"`
+	// CommenterKey (needs comments.read), AddrKey and AreaKey (need client.key) are
+	// per-plugin pseudonymous keys of the commenter, the address and the address's
+	// /24 (IPv4) or /64 (IPv6) area (SDK 0.27). Absent until the change that fills
+	// them ships. Schema is the entity schema slug. Output stays score-only.
+	CommenterKey string `json:"commenter_key,omitempty"`
+	Schema       string `json:"schema,omitempty"`
+	AddrKey      string `json:"addr_key,omitempty"`
+	AreaKey      string `json:"area_key,omitempty"`
 }
 
-// CommentItem is one approved comment in comments.thread.
+// CommentItem is one comment in comments.thread, comments.by_author and comments.subtree.
 type CommentItem struct {
 	ID         string    `json:"id"`
 	ParentID   string    `json:"parent_id,omitempty"`
@@ -267,6 +280,11 @@ type CommentItem struct {
 	Staff      bool      `json:"staff,omitempty"`
 	BodyHTML   string    `json:"body_html"`
 	CreatedAt  time.Time `json:"created_at"`
+	// CommenterKey, Rank and Status are SDK 0.27: the commenter's pseudonymous key
+	// (needs comments.read), the rank set by comments.set_rank, and "approved" or "dead".
+	CommenterKey string  `json:"commenter_key,omitempty"`
+	Rank         float64 `json:"rank,omitempty"`
+	Status       string  `json:"status,omitempty"`
 }
 
 // CommentThread is the result of comments.thread.
@@ -274,6 +292,31 @@ type CommentThread struct {
 	Items   []CommentItem `json:"items"`
 	Page    int           `json:"page"`
 	HasMore bool          `json:"has_more,omitempty"`
+}
+
+// CommentSubtree is the result of comments.subtree (SDK 0.27): the comment and
+// its replies in path order (Items, paged like CommentThread) and its
+// ancestors, root first.
+type CommentSubtree struct {
+	Ancestors []CommentItem `json:"ancestors"`
+	Items     []CommentItem `json:"items"`
+	Page      int           `json:"page"`
+	HasMore   bool          `json:"has_more,omitempty"`
+}
+
+// CommentDraftMaxReject is the longest public message a comment.draft filter may return.
+const CommentDraftMaxReject = 200
+
+// CommentDraft is the value of the comment.draft filter (SDK 0.27), called only
+// for schemas whose community policy locks the author name. In: CommenterKey,
+// the typed AuthorName and Schema. Out: AuthorName set to the canonical name, or
+// Reject set to a public message of at most CommentDraftMaxReject bytes. Any
+// failure or timeout rejects the draft ("Sign-in name unavailable, try again").
+type CommentDraft struct {
+	CommenterKey string `json:"commenter_key"`
+	AuthorName   string `json:"author_name"`
+	Schema       string `json:"schema"`
+	Reject       string `json:"reject,omitempty"`
 }
 
 // CommentCounts is the result of comments.counts: approved comments per entity id.
@@ -296,6 +339,13 @@ type PageContext struct {
 	Blocks     []Block           `json:"blocks"`
 	Hide       []string          `json:"hide,omitempty"`
 	SetCookies []SetCookie       `json:"set_cookies,omitempty"`
+	// Query (SDK 0.27) holds the first value of each key the manifest declares in page_query.
+	Query map[string]string `json:"query,omitempty"`
+	// CommenterKey (needs comments.read), AddrKey and NetKey (need client.key) are
+	// per-plugin pseudonymous keys (SDK 0.27). Absent until the change that fills them ships.
+	CommenterKey string `json:"commenter_key,omitempty"`
+	AddrKey      string `json:"addr_key,omitempty"`
+	NetKey       string `json:"net_key,omitempty"`
 }
 
 // RedirectContext is the value filtered by request.redirect for one GET or
