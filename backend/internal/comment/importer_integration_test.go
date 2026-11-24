@@ -165,6 +165,28 @@ func TestImporterClampsAtMaxDepth(t *testing.T) {
 	}
 }
 
+func TestImporterUsesTypeReplyDepth(t *testing.T) {
+	f := newFixture(t)
+	f.setComments(`{"policy":{"enabled":true,"max_depth":7}}`)
+	at := time.Now().UTC().AddDate(-1, 0, 0)
+	var batch []ImportedComment
+	for i := 1; i <= 9; i++ {
+		parent := ""
+		if i > 1 {
+			parent = fmt.Sprint(i - 1)
+		}
+		batch = append(batch, importRow(f, fmt.Sprint(i), parent, "chain@example.test", StatusApproved, at.Add(time.Duration(i)*time.Minute)))
+	}
+	if _, err := f.importer().Import(f.ctx, batch); err != nil {
+		t.Fatal(err)
+	}
+	var maxDepth int
+	f.scalar(&maxDepth, `SELECT max(depth) FROM hatamoto_comments WHERE entity_id = $1`, f.entity)
+	if maxDepth != 7 {
+		t.Fatalf("max depth = %d, want 7 (type policy, site default is 5)", maxDepth)
+	}
+}
+
 func TestImporterTrust(t *testing.T) {
 	f := newFixture(t)
 	old := time.Now().UTC().AddDate(0, 0, -400)
