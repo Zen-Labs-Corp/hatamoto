@@ -64,7 +64,7 @@ func (r *cascadeRig) exec(q string, args ...any) {
 	}
 }
 
-// entityWithComments creates an entity with three comments: approved, pending and a draft.
+// entityWithComments creates an entity with three comments: approved, pending (confirmed, never approved) and a draft.
 func (r *cascadeRig) entityWithComments(slug string) uuid.UUID {
 	r.t.Helper()
 	ctx := context.Background()
@@ -119,8 +119,8 @@ func TestCommentCascadeDeleteEntity(t *testing.T) {
 		t.Fatal(err)
 	}
 	ev := r.events()
-	if len(ev) != 2 {
-		t.Fatalf("comment.deleted events = %d, want 2 (the draft is never announced): %+v", len(ev), ev)
+	if len(ev) != 1 {
+		t.Fatalf("comment.deleted events = %d, want 1 (only the approved one: a held comment and a draft were never public): %+v", len(ev), ev)
 	}
 	for _, e := range ev {
 		if e.EntityID != id.String() || e.BodyHTML != "" {
@@ -169,7 +169,7 @@ func TestCommentCascadeChangesetDelete(t *testing.T) {
 	if _, err := r.eng.Publish(ctx, cs); err != nil {
 		t.Fatal(err)
 	}
-	if got := r.events(); len(got) != 2 || r.comments(kept) != 0 {
-		t.Fatalf("publish: %d events, %d comments; want 2 and 0", len(got), r.comments(kept))
+	if got := r.events(); len(got) != 1 || r.comments(kept) != 0 {
+		t.Fatalf("publish: %d events, %d comments; want 1 and 0", len(got), r.comments(kept))
 	}
 }

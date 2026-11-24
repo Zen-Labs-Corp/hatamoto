@@ -283,3 +283,41 @@ func TestFilterCount(t *testing.T) {
 		t.Fatalf("other name: %d", n)
 	}
 }
+
+func TestFireQueuedRunsInOrderOnOneGoroutine(t *testing.T) {
+	e := testEngine()
+	var running, peak atomic.Int32
+	var mu sync.Mutex
+	var got []int
+	for _, plugin := range []string{"a", "b"} {
+		e.For(plugin).AddAction("ev", 0, func(_ context.Context, p any) {
+			n := running.Add(1)
+			if n > peak.Load() {
+				peak.Store(n)
+			}
+			time.Sleep(time.Millisecond)
+			if plugin == "a" {
+				mu.Lock()
+				got = append(got, p.(int))
+				mu.Unlock()
+			}
+			running.Add(-1)
+		})
+	}
+	const events = 200
+	for i := 0; i < events; i++ {
+		e.FireQueued(context.Background(), "ev", i)
+	}
+	e.Wait()
+	if len(got) != events {
+		t.Fatalf("delivered %d of %d events", len(got), events)
+	}
+	for i, v := range got {
+		if v != i {
+			t.Fatalf("event %d delivered at position %d", v, i)
+		}
+	}
+	if peak.Load() != 1 {
+		t.Errorf("%d callbacks ran at once, want 1", peak.Load())
+	}
+}

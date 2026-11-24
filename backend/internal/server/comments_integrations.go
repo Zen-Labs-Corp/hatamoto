@@ -27,6 +27,10 @@ type commentEventObserver struct {
 
 func newCommentEventObserver(h *hooks.Engine) *commentEventObserver {
 	return &commentEventObserver{fire: func(ctx context.Context, name string, ev sdk.CommentEvent) {
+		if name == sdk.CommentDeleted.Name && comment.InBatch(ctx) {
+			h.FireQueued(ctx, name, ev) // a purge or cascade: one goroutine, not one per comment
+			return
+		}
 		h.Fire(ctx, name, ev)
 	}}
 }

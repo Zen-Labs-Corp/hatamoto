@@ -16,6 +16,13 @@ func (f *fixture) age(id uuid.UUID, days int) {
 	f.exec(`UPDATE hatamoto_comments SET updated_at = now() - make_interval(days => $2) WHERE id = $1`, id, days)
 }
 
+// published marks a seeded comment as once approved (approved_at set).
+func (f *fixture) published(s seeded) seeded {
+	f.t.Helper()
+	f.exec(`UPDATE hatamoto_comments SET approved_at = now() WHERE id = $1`, s.id)
+	return s
+}
+
 func (f *fixture) exists(id uuid.UUID) bool {
 	f.t.Helper()
 	var n int

@@ -15,7 +15,7 @@ const purgeRounds = 20
 // replies, so leaves go first, in rounds; an old one that still has replies is
 // blanked instead, like an erase. Needs no recount: spam and trash are not
 // counted. Dead comments are never purged. Fires OnDeleted (batch context) for
-// every deleted row, after the deletes; a blanked row was never public and fires
+// every deleted row that was ever approved, after the deletes; a blanked row was never public and fires
 // nothing. Returns the number of rows deleted plus blanked.
 func (s *Service) PurgeSpamTrash(ctx context.Context) (int64, error) {
 	set, err := s.Settings(ctx)
@@ -25,6 +25,7 @@ func (s *Service) PurgeSpamTrash(ctx context.Context) (int64, error) {
 	cutoff := s.utcNow().AddDate(0, 0, -set.PurgeDays)
 	var n int64
 	var gone []Comment
+	defer func() { s.announceDeleted(ctx, gone) }() // also after a failed round: earlier rounds are committed
 	for i := 0; i < purgeRounds; i++ {
 		rows, err := s.db.Pool().Query(ctx, `DELETE FROM hatamoto_comments WHERE id IN (
 			SELECT x.id FROM hatamoto_comments x
@@ -46,7 +47,6 @@ func (s *Service) PurgeSpamTrash(ctx context.Context) (int64, error) {
 			break
 		}
 	}
-	defer s.announceDeleted(ctx, gone)
 	// What is left has replies (or the rounds ran out): blank it, keep the row.
 	// updated_at stays, so the statement is idempotent through body_raw.
 	tag, err := s.db.Pool().Exec(ctx, `UPDATE hatamoto_comments SET author_name = '', body_raw = $2, body_html = $2,
@@ -73,10 +73,15 @@ func collectComments(rows pgx.Rows) ([]Comment, error) {
 	return out, rows.Err()
 }
 
-// announceDeleted fires OnDeleted for each comment with a batch context.
+// announceDeleted fires OnDeleted for each comment that was ever published
+// (approved_at set: approved, dead, or moved on from there) with a batch
+// context. Comments that were never public (held, bot spam) fire nothing.
 func (s *Service) announceDeleted(ctx context.Context, cs []Comment) {
 	bctx := WithBatch(ctx)
 	for _, c := range cs {
+		if c.ApprovedAt == nil {
+			continue
+		}
 		s.obs.each("deleted", func(o Observer) { o.OnDeleted(bctx, c) })
 	}
 }

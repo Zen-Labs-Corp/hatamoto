@@ -258,9 +258,7 @@ func (s *Service) EraseByEmail(ctx context.Context, email string) (EraseResult, 
 	if err != nil {
 		return EraseResult{}, err
 	}
-	for _, c := range deleted {
-		s.obs.each("deleted", func(o Observer) { o.OnDeleted(ctx, c) })
-	}
+	s.announceDeleted(ctx, deleted)
 	for _, c := range anonymised {
 		// Status is unchanged; before == after tells the cache the content changed.
 		s.obs.each("updated", func(o Observer) { o.OnUpdated(ctx, c, c) })
