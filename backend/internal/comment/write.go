@@ -382,15 +382,16 @@ func (s *Service) transition(ctx context.Context, id uuid.UUID, to Status, by *u
 	if err != nil {
 		return Comment{}, err
 	}
-	switch to {
-	case StatusApproved:
-		s.obs.each("approved", func(o Observer) { o.OnApproved(ctx, out) })
-	case StatusSpam:
-		s.obs.each("spam", func(o Observer) { o.OnSpam(ctx, out) })
-	case StatusTrash:
-		s.obs.each("deleted", func(o Observer) { o.OnDeleted(ctx, out) })
-	case StatusPending:
+	switch {
+	case before.Status == StatusDead && to == StatusApproved, to == StatusDead, to == StatusPending:
+		// a restore is an update, not an approval: no comment.approved, no reply mail
 		s.obs.each("updated", func(o Observer) { o.OnUpdated(ctx, before, out) })
+	case to == StatusApproved:
+		s.obs.each("approved", func(o Observer) { o.OnApproved(ctx, out) })
+	case to == StatusSpam:
+		s.obs.each("spam", func(o Observer) { o.OnSpam(ctx, out) })
+	case to == StatusTrash:
+		s.obs.each("deleted", func(o Observer) { o.OnDeleted(ctx, out) })
 	}
 	return out, nil
 }

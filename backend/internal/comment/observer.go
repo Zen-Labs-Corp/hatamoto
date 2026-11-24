@@ -18,9 +18,15 @@ type Observer interface {
 	OnApproved(ctx context.Context, c Comment)
 	OnSpam(ctx context.Context, c Comment)
 	OnDeleted(ctx context.Context, c Comment) // trash and hard delete
-	// OnUpdated fires for a change the other events do not cover: an edit, and a
-	// move to pending (an unapproval). before is the comment as it was.
+	// OnUpdated fires for a change the other events do not cover: an edit, a
+	// move to pending (an unapproval), and a move to or from dead. before is the
+	// comment as it was.
 	OnUpdated(ctx context.Context, before, after Comment)
+	// OnBatch fires once after a batch write (plugin dead, restore, rank) with
+	// the distinct entities it touched. The per-comment events of that batch ran
+	// with a WithBatch context, so an observer may skip per-comment work and do
+	// it here.
+	OnBatch(ctx context.Context, entityIDs []uuid.UUID)
 	OnSettingsChanged(ctx context.Context, s Settings)
 	// OnModeChanged fires when a comment mode changed: one entity's override
 	// (entityID), or a type default (uuid.Nil: any entity of the type may change).
@@ -48,11 +54,23 @@ func (NopObserver) OnDeleted(context.Context, Comment) {}
 // OnUpdated does nothing.
 func (NopObserver) OnUpdated(context.Context, Comment, Comment) {}
 
+// OnBatch does nothing.
+func (NopObserver) OnBatch(context.Context, []uuid.UUID) {}
+
 // OnSettingsChanged does nothing.
 func (NopObserver) OnSettingsChanged(context.Context, Settings) {}
 
 // OnModeChanged does nothing.
 func (NopObserver) OnModeChanged(context.Context, uuid.UUID) {}
+
+type batchKey struct{}
+
+// WithBatch marks ctx as part of a batch write: observers see InBatch true on
+// the per-comment events and get one OnBatch at the end.
+func WithBatch(ctx context.Context) context.Context { return context.WithValue(ctx, batchKey{}, true) }
+
+// InBatch reports whether ctx came from WithBatch.
+func InBatch(ctx context.Context) bool { v, _ := ctx.Value(batchKey{}).(bool); return v }
 
 type observers struct {
 	mu   sync.RWMutex
