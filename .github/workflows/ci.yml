@@ -291,6 +291,7 @@ jobs:
         run: |
           ../registry/test-build-community.sh
           ../registry/test-build-community-themes.sh
+          ../registry/test-build-community-kits.sh
 
   # v1-25b: the previous release's binary must boot and serve on this tree's
   # schema (docs/UPGRADES.md, Schema rules). Needs the full history (tags and the

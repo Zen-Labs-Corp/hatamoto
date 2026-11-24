@@ -257,6 +257,37 @@ not archived yet.
   from the registry host, so a self-hosted registry must serve `screenshots/` next to
   `registry.json`.
 
+## Community kits
+
+A kit (see [docs/KITS.md](../docs/KITS.md)) is submitted as a manifest under
+`manifests/kits/<name>.json` in the same plugins repository, and `make registry`
+builds it right after the themes with `registry/build-community-kits.sh`, from the
+same `COMMUNITY_DIR`. The manifest is `{name, title, about, features[], repo, commit,
+subdir, author, license, archive_grant, homepage}`; `name`, `repo` (https), `commit`
+(40 hex characters), `author`, `license` and `"archive_grant": true` are required. A kit
+is data: the script fetches the pinned commit, runs `hatamoto kit pack` and
+`hatamoto kit check --package`, and writes `registry/packages/<name>.kit.hmp`. It adds
+`{title, about, features, author, source, commit, tier: community}` to
+`registry/meta.json`. There are no screenshots and no source mirror. A release is tagged
+`kit-<name>/v<version>`.
+
+- **Names.** The file is `<name>.kit.hmp`, so a kit may share its name with a plugin or
+  a theme (`<name>.hmp`); only a second kit of the same name is refused. The meta file
+  is keyed by bare name, so when a plugin or theme already holds the name there, no meta
+  entry is written for the kit (a loud warning) rather than overwrite the other's.
+- **Archive.** Builds go into the same `ARCHIVE_DIR` as
+  `<name>/<name>-<version>-<id12>-<keyid>.kit.hmp` plus a `.kit.json` sidecar
+  `{name, kind: "kit", version, commit, id12, key_id, sha256}`. A pin that matches a
+  sidecar for the current key is reused byte for byte, after `kit check --package` and a
+  comparison of `kit.json` name and version at the pinned commit; the archive is
+  append-only. Source unreachable: refused, unless `HATAMOTO_ARCHIVE_OFFLINE=1`.
+- **Skipping.** `make registry KITS_SKIP="name1 name2"` (env `HATAMOTO_KITS_SKIP`) leaves
+  the named kits out, logged loudly; each name must have a manifest.
+- **No kits directory.** When the plugins repository has no `manifests/kits/`, the step
+  does nothing and the build goes on.
+- **Test.** `registry/test-build-community-kits.sh` is the offline test, run in CI with a
+  throwaway key.
+
 ## Key rotation, 2026-10-16
 
 The previous first-party private key was not available, so the key was
