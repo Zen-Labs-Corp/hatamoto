@@ -91,7 +91,7 @@ func (im *Importer) Import(ctx context.Context, batch []ImportedComment) (Import
 		}
 		seen[b.Key] = true
 		switch b.Status {
-		case StatusPending, StatusApproved, StatusSpam, StatusTrash:
+		case StatusPending, StatusApproved, StatusSpam, StatusTrash, StatusDead:
 		default:
 			return stats, fmt.Errorf("comment import: %q has status %q", b.Key, b.Status)
 		}

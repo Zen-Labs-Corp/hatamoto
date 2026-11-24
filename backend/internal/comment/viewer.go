@@ -33,22 +33,23 @@ func (s *Service) ReplyParent(ctx context.Context, entityID, parentID uuid.UUID)
 	return ok, err
 }
 
-// HasNonPublic reports whether the commenter has a draft, pending or spam comment
-// (what only their own device may see).
+// HasNonPublic reports whether the commenter has a draft, pending, spam or dead
+// comment (what only their own device may see; a dead one is shown to its author).
 func (s *Service) HasNonPublic(ctx context.Context, commenterID uuid.UUID) (bool, error) {
 	var ok bool
 	err := s.db.Pool().QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_comments
-		WHERE commenter_id = $1 AND status IN ('draft','pending','spam'))`, commenterID).Scan(&ok)
+		WHERE commenter_id = $1 AND status IN ('draft','pending','spam','dead'))`, commenterID).Scan(&ok)
 	return ok, err
 }
 
-// ViewerComments lists the commenter's own draft, pending and spam comments on one
-// entity, oldest first, as ThreadComment (public fields only), capped at 50.
+// ViewerComments lists the commenter's own draft, pending, spam and dead comments
+// on one entity, oldest first, as ThreadComment (public fields only, plus Status
+// and Rank), capped at 50.
 func (s *Service) ViewerComments(ctx context.Context, entityID, commenterID uuid.UUID) ([]ThreadComment, error) {
 	rows, err := s.db.Pool().Query(ctx, `SELECT id, parent_id, depth, author_name, author_user_id IS NOT NULL,
-			body_html, created_at, edited_at
+			body_html, created_at, edited_at, status, rank
 		FROM hatamoto_comments
-		WHERE entity_id = $1 AND commenter_id = $2 AND status IN ('draft','pending','spam')
+		WHERE entity_id = $1 AND commenter_id = $2 AND status IN ('draft','pending','spam','dead')
 		ORDER BY created_at, seq LIMIT $3`, entityID, commenterID, viewerCommentsLimit)
 	if err != nil {
 		return nil, err
@@ -57,10 +58,12 @@ func (s *Service) ViewerComments(ctx context.Context, entityID, commenterID uuid
 	out := []ThreadComment{}
 	for rows.Next() {
 		var tc ThreadComment
+		var status string
 		if err := rows.Scan(&tc.ID, &tc.ParentID, &tc.Depth, &tc.AuthorName, &tc.IsSiteAuthor,
-			&tc.BodyHTML, &tc.CreatedAt, &tc.EditedAt); err != nil {
+			&tc.BodyHTML, &tc.CreatedAt, &tc.EditedAt, &status, &tc.Rank); err != nil {
 			return nil, err
 		}
+		tc.Status = Status(status)
 		out = append(out, tc)
 	}
 	return out, rows.Err()
