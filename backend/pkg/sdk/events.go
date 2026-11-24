@@ -263,8 +263,7 @@ type CommentCheck struct {
 	Reasons     []string `json:"reasons,omitempty"`
 	// CommenterKey (needs comments.read), AddrKey and AreaKey (need client.key) are
 	// per-plugin pseudonymous keys of the commenter, the address and the address's
-	// /24 (IPv4) or /64 (IPv6) area (SDK 0.27). Absent until the change that fills
-	// them ships. Schema is the entity schema slug. Output stays score-only.
+	// /24 (IPv4) or /64 (IPv6) area (SDK 0.27), absent without the grant. Schema is the entity schema slug. Output stays score-only.
 	CommenterKey string `json:"commenter_key,omitempty"`
 	Schema       string `json:"schema,omitempty"`
 	AddrKey      string `json:"addr_key,omitempty"`
@@ -342,7 +341,7 @@ type PageContext struct {
 	// Query (SDK 0.27) holds the first value of each key the manifest declares in page_query.
 	Query map[string]string `json:"query,omitempty"`
 	// CommenterKey (needs comments.read), AddrKey and NetKey (need client.key) are
-	// per-plugin pseudonymous keys (SDK 0.27). Absent until the change that fills them ships.
+	// per-plugin pseudonymous keys (SDK 0.27), absent without the grant.
 	CommenterKey string `json:"commenter_key,omitempty"`
 	AddrKey      string `json:"addr_key,omitempty"`
 	NetKey       string `json:"net_key,omitempty"`
