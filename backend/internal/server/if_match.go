@@ -11,14 +11,14 @@ import (
 )
 
 // ifMatch is a parsed If-Match header (RFC 9110 §13.1.1), limited to one
-// strong entity tag or "*".
+// entity tag (`"N"` or `W/"N"`) or "*".
 type ifMatch struct {
 	present bool // the header was sent
 	any     bool // "*": any current representation
 	version int  // the tag's version when present && !any
 }
 
-var errIfMatch = errors.New(`If-Match must be one strong entity tag such as "12", or *`)
+var errIfMatch = errors.New(`If-Match must be one entity tag such as "12" or W/"12", or *`)
 
 // parseIfMatch reads the If-Match header: absent, "*" or one tag holding a
 // version number. Lists and anything else are an error.
