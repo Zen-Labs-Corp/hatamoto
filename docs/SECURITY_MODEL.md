@@ -76,6 +76,10 @@ The `client.key` keys are bound to the plugin name, not to the package or its
 signer: a different package installed later under the same name and granted
 `client.key` derives the same keys for the same visitors.
 
+| Guarantee | Package | Tests |
+|---|---|---|
+| A commenter key is derived per plugin, only for plugins with `comments.read`, and never on webhooks | `internal/pluginhost`, `internal/server` | `TestCommentEventKeyPerPlugin`, `TestCommentKeyNotOnWebhooks`, `TestRenderPageCommenterKey` |
+
 ### Static hosting islands
 
 With static hosting on, pages are served from a static origin (for example `https://static.example.net`) and the interactive parts (forms, comments, search, the beacon, public plugin routes) stay on the live origin (`https://live.example.net`).

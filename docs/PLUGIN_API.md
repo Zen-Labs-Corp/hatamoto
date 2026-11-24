@@ -294,7 +294,7 @@ Entity reads also carry `sort_order` (the stored manual order among siblings, `0
 | `comment.check` | filter (needs `comments.read`) | `filter_comment_check` | [CommentCheck](#commentcheck) | CommentCheck (`score`, `reasons` only) |
 | `comment.draft` | filter (needs `comments.read`, SDK 0.27) | `filter_comment_draft` | [CommentDraft](#commentdraft) | CommentDraft (`author_name` or `reject` only) |
 
-**0.27 hooks.** `comment.updated` (Go constant `sdk.CommentUpdated`) fires when a comment is edited, marked dead or restored, or anonymised by an erase, and never when only its rank changes. `comment.draft` (Go filter token `sdk.CommentDraftF`, payload type `sdk.CommentDraft`) is described under [CommentDraft](#commentdraft). `comment.updated` is delivered now; your own `comments.mark_dead` and `comments.restore` calls echo back to you as `comment.updated`, so a handler must be idempotent. `comment.draft` is registered, but core does not call it until the change that implements it ships. `comment.deleted` also fires, for comments that were once approved, when a comment is purged, when a commenter's data is erased (the comments deleted, not the anonymised ones; held comments too, since they went out with `comment.created`), when an admin deletes a comment together with its replies and when an entity's comments are removed with it.
+**0.27 hooks.** `comment.updated` (Go constant `sdk.CommentUpdated`) fires when a comment is edited, marked dead or restored, or anonymised by an erase, and never when only its rank changes. `comment.draft` (Go filter token `sdk.CommentDraftF`, payload type `sdk.CommentDraft`) is described under [CommentDraft](#commentdraft). `comment.updated` is delivered now; your own `comments.mark_dead` and `comments.restore` calls echo back to you as `comment.updated`, so a handler must be idempotent. `comment.draft` is called now. `comment.deleted` also fires, for comments that were once approved, when a comment is purged, when a commenter's data is erased (the comments deleted, not the anonymised ones; held comments too, since they went out with `comment.created`), when an admin deletes a comment together with its replies and when an entity's comments are removed with it.
 
 **Actions** run asynchronously after the event, in a background goroutine; the
 output is ignored and a failure is only logged. **Filters** run in order on the
@@ -392,7 +392,7 @@ The value of the `comment.draft` filter (SDK 0.27, Go type `sdk.CommentDraft`, f
 ```json
 { "commenter_key": "string", "author_name": "string", "schema": "story" }
 ```
-`commenter_key` is the pseudonymous key of the signed-in commenter, `author_name` arrives empty and `schema` is the content type slug. The plugin answers with `author_name` (the canonical name the comment is stored under) or with `reject`, a public message of at most 200 bytes that is shown to the visitor instead. Every other field of the answer is ignored. Any error or timeout rejects the draft, see [Failure handling](#failure-handling-fail-open). Until the change that implements it ships, the filter is never called.
+`commenter_key` is the pseudonymous key of the signed-in commenter, `author_name` arrives empty and `schema` is the content type slug. The plugin answers with `author_name` (the canonical name the comment is stored under) or with `reject`, a public message of at most 200 bytes that is shown to the visitor instead. Every other field of the answer is ignored. Any error or timeout rejects the draft, see [Failure handling](#failure-handling-fail-open). Core calls each granted plugin in name order, with a 500 ms budget for the whole chain. The first `reject` stops the chain and is shown to the visitor (cut to 200 bytes, control characters dropped); otherwise the last plugin's `author_name` (1 to 80 characters after trimming) is stored. An error, a guest `Reject` error, a trap, a timeout or an empty name shows "Sign-in name unavailable, try again" and stores nothing.
 
 #### AgentHitEvent
 No IP address and no user agent are ever included. `entity_id` is `""` when the path is not an entity page; `status` is `0` when unknown.
@@ -725,13 +725,14 @@ encoded as base64url. The purposes are `addr`, `net` and `commenter`. For `addr`
 - The keys follow the client address the server trusts (`trusted_proxies`): a wrong proxy setting gives wrong keys.
 - The host never logs a key.
 
-`commenter_key` is absent until the change that implements it ships.
+`commenter_key` is filled for plugins that hold `comments.read`, on every comment event except `comment.deleted`, in `comment.check`, in `comment.draft`, on `comments.thread` items, in `render.page` and on public routes, whenever the visitor has a valid device cookie.
 
 ## Reserved by the 0.27 contract
 
 These names are fixed now; core does not serve or read them until the change that implements each one ships.
 
-- Routes: `GET|POST /-/comments/signin` (the email form; the link is mailed), `GET|POST /-/comments/signin/{token}` (a GET shows a button that POSTs; the POST sets the device cookie), and `POST /-/comments/signout` (a form protected by a token). The theme layout for the sign-in page is `comment-signin`.
+The sign-in routes (`/-/comments/signin`, `/-/comments/signin/{token}`, `/-/comments/signout`) and the theme layout `comment-signin` are served now; see [COMMENTS.md](COMMENTS.md).
+
 - Comment status `dead`, and the comment column `rank` (a double-precision number, `0` by default).
 - Content type settings: `settings.comments.order` is `newest`, `oldest` or `rank`; `settings.comments.policy` is `{ enabled, max_depth, edit_window_minutes, slow_mode_seconds }` with `max_depth` 1 to 32 (default 10), `edit_window_minutes` default 15 and at most 1440, and `slow_mode_seconds` 0 for off.
 - The owner-only action `kit.apply`, and the kit package format: see [KITS.md](KITS.md).
