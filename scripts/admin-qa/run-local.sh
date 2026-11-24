@@ -98,6 +98,10 @@ case " $* " in *" frame-tickets.mjs "*|*" tabs.mjs "*|*" runs-screens.mjs "*|*" 
     (cd "$ROOT/backend/internal/pluginhost/testdata/runner" && GOOS=wasip1 GOARCH=wasm GOWORK=off go build -buildmode=c-shared -o "$PLUGIN_DIR/frameplug/plugin.wasm" .) || die "building the fixture wasm failed"
   fi ;;
 esac
+# kits-admin.mjs: the registry is off, so Settings > Kits shows its "registry unavailable" state. A fixture
+# registry on this machine cannot be used: the server's registry client refuses loopback and private
+# addresses (safefetch), so the review and apply screens stay with their Go tests and goldens.
+case " $* " in *" kits-admin.mjs "*) export HATAMOTO_REGISTRY_URL=off ;; esac
 mkdir -p "$W/cwd"
 (cd "$W/cwd" && ${PLUGIN_DIR:+export HATAMOTO_PLUGIN_DIR="$PLUGIN_DIR"} && exec "$W/hm" serve >"$W/hm.log" 2>&1) &
 SRV=$!
