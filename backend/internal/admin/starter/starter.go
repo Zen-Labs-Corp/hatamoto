@@ -148,7 +148,7 @@ func (in *Installer) ensure(ctx context.Context, o Options, schemaID uuid.UUID, 
 	existing, err := in.Entities.GetEntityBySlug(ctx, e.slug)
 	switch {
 	case err == nil:
-		if e.replaceSeed && isSeed(existing) {
+		if e.replaceSeed && IsSeed(existing) {
 			b, _ := jsonx.Marshal(e.attrs)
 			raw := jsontext.Value(b)
 			// The name too: the seed carries the name the server started
@@ -190,9 +190,9 @@ func isStarter(e *entity.Entity) bool {
 	return jsonx.Unmarshal(e.Attributes, &a, jsonx.StoredLoose) == nil && a.Starter
 }
 
-// isSeed reports the first-boot home page: a single "welcome" section, either
+// IsSeed reports the first-boot home page: a single "welcome" section, either
 // as legacy page_sections or as the only component of a page_doc.
-func isSeed(e *entity.Entity) bool {
+func IsSeed(e *entity.Entity) bool {
 	var a struct {
 		Sections []struct {
 			ID string `json:"id"`
@@ -231,7 +231,7 @@ func (in *Installer) NameSeedHome(ctx context.Context, o Options) (bool, error) 
 	if err != nil {
 		return false, err
 	}
-	if !isSeed(home) || home.Name == o.SiteName {
+	if !IsSeed(home) || home.Name == o.SiteName {
 		return false, nil
 	}
 	upd := &entity.UpdateEntityInput{Name: &o.SiteName}
