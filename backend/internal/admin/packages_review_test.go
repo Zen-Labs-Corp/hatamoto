@@ -5,6 +5,8 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/permtext"
+	"hatamoto.dev/sdk"
+	"html"
 	"html/template"
 	"io"
 	"mime/multipart"
@@ -374,6 +376,38 @@ func TestPluginPromptNamesNewCommentsModerate(t *testing.T) {
 		t.Fatalf("%d", rec.Code)
 	}
 	for _, want := range []string{"needs your confirmation", "<code>comments.moderate</code>", "mark comments on its own content type dead", `name="confirm"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("prompt missing %q", want)
+		}
+	}
+}
+
+func TestPluginPromptNamesNewClientKey(t *testing.T) {
+	t.Parallel()
+
+	g, _, _ := newPackageRig(t)
+	rec := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin-clientkey-update:hello")
+	body := rec.Body.String()
+	if rec.Code != 200 {
+		t.Fatalf("%d", rec.Code)
+	}
+	for _, want := range []string{"needs your confirmation", "<code>client.key</code>", "pseudonymous key for each visitor", `name="confirm"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("prompt missing %q", want)
+		}
+	}
+}
+
+func TestPluginPromptClientKeyStatement(t *testing.T) {
+	t.Parallel()
+
+	g, _, _ := newPackageRig(t)
+	rec := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin-clientkey:hello")
+	body := rec.Body.String()
+	if rec.Code != 200 {
+		t.Fatalf("%d", rec.Code)
+	}
+	for _, want := range []string{"Pseudonymous visitor keys", html.EscapeString(permtext.Help(sdk.PermClientKey))} {
 		if !strings.Contains(body, want) {
 			t.Errorf("prompt missing %q", want)
 		}

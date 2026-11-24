@@ -134,6 +134,13 @@ func (f *fakePackages) Inspect(_ context.Context, data []byte) (PackageSummary, 
 		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"kv", "entities.write.own", "comments.moderate"},
 			Signed: true, Signer: "abc123", Updating: true, InstalledVersion: "2.0.0", Granted: []string{"kv", "entities.write.own"},
 			Confirm: &ConfirmInfo{Name: name, WidenedAccess: true, NewCommentsModerate: true, OldVersion: "2.0.0", NewVersion: "2.1.0", OldSigner: "abc123", NewSigner: "abc123"}}, nil
+	case strings.HasPrefix(s, "plugin-clientkey-update:"): // an update that newly asks for client.key
+		name := strings.TrimPrefix(s, "plugin-clientkey-update:")
+		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"kv", "client.key"},
+			Signed: true, Signer: "abc123", Updating: true, InstalledVersion: "2.0.0", Granted: []string{"kv"},
+			Confirm: &ConfirmInfo{Name: name, WidenedAccess: true, NewClientKey: true, OldVersion: "2.0.0", NewVersion: "2.1.0", OldSigner: "abc123", NewSigner: "abc123"}}, nil
+	case strings.HasPrefix(s, "plugin-clientkey:"): // a first install that asks for client.key
+		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-clientkey:"), Version: "1.0.0", Permissions: []string{"kv", "client.key"}, Signed: true, Signer: "abc123"}, nil
 	case strings.HasPrefix(s, "plugin-redirects:"): // an update that newly declares redirect paths
 		name := strings.TrimPrefix(s, "plugin-redirects:")
 		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"kv"},
