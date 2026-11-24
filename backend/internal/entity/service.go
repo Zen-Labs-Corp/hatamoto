@@ -76,6 +76,7 @@ type Service struct {
 	review         ReviewGate
 	archived       LiveFunc
 	orderChanged   OrderFunc
+	cascade        *cascadeHook
 }
 
 // NewService creates a new entity service.
@@ -921,6 +922,11 @@ func (s *Service) DeleteEntity(ctx context.Context, id uuid.UUID) error {
 		}
 	}
 
+	announce, err := s.collectCascade(ctx, nil, id)
+	if err != nil {
+		return err
+	}
+
 	if err := s.entityRepo.Delete(ctx, id); err != nil {
 		s.logger.Error("failed to delete entity",
 			slog.String("entity_id", id.String()),
@@ -932,6 +938,10 @@ func (s *Service) DeleteEntity(ctx context.Context, id uuid.UUID) error {
 	s.logger.Info("deleted entity",
 		slog.String("entity_id", id.String()),
 	)
+
+	if announce != nil {
+		announce(ctx)
+	}
 
 	if deleted == nil {
 		deleted = &Entity{ID: id}

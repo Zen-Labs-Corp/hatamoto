@@ -196,6 +196,7 @@ func (s *Server) setupComments() {
 	if s.hooks != nil {
 		s.comments.Register(newCommentEventObserver(s.hooks))
 	}
+	s.wireCommentCascade()
 	if s.emailService == nil {
 		return
 	}

@@ -232,7 +232,12 @@ func (w EntityWriter) applyOp(ctx context.Context, tx Tx, op entity.TxOp, id *uu
 	case err != nil:
 		return Outcome{}, err
 	}
-	return Outcome{TargetID: res.ID.String(), Before: res.Before, Created: res.Created, Deleted: res.Deleted, PathMoved: res.PathMoved}, nil
+	out := Outcome{TargetID: res.ID.String(), Before: res.Before, Created: res.Created, Deleted: res.Deleted, PathMoved: res.PathMoved}
+	if res.Deleted {
+		// A publish that fails after this item rolls the delete back: forget what it would announce.
+		out.Undo = func(context.Context) { w.Svc.DropCascade(res.ID) }
+	}
+	return out, nil
 }
 
 // applyTranslation applies op and joins the entity to the translation group of
