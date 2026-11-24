@@ -72,6 +72,10 @@ unapproved comment through the host API, and it has no function to write or
 moderate comments. The `comment.check` filter fails closed: an error, trap,
 timeout, reject or open circuit breaker holds the comment for moderation.
 
+The `client.key` keys are bound to the plugin name, not to the package or its
+signer: a different package installed later under the same name and granted
+`client.key` derives the same keys for the same visitors.
+
 ### Static hosting islands
 
 With static hosting on, pages are served from a static origin (for example `https://static.example.net`) and the interactive parts (forms, comments, search, the beacon, public plugin routes) stay on the live origin (`https://live.example.net`).
