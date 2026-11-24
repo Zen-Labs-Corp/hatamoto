@@ -98,7 +98,7 @@ A wrong field answers `422` with a `fields` list that names each one. **Read SEO
 
 ### Edit safely when several programs write
 
-Every entity has a version that counts the versions of its content (its `attributes`). `GET /api/v1/entities/{id}` and every successful change return it as the `ETag` header, a strong tag such as `"9"`. Send it back as `If-Match` and the change is applied only if nobody changed the entry in between:
+Every entity has a version that counts the versions of its content (its `attributes`). `GET /api/v1/entities/{id}` and every successful update, status change and restore return it as the `ETag` header, a strong tag such as `"9"` (creating an entry sets none). Send it back as `If-Match` and the change is applied only if nobody changed the entry in between:
 
 ```bash
 curl -i -H "X-API-Key: <your-key>" https://example.com/api/v1/entities/<id>
@@ -118,7 +118,7 @@ If the entry has moved on, nothing is written and the answer is `412` with the c
 Read the entry again, redo the change and retry. The check is atomic with the write: of two writers holding the same tag, exactly one succeeds.
 
 - `If-Match` works on `PUT` and `PATCH /api/v1/entities/{id}`, `PATCH /api/v1/entities/{id}/status` and `POST /api/v1/entities/{id}/restore/{version}`. On a restore, the `{version}` in the address is the version to restore and `If-Match` is the current version you expect.
-- The header is optional. Without it a change is applied as before.
+- The header is optional. Without it a change is applied as before. `If-Match` on `DELETE` is ignored.
 - Send one tag (`"9"`) or `*` (any existing entry). When the response is compressed, the tag may arrive weakened as `W/"9"`; send it back exactly as received, both forms mean version 9. A list of tags or anything else malformed answers `400`.
 - The tag follows the attribute (content) version. Changes to the name, slug, locale, SEO metadata, parent, byline and status do not advance it, so two such changes made with the same tag can both succeed. Use the tag to protect content edits.
 - A change that only moves the entry (`position` alone) does not check the tag.
