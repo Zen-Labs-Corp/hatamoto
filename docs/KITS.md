@@ -235,7 +235,8 @@ hatamoto kit list
   comments), then each step, and records the kit. `--accept-comment-warnings`
   accepts the warnings and turns comments (and the community policy, when the
   site can) on; without it the command says `comments left off`. `--grant P,P`
-  names permissions beyond what the kit's `grant` gives; those
+  names permissions beyond what the kit's `grant` gives, as `<plugin>:<permission>`
+  (a bare name works only when one plugin of the kit asks for it); those
   "Handle with care" permissions and `ui.allow:*` are granted only when named here. `--dry-run` prints the steps
   and changes nothing. `--dev` allows an unsigned dev kit (never in
   production). A refused kit prints each reason, changes nothing and exits 1.

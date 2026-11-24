@@ -28,10 +28,14 @@ func (e *RefusedError) Error() string { return "kit refused: " + strings.Join(e.
 // Accepts are the owner's ticks: what the kit may switch on beyond adding content.
 type Accepts struct {
 	Comments, Policy, ActivateTheme, Homepage bool
-	// Extra are the permissions ticked beyond what the kit grants itself
-	// (site.scripts and ui.allow:* among them).
+	// Extra are the permissions ticked beyond what the kit grants itself,
+	// each scoped to one plugin as ExtraKey(plugin, perm).
 	Extra []string
 }
+
+// ExtraKey is the scoped form of one permission tick: "<plugin>:<permission>".
+// A plugin name never holds a colon, so the first one splits it.
+func ExtraKey(plugin, perm string) string { return plugin + ":" + perm }
 
 // ApplyOptions say who applies the kit and how comments are turned on.
 type ApplyOptions struct {
@@ -139,7 +143,7 @@ func applyPackages(ctx context.Context, d Deps, steps []PackageStep, a Accepts, 
 		}
 		grant := slices.Clone(st.Grant)
 		for _, p := range st.Extra {
-			if slices.Contains(a.Extra, p) {
+			if slices.Contains(a.Extra, ExtraKey(st.Name, p)) {
 				grant = append(grant, p)
 			}
 		}

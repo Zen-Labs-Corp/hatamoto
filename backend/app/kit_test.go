@@ -6,10 +6,12 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/kit"
 	"hatamoto.dev/core/internal/packages"
 )
 
@@ -93,5 +95,22 @@ func TestKitPackageInstallPointsToApply(t *testing.T) {
 	err := runPackages(context.Background(), []string{"package", "install", file}, slog.New(slog.DiscardHandler), &out)
 	if err == nil || !strings.Contains(err.Error(), "kit apply") {
 		t.Errorf("err = %v, want a pointer to kit apply", err)
+	}
+}
+
+func TestPickExtraScopesGrantToAPlugin(t *testing.T) {
+	step := func(name string, extra ...string) kit.PackageStep {
+		return kit.PackageStep{Kind: packages.KindPlugin, Name: name, Extra: extra}
+	}
+	pl := &kit.Plan{Plugins: []kit.PackageStep{step("plug-a", "site.scripts", "ui.allow:camera"), step("plug-b", "site.scripts")}}
+	var out bytes.Buffer
+	got := pickExtra(pl, []string{"plug-b:site.scripts", "ui.allow:camera", "site.scripts", "plug-a:nope", "db"}, &out)
+	if want := []string{"plug-b:site.scripts", "plug-a:ui.allow:camera"}; !slices.Equal(got, want) {
+		t.Errorf("picked %v, want %v", got, want)
+	}
+	for _, w := range []string{"--grant site.scripts ignored: plug-a, plug-b all ask", "--grant plug-a:nope ignored", "--grant db ignored"} {
+		if !strings.Contains(out.String(), w) {
+			t.Errorf("output lacks %q: %s", w, out.String())
+		}
 	}
 }

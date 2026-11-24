@@ -34,7 +34,7 @@ func TestKitReviewRendersThePlan(t *testing.T) {
 	for _, want := range []string{
 		"Community site", "v1.0.0", "signed: first-party", "This kit will",
 		"community-plug", "Handle with care", "Pseudonymous visitor keys",
-		"JavaScript on every public page", `name="permission" value="site.scripts"`,
+		"JavaScript on every public page", `name="permission" value="community-plug:site.scripts"`,
 		"community-look", "Also make it the active theme.",
 		"Stories", "/item/&lt;slug&gt;", "Latest, Newest, Submit", "Header", "latest | newest",
 		"Use Latest as the homepage.",
@@ -128,7 +128,7 @@ func TestKitApplyWithoutCommentsTick(t *testing.T) {
 	p := newKitsRig(t, f)
 	svc := &fakeComments{}
 	p.a.deps.Comments, p.a.deps.BaseURL = svc, func(*http.Request) string { return "https://example.com" }
-	rec := p.do("POST", kitsReviewPath, "owner-token", url.Values{"homepage": {"1"}, "permission": {"site.scripts"}}, nil)
+	rec := p.do("POST", kitsReviewPath, "owner-token", url.Values{"homepage": {"1"}, "permission": {"community-plug:site.scripts"}}, nil)
 	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/kits" {
 		t.Fatalf("POST = %d %q", rec.Code, rec.Header().Get("Location"))
 	}
@@ -136,7 +136,7 @@ func TestKitApplyWithoutCommentsTick(t *testing.T) {
 		t.Fatalf("Apply called %d times", len(f.applies))
 	}
 	a := f.applies[0]
-	if a.Name != "community" || a.A.Comments || !a.A.Homepage || a.A.ActivateTheme || len(a.A.Extra) != 1 || a.A.Extra[0] != "site.scripts" {
+	if a.Name != "community" || a.A.Comments || !a.A.Homepage || a.A.ActivateTheme || len(a.A.Extra) != 1 || a.A.Extra[0] != "community-plug:site.scripts" {
 		t.Errorf("accepts = %+v", a)
 	}
 	if svc.settings.Enabled {
@@ -211,5 +211,21 @@ func TestKitSummary(t *testing.T) {
 		if got := kitSummary(c.res); got != c.want {
 			t.Errorf("kitSummary = %q, want %q", got, c.want)
 		}
+	}
+}
+
+func TestKitReviewScopesPermissionSwitchesPerPlugin(t *testing.T) {
+	t.Parallel()
+
+	pl := kitPlanFixture()
+	two := pl.Plugins[0]
+	two.Name = "other-plug"
+	pl.Plugins = append(pl.Plugins, two)
+	v := newKitReviewView(pl, kitTicks{Extra: []string{"other-plug:site.scripts"}})
+	if got := v.Plugins[0].Extra[0]; got.Value != "community-plug:site.scripts" || got.On {
+		t.Errorf("first plugin switch = %+v", got)
+	}
+	if got := v.Plugins[1].Extra[0]; got.Value != "other-plug:site.scripts" || !got.On {
+		t.Errorf("second plugin switch = %+v", got)
 	}
 }

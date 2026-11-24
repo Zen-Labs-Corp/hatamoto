@@ -127,7 +127,7 @@ func newKitReviewView(pl *kit.Plan, t kitTicks) kitReviewView {
 		if p.Install {
 			p.Statements = promptStatements(permtext.Group(st.Grant, false, false).Can, nil)
 			for _, perm := range st.Extra {
-				p.Extra = append(p.Extra, kitExtra(st.Name, perm, slices.Contains(t.Extra, perm)))
+				p.Extra = append(p.Extra, kitExtra(st.Name, perm, slices.Contains(t.Extra, kit.ExtraKey(st.Name, perm))))
 			}
 		}
 		v.Plugins = append(v.Plugins, p)
@@ -180,7 +180,7 @@ func newKitReviewView(pl *kit.Plan, t kitTicks) kitReviewView {
 // kitExtra is the switch of one permission the kit leaves to the owner (site.scripts, ui.allow:*, or
 // every permission when the kit has no grant). The wording comes from permtext.
 func kitExtra(plugin, perm string, on bool) kitReviewExtra {
-	e := kitReviewExtra{ID: "perm-" + plugin + "-" + strings.NewReplacer(".", "-", ":", "-").Replace(perm), Value: perm, On: on, Label: perm}
+	e := kitReviewExtra{ID: "perm-" + plugin + "-" + strings.NewReplacer(".", "-", ":", "-").Replace(perm), Value: kit.ExtraKey(plugin, perm), On: on, Label: perm}
 	if can := permtext.Group([]string{perm}, false, false).Can; len(can) > 0 {
 		e.Label, e.Help = can[0].Title, can[0].Sub
 	}

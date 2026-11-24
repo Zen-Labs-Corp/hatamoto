@@ -97,12 +97,12 @@ func TestApplyFreshSiteThenAgainCreatesNothing(t *testing.T) {
 func TestApplyTicksSwitchThingsOn(t *testing.T) {
 	f := newFake(t).withRegistry(t)
 	en := &enabler{}
-	res, err := apply(t, f, kitPackage(t, nil), Accepts{Comments: true, ActivateTheme: true, Homepage: true, Extra: []string{"site.scripts", "entities.read"}}, en)
+	res, err := apply(t, f, kitPackage(t, nil), Accepts{Comments: true, ActivateTheme: true, Homepage: true, Extra: []string{"community-plug:site.scripts", "community-plug:entities.read", "site.scripts"}}, en)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !slices.Equal(f.grants["community-plug"], []string{"db", "settings", "site.scripts"}) {
-		t.Errorf("grant = %v (a tick outside the plugin's extra grants nothing)", f.grants["community-plug"])
+		t.Errorf("grant = %v (a tick outside the plugin's extra, or one without its plugin, grants nothing)", f.grants["community-plug"])
 	}
 	if !slices.Equal(f.activated, []string{"community-look"}) || f.home.Slug != "latest" || en.calls != 1 {
 		t.Errorf("activated=%v home=%s comments calls=%d", f.activated, f.home.Slug, en.calls)
@@ -289,5 +289,21 @@ func TestApplyInstallFailureStopsBeforeContent(t *testing.T) {
 	var cr *packages.ConfirmationRequired
 	if !errors.As(err, &cr) || len(f.writes) != 0 {
 		t.Fatalf("err=%v writes=%v", err, f.writes)
+	}
+}
+
+func TestApplyScopesAPermissionTickToItsPlugin(t *testing.T) {
+	f := newFake(t)
+	steps := []PackageStep{}
+	for _, n := range []string{"plug-a", "plug-b"} {
+		steps = append(steps, PackageStep{Kind: packages.KindPlugin, Name: n, Version: "1.0.0", Action: ActionInstall,
+			Grant: []string{"db"}, Extra: []string{"site.scripts"}, Raw: pluginZip(t, n, "1.0.0", "")})
+	}
+	err := applyPackages(context.Background(), f.deps(), steps, Accepts{Extra: []string{ExtraKey("plug-a", "site.scripts")}}, &Result{Created: map[string]int{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(f.grants["plug-a"], []string{"db", "site.scripts"}) || !slices.Equal(f.grants["plug-b"], []string{"db"}) {
+		t.Errorf("grants a=%v b=%v: the tick must reach only plug-a", f.grants["plug-a"], f.grants["plug-b"])
 	}
 }

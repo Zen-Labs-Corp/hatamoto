@@ -212,19 +212,35 @@ func runKitApply(ctx context.Context, args []string, logger *slog.Logger, out io
 	return nil
 }
 
-// pickExtra keeps the --grant names the plan offers as owner ticks. A name
-// the kit does not ask for is reported and dropped.
+// pickExtra turns the --grant names into scoped owner ticks. "<plugin>:<perm>"
+// grants one plugin; a bare name works only when exactly one plugin of the kit
+// asks for it. A name no plugin offers, or a bare name several plugins ask
+// for, is reported and dropped.
 func pickExtra(pl *kit.Plan, want []string, out io.Writer) []string {
-	var offered []string
-	for _, st := range pl.Plugins {
-		offered = append(offered, st.Extra...)
+	offers := func(plugin, perm string) bool {
+		return slices.ContainsFunc(pl.Plugins, func(st kit.PackageStep) bool {
+			return st.Name == plugin && slices.Contains(st.Extra, perm)
+		})
 	}
 	var picked []string
 	for _, w := range want {
-		if slices.Contains(offered, w) {
+		if plugin, perm, ok := strings.Cut(w, ":"); ok && offers(plugin, perm) {
 			picked = append(picked, w)
-		} else {
+			continue
+		}
+		var owners []string
+		for _, st := range pl.Plugins {
+			if slices.Contains(st.Extra, w) {
+				owners = append(owners, st.Name)
+			}
+		}
+		switch len(owners) {
+		case 0:
 			fmt.Fprintf(out, "note     --grant %s ignored: no plugin of this kit asks for it\n", w)
+		case 1:
+			picked = append(picked, kit.ExtraKey(owners[0], w))
+		default:
+			fmt.Fprintf(out, "note     --grant %s ignored: %s all ask for it, name one as <plugin>:%s\n", w, strings.Join(owners, ", "), w)
 		}
 	}
 	return picked
@@ -252,7 +268,7 @@ func printKitPlan(out io.Writer, pl *kit.Plan, acc kit.Accepts) {
 		granted := slices.Clone(st.Grant)
 		var left []string
 		for _, e := range st.Extra {
-			if slices.Contains(acc.Extra, e) {
+			if slices.Contains(acc.Extra, kit.ExtraKey(st.Name, e)) {
 				granted = append(granted, e)
 			} else {
 				left = append(left, e)
