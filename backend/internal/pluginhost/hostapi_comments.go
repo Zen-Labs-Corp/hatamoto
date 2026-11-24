@@ -13,11 +13,25 @@ import (
 
 // CommentReader is what the comments host functions need. Implementations
 // return approved comments of public entities only, and no email, hash, IP or
-// user agent.
+// user agent. Dead comments follow comments.thread's rule: a placeholder
+// without author, body or commenter key unless the plugin owns the content type
+// and asked for them (ThreadOpts), and never as a placeholder in ByAuthor.
 type CommentReader interface {
 	Thread(ctx context.Context, entityID uuid.UUID, page int, opts ThreadOpts) (sdk.CommentThread, error)
 	Counts(ctx context.Context, entityIDs []uuid.UUID) (map[uuid.UUID]int, error)
+	// ByAuthor: the commenter behind opts.Plugin's commenter key, newest first,
+	// 50 per page; an unknown key is an empty page.
+	ByAuthor(ctx context.Context, commenterKey string, page int, opts ThreadOpts) (sdk.CommentThread, error)
+	// Subtree: one comment, its ancestors and a page of its replies;
+	// ErrCommentNotFound when it is not visible.
+	Subtree(ctx context.Context, commentID uuid.UUID, page int, opts ThreadOpts) (sdk.CommentSubtree, error)
 }
+
+// ErrCommentNotFound is a CommentReader's answer for a comment a plugin may not
+// read: unknown, pending/spam/trash/draft, under such an ancestor or on a
+// non-public entity (a dead comment is not one of them: it is a placeholder).
+// The host function maps it to not_found "comment not found".
+var ErrCommentNotFound = errors.New("comment not found")
 
 // ThreadOpts is the caller's identity and what it asked for. IncludeDead is
 // already gated on comments.moderate; the reader still decides ownership from
@@ -44,12 +58,65 @@ func fnCommentsThread(ctx context.Context, a *API, e *callEnv, raw jsontext.Valu
 	if a.svc.Comments == nil {
 		return nil, unavailable("comments")
 	}
-	// include_dead is honoured only with comments.moderate.
-	opts := ThreadOpts{
+	return a.svc.Comments.Thread(ctx, id, clamp(args.Page, 1, maxCommentPage), readOpts(a, e, args.IncludeDead))
+}
+
+// readOpts is the caller's identity for a comment read; include_dead is
+// honoured only with comments.moderate. comments.thread, comments.by_author and
+// comments.subtree all build their options here.
+func readOpts(a *API, e *callEnv, includeDead bool) ThreadOpts {
+	return ThreadOpts{
 		Plugin: e.plugin, Schema: e.manifest.EntitySchema,
-		IncludeDead: args.IncludeDead && a.grants.Has(e.plugin, sdk.PermCommentsModerate),
+		IncludeDead: includeDead && a.grants.Has(e.plugin, sdk.PermCommentsModerate),
 	}
-	return a.svc.Comments.Thread(ctx, id, clamp(args.Page, 1, maxCommentPage), opts)
+}
+
+func fnCommentsByAuthor(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
+	args, err := decodeArgs[sdk.CommentsByAuthorArgs](raw)
+	if err != nil {
+		return nil, err
+	}
+	if n := len(args.CommenterKey); n == 0 || n > maxCommenterKeyBytes {
+		return nil, invalid("commenter_key needs 1 to %d bytes", maxCommenterKeyBytes)
+	}
+	if a.svc.Comments == nil {
+		return nil, unavailable("comments")
+	}
+	if err := a.allowRead(e.plugin, sdk.FnCommentsByAuthor); err != nil {
+		return nil, err
+	}
+	return a.svc.Comments.ByAuthor(ctx, args.CommenterKey, clamp(args.Page, 1, maxCommentPage), readOpts(a, e, args.IncludeDead))
+}
+
+func fnCommentsSubtree(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
+	args, err := decodeArgs[sdk.CommentSubtreeArgs](raw)
+	if err != nil {
+		return nil, err
+	}
+	id, err := parseID(args.CommentID)
+	if err != nil {
+		return nil, err
+	}
+	if a.svc.Comments == nil {
+		return nil, unavailable("comments")
+	}
+	if err := a.allowRead(e.plugin, sdk.FnCommentsSubtree); err != nil {
+		return nil, err
+	}
+	out, err := a.svc.Comments.Subtree(ctx, id, clamp(args.Page, 1, maxCommentPage), readOpts(a, e, args.IncludeDead))
+	if errors.Is(err, ErrCommentNotFound) {
+		return nil, herr(sdk.ErrNotFound, "comment not found")
+	}
+	return out, err
+}
+
+// allowRead takes one token of the plugin's comment read limiter (1,800 per
+// minute, burst 60, shared by comments.by_author and comments.subtree).
+func (a *API) allowRead(plugin, fn string) error {
+	if !a.limits(plugin).reads.Allow() {
+		return herr(sdk.ErrRateLimited, "%s: 1800 per minute", fn)
+	}
+	return nil
 }
 
 func fnCommentsCounts(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {

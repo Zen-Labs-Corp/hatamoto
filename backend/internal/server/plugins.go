@@ -5,8 +5,10 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"hatamoto.dev/core/internal/clientkey"
+	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
@@ -63,6 +65,15 @@ func (s *Server) setupPlugins() {
 	if s.cfg != nil {
 		keys = pluginkey.New(s.cfg.Secret) // nil without a secret: no keys
 	}
+	var authors *commenterIndex
+	if keys != nil {
+		authors = newCommenterIndex(func(ctx context.Context, since time.Time) ([]comment.CommenterStamp, error) {
+			if s.comments == nil { // read at call time: plugins are set up before comments
+				return nil, nil
+			}
+			return s.comments.CommentersSince(ctx, since)
+		}, keys.Commenter)
+	}
 	cfg := pluginhost.Config{
 		Grants:     grants,
 		MailQuotas: quotas,
@@ -75,7 +86,7 @@ func (s *Server) setupPlugins() {
 			Media:     s.mediaService,
 			Redirects: s.redirectService,
 			Forms:     s.formService,
-			Comments:  pluginCommentReader{s: s, keys: keys},
+			Comments:  pluginCommentReader{s: s, keys: keys, authors: authors},
 			Settings:  s.pluginSettings,
 			DB:        pdb,
 			Fetcher:   s.pluginFetcher(),

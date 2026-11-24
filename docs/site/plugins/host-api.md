@@ -40,7 +40,7 @@ A plugin always loads. What it may do is decided by the owner, and nothing is gr
 | `entities.write.own` (SDK 0.27) | `entities.create`, `entities.update`, `entities.delete`, on the one content type the manifest names in `entity_schema` and only on entries the plugin created (origin `plugin:<name>`). `attributes` keys must be in `entity_fields`; `status` is `published` (the create default) or `draft`. Entries go live at once, without the owner's review, and every write is audited. 60 writes a minute per plugin, burst 20 (`rate_limited`); an entry or type that is not the plugin's is `not_owned`. A plugin may publish only an entry that was never published. A plugin cannot republish an entry that was published and then unpublished (the owner or the plugin unpublished it): only the owner can publish it again, and an update that asks for `published` is `invalid_argument` ("only the owner can republish this entry"). It cannot update or delete an archived or scheduled entry either (`invalid_argument`). It can still delete its own unpublished drafts and create new entries, so this is not a takedown guarantee: against a misbehaving plugin the owner revokes `entities.write.own` or uninstalls it. An owner's body or SEO edit takes the entry over under the ownership rule; a rename or an edit of other fields does not, and a later plugin update may overwrite it. Declare `^0.27` |
 | removed in 0.17 | `terms.write`, `menus.write`, `media.write` and `redirects.write` no longer exist, and neither does the old `entities.write` (its narrow successor is `entities.write.own`, above). A manifest that lists one is refused at load. Content is staged in a run with the `changeset.*` functions, which need no permission (see [Runs and changesets](#runs-and-changesets)) |
 | `forms.read` | `forms.list`, `forms.submissions`, and delivery of the `form.submitted` action |
-| `comments.read` | `comments.thread`, `comments.counts`, delivery of the `comment.*` actions, and the `comment.check` filter; there is no write function for comments |
+| `comments.read` | `comments.thread`, `comments.counts`, `comments.by_author`, `comments.subtree`, delivery of the `comment.*` actions, and the `comment.check` filter; there is no write function for comments |
 | `settings` | `settings.get` (the plugin's own settings) |
 | `log` | `log` |
 | `mail.send` | `mail.send` |
@@ -112,6 +112,8 @@ Every call has a deadline of at most 15 seconds and never longer than the hook c
 | `forms.list` | `{}` | `{ "items": [ { id, name, slug, status, fields } ] }` |
 | `forms.submissions` | `{ "form_slug", "limit"?, "offset"? }` | `{ "items", "total" }`, never with IP or user agent |
 | `comments.thread` | `{ "entity_id", "page"? }` | `{ "items": [ { id, parent_id?, depth?, author_name, staff?, body_html, created_at } ], "page", "has_more"? }`: approved comments of a published entity whose comments are shown, otherwise an empty thread. Never the email, hashes, IP address, user agent or author web address |
+| `comments.by_author` | `{ "commenter_key", "page"?, "include_dead"? }` | the same shape as `comments.thread`: the approved comments of public entities by the commenter behind the plugin's own `commenter_key`, newest first, 50 per page; an unknown key is an empty page. Dead comments only with `include_dead` and `comments.moderate` on the plugin's own content type, otherwise left out. A comment is listed by its own status only, so an approved reply under a hidden parent still appears here although `comments.thread` and `comments.subtree` leave it out. SDK 0.27 |
+| `comments.subtree` | `{ "comment_id", "page"?, "include_dead"? }` | `{ "ancestors", "items", "page", "has_more"? }`: the comment's ancestors (root first) and the comment with its replies in path order, 200 per page. Dead comments are blank placeholders unless `include_dead` with `comments.moderate` on the plugin's own content type. An unknown or non-public comment is `not_found`. SDK 0.27 |
 | `comments.counts` | `{ "entity_ids": [1 to 100 ids] }` | `{ "counts": { "<id>": n } }`: approved comments per entity, `0` when the entity is not public or has comments hidden or off. An empty list or more than 100 ids is `invalid_argument` |
 | `settings.get` | `{}` | the plugin's settings, schema defaults merged in |
 | `log` | `{ "level", "message" }` (level is `debug`, `info`, `warn` or `error`) | `{}` |
@@ -140,7 +142,7 @@ Content changes are made by a **run** the owner starts. The plugin declares it i
 | `permissions`, `log`, `settings.get`, `run.info`, `run.checkpoint`, `run.progress`, `run.finish`, `run.fail` | yes | yes |
 | `http.fetch`, `packages.inspect`, `upload.read`, `buffer.put`, `media.import_url` | yes | no |
 | `buffer.get`, `buffer.list`, `site.info`, `entities.slug_taken`, published reads, `changeset.*` | no | yes |
-| `kv.*`, `db.*`, `mail.send`, `forms.list`, `forms.submissions`, `comments.thread`, `comments.counts` | no | no |
+| `kv.*`, `db.*`, `mail.send`, `forms.list`, `forms.submissions`, `comments.thread`, `comments.counts`, `comments.by_author`, `comments.subtree` | no | no |
 
 A function not allowed in the current phase fails with `phase_denied`, and so does a run function called outside a run.
 

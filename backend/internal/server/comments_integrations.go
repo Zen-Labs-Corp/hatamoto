@@ -120,6 +120,9 @@ func commentEvent(c comment.Comment) sdk.CommentEvent {
 type pluginCommentReader struct {
 	s    *Server
 	keys *pluginkey.Deriver // nil: items carry no commenter key
+	// authors resolves a plugin's commenter key to the commenter; nil without
+	// keys: by_author finds no one.
+	authors *commenterIndex
 }
 
 func (r pluginCommentReader) Thread(ctx context.Context, entityID uuid.UUID, page int, opts pluginhost.ThreadOpts) (sdk.CommentThread, error) {
@@ -132,8 +135,68 @@ func (r pluginCommentReader) Thread(ctx context.Context, entityID uuid.UUID, pag
 	if err != nil {
 		return empty, err
 	}
-	key := func(id uuid.UUID) string { return r.keys.Commenter(opts.Plugin, id) }
-	return pluginThread(tp, revealDead(info, opts), key), nil
+	return pluginThread(tp, revealDead(info, opts), r.keyFor(opts.Plugin)), nil
+}
+
+// keyFor derives the plugin's pseudonymous key for a commenter ("" without keys).
+func (r pluginCommentReader) keyFor(plugin string) func(uuid.UUID) string {
+	return func(id uuid.UUID) string { return r.keys.Commenter(plugin, id) }
+}
+
+// ByAuthor lists the commenter behind the plugin's key, newest first. An
+// unknown key, no keys (no server secret) or comments not set up is an empty
+// page, never an error. Dead comments come only when opts asks for them and
+// the plugin owns their content type (revealDead's rule, applied in SQL so the
+// page stays exact) and then in full; an unrevealed dead comment is never
+// listed: in a list of one commenter's comments a placeholder would name its
+// author.
+func (r pluginCommentReader) ByAuthor(ctx context.Context, key string, page int, opts pluginhost.ThreadOpts) (sdk.CommentThread, error) {
+	empty := sdk.CommentThread{Items: []sdk.CommentItem{}, Page: max(page, 1)}
+	if r.s.comments == nil || r.s.db == nil || r.authors == nil {
+		return empty, nil
+	}
+	id, ok, err := r.authors.resolve(ctx, opts.Plugin, key)
+	if err != nil || !ok {
+		return empty, err
+	}
+	var dead comment.DeadScope
+	if opts.IncludeDead {
+		dead = comment.DeadScope{Plugin: opts.Plugin, Schema: opts.Schema}
+	}
+	tp, err := r.s.comments.ByAuthor(r.scoped(ctx), id, page, dead)
+	if err != nil {
+		return empty, err
+	}
+	// Every dead row here passed the owner rule in SQL: reveal.
+	return pluginThread(tp, true, r.keyFor(opts.Plugin)), nil
+}
+
+// Subtree reads one comment with its ancestors and replies, masked like
+// Thread; anything the plugin may not see is pluginhost.ErrCommentNotFound.
+func (r pluginCommentReader) Subtree(ctx context.Context, id uuid.UUID, page int, opts pluginhost.ThreadOpts) (sdk.CommentSubtree, error) {
+	if r.s.comments == nil || r.s.db == nil {
+		return sdk.CommentSubtree{}, pluginhost.ErrCommentNotFound
+	}
+	sp, err := r.s.comments.Subtree(ctx, id, page)
+	if errors.Is(err, comment.ErrNotFound) {
+		return sdk.CommentSubtree{}, pluginhost.ErrCommentNotFound
+	}
+	if err != nil {
+		return sdk.CommentSubtree{}, err
+	}
+	info, ok, err := r.visible(ctx, sp.EntityID)
+	if err != nil {
+		return sdk.CommentSubtree{}, err
+	}
+	if !ok {
+		return sdk.CommentSubtree{}, pluginhost.ErrCommentNotFound
+	}
+	reveal, kf := revealDead(info, opts), r.keyFor(opts.Plugin)
+	return sdk.CommentSubtree{
+		Ancestors: pluginItems(sp.Ancestors, reveal, kf),
+		Items:     pluginItems(sp.Comments, reveal, kf),
+		Page:      sp.Page, HasMore: sp.HasMore,
+	}, nil
 }
 
 // revealDead reports whether dead comments are shown in full. The owner is the
@@ -217,13 +280,18 @@ func (r pluginCommentReader) visible(ctx context.Context, id uuid.UUID) (comment
 	return info, true, nil
 }
 
-// pluginThread keeps only the fields a plugin may see. A dead comment keeps
+// pluginThread maps a thread page to its plugin view (see pluginItems).
+func pluginThread(tp comment.ThreadPage, reveal bool, key func(uuid.UUID) string) sdk.CommentThread {
+	return sdk.CommentThread{Items: pluginItems(tp.Comments, reveal, key), Page: tp.Page, HasMore: tp.HasMore}
+}
+
+// pluginItems keeps only the fields a plugin may see. A dead comment keeps
 // its author, body and commenter key only with reveal; otherwise they are
 // blanked. key derives the calling plugin's pseudonymous key for a commenter
 // (nil: no keys); staff rows have no commenter and so no key.
-func pluginThread(tp comment.ThreadPage, reveal bool, key func(uuid.UUID) string) sdk.CommentThread {
-	items := make([]sdk.CommentItem, 0, len(tp.Comments))
-	for _, c := range tp.Comments {
+func pluginItems(cs []comment.ThreadComment, reveal bool, key func(uuid.UUID) string) []sdk.CommentItem {
+	items := make([]sdk.CommentItem, 0, len(cs))
+	for _, c := range cs {
 		it := sdk.CommentItem{
 			ID: c.ID.String(), ParentID: idString(c.ParentID), Depth: c.Depth,
 			AuthorName: c.AuthorName, Staff: c.IsSiteAuthor, BodyHTML: c.BodyHTML,
@@ -242,5 +310,5 @@ func pluginThread(tp comment.ThreadPage, reveal bool, key func(uuid.UUID) string
 		}
 		items = append(items, it)
 	}
-	return sdk.CommentThread{Items: items, Page: tp.Page, HasMore: tp.HasMore}
+	return items
 }
