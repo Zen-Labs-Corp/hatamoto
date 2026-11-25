@@ -470,13 +470,13 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, ent)
 }
 
-// isMoveOnly reports whether in sets nothing but a parent change.
 // isMergePatch reports whether ct is application/merge-patch+json (any case, parameters allowed).
 func isMergePatch(ct string) bool {
 	mt, _, err := mime.ParseMediaType(ct)
 	return err == nil && mt == "application/merge-patch+json"
 }
 
+// isMoveOnly reports whether in sets nothing but a parent change.
 func isMoveOnly(in entity.UpdateEntityInput) bool {
 	in.ParentID, in.ClearParent, in.ChangeSummary = nil, false, nil
 	return reflect.DeepEqual(in, entity.UpdateEntityInput{})
