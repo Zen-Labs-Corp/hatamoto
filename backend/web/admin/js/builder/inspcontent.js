@@ -488,7 +488,12 @@ export function createContent(ctx) {
     const panel = h("div", { class: "hm-bs-content" });
     // field mode (opts.only) edits one content field: the section's own props (its Title) are not that field's
     const props = opts.only ? [] : (kindInfo(node.t)?.props ?? []).filter((p) => !ADVANCED.has(p.key) && !SKIP.has(p.key) && p.type !== "object" && p.type !== "array" && !(p.key === "html" && INLINE.has(node.t)) && !(node.t === "list" && p.key === "items"));
-    for (const p of orderProps(node, props)) panel.append(propField(node, p));
+    // a query loop's Sort by attribute and Filters follow its Order field (set up below, after the props)
+    const attrSlot = node.t === "loop" && !opts.only ? h("div") : null;
+    for (const p of orderProps(node, props)) {
+      panel.append(propField(node, p));
+      if (attrSlot && p.key === "order") panel.append(attrSlot);
+    }
     if (ITEMS.has(node.t))
       import("@hm/builder/items")
         .then((m) => {
@@ -498,7 +503,7 @@ export function createContent(ctx) {
         .catch(console.error);
     if (node.t === "loop" && !opts.only) {
       // the group follows the Source field: it appears, changes or goes as the source does (not while a filter itself is edited)
-      const slot = h("div");
+      const slot = attrSlot;
       // the attribute rows are rebuilt only when what they depend on changes: a half-filled row survives edits elsewhere
       let seen = null;
       const sync = (e) => {
@@ -511,7 +516,7 @@ export function createContent(ctx) {
         slot.replaceChildren(...(g ? [g] : []));
       };
       sync();
-      panel.append(slot);
+      if (!slot.parentNode) panel.append(slot); // no Order field: after the props
       panel.addEventListener("input", sync);
       panel.addEventListener("change", sync);
     }
