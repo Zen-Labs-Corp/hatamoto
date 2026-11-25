@@ -116,3 +116,13 @@ func TestAdminTypeChanges(t *testing.T) {
 		t.Fatalf("adminTypeChanges = %+v, want %+v", got, want)
 	}
 }
+
+func TestPreviewTypeChangesOnlyWhenEnabled(t *testing.T) {
+	in := []packages.TypeChange{{Name: "Organizer", SchemaMerge: packages.SchemaMerge{Labels: []string{"Join link"}}}}
+	if got := previewTypeChanges(false, in); got != nil {
+		t.Fatalf("disabled plugin: %+v, want none (its update would not extend, so there is nothing to review)", got)
+	}
+	if got := previewTypeChanges(true, in); len(got) != 1 || got[0].Name != "Organizer" {
+		t.Fatalf("enabled plugin: %+v", got)
+	}
+}

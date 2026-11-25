@@ -138,6 +138,16 @@ func (p *packageAdmin) updateFor(ctx context.Context, kind packages.Kind, name, 
 	return ""
 }
 
+// previewTypeChanges is what the prompt says an update will add to content
+// types. A disabled plugin is not extended by an update (it is when it is
+// enabled again), so there is nothing to review for it.
+func previewTypeChanges(enabled bool, in []packages.TypeChange) []admin.TypeChange {
+	if !enabled {
+		return nil
+	}
+	return adminTypeChanges(in)
+}
+
 // adminTypeChanges turns the install preview into the prompt's list. Fields
 // the plugin dropped (Missing) are not shown.
 func adminTypeChanges(in []packages.TypeChange) []admin.TypeChange {
@@ -397,10 +407,10 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 		}
 		if pkg.Kind == packages.KindPlugin {
 			// What the install would do to content types: create the missing
-			// ones, extend the ones this plugin owns. A failed read keeps the
-			// plain list.
+			// ones, extend the ones this plugin owns (only while it is enabled).
+			// A failed read keeps the plain list.
 			if create, extend, err := p.mgr().SchemaPreview(ctx, pkg); err == nil {
-				sum.ContentTypes, sum.TypeChanges = create, adminTypeChanges(extend)
+				sum.ContentTypes, sum.TypeChanges = create, previewTypeChanges(row.Enabled, extend)
 			}
 		}
 	}
