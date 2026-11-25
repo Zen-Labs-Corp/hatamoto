@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -434,6 +435,20 @@ func (m *mockEntityRepository) ListVersions(_ context.Context, entityID uuid.UUI
 		return all[:limit], nil
 	}
 	return all, nil
+}
+
+func (m *mockEntityRepository) ListVersionsPage(_ context.Context, entityID uuid.UUID, offset, limit int) ([]*EntityVersion, int, error) {
+	if m.versionErr != nil {
+		return nil, 0, m.versionErr
+	}
+	all := slices.Clone(m.versions[entityID])
+	slices.SortFunc(all, func(a, b *EntityVersion) int { return b.Version - a.Version })
+	total := len(all)
+	if offset > total {
+		offset = total
+	}
+	end := min(offset+limit, total)
+	return all[offset:end], total, nil
 }
 
 // addEntity is a test helper that directly inserts an entity into the mock store.
@@ -1438,6 +1453,32 @@ func TestService_ListVersions(t *testing.T) {
 		testutil.Nil(t, versions)
 		testutil.ErrorIs(t, err, ErrEntityNotFound)
 	})
+}
+
+func TestListVersionsPage(t *testing.T) {
+	t.Parallel()
+	svc, sr, er := newTestService()
+	existing := seedEntity(t, er, seedSchema(t, sr))
+	for v := 1; v <= 3; v++ {
+		er.versions[existing.ID] = append(er.versions[existing.ID], &EntityVersion{ID: uuid.New(), EntityID: existing.ID, Version: v})
+	}
+	ctx := context.Background()
+
+	p1, err := svc.ListVersionsPage(ctx, existing.ID, OffsetPage{Page: 1, Limit: 2})
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, p1.Items, 2)
+	testutil.Equal(t, 3, p1.Items[0].Version)
+	testutil.Equal(t, 2, p1.Items[1].Version)
+	testutil.Equal(t, 3, p1.Total)
+	testutil.Equal(t, 2, p1.TotalPages)
+
+	p2, err := svc.ListVersionsPage(ctx, existing.ID, OffsetPage{Page: 2, Limit: 2})
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, p2.Items, 1)
+	testutil.Equal(t, 1, p2.Items[0].Version)
+
+	_, err = svc.ListVersionsPage(ctx, uuid.New(), OffsetPage{Page: 1, Limit: 2})
+	testutil.ErrorIs(t, err, ErrEntityNotFound)
 }
 
 func TestService_GetVersion(t *testing.T) {

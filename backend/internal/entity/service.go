@@ -1005,6 +1005,20 @@ func (s *Service) ListVersions(ctx context.Context, entityID uuid.UUID, limit in
 	return s.entityRepo.ListVersions(ctx, entityID, limit)
 }
 
+// ListVersionsPage returns one page of an entity's stored versions, newest
+// first, without their attributes.
+func (s *Service) ListVersionsPage(ctx context.Context, entityID uuid.UUID, page OffsetPage) (*OffsetPagedResult[*EntityVersion], error) {
+	if _, err := s.entityRepo.GetByID(ctx, entityID); err != nil {
+		return nil, err
+	}
+	p, l := max(page.Page, 1), min(max(page.Limit, 1), 100)
+	items, total, err := s.entityRepo.ListVersionsPage(ctx, entityID, (p-1)*l, l)
+	if err != nil {
+		return nil, err
+	}
+	return &OffsetPagedResult[*EntityVersion]{Items: items, Total: total, Page: p, Limit: l, TotalPages: (total + l - 1) / l}, nil
+}
+
 // GetVersion retrieves a specific version of an entity.
 func (s *Service) GetVersion(ctx context.Context, entityID uuid.UUID, version int) (*EntityVersion, error) {
 	return s.entityRepo.GetVersion(ctx, entityID, version)
