@@ -845,6 +845,10 @@ func (r *PostgresEntityRepository) Delete(ctx context.Context, id uuid.UUID) err
 	return finish.commit(ctx, auditDelete, id, map[string]any{"name": name, "slug": slug})
 }
 
+// MaxListLimit is the most entities one keyset List page returns; a larger
+// page.Limit is capped to it (the plugin host's entities.list documents it).
+const MaxListLimit = 200
+
 // List retrieves entities with filtering and keyset pagination.
 func (r *PostgresEntityRepository) List(ctx context.Context, filter *ListEntitiesFilter, page *KeysetPage) (*PagedResult[*Entity], error) {
 	conn, err := r.db.GetConn(ctx)
@@ -870,8 +874,8 @@ func (r *PostgresEntityRepository) List(ctx context.Context, filter *ListEntitie
 
 	// Keyset pagination
 	limit := 20
-	if page != nil && page.Limit > 0 && page.Limit <= 100 {
-		limit = page.Limit
+	if page != nil && page.Limit > 0 {
+		limit = min(page.Limit, MaxListLimit)
 	}
 
 	if page != nil && page.Cursor != nil {
