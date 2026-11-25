@@ -447,6 +447,19 @@ grep -q "reusing archived" "$work/ar.log" || fail "reuse not logged"
 grep -q "NOT checked" "$work/ar.log" || fail "offline reuse: no warning"
 offline=
 jq -e --arg c "$sha" '."acme-notes".commit == $c and ."acme-notes".tier == "community"' "$work/a2-meta.json" >/dev/null || fail "reuse meta: $(cat "$work/a2-meta.json")"
+# A kit of the same name in the same archive dir (<name>-...kit.json, sorting first) is not a plugin build.
+cp -r "$arch" "$work/arch-kit"
+kf="$work/arch-kit/acme-notes/acme-notes-0.1.0-${sha:0:12}-$kid.kit"
+printf 'not a plugin zip' >"$kf.hmp"
+jq -n --arg c "$sha" --arg k "$kid" --arg h "$(sha256sum "$kf.hmp" | cut -d' ' -f1)" \
+  '{name:"acme-notes",version:"0.1.0",kind:"kit",commit:$c,key_id:$k,sha256:$h,builder:2}' >"$kf.json"
+kit_sum=$(cat "$kf.hmp" "$kf.json" | sha256sum)
+offline=1
+reuse_run "$ghost" "$work/a2k-pk" "$work/a2k-meta.json" "$work/arch-kit" || fail "kit sidecar broke archive reuse: $(cat "$work/ar.log")"
+offline=
+grep -q "reusing archived $af.hmp" "$work/ar.log" || fail "kit sidecar: plugin not reused: $(cat "$work/ar.log")"
+cmp "$arch/acme-notes/$af.hmp" "$work/a2k-pk/acme-notes.hmp" || fail "kit sidecar: reused .hmp differs"
+[ "$kit_sum" = "$(cat "$kf.hmp" "$kf.json" | sha256sum)" ] || fail "kit files were touched"
 # A sidecar for another commit is not a match: it rebuilds (here: cannot fetch).
 cp -r "$arch" "$work/arch-mm"
 jq '.commit = "ffffffffffffffffffffffffffffffffffffffff"' "$arch/acme-notes/$af.json" >"$work/arch-mm/acme-notes/$af.json"
