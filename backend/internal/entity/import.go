@@ -599,7 +599,7 @@ func (r *importRun) credit(ctx context.Context, it *ImportItem, attrs jsontext.V
 			if b, err = r.resolve(ctx, text); err != nil {
 				return b, nil, "", fmt.Errorf("failed to resolve byline %q: %w", text, err)
 			}
-		} else if b, ok, err = s.bylineFromText(ctx, attrs); err != nil || !ok {
+		} else if b, ok, err = s.bylineFromText(ctx, attrs, false); err != nil || !ok {
 			return b, nil, "", err
 		}
 	}

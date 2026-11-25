@@ -100,7 +100,7 @@ Lists return at most 100 rows. The default page size is 20 for `entities_list` a
 | `entities_get` | `id` | One entity with its attributes. |
 | `search` | `query`, `page`, `limit` | Full-text search over published content, best match first, as the site search shows it. |
 | `entities_create` | `schema`, `name`, `slug`, `locale`, `attributes` | Creates a draft. The slug is made from the name when empty. Nothing is public until `entities_publish`. |
-| `entities_update` | `id`, `name`, `slug`, `locale`, `attributes`, `change_summary`, `version`, `merge`, byline fields | Stores a new version. `attributes` replaces the whole object; `merge: true` changes only the keys sent. |
+| `entities_update` | `id`, `name`, `slug`, `locale`, `attributes`, `change_summary`, `version`, `merge`, `dry_run`, byline fields | Stores a new version. `attributes` replaces the whole object; `merge: true` changes only the keys sent. `dry_run: true` returns the changes and version without storing anything. |
 | `entities_versions` | `id`, `page`, `limit` | Stored earlier versions, newest first, with `current_version`. `limit` defaults to 20 and is clamped to 100; the answer reports the `page` and `limit` used. |
 | `entities_version_get` | `id`, `version` | The attributes of one stored version, as stored (`page_doc` included). |
 | `entities_restore` | `id`, `version`, `expected_version` | Stores an earlier version as a new version, summary `[mcp:<key name>] Restored from version N`. `expected_version` is optional; if the entity has moved on the call is refused with `conflict:` and nothing is stored. A published entry may be held for review (`pending_review`). |
