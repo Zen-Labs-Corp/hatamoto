@@ -114,14 +114,32 @@ func TestRunsTabMessage(t *testing.T) {
 		if !strings.Contains(body, "&lt;b&gt;bold&lt;/b&gt; done") || strings.Contains(body, "<b>bold</b>") {
 			t.Error("a message is escaped, never rendered as markup")
 		}
+		if !strings.Contains(body, `title="&lt;b&gt;bold&lt;/b&gt; done"`) || strings.Contains(body, `title="<b>`) {
+			t.Error("the title attribute is escaped")
+		}
 	})
 
 	t.Run("empty", func(t *testing.T) {
 		t.Parallel()
 		g, _, _, _ := newRunsRig(t, runView("finished", "transform"))
 		body := g.do("GET", "/admin/plugins/hello/runs", "owner-token", nil, nil).Body.String()
-		if !strings.Contains(body, "—") {
-			t.Error("a run without a message shows a dash")
+		if !regexp.MustCompile(`data-label="Message"[^>]*>\s*—`).MatchString(body) {
+			t.Error("a run without a message shows a dash in the Message cell")
+		}
+	})
+
+	t.Run("failed shows its reason", func(t *testing.T) {
+		t.Parallel()
+		rv := runView("failed", "fetch")
+		rv.Message = "Imported 87 events"
+		rv.Reason = "upstream returned 500 <oops>"
+		g, _, _, _ := newRunsRig(t, rv)
+		body := g.do("GET", "/admin/plugins/hello/runs", "owner-token", nil, nil).Body.String()
+		if !strings.Contains(body, `title="upstream returned 500 &lt;oops&gt;"`) {
+			t.Error("a failed run shows its escaped reason in the Message cell")
+		}
+		if strings.Contains(body, "Imported 87 events") {
+			t.Error("a failed run does not show its progress message")
 		}
 	})
 }

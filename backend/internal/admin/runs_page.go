@@ -134,8 +134,12 @@ func runTitle(p PluginInfo, name string) string {
 }
 
 // runMessageCell is the last progress message a run's plugin set, clipped in the list;
-// the full text is the cell's title and is printed on the run's own page.
+// the full text is the cell's title and is printed on the run's own page. A
+// failed run shows why it failed instead, so it never reads like a success.
 func runMessageCell(rv RunView) ui.Cell {
+	if rv.State == "failed" && rv.Reason != "" && rv.Reason != "cancelled" {
+		return ui.Cell{Text: rv.Reason, Clip: true}
+	}
 	if rv.Message == "" {
 		return ui.Cell{Text: "—"}
 	}
