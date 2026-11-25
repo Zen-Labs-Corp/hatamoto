@@ -28,7 +28,7 @@ func pluginSettingsSchemas(rows []packages.Row) map[string][]byte {
 }
 
 // sealPluginSettings seals plain write-only plugin settings. It runs once per
-// boot, before any plugin loads; a failure is logged and boot continues. Logs
+// boot, before the package reconcile; a failure is logged and boot continues. Logs
 // carry counts only.
 func (s *Server) sealPluginSettings(ctx context.Context) {
 	if s.pluginSettings == nil || s.packages == nil {

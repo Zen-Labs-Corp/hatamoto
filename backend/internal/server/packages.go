@@ -112,7 +112,7 @@ func (s *Server) setupPackages() {
 	s.retireWebhooksPlugin(ctx)
 	// The gtm and google-analytics plugins moved into Settings > Privacy & tracking > Tracking.
 	s.retireTrackingPlugins(ctx)
-	// After the retire steps (legacyPluginID reads the table raw) and before any plugin loads.
+	// After the retire steps (legacyPluginID reads the table raw) and before the package reconcile; the plugin runtime is already set up by then.
 	s.sealPluginSettings(ctx)
 	s.packages.Reconcile(ctx)
 	if s.cfg.Plugins.Dir != "" {
