@@ -211,6 +211,7 @@ real cache, the loop benchmark, pure client tests, the JS budget. The checks bel
 * A draft post, a block and a hidden person never appear. A loop over an empty type shows its empty state.
 * Theme > Layout parts: an archive part with a `slot` (Replace on) and a loop `from: archive`: the blog archive shows
   only builder markup and its pager works; the default theme's archive is unchanged.
+* Query loop on a schema with a date, an enum and a number attribute: **Sort by attribute** and **Filters** sit between Order and Limit; the attribute list shows only that schema's attributes; operators change with the attribute type; **Add filter** disappears at three rows; a loop sorted by date with "is today or later" shows only today and later in the canvas. Automated: `PG_BIN=<pg bin dir> scripts/admin-qa/run-local.sh builder-loop-filters.mjs` (not in the CI default list; `QA_SHOTS=<dir>` saves the inspector and canvas screenshots).
 * Screen reader: the Bind button names its prop, the chip and Unbind are announced; keyboard only works end to end.
 
 ## Blog editor (v1-13): the writing checklist
@@ -728,6 +729,7 @@ Source: `docs/BUILDER.md` "UX canvas and inspector" and `docs/CANVAS.md` "Host c
 ```
 scripts/admin-qa/run-local.sh builder-ux-tasks.mjs      # result: scripts/admin-qa/results/builder-ux-tasks.json
 scripts/admin-qa/run-local.sh builder-inline.mjs        # Enter, Esc, Ctrl+K, format undo, heading bar, link panel
+scripts/admin-qa/run-local.sh builder-loop-filters.mjs  # Query loop sort and filter rows, canvas shows only future entries
 QA_ONLY=restore-dialog scripts/admin-qa/run-local.sh builder-ux-tasks.mjs
 ```
 
