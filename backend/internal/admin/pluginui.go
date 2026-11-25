@@ -106,6 +106,17 @@ type pluginUIData struct {
 	// Camera: the manifest asks for ui.allow camera and the owner granted it.
 	// The page then carries data-camera and core's capture dialog.
 	Camera bool
+	// Runs is a JSON list of the runs the owner may start from the page
+	// ([{name,title,inputs,start}]); empty for anyone else.
+	Runs string
+}
+
+// pageRun is one entry of pluginUIData.Runs.
+type pageRun struct {
+	Name   string   `json:"name"`
+	Title  string   `json:"title"`
+	Inputs []string `json:"inputs"`
+	Start  string   `json:"start"`
 }
 
 // pluginPagePolicy is the Permissions-Policy of a granted plugin page: the
@@ -145,6 +156,19 @@ func (a *Admin) pluginUIFor(r *http.Request, p PluginInfo, role string) *pluginU
 	d := &pluginUIData{Camera: p.UI.Camera, Name: p.Name, Title: p.UI.Title, Src: "/plugin-ui/" + p.Name + "/" + entry + "?t=" + tok, Bridge: a.adminPath + "/plugins/" + p.Name + "/bridge"}
 	if a.canObj(r.Context(), authz.ActionPluginUIHost, pluginObject(p.Name)) { // host functions are the owner's (see handlePluginBridge)
 		d.Functions = strings.Join(p.UI.Functions, ",")
+	}
+	if len(p.Runs) > 0 && a.can(r.Context(), authz.ActionPluginManage) { // the gate of the owner group that mounts runs/{run}/start
+		list := make([]pageRun, 0, len(p.Runs))
+		for _, run := range p.Runs {
+			names := make([]string, 0, len(run.Inputs))
+			for _, in := range run.Inputs {
+				names = append(names, in.Name)
+			}
+			list = append(list, pageRun{Name: run.Name, Title: run.Title, Inputs: names, Start: a.pluginURL(p.Name, "runs/"+run.Name+"/start")})
+		}
+		if b, err := jsonx.Marshal(list); err == nil {
+			d.Runs = string(b)
+		}
 	}
 	return d
 }
