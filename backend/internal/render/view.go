@@ -471,6 +471,21 @@ type QuerySpec struct {
 	// ExcludeID is the uuid (text) of an entity to leave out; an invalid
 	// value is ignored.
 	ExcludeID string
+	// Filters are a loop's attribute filters, ANDed (at most 3). "today" in
+	// the date operators is for the DataSource to resolve, in the site zone.
+	Filters []AttrFilter
+}
+
+// AttrFilter is one loop filter on a top-level attribute. Op is a loop filter
+// operator: eq, ne, lt, lte, gt, gte, from_today, before_today or next_days
+// (today through today plus Days, inclusive). The value is Num when IsNum,
+// else Text; the date operators take none.
+type AttrFilter struct {
+	Attr, Op string
+	Text     string
+	Num      float64
+	IsNum    bool
+	Days     int
 }
 
 // QueryResult is one page of a query. Pages is at least 1; Page is clamped to
@@ -479,6 +494,10 @@ type QuerySpec struct {
 type QueryResult struct {
 	Items                     []RelatedItem
 	Total, Page, Pages, Limit int
+	// ExpiresIn, when > 0, is how long the result stays right: a filter
+	// relative to today changes it at the next midnight. The loop caps the
+	// page's cache age by it.
+	ExpiresIn time.Duration
 }
 
 // AttrCount is a distinct attribute value and the number of published

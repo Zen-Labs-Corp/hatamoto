@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -107,7 +108,7 @@ func TestLoopRendersItemsPerQuery(t *testing.T) {
 	}
 	want := QuerySpec{Schema: "post", Term: "category:news", Author: "ada", Order: "-updated_at", Limit: 3, Page: 1, Offset: 2,
 		ExcludeID: v.EntityID}
-	if ds.specs[0] != want {
+	if !reflect.DeepEqual(ds.specs[0], want) {
 		t.Errorf("spec = %+v, want %+v", ds.specs[0], want)
 	}
 	if n := strings.Count(got, `class="hm-loop__item"`); n != 3 {
@@ -440,5 +441,105 @@ func TestLoopPopularOrderGolden(t *testing.T) {
 			t.Errorf("%s: markup exposes the ranking: %s", variant, got)
 		}
 		compareWidgetGolden(t, "looppopular", variant, mainInner(t, got))
+	}
+}
+
+func filterLoopProps(extra map[string]any) map[string]any {
+	p := map[string]any{"schema": "event", "limit": float64(3)}
+	for k, v := range extra {
+		p[k] = v
+	}
+	return p
+}
+
+func TestLoopBuildsAttrFilters(t *testing.T) {
+	ds := &loopData{n: 1}
+	renderLoop(t, ds, minimalView(), loopNode(filterLoopProps(map[string]any{
+		"order_by": map[string]any{"attr": "start_date"},
+		"filters": []any{
+			map[string]any{"attr": "start_date", "op": "from_today"},
+			map[string]any{"attr": "status", "op": "ne", "value": "cancelled"},
+			map[string]any{"attr": "seats", "op": "gte", "value": float64(10)},
+			map[string]any{"attr": "start_date", "op": "next_days", "days": float64(7)},
+		},
+	}), itemKids()...), false)
+	got := ds.specs[0]
+	want := []AttrFilter{
+		{Attr: "start_date", Op: "from_today"},
+		{Attr: "status", Op: "ne", Text: "cancelled"},
+		{Attr: "seats", Op: "gte", Num: 10, IsNum: true},
+		{Attr: "start_date", Op: "next_days", Days: 7},
+	}
+	if !reflect.DeepEqual(got.Filters, want) || got.Order != "attr:start_date" {
+		t.Errorf("filters = %+v order %q", got.Filters, got.Order)
+	}
+}
+
+func TestLoopOrderBy(t *testing.T) {
+	for name, tc := range map[string]struct {
+		p    map[string]any
+		want string
+	}{
+		"asc":        {map[string]any{"order_by": map[string]any{"attr": "d", "dir": "asc"}}, "attr:d"},
+		"desc":       {map[string]any{"order_by": map[string]any{"attr": "d", "dir": "desc"}}, "-attr:d"},
+		"wins":       {map[string]any{"order": "name", "order_by": map[string]any{"attr": "d"}}, "attr:d"},
+		"order only": {map[string]any{"order": "name"}, "name"},
+	} {
+		ds := &loopData{n: 1}
+		renderLoop(t, ds, minimalView(), loopNode(filterLoopProps(tc.p), itemKids()...), false)
+		if got := ds.specs[0].Order; got != tc.want {
+			t.Errorf("%s: order = %q, want %q", name, got, tc.want)
+		}
+	}
+}
+
+// expiringData reports a fixed ExpiresIn on every query.
+type expiringData struct {
+	loopData
+	in time.Duration
+}
+
+func (d *expiringData) Query(q QuerySpec) QueryResult {
+	r := d.loopData.Query(q)
+	r.ExpiresIn = d.in
+	return r
+}
+
+func TestLoopCapsCacheAge(t *testing.T) {
+	for name, tc := range map[string]struct {
+		in, pre, want time.Duration
+	}{
+		"sets cap":        {3 * time.Hour, 0, 3 * time.Hour},
+		"keeps shorter":   {3 * time.Hour, time.Minute, time.Minute},
+		"shortens longer": {time.Minute, time.Hour, time.Minute},
+		"no expiry":       {0, 0, 0},
+		"no expiry keeps": {0, time.Minute, time.Minute},
+	} {
+		ds := &expiringData{loopData: loopData{n: 1}, in: tc.in}
+		v := minimalView()
+		v.MaxCacheAge = tc.pre
+		renderLoop(t, ds, v, loopNode(filterLoopProps(nil), itemKids()...), false)
+		if v.MaxCacheAge != tc.want {
+			t.Errorf("%s: MaxCacheAge = %v, want %v", name, v.MaxCacheAge, tc.want)
+		}
+	}
+}
+
+func TestLoopWithoutFiltersLeavesSpecAndCache(t *testing.T) {
+	ds := &loopData{n: 1}
+	v := minimalView()
+	renderLoop(t, ds, v, loopNode(filterLoopProps(nil), itemKids()...), false)
+	if ds.specs[0].Filters != nil || v.MaxCacheAge != 0 {
+		t.Errorf("Filters = %v, MaxCacheAge = %v", ds.specs[0].Filters, v.MaxCacheAge)
+	}
+}
+
+func TestLoopCanvasPassesFilters(t *testing.T) {
+	ds := &loopData{n: 5}
+	renderLoop(t, ds, minimalView(), loopNode(filterLoopProps(map[string]any{
+		"filters": []any{map[string]any{"attr": "start_date", "op": "from_today"}},
+	}), itemKids()...), true)
+	if len(ds.specs) != 1 || !reflect.DeepEqual(ds.specs[0].Filters, []AttrFilter{{Attr: "start_date", Op: "from_today"}}) {
+		t.Errorf("canvas specs = %+v", ds.specs)
 	}
 }
