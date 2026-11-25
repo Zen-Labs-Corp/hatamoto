@@ -48,6 +48,9 @@ func TestDatetimeValue(t *testing.T) {
 		{"non-string time", "2026-12-05", 42.0, paris, "2026-12-05", true},
 		{"invalid date", "05/12/2026", "18:30", paris, "", false},
 		{"rfc3339 date", "2026-12-05T10:00:00Z", "18:30", paris, "2026-12-05T10:00:00Z", true},
+		{"invalid date empty time", "TBA", "", paris, "", false},
+		{"invalid date nil time", "TBA", nil, paris, "", false},
+		{"rfc3339 date empty time", "2026-12-05T10:00:00Z", "", paris, "2026-12-05T10:00:00Z", true},
 		{"empty date", "", "18:30", paris, "", false},
 	}
 	for _, tc := range tests {
@@ -122,6 +125,9 @@ func TestAnnotatedEventJSONLD(t *testing.T) {
 	if got := eventDoc(t, eventAnnotatedSchema, `{"status":"postponed",`+base+`}`)["eventStatus"]; got != "https://schema.org/EventPostponed" {
 		t.Errorf("bare term = %v", got)
 	}
+	if _, has := eventDoc(t, eventAnnotatedSchema, `{"date_start":"TBA"}`)["startDate"]; has {
+		t.Error("unreadable date printed")
+	}
 	empty := eventDoc(t, eventAnnotatedSchema, `{"date_start":"2026-12-05","time_start":""}`)
 	if empty["startDate"] != "2026-12-05" {
 		t.Errorf("empty time startDate = %v", empty["startDate"])
@@ -150,6 +156,30 @@ func TestAnnotationsNestedAndFlattened(t *testing.T) {
 	}
 	if doc["eventStatus"] != "https://schema.org/EventCancelled" {
 		t.Errorf("flattened = %v", doc["eventStatus"])
+	}
+}
+
+func TestAnnotationsDatetimeNestedAndFlattened(t *testing.T) {
+	schema := `{
+  "type": "object", "x-schema-org-type": "Event",
+  "properties": {
+    "slot": {"type": "object", "x-schema-org-property": "subjectOf", "x-schema-org-type": "Event",
+      "properties": {
+        "day": {"type": "string", "x-schema-org-property": "startDate", "x-schema-org-datetime": {"time": "clock"}},
+        "clock": {"type": "string"}}},
+    "flat": {"type": "object",
+      "properties": {
+        "day": {"type": "string", "x-schema-org-property": "endDate", "x-schema-org-datetime": {"time": "clock"}},
+        "clock": {"type": "string"}}}
+  }
+}`
+	doc := eventDoc(t, schema, `{"slot":{"day":"2026-12-05","clock":"18:30"},"flat":{"day":"2026-12-06","clock":"09:15"}}`)
+	sub, _ := doc["subjectOf"].(map[string]any)
+	if sub["startDate"] != "2026-12-05T18:30:00+00:00" {
+		t.Errorf("nested = %v", doc["subjectOf"])
+	}
+	if doc["endDate"] != "2026-12-06T09:15:00+00:00" {
+		t.Errorf("flattened = %v", doc["endDate"])
 	}
 }
 

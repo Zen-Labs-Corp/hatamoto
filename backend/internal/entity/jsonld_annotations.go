@@ -73,11 +73,11 @@ func isSchemaOrgTerm(t string) bool {
 // datetimeValue joins a date attribute and a time attribute into one ISO 8601
 // value in loc (UTC when nil). The bool is false when nothing should print.
 //
-//   - no time (missing, nil or empty): the date as stored
 //   - date already RFC 3339: as stored
+//   - no time (missing, nil or empty): a YYYY-MM-DD date as stored
 //   - date YYYY-MM-DD and time HH:MM[:SS]: combined, with the offset of loc on that date
 //   - valid date, invalid or non-string time: the date only
-//   - invalid date with a time set: nothing
+//   - invalid date, with or without a time: nothing
 func datetimeValue(date string, clock any, loc *time.Location) (string, bool) {
 	date = strings.TrimSpace(date)
 	if date == "" {
@@ -88,15 +88,15 @@ func datetimeValue(date string, clock any, loc *time.Location) (string, bool) {
 	}
 	clockStr, isStr := clock.(string)
 	clockStr = strings.TrimSpace(clockStr)
-	if clock == nil || (isStr && clockStr == "") {
-		return date, true
-	}
 	if _, err := time.Parse(time.RFC3339, date); err == nil {
 		return date, true
 	}
 	d, err := time.Parse("2006-01-02", date)
 	if err != nil {
 		return "", false
+	}
+	if clock == nil || (isStr && clockStr == "") {
+		return date, true
 	}
 	if !isStr {
 		return date, true
@@ -116,7 +116,7 @@ func datetimeValue(date string, clock any, loc *time.Location) (string, bool) {
 // annotated and the caller runs the existing mapping. A handled property
 // prints a value or nothing, never the raw stored value. Datetime wins over
 // enum. A malformed annotation degrades: for an enum only its string entries
-// count, for a datetime without a usable time name the date prints as stored.
+// count, for a datetime without a usable time name a readable date prints as stored.
 func mapAnnotatedScalar(jsonLD, attrs map[string]any, ldKey string, attrValue any, prop *SchemaProperty, loc *time.Location) bool {
 	if timeProp, present, wellFormed := datetimeAnnotation(prop); present {
 		date, ok := attrValue.(string)
