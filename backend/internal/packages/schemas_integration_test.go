@@ -491,3 +491,33 @@ func TestSchemaPreviewMatchesInstall(t *testing.T) {
 		t.Fatalf("preview after install: create=%v extend=%+v err=%v", create, extend, err)
 	}
 }
+
+// A fresh install under the name of an uninstalled plugin whose content types
+// were kept must leave those types alone.
+func TestFreshInstallDoesNotExtendKeptTypes(t *testing.T) {
+	r, _ := schemaRig(t)
+	ctx := context.Background()
+	if err := r.installPack(schemaPack("shop")); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.mgr.Uninstall(ctx, KindPlugin, "shop", UninstallOpts{}); err != nil {
+		t.Fatal(err)
+	}
+	before := r.storedSchema("product")
+	if err := r.installPack(packWith("shop", productWithSKU)); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(before, r.storedSchema("product")) {
+		t.Fatalf("a fresh install changed the kept type: %v", r.storedProps("product"))
+	}
+	if n, _ := auditWidgets(t, r, "package.schemas.extend", "plugin:shop"); n != 0 {
+		t.Fatalf("extend audited %d times on a fresh install", n)
+	}
+	// Once installed, the next update extends it.
+	if err := r.installPack(packWith("shop", productWithSKU+" ")); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := r.storedProps("product")["sku"]; !ok {
+		t.Fatalf("update after the fresh install did not extend: %v", r.storedProps("product"))
+	}
+}

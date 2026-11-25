@@ -148,12 +148,14 @@ func (m *Manager) checkSchemas(ctx context.Context, p *Package) error {
 	return nil
 }
 
-// installSchemas creates the content types of the plugin that do not exist yet.
-// A type this plugin already owns gains the properties it lacks and nothing
-// else changes; one taken by something else refuses. A failure while creating
-// removes the types this call created. Extending is best effort: a failure is
-// logged and the stored schema is kept.
-func (m *Manager) installSchemas(ctx context.Context, p *Package) error {
+// installSchemas creates the content types of the plugin that do not exist yet;
+// one taken by something else refuses. A failure while creating removes the
+// types this call created. With extend (the plugin was already installed), a
+// type this plugin already owns also gains the properties it lacks and nothing
+// else changes. A fresh install never extends: types kept by an earlier
+// uninstall are the owner's. Extending is best effort: a failure is logged and
+// the stored schema is kept.
+func (m *Manager) installSchemas(ctx context.Context, p *Package, extend bool) error {
 	if m.Schemas == nil {
 		return nil
 	}
@@ -192,7 +194,9 @@ func (m *Manager) installSchemas(ctx context.Context, p *Package) error {
 	if len(created) > 0 {
 		m.Audit(ctx, "package.schemas.install", "plugin:"+p.Name, map[string]any{"content_types": created})
 	}
-	m.extendSchemas(ctx, p, cts)
+	if extend {
+		m.extendSchemas(ctx, p, cts)
+	}
 	return nil
 }
 
