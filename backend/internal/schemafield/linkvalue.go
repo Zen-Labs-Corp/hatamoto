@@ -14,13 +14,23 @@ const MaxLinkValue = 2048
 // dot: no IP literal, no single label such as "localhost", no trailing dot.
 var linkHostRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$`)
 
+// numericLabelRe is a label WHATWG URL parsing reads as a number: decimal,
+// octal or hex. A host whose last label is one is an IPv4 address to a browser
+// (0x7f.0x1, 0177.0.0.1, 2130706433), however many labels it has.
+var numericLabelRe = regexp.MustCompile(`^([0-9]+|0[xX][0-9a-fA-F]*)$`)
+
+// linkBannedBytes are printable characters that can end an attribute or open
+// markup wherever a link value is printed, so a link never carries them.
+const linkBannedBytes = "\\<>\"'`"
+
 // linkDefKeys are the only members a plain link field definition may have.
 var linkDefKeys = map[string]bool{"type": true, "format": true, "title": true, "description": true}
 
 // LinkHost reports whether raw is one absolute https link an automatic create
 // may carry in a declared link field, and returns its host. It reads raw byte
 // for byte, without decoding anything: lower-case "https://" and host, at most
-// MaxLinkValue bytes of printable ASCII without a backslash, no user or
+// MaxLinkValue bytes of printable ASCII without a backslash, angle bracket,
+// quote or backtick, no user or
 // password, no port, a dotted host name that is not an IP address in any
 // notation, and no image, audio, video or PDF file name after the host.
 func LinkHost(raw string) (string, bool) {
@@ -29,7 +39,7 @@ func LinkHost(raw string) (string, bool) {
 		return "", false
 	}
 	for i := 0; i < len(raw); i++ {
-		if c := raw[i]; c < 0x21 || c > 0x7e || c == '\\' {
+		if c := raw[i]; c < 0x21 || c > 0x7e || strings.IndexByte(linkBannedBytes, c) >= 0 {
 			return "", false
 		}
 	}
@@ -42,7 +52,7 @@ func LinkHost(raw string) (string, bool) {
 		return "", false
 	}
 	last := authority[strings.LastIndexByte(authority, '.')+1:]
-	if strings.Trim(last, "0123456789") == "" {
+	if numericLabelRe.MatchString(last) {
 		return "", false
 	}
 	if _, err := netip.ParseAddr(authority); err == nil {
