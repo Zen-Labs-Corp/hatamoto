@@ -340,6 +340,7 @@ POST /admin/forms/submissions/bulk anon=303 editor=503 owner=503
 POST /admin/forms/submissions/{sid}/delete anon=303 editor=503 owner=503
 POST /admin/forms/submissions/{sid}/email anon=303 editor=503 owner=503
 POST /admin/forms/submissions/{sid}/status anon=303 editor=503 owner=503
+POST /admin/launch-checklist/hide anon=303 editor=403 owner=303
 POST /admin/login anon=503 editor=503 owner=503
 POST /admin/login/2fa anon=303 editor=303 owner=303
 POST /admin/login/passkey/begin anon=404 editor=404 owner=404

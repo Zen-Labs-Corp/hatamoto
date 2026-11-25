@@ -340,6 +340,7 @@ POST /admin/forms/submissions/bulk anon=303 read-only=403 author=403 contributor
 POST /admin/forms/submissions/{sid}/delete anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/forms/submissions/{sid}/email anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/forms/submissions/{sid}/status anon=303 read-only=403 author=403 contributor=403 reviewer=403
+POST /admin/launch-checklist/hide anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/login anon=503 read-only=503 author=503 contributor=503 reviewer=503
 POST /admin/login/2fa anon=303 read-only=303 author=303 contributor=303 reviewer=303
 POST /admin/login/passkey/begin anon=404 read-only=404 author=404 contributor=404 reviewer=404
