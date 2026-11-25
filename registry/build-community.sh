@@ -716,7 +716,8 @@ reuse_archive() {
   [ -n "${ARCHIVE_DIR:-}" ] || return 0
   for side in "$ARCHIVE_DIR/$name"/"$name"-*.json; do
     [ -f "$side" ] || continue
-    jq -e --arg n "$name" --arg c "$commit" --arg k "$key_id" '.name == $n and .commit == $c and .key_id == $k' "$side" >/dev/null 2>&1 || continue
+    case $side in *.kit.json) continue ;; esac # a kit sharing this name and dir
+    jq -e --arg n "$name" --arg c "$commit" --arg k "$key_id" '.name == $n and .commit == $c and .key_id == $k and ((.kind // "plugin") != "kit")' "$side" >/dev/null 2>&1 || continue
     hmp=${side%.json}.hmp
     [ -f "$hmp" ] || die "$name: archive sidecar $side has no .hmp"
     sum=$(sha256sum "$hmp" | cut -d' ' -f1)
