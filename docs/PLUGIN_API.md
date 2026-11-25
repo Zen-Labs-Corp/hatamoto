@@ -2,6 +2,8 @@
 
 Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.md).
 
+> **0.27.1 changes (additive over 0.27.0).** `standing_approval.schemas` and `standing_approval.create.schemas` accept content type slugs (the `entity_schema` rule `^[a-z]([a-z0-9]|-[a-z0-9]){0,39}$`), so a run can hold a standing approval on a type such as `calendar-event`. `standing_approval.fields` keeps the identifier rule. A 0.27.0 host refuses such a manifest at load, so a plugin that names a dashed slug declares `"sdk": "^0.27.1"`; nothing else changed.
+>
 > **0.27 changes (additive over 0.26).** New: the manifest fields `page_query` (at most 16 keys handed to `render.page`), `page_path_prefixes` (at most 8 path prefixes that narrow `render.page` like `page_paths`), `entity_schema` + `entity_fields` (the one schema a plugin may write); the permissions `client.key`, `entities.write.own` and `comments.moderate`; the host functions `entities.create|update|delete`, `comments.mark_dead|restore|set_rank|set_viewer|by_author|subtree`; the `comment.updated` action and `comment.draft` filter; `commenter_key`, `addr_key` and `net_key` on `PageContext` and `HTTPRequest`. A plugin that relies on any of them declares `^0.27`: an older host ignores the fields and refuses the new permissions. The `comment.draft` filter, `comment.updated` and `commenter_key` are live, and `entities.create|update|delete` are implemented (`unavailable` there means the host has no database). The four moderation functions `comments.mark_dead|restore|set_rank|set_viewer` are live too, with `rank`, `status` and `include_dead` on `comments.thread` (see [Comment moderation](#comment-moderation-sdk-027)), and so are `comments.by_author` and `comments.subtree`. `addr_key`, `net_key` and `area_key` are live too, for plugins granted `client.key`. Treat an `unavailable` answer as "feature off", never as a crash. The new manifest fields and permissions validate and install now. `page_query` and `page_path_prefixes` are read by the host: `render.page` receives `query` and runs on pages under the declared prefixes. The SDK repository carries `v0.27.0` (the earlier `v0.27.0-rc.1` differs from it only in doc comments); the host reports `0.27.0`, so declare `"sdk": "^0.27"`.
 >
 > **Host limits (compat, no SDK change).** Core now bounds what a guest module may declare or do while it is instantiated, and the same checks apply every time a plugin is loaded, at boot included: a module may declare at most 1,048,576 table entries in total (Go guests declare about 8,000) and no duplicate section; the WebAssembly reference-types feature is off (see [Writing a plugin in another language](#writing-a-plugin-in-another-language)); instantiating a module, start section included, must finish within the 5 s start bound; and a protocol message above 4 MiB from the plugin's database fails the call and replaces the connection (results stay capped at 1000 rows and 1 MiB). No manifest field, host function or SDK type changed, and Go `wasip1` plugins, including all first-party ones, are unaffected. An installed plugin that exceeds a limit is not loaded after the upgrade: it is reported with an error (the plugin's status and the server log, for example `tables declare N entries (max 1048576)`), and it loads again once rebuilt within the limits.
@@ -170,13 +172,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.27.0`; plugins built for `^0.5` to `^0.26` still load, unless they request a removed write permission):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.27.1`; plugins built for `^0.5` to `^0.26` still load, unless they request a removed write permission):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.27.0   # before the release: @v0.27.0-rc.1
+go get hatamoto.dev/sdk@v0.27.1
 ```
 
 SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -186,7 +188,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.27.0` is the git tag `v0.27.0`. The core repository stays
+plain release tags: version `0.27.1` is the git tag `v0.27.1`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`), or `--tag v<Version>-rc.N` for a release candidate of the same tree. Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -203,7 +205,7 @@ different repository.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.27 is current (0.27.0).
+> SDK 0.27 is current (0.27.1).
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
@@ -546,7 +548,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 |---|---|
 | `name` | `^[a-z][a-z0-9-]{1,39}$`; equals the directory name. `browse`, `security` and `webhooks` are reserved: a new install under them is refused (the admin serves `/plugins/browse` and `/plugins/security`), while a plugin already installed as `browse` or `security` can still be updated and uninstalled |
 | `version` | the plugin's own semver |
-| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.27.0 and also serves `^0.5` to `^0.26` plugins |
+| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.27.1 and also serves `^0.5` to `^0.26` plugins |
 | `license` | `""` (default) or `"commercial"` (SDK 0.26). A commercial plugin installs and runs only on a host whose edition registered a plugin key (`edition.RegisterPluginKey`), is signed by that key and is entitled (`edition.PluginEntitled`). Declare `"sdk": "^0.26"` or later: an older host ignores the field, so install refuses a range that admits one. A new install refuses any other value (`"Commercial"`, `"MIT"`, an object); a plugin already installed with one keeps loading as a normal plugin, because only the exact string `"commercial"` has meaning when a manifest is loaded |
 | `description` | optional |
 | `config` | string map readable in the guest (`pdk.GetConfig`) |
@@ -794,9 +796,9 @@ Two ways to keep a value current without a review each time.
 |---|---|
 | `cron` | names a declared cron job; required with `standing_approval`, and an error without it |
 | `standing_approval.fields` | attribute keys the run may change, 1 to 16, each matching the identifier pattern, no duplicates |
-| `standing_approval.schemas` | entity schema slugs the rule applies to, 1 to 16, same rules |
+| `standing_approval.schemas` | content type slugs the rule applies to, 1 to 16, each matching the `entity_schema` rule (dashes, no underscores, at most 40 bytes; SDK 0.27.1, declare `^0.27.1` for a dashed slug), no duplicates |
 | `standing_approval.max_per_hour` | most automatic changes an hour; 0 or absent means 200, and more than 200 is refused |
-| `standing_approval.create.schemas` | optional: entity schema slugs whose new entries the run may publish by itself, 1 to 16, each also listed in `standing_approval.schemas` |
+| `standing_approval.create.schemas` | optional: content type slugs whose new entries the run may publish by itself, 1 to 16, same slug rule, each also listed in `standing_approval.schemas` |
 | `standing_approval.create.max_per_hour` | most new entries an hour, 1 to 100; there is no default, so it must be set |
 
 A run with a `standing_approval` takes no `inputs`, and a manifest may have only one such run (the host approves one rule per plugin; a second is refused at load). A cron-started run has no owner to confirm hosts, so its fetch phase may call the manifest's `allowed_hosts` (the owner saw them at install), except the `*` wildcard, which a cron-started run never gets. A manifest with a `standing_approval` may list at most 32 `allowed_hosts` besides `*`. The block is additive: older hosts ignore it, and there is no new host function or permission. Cron, hooks and routes still cannot write content except through `entities.write.own`: to change content on a schedule, use a cron-started run with a standing approval.

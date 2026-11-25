@@ -6,8 +6,8 @@ import (
 )
 
 func TestVersionPinned(t *testing.T) {
-	if Version != "0.27.0" {
-		t.Fatalf("Version = %q, want 0.27.0; changing it is an SDK release decision, update this pin with it", Version)
+	if Version != "0.27.1" {
+		t.Fatalf("Version = %q, want 0.27.1; changing it is an SDK release decision, update this pin with it", Version)
 	}
 }
 

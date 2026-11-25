@@ -147,7 +147,13 @@ package sdk
 // comment.updated action and comment.draft filter; commenter_key, addr_key and
 // net_key on PageContext and HTTPRequest. A plugin that relies on any of them
 // declares ^0.27: an older host ignores the fields and refuses the new permissions.
-const Version = "0.27.0"
+//
+// 0.27.1 is additive over 0.27.0: standing_approval.schemas and
+// standing_approval.create.schemas accept content type slugs (the entity_schema
+// rule, dashes allowed, at most 40 bytes); fields keep the identifier rule. A
+// 0.27.0 host refuses such a manifest, so a plugin that names a dashed slug
+// there declares ^0.27.1.
+const Version = "0.27.1"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.
 // Caret ranges before 1.0 stop at the next minor, so a purely additive minor
