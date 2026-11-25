@@ -75,11 +75,13 @@ A plugin that uses `standing_approval.create.link_fields` declares `^0.28`: an o
 
 A plugin that sends `status` on `changeset.entity.upsert` declares `^0.28.1`: a 0.28.0 host refuses the unknown member. `status` applies when the upsert creates an entry and is ignored for an entry the key already maps to.
 
+A plugin that asks for `comments.identity` declares `^0.29`: an older host refuses the unknown permission.
+
 A plugin that uses `page_query`, `page_path_prefixes`, `entity_schema` or `entity_fields`, or asks for `client.key`, `entities.write.own` or `comments.moderate`, declares `^0.27`: an older host ignores the fields and refuses the permissions.
 
 A plugin that uses `redirect_paths`, the `request.redirect` filter or its `limits.hook_timeouts_ms` key must declare `^0.22`, so that an older host refuses it instead of silently dropping the redirects.
 
-The server serves SDK `0.28.1` (`sdk.Version` in `backend/pkg/sdk/version.go`) and also plugins built for `0.5.0` to `0.28.0` (`sdk.CompatibleWith`). It refuses a plugin whose range contains neither the current version nor one in that list. So `"sdk": "^0.8"` loads because `0.8.0` is in the list. A new plugin declares `^0.11` until your users run Hatamoto `v0.31.0` (the release that ships SDK 0.12.0), then `^0.12`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. Declare `^0.22.2` for the camera: `^0.22` also matches a 0.22.1 host. A plugin that asks for `entities.filter` declares `^0.23`, because an older host refuses the unknown permission name. A plugin that asks for `comments.read` declares `^0.25` for the same reason. A plugin with `"license": "commercial"` declares `^0.26` or later: a host older than 0.26 ignores the field, so install refuses a commercial plugin whose range admits one. (SDK releases are plain `vX.Y.Z` tags in the public SDK repository.)
+The server serves SDK `0.29.0` (`sdk.Version` in `backend/pkg/sdk/version.go`) and also plugins built for `0.5.0` to `0.28.1` (`sdk.CompatibleWith`). It refuses a plugin whose range contains neither the current version nor one in that list. So `"sdk": "^0.8"` loads because `0.8.0` is in the list. A new plugin declares `^0.11` until your users run Hatamoto `v0.31.0` (the release that ships SDK 0.12.0), then `^0.12`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. Declare `^0.22.2` for the camera: `^0.22` also matches a 0.22.1 host. A plugin that asks for `entities.filter` declares `^0.23`, because an older host refuses the unknown permission name. A plugin that asks for `comments.read` declares `^0.25` for the same reason. A plugin with `"license": "commercial"` declares `^0.26` or later: a host older than 0.26 ignores the field, so install refuses a commercial plugin whose range admits one. (SDK releases are plain `vX.Y.Z` tags in the public SDK repository.)
 
 ## Permissions
 
@@ -91,14 +93,15 @@ redirects.read  forms.read  comments.read
 settings  log  mail.send  http.fetch  http.fetch.any  kv  db
 builder.data  builder.island  site.scripts
 entities.filter
-client.key  entities.write.own  comments.moderate
+client.key  entities.write.own  comments.moderate  comments.identity
 ```
 
-Three of them are warning permissions (SDK 0.27, declare `^0.27`):
+Four of them are warning permissions (SDK 0.27, and `comments.identity` from SDK 0.29; declare `^0.27` or `^0.29`):
 
 - `client.key`: pseudonymous keys for each visitor's address and network.
 - `entities.write.own`: creates, edits and deletes entries of the one content type in `entity_schema`, published at once.
 - `comments.moderate`: marks comments on that content type dead or restores them and sets their order.
+- `comments.identity` (SDK 0.29, declare `^0.29`): signs visitors in as commenters with accounts the plugin manages, with no email. Needs `comments.read` and `entity_schema`.
 
 The manifest only lists what the plugin asks for. The owner decides what it gets, and a plugin always loads even with nothing granted.
 
@@ -207,6 +210,7 @@ Older plugins keep working, with these changes to be aware of:
 - **0.16:** the `render.site_graph` filter. Purely additive.
 - **0.17 (breaking, Hatamoto 1.1):** content writes move into runs and changesets. The five `*.write` permissions and the twelve direct write functions (`entities.create`, `entities.update`, `entities.set_status`, `entities.delete`, `terms.save`, `terms.delete`, `menus.save`, `menus.add_item`, `menus.delete_item`, `media.upload`, `redirects.create`, `redirects.delete`) are removed. Added: the `runs` field, the `on_run_step` export, the run, upload, buffer and changeset host functions (see [The host API](host-api.md#runs-and-changesets)) and the error codes `phase_denied` and `not_owned`. A plugin that requests a removed permission is refused at load.
 - **0.18 (additive over 0.17):** `request_headers` and `csp` in `plugin.json`, declared cookies on public routes, `translation_of` on `changeset.entity.upsert`, `caption` and `credit` on `changeset.media.attach`, `changeset.media.alt`, public content reads in the run fetch phase, and content types shipped as `schemas/<name>.json`.
+- **0.29:** `comments.identity` permission, the `comments.identity.ensure` and `comments.identity.revoke` host functions and the `commenter_session` route response field. Purely additive; an older host refuses the permission.
 - **0.28:** `standing_approval.create.link_fields`: up to 8 plain `format: uri` keys that may each hold one `https://` link in an automatic create. Purely additive; an older host ignores the field and such creates wait for review.
 - **0.27:** `page_query` and `page_path_prefixes`: `render.page` gets the first value of each declared query key and is called, uncached, under the declared path prefixes. Purely additive; an older host ignores both fields.
 - **0.24:** the `page_paths` field: a `render.page` plugin is called, and kept out of the page cache, only for the exact paths it declares. Purely additive; an older host ignores it.
