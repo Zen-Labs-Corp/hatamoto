@@ -7,7 +7,7 @@ on nothing but the standard library, never imports Hatamoto core packages, and t
 module has its own `go.mod`.
 
 ```sh
-go get hatamoto.dev/sdk@v0.28.1
+go get hatamoto.dev/sdk@v0.29.0
 ```
 
 Releases are plain `vX.Y.Z` tags of this repository, where `X.Y.Z` is the `Version`
@@ -41,6 +41,7 @@ needs in `plugin.json` (the examples in the core repository declare `^0.8` or `^
 
 | SDK | Change |
 |---|---|
+| 0.29.0 | Additive over 0.28: the permission `comments.identity` (a warning permission; the manifest must also hold `comments.read` and declare `entity_schema`), the host functions `comments.identity.ensure` and `comments.identity.revoke`, and the `commenter_session` field of a public route response, which let a plugin sign visitors in as commenters it vouches for (an account of its own, no email). A plugin that relies on them declares `^0.29`: an older host refuses the unknown permission. Existing plugins are unaffected. |
 | 0.28.1 | Additive over 0.28.0: `changeset.entity.upsert` takes `status` (`draft` or `published`, default draft); a create that a standing approval's create rule allows is published with it, and anywhere else it waits for review. It applies only to a create and is ignored for an entry the key already maps to. A plugin that sends it declares `^0.28.1`, because a 0.28.0 host refuses the unknown member. |
 | 0.28.0 | Additive over 0.27: the manifest field `standing_approval.create.link_fields` (at most 8 top-level keys of plain `format: uri` fields of the create schemas; in an approved run's automatic creates each may hold one strict `https://` link, and the owner sees the fields on the approval line). A plugin that relies on it declares `^0.28`: an older host ignores the field and its creates with links wait for review. |
 | 0.27.1 | Additive over 0.27.0: `standing_approval.schemas` and `standing_approval.create.schemas` accept content type slugs (the `entity_schema` rule: dashes, no underscores, at most 40 bytes) as well as identifiers (what 0.27.0 accepted, for example `calendar_event`); `fields` keep the identifier rule. A plugin that names a dashed slug declares `^0.27.1`, because a 0.27.0 host refuses the manifest. |

@@ -51,7 +51,8 @@ func TestRangeRequiresTerms(t *testing.T) {
 		"^0.26":    true,
 		"^0.27":    true,
 		"^0.28":    true,
-		"^0.29":    false,
+		"^0.29":    true,
+		"^0.30":    false,
 		">=0.19.0": false,
 	} {
 		if got := rangeRequires(rng, compat, termsRequiredSince); got != want {
