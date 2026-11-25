@@ -445,6 +445,20 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 	}
 	unsupported := unsupportedForReview(existing, input) // before the credit and locked-status rewrites below
 
+	// A merge patch becomes the full merged object here, so validation,
+	// sanitising, hooks, ownership and review all see what will be stored.
+	if input.MergeAttributes && input.Attributes != nil {
+		if input.Attributes.Kind() == 'n' {
+			return nil, fmt.Errorf("%w: attributes: null in a merge patch would remove every attribute; send null for each attribute to remove", ErrValidationFailed)
+		}
+		merged, err := MergePatch(existing.Attributes, *input.Attributes)
+		if err != nil {
+			return nil, fmt.Errorf("%w: attributes: %v", ErrValidationFailed, err)
+		}
+		input.Attributes = &merged
+	}
+	input.MergeAttributes = false // resolved: a retry with the same input must not merge again
+
 	// The auto-conversion below fills Attributes when the caller sent none; that
 	// is a machine rewrite, so only caller-sent attributes can hand ownership
 	// over, and they are compared as sent (before sanitising and normalising).
