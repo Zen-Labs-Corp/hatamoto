@@ -1,5 +1,11 @@
 # Release notes
 
+## Unreleased: standing approvals on dashed content types (SDK 0.27.1)
+
+- **Plugin authors.** `standing_approval.schemas` and `standing_approval.create.schemas` now accept content type slugs with dashes (such as `calendar-event`, at most 40 bytes) as well as identifiers (such as `calendar_event`, accepted before). `fields` still take identifiers. Every manifest valid under SDK 0.27.0 stays valid, and an exact `0.27.0` range still loads.
+- **Compatibility.** Additive. A host before this change refuses a manifest that names a dashed slug, so a plugin that does declares `sdk` `^0.27.1`.
+- **Migration.** None. **Rollback floor:** unchanged, but a plugin that declares `^0.27.1` is refused as incompatible by an older binary, so rolling back stops it from loading.
+
 ## Unreleased: render.page page_query and page_path_prefixes (SDK 0.27)
 
 - **Plugin authors.** A `render.page` plugin can declare `page_query` (up to 16 query keys, for example `p`): the payload's `query` then holds the first value of each declared key present, and a value over 256 bytes is dropped. Values are passed as received, so escape them on output. It can also declare `page_path_prefixes` (up to 8, for example `/item/`): the filter runs for every page under a prefix (`/item/<x>`, not `/item`), and a plugin that declares only prefixes is not called elsewhere. `/` and prefixes whose first segment core serves are refused at load and install.

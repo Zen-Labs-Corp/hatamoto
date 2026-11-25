@@ -150,7 +150,8 @@ package sdk
 //
 // 0.27.1 is additive over 0.27.0: standing_approval.schemas and
 // standing_approval.create.schemas accept content type slugs (the entity_schema
-// rule, dashes allowed, at most 40 bytes); fields keep the identifier rule. A
+// rule, dashes allowed, at most 40 bytes) as well as identifiers; fields keep
+// the identifier rule. A
 // 0.27.0 host refuses such a manifest, so a plugin that names a dashed slug
 // there declares ^0.27.1.
 const Version = "0.27.1"

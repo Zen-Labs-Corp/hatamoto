@@ -73,7 +73,7 @@ The 0.26.0 bump is additive over 0.25: the `license` manifest field (`""` or `"c
 
 The 0.27.0 bump is additive over 0.26: the manifest fields `page_query` (at most 16 keys handed to `render.page`), `page_path_prefixes` (at most 8 path prefixes that narrow `render.page` like `page_paths`), `entity_schema` + `entity_fields` (the one schema a plugin may write); the permissions `client.key`, `entities.write.own` and `comments.moderate` (all three warning permissions); the host functions `entities.create|update|delete`, `comments.mark_dead|restore|set_rank|set_viewer|by_author|subtree`; the `comment.updated` action and `comment.draft` filter; `commenter_key`, `addr_key` and `net_key` on `PageContext` and `HTTPRequest`. A plugin that relies on any of them declares `^0.27`: an older host ignores the fields and refuses the new permissions. A host that reports 0.27.0 implements all of them; an `unavailable` answer from one of them means the feature is off on that host (for example, no database), and a plugin must treat it so. The SDK repository carried `v0.27.0-rc.1` so plugins could build against the contract before the release; the final `v0.27.0` differs from it only in doc comments. A 0.27 plugin that declares `page_path_prefixes` or `page_query` on an older host behaves as if they were absent: a `render.page` filter with only prefixes runs unscoped and uncached, as the `page_paths` rule says.
 
-The 0.27.1 bump is additive over 0.27.0: `standing_approval.schemas` and `standing_approval.create.schemas` accept content type slugs (the `entity_schema` rule: dashes, no underscores, at most 40 bytes); `fields` keep the identifier rule. A plugin that names a dashed slug declares `^0.27.1`, because a 0.27.0 host refuses the manifest. Nothing else changed.
+The 0.27.1 bump is additive over 0.27.0: `standing_approval.schemas` and `standing_approval.create.schemas` accept content type slugs (the `entity_schema` rule: dashes, no underscores, at most 40 bytes) as well as identifiers (what 0.27.0 accepted, for example `calendar_event`); `fields` keep the identifier rule. A plugin that names a dashed slug declares `^0.27.1`, because a 0.27.0 host refuses the manifest. Manifests that were valid under 0.27.0 stay valid.
 
 The 0.22.2 bump is additive over 0.22.1: the `ui` manifest block gains `allow` (`camera`), the owner grant `ui.allow:camera` and the page call `hatamoto.camera.capture()`, with `AdminUI.Allow`, `UIAllowCamera`, `PermUICamera`, `ValidGrant` and `Manifest.Asked`. The result shape (`ok`, `image`, `width`, `height`) and the error codes `cancelled`, `denied` and `unavailable` are stable. A host older than 0.22.2 ignores the field and the grant. Only plugins that ask for the camera see a change: `ui.allow:camera` can appear in `permissions[]` and `granted[]` of `/api/v1/plugins`, and in `requested` and `granted` of the `permissions()` host call. Nothing else changed.
 
@@ -125,7 +125,7 @@ SDK version (`sdk.Version`) and every version in `sdk.CompatibleWith`, and refus
 matches none of them.
 
 - Every 0.x SDK minor from 0.5 stays served until SDK 1.0. Today `Version` is `0.27.1` and
-  `CompatibleWith` is `0.5.0` to `0.26.0`. Dropping an entry is a breaking change and is announced like
+  `CompatibleWith` is `0.5.0` to `0.27.0`. Dropping an entry is a breaking change and is announced like
   any other.
 - A newer host serves older ranges. An older host refuses a newer range: a host that serves 0.22 refuses
   a plugin that declares `^0.23`. Declare the oldest range your plugin needs.
