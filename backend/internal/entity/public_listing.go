@@ -47,6 +47,10 @@ type ListFilter struct {
 	// key matches nothing.
 	RangeAttr          string
 	RangeMin, RangeMax *float64
+	// Conds are ANDed with every other field; an invalid key or a value of the
+	// wrong kind matches nothing, and an entity lacking the attribute never
+	// matches (CondNe included).
+	Conds []AttrCond
 	// IncludeScheduled adds scheduled entities (published_at is their date) to
 	// the published ones. Drafts and archived entities never appear.
 	IncludeScheduled bool
@@ -128,6 +132,82 @@ func rangeSQL(f ListFilter, arg func(any) string) []string {
 	return out
 }
 
+// AttrOp is one comparison of an AttrCond.
+type AttrOp uint8
+
+// The comparisons of an AttrCond.
+const (
+	CondEq     AttrOp = iota + 1 // attributes[Key] equals Text (number and boolean spellings too)
+	CondNe                       // the attribute is present and not equal to Text
+	CondLt                       // numeric attribute < Num
+	CondLe                       // numeric attribute <= Num
+	CondGt                       // numeric attribute > Num
+	CondGe                       // numeric attribute >= Num
+	CondDateGe                   // ISO date attribute >= Text (YYYY-MM-DD)
+	CondDateLt                   // ISO date attribute < Text
+	CondDateLe                   // ISO date attribute <= Text
+)
+
+// AttrCond is one condition on a top-level attribute.
+type AttrCond struct {
+	Key  string
+	Op   AttrOp
+	Text string
+	Num  float64
+}
+
+// isoDateRE is the text form of a date attribute and of a date condition value.
+var isoDateRE = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}$`)
+
+// isoDateSQL is the pattern guard of the date comparisons.
+const isoDateSQL = `^[0-9]{4}-[0-9]{2}-[0-9]{2}$`
+
+// condSQL returns the WHERE terms of f.Conds; arg binds a parameter.
+func condSQL(f ListFilter, arg func(any) string) []string {
+	out := make([]string, 0, len(f.Conds))
+	for _, c := range f.Conds {
+		out = append(out, c.sql(arg))
+	}
+	return out
+}
+
+func (c AttrCond) sql(arg func(any) string) string {
+	if !ValidAttrKey(c.Key) {
+		return "FALSE"
+	}
+	switch c.Op {
+	case CondEq, CondNe:
+		has := ""
+		if c.Op == CondNe {
+			has = "e.attributes ? " + arg(c.Key) + "::text AND NOT "
+		}
+		var alts []string
+		for _, doc := range attrContains(c.Key, c.Text) {
+			alts = append(alts, "e.attributes @> "+arg(doc)+"::jsonb")
+		}
+		if len(alts) == 0 {
+			alts = []string{"FALSE"}
+		}
+		match := "(" + strings.Join(alts, " OR ") + ")"
+		if c.Op == CondEq {
+			return match
+		}
+		return "(" + has + match + ")"
+	case CondLt, CondLe, CondGt, CondGe:
+		cmp := map[AttrOp]string{CondLt: " < ", CondLe: " <= ", CondGt: " > ", CondGe: " >= "}[c.Op]
+		k := arg(c.Key)
+		return numericAttrSQL(k) + cmp + arg(c.Num) + "::numeric"
+	case CondDateGe, CondDateLt, CondDateLe:
+		if !isoDateRE.MatchString(c.Text) {
+			return "FALSE"
+		}
+		cmp := map[AttrOp]string{CondDateGe: " >= ", CondDateLt: " < ", CondDateLe: " <= "}[c.Op]
+		k := arg(c.Key)
+		return "(e.attributes->>" + k + "::text ~ '" + isoDateSQL + "' AND e.attributes->>" + k + "::text" + cmp + arg(c.Text) + "::text)"
+	}
+	return "FALSE"
+}
+
 // attrContains are the JSONB documents an attribute equal to v matches.
 func attrContains(key, v string) []string {
 	forms := []any{v}
@@ -193,6 +273,7 @@ func (r *PostgresPublicRepository) ListPublishedFiltered(ctx context.Context, f 
 		}
 	}
 	where = append(where, rangeSQL(f, arg)...)
+	where = append(where, condSQL(f, arg)...)
 	if len(f.SchemaSlugs) > 0 {
 		where = append(where, "s.slug = ANY("+arg(f.SchemaSlugs)+")")
 	}

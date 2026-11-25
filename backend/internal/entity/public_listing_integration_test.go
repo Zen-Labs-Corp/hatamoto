@@ -307,3 +307,55 @@ func TestListPublishedFiltered_RangeAndGroupBuckets(t *testing.T) {
 		t.Errorf("invalid key buckets = %+v", got)
 	}
 }
+
+func TestListPublishedFiltered_AttrConds(t *testing.T) {
+	ctx := context.Background()
+	db := newIntegrationDB(t)
+	schemas := NewPostgresSchemaRepository(db)
+	sch := fmt.Sprintf("tdc-%s", uuid.NewString()[:8])
+	schema, err := schemas.Create(ctx, &CreateSchemaInput{Name: sch, Slug: sch, Schema: jsontext.Value(`{"type":"object","properties":{}}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = schemas.Delete(ctx, schema.ID) })
+	seedAttrs(t, ctx, schemas, schema.ID, "past", "Past", `{"start_date":"2026-03-01","status":"scheduled","seats":10}`, "published")
+	seedAttrs(t, ctx, schemas, schema.ID, "today", "Today", `{"start_date":"2026-03-10","status":"scheduled","seats":20}`, "published")
+	seedAttrs(t, ctx, schemas, schema.ID, "soon", "Soon", `{"start_date":"2026-03-12","status":"scheduled","seats":"30"}`, "published")
+	seedAttrs(t, ctx, schemas, schema.ID, "later", "Later", `{"start_date":"2026-04-20","status":"scheduled"}`, "published")
+	seedAttrs(t, ctx, schemas, schema.ID, "called-off", "Off", `{"start_date":"2026-03-15","status":"cancelled"}`, "published")
+	seedAttrs(t, ctx, schemas, schema.ID, "nodate", "None", `{"status":"scheduled"}`, "published")
+	seedAttrs(t, ctx, schemas, schema.ID, "baddate", "Bad", `{"start_date":"someday","status":"scheduled"}`, "published")
+	seedAttrs(t, ctx, schemas, schema.ID, "draft", "Dr", `{"start_date":"2026-03-11","status":"scheduled"}`, "draft")
+	repo := NewPostgresPublicRepository(db)
+	list := func(conds ...AttrCond) ([]string, int) {
+		t.Helper()
+		items, total, err := repo.ListPublishedFiltered(ctx, ListFilter{SchemaSlugs: []string{sch}, Conds: conds, Order: "attr:start_date"}, 1, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return slugsOf(items), total
+	}
+	from := AttrCond{Key: "start_date", Op: CondDateGe, Text: "2026-03-10"}
+	notOff := AttrCond{Key: "status", Op: CondNe, Text: "cancelled"}
+	if got, total := list(from, notOff); total != 3 || len(got) != 2 || got[0] != "today" || got[1] != "soon" {
+		t.Errorf("from+ne = %v total %d, want [today soon] total 3", got, total)
+	}
+	if got, total := list(from); total != 4 || len(got) != 2 {
+		t.Errorf("from = %v total %d, want total 4", got, total)
+	}
+	if got, total := list(AttrCond{Key: "start_date", Op: CondDateLt, Text: "2026-03-10"}); total != 1 || got[0] != "past" {
+		t.Errorf("before = %v total %d, want [past]", got, total)
+	}
+	if got, total := list(from, AttrCond{Key: "start_date", Op: CondDateLe, Text: "2026-03-12"}); total != 2 || got[1] != "soon" {
+		t.Errorf("window = %v total %d, want [today soon]", got, total)
+	}
+	if _, total := list(AttrCond{Key: "seats", Op: CondGe, Num: 20}); total != 2 {
+		t.Errorf("seats >= 20 matched %d, want 2", total)
+	}
+	if _, total := list(AttrCond{Key: "status", Op: CondEq, Text: "cancelled"}); total != 1 {
+		t.Errorf("status eq matched %d, want 1", total)
+	}
+	if _, total := list(AttrCond{Key: "so rt", Op: CondEq, Text: "x"}); total != 0 {
+		t.Errorf("invalid key matched %d", total)
+	}
+}
