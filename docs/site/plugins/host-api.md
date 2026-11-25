@@ -103,7 +103,7 @@ Every call has a deadline of at most 15 seconds and never longer than the hook c
 | Function | Arguments | Result |
 |---|---|---|
 | `entities.get` | `{ "id" }`, `{ "path" }`, or `{ "slug", "parent_id"?, "schema_slug"? }` (one selector only) | Entity |
-| `entities.list` | `{ "schema_slug"?, "status"?, "search"?, "term"? (`{ "kind", "slug" }`, needs `terms.read`), "limit"? (50, max 200), "cursor"? }` | `{ "items", "next_cursor" }` |
+| `entities.list` | `{ "schema_slug"?, "status"?, "search"?, "term"? (`{ "kind", "slug" }`, needs `terms.read`), "limit"? (default 50, max 200; larger is clamped to 200), "cursor"? (the previous `next_cursor`) }` | `{ "items", "next_cursor" }` (`next_cursor` is null on the last page) |
 | `entities.translations` | `{ "id" }` | `[ { "id", "locale", "status", "path"? } ]`, the entity's translation group ordered by locale, `[]` when it has none or is alone |
 | `terms.list` / `terms.get` | `{ "kind"?, "search"?, "limit"? }` / `{ "kind", "slug" }` | `{ "items", "total" }` / Term |
 | `menus.list` / `menus.get` | `{}` / `{ "slug" }` | menus / menu with items |
