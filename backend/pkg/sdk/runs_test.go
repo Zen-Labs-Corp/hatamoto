@@ -75,6 +75,71 @@ func TestRunsValidate(t *testing.T) {
 			r.StandingApproval = validStanding()
 			r.StandingApproval.Fields = []string{"Price"}
 		}, "bad or duplicate"},
+		{"standing dashed schema", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"calendar-event"}}
+		}, ""},
+		{"standing create dashed schema", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"calendar-event"}}
+			r.StandingApproval.Create = &StandingCreate{Schemas: []string{"calendar-event"}, MaxPerHour: 5}
+		}, ""},
+		{"standing schema 40 chars", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"a" + strings.Repeat("b", 39)}}
+		}, ""},
+		{"standing schema 41 chars", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"a" + strings.Repeat("b", 40)}}
+		}, "schemas: bad or duplicate"},
+		{"standing dashed schema 40 chars", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"a-" + strings.Repeat("b", 38)}}
+		}, ""},
+		{"standing dashed schema 41 chars", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"a-" + strings.Repeat("b", 39)}}
+		}, "schemas: bad or duplicate"},
+		{"standing schema refused 0", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"a_" + strings.Repeat("b", 31)}}
+		}, "schemas: bad or duplicate"},
+		{"standing schema refused 1", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"Calendar-event"}}
+		}, "schemas: bad or duplicate"},
+		{"standing schema refused 2", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"a-"}}
+		}, "schemas: bad or duplicate"},
+		{"standing schema refused 3", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"a--b"}}
+		}, "schemas: bad or duplicate"},
+		{"standing schema refused 4", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"1abc"}}
+		}, "schemas: bad or duplicate"},
+		{"standing underscore schema", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"calendar_event"}}
+		}, ""},
+		{"standing create underscore schema", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"calendar_event"}}
+			r.StandingApproval.Create = &StandingCreate{Schemas: []string{"calendar_event"}, MaxPerHour: 5}
+		}, ""},
+		{"standing create refused uppercase", func(r *Run) { withCreate(r, []string{"Calendar_event"}, 5) }, "create.schemas: bad or duplicate"},
+		{"standing dashed field", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = validStanding()
+			r.StandingApproval.Fields = []string{"unit-price"}
+		}, "fields: bad or duplicate"},
+		{"standing underscore field", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = validStanding()
+			r.StandingApproval.Fields = []string{"unit_price"}
+		}, ""},
 		{"standing cap 201", func(r *Run) {
 			r.Cron = "tick"
 			r.StandingApproval = validStanding()

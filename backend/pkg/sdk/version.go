@@ -147,9 +147,16 @@ package sdk
 // comment.updated action and comment.draft filter; commenter_key, addr_key and
 // net_key on PageContext and HTTPRequest. A plugin that relies on any of them
 // declares ^0.27: an older host ignores the fields and refuses the new permissions.
-const Version = "0.27.0"
+//
+// 0.27.1 is additive over 0.27.0: standing_approval.schemas and
+// standing_approval.create.schemas accept content type slugs (the entity_schema
+// rule, dashes allowed, at most 40 bytes) as well as identifiers; fields keep
+// the identifier rule. A
+// 0.27.0 host refuses such a manifest, so a plugin that names a dashed slug
+// there declares ^0.27.1.
+const Version = "0.27.1"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.
 // Caret ranges before 1.0 stop at the next minor, so a purely additive minor
 // lists its predecessors here. 0.4 plugins were native Go.
-var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0", "0.22.0", "0.22.2", "0.23.0", "0.24.0", "0.25.0", "0.26.0"}
+var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0", "0.22.0", "0.22.2", "0.23.0", "0.24.0", "0.25.0", "0.26.0", "0.27.0"}
