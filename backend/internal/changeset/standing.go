@@ -5,6 +5,7 @@ import (
 	"encoding/json/jsontext"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"reflect"
 	"slices"
@@ -32,6 +33,9 @@ type StandingPolicy struct {
 	Fields     []string
 	Schemas    []string
 	MaxPerHour int
+	// OwnHosts are the site's own hosts (public and preview). A link to one never
+	// qualifies as a link field value; with none known, no link field qualifies.
+	OwnHosts []string
 	// Create, when set, lets the rule publish new entries of its schemas.
 	// Nil keeps the rule update-only.
 	Create *CreatePolicy
@@ -45,6 +49,9 @@ const MaxStandingCreatesPerHour = 100
 type CreatePolicy struct {
 	Schemas    []string
 	MaxPerHour int
+	// LinkFields are top-level keys whose value may be one strict https link
+	// (schemafield.LinkHost).
+	LinkFields []string
 }
 
 // createCap is how many creates an hour the policy allows. There is no
@@ -245,7 +252,7 @@ func (e *Engine) checkPolicyIn(ctx context.Context, tx pgx.Tx, cs changesetRow, 
 		if len(v.Reasons) >= maxPolicyReasons {
 			break
 		}
-		if risks[it.Seq] != string(RiskLow) {
+		if risks[it.Seq].needsLook(p, isCleanCreate(ctx, tx, p, it)) {
 			v.refuse(fmt.Sprintf("Change %d needs a closer look.", it.Seq))
 			continue
 		}
@@ -258,22 +265,37 @@ func (e *Engine) checkPolicyIn(ctx context.Context, tx pgx.Tx, cs changesetRow, 
 
 func (v *PolicyVerdict) refuse(reason string) { v.Reasons = append(v.Reasons, reason) }
 
-func loadRisks(ctx context.Context, tx pgx.Tx, csID int64) (map[int]string, error) {
-	rows, err := tx.Query(ctx, `SELECT seq, COALESCE(risk, '') FROM hatamoto_changeset_items WHERE changeset_id = $1`, csID)
+func loadRisks(ctx context.Context, tx pgx.Tx, csID int64) (map[int]itemRisk, error) {
+	rows, err := tx.Query(ctx, `SELECT seq, COALESCE(risk, ''), COALESCE(risk_reason, '') FROM hatamoto_changeset_items WHERE changeset_id = $1`, csID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read risks: %w", err)
 	}
 	defer rows.Close()
-	out := map[int]string{}
+	out := map[int]itemRisk{}
 	for rows.Next() {
 		var seq int
-		var risk string
-		if err := rows.Scan(&seq, &risk); err != nil {
+		var r itemRisk
+		if err := rows.Scan(&seq, &r.risk, &r.reason); err != nil {
 			return nil, err
 		}
-		out[seq] = risk
+		out[seq] = r
 	}
 	return out, rows.Err()
+}
+
+// itemRisk is the stored class of one item and the reason it is high.
+type itemRisk struct{ risk, reason string }
+
+// needsLook reports whether the class keeps an item out of a standing publish.
+// A new entry whose only link is to a host the site has not linked before is
+// high risk by itself (link_host); under a rule that declares link fields the
+// create checks below decide, and they refuse every link outside those fields.
+func (r itemRisk) needsLook(p StandingPolicy, createLinks bool) bool {
+	if r.risk == string(RiskLow) {
+		return false
+	}
+	return !(createLinks && r.risk == string(RiskHigh) && r.reason == string(ReasonLinkHost) &&
+		p.Create != nil && len(p.Create.LinkFields) > 0)
 }
 
 // checkStandingItem returns why an item is outside the policy, or "".
@@ -560,7 +582,7 @@ func checkCreateItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it Stored
 	if reason := checkCreateText(pl); reason != "" {
 		return reason
 	}
-	if reason := checkCreateAttributes(ctx, tx, schemaDoc, pl.Attributes); reason != "" {
+	if reason := checkCreateAttributes(ctx, tx, schemaDoc, pl.Attributes, p); reason != "" {
 		return reason
 	}
 	if it.SourceKey != "" {
@@ -686,7 +708,7 @@ func checkCreateText(pl entityPayload) string {
 // a non-empty value in a field the schema marks as an image or file, in a
 // key the schema does not declare, or in a field it cannot classify; and one
 // whose strings carry image markup.
-func checkCreateAttributes(ctx context.Context, tx rowQuerier, schemaDoc []byte, raw jsontext.Value) string {
+func checkCreateAttributes(ctx context.Context, tx rowQuerier, schemaDoc []byte, raw jsontext.Value, p StandingPolicy) string {
 	attrs, ok := decodeObject(raw)
 	if !ok {
 		return "its values could not be read."
@@ -760,11 +782,43 @@ func checkCreateAttributes(ctx context.Context, tx rowQuerier, schemaDoc []byte,
 	}
 	// An automatic create carries no link, path or file at all, whatever the
 	// field: the renderers turn plain values into pictures and links by name,
-	// by suffix and by host, so the only safe rule is the blunt one.
-	if slices.ContainsFunc(strs, schemafield.LooksLikeURLOrPath) {
+	// by suffix and by host, so the only safe rule is the blunt one. The one
+	// exception is a declared link field holding a strict https link to another
+	// site; it still went through every check above.
+	rest := strs
+	if linkOK := declaredLinks(attrs, props, aliased, p); len(linkOK) > 0 {
+		trimmed := maps.Clone(attrs)
+		for k := range linkOK {
+			delete(trimmed, k)
+		}
+		rest = nil
+		collectStrings(trimmed, &rest)
+	}
+	if slices.ContainsFunc(rest, schemafield.LooksLikeURLOrPath) {
 		return "it carries links, paths or files, which need your review."
 	}
 	return ""
+}
+
+// declaredLinks returns the top-level keys of a create that may hold a link:
+// declared by the approved policy, a plain uri field in the live schema, not an
+// image alias, holding one strict https link to a host other than the site's own.
+// With no own host known nothing qualifies.
+func declaredLinks(attrs, props map[string]any, aliased map[string]bool, p StandingPolicy) map[string]bool {
+	if p.Create == nil || len(p.OwnHosts) == 0 {
+		return nil
+	}
+	ok := map[string]bool{}
+	for _, k := range p.Create.LinkFields {
+		s, isStr := attrs[k].(string)
+		if !isStr || s == "" || aliased[k] || !schemafield.LinkFieldDef(k, props[k]) {
+			continue
+		}
+		if h, valid := schemafield.LinkHost(s); valid && !schemafield.SameSiteHost(h, p.OwnHosts) {
+			ok[k] = true
+		}
+	}
+	return ok
 }
 
 // collectStrings gathers every string value and every map key at any depth,

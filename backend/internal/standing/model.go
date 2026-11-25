@@ -30,6 +30,8 @@ type Policy struct {
 type CreatePolicy struct {
 	Schemas    []string `json:"schemas"`
 	MaxPerHour int      `json:"max_per_hour"`
+	// LinkFields are the top-level keys the rule lets hold one https link.
+	LinkFields []string `json:"link_fields,omitempty"`
 }
 
 // Fingerprint identifies what the owner approved: the plugin release, its
