@@ -101,8 +101,11 @@ func TestEmailProtectIdentity(t *testing.T) {
 
 // literalAddrOutsideSkips returns a text token of page that still holds an
 // address while it sits outside head, code, scripts and the other skip tags.
+// Each skip tag has its own depth, so a stray end tag of another skip tag
+// (</script> inside <pre>) does not end the skipped region.
 func literalAddrOutsideSkips(page []byte) string {
 	z := html.NewTokenizer(bytes.NewReader(page))
+	var depth [len(emailSkipTags)]int
 	skip, inHead, rawNext := 0, false, false
 	for {
 		tt := z.Next()
@@ -116,8 +119,9 @@ func literalAddrOutsideSkips(page []byte) string {
 			if string(name) == "head" && tt == html.StartTagToken {
 				inHead = true
 			}
-			if skipIndex(name) >= 0 {
+			if i := skipIndex(name); i >= 0 {
 				if tt == html.StartTagToken {
+					depth[i]++
 					skip++
 				} else {
 					rawNext = emailRawText[string(name)]
@@ -128,7 +132,8 @@ func literalAddrOutsideSkips(page []byte) string {
 			if string(name) == "head" {
 				inHead = false
 			}
-			if skipIndex(name) >= 0 && skip > 0 {
+			if i := skipIndex(name); i >= 0 && depth[i] > 0 {
+				depth[i]--
 				skip--
 			}
 		case html.TextToken:
@@ -152,6 +157,7 @@ func FuzzProtectEmails(f *testing.F) {
 	f.Add(wrap(`<pre>a@b.org<p>c@d.org`))
 	f.Add(wrap(`<p>&ampfoo@x.org &lt;a@b.org&gt; logo@2x.png</p>`))
 	f.Add(wrap(`<svg><title/></svg><script>"a@b.org"</script><p>c@d.org</p>`))
+	f.Add(`<pre></sCript >0@0.AA0`) // a stray end tag of another skip tag keeps <pre> open
 	f.Fuzz(func(t *testing.T, s string) {
 		out := protectEmails([]byte(s))
 		if !emailAddr.MatchString(s) && !containsFold([]byte(s), "mailto") {
