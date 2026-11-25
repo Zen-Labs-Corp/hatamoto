@@ -273,3 +273,25 @@ func TestStepTimeout(t *testing.T) {
 		}
 	}
 }
+
+// A finished, failed or cancelled run still shows the last message its plugin set.
+func TestRunProgressEndStateMessage(t *testing.T) {
+	t.Parallel()
+
+	cancelled := runView("failed", "fetch")
+	cancelled.Reason = "cancelled"
+	for name, rv := range map[string]RunView{"finished": runView("finished", "transform"), "failed": runView("failed", "fetch"), "cancelled": cancelled} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			rv.Message = "Imported 87 events, 13 skipped (duplicates)"
+			g, _, _, _ := newRunsRig(t, rv)
+			rec := g.do("GET", "/admin/plugins/hello/runs/"+rv.ID.String(), "owner-token", nil, nil)
+			if rec.Code != 200 {
+				t.Fatalf("detail: %d", rec.Code)
+			}
+			if !strings.Contains(rec.Body.String(), `role="status">Imported 87 events, 13 skipped (duplicates)</p>`) {
+				t.Error("the run page shows the last progress message")
+			}
+		})
+	}
+}
