@@ -299,8 +299,8 @@ The comment is left out when the entity has **Include in /llms.txt** switched of
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `page` | `1` | Page number. Values below 1 are ignored. |
-| `per_page` | `50` | Items per page, 1 to 100. A value outside that range is ignored and 50 is used. |
+| `page` | `1` | Page number, 1 or more. Anything else is answered with `400`. |
+| `per_page` | `50` | Items per page, 1 to 100. A larger number is clamped to 100; zero, a negative number or text is answered with `400`. |
 | `schema` | none | Only entities of this content type slug. |
 
 `_meta` holds `total`, `page`, `per_page`, `total_pages` and `has_next`. The feed honours the same opt-out as `llms.txt`. With `?schema=` the opt-out is applied after paging, so a page can hold fewer items than `per_page` and `total` counts the opted-out entities too.

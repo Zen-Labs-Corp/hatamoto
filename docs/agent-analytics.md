@@ -449,7 +449,8 @@ admin) unless noted. Errors are `{"error": "..."}`; arrays are never `null`; no
 response contains an IP (the spoof log returns `ip_masked`, the /24 or /48
 network). Date range: `from`/`to` as `YYYY-MM-DD` (UTC, inclusive, default last
 30 days, max span 366 days); paged endpoints take `page` and `per_page`
-(default 50, max 200). "AI" means the purposes training, search_index,
+(default 50, max 200; a larger `per_page` is clamped, and a value that is not a
+whole number in range, a `page` over 10000 or `limit` is answered with 400). "AI" means the purposes training, search_index,
 user_fetch and other_ai. Counts come from the daily rollup, so they are complete
 for any range even though raw hits live ~90 days. The response shapes are pinned by
 the handlers in `backend/internal/agents/admin_handlers.go`.

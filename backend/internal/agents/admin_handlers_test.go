@@ -215,9 +215,15 @@ func TestAdminPerPageCap(t *testing.T) {
 	if f.gotPage.Limit != 200 || f.gotPage.Offset != 400 {
 		t.Errorf("page = %+v, want limit 200 offset 400", f.gotPage)
 	}
-	get(t, h, "/spoofed?per_page=abc&page=0")
+	get(t, h, "/spoofed")
 	if f.gotPage.Limit != 50 || f.gotPage.Offset != 0 {
 		t.Errorf("defaults = %+v", f.gotPage)
+	}
+	// A value it cannot honour is refused, not replaced by the default.
+	for _, u := range []string{"/spoofed?per_page=abc", "/spoofed?page=0", "/errors?page=10001", "/errors?limit=5"} {
+		if rr := get(t, h, u); rr.Code != http.StatusBadRequest {
+			t.Errorf("%s: %d, want 400", u, rr.Code)
+		}
 	}
 }
 

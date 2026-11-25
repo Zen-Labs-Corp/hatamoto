@@ -4,7 +4,6 @@ import (
 	"encoding/json/jsontext"
 	"errors"
 	"net/http"
-	"net/url"
 	"reflect"
 	"strconv"
 
@@ -12,6 +11,7 @@ import (
 	"hatamoto.dev/core/authz"
 	"hatamoto.dev/core/internal/agentpolicystate"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/middleware"
 )
 
@@ -162,35 +162,15 @@ func (s *Server) handleDeleteSchema(w http.ResponseWriter, r *http.Request) {
 
 // --- Entity Handlers ---
 
-// entityListLimit reads the limit parameter of the entities list: absent gives
-// 0, a positive integer gives itself (clamped to the 100 cap), and anything
-// else is refused instead of silently falling back to the default.
-func entityListLimit(q url.Values) (int, bool) {
-	limitStr := q.Get("limit")
-	if limitStr == "" {
-		return 0, true
-	}
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit < 1 {
-		return 0, false
-	}
-	if limit > 100 {
-		limit = 100
-	}
-	return limit, true
-}
-
 // handleListEntities returns entities with filtering and pagination.
 // Supports both offset pagination (page param) and keyset pagination (cursor param).
 func (s *Server) handleListEntities(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	if q.Has("per_page") {
-		writeError(w, http.StatusBadRequest, "unknown parameter per_page; use limit")
-		return
-	}
-	limit, ok := entityListLimit(q)
-	if !ok {
-		writeError(w, http.StatusBadRequest, "invalid limit")
+	// limit 0 (absent) leaves the service's default of 20.
+	pp := httpx.NewPaging(q, 0)
+	limit := pp.Size("limit", "per_page", 0)
+	if pp.Err() != nil {
+		writeError(w, http.StatusBadRequest, pp.Err().Error())
 		return
 	}
 
@@ -594,11 +574,11 @@ func (s *Server) handleListEntityVersions(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	limit := 50
-	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
-			limit = l
-		}
+	pp := httpx.NewPaging(r.URL.Query(), 0)
+	limit := pp.Size("limit", "per_page", 50)
+	if pp.Err() != nil {
+		writeError(w, http.StatusBadRequest, pp.Err().Error())
+		return
 	}
 
 	versions, err := s.entityService.ListVersions(r.Context(), id, limit)

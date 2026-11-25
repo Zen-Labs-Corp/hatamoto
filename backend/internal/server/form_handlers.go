@@ -22,6 +22,7 @@ import (
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/form"
+	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/spam"
 	"hatamoto.dev/core/internal/user"
@@ -206,16 +207,12 @@ func (s *Server) handleListFormSubmissions(w http.ResponseWriter, r *http.Reques
 		Status: r.URL.Query().Get("status"),
 	}
 
-	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
-			params.Limit = limit
-		}
-	}
-
-	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
-		if offset, err := strconv.Atoi(offsetStr); err == nil && offset >= 0 {
-			params.Offset = offset
-		}
+	pp := httpx.NewPaging(r.URL.Query(), 0)
+	params.Limit = pp.Size("limit", "per_page", 50)
+	params.Offset = pp.Offset("offset")
+	if pp.Err() != nil {
+		writeError(w, http.StatusBadRequest, pp.Err().Error())
+		return
 	}
 
 	submissions, total, err := s.formService.ListSubmissions(r.Context(), formID, params)

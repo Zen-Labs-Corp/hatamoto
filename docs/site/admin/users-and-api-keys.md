@@ -131,6 +131,7 @@ Read the entry again, redo the change and retry. The check is atomic with the wr
 ### Entries over the API
 
 - `GET /api/v1/entities` answers 20 entries per page. `?limit=` takes 1 to 100 and clamps a larger number to 100; `?page=` walks the pages. `per_page` is refused, the parameter is `limit`.
+- Every other list follows the same rules for its page size: media (`limit`, default 50), entry versions (`limit`, 50), form submissions (`limit`, 50), section templates (`limit`, 20), redirects and the 404 log (`per_page`, 50), link rules (`per_page`) and the public knowledge graph (`per_page`, 50). A size over 100 is clamped to 100, and the answer's `limit` or `per_page` shows the size used. A size or `offset` that is not a whole number in range, a `page` below 1, or the other spelling of the size (`per_page` where the list takes `limit`, or the reverse) is answered with `400` and a message naming the parameter, never replaced by the default.
 - An entry's `status` changes only through `PATCH /api/v1/entities/{id}/status`. A `status` member in a create or update body is refused rather than ignored.
 
 ### Turn on two-step sign-in
