@@ -269,7 +269,7 @@ func (a *Admin) handleCommenters(w http.ResponseWriter, r *http.Request) {
 	back := "?back=" + url.QueryEscape(here)
 	t := ui.Table{
 		ID: "commenters", Caption: "Commenters", BaseURL: base, CSRF: csrfToken(r.Context()),
-		Columns: []ui.Col{{Key: "name", Label: "Name", Role: "title"}, {Key: "trust", Label: "Trust"}, {Key: "approved", Label: "Approved", Role: "num"}, {Key: "seen", Label: "Last seen"}},
+		Columns: []ui.Col{{Key: "name", Label: "Name", Role: "title"}, {Key: "identity", Label: "Identity"}, {Key: "trust", Label: "Trust"}, {Key: "approved", Label: "Approved", Role: "num"}, {Key: "seen", Label: "Last seen"}},
 		Query:   q, SearchLabel: "Search commenters",
 		Empty: ui.Empty{Icon: "users", Title: "No commenters", Body: "People who comment on your site show up here."},
 	}
@@ -291,7 +291,7 @@ func (a *Admin) handleCommenters(w http.ResponseWriter, r *http.Request) {
 		acts = append(acts,
 			ui.Action{Label: "Comments", Href: a.adminPath + "/comments?" + url.Values{"status": {"approved"}, "commenter": {c.ID}}.Encode()},
 			ui.Action{Label: "Sign out all devices", Href: act + "/signout" + back, Post: act + "/signout" + back, ConfirmLabel: "Sign out",
-				Confirm: "Sign this commenter out on every device? They confirm their email again next time. Their trust level stays."},
+				Confirm: "Sign this commenter out on every device? They sign in again next time. Their trust level stays."},
 		)
 		if privacy {
 			acts = append(acts, ui.Action{Label: "Export", Href: act + "/export"})
@@ -303,8 +303,12 @@ func (a *Admin) handleCommenters(w http.ResponseWriter, r *http.Request) {
 		if privacy {
 			acts = append(acts, ui.Action{Label: "Erase", Href: act + "/erase", Danger: true})
 		}
+		identity := "Email"
+		if c.Origin != "" {
+			identity = "plugin: " + c.Origin
+		}
 		t.Rows = append(t.Rows, ui.Row{ID: c.ID, Label: "commenter " + name, Cells: []ui.Cell{
-			{Text: name}, {Badge: cmtrTrustBadge(c.Trust)}, {Text: strconv.Itoa(c.ApprovedCount)}, {Text: seen, Nowrap: true},
+			{Text: name}, {Text: identity}, {Badge: cmtrTrustBadge(c.Trust)}, {Text: strconv.Itoa(c.ApprovedCount)}, {Text: seen, Nowrap: true},
 		}, Actions: acts})
 	}
 	d := cmtrCommentersData{Table: t}
@@ -388,7 +392,7 @@ func (a *Admin) handleCommenterAction(w http.ResponseWriter, r *http.Request) {
 // the confirm page is the same question without JS.
 var cmtrConfirms = map[string]struct{ Title, Body, Label string }{
 	"block":   {"Block commenter", "Block this commenter? Their comments will be held and never shown.", "Block commenter"},
-	"signout": {"Sign out all devices", "Sign this commenter out on every device? They confirm their email again next time. Their trust level stays.", "Sign out"},
+	"signout": {"Sign out all devices", "Sign this commenter out on every device? They sign in again next time. Their trust level stays.", "Sign out"},
 }
 
 type cmtrConfirmData struct{ Title, Body, Label, Action, Back string }

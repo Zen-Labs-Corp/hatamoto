@@ -794,7 +794,7 @@ func (a commentsAdmin) Commenters(ctx context.Context, q string, page int) (admi
 		pattern = "%" + commentLikeEscaper.Replace(q) + "%"
 	}
 	offset := (max(page, 1) - 1) * commentersPageSize
-	rows, err := a.db.Pool().Query(ctx, `SELECT cm.id, cm.trust_level, cm.approved_count, cm.last_seen_at, latest.author_name
+	rows, err := a.db.Pool().Query(ctx, `SELECT cm.id, cm.trust_level, cm.approved_count, cm.last_seen_at, latest.author_name, coalesce(cm.origin_plugin, '')
 		FROM hatamoto_commenters cm
 		JOIN LATERAL (SELECT author_name FROM hatamoto_comments c
 			WHERE c.commenter_id = cm.id AND c.status <> 'draft'
@@ -810,7 +810,7 @@ func (a commentsAdmin) Commenters(ctx context.Context, q string, page int) (admi
 	for rows.Next() {
 		var id uuid.UUID
 		var r admin.CommenterRow
-		if err := rows.Scan(&id, &r.Trust, &r.ApprovedCount, &r.LastSeen, &r.Name); err != nil {
+		if err := rows.Scan(&id, &r.Trust, &r.ApprovedCount, &r.LastSeen, &r.Name, &r.Origin); err != nil {
 			return admin.CommenterPage{}, err
 		}
 		r.ID = id.String()
@@ -922,31 +922,9 @@ func sortedKeys(m map[string]bool) []string {
 
 // --- privacy ------------------------------------------------------------------------
 
-// commenterEmail opens a commenter's sealed address; it is the only place the
-// email is read.
-func (a commentsAdmin) commenterEmail(ctx context.Context, commenterID string) (string, error) {
-	id, err := uuid.Parse(commenterID)
-	if err != nil {
-		return "", admin.ErrCommentNotFound
-	}
-	var hash string
-	var sealed []byte
-	err = a.db.Pool().QueryRow(ctx, `SELECT email_hash, email_sealed FROM hatamoto_commenters WHERE id = $1`, id).Scan(&hash, &sealed)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", admin.ErrCommentNotFound
-	}
-	if err != nil {
-		return "", err
-	}
-	email, ok := a.svc.Keys().OpenEmail(sealed, hash)
-	if !ok {
-		return "", errors.New("email unreadable (server secret changed)")
-	}
-	return email, nil
-}
-
 type commenterExport struct {
 	Email         string          `json:"email"`
+	OriginPlugin  string          `json:"origin_plugin,omitempty"`
 	Trust         string          `json:"trust"`
 	ApprovedCount int             `json:"approved_count"`
 	CreatedAt     time.Time       `json:"created_at"`
@@ -988,16 +966,16 @@ func utcPtr(t *time.Time) *time.Time {
 }
 
 func (a commentsAdmin) ExportCommenter(ctx context.Context, commenterID string) ([]byte, error) {
-	email, err := a.commenterEmail(ctx, commenterID)
+	id, err := uuid.Parse(commenterID)
 	if err != nil {
-		return nil, err
+		return nil, admin.ErrCommentNotFound
 	}
-	ex, err := a.svc.ExportByEmail(ctx, email)
+	ex, err := a.svc.ExportByID(ctx, id)
 	if err != nil {
 		return nil, mapCommentErr(err)
 	}
 	out := commenterExport{
-		Email: email, Trust: string(ex.Commenter.Trust), ApprovedCount: ex.Commenter.ApprovedCount,
+		Email: ex.Email, OriginPlugin: ex.Commenter.OriginPlugin, Trust: string(ex.Commenter.Trust), ApprovedCount: ex.Commenter.ApprovedCount,
 		CreatedAt: ex.Commenter.CreatedAt.UTC(), LastSeenAt: ex.Commenter.LastSeenAt.UTC(),
 		Comments: make([]exportComment, 0, len(ex.Comments)),
 	}
@@ -1024,11 +1002,11 @@ func (a commentsAdmin) ExportCommenter(ctx context.Context, commenterID string) 
 }
 
 func (a commentsAdmin) EraseCommenter(ctx context.Context, commenterID string) (int, int, error) {
-	email, err := a.commenterEmail(ctx, commenterID)
+	id, err := uuid.Parse(commenterID)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, admin.ErrCommentNotFound
 	}
-	res, err := a.svc.EraseByEmail(ctx, email)
+	res, err := a.svc.EraseByID(ctx, id)
 	if err != nil {
 		return 0, 0, mapCommentErr(err)
 	}
