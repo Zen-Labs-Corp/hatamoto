@@ -5,6 +5,7 @@ package server
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -223,6 +224,33 @@ func TestMCPIntegration(t *testing.T) {
 	if upd["name"] != "MCP Page v2 "+sfx {
 		t.Errorf("update: %v", upd)
 	}
+
+	// Versions: list, read and restore, tagged with the key's name.
+	vl := mustCall(rw, "entities_versions", map[string]any{"id": id})
+	vrows, _ := vl["versions"].([]any)
+	if len(vrows) == 0 || vl["total"].(float64) < 1 || vl["current_version"] == nil {
+		t.Fatalf("versions: %v", vl)
+	}
+	first := vrows[0].(map[string]any)
+	if first["changed_by"] != "mcp-"+sfx+"@example.test" {
+		t.Errorf("changed_by = %v", first["changed_by"])
+	}
+	if _, has := first["attributes"]; has {
+		t.Error("version list carries attributes")
+	}
+	vget := mustCall(rw, "entities_version_get", map[string]any{"id": id, "version": first["version"]})
+	if vget["attributes"] == nil {
+		t.Errorf("version_get: %v", vget)
+	}
+	restored := mustCall(rw, "entities_restore", map[string]any{"id": id, "version": first["version"], "expected_version": vl["current_version"]})
+	if restored["id"] != id {
+		t.Errorf("restore: %v", restored)
+	}
+	vl = mustCall(rw, "entities_versions", map[string]any{"id": id})
+	if sum := vl["versions"].([]any)[0].(map[string]any)["change_summary"]; sum != fmt.Sprintf("[mcp:rw%s] Restored from version %v", sfx, first["version"]) {
+		t.Errorf("restore summary = %v", sum)
+	}
+
 	pub := mustCall(rw, "entities_publish", map[string]any{"id": id})
 	if pub["status"] != "published" || pub["url"] != "/mcp-page-"+sfx {
 		t.Errorf("publish: %v", pub)
@@ -397,6 +425,7 @@ func TestMCPIntegration(t *testing.T) {
 		"entities_create":        map[string]any{"schema": schemaSlug, "name": "nope"},
 		"entities_publish":       map[string]any{"id": id},
 		"entities_unpublish":     map[string]any{"id": id},
+		"entities_restore":       map[string]any{"id": id, "version": 1},
 		"redirects_create":       map[string]any{"source_path": "/a", "target_url": "/b"},
 		"terms_create":           map[string]any{"kind": "tag", "name": "x"},
 		"media_upload":           map[string]any{"filename": "a.png", "data_base64": "AA=="},
@@ -419,7 +448,7 @@ func TestMCPIntegration(t *testing.T) {
 	if err := db.Pool().QueryRow(ctx, `SELECT count(*), count(*) FILTER (WHERE NOT ok) FROM hatamoto_mcp_audit WHERE api_key_name LIKE $1`, "%"+sfx).Scan(&calls, &failed); err != nil {
 		t.Fatal(err)
 	}
-	if calls < 30 || failed < 7 {
+	if calls < 33 || failed < 8 {
 		t.Errorf("audit rows: %d calls, %d failed", calls, failed)
 	}
 	var args string
