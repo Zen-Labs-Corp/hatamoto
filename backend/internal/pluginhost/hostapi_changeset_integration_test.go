@@ -302,3 +302,63 @@ func TestRunEntityReadsPublishedOnly(t *testing.T) {
 		t.Fatalf("list in a run: %+v", list.Items)
 	}
 }
+
+// A requested status reaches the staged payload and publishes only under a
+// create rule that lists the schema.
+func TestChangesetFnsEntityStatusUnderPolicy(t *testing.T) {
+	stage := func(r *csRig, k, status string) {
+		r.mustCall(sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: r.key(k), Schema: r.schema, Slug: r.key(k),
+			Name: "N", Attributes: jsontext.Value(`{"content":"x"}`), Status: status})
+	}
+	pol := func(r *csRig, schemas ...string) changeset.StandingPolicy {
+		return changeset.StandingPolicy{Plugin: r.rc.Plugin, Schemas: []string{r.schema},
+			Create: &changeset.CreatePolicy{Schemas: schemas, MaxPerHour: 10}}
+	}
+	t.Run("payload", func(t *testing.T) {
+		r := newCSRig(t)
+		stage(r, "pub", "published")
+		stage(r, "dflt", "")
+		q := `SELECT count(*) FROM hatamoto_changeset_items WHERE changeset_id = $1 AND source_key = $2 AND payload->>'status' IS NOT DISTINCT FROM $3`
+		if n := r.count(q, r.cs, r.key("pub"), "published"); n != 1 {
+			t.Errorf("published item payload has no status published")
+		}
+		if n := r.count(`SELECT count(*) FROM hatamoto_changeset_items WHERE changeset_id = $1 AND source_key = $2 AND NOT payload ? 'status'`, r.cs, r.key("dflt")); n != 1 {
+			t.Errorf("default item payload carries a status key")
+		}
+	})
+	t.Run("listed_publishes", func(t *testing.T) {
+		r := newCSRig(t)
+		stage(r, "pub", "published")
+		v, _, err := r.eng.PublishUnderPolicy(context.Background(), r.cs, pol(r, r.schema), 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !v.OK {
+			t.Fatalf("%+v", v)
+		}
+		if n := r.count(`SELECT count(*) FROM hatamoto_entities WHERE slug = $1 AND status = 'published'`, r.key("pub")); n != 1 {
+			t.Fatalf("published entities = %d, want 1", n)
+		}
+	})
+	t.Run("unlisted_stays", func(t *testing.T) {
+		r := newCSRig(t)
+		stage(r, "pub", "published")
+		v, _, err := r.eng.PublishUnderPolicy(context.Background(), r.cs, pol(r, "other-"+r.tag), 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if v.OK {
+			t.Fatalf("a schema the rule does not list was published: %+v", v)
+		}
+		if n := r.entities(); n != 0 {
+			t.Fatalf("entities = %d, want 0", n)
+		}
+	})
+	t.Run("no_approval_stays", func(t *testing.T) {
+		r := newCSRig(t)
+		stage(r, "pub", "published")
+		if n := r.entities(); n != 0 {
+			t.Fatalf("entities = %d before any publish, want 0", n)
+		}
+	})
+}
