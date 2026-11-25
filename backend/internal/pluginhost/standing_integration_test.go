@@ -81,7 +81,7 @@ func newCronRig(t *testing.T) *cronRig {
 		Permissions: []sdk.Permission{sdk.PermHTTPFetch, sdk.PermHTTPFetchAny}, AllowedHosts: []string{feedURL.Host, "*"},
 		Cron: []sdk.CronJob{{Name: "tick", Every: "1h"}},
 		Runs: []sdk.Run{{Name: "sync", Title: "Sync", Stages: []string{sdk.RunPhaseFetch, sdk.RunPhaseTransform},
-			Cron: "tick", StandingApproval: &sdk.StandingApproval{Fields: []string{"price"}, Schemas: []string{"product"}}}}}
+			Cron: "tick", StandingApproval: &sdk.StandingApproval{Fields: []string{"price"}, Schemas: []string{"calendar-event"}}}}}
 	if err := m.Validate(); err != nil {
 		t.Fatal(err)
 	}
