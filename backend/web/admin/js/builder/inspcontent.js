@@ -74,6 +74,16 @@ export function createContent(ctx) {
 
   const setProp = (id, key, value, opts = {}) => commit([{ op: "setProp", id, key, value }], { label: `Change ${propName(key)}`, ...opts });
 
+  /** The ops for a change of a loop's From, Schema or Context: the sort and filters belong to the schema (and a query loop) they were set for, so they clear in the same step.
+   * base: the loop's props before the change (the ones a typing run started with); while the run is on, they are written back or cleared again as the value changes. */
+  const loopOps = (node, key, value, base) => {
+    const ops = [{ op: "setProp", id: node.id, key, value }];
+    if (node.t !== "loop" || !["from", "schema", "context"].includes(key) || !(base?.order_by || base?.filters)) return ops;
+    const stale = staleAfterSchemaChange(base, { ...base, [key]: value });
+    for (const k of ["order_by", "filters"]) ops.push({ op: "setProp", id: node.id, key: k, value: stale ? null : base[k] ?? null });
+    return ops;
+  };
+
   function propField(node, p) {
     const field = baseField(node, p);
     field.dataset.prop = p.key;
@@ -153,6 +163,7 @@ export function createContent(ctx) {
     const name = contact?.name ?? (p.accept === "document" ? "Document" : propName(p.key));
     const err = h("span", { class: "hm-bs-err", id: `${id}-e`, hidden: true, text: "A value is required." });
     let el;
+    let run = null; // a typing run's start: the loop's props when the field took focus, and its undo session
     const extra = [];
     const kind = controlOf(p);
     if (kind === "richtext") return richField(node, p, id, name);
@@ -160,7 +171,7 @@ export function createContent(ctx) {
       const sw = switchRow(id, name);
       el = sw.input;
       el.checked = cur === true;
-      el.addEventListener("change", () => setProp(node.id, p.key, el.checked ? true : null));
+      el.addEventListener("change", () => commit(loopOps(node, p.key, el.checked ? true : null, find(api.getDoc(), node.id)?.p), { label: `Change ${propName(p.key)}` }));
       return h("div", { class: "hm-field hm-bs-field hm-bs-field--check" }, sw.label);
     }
     const apply = (raw, opts) => {
@@ -180,7 +191,10 @@ export function createContent(ctx) {
       else if (p.key === "tag" && node.t === "container" && (value === null || value === "div") && cur().aria && !cur().href && !find(api.getDoc(), node.id)?.b?.href) {
         // a plain div takes no accessible name: drop the one it had in the same step
         commit([{ op: "setProp", id: node.id, key: "tag", value }, { op: "setProp", id: node.id, key: "aria", value: null }], { label: "Change HTML tag", ...opts });
-      } else setProp(node.id, p.key, value, { label: `Change ${name}`, ...opts });
+      } else {
+        const ops = loopOps(node, p.key, value, run?.base ?? cur());
+        commit(ops, { label: `Change ${name}`, ...opts, ...(run && ops.length > 1 ? { coalesce: run.session } : {}) });
+      }
     };
     if (node.t === "columns" && p.key === "count") {
       // the count and the child containers change together (columnsops.js): empty ones are added or removed, never content
@@ -281,6 +295,10 @@ export function createContent(ctx) {
         extra.push(h("span", { class: "hm-muted", id: `${id}-h`, text: contact.help }));
       }
       el.value = cur ?? "";
+      if (node.t === "loop" && p.key === "schema") {
+        el.addEventListener("focus", () => (run = { base: find(api.getDoc(), node.id)?.p ?? {}, session: `schema:${node.id}:${++uid}` }));
+        el.addEventListener("blur", () => (run = null));
+      }
       el.addEventListener("input", () => apply(el.value, { coalesce: true, label: `Change ${name}` }));
     }
     return h("div", { class: "hm-field hm-bs-field" }, h("label", { class: "hm-field__label", for: id, text: name }), el, ...extra, err);
@@ -507,20 +525,12 @@ export function createContent(ctx) {
       const slot = attrSlot;
       // the attribute rows are rebuilt only when what they depend on changes: a half-filled row survives edits elsewhere
       let seen = null;
-      let before = null;
       const sync = (e) => {
         if (e?.target && slot.contains?.(e.target)) return;
         const p = find(api.getDoc(), node.id)?.p ?? node.p ?? {};
         const sig = [p.from, p.source, p.schema, p.context].join("|");
         if (sig === seen) return;
         seen = sig;
-        // the sort and filters belong to the schema they were set for: one undoable step clears them with a schema or Context change
-        const was = before;
-        before = p;
-        if (was && staleAfterSchemaChange(was, p)) {
-          commit([{ op: "setProp", id: node.id, key: "order_by", value: null }, { op: "setProp", id: node.id, key: "filters", value: null }], { label: "Clear Sort and Filters (schema changed)" });
-          api.announce("Sort and filters cleared because the schema changed");
-        }
         const g = filtersGroup(node) ?? attrGroup(node);
         slot.replaceChildren(...(g ? [g] : []));
       };

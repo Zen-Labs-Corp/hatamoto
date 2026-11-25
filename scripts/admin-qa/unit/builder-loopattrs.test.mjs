@@ -87,9 +87,16 @@ test("a schema or Context change with sort or filters set leaves stale rows to c
   assert.equal(staleAfterSchemaChange({ schema: "event" }, { schema: "post", filters: [{ attr: "a", op: "eq", value: "x" }] }), true);
 });
 
-test("nothing to clear when the schema is the same, nothing is set, or the loop reads a source", () => {
+test("nothing to clear when the schema is the same, nothing is set, or the loop is not a query loop", () => {
   const set = { from: "query", schema: "event", filters: [{ attr: "a", op: "eq", value: "x" }] };
   assert.equal(staleAfterSchemaChange(set, { ...set, limit: 3 }), false);
   assert.equal(staleAfterSchemaChange({ schema: "event" }, { schema: "post" }), false);
-  assert.equal(staleAfterSchemaChange(set, { ...set, schema: "post", from: "events" }), false);
+  assert.equal(staleAfterSchemaChange({ from: "source", schema: "event" }, { from: "source", schema: "post" }), false);
+});
+
+test("leaving a query loop (From to source or archive) leaves sort and filters that Validate refuses", () => {
+  const set = { from: "query", schema: "event", filters: [{ attr: "a", op: "eq", value: "x" }] };
+  assert.equal(staleAfterSchemaChange(set, { ...set, from: "source" }), true);
+  assert.equal(staleAfterSchemaChange(set, { ...set, from: "archive" }), true);
+  assert.equal(staleAfterSchemaChange({ schema: "event", order_by: { attr: "a", dir: "asc" } }, { schema: "event", from: "source" }), true);
 });

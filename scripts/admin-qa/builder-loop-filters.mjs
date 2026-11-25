@@ -176,6 +176,19 @@ await check("A5: the canvas preview lists only today and later, soonest first, n
   return seen.join(", ");
 });
 
+await check("From to archive clears the sort and filters in the same step; one undo brings them back", async () => {
+  await pick(p.getByLabel("From", { exact: true }), "archive");
+  await settle(400);
+  const pr = await stored();
+  if (pr.order_by || pr.filters) throw new Error(`sort or filters left on a non-query loop: ${JSON.stringify(pr)}`);
+  await p.keyboard.press("Control+z");
+  await settle(400);
+  const back = await stored();
+  same(back.filters?.length, 2, "filters after undo");
+  same(back.order_by, { attr: "start_date", dir: "asc" }, "sort after undo");
+  return "cleared with From, restored by one undo";
+});
+
 await check("nothing was saved and no page error", async () => {
   if (errors.length) throw new Error(`page errors: ${errors.join(" | ")}`);
   return `${blocked.length} save request(s) aborted`;
