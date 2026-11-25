@@ -889,7 +889,7 @@ Outside a run, the run-only functions (`run.*`, `upload.read`, `buffer.*`, `medi
 |---|---|---|---|
 | `run.info` | both | `{}` | `{ "run_id", "name", "phase", "cursor", "params"?, "hosts"?, "upload_id"? }` (`params` holds the owner's inputs by name) |
 | `run.checkpoint` | both | `{ "cursor" }` (at most 4 KiB) | `{}`; passed back on the next step |
-| `run.progress` | both | `{ "done", "total"?, "message"? }` | `{}`; shown in the run view |
+| `run.progress` | both | `{ "done", "total"?, "message"? }` | `{}`; shown in the run view and in the Message column of the Runs tab list |
 | `run.finish` | both | `{ "summary"? }` | `{}`; ends the phase |
 | `run.fail` | both | `{ "reason" }` | `{}`; fails the run |
 | `upload.read` | fetch | `{ "upload_id", "offset", "len" }` (len at most 256 KiB) | `{ "data_b64", "size", "eof" }`; only the run's own upload. The first read of a large upload may return `timeout` while the host fetches it; retry the same read, also in a later step |

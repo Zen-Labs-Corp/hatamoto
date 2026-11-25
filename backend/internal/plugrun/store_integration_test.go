@@ -69,7 +69,7 @@ func TestRunLifecycle(t *testing.T) {
 	if n, err := s.BumpSteps(ctx, r.ID); err != nil || n != 1 {
 		t.Fatalf("BumpSteps = %d %v", n, err)
 	}
-	if err := s.Progress(ctx, r.ID, jsontext.Value(`{"done":5}`)); err != nil {
+	if err := s.Progress(ctx, r.ID, jsontext.Value(`{"done":5,"message":"Imported 5"}`)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.AdvancePhase(ctx, r.ID, PhaseTransform); err != nil {
@@ -89,6 +89,9 @@ func TestRunLifecycle(t *testing.T) {
 	if got.State != StateFinished || got.Summary == nil {
 		t.Fatalf("after finish: %+v", got)
 	}
+	if !strings.Contains(string(got.Progress), `"Imported 5"`) {
+		t.Fatalf("finish dropped the progress message: %s", got.Progress)
+	}
 	if err := s.Fail(ctx, r.ID, "late"); !errors.Is(err, ErrNotRunning) {
 		t.Fatalf("Fail after finish = %v", err)
 	}
@@ -101,10 +104,13 @@ func TestRunLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { s.DB.Pool().Exec(ctx, `DELETE FROM hatamoto_runs WHERE id = $1`, r2.ID) })
+	if err := s.Progress(ctx, r2.ID, jsontext.Value(`{"message":"Stopped at 3"}`)); err != nil {
+		t.Fatal(err)
+	}
 	if err := s.Fail(ctx, r2.ID, strings.Repeat("x", MaxReasonLen+10)); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := s.Get(ctx, r2.ID); got.State != StateFailed || len(got.Reason) != MaxReasonLen {
+	if got, _ := s.Get(ctx, r2.ID); got.State != StateFailed || len(got.Reason) != MaxReasonLen || !strings.Contains(string(got.Progress), `"Stopped at 3"`) {
 		t.Fatalf("after fail: %+v", got)
 	}
 	u, err := s.Upload(ctx, up)

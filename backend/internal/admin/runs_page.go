@@ -133,11 +133,24 @@ func runTitle(p PluginInfo, name string) string {
 	return name
 }
 
+// runMessageCell is the last progress message a run's plugin set, clipped in the list;
+// the full text is the cell's title and is printed on the run's own page. A
+// failed run shows why it failed instead, so it never reads like a success.
+func runMessageCell(rv RunView) ui.Cell {
+	if rv.State == "failed" && rv.Reason != "" && rv.Reason != "cancelled" {
+		return ui.Cell{Text: rv.Reason, Clip: true}
+	}
+	if rv.Message == "" {
+		return ui.Cell{Text: "—"}
+	}
+	return ui.Cell{Text: rv.Message, Clip: true}
+}
+
 func (a *Admin) runsTable(r *http.Request, p PluginInfo, recent []RunView) ui.Table {
 	loc := a.siteLocation(r.Context())
 	t := ui.Table{
 		ID: "runs", Caption: "Recent runs of " + p.Name,
-		Columns: []ui.Col{{Key: "run", Label: "Run", Role: "title"}, {Key: "state", Label: "State"}, {Key: "started", Label: "Started"}},
+		Columns: []ui.Col{{Key: "run", Label: "Run", Role: "title"}, {Key: "state", Label: "State"}, {Key: "started", Label: "Started"}, {Key: "message", Label: "Message"}},
 		Empty:   ui.Empty{Icon: "clock", Title: "No runs yet.", Body: "Runs you start here are listed with their state."},
 		BaseURL: a.pluginURL(p.Name, "runs"),
 	}
@@ -146,6 +159,7 @@ func (a *Admin) runsTable(r *http.Request, p PluginInfo, recent []RunView) ui.Ta
 		href := a.pluginURL(p.Name, "runs/"+rv.ID.String())
 		row := ui.Row{ID: rv.ID.String(), Label: runTitle(p, rv.Name), Cells: []ui.Cell{
 			{Text: runTitle(p, rv.Name), Link: href}, {Badge: &b}, {Text: fmtDateTime(rv.CreatedAt.In(loc)), Nowrap: true},
+			runMessageCell(rv),
 		}}
 		if rv.ChangesetID != 0 && rv.State != "running" && rv.State != "failed" {
 			row.Actions = []ui.Action{{Label: "Review", Href: a.changesetURL(p.Name, rv.ChangesetID, ""), Button: true}}
