@@ -1,5 +1,5 @@
 {{define "section-hero"}}{{$c := .Content}}{{$layout := default "centered" $c.layout}}
-<div class="hm-container hm-hero hm-hero--{{if eq $layout "split"}}split{{else}}centered{{end}}">
+<div class="hm-container hm-hero hm-hero--{{if eq $layout "split"}}split{{else}}centered{{end}}{{if eq $c.backdrop "grid"}} hm-hero--grid{{end}}">
   <div class="hm-hero__body">
     {{with $c.eyebrow}}<p class="hm-hero__eyebrow" {{hmf "eyebrow"}}>{{.}}</p>{{end}}
     <h1 class="hm-hero__headline" {{hmf "headline"}}>{{$c.headline}}</h1>
