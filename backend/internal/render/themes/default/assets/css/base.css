@@ -215,7 +215,7 @@ main:focus { outline: none; } /* focus target of the skip link, not a control */
 .hm-social { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem !important; }
 .hm-footer__legal { margin: 0; }
 .hm-footer__top { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr); gap: 2.5rem; margin-bottom: 2.5rem; }
-.hm-footer__brand .hm-logo { margin-bottom: 0.75rem; }
+.hm-footer__brand .hm-logo { margin-bottom: 0.75rem; color: var(--hm-text); }
 .hm-footer__desc { max-width: 34ch; margin: 0; }
 .hm-footer__top .hm-footer__cols { margin-bottom: 0; }
 .hm-footer__title { font-family: var(--hm-font-mono); font-size: 0.6875rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--hm-label); }

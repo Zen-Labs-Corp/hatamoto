@@ -3,6 +3,7 @@ package render
 import (
 	"io/fs"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -205,5 +206,17 @@ func TestArchiveEmptyStateSurvivesBlogPartialOverride(t *testing.T) {
 	v.Kind, v.SchemaSlug, v.Page.Name = KindArchive, "post", "Blog"
 	if out := renderToString(t, e, v); !strings.Contains(out, "No posts yet") {
 		t.Errorf("missing empty state:\n%s", out)
+	}
+}
+
+// `.hm-footer a` outranks `.hm-logo`, so the footer brand needs its own rule
+// to keep the logo text colour instead of the muted link colour.
+func TestFooterBrandKeepsLogoColour(t *testing.T) {
+	raw, err := os.ReadFile("themes/default/assets/css/base.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !regexp.MustCompile(`(?m)^\.hm-footer__brand \.hm-logo \{[^}]*\bcolor: var\(--hm-text\)`).Match(raw) {
+		t.Error("footer brand logo lacks a colour rule that beats .hm-footer a")
 	}
 }
