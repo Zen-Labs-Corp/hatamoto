@@ -2,11 +2,15 @@
 -- origin_plugin and origin_account name the plugin and its own account id; such a
 -- row stores email_hash 'plugin:<uuid>' (never an HMAC: those are base64url, no ':')
 -- and email_sealed '' (the value OpenEmail already reads as no email). An email
--- commenter a plugin links keeps its email and gains the two columns. Expand only:
--- two nullable columns, a check and a unique index the previous release never reads.
+-- commenter a plugin links keeps its email and gains the two columns. Two nullable
+-- columns, a check and a unique index the previous release never reads or writes: both
+-- hold for rows with NULL origin, so the marker below is the documented way to say so
+-- (the floor only stops at v1.4; no major release is implied).
 -- Rollback floor: unchanged (an older binary treats such a commenter as one whose
 -- email cannot be opened: it is asked to sign in, and its idle purge may remove one
 -- that never posted).
+
+-- hatamoto:contract unused-since v1.4
 
 -- +goose Up
 ALTER TABLE public.hatamoto_commenters ADD COLUMN IF NOT EXISTS origin_plugin text;
