@@ -117,6 +117,7 @@ type pageRun struct {
 	Title  string   `json:"title"`
 	Inputs []string `json:"inputs"`
 	Start  string   `json:"start"`
+	Host   string   `json:"host"` // the one host a page-started run may reach, "" for none
 }
 
 // pluginPagePolicy is the Permissions-Policy of a granted plugin page: the
@@ -159,12 +160,16 @@ func (a *Admin) pluginUIFor(r *http.Request, p PluginInfo, role string) *pluginU
 	}
 	if len(p.Runs) > 0 && a.can(r.Context(), authz.ActionPluginManage) { // the gate of the owner group that mounts runs/{run}/start
 		list := make([]pageRun, 0, len(p.Runs))
+		host := ""
+		if h := fixedRunHosts(p); len(h) > 0 {
+			host = h[0]
+		}
 		for _, run := range p.Runs {
 			names := make([]string, 0, len(run.Inputs))
 			for _, in := range run.Inputs {
 				names = append(names, in.Name)
 			}
-			list = append(list, pageRun{Name: run.Name, Title: run.Title, Inputs: names, Start: a.pluginURL(p.Name, "runs/"+run.Name+"/start")})
+			list = append(list, pageRun{Name: run.Name, Title: run.Title, Inputs: names, Start: a.pluginURL(p.Name, "runs/"+run.Name+"/start"), Host: host})
 		}
 		if b, err := jsonx.Marshal(list); err == nil {
 			d.Runs = string(b)

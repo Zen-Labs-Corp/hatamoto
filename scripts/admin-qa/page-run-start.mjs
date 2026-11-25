@@ -49,17 +49,27 @@ check(/click/.test(noClick) && (await p.locator("dialog[open]").count()) === 0, 
 await pframe().locator("#startrun").click();
 await p.waitForSelector("#hm-confirm[open]", { timeout: 10000 });
 const msg = (await p.locator("#hm-confirm-message").textContent()) || "";
-check(msg.includes("Start run 'Import' with: source=https://example.com/ limit=3"), "the confirm names the run and every input", msg);
+check(msg.includes('Start run "Import"') && msg.includes('"source": "https://example.com/"') && msg.includes('"limit": "3"'), "the confirm quotes the run and every input", msg);
+check(/It may reach ("[^"]+"|no other site)/.test(msg), "the confirm names the host", msg);
 await shot(p, "page-run-start-confirm.png");
 await p.locator("[data-hm-confirm-cancel]").click();
 let r = await waitOut();
 check(r.ok === false && r.error === "cancelled", "Cancel: the page gets cancelled", JSON.stringify(r));
 check(startPosts.length === 0, "Cancel: no request to the start route", startPosts.join(","));
 
+// ---- right after a Cancel the frame is cooled down ----
+const afterCancel = (await pframe().locator("#out").textContent()) || "";
+await pframe().locator("#startrun").click();
+r = await waitOut(afterCancel);
+check(r.ok !== true && /cancelled/.test(JSON.stringify(r)), "after a Cancel the next start is refused", JSON.stringify(r));
+check((await p.locator("dialog[open]").count()) === 0, "the cooldown opens no dialog");
+await p.waitForTimeout(3200);
+
 // ---- click, then Start ----
 const before = await pframe().locator("#out").textContent();
 await pframe().locator("#startrun").click();
 await p.waitForSelector("#hm-confirm[open]", { timeout: 10000 });
+await p.waitForTimeout(700); // Start is ignored for the first 500 ms (double-click guard)
 await p.locator("[data-hm-confirm-ok]").click();
 r = await waitOut(before || "");
 check(r.ok === true && !!r.run_id && String(r.url).endsWith("/runs/" + r.run_id), "Start: the page gets {ok:true, run_id, url}", JSON.stringify(r));

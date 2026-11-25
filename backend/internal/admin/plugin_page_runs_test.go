@@ -21,7 +21,7 @@ func TestPluginPageCarriesRunsForOwner(t *testing.T) {
 	g, _, _, _ := newRunsRig(t)
 	body := settingsBody(t, g, "owner-token")
 	for _, want := range []string{
-		`data-runs="[{"name":"import","title":"Import","inputs":["site","user"],"start":"/admin/plugins/hello/runs/import/start"}]"`,
+		`data-runs="[{"name":"import","title":"Import","inputs":["site","user"],"start":"/admin/plugins/hello/runs/import/start","host":"old.example.com"}]"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("owner page lacks %s", want)

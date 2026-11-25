@@ -74,8 +74,16 @@ function init() {
   // dialog (run title and every input, values cut to 80 characters in the message only), and
   // only Start posts to the owner-only start route. Values are refused, never cut, in the POST.
   const MAX_RUN_INPUTS = 16;
-  const shown = (v) => (v.length > 80 ? v.slice(0, 79) + "…" : v);
+  // shown quotes a value for the dialog: control and bidi characters become spaces, and a cut
+  // value ends in "…" with its full length, so a long value cannot pass as a short one.
+  const shown = (v) => {
+    const t = v.replace(/[\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]/g, " ");
+    return JSON.stringify(t.length > 80 ? t.slice(0, 79) + "… (" + t.length + " characters)" : t);
+  };
   let starting = false;
+  // A cancel cools the frame down: 3 s, and after 3 cancels no more starts until the page reloads.
+  const COOLDOWN_MS = 3000, MAX_CANCELS = 3, CLICK_GUARD_MS = 500;
+  let cancels = 0, coolUntil = 0;
   // askConfirm is core's #hm-confirm (openConfirm) without the post: true when the person presses
   // Start, false on Cancel, Esc, or when the dialog is missing or busy. Both listeners go on the first answer.
   function askConfirm(openConfirm, opts) {
@@ -88,7 +96,9 @@ function init() {
         dlg.removeEventListener("close", onClose);
         resolve(v);
       };
-      const onSubmit = (e) => { e.preventDefault(); done(true); dlg.close(); };
+      const openedAt = Date.now();
+      // A double-click on the page lands on Start as the dialog opens: ignore submits for a moment.
+      const onSubmit = (e) => { e.preventDefault(); if (Date.now() - openedAt < CLICK_GUARD_MS) return; done(true); dlg.close(); };
       const onClose = () => done(false);
       if (!openConfirm({ action: "", ...opts })) return resolve(false);
       form.addEventListener("submit", onSubmit);
@@ -109,13 +119,20 @@ function init() {
     }
     if (!navigator.userActivation?.isActive) throw new Error("starting a run needs a click on the page first");
     if (starting) throw new Error("a run start is already waiting");
+    if (cancels >= MAX_CANCELS) throw new Error("the owner cancelled too many starts; reload the page to try again");
+    if (Date.now() < coolUntil) throw new Error("the owner just cancelled a start; wait a few seconds before asking again");
     starting = true;
     try {
       const { openConfirm } = await import("@hm/components");
-      const list = entries.map(([k, v]) => `${k}=${shown(v)}`).join(" ");
+      const list = entries.map(([k, v]) => `${shown(k)}: ${shown(v)}`).join("\n");
       const label = run.title || run.name;
-      const ok = await askConfirm(openConfirm, { title: "Start run?", okLabel: "Start", message: `Start run '${label}'${list ? ` with: ${list}` : ""}?`, opener: frame });
-      if (!ok) return { ok: false, error: "cancelled" };
+      const net = run.host ? `It may reach ${shown(run.host)}.` : "It may reach no other site.";
+      const ok = await askConfirm(openConfirm, { title: "Start run?", okLabel: "Start", message: `Start run ${shown(label)}${list ? ` with:\n${list}` : ""}\n${net}`, opener: frame });
+      if (!ok) {
+        cancels++;
+        coolUntil = Date.now() + COOLDOWN_MS;
+        return { ok: false, error: "cancelled" };
+      }
       const res = await fetch(run.start, {
         method: "POST",
         credentials: "same-origin",

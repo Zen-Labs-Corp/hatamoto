@@ -68,6 +68,13 @@ func TestPluginFrameStartsRunsThroughCoreConfirm(t *testing.T) {
 	if i, j := strings.Index(js, `return startRun(`), strings.Index(js, `await fetch(bridge`); i < 0 || j < 0 || i > j {
 		t.Error("run.start must return before the bridge request")
 	}
+	// Hardening of the confirm: click-through guard, cancel cooldown, quoted and cleaned text, named host.
+	for _, want := range []string{`CLICK_GUARD_MS`, `Date.now() - openedAt < CLICK_GUARD_MS`, `cancels >= MAX_CANCELS`, `Date.now() < coolUntil`, `cancels++`,
+		`JSON.stringify(t.length > 80`, `characters)`, `\u202e`, `\u2066`, `run.host`, `It may reach`} {
+		if !strings.Contains(js, want) {
+			t.Errorf("pluginframe.js lost %q", want)
+		}
+	}
 	// The one-shot listeners live here, not in components.js, which the builder's JS budget counts.
 	for _, want := range []string{`function askConfirm(`, `e.preventDefault()`, `removeEventListener("submit"`, `removeEventListener("close"`} {
 		if !strings.Contains(js, want) {
