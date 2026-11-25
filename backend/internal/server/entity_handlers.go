@@ -387,6 +387,11 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	dry, err := parseDryRun(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	// position (1-based among the siblings) puts the entity in the manual order;
 	// alone, or with parent_id/clear_parent, it is a move, not an edit.
@@ -408,6 +413,10 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "status is set through PATCH /entities/{id}/status")
 		return
 	}
+	if dry && body.Position != nil {
+		writeError(w, http.StatusBadRequest, "dry_run does not cover moves")
+		return
+	}
 	input := body.UpdateEntityInput
 	// PUT always replaces; PATCH merges attributes only when asked (RFC 7396).
 	merge := r.Method == http.MethodPatch && isMergePatch(r.Header.Get("Content-Type"))
@@ -423,7 +432,15 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 	if k, ok := middleware.GetAPIKey(r.Context()); ok {
 		input.ChangeSummary = apiKeySummary(k.Name, input.ChangeSummary)
 	}
-	s.logAPIKeyWrite(r, "update", idStr)
+	op := "update"
+	if dry {
+		op = "update.dry_run"
+	}
+	s.logAPIKeyWrite(r, op, idStr)
+	if dry {
+		s.writeDryRun(w, r, id, &claims.UserID, &input)
+		return
+	}
 
 	if body.Position != nil {
 		existing, err := s.entityService.GetEntity(r.Context(), id)

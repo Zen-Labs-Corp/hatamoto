@@ -29,13 +29,17 @@ type versionRepo struct {
 	createdBy uuid.UUID
 	version   int
 	writes    int
-	moves     int  // SetPosition calls
-	race      bool // Update loses a race the caller did not name
-	bigAttrs  bool // the entry carries attributes over the compression threshold
+	moves     int    // SetPosition calls
+	race      bool   // Update loses a race the caller did not name
+	bigAttrs  bool   // the entry carries attributes over the compression threshold
+	attrs     string // stored attributes; "" = {}
 }
 
 func (r *versionRepo) entry(id uuid.UUID) *entity.Entity {
 	attrs := []byte(`{}`)
+	if r.attrs != "" {
+		attrs = []byte(r.attrs)
+	}
 	if r.bigAttrs {
 		attrs = []byte(`{"body":"` + strings.Repeat("x", 2*httpx.CompressMinSize) + `"}`)
 	}
