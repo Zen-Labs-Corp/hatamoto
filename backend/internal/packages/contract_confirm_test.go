@@ -13,6 +13,8 @@ func TestContractConfirmFlags(t *testing.T) {
 		manifest := `{"name":"board","version":"2.0.0","sdk":"^0.27","permissions":["` + perm + `"]}`
 		if perm == sdk.PermCommentsModerate {
 			manifest = `{"name":"board","version":"2.0.0","sdk":"^0.27","permissions":["entities.write.own","` + perm + `"],"entity_schema":"story"}`
+		} else if perm == sdk.PermCommentsIdentity {
+			manifest = `{"name":"board","version":"2.0.0","sdk":"^0.27","permissions":["comments.read","entities.write.own","` + perm + `"],"entity_schema":"story"}`
 		} else if perm == sdk.PermEntitiesWriteOwn {
 			manifest = `{"name":"board","version":"2.0.0","sdk":"^0.27","permissions":["` + perm + `"],"entity_schema":"story"}`
 		}
@@ -26,7 +28,7 @@ func TestContractConfirmFlags(t *testing.T) {
 		}
 		return parse(t, raw)
 	}
-	for _, perm := range []sdk.Permission{sdk.PermClientKey, sdk.PermEntitiesWriteOwn, sdk.PermCommentsModerate} {
+	for _, perm := range []sdk.Permission{sdk.PermClientKey, sdk.PermEntitiesWriteOwn, sdk.PermCommentsModerate, sdk.PermCommentsIdentity} {
 		p := update(perm)
 		if !newlyAsks([]byte(`{"name":"board","version":"1.0.0","sdk":"^0.27"}`), p, perm) {
 			t.Errorf("%s: a newly asked permission is not flagged", perm)

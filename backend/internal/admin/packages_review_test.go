@@ -382,6 +382,21 @@ func TestPluginPromptNamesNewCommentsModerate(t *testing.T) {
 	}
 }
 
+func TestPluginConfirmNamesNewCommentsIdentity(t *testing.T) {
+	t.Parallel()
+
+	a := newPartialAdmin(t)
+	out, err := a.RenderPartial("hm/pkgconfirm", &ConfirmInfo{Name: "board", WidenedAccess: true, NewCommentsIdentity: true, OldVersion: "1.0.0", NewVersion: "2.0.0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"<code>comments.identity</code>", "sign visitors in as commenters with accounts it manages, without an email"} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("confirm missing %q", want)
+		}
+	}
+}
+
 func TestPluginPromptNamesNewClientKey(t *testing.T) {
 	t.Parallel()
 

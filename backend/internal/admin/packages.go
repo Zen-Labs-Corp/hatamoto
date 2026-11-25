@@ -193,6 +193,7 @@ type ConfirmInfo struct {
 	NewEntitiesFilter   bool
 	NewClientKey        bool
 	NewCommentsModerate bool // the update newly asks for comments.moderate
+	NewCommentsIdentity bool // the update newly asks for comments.identity
 	// NewEntityWrite: the update newly asks for entities.write.own;
 	// EntitySchemaChanged: it writes another content type (OldEntitySchema ->
 	// NewEntitySchema); NewEntityFields: keys it may now write.
