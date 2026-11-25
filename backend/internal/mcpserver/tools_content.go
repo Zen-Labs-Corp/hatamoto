@@ -252,7 +252,8 @@ func (s *Server) registerContent() {
 		Name          string `json:"name,omitempty"`
 		Slug          string `json:"slug,omitempty"`
 		Locale        string `json:"locale,omitempty" jsonschema:"BCP 47 language tag; omit to keep the stored locale"`
-		Attributes    object `json:"attributes,omitempty" jsonschema:"REPLACES all attributes: send the whole object"`
+		Attributes    object `json:"attributes,omitempty" jsonschema:"replaces all attributes (send the whole object), unless merge is true"`
+		Merge         bool   `json:"merge,omitempty" jsonschema:"true: merge attributes into the stored ones (JSON merge patch, RFC 7396): only the keys sent change, null removes a key, nested objects merge, arrays replace whole"`
 		ChangeSummary string `json:"change_summary,omitempty"`
 		Version       *int   `json:"version,omitempty" jsonschema:"the entity's version from entities_get; when set, a stale version is refused and nothing is stored"`
 		// The byline: a person entity (schema "person") or the site organisation.
@@ -260,7 +261,7 @@ func (s *Server) registerContent() {
 		BylineOrg      *bool   `json:"byline_org,omitempty" jsonschema:"true credits the site organisation instead of a person; false clears it"`
 		ClearByline    bool    `json:"clear_byline,omitempty" jsonschema:"remove the person and organisation byline"`
 	}
-	register(s, toolSpec{name: "entities_update", description: "Update an entity's name, slug, locale, attributes and/or byline (a new version is stored). Attributes replace the stored ones, so send the whole object. The byline is byline_person_id (a person entity id), byline_org (true: the site organisation) or clear_byline; omit all three to leave it alone. On a credited entity attributes.author and author_name are overwritten with the credited name; change the author only with these fields.", scope: writeScope, action: authz.ActionEntityUpdate, write: true, destructive: true},
+	register(s, toolSpec{name: "entities_update", description: "Update an entity's name, slug, locale, attributes and/or byline (a new version is stored). Attributes replace the stored ones (send the whole object); with merge: true only the keys sent change and null removes a key. Send version to avoid losing a concurrent edit. The byline is byline_person_id (a person entity id), byline_org (true: the site organisation) or clear_byline; omit all three to leave it alone. On a credited entity attributes.author and author_name are overwritten with the credited name; change the author only with these fields.", scope: writeScope, action: authz.ActionEntityUpdate, write: true, destructive: true},
 		func(ctx context.Context, key *hmauth.APIKey, in updateIn) (any, error) {
 			id, err := parseID("id", in.ID)
 			if err != nil {
@@ -279,11 +280,24 @@ func (s *Server) registerContent() {
 			if in.Attributes != nil {
 				raw := jsontext.Value(rawObject(in.Attributes))
 				up.Attributes = &raw
+				up.MergeAttributes = in.Merge
 				stored, err := s.store().GetEntity(ctx, id)
 				if err != nil {
 					return nil, err
 				}
-				if err := s.checkPageDocRules(ctx, stored, entity.EntityRole(ctx, s.store(), stored), in.Attributes); err != nil {
+				attrs := in.Attributes
+				if in.Merge {
+					// The rules judge the attributes that will be stored, not the fragment.
+					merged, err := entity.MergePatch(stored.Attributes, raw)
+					if err != nil {
+						return nil, err
+					}
+					attrs = object{}
+					if err := jsonx.Unmarshal(merged, &attrs); err != nil {
+						return nil, err
+					}
+				}
+				if err := s.checkPageDocRules(ctx, stored, entity.EntityRole(ctx, s.store(), stored), attrs); err != nil {
 					return nil, err
 				}
 			}
