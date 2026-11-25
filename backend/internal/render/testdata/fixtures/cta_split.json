@@ -1,0 +1,12 @@
+{
+  "type": "cta",
+  "id": "sec-cta-split",
+  "content": {
+    "headline": "Moving from WordPress?",
+    "subheadline": "<p>Import posts, pages, media and redirects in one go.</p>",
+    "buttonText": "Import a site",
+    "buttonUrl": "https://example.test/docs/move",
+    "backgroundStyle": "kasumi",
+    "layout": "split"
+  }
+}
