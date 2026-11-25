@@ -122,3 +122,50 @@ func TestFooterChrome(t *testing.T) {
 		}
 	})
 }
+
+func TestArchiveEmptyState(t *testing.T) {
+	e := hierarchyEngine(t)
+	rss := []FeedLink{{Title: "Field Notes", Type: "application/rss+xml", Href: "/feed.xml"}}
+	render := func(v *PageView) string { return renderToString(t, e, v) }
+
+	t.Run("archive with feed", func(t *testing.T) {
+		v := hierarchyView()
+		v.Kind, v.SchemaSlug, v.Page.Name = KindArchive, "post", "Blog"
+		v.Site.Feeds = rss
+		out := render(v)
+		for _, want := range []string{"hm-empty-state", "No posts yet", `href="/feed.xml"`, "Subscribe via RSS", "Subscribe to the feed"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("missing %q in:\n%s", want, out)
+			}
+		}
+	})
+	t.Run("archive without feed", func(t *testing.T) {
+		v := hierarchyView()
+		v.Kind, v.SchemaSlug, v.Page.Name = KindArchive, "post", "Blog"
+		out := render(v)
+		if !strings.Contains(out, "No posts yet") {
+			t.Errorf("missing empty state:\n%s", out)
+		}
+		for _, bad := range []string{"Subscribe via RSS", "Subscribe to the feed"} {
+			if strings.Contains(out, bad) {
+				t.Errorf("%q without a feed:\n%s", bad, out)
+			}
+		}
+	})
+	t.Run("taxonomy keeps the plain note", func(t *testing.T) {
+		v := hierarchyView()
+		v.Kind, v.Term, v.Page.Name = KindTaxonomy, &TermView{Kind: "tag", Slug: "go", Name: "Go", URL: "/tag/go"}, "Go"
+		out := render(v)
+		if !strings.Contains(out, `<p class="hm-empty">Nothing here yet`) || strings.Contains(out, "hm-empty-state") {
+			t.Errorf("taxonomy empty state changed:\n%s", out)
+		}
+	})
+	t.Run("search keeps no results", func(t *testing.T) {
+		v := hierarchyView()
+		v.Kind, v.Query, v.Page.Name = KindSearch, "field", "Search"
+		out := render(v)
+		if !strings.Contains(out, "No results for") || strings.Contains(out, "hm-empty-state") {
+			t.Errorf("search empty state changed:\n%s", out)
+		}
+	})
+}
