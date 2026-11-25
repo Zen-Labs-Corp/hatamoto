@@ -136,6 +136,10 @@ func (a *Admin) handlePluginStanding(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, r, "The daily summary could not be loaded", err)
 		return
 	}
+	if active != nil {
+		// The gate reads the stored approval, so the tab words what it carries.
+		rule.LinkFieldLabels = active.LinkFieldLabels
+	}
 	d := standingData{pluginHead: a.newPluginHead(p, standingRel, true), Rule: rule, Lines: ruleLines(rule),
 		Sample: "{{ plugin_" + strings.ReplaceAll(p.Name, "-", "_") + "_<function> \"key\" }}",
 		Action: a.pluginURL(p.Name, standingRel), Off: a.pluginURL(p.Name, standingRel+"/off"), Cancel: a.pluginURL(p.Name, "settings"), Approval: active}

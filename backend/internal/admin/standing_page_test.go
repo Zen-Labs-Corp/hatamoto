@@ -160,6 +160,25 @@ func TestStandingTabWithCreate(t *testing.T) {
 	}
 }
 
+// An active approval is worded from what it stores: one made before the host
+// knew link fields carries none, so the tab must not promise links.
+func TestStandingTabLinkLineFollowsApproval(t *testing.T) {
+	t.Parallel()
+
+	rule := standingRule
+	rule.CreateSchemas, rule.CreateMaxPerHour = []string{"events"}, 20
+	rule.LinkFieldLabels = []string{"Ticket link"}
+	fs := &fakeStanding{rule: rule, active: &StandingApproval{By: "owner@example.com", At: time.Now()}}
+	g := newStandingRig(t, fs)
+	if body := g.do("GET", standingPath, "owner-token", nil, nil).Body.String(); strings.Contains(body, "may carry web links") {
+		t.Error("the stored approval carries no link fields, yet the tab lists them")
+	}
+	fs.active.LinkFieldLabels = []string{"Ticket link"}
+	if body := g.do("GET", standingPath, "owner-token", nil, nil).Body.String(); !strings.Contains(body, "New entries may carry web links in: Ticket link") {
+		t.Error("the stored approval carries link fields, yet the tab lacks them")
+	}
+}
+
 func TestHostListCapsAndOrders(t *testing.T) {
 	t.Parallel()
 

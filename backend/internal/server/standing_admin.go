@@ -59,7 +59,11 @@ func (a standingAdmin) Active(ctx context.Context, plugin, run string) (*admin.S
 	if err != nil || ap == nil {
 		return nil, err
 	}
-	return &admin.StandingApproval{By: ap.ApprovedBy, At: ap.ApprovedAt}, nil
+	out := &admin.StandingApproval{By: ap.ApprovedBy, At: ap.ApprovedAt}
+	if c := ap.Policy.Create; c != nil {
+		out.LinkFieldLabels = svc.linkFieldLabels(ctx, c)
+	}
+	return out, nil
 }
 
 func (a standingAdmin) Paused(ctx context.Context, plugin, run string) (*admin.StandingPaused, error) {

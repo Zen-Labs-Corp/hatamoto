@@ -35,6 +35,10 @@ var ErrStandingChanged = errors.New("the plugin changed; review the rule again")
 type StandingApproval struct {
 	By string
 	At time.Time
+	// LinkFieldLabels are the link fields the stored approval carries, which
+	// can differ from the installed rule's when the approval was made by a host
+	// that did not know link fields.
+	LinkFieldLabels []string
 }
 
 // StandingPaused says an approval ended and why ("plugin updated", "schema
