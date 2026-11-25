@@ -435,8 +435,8 @@ export function createContent(ctx) {
         store();
       });
       opSel.addEventListener("change", () => {
+        if (valueKind(a.type, opSel.value) !== valueKind(a.type, row.op)) row.value = row.days = "";
         row.op = opSel.value;
-        row.value = row.days = "";
         draw1(i, "o");
         store();
       });
