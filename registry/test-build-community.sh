@@ -545,6 +545,17 @@ grep -q "builder revision 2, current is 3; rebuilding" "$work/ar.log" || fail "b
 b3="$b3d/acme-notes-0.2.0-${sha:0:12}-$kid-b3"
 [ -s "$b3.hmp" ] && jq -e '.builder == 3' "$b3.json" >/dev/null || fail "bump: no -b3 build: $(ls "$b3d")"
 [ -f "$b3d/$af.hmp" ] || fail "bump: -b2 file removed"
+# Bumped to 3, a complete legacy build is rebuilt too (the directory check is only for 1 -> 2).
+cp -r "$work/arch-leg" "$work/arch-l3"; l3d="$work/arch-l3/acme-notes"
+leg3_h=$(sha256sum "$l3d"/*.hmp "$l3d"/*.json | cut -d' ' -f1)
+env "${sdkenv[@]}" HATAMOTO_TEST_BUILDER_REV=3 ARCHIVE_DIR="$work/arch-l3" "$script" "$reg" "$bin" "$key" "$work/l3-pk" "$work/l3-meta.json" >"$work/ar.log" 2>&1 || fail "legacy bump rebuild: $(cat "$work/ar.log")"
+grep -q "builder revision 1, current is 3; rebuilding" "$work/ar.log" || fail "legacy bump: no rebuild logged: $(cat "$work/ar.log")"
+l3="$l3d/acme-notes-0.2.0-${sha:0:12}-$kid-b3"
+[ -s "$l3.hmp" ] && jq -e '.builder == 3' "$l3.json" >/dev/null || fail "legacy bump: no -b3 build: $(ls "$l3d")"
+[ "$leg3_h" = "$(sha256sum "$l3d/$legacy_name".hmp "$l3d/$legacy_name".json | cut -d' ' -f1)" ] || fail "legacy bump: legacy files changed"
+# A revision below 2 is refused.
+if env "${sdkenv[@]}" HATAMOTO_TEST_BUILDER_REV=1 ARCHIVE_DIR="$work/arch-r1" "$script" "$reg" "$bin" "$key" "$work/r1-pk" "$work/r1-meta.json" >"$work/ar.log" 2>&1; then fail "builder revision 1 accepted"; fi
+grep -q "below 2" "$work/ar.log" || fail "builder revision 1: $(cat "$work/ar.log")"
 echo "ok: builder revision"
 
 # A genuine archive through the mirror alone is accepted (the upstream is gone).

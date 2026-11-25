@@ -103,11 +103,13 @@ for d in "${pack_dirs[@]}"; do [[ $d =~ ^[a-z]+$ ]] || die "bad directory name \
 # Builder revision, recorded in each new archive sidecar and file name (-b<REV>). Bump it whenever a
 # builder change alters what a package holds for the same commit, so new builds get new file names
 # (the archive is append-only). 1 (no suffix, no "builder" field) staged only migrations/ ui/ assets/.
-# A build with a revision between 1 and BUILDER_REV is always rebuilt (only revision 1 gets the
-# directory completeness check, as it is the one known to drop directories); the current revision is reused.
-# HATAMOTO_TEST_BUILDER_REV overrides the value (test seam only).
+# A build with a revision below BUILDER_REV is always rebuilt, legacy (1) included. The one exception is
+# the 1 -> 2 step (BUILDER_REV == 2): there a legacy build is reused when it holds every directory the
+# pinned source has, as a missing directory was the only difference. The current revision is reused.
+# HATAMOTO_TEST_BUILDER_REV overrides the value (test seam only; at least 2).
 BUILDER_REV=${HATAMOTO_TEST_BUILDER_REV:-2}
 [[ $BUILDER_REV =~ ^[1-9][0-9]{0,2}$ ]] || die "bad HATAMOTO_TEST_BUILDER_REV \"$BUILDER_REV\""
+[ "$BUILDER_REV" -ge 2 ] || die "HATAMOTO_TEST_BUILDER_REV \"$BUILDER_REV\" is below 2 (revision 1 is the legacy, unsuffixed build)"
 [ -f "$key" ] || die "key file $key not found"
 # The signer's key id (as `keys generate` writes it into the key file) is part of the archive identity.
 key_id=$(jq -r '.key_id // empty' "$key" 2>/dev/null) || key_id=
@@ -733,7 +735,7 @@ reuse_archive() {
     want="$name-$sv-${commit:0:12}-$key_id"; [ "$sb" = 1 ] || want+="-b$sb"
     [ "$(basename "$hmp")" = "$want.hmp" ] || die "$name: archived file name $(basename "$hmp") does not match its sidecar"
     authenticate_archive "$sv"
-    if [ "$sb" = 1 ] && [ "$BUILDER_REV" -gt 1 ]; then
+    if [ "$sb" = 1 ] && [ "$BUILDER_REV" = 2 ]; then
       archive_complete "$hmp" || continue
     elif [ "$sb" -lt "$BUILDER_REV" ]; then
       echo "build-community: $name: archived $(basename "$hmp") is builder revision $sb, current is $BUILDER_REV; rebuilding"

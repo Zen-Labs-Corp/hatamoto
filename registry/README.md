@@ -146,8 +146,9 @@ the pinned commit cannot break a publish.
   `hatamoto plugin pack --list-dirs` names; otherwise the plugin is rebuilt into a new
   `-b<rev>` file and the old file stays. Bump `BUILDER_REV` in `build-community.sh` when a
   builder change alters what a package holds for the same commit: an archived build of a
-  revision above 1 but below the current one is then always rebuilt into a new file (the
-  directory check applies only to revision 1); the current revision is reused. With
+  revision below the current one is then always rebuilt into a new file, legacy builds
+  included (the directory check applies only while the current revision is 2, the step
+  from revision 1); the current revision is reused. With
   `HATAMOTO_ARCHIVE_OFFLINE=1` (nothing fetched) the directory check cannot run and the
   legacy build is reused with a warning.
   After a key rotation the old files stay and the new key builds into new files.
