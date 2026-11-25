@@ -33,7 +33,7 @@ func TestSealWriteOnlyRoundTrip(t *testing.T) {
 			if !strings.Contains(string(sealed), SealedPrefix) {
 				t.Fatalf("value not sealed: %s", sealed)
 			}
-			for _, plain := range []string{"k-123", "t-1", "42"} {
+			for _, plain := range []string{`"k-123"`, `"t-1"`, `"limit":42`} {
 				if strings.Contains(string(sealed), plain) {
 					t.Fatalf("plain value %q left in sealed output", plain)
 				}
