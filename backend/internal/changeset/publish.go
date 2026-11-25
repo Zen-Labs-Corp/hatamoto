@@ -91,8 +91,12 @@ func (e *Engine) publish(ctx context.Context, csID int64, mode publishMode, gate
 			if review, err = loadReviewStates(ctx, tx, csID); err != nil {
 				return err
 			}
-			if err := checkDecided(review); err != nil {
-				return err
+			// A gate has judged every item itself (a standing policy refuses any
+			// risky one, bar the link_host class it re-checks), so nobody decides.
+			if gate == nil {
+				if err := checkDecided(review); err != nil {
+					return err
+				}
 			}
 		}
 		var applied []appliedRef

@@ -22,6 +22,9 @@ type StandingRule struct {
 	// lets the run publish new entries of those schemas.
 	CreateSchemas    []string
 	CreateMaxPerHour int
+	// LinkFieldLabels name the fields new entries may carry a web link in
+	// (schema titles); empty when the rule declares none.
+	LinkFieldLabels []string
 }
 
 // ErrStandingChanged means the plugin changed between showing the rule and
@@ -32,6 +35,10 @@ var ErrStandingChanged = errors.New("the plugin changed; review the rule again")
 type StandingApproval struct {
 	By string
 	At time.Time
+	// LinkFieldLabels are the link fields the stored approval carries, which
+	// can differ from the installed rule's when the approval was made by a host
+	// that did not know link fields.
+	LinkFieldLabels []string
 }
 
 // StandingPaused says an approval ended and why ("plugin updated", "schema
@@ -55,13 +62,15 @@ type StandingDigestRow struct {
 	Plugin  string
 	Changes int
 	Created int // new entries the run published on its own
+	// Hosts counts the new entries that link to each host.
+	Hosts map[string]int
 }
 
 // StandingApprovals reads and records standing approvals (nil = the
 // Automatic updates tab is unavailable).
 type StandingApprovals interface {
 	// Rule is the rule the installed plugin declares, if any.
-	Rule(plugin string) (StandingRule, bool)
+	Rule(ctx context.Context, plugin string) (StandingRule, bool)
 	// Active is the plugin's active approval for the run, nil when none.
 	Active(ctx context.Context, plugin, run string) (*StandingApproval, error)
 	// Paused says when and why the run's approval ended; nil while it is

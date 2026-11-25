@@ -133,7 +133,8 @@ func BuildPlan(ctx context.Context, d Deps, p *packages.Package, o Options) (*Pl
 		return nil, err
 	}
 
-	if ok, err := sdk.Satisfies(sdk.Version, k.SDK); err != nil || !ok {
+	// Same rule as plugins: the current SDK or any minor it still serves.
+	if ok, err := (sdk.Manifest{SDK: k.SDK}).Compatible(); err != nil || !ok {
 		pl.refuse("this kit needs SDK %s, this site has %s", k.SDK, sdk.Version)
 	}
 	if missing := Missing(k.Requires); len(missing) > 0 {

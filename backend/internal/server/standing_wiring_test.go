@@ -6,12 +6,14 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/changeset"
+	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/standing"
 )
 
@@ -254,7 +256,7 @@ func TestStandingAdminMapsRuleAndApproval(t *testing.T) {
 	r := newStandingRig()
 	a := standingAdmin{svc: func() *standingService { return r.svc }}
 	ctx := context.Background()
-	rule, ok := a.Rule("pricer")
+	rule, ok := a.Rule(ctx, "pricer")
 	if !ok || rule.Run != "prices" || rule.MaxPerHour != 50 || rule.Fields[0] != "price" || rule.Schemas[0] != "product" {
 		t.Fatalf("Rule = %+v, %v", rule, ok)
 	}
@@ -268,7 +270,7 @@ func TestStandingAdminMapsRuleAndApproval(t *testing.T) {
 		t.Fatalf("Active after approving = %+v, %v", got, err)
 	}
 	none := standingAdmin{svc: func() *standingService { return nil }}
-	if _, ok := none.Rule("pricer"); ok {
+	if _, ok := none.Rule(ctx, "pricer"); ok {
 		t.Fatal("no rule without the service")
 	}
 	if err := none.Approve(ctx, "pricer", "prices", "x", "1.0.0", standingHash); !errors.Is(err, ErrStandingUnavailable) {
@@ -421,5 +423,91 @@ func TestTurnOffAuditsOnlyWhenSomethingWasOn(t *testing.T) {
 	}
 	if voids != 1 {
 		t.Fatalf("audits = %v, want one standing.void", *r.audits)
+	}
+}
+
+const standingLinkManifest = `{"name":"pricer","version":"1.0.0","runs":[{"name":"prices","title":"Prices","cron":"daily",
+	"standing_approval":{"fields":["price"],"schemas":["product"],"max_per_hour":50,"create":{"schemas":["product"],"max_per_hour":7,"link_fields":["ticket_url"]}}}],"cron":[{"name":"daily","every":"24h"}]}`
+
+func TestPolicyCopiesLinkFields(t *testing.T) {
+	r := newStandingRig()
+	*r.manifest = jsontext.Value(standingLinkManifest)
+	rule, ok := r.svc.Policy("pricer")
+	if !ok || rule.Policy.Create == nil || len(rule.Policy.Create.LinkFields) != 1 || rule.Policy.Create.LinkFields[0] != "ticket_url" {
+		t.Fatalf("rule = %+v, %v", rule.Policy.Create, ok)
+	}
+	if rule, _ := newStandingRig().svc.Policy("pricer"); rule.Policy.Create != nil {
+		t.Fatalf("a rule without create gained one: %+v", rule.Policy.Create)
+	}
+}
+
+// Only link_fields differs from the create manifest, and that voids the approval.
+func TestChangingLinkFieldsVoidsTheApproval(t *testing.T) {
+	r := newStandingRig()
+	*r.manifest = jsontext.Value(standingCreateManifest)
+	hash, _ := standing.ManifestHash(*r.manifest)
+	ctx := context.Background()
+	if err := r.svc.Approve(ctx, "pricer", "prices", "owner", "1.0.0", hash); err != nil {
+		t.Fatal(err)
+	}
+	withLinks, _ := standing.ManifestHash(jsontext.Value(standingLinkManifest))
+	if withLinks == hash {
+		t.Fatal("link_fields did not change the manifest hash")
+	}
+	*r.manifest = jsontext.Value(standingLinkManifest)
+	if on, err := (standingGate{r.svc}).Active(ctx, "pricer", "prices"); err != nil || on {
+		t.Fatalf("Active = %v, %v", on, err)
+	}
+	if r.store.voided == nil || r.store.voided.Reason != "plugin updated" {
+		t.Fatalf("voided = %+v", r.store.voided)
+	}
+}
+
+// The gate gets the approved link fields and the site's own hosts.
+func TestAutoPublishPassesLinkFieldsAndOwnHosts(t *testing.T) {
+	r := newStandingRig()
+	*r.manifest = jsontext.Value(standingLinkManifest)
+	hash, _ := standing.ManifestHash(*r.manifest)
+	r.svc.ownHosts = func(context.Context) []string { return []string{"site.example"} }
+	ctx := context.Background()
+	if err := r.svc.Approve(ctx, "pricer", "prices", "owner", "1.0.0", hash); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.svc.autoPublish(ctx, "pricer", "prices", 9); err != nil {
+		t.Fatal(err)
+	}
+	p := r.eng.policySeen
+	if p.Create == nil || len(p.Create.LinkFields) != 1 || p.Create.LinkFields[0] != "ticket_url" {
+		t.Fatalf("create policy = %+v", p.Create)
+	}
+	if len(p.OwnHosts) != 1 || p.OwnHosts[0] != "site.example" {
+		t.Fatalf("OwnHosts = %v", p.OwnHosts)
+	}
+}
+
+func TestSiteOwnHosts(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.PublicSite.BaseURL = "https://Site.example/"
+	cfg.Admin.PreviewHost = "preview.example:8080"
+	got := (&Server{cfg: cfg}).siteOwnHosts(context.Background())
+	if strings.Join(got, ",") != "site.example,preview.example" {
+		t.Fatalf("hosts = %v", got)
+	}
+	if got := (&Server{cfg: &config.Config{}}).siteOwnHosts(context.Background()); len(got) != 0 {
+		t.Fatalf("no address configured: hosts = %v", got)
+	}
+}
+
+// Link fields are named by the schema title, else the humanised key.
+func TestStandingLinkFieldLabels(t *testing.T) {
+	svc := &standingService{schemas: func(_ context.Context, slug string) (jsontext.Value, bool, error) {
+		if slug != "event" {
+			return nil, false, nil
+		}
+		return jsontext.Value(`{"type":"object","properties":{"ticket_url":{"type":"string","format":"uri","title":"Ticket link"},"online_url":{"type":"string","format":"uri"}}}`), true, nil
+	}}
+	got := svc.linkFieldLabels(context.Background(), &standing.CreatePolicy{Schemas: []string{"gone", "event"}, LinkFields: []string{"ticket_url", "online_url", "other_url"}})
+	if want := []string{"Ticket link", "Online url", "Other url"}; !slices.Equal(got, want) {
+		t.Fatalf("labels = %v, want %v", got, want)
 	}
 }

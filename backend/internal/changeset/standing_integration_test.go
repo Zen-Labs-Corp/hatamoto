@@ -5,6 +5,7 @@ package changeset
 import (
 	"encoding/json/jsontext"
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"testing"
@@ -608,6 +609,26 @@ func TestStandingCreatePublishes(t *testing.T) {
 			"seo": map[string]any{"meta_title": "Line-up", "meta_description": "An evening of music, 7pm."}}))
 	})
 
+	t.Run("declared_link_field", func(t *testing.T) {
+		s.setSchema(linkFieldsSchema)
+		s.policy.Create.LinkFields = []string{"ticket_url"}
+		s.policy.OwnHosts = []string{"site-" + s.tag + ".test"}
+		defer func() { s.policy.Create.LinkFields, s.policy.OwnHosts = nil, nil }()
+		publish(s.newItem("dlf", map[string]any{"attributes": map[string]any{"title": "T", "ticket_url": "https://tickets.example/e/1"}}))
+		var got string
+		if err := s.db.Pool().QueryRow(s.ctx, `SELECT attributes->>'ticket_url' FROM hatamoto_entities WHERE slug = $1`, "dlf-"+s.tag).Scan(&got); err != nil || got != "https://tickets.example/e/1" {
+			t.Errorf("stored ticket_url = %q, %v", got, err)
+		}
+	})
+
+	// Without link_fields the gate behaves as it always did: a host-less
+	// markdown link in a value or the name is not a link the gate refuses.
+	t.Run("no_link_fields_hostless_markdown_link", func(t *testing.T) {
+		s.setSchema(linkFieldsSchema)
+		publish(s.newItem("nlf", map[string]any{"name": "Song [Live](Remix)",
+			"attributes": map[string]any{"title": "T", "notes": "See [the programme](#programme)"}}))
+	})
+
 	t.Run("cover_charge", func(t *testing.T) {
 		s.setSchema(linkFieldsSchema)
 		publish(s.newItem("cc", map[string]any{"attributes": map[string]any{"title": "T", "cover": "£10"}}))
@@ -639,6 +660,38 @@ func TestStandingCreateRefusals(t *testing.T) {
 	other := s.otherSchema()
 	otherOwned := s.liveEntity(standingPlugin, other, "oo")
 	ownerOwned := s.liveEntity("", s.slug, "ow")
+	// linkRow stages a create whose attributes are attrs (plus a title) under a
+	// rule that declares ticket_url as a link field and knows the site's hosts.
+	// More may follow: an own host (string), payload overrides (map) and steps
+	// to run once the rule and schema are set (func).
+	linkRow := func(key string, attrs map[string]any, more ...any) func() int64 {
+		return func() int64 {
+			s.setSchema(linkFieldsSchema)
+			s.policy.Create.LinkFields = []string{"ticket_url"}
+			s.policy.OwnHosts = []string{"site-" + s.tag + ".test"}
+			extra := map[string]any{}
+			var after []func()
+			for _, m := range more {
+				switch v := m.(type) {
+				case string:
+					if v != "" {
+						s.policy.OwnHosts = append(s.policy.OwnHosts, v)
+					}
+				case map[string]any:
+					maps.Copy(extra, v)
+				case func():
+					after = append(after, v)
+				}
+			}
+			a := map[string]any{"title": "T"}
+			maps.Copy(a, attrs)
+			extra["attributes"] = a
+			for _, f := range after {
+				f()
+			}
+			return s.stageAll(s.newItem(key, extra))
+		}
+	}
 	cases := []struct {
 		name  string
 		build func() int64
@@ -794,7 +847,7 @@ func TestStandingCreateRefusals(t *testing.T) {
 			s.setSchema(linkFieldsSchema)
 			return s.stageAll(s.newItem("lk4", map[string]any{"attributes": map[string]any{"title": "T", "style": "background:image-set(\"x.png\" 1x)"}}))
 		}, "links, paths or files"},
-		{"link_like_5_ticket_url", func() int64 {
+		{"link_undeclared_key", func() int64 {
 			s.setSchema(linkFieldsSchema)
 			return s.stageAll(s.newItem("lk5", map[string]any{"attributes": map[string]any{"title": "T", "ticket_url": "https://tickets.example/e/1"}}))
 		}, "closer look"},
@@ -954,6 +1007,64 @@ func TestStandingCreateRefusals(t *testing.T) {
 			a, b := s.newItem("e22d", nil), s.newItem("e22d", map[string]any{"slug": "other-" + s.tag})
 			return s.stageAll(a, b)
 		}, "source key"},
+		{"link_field_notes_key", linkRow("lf1", map[string]any{"notes": "https://tickets.example/e/1"}), "links, paths or files"},
+		{"link_field_http", linkRow("lf2", map[string]any{"ticket_url": "http://tickets.example/e/1"}), "links, paths or files"},
+		{"link_field_javascript", linkRow("lf3", map[string]any{"ticket_url": "javascript:alert(1)"}), "links, paths or files"},
+		{"link_field_userinfo", linkRow("lf4", map[string]any{"ticket_url": "https://user@tickets.example/e/1"}), "links, paths or files"},
+		{"link_field_userinfo_password", linkRow("lf4b", map[string]any{"ticket_url": "https://u:p@tickets.example/e/1"}), "links, paths or files"},
+		{"link_field_private_ip", linkRow("lf5", map[string]any{"ticket_url": "https://10.0.0.1/x"}), "links, paths or files"},
+		{"link_field_public_ip", linkRow("lf5b", map[string]any{"ticket_url": "https://8.8.8.8/x"}), "links, paths or files"},
+		{"link_field_decimal_ip", linkRow("lf5c", map[string]any{"ticket_url": "https://2130706433/"}), "links, paths or files"},
+		{"link_field_hex_ip", linkRow("lf5d", map[string]any{"ticket_url": "https://0x7f.1/"}), "links, paths or files"},
+		{"link_field_ipv6_loopback", linkRow("lf6", map[string]any{"ticket_url": "https://[::1]/x"}), "links, paths or files"},
+		{"link_field_ipv6_public", linkRow("lf6b", map[string]any{"ticket_url": "https://[2001:db8::1]/x"}), "links, paths or files"},
+		{"link_field_port", linkRow("lf7", map[string]any{"ticket_url": "https://tickets.example:8443/x"}), "links, paths or files"},
+		{"link_field_default_port", linkRow("lf7b", map[string]any{"ticket_url": "https://tickets.example:443/x"}), "links, paths or files"},
+		{"link_field_2049_bytes", linkRow("lf8", map[string]any{"ticket_url": "https://tickets.example/" + strings.Repeat("a", 2049-len("https://tickets.example/"))}), "links, paths or files"},
+		{"link_field_array", linkRow("lf9", map[string]any{"ticket_url": []any{"https://tickets.example/e/1"}}), "links, paths or files"},
+		{"link_field_object", linkRow("lf9b", map[string]any{"ticket_url": map[string]any{"u": "https://tickets.example/e/1"}}), "links, paths or files"},
+		{"link_field_nested_same_key", linkRow("lf9c", map[string]any{"notes": map[string]any{"ticket_url": "https://tickets.example/e/1"}}), ""},
+		{"link_field_own_host", linkRow("lf10", map[string]any{"ticket_url": "https://site-" + s.tag + ".test/e/1"}), "links, paths or files"},
+		{"link_field_own_host_www", linkRow("lf10b", map[string]any{"ticket_url": "https://www.site-" + s.tag + ".test/e/1"}), "links, paths or files"},
+		{"link_field_preview_host", linkRow("lf10c", map[string]any{"ticket_url": "https://preview-" + s.tag + ".test/e/1"}, "preview-"+s.tag+".test"), "links, paths or files"},
+		{"link_field_single_label_host", linkRow("lf11", map[string]any{"ticket_url": "https://localhost/"}), "links, paths or files"},
+		{"link_field_upper_scheme", linkRow("lf12", map[string]any{"ticket_url": "HTTPS://tickets.example/e/1"}), "links, paths or files"},
+		{"link_field_upper_host", linkRow("lf12b", map[string]any{"ticket_url": "https://Tickets.example/e/1"}), "links, paths or files"},
+		{"link_field_space", linkRow("lf13", map[string]any{"ticket_url": "https://tickets.example/e/1 "}), "links, paths or files"},
+		{"link_field_backslash", linkRow("lf13b", map[string]any{"ticket_url": `https://tickets.example\@evil.example/`}), "links, paths or files"},
+		{"link_field_percent_authority", linkRow("lf13c", map[string]any{"ticket_url": "https://tickets%2eexample/"}), "links, paths or files"},
+		{"link_field_pdf", linkRow("lf14", map[string]any{"ticket_url": "https://tickets.example/t.pdf"}), ""},
+		{"link_field_jpg", linkRow("lf14b", map[string]any{"ticket_url": "https://tickets.example/p.jpg"}), ""},
+		{"link_field_library_file", func() int64 {
+			s.mediaRow("https://tickets.example/files/" + s.tag + "/a.bin")
+			return linkRow("lf15", map[string]any{"ticket_url": "https://tickets.example/files/" + s.tag + "/a.bin"})()
+		}, "media library"},
+		{"link_field_media_path", linkRow("lf15b", map[string]any{"ticket_url": "https://tickets.example/media/a"}), "media library"},
+		{"link_field_plus_link_in_notes", linkRow("lf16", map[string]any{"ticket_url": "https://tickets.example/e/1", "notes": "https://evil.example/x"}), "links, paths or files"},
+		{"link_field_plus_link_in_markup", linkRow("lf16b", map[string]any{"ticket_url": "https://tickets.example/e/1", "notes": `<a href="https://tickets.example/e/2">x</a>`}), "links, paths or files"},
+		{"link_field_plus_link_in_name", func() int64 {
+			return linkRow("lf17", map[string]any{"ticket_url": "https://tickets.example/e/1"}, "", map[string]any{"name": "https://evil.example/x"})()
+		}, "links, paths or files"},
+		{"link_field_no_own_host_known", linkRow("lf18", map[string]any{"ticket_url": "https://tickets.example/e/1"},
+			func() { s.policy.OwnHosts = nil }), "links, paths or files"},
+		{"link_field_live_schema_lost_format", linkRow("lf19", map[string]any{"ticket_url": "https://tickets.example/e/1"},
+			func() {
+				s.setSchema(strings.Replace(linkFieldsSchema, `"ticket_url":{"type":"string","format":"uri"}`, `"ticket_url":{"type":"string"}`, 1))
+			}), "links, paths or files"},
+		{"link_field_live_schema_x_hm_field", linkRow("lf19b", map[string]any{"ticket_url": "https://tickets.example/e/1"},
+			func() {
+				s.setSchema(strings.Replace(linkFieldsSchema, `"ticket_url":{"type":"string","format":"uri"}`, `"ticket_url":{"type":"string","format":"uri","x-hm-field":"url"}`, 1))
+			}), ""},
+		{"link_field_md_protocol_relative_notes", linkRow("lf21", map[string]any{"ticket_url": "https://tickets.example/e/1", "notes": "Tickets: [x](//evil.example/x)"}), "links, paths or files"},
+		{"link_field_md_protocol_relative_angle_notes", linkRow("lf21b", map[string]any{"ticket_url": "https://tickets.example/e/1", "notes": "[x](<//evil.example>)"}), "links, paths or files"},
+		{"link_field_md_protocol_relative_description", linkRow("lf21c", map[string]any{"notes": "[x](//evil.example/x)"}), "links, paths or files"},
+		{"link_field_md_protocol_relative_seo", linkRow("lf21d", map[string]any{"ticket_url": "https://tickets.example/e/1"}, "",
+			map[string]any{"seo": map[string]any{"meta_description": "[x](//evil.example/x)"}}), "links, paths or files"},
+		{"link_field_md_protocol_relative_no_own_host", linkRow("lf21e", map[string]any{"notes": "[x](//evil.example/x)"},
+			func() { s.policy.OwnHosts = nil }), "links, paths or files"},
+		{"link_field_smuggled_markdown_link", linkRow("lf22", map[string]any{"ticket_url": "https://tickets.example/e/1)[Pay%20here](//evil.example/pay"}), "links, paths or files"},
+		{"link_field_image_named_key", linkRow("lf20", map[string]any{"logo": "https://tickets.example/e/1"},
+			func() { s.policy.Create.LinkFields = []string{"logo"} }), "image or file"},
 		{"cap_zero", func() int64 {
 			s.withCreate(0)
 			return s.stageAll(s.newItem("e22z", nil))

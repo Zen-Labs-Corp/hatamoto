@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"hatamoto.dev/core/internal/schemafield"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -21,7 +23,10 @@ type DigestRow struct {
 	ChangesetID int64
 	Changes     int // applied updates and other non-create items
 	Created     int // entries the run created on its own
-	At          time.Time
+	// Hosts counts, per host, the entries the run created that carry a valid
+	// link to it in a link field of the approval. Nil when none did.
+	Hosts map[string]int
+	At    time.Time
 }
 
 // Digest lists the changesets published automatically since the given time,
@@ -49,7 +54,59 @@ func (s *Store) Digest(ctx context.Context, since time.Time) ([]DigestRow, error
 		}
 		out = append(out, d)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, s.addHosts(ctx, out)
+}
+
+// addHosts fills Hosts from the created entries' link fields. Only hosts of
+// links that pass schemafield.LinkHost count, and an entry counts once per host.
+func (s *Store) addHosts(ctx context.Context, out []DigestRow) error {
+	var ids []int64
+	at := map[int64]int{}
+	for i, d := range out {
+		if d.Created > 0 {
+			ids = append(ids, d.ChangesetID)
+			at[d.ChangesetID] = i
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	rows, err := s.DB.Pool().Query(ctx, `
+		SELECT i.changeset_id, i.payload->'attributes', a.policy->'create'->'link_fields'
+		FROM hatamoto_changeset_items i
+		JOIN hatamoto_changesets c ON c.id = i.changeset_id
+		JOIN hatamoto_standing_approvals a ON a.id = c.approval_id
+		WHERE i.changeset_id = ANY($1) AND i.result = 'applied'
+		  AND i.kind = 'entity' AND i.op = 'upsert' AND i.before IS NULL AND i.before_token IS NULL
+		  AND jsonb_typeof(a.policy->'create'->'link_fields') = 'array'`, ids)
+	if err != nil {
+		return fmt.Errorf("failed to read the linked hosts: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cs int64
+		var attrs map[string]any
+		var keys []string
+		if err := rows.Scan(&cs, &attrs, &keys); err != nil {
+			return fmt.Errorf("failed to read a linked host row: %w", err)
+		}
+		seen := map[string]bool{}
+		for _, k := range keys {
+			raw, _ := attrs[k].(string)
+			if h, ok := schemafield.LinkHost(raw); ok && !seen[h] {
+				seen[h] = true
+				d := &out[at[cs]]
+				if d.Hosts == nil {
+					d.Hosts = map[string]int{}
+				}
+				d.Hosts[h]++
+			}
+		}
+	}
+	return rows.Err()
 }
 
 // ClaimDigest records that the summary for the period ending at through is

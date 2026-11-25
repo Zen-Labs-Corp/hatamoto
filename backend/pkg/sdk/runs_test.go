@@ -33,6 +33,24 @@ func TestStandingWithoutCreateMarshalsUnchanged(t *testing.T) {
 	}
 }
 
+func TestStandingCreateWithoutLinkFieldsMarshalsUnchanged(t *testing.T) {
+	b, err := jsonv2.Marshal(&StandingCreate{Schemas: []string{"product"}, MaxPerHour: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = `{"schemas":["product"],"max_per_hour":5}`
+	if string(b) != want {
+		t.Fatalf("marshal = %s, want %s", b, want)
+	}
+}
+
+func withLinkFields(keys []string) func(*Run) {
+	return func(r *Run) {
+		withCreate(r, []string{"product"}, 5)
+		r.StandingApproval.Create.LinkFields = keys
+	}
+}
+
 func TestRunsValidate(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -163,6 +181,17 @@ func TestRunsValidate(t *testing.T) {
 			}
 			withCreate(r, many, 5)
 		}, "create.schemas needs 1.."},
+		{"link_fields one key", withLinkFields([]string{"ticket_url"}), ""},
+		{"link_fields eight keys", withLinkFields([]string{"a", "b", "c", "d", "e", "f", "g", "h"}), ""},
+		{"link_fields nine keys", withLinkFields([]string{"a", "b", "c", "d", "e", "f", "g", "h", "i"}), "standing_approval.create.link_fields"},
+		{"link_fields empty", withLinkFields([]string{}), "standing_approval.create.link_fields"},
+		{"link_fields duplicate", withLinkFields([]string{"a", "a"}), "standing_approval.create.link_fields"},
+		{"link_fields dotted", withLinkFields([]string{"ticket.url"}), "standing_approval.create.link_fields"},
+		{"link_fields slash", withLinkFields([]string{"a/b"}), "standing_approval.create.link_fields"},
+		{"link_fields index", withLinkFields([]string{"a[0]"}), "standing_approval.create.link_fields"},
+		{"link_fields upper case", withLinkFields([]string{"Ticket"}), "standing_approval.create.link_fields"},
+		{"link_fields leading underscore", withLinkFields([]string{"_x"}), "standing_approval.create.link_fields"},
+		{"link_fields 65 bytes", withLinkFields([]string{"a" + strings.Repeat("b", 64)}), "standing_approval.create.link_fields"},
 		{"standing create schema not listed", func(r *Run) { withCreate(r, []string{"post"}, 5) }, "must be listed in standing_approval.schemas"},
 		{"standing with inputs", func(r *Run) {
 			r.Cron = "tick"

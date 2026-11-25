@@ -14,6 +14,7 @@ import (
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/packages"
+	"hatamoto.dev/sdk"
 )
 
 type enabler struct{ calls int }
@@ -192,7 +193,10 @@ func TestApplyPolicyOnlyWithTheTick(t *testing.T) {
 
 	f := newFake(t).withRegistry(t)
 	res, err := apply(t, f, kitPackage(t, edit), Accepts{Comments: true}, &enabler{})
-	if err != nil || f.wrote("comments story") != 1 || policyEnabled(t, f) || !hasText(res.Messages, "Community policy left off") || len(res.PolicyOn) != 0 {
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.wrote("comments story") != 1 || policyEnabled(t, f) || !hasText(res.Messages, "Community policy left off") || len(res.PolicyOn) != 0 {
 		t.Fatalf("err=%v writes=%v messages=%v", err, f.writes, res.Messages)
 	}
 
@@ -427,5 +431,27 @@ func TestPlanRefusesABadCommentPolicyBeforeAnyWrite(t *testing.T) {
 	var re *RefusedError
 	if _, err := Apply(context.Background(), f.deps(), pl, Accepts{}, ApplyOptions{}); !errors.As(err, &re) || len(f.writes) != 0 {
 		t.Errorf("err=%v writes=%v", err, f.writes)
+	}
+}
+
+// A kit pinned to an SDK minor the host still serves (sdk.CompatibleWith)
+// plans without an SDK refusal, as a plugin would load; one outside both is refused.
+func TestPlanSDKRangeFollowsCompatibleWith(t *testing.T) {
+	for _, tc := range []struct {
+		rng    string
+		refuse bool
+	}{
+		{"^" + sdk.CompatibleWith[len(sdk.CompatibleWith)-1][:strings.LastIndex(sdk.CompatibleWith[len(sdk.CompatibleWith)-1], ".")], false},
+		{"^" + sdk.Version[:strings.LastIndex(sdk.Version, ".")], false},
+		{"^0.4", true},
+	} {
+		pl, err := BuildPlan(context.Background(), newFake(t).withRegistry(t).deps(), kitPackage(t, func(k *packages.Kit) { k.SDK = tc.rng }), Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := slices.ContainsFunc(pl.Refusals, func(r string) bool { return strings.Contains(r, "needs SDK") })
+		if got != tc.refuse {
+			t.Errorf("kit sdk %s: SDK refusal=%v, want %v (%v)", tc.rng, got, tc.refuse, pl.Refusals)
+		}
 	}
 }

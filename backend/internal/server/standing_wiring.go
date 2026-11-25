@@ -6,7 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
+	"net/url"
 	"slices"
+	"strings"
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/changeset"
@@ -49,8 +52,10 @@ type standingService struct {
 	eng     standingEngine
 	plugin  installedPlugin
 	schemas schemaReader
-	audit   func(ctx context.Context, action, target string, detail map[string]any)
-	log     *slog.Logger
+	// ownHosts are the site's own host names (public and preview); nil when unknown.
+	ownHosts func(ctx context.Context) []string
+	audit    func(ctx context.Context, action, target string, detail map[string]any)
+	log      *slog.Logger
 }
 
 // ErrNoStandingRule means the plugin declares no standing approval for the run.
@@ -64,6 +69,7 @@ func (s *Server) standingServiceFor() *standingService {
 	}
 	return &standingService{
 		store: &standing.Store{DB: s.db}, eng: s.changesets, audit: s.changesetAudit, log: s.logger,
+		ownHosts: s.siteOwnHosts,
 		plugin: func(name string) (string, jsontext.Value, bool) {
 			if s.packages == nil {
 				return "", nil, false
@@ -85,6 +91,39 @@ func (s *Server) standingServiceFor() *standingService {
 			return sc.Schema, true, nil
 		},
 	}
+}
+
+// siteOwnHosts lists the host names the site answers on: the configured public
+// address, else the one in the site settings (the precedence digestSite uses),
+// and the preview host. Empty when none is known, which turns link fields off.
+func (s *Server) siteOwnHosts(ctx context.Context) []string {
+	_, base, _ := s.digestSite(ctx)
+	var hosts []string
+	add := func(h string) {
+		if h = strings.ToLower(strings.TrimSpace(h)); h != "" && !slices.Contains(hosts, h) {
+			hosts = append(hosts, h)
+		}
+	}
+	if u, err := url.Parse(base); err == nil {
+		add(u.Hostname())
+	}
+	if s.cfg != nil {
+		if h := s.cfg.Admin.PreviewHost; h != "" {
+			if host, _, err := net.SplitHostPort(h); err == nil {
+				h = host
+			}
+			add(h)
+		}
+		// A settings address differing from the configured one is the site's too.
+		if s.siteConfig != nil && strings.TrimSpace(s.cfg.PublicSite.BaseURL) != "" {
+			if c, err := s.siteConfig.Get(ctx); err == nil {
+				if u, err := url.Parse(strings.TrimSpace(c.PublicBaseURL)); err == nil {
+					add(u.Hostname())
+				}
+			}
+		}
+	}
+	return hosts
 }
 
 // standingRule is the standing rule a plugin declares for one of its runs.
@@ -121,7 +160,7 @@ func (g *standingService) Policy(plugin string) (standingRule, bool) {
 		Fields: slices.Clone(r.StandingApproval.Fields), Schemas: slices.Clone(r.StandingApproval.Schemas), MaxPerHour: max,
 	}
 	if c := r.StandingApproval.Create; c != nil {
-		pol.Create = &standing.CreatePolicy{Schemas: slices.Clone(c.Schemas), MaxPerHour: min(c.MaxPerHour, sdk.MaxStandingCreatePerHour)}
+		pol.Create = &standing.CreatePolicy{Schemas: slices.Clone(c.Schemas), MaxPerHour: min(c.MaxPerHour, sdk.MaxStandingCreatePerHour), LinkFields: slices.Clone(c.LinkFields)}
 	}
 	return standingRule{Version: version, Hash: hash, Run: r.Name, Policy: pol}, true
 }
@@ -303,7 +342,10 @@ func (g *standingService) publishUnderApproval(ctx context.Context, plugin, run 
 		Plugin: plugin, Fields: a.Policy.Fields, Schemas: a.Policy.Schemas, MaxPerHour: a.Policy.MaxPerHour,
 	}
 	if c := a.Policy.Create; c != nil {
-		pol.Create = &changeset.CreatePolicy{Schemas: slices.Clone(c.Schemas), MaxPerHour: c.MaxPerHour}
+		pol.Create = &changeset.CreatePolicy{Schemas: slices.Clone(c.Schemas), MaxPerHour: c.MaxPerHour, LinkFields: slices.Clone(c.LinkFields)}
+		if g.ownHosts != nil {
+			pol.OwnHosts = g.ownHosts(ctx)
+		}
 	}
 	v, res, err := g.eng.PublishUnderPolicy(ctx, csID, pol, a.ID)
 	if err != nil {

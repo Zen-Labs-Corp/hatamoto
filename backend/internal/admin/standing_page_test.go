@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -22,7 +23,9 @@ type fakeStanding struct {
 	off      []string // plugin of each TurnOff
 }
 
-func (f *fakeStanding) Rule(string) (StandingRule, bool) { return f.rule, f.rule.Run != "" }
+func (f *fakeStanding) Rule(context.Context, string) (StandingRule, bool) {
+	return f.rule, f.rule.Run != ""
+}
 func (f *fakeStanding) Active(context.Context, string, string) (*StandingApproval, error) {
 	return f.active, nil
 }
@@ -117,8 +120,10 @@ func TestStandingTabWithCreate(t *testing.T) {
 
 	rule := standingRule
 	rule.CreateSchemas, rule.CreateMaxPerHour = []string{"events", "products"}, 20
+	rule.LinkFieldLabels = []string{"Ticket link", "Online link"}
 	fs := &fakeStanding{rule: rule, digest: []StandingDigestRow{
-		{Plugin: "shop-sync", Changes: 3, Created: 2}, {Plugin: "shop-sync", Changes: 1},
+		{Plugin: "shop-sync", Changes: 3, Created: 2, Hosts: map[string]int{"tickets.example": 2, "meet.example": 1}},
+		{Plugin: "shop-sync", Changes: 1},
 	}}
 	g := newStandingRig(t, fs)
 	rec := g.do("GET", standingPath, "owner-token", nil, nil)
@@ -128,13 +133,14 @@ func TestStandingTabWithCreate(t *testing.T) {
 	}
 	create := "May publish new events and products entries on its own, up to 20 an hour"
 	never := "Never deletes, redirects, menus, media, other sources\u2019 content or other content types"
-	for _, want := range []string{create, never, "New entries published automatically"} {
+	links := "New entries may carry web links in: Ticket link, Online link"
+	for _, want := range []string{create, links, never, "New entries published automatically", "Linked hosts", "tickets.example 2, meet.example 1"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("tab lacks %q", want)
 		}
 	}
-	if strings.Index(body, create) > strings.Index(body, never) {
-		t.Error("the create line comes after the Never line")
+	if !(strings.Index(body, create) < strings.Index(body, links) && strings.Index(body, links) < strings.Index(body, never)) {
+		t.Error("the lines are not in the order create, links, never")
 	}
 	if strings.Contains(body, "Never text, links") {
 		t.Error("the short Never line stays for rules without create")
@@ -151,6 +157,40 @@ func TestStandingTabWithCreate(t *testing.T) {
 	fs.digest = []StandingDigestRow{{Plugin: "shop-sync", Changes: 3}}
 	if body = g.do("GET", standingPath, "owner-token", nil, nil).Body.String(); strings.Contains(body, "New entries published automatically") {
 		t.Error("no creates, no section")
+	}
+}
+
+// An active approval is worded from what it stores: one made before the host
+// knew link fields carries none, so the tab must not promise links.
+func TestStandingTabLinkLineFollowsApproval(t *testing.T) {
+	t.Parallel()
+
+	rule := standingRule
+	rule.CreateSchemas, rule.CreateMaxPerHour = []string{"events"}, 20
+	rule.LinkFieldLabels = []string{"Ticket link"}
+	fs := &fakeStanding{rule: rule, active: &StandingApproval{By: "owner@example.com", At: time.Now()}}
+	g := newStandingRig(t, fs)
+	if body := g.do("GET", standingPath, "owner-token", nil, nil).Body.String(); strings.Contains(body, "may carry web links") {
+		t.Error("the stored approval carries no link fields, yet the tab lists them")
+	}
+	fs.active.LinkFieldLabels = []string{"Ticket link"}
+	if body := g.do("GET", standingPath, "owner-token", nil, nil).Body.String(); !strings.Contains(body, "New entries may carry web links in: Ticket link") {
+		t.Error("the stored approval carries link fields, yet the tab lacks them")
+	}
+}
+
+func TestHostListCapsAndOrders(t *testing.T) {
+	t.Parallel()
+
+	if got, want := hostList(map[string]int{"b.example": 2, "a.example": 2, "c.example": 5}), "c.example 5, a.example 2, b.example 2"; got != want {
+		t.Errorf("hostList = %q, want %q", got, want)
+	}
+	m := map[string]int{}
+	for i := range 11 {
+		m[fmt.Sprintf("h%02d.example", i)] = 1
+	}
+	if got := hostList(m); !strings.HasSuffix(got, ", and 1 more") || strings.Contains(got, "h10.example") {
+		t.Errorf("hostList of 11 = %q", got)
 	}
 }
 

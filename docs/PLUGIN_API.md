@@ -1,4 +1,4 @@
-# Plugin API (SDK 0.27)
+# Plugin API (SDK 0.28)
 
 Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.md).
 
@@ -7,6 +7,8 @@ Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.
 > **Plugin pages start runs (compat, no SDK change).** On a plugin's admin page the owner's page may call `hatamoto.runInputs("<run>", {name: value})`: core asks the owner in its own dialog (the run title and every input), then starts the declared run; the promise gives `{ok:true, run_id, url}` or `{ok:false, error}` (`"cancelled"` when the owner says no). `hatamoto.runInputs({...})` with one object still fills the Runs tab's start form as before.
 >
 > **Content type updates (compat, no SDK change).** When an installed plugin is updated (while enabled) or enabled again, core compares each shipped `schemas/<slug>.json` with the stored schema of a content type that plugin installed and adds the top-level properties the stored one lacks, as optional fields (never added to `required`; appended to `x-hm-order` when the stored schema has one). Nothing else changes: existing properties are never removed, retyped or edited, whoever added them, so the owner's edits and existing entries are kept; a property the new schema drops or retypes stays as stored and is logged. A type the site or another plugin owns is never touched. A fresh install never changes an existing type, even one a plugin of the same name left behind. An owner who deleted a shipped field gets it back at the next update or when the plugin is enabled again. In the admin, the update prompt lists the fields each type gains, and an update that adds fields is reviewed rather than applied in one click (also in Update all); a disabled plugin has nothing to review, its fields are added when it is enabled. No manifest field or SDK range is involved; a plugin whose schemas do not change sees no difference. Rolling back keeps the added fields.
+>
+> **0.28 changes (additive over 0.27).** New: the manifest field `standing_approval.create.link_fields` (at most 8 top-level keys of plain `format: uri` fields of the create schemas; in an approved run's automatic creates each may hold one strict `https://` link, and the owner sees the fields on the approval line). A plugin that relies on it declares `^0.28`: an older host ignores the field and its creates with links wait for review. The host reports `0.28.0`, so declare `"sdk": "^0.28"`.
 >
 > **0.27.1 changes (additive over 0.27.0).** `standing_approval.schemas` and `standing_approval.create.schemas` accept content type slugs (the `entity_schema` rule `^[a-z]([a-z0-9]|-[a-z0-9]){0,39}$`) in addition to identifiers, so a run can hold a standing approval on a type such as `calendar-event`. `standing_approval.fields` keeps the identifier rule. A 0.27.0 host refuses such a manifest at load, so a plugin that names a dashed slug declares `"sdk": "^0.27.1"`. Manifests that were valid under 0.27.0 stay valid.
 >
@@ -181,13 +183,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.27.1`; plugins built for `^0.5` to `^0.26` still load, unless they request a removed write permission):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.28.0`; plugins built for `^0.5` to `^0.27.1` still load, unless they request a removed write permission):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.27.1
+go get hatamoto.dev/sdk@v0.28.0
 ```
 
 SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -197,7 +199,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.27.1` is the git tag `v0.27.1`. The core repository stays
+plain release tags: version `0.28.0` is the git tag `v0.28.0`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`), or `--tag v<Version>-rc.N` for a release candidate of the same tree. Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -214,7 +216,7 @@ different repository.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.27 is current (0.27.1).
+> SDK 0.28 is current (0.28.0).
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
@@ -557,7 +559,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 |---|---|
 | `name` | `^[a-z][a-z0-9-]{1,39}$`; equals the directory name. `browse`, `security` and `webhooks` are reserved: a new install under them is refused (the admin serves `/plugins/browse` and `/plugins/security`), while a plugin already installed as `browse` or `security` can still be updated and uninstalled |
 | `version` | the plugin's own semver |
-| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.27.1 and also serves `^0.5` to `^0.26` plugins |
+| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.28.0 and also serves `^0.5` to `^0.27.1` plugins |
 | `license` | `""` (default) or `"commercial"` (SDK 0.26). A commercial plugin installs and runs only on a host whose edition registered a plugin key (`edition.RegisterPluginKey`), is signed by that key and is entitled (`edition.PluginEntitled`). Declare `"sdk": "^0.26"` or later: an older host ignores the field, so install refuses a range that admits one. A new install refuses any other value (`"Commercial"`, `"MIT"`, an object); a plugin already installed with one keeps loading as a normal plugin, because only the exact string `"commercial"` has meaning when a manifest is loaded |
 | `description` | optional |
 | `config` | string map readable in the guest (`pdk.GetConfig`) |
@@ -809,6 +811,7 @@ Two ways to keep a value current without a review each time.
 | `standing_approval.max_per_hour` | most automatic changes an hour; 0 or absent means 200, and more than 200 is refused |
 | `standing_approval.create.schemas` | optional: content type slugs whose new entries the run may publish by itself, 1 to 16, same slug rule, each also listed in `standing_approval.schemas` |
 | `standing_approval.create.max_per_hour` | most new entries an hour, 1 to 100; there is no default, so it must be set |
+| `standing_approval.create.link_fields` | optional (SDK 0.28, declare `^0.28`): 1 to 8 top-level attribute keys, each a plain `{"type":"string","format":"uri"}` field of every listed create schema the package ships. In an automatic create each may hold one `https://` link: lower-case scheme and host, at most 2,048 bytes, no user or password, no IP address, no port, a host name with a dot that is not the site's own or preview host, and no image, audio, video or PDF file name. Any other link, and these links in any other key, the name, slug, locale, search text or HTML, still waits for review. It needs the site address (`PUBLIC_BASE_URL` or the address in the site settings); without it no link qualifies. An older host ignores the field |
 
 A run with a `standing_approval` takes no `inputs`, and a manifest may have only one such run (the host approves one rule per plugin; a second is refused at load). A cron-started run has no owner to confirm hosts, so its fetch phase may call the manifest's `allowed_hosts` (the owner saw them at install), except the `*` wildcard, which a cron-started run never gets. A manifest with a `standing_approval` may list at most 32 `allowed_hosts` besides `*`. The block is additive: older hosts ignore it, and there is no new host function or permission. Cron, hooks and routes still cannot write content except through `entities.write.own`: to change content on a schedule, use a cron-started run with a standing approval.
 
@@ -831,7 +834,15 @@ Add `create` to the rule to let the approved run also publish new entries of the
 
 The owner sees one more line on the Automatic updates tab ("May publish new product entries on its own, up to 20 an hour") before approving. New entries go through the same path as a change the owner reviews: validation, HTML sanitising, slug rules, events, revision history and undo. Their origin is `plugin:<name>`, so later updates to them follow the update rule.
 
-The hourly create cap is separate from the update cap: creates do not use the update budget, and updates do not use the create budget. Adding or changing `create` in a plugin update changes the manifest, so an existing approval is void until the owner allows the new rule.
+The hourly create cap is separate from the update cap: creates do not use the update budget, and updates do not use the create budget. Adding or changing `create` or `link_fields` in a plugin update changes the manifest, so an existing approval is void until the owner allows the new rule.
+
+To let new entries carry a web link, list the keys in `create.link_fields`:
+
+```json
+"create": { "schemas": ["event"], "max_per_hour": 20, "link_fields": ["ticket_url"] }
+```
+
+Each key must be a plain `{"type":"string","format":"uri"}` property (only `type`, `format`, `title` and `description`) in the create schemas the package ships; install refuses the package otherwise, and the check is repeated against the live schema when a run publishes. The gate reads `link_fields` from the rule the owner approved, never from a later manifest. The owner sees one more line before approving, naming the fields by their schema titles ("New entries may carry web links in: Ticket link"), and the daily summary adds a "Linked hosts" column to the new entries section ("tickets.example 2, meet.example 1": host names only, most linked first). A value must not contain quotes (`"` or `'`), angle brackets, backticks or backslashes: percent-encode them (an apostrophe as `%27`), or the create waits for review. A value that holds a second link (for example `](`) also waits for review. A link in these fields still faces the image, media path and media library checks. Updates are unchanged: a changed link in an update waits for review.
 
 A changeset stays staged for review as a whole, with nothing published, when any item:
 
@@ -840,7 +851,7 @@ A changeset stays staged for review as a whole, with nothing published, when any
 - touches content another source owns;
 - sets `translation_of` to an entry the plugin does not own, or to one outside the listed schemas;
 - gives a slug that is already taken in the schema;
-- carries a link, a path or a file in the entry's name, slug, locale or search text, or in any attribute value or key, at any depth: text with `://`, a scheme such as `http:`, `data:`, `javascript:`, `mailto:` or `tel:` directly followed by a character other than whitespace (`tel:+44...`), a leading `/` or `\`, a leading `www.`, a file name ending in an image, audio, video or PDF extension (`.jpg`, `.png`, `.svg`, `.mp4`, `.pdf` and so on), or CSS `url(` / `image-set(`. In HTML, a link attribute (`href`, `src`, `srcset`, `action`, `formaction`, `cite`, `data`, `poster`, `background`, `xlink:href`, `ping`, `longdesc`, `manifest`, `codebase`, `data-entity-id`) with a non-blank value makes the create wait whatever its target, relative ones included (`<a href="tickets">`, `<a href="#more">`), and any other attribute is checked like plain text. A link written in the middle of plain text counts only when it has `://` or one of the scheme forms above. This holds for every field, whatever the schema says, so a create with a ticket link waits for review. The names (top-level attribute keys only; `cover` is not one, since it can be a cover charge, and a cover image is caught as a link) `hero_image`, `thumbnail`, `headshot`, `logo`, `image`, `photo`, `featured_image` and `og_image` are treated as images and wait whenever they hold anything. Plain prose, numbers, times (`19:30`), labels with whitespace after the colon (`Doors: 7pm`, `Tel: 020 7946 0000`, `About: the venue`) and fractions (`see page 3/4`) are fine, as is HTML without links or link attributes (`<p class="lead">Doors 7pm</p>`);
+- carries a link, a path or a file in the entry's name, slug, locale or search text, or in any attribute value or key, at any depth: text with `://`, a scheme such as `http:`, `data:`, `javascript:`, `mailto:` or `tel:` directly followed by a character other than whitespace (`tel:+44...`), a leading `/` or `\`, a leading `www.`, a file name ending in an image, audio, video or PDF extension (`.jpg`, `.png`, `.svg`, `.mp4`, `.pdf` and so on), or CSS `url(` / `image-set(`. In HTML, a link attribute (`href`, `src`, `srcset`, `action`, `formaction`, `cite`, `data`, `poster`, `background`, `xlink:href`, `ping`, `longdesc`, `manifest`, `codebase`, `data-entity-id`) with a non-blank value makes the create wait whatever its target, relative ones included (`<a href="tickets">`, `<a href="#more">`), and any other attribute is checked like plain text. A link written in the middle of plain text counts only when it has `://` or one of the scheme forms above. This holds for every field, whatever the schema says, so a create with a ticket link waits for review, except one link in a key listed in `create.link_fields` (see the table and below). The names (top-level attribute keys only; `cover` is not one, since it can be a cover charge, and a cover image is caught as a link) `hero_image`, `thumbnail`, `headshot`, `logo`, `image`, `photo`, `featured_image` and `og_image` are treated as images and wait whenever they hold anything. Plain prose, numbers, times (`19:30`), labels with whitespace after the colon (`Doors: 7pm`, `Tel: 020 7946 0000`, `About: the venue`) and fractions (`see page 3/4`) are fine, as is HTML without links or link attributes (`<p class="lead">Doors 7pm</p>`);
 - is too large to publish on its own: a single string over 64 KiB, more than 4,096 strings (map keys included), or attributes over 256 KiB;
 - would take the hour past `create.max_per_hour`.
 

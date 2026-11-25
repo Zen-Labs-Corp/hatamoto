@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -95,7 +96,7 @@ func (a *Admin) standingPlugin(w http.ResponseWriter, r *http.Request) (PluginIn
 	p, found := a.findPlugin(pa, r.PathValue("name"))
 	var rule StandingRule
 	if found && p.Standing {
-		rule, found = a.deps.Growth.Standing.Rule(p.Name)
+		rule, found = a.deps.Growth.Standing.Rule(r.Context(), p.Name)
 	} else {
 		found = false
 	}
@@ -134,6 +135,10 @@ func (a *Admin) handlePluginStanding(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.serverError(w, r, "The daily summary could not be loaded", err)
 		return
+	}
+	if active != nil {
+		// The gate reads the stored approval, so the tab words what it carries.
+		rule.LinkFieldLabels = active.LinkFieldLabels
 	}
 	d := standingData{pluginHead: a.newPluginHead(p, standingRel, true), Rule: rule, Lines: ruleLines(rule),
 		Sample: "{{ plugin_" + strings.ReplaceAll(p.Name, "-", "_") + "_<function> \"key\" }}",
@@ -185,7 +190,10 @@ func (a *Admin) standingSummary(ctx context.Context, rows []StandingDigestRow) (
 	if len(rows) == 0 {
 		return "", ui.Table{}, nil
 	}
-	type sum struct{ runs, changes, created int }
+	type sum struct {
+		runs, changes, created int
+		hosts                  map[string]int
+	}
 	var order []string
 	by := map[string]*sum{}
 	for _, d := range rows {
@@ -196,6 +204,12 @@ func (a *Admin) standingSummary(ctx context.Context, rows []StandingDigestRow) (
 		by[d.Plugin].runs++
 		by[d.Plugin].changes += d.Changes
 		by[d.Plugin].created += d.Created
+		for h, n := range d.Hosts {
+			if by[d.Plugin].hosts == nil {
+				by[d.Plugin].hosts = map[string]int{}
+			}
+			by[d.Plugin].hosts[h] += n
+		}
 	}
 	title := "Daily summary, " + fmtDate(pluginsNow().In(a.siteLocation(ctx)))
 	t := ui.Table{
@@ -208,6 +222,10 @@ func (a *Admin) standingSummary(ctx context.Context, rows []StandingDigestRow) (
 			Actions: []ui.Action{{Label: "See runs", Href: a.pluginURL(name, "runs"), Button: true, AriaLabel: "See runs of " + name}}})
 	}
 	var created *ui.Table
+	withHosts := false
+	for _, name := range order {
+		withHosts = withHosts || len(by[name].hosts) > 0
+	}
 	for _, name := range order {
 		n := by[name].created
 		if n == 0 {
@@ -216,8 +234,15 @@ func (a *Admin) standingSummary(ctx context.Context, rows []StandingDigestRow) (
 		if created == nil {
 			created = &ui.Table{ID: "summary-created", Caption: "New entries published automatically",
 				Columns: []ui.Col{{Key: "plugin", Label: "Plugin", Role: "title"}, {Key: "created", Label: "New entries", Role: "num"}}}
+			if withHosts {
+				created.Columns = append(created.Columns, ui.Col{Key: "hosts", Label: "Linked hosts"})
+			}
 		}
-		created.Rows = append(created.Rows, ui.Row{ID: "created-" + name, Label: name, Cells: []ui.Cell{{Text: name}, {Text: thousands(n)}},
+		cells := []ui.Cell{{Text: name}, {Text: thousands(n)}}
+		if withHosts {
+			cells = append(cells, ui.Cell{Text: hostList(by[name].hosts)})
+		}
+		created.Rows = append(created.Rows, ui.Row{ID: "created-" + name, Label: name, Cells: cells,
 			Actions: []ui.Action{{Label: "See runs", Href: a.pluginURL(name, "runs"), Button: true, AriaLabel: "See runs of " + name}}})
 	}
 	return title, t, created
@@ -269,6 +294,37 @@ func (a *Admin) handleStandingOff(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.pluginURL(p.Name, standingRel), http.StatusSeeOther)
 }
 
+// maxListedHosts caps the linked hosts shown for one plugin.
+const maxListedHosts = 10
+
+// hostList words linked hosts, most linked first: "a.example 2, b.example 1",
+// with "and N more" past maxListedHosts.
+func hostList(m map[string]int) string {
+	hosts := make([]string, 0, len(m))
+	for h := range m {
+		hosts = append(hosts, h)
+	}
+	sort.Slice(hosts, func(i, j int) bool {
+		if m[hosts[i]] != m[hosts[j]] {
+			return m[hosts[i]] > m[hosts[j]]
+		}
+		return hosts[i] < hosts[j]
+	})
+	more := 0
+	if len(hosts) > maxListedHosts {
+		more, hosts = len(hosts)-maxListedHosts, hosts[:maxListedHosts]
+	}
+	parts := make([]string, len(hosts))
+	for i, h := range hosts {
+		parts[i] = h + " " + thousands(m[h])
+	}
+	out := strings.Join(parts, ", ")
+	if more > 0 {
+		out += ", and " + thousands(more) + " more"
+	}
+	return out
+}
+
 // ruleLines words the rule as the permission list: what it allows, then what
 // it never does.
 func ruleLines(rule StandingRule) []promptStatement {
@@ -283,6 +339,10 @@ func ruleLines(rule StandingRule) []promptStatement {
 	}
 	if len(rule.CreateSchemas) > 0 {
 		lines = append(lines, line(permtext.KindReview, "May publish new "+joinWords(rule.CreateSchemas)+" entries on its own, up to "+thousands(rule.CreateMaxPerHour)+" an hour", "A run that would go past this waits for your review."))
+		if len(rule.LinkFieldLabels) > 0 {
+			lines = append(lines, line(permtext.KindReview, "New entries may carry web links in: "+strings.Join(rule.LinkFieldLabels, ", "),
+				"Only one https link each, never to this site; other links wait for your review."))
+		}
 		never = "Never deletes, redirects, menus, media, other sources\u2019 content or other content types"
 	}
 	return append(lines, line(permtext.KindNo, never, ""))

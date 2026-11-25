@@ -77,3 +77,42 @@ func TestCreatePolicyRuleWithoutCreateHashesAsBefore(t *testing.T) {
 		t.Fatalf("ManifestHash = %q, want %q", got, want)
 	}
 }
+
+func TestCreatePolicyLinkFieldsRoundTrip(t *testing.T) {
+	in := Policy{Fields: []string{"price"}, Schemas: []string{"product"}, MaxPerHour: 10,
+		Create: &CreatePolicy{Schemas: []string{"product"}, MaxPerHour: 5, LinkFields: []string{"ticket_url"}}}
+	b, err := jsonx.Marshal(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = `{"fields":["price"],"schemas":["product"],"max_per_hour":10,"create":{"schemas":["product"],"max_per_hour":5,"link_fields":["ticket_url"]}}`
+	if string(b) != want {
+		t.Fatalf("Policy JSON = %s, want %s", b, want)
+	}
+	var out Policy
+	if err := jsonx.Unmarshal(b, &out, jsonx.StoredLoose); err != nil {
+		t.Fatal(err)
+	}
+	if c := out.Create; c == nil || len(c.LinkFields) != 1 || c.LinkFields[0] != "ticket_url" {
+		t.Fatalf("Create = %+v", c)
+	}
+}
+
+func TestCreatePolicyWithoutLinkFieldsKeepsJSONAndDecodesNil(t *testing.T) {
+	b, err := jsonx.Marshal(Policy{Fields: []string{"price"}, Schemas: []string{"product"}, MaxPerHour: 10, Create: &CreatePolicy{Schemas: []string{"product"}, MaxPerHour: 5}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = `{"fields":["price"],"schemas":["product"],"max_per_hour":10,"create":{"schemas":["product"],"max_per_hour":5}}`
+	if string(b) != want {
+		t.Fatalf("Policy JSON = %s, want %s", b, want)
+	}
+	var p Policy
+	cur := []byte(`{"fields":["price"],"schemas":["product"],"max_per_hour":10,"create":{"schemas":["product"],"max_per_hour":5}}`)
+	if err := jsonx.Unmarshal(cur, &p, jsonx.StoredLoose); err != nil {
+		t.Fatal(err)
+	}
+	if p.Create == nil || p.Create.LinkFields != nil {
+		t.Fatalf("Create = %+v, want LinkFields nil", p.Create)
+	}
+}
