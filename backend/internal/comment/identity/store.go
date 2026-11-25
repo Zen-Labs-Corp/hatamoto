@@ -204,7 +204,7 @@ func (s *pgStore) Purge(ctx context.Context, now time.Time) (drafts, tokens, com
 		return drafts, tokens, 0, err
 	}
 	tag, err = pool.Exec(ctx, `DELETE FROM hatamoto_commenters m
-		WHERE m.trust_level = 'new' AND m.approved_count = 0 AND m.first_approved_at IS NULL AND m.last_spam_at IS NULL
+		WHERE m.origin_plugin IS NULL AND m.trust_level = 'new' AND m.approved_count = 0 AND m.first_approved_at IS NULL AND m.last_spam_at IS NULL
 		AND m.last_seen_at < $1
 		AND NOT EXISTS (SELECT 1 FROM hatamoto_comments c WHERE c.commenter_id = m.id)
 		AND NOT EXISTS (SELECT 1 FROM hatamoto_comment_confirmations k WHERE k.commenter_id = m.id)`, cutoff)
