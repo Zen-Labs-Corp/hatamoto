@@ -128,6 +128,11 @@ Read the entry again, redo the change and retry. The check is atomic with the wr
 - `If-Match: *` on an entry that does not exist answers `404`.
 - The API sends no CORS headers, so a web page on another origin cannot read the `ETag`.
 
+### Entries over the API
+
+- `GET /api/v1/entities` answers 20 entries per page. `?limit=` takes 1 to 100 and clamps a larger number to 100; `?page=` walks the pages. `per_page` is refused, the parameter is `limit`.
+- An entry's `status` changes only through `PATCH /api/v1/entities/{id}/status`. A `status` member in a create or update body is refused rather than ignored.
+
 ### Turn on two-step sign-in
 
 Two-step sign-in asks for a second proof after the password. Each person sets it up under **Profile > Security**, after confirming their password.

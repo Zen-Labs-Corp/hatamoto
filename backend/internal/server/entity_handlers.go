@@ -4,6 +4,7 @@ import (
 	"encoding/json/jsontext"
 	"errors"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strconv"
 
@@ -161,13 +162,42 @@ func (s *Server) handleDeleteSchema(w http.ResponseWriter, r *http.Request) {
 
 // --- Entity Handlers ---
 
+// entityListLimit reads the limit parameter of the entities list: absent gives
+// 0, a positive integer gives itself (clamped to the 100 cap), and anything
+// else is refused instead of silently falling back to the default.
+func entityListLimit(q url.Values) (int, bool) {
+	limitStr := q.Get("limit")
+	if limitStr == "" {
+		return 0, true
+	}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 {
+		return 0, false
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	return limit, true
+}
+
 // handleListEntities returns entities with filtering and pagination.
 // Supports both offset pagination (page param) and keyset pagination (cursor param).
 func (s *Server) handleListEntities(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	if q.Has("per_page") {
+		writeError(w, http.StatusBadRequest, "unknown parameter per_page; use limit")
+		return
+	}
+	limit, ok := entityListLimit(q)
+	if !ok {
+		writeError(w, http.StatusBadRequest, "invalid limit")
+		return
+	}
+
 	// Parse query parameters for filtering
 	filter := &entity.ListEntitiesFilter{}
 
-	if schemaID := r.URL.Query().Get("schema_id"); schemaID != "" {
+	if schemaID := q.Get("schema_id"); schemaID != "" {
 		id, err := uuid.Parse(schemaID)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "invalid schema_id")
@@ -176,7 +206,7 @@ func (s *Server) handleListEntities(w http.ResponseWriter, r *http.Request) {
 		filter.SchemaID = &id
 	}
 
-	if status := r.URL.Query().Get("status"); status != "" {
+	if status := q.Get("status"); status != "" {
 		s, err := entity.ParseStatus(status)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "invalid status")
@@ -185,10 +215,10 @@ func (s *Server) handleListEntities(w http.ResponseWriter, r *http.Request) {
 		filter.Status = &s
 	}
 
-	filter.Search = r.URL.Query().Get("search")
+	filter.Search = q.Get("search")
 
 	// Check if using offset pagination (page param present)
-	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+	if pageStr := q.Get("page"); pageStr != "" {
 		pageNum, err := strconv.Atoi(pageStr)
 		if err != nil || pageNum < 1 {
 			writeError(w, http.StatusBadRequest, "invalid page number")
@@ -200,11 +230,8 @@ func (s *Server) handleListEntities(w http.ResponseWriter, r *http.Request) {
 			Limit: 20,
 		}
 
-		if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-			limit, err := strconv.Atoi(limitStr)
-			if err == nil && limit > 0 && limit <= 100 {
-				offsetPage.Limit = limit
-			}
+		if limit > 0 {
+			offsetPage.Limit = limit
 		}
 
 		result, err := s.entityService.ListEntitiesWithOffset(r.Context(), filter, offsetPage)
@@ -224,18 +251,15 @@ func (s *Server) handleListEntities(w http.ResponseWriter, r *http.Request) {
 		Direction: "next",
 	}
 
-	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		limit, err := strconv.Atoi(limitStr)
-		if err == nil && limit > 0 && limit <= 100 {
-			page.Limit = limit
-		}
+	if limit > 0 {
+		page.Limit = limit
 	}
 
-	if cursor := r.URL.Query().Get("cursor"); cursor != "" {
+	if cursor := q.Get("cursor"); cursor != "" {
 		page.Cursor = &cursor
 	}
 
-	if direction := r.URL.Query().Get("direction"); direction == "prev" {
+	if direction := q.Get("direction"); direction == "prev" {
 		page.Direction = "prev"
 	}
 
@@ -286,11 +310,22 @@ func (s *Server) logTookOwnership(r *http.Request, op string, ent *entity.Entity
 func (s *Server) handleCreateEntity(w http.ResponseWriter, r *http.Request) {
 	claims, _ := middleware.GetClaims(r.Context())
 
-	var input entity.CreateEntityInput
-	if err := parseJSON(r, &input); err != nil {
+	// Status in the body is refused below: an entity's status only moves
+	// through PATCH /entities/{id}/status (CreateEntityInput.Status decodes
+	// nothing, so without the probe the member was silently dropped).
+	var body struct {
+		entity.CreateEntityInput
+		Status jsontext.Value `json:"status"`
+	}
+	if err := parseJSON(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	if body.Status != nil {
+		writeError(w, http.StatusBadRequest, "status is set through PATCH /entities/{id}/status")
+		return
+	}
+	input := body.CreateEntityInput
 
 	if input.SchemaID == uuid.Nil {
 		writeError(w, http.StatusBadRequest, "schema_id is required")
@@ -374,12 +409,19 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 
 	// position (1-based among the siblings) puts the entity in the manual order;
 	// alone, or with parent_id/clear_parent, it is a move, not an edit.
+	// Status in the body is refused: it only moves through the status endpoint
+	// (UpdateEntityInput.Status decodes nothing, so it was silently dropped).
 	var body struct {
 		entity.UpdateEntityInput
-		Position *int `json:"position"`
+		Position *int           `json:"position"`
+		Status   jsontext.Value `json:"status"`
 	}
 	if err := parseJSON(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if body.Status != nil {
+		writeError(w, http.StatusBadRequest, "status is set through PATCH /entities/{id}/status")
 		return
 	}
 	input := body.UpdateEntityInput
