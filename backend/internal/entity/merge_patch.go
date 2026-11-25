@@ -9,6 +9,9 @@ import (
 	"hatamoto.dev/core/internal/jsonx"
 )
 
+// ErrStoredAttributes marks a merge target that is not valid JSON.
+var ErrStoredAttributes = errors.New("stored attributes are not valid JSON")
+
 // MergePatch applies patch to target as a JSON merge patch (RFC 7396):
 // object members merge recursively, a null member removes the key, and any
 // other value (arrays included) replaces the target's value whole. A patch
@@ -16,9 +19,6 @@ import (
 // null or valid JSON but not an object counts as {}; one that does not parse
 // is an error wrapping ErrStoredAttributes, so stored data is never dropped
 // silently. Numbers keep their exact digits.
-// ErrStoredAttributes marks a merge target that is not valid JSON.
-var ErrStoredAttributes = errors.New("stored attributes are not valid JSON")
-
 func MergePatch(target, patch jsontext.Value) (jsontext.Value, error) {
 	var p any
 	if err := jsonx.Unmarshal(patch, &p, jsonx.ExactNumbers); err != nil {
