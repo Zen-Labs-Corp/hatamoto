@@ -393,6 +393,9 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		if err := checkEntitySchemaShipped(p, man); err != nil {
 			return nil, err
 		}
+		if err := checkStandingLinkFields(p, man); err != nil {
+			return nil, err
+		}
 		if err := checkCommunityCSP(origin, man); err != nil {
 			return nil, err
 		}
