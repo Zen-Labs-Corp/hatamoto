@@ -3,9 +3,10 @@
 package standing
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestDigestListsOnlyTheLastDayOfAutomaticRuns(t *testing.T) {
@@ -114,7 +115,7 @@ func TestDigestCountsLinkedHostsOfAutomaticCreates(t *testing.T) {
 				{"ticket_url": "https://tickets.example/e/2", "online_url": "https://meet.example/r"},
 				{"ticket_url": "http://bad.example/e/3", "notes": "https://other.example/"},
 			} {
-				payload, _ := json.Marshal(map[string]any{"schema": "event", "attributes": attrs})
+				payload, _ := jsonx.Marshal(map[string]any{"schema": "event", "attributes": attrs})
 				if _, err := s.DB.Pool().Exec(ctx, `
 					INSERT INTO hatamoto_changeset_items (changeset_id, seq, kind, op, source_key, result, payload)
 					VALUES ($1, $2, 'entity', 'upsert', $3, 'applied', $4::jsonb)`, cs, i, "k"+string(rune('a'+i)), string(payload)); err != nil {
