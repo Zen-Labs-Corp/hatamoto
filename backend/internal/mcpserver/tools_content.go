@@ -260,8 +260,9 @@ func (s *Server) registerContent() {
 		BylinePersonID *string `json:"byline_person_id,omitempty" jsonschema:"id of a person entity to credit as the author"`
 		BylineOrg      *bool   `json:"byline_org,omitempty" jsonschema:"true credits the site organisation instead of a person; false clears it"`
 		ClearByline    bool    `json:"clear_byline,omitempty" jsonschema:"remove the person and organisation byline"`
+		DryRun         bool    `json:"dry_run,omitempty" jsonschema:"true: run every check and return {dry_run, version, changes, errors} without storing anything; send version back to apply exactly that diff"`
 	}
-	register(s, toolSpec{name: "entities_update", description: "Update an entity's name, slug, locale, attributes and/or byline (a new version is stored). Attributes replace the stored ones (send the whole object); with merge: true only the keys sent change and null removes a key. Send version to avoid losing a concurrent edit. The byline is byline_person_id (a person entity id), byline_org (true: the site organisation) or clear_byline; omit all three to leave it alone. On a credited entity attributes.author and author_name are overwritten with the credited name; change the author only with these fields.", scope: writeScope, action: authz.ActionEntityUpdate, write: true, destructive: true},
+	register(s, toolSpec{name: "entities_update", description: "Update an entity's name, slug, locale, attributes and/or byline (a new version is stored). Attributes replace the stored ones (send the whole object); with merge: true only the keys sent change and null removes a key. Send version to avoid losing a concurrent edit. The byline is byline_person_id (a person entity id), byline_org (true: the site organisation) or clear_byline; omit all three to leave it alone. On a credited entity attributes.author and author_name are overwritten with the credited name; change the author only with these fields. dry_run: true runs the same checks (merge included) and returns the attribute changes (path, before, after), the version and any errors, storing nothing.", scope: writeScope, action: authz.ActionEntityUpdate, write: true, destructive: true},
 		func(ctx context.Context, key *hmauth.APIKey, in updateIn) (any, error) {
 			id, err := parseID("id", in.ID)
 			if err != nil {
@@ -320,6 +321,17 @@ func (s *Server) registerContent() {
 			}
 			up.ChangeSummary = &summary
 			up.ExpectedVersion = in.Version
+			if in.DryRun {
+				p, err := s.d.Entities.DryRunUpdate(ctx, id, key.CreatedBy, up)
+				var vc *entity.VersionConflictError
+				if errors.As(err, &vc) && in.Version != nil {
+					return nil, codedErr(codeConflict, "stale version %d; current version is %d (re-read with entities_get)", *in.Version, vc.Current)
+				}
+				if err != nil {
+					return nil, err
+				}
+				return p, nil
+			}
 			e, err := s.d.Entities.UpdateEntity(ctx, id, key.CreatedBy, up)
 			if res, ok := pendingReview(id, err); ok {
 				return res, nil
