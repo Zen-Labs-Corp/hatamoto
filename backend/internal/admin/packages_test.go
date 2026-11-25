@@ -116,6 +116,11 @@ func (f *fakePackages) Inspect(_ context.Context, data []byte) (PackageSummary, 
 		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"kv", "entities.filter"},
 			Signed: true, Signer: "abc123", Updating: true, InstalledVersion: "2.0.0", Granted: []string{"kv"},
 			Confirm: &ConfirmInfo{Name: name, WidenedAccess: true, NewEntitiesFilter: true, OldVersion: "2.0.0", NewVersion: "2.1.0", OldSigner: "abc123", NewSigner: "abc123"}}, nil
+	case strings.HasPrefix(s, "plugin-types:"): // an update that adds fields to content types it owns
+		name := strings.TrimPrefix(s, "plugin-types:")
+		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"kv"}, Signed: true, Signer: "abc123",
+			Updating: true, InstalledVersion: "2.0.0", Granted: []string{"kv"}, ContentTypes: []string{"Venue"},
+			TypeChanges: []TypeChange{{Name: "Organizer", Added: []string{"Show contact publicly"}}, {Name: "Event", Added: []string{"Embed URL", "Join link visibility"}, Kept: []string{"price"}}}}, nil
 	case strings.HasPrefix(s, "plugin-entity-write:"): // a first install that may write one content type
 		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-entity-write:"), Version: "1.0.0", Permissions: []string{"entities.write.own"},
 			EntitySchema: "story", EntitySchemaName: "Stories", Signed: true, Signer: "abc123"}, nil

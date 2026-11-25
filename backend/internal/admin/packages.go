@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -222,6 +224,26 @@ type PluginUIInfo struct {
 	Camera bool
 }
 
+// TypeChange is a content type the plugin already owns that the update extends.
+type TypeChange struct {
+	Name  string
+	Added []string // labels of the fields it gains
+	Kept  []string // fields the new version retypes; they keep their current type
+}
+
+// Line is "Organizer gains 1 field (Show contact publicly)."
+func (c TypeChange) Line() string {
+	return fmt.Sprintf("%s gains %d %s (%s).", c.Name, len(c.Added), plural(len(c.Added), "field", "fields"), strings.Join(c.Added, ", "))
+}
+
+// KeptLine is "Kept as is: price." ("" when none).
+func (c TypeChange) KeptLine() string {
+	if len(c.Kept) == 0 {
+		return ""
+	}
+	return "Kept as is: " + strings.Join(c.Kept, ", ") + "."
+}
+
 // PackageSummary is a package as shown on the permission prompt.
 type PackageSummary struct {
 	Kind, Name, Version, Description string
@@ -229,8 +251,11 @@ type PackageSummary struct {
 	// RequestHeaders and CSP are what the plugin asks to receive and to add to
 	// the public pages' security policy.
 	RequestHeaders []string
-	// ContentTypes are the names of the entity types the plugin installs.
+	// ContentTypes are the names of the entity types it would create.
 	ContentTypes []string
+	// TypeChanges are the content types the plugin owns that this update adds
+	// fields to (updates only).
+	TypeChanges []TypeChange
 	// EntitySchema is the one content type the plugin may write
 	// (entity_schema), EntitySchemaName its display name.
 	EntitySchema, EntitySchemaName string

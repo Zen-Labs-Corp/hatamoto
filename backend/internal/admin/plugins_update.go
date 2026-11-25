@@ -32,7 +32,8 @@ const (
 // the browser posted is trusted. It never passes a grant (the stored grants
 // stay as they are) and never confirms: an update that needs the owner's
 // confirmation (other signer, older version, wider access) or that asks for a
-// permission the plugin does not have yet is reported as needsReview, with the
+// permission the plugin does not have yet, or that adds fields to its content
+// types, is reported as needsReview, with the
 // downloaded package so the caller can show the permission prompt.
 func (a *Admin) updatePlugin(r *http.Request, pk PackageAdmin, name string, newPerms bool) (res updateResult, data []byte, sum PackageSummary, err error) {
 	data, err = pk.Fetch(r.Context(), "plugin", name)
@@ -45,7 +46,7 @@ func (a *Admin) updatePlugin(r *http.Request, pk PackageAdmin, name string, newP
 		return 0, nil, sum, err
 	case sum.Problem != "":
 		return 0, nil, sum, &Refusal{Msg: sum.Problem}
-	case sum.Confirm != nil || newPerms:
+	case sum.Confirm != nil || newPerms || len(sum.TypeChanges) > 0:
 		return needsReview, data, sum, nil
 	}
 	if err := pk.Install(r.Context(), data, "registry", nil, false); err != nil {
@@ -92,7 +93,8 @@ func (a *Admin) handlePluginUpdate(w http.ResponseWriter, r *http.Request) {
 
 // handlePluginUpdateAll updates every plugin whose update needs no review, one
 // after the other, in name order. Plugins that need review (new permissions
-// in the list, or a confirmation found on download) are left alone and named
+// in the list, new fields on its content types, or a confirmation found on
+// download) are left alone and named
 // in the message, even when the run stops early. The first failure stops it.
 func (a *Admin) handlePluginUpdateAll(w http.ResponseWriter, r *http.Request) {
 	pa, ok := a.pluginAdmin(w, r)
