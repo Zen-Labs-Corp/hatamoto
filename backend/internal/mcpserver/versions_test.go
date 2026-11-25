@@ -226,3 +226,21 @@ func TestVersionToolsAudit(t *testing.T) {
 		}
 	}
 }
+
+// A restore that takes the entity over from its plugin is audited like an update.
+func TestEntitiesRestoreTakeOverAudited(t *testing.T) {
+	for _, took := range []bool{true, false} {
+		r, e := newVersionsRig(t)
+		r.st.took = took
+		if text, isErr := r.call(t, "entities_restore", map[string]any{"id": e.ID.String(), "version": 1}); isErr {
+			t.Fatal(text)
+		}
+		var tools []string
+		for _, ent := range r.audit.entries {
+			tools = append(tools, ent.Tool)
+		}
+		if got := strings.Contains(strings.Join(tools, ","), "entities_take_over"); got != took {
+			t.Errorf("took = %v, audit tools = %v", took, tools)
+		}
+	}
+}
