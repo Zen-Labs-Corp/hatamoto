@@ -34,8 +34,45 @@ func TestPluginSDKSendsRunInputs(t *testing.T) {
 	t.Parallel()
 
 	js := string(readFileT(t, "../../web/admin/js/pluginsdk.js"))
-	if !strings.Contains(js, `runInputs: (values) => send({ op: "inputs", values })`) {
-		t.Error("pluginsdk.js lost hatamoto.runInputs")
+	// runInputs has two forms: an object fills the Runs tab form (the op above, unchanged),
+	// a run name starts that run through core's confirm (run.start).
+	for _, want := range []string{
+		`send({ op: "inputs", values: nameOrValues })`,
+		`send({ op: "run.start", run: nameOrValues, inputs })`,
+	} {
+		if !strings.Contains(js, want) {
+			t.Errorf("pluginsdk.js lost %q", want)
+		}
+	}
+}
+
+// run.start is core's own op: the owner's page, a recent click and core's confirm (outside
+// the frame) come before the one POST to the owner-only start route, never the bridge.
+func TestPluginFrameStartsRunsThroughCoreConfirm(t *testing.T) {
+	t.Parallel()
+
+	js := string(readFileT(t, "../../web/admin/js/pluginframe.js"))
+	for _, want := range []string{
+		`m.op === "run.start"`,
+		`holder.dataset.runs`,
+		`navigator.userActivation?.isActive`,
+		`askConfirm`,
+		`"X-CSRF-Token": csrf()`,
+		`Accept: "application/json"`,
+		`error: "cancelled"`,
+	} {
+		if !strings.Contains(js, want) {
+			t.Errorf("pluginframe.js lost %q", want)
+		}
+	}
+	if i, j := strings.Index(js, `return startRun(`), strings.Index(js, `await fetch(bridge`); i < 0 || j < 0 || i > j {
+		t.Error("run.start must return before the bridge request")
+	}
+	comps := string(readFileT(t, "../../web/admin/js/components.js"))
+	for _, want := range []string{`export function askConfirm`, `e.preventDefault()`, `removeEventListener("submit"`} {
+		if !strings.Contains(comps, want) {
+			t.Errorf("components.js lost %q", want)
+		}
 	}
 }
 

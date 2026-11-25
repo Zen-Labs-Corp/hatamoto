@@ -322,6 +322,26 @@ export function openConfirm({ action, message, okLabel = "Confirm", title, dange
   dlg.showModal();
   return true;
 }
+
+// askConfirm is openConfirm without the post: it resolves true when the person presses OK and
+// false on Cancel, Esc or when the dialog is missing or busy. The plugin page bridge uses it (run.start).
+export function askConfirm({ message, okLabel = "Confirm", title, danger = false, opener }) {
+  return new Promise((resolve) => {
+    const dlg = document.getElementById("hm-confirm");
+    if (!dlg || dlg.open) return resolve(false);
+    const form = dlg.querySelector("form");
+    const done = (v) => {
+      form.removeEventListener("submit", onSubmit);
+      dlg.removeEventListener("close", onClose);
+      resolve(v);
+    };
+    const onSubmit = (e) => { e.preventDefault(); done(true); dlg.close(); };
+    const onClose = () => done(false);
+    if (!openConfirm({ action: "", message, okLabel, title, danger, opener })) return resolve(false);
+    form.addEventListener("submit", onSubmit);
+    dlg.addEventListener("close", onClose);
+  });
+}
 document.addEventListener("click", (evt) => {
   const link = evt.target.closest?.("[data-hm-confirm]");
   if (!link || !document.getElementById("hm-confirm") || evt.defaultPrevented) return;
