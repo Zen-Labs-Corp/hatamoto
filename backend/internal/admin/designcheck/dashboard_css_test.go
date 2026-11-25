@@ -69,7 +69,8 @@ func TestDashboardLaunchRowsLayOutFromTokens(t *testing.T) {
 	}
 	css := string(b)
 	for _, want := range []string{
-		".hm-dash__launch { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) auto;",
+		".hm-dash__launch { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr) auto;",
+		".hm-dash__launch .hm-dash__state { width: auto; }",
 		".hm-dash__launch-text { display: flex; flex-direction: column;",
 		".hm-dash--top { margin-top: var(--space-4); }",
 		"@media (max-width: 640px) { .hm-dash__launch { grid-template-columns: auto minmax(0, 1fr);",

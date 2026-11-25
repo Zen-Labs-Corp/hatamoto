@@ -34,7 +34,8 @@
 #dash-activity .hm-dash__row > .hm-muted::before { content: none; }
 .hm-dash--top { margin-top: var(--space-4); }
 .hm-dash--top .hm-dash__rows { gap: 0; margin-bottom: 0; }
-.hm-dash__launch { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); padding: var(--space-2) 0; border-top: 1px solid var(--border); }
+.hm-dash__launch { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); padding: var(--space-2) 0; border-top: 1px solid var(--border); }
+.hm-dash__launch .hm-dash__state { width: auto; }
 .hm-dash__launch:first-child { border-top: 0; }
 .hm-dash__launch-text { display: flex; flex-direction: column; min-width: 0; font-size: var(--text-sm); }
 .hm-dash__launch-title { font-weight: var(--weight-semibold); }
