@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"io/fs"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -230,5 +231,25 @@ func TestParseThemeInvalidStringsIsRecorded(t *testing.T) {
 		if err != nil || p.StringsErr != nil {
 			t.Errorf("%s: %v / %v", name, err, p.StringsErr)
 		}
+	}
+}
+
+func TestPackTopDirs(t *testing.T) {
+	want := []string{"assets", "layouts", "migrations", "partials", "schemas", "sections", "tags", "ui", "widgets"}
+	got := PackTopDirs()
+	if !slices.Equal(got, want) {
+		t.Fatalf("PackTopDirs = %v, want %v", got, want)
+	}
+	if len(got) != len(topDirs) {
+		t.Errorf("%d dirs, topDirs has %d", len(got), len(topDirs))
+	}
+	for _, d := range got {
+		if !topDirs[d] {
+			t.Errorf("%s is not in topDirs", d)
+		}
+	}
+	got[0] = "mutated"
+	if PackTopDirs()[0] != "assets" {
+		t.Error("the returned slice is shared")
 	}
 }

@@ -31,6 +31,7 @@ hatamoto theme pack <dir> [--key F] [--out F]
 hatamoto theme pack (--archive F --sha256 H | --package F) [--registry] [--expect-name N] [--screenshot-out D] [--key F] [--out F]
 hatamoto theme check <dir> | --archive F --sha256 H | --package F [--registry] [--expect-name N] [--screenshot-out D]
 hatamoto plugin pack <dir> [--key F] [--out F]
+hatamoto plugin pack --list-dirs
 hatamoto theme dev <dir> [--no-activate]
 hatamoto package install <file|url|name> [--grant P,P|all] [--confirm]
 hatamoto package list [--json]

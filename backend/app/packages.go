@@ -39,6 +39,7 @@ const packagesUsage = `  keys generate [--name N] [--dir D]       make an ed2551
   theme check <dir> | --archive F --sha256 H | --package F [--registry] [--expect-name N] [--screenshot-out D]
                                            validate a theme without a key (--registry: the directory rules)
   plugin pack <dir> [--key F] [--out F]    build a .hmp plugin package (the dir holds plugin.json and plugin.wasm and/or widgets/, or only plugin.json and tags/*.json for a tag pack)
+  plugin pack --list-dirs                  print the directories a plugin package may hold, one per line (registry builders stage exactly these)
   theme dev <dir> --dev [--no-activate] [--confirm]
                                            push a theme directory as an unsigned dev package and again on every change (never in production)
   registry index <dir> --key F [--out F] [--url-prefix P] [--valid-days N] [--meta F]
@@ -181,8 +182,10 @@ func loadKey(path string) (*packages.Key, error) {
 
 func runPack(kind packages.Kind, args []string, out io.Writer) error {
 	var keyFile, outFile string
+	var listDirs bool
 	var tc themeCheckOpts
 	pos, err := flagSet(string(kind)+" pack", args, func(fs *flag.FlagSet) {
+		fs.BoolVar(&listDirs, "list-dirs", false, "print the directories a package may hold, one per line, and exit")
 		if kind == packages.KindTheme {
 			tc.bind(fs)
 		}
@@ -191,6 +194,15 @@ func runPack(kind packages.Kind, args []string, out io.Writer) error {
 	})
 	if err != nil {
 		return err
+	}
+	if listDirs {
+		if len(pos) != 0 {
+			return fmt.Errorf("usage: hatamoto %s pack --list-dirs (no directory)", kind)
+		}
+		for _, d := range packages.PackTopDirs() {
+			fmt.Fprintln(out, d)
+		}
+		return nil
 	}
 	themeSrc := kind == packages.KindTheme && (tc.src.archive != "" || tc.src.pkg != "" || tc.registry || tc.expectName != "" || tc.screenshotOut != "")
 	if themeSrc {

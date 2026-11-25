@@ -208,6 +208,7 @@ hatamoto backup create [--config P] [--with-media]
 hatamoto keys generate [--name N] [--dir D]
 hatamoto theme pack <dir> [--key F] [--out F]
 hatamoto plugin pack <dir> [--key F] [--out F]
+hatamoto plugin pack --list-dirs
 hatamoto registry index <dir> --key F [--out F] [--url-prefix P] [--valid-days N] [--meta F]
 hatamoto registry page <registry.json> [--out F] [--title T] [--intro T] [--write-url U] [--submit-url U] [--install-hint T] [--trusted-key K]
 hatamoto package install <file|url> [--grant P,P|all] [--source upload|url|dev] [--dev] [--confirm]
