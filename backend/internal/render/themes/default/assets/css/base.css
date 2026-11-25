@@ -125,7 +125,7 @@ main:focus { outline: none; } /* focus target of the skip link, not a control */
 }
 .hm-header__inner { display: flex; align-items: center; gap: 1.5rem; height: 4rem; }
 .hm-logo { flex: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.65rem; color: var(--hm-text); font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.32em; text-transform: uppercase; text-decoration: none; }
-.hm-logo__mark { font-family: var(--hm-font-kanji); font-weight: 700; font-size: 1.25rem; letter-spacing: 0.04em; text-transform: none; color: var(--hm-shu); }
+.hm-logo__mark { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: var(--hm-radius-sm); background: var(--hm-text); color: var(--hm-bg); font-size: 0.875rem; font-weight: 700; letter-spacing: 0; text-transform: none; }
 .hm-logo img { display: block; }
 .hm-nav-wrap { margin-left: auto; }
 .hm-nav { position: relative; font-size: 0.875rem; }
