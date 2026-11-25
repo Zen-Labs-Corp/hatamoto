@@ -154,7 +154,10 @@ func ValidIdentityAccount(s string) bool {
 type CommenterSession struct {
 	Account string `json:"account,omitempty"`
 	// Link binds the browser's current commenter to Account when that
-	// commenter belongs to no plugin account yet.
+	// commenter belongs to no plugin account yet. The binding cannot be
+	// undone and the host cannot prove the browser's commenter is the
+	// account's owner: send Link only from an explicit connect action by
+	// the signed-in user, never on a routine signup or login.
 	Link    bool `json:"link,omitempty"`
 	SignOut bool `json:"sign_out,omitempty"`
 	// MaxAge is the cookie lifetime in seconds; 0 means the site's

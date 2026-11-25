@@ -85,16 +85,19 @@ vouches for: they have no email, and core stores no password for them (the
 plugin checks its own passwords). The plugin names an account; core ties one
 commenter to the plugin and that account, never to an email address, so a typed
 email never reaches such a commenter and two plugins never share one. The
-browser cookie is built by core, never shown to the plugin. A plugin removed or
-stripped of the grant leaves the cookies it caused valid until they expire or an
-owner uses Sign out all devices or Block on the commenter; core does not track
-which cookies a plugin caused.
+browser cookie is built by core, never shown to the plugin. A plugin stripped of the
+grant leaves the cookies it caused valid until they expire or an owner uses Sign
+out all devices or Block on the commenter; core does not track which cookies a
+plugin caused. Removing the plugin is different: it detaches every commenter of
+the plugin and ends all their sign-ins, linked email members on all their
+devices included, so a package of the same name cannot reach them.
 
 | Guarantee | Package | Tests |
 |---|---|---|
 | A `commenter_session` is honoured only on a non-GET public route of a plugin holding `comments.identity`, with a valid shape; any refusal drops the plugin's headers and cookies, and a route without it is unchanged | `internal/pluginhost` | `TestCommenterSessionApplied`, `TestCommenterSessionRefusedByGate`, `TestCommenterSessionRefusedOnAdminMount`, `TestCommenterSessionCallbackRefusal`, `TestRouteWithoutCommenterSessionUnchanged` |
 | A commenter session is set only for a same-origin request; a cross-site request gets no cookie | `internal/server` (Postgres) | `TestPluginCommenterSession` |
 | `comments.identity.ensure` and `revoke` need the grant, take a valid account only, and share the writes limiter | `internal/pluginhost` | `TestCommentsIdentityDeniedUntilGranted`, `TestCommentsIdentityInvalidAccount`, `TestCommentsIdentityRateLimitSharedWithWrites` |
+| Uninstalling a plugin detaches its commenters and revokes their sessions; a same-name package cannot reach them | `internal/packages` (Postgres) | `TestUninstallDetachesPluginCommenters` |
 | An update that newly asks for `comments.identity` needs the owner's confirmation (the manifest check that it also holds `comments.read` and declares `entity_schema` lives in the separate SDK module's own tests) | `internal/packages` | `TestContractConfirmFlags` |
 | A typed email never reaches a plugin commenter | `internal/comment` (Postgres) | `TestFindCommenterNeverMatchesPluginRow` |
 | A plugin commenter posts without an email, keyed on the commenter id; a commenter with no email and no plugin is still asked to sign in | `internal/commentsubmit` | `TestSubmitVouchedCommenterPosts`, `TestSubmitVouchedLimitsByCommenterID`, `TestSubmitNoEmailNoOriginStillSignIn` |
