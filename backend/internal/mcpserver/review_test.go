@@ -27,6 +27,10 @@ func (r *reviewRepo) GetByID(_ context.Context, id uuid.UUID) (*entity.Entity, e
 		Schema: &entity.EntitySchema{Slug: "page", Schema: []byte(`{}`)}}, nil
 }
 
+func (r *reviewRepo) GetVersion(_ context.Context, id uuid.UUID, v int) (*entity.EntityVersion, error) {
+	return &entity.EntityVersion{EntityID: id, Version: v, Attributes: []byte(`{}`)}, nil
+}
+
 func (r *reviewRepo) Update(_ context.Context, id uuid.UUID, _ *uuid.UUID, _ *entity.UpdateEntityInput) (*entity.Entity, error) {
 	r.writes.Add(1)
 	return &entity.Entity{ID: id, Name: "E", Slug: "e", Status: entity.StatusPublished, Schema: &entity.EntitySchema{Slug: "page"}}, nil
@@ -83,6 +87,20 @@ func TestEntitiesPublishPendingReview(t *testing.T) {
 	}
 	m := decode(t, text)
 	if m["status"] != "pending_review" || m["changeset_id"] != float64(42) {
+		t.Fatalf("result = %s", text)
+	}
+	if repo.writes.Load() != 0 {
+		t.Fatalf("the live row was written %d times", repo.writes.Load())
+	}
+}
+
+func TestRestoreHeldForReview(t *testing.T) {
+	run, repo, id := reviewSession(t, "owner", fakeGate{held: true})
+	text, isErr := run("entities_restore", map[string]any{"version": 1})
+	if isErr {
+		t.Fatalf("a staged restore is a result, not an error: %s", text)
+	}
+	if m := decode(t, text); m["status"] != "pending_review" || m["changeset_id"] != float64(42) || m["id"] != id.String() {
 		t.Fatalf("result = %s", text)
 	}
 	if repo.writes.Load() != 0 {

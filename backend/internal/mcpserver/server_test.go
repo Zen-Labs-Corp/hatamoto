@@ -249,7 +249,8 @@ func TestDestructiveAnnotations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]bool{"redirects_delete": true, "menus_update": true, "entities_update": true, "entities_unpublish": true,
+	want := map[string]bool{"redirects_delete": true, "menus_update": true, "entities_update": true, "entities_unpublish": true, "entities_restore": true,
+		"entities_versions": false, "entities_version_get": false,
 		"entities_create": false, "entities_duplicate": false, "entities_reorder": false, "terms_reorder": false, "entities_publish": false, "media_upload": false, "terms_create": false, "redirects_create": false,
 		"seo_update": false, "seo_get": false,
 		"comments_spam": true, "comments_approve": false, "comments_reply": false}
