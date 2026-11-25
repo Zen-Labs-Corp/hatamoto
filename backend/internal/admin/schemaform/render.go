@@ -56,6 +56,10 @@ type Options struct {
 	// Such a field is never filled in: it is a password input that says a
 	// value is stored, and offers to clear it.
 	Secrets map[string]bool
+	// Unreadable lists the top-level writeOnly fields whose stored value cannot
+	// be read (sealed under another server secret). Such a field asks for the
+	// value again; nil changes nothing.
+	Unreadable map[string]bool
 	// Sections wraps each x-hm-group in a section of two-column pairs with a
 	// hairline above its heading. Off, a group is only a heading.
 	Sections bool
@@ -90,7 +94,7 @@ type fld struct {
 	ItemLabel                                      string // x-hm-item-label: what the Add button of a repeater adds
 	EntitySchema                                   string
 	Preview                                        string // image field: current URL
-	Secret, SecretSet                              bool   // writeOnly: never shown; SecretSet when a value is stored
+	Secret, SecretSet, SecretLost                  bool   // writeOnly: never shown; SecretSet when a value is stored
 }
 
 type item struct {
@@ -338,6 +342,9 @@ func (b *builder) field(name string, n *Node, v any, required bool, path, errPat
 		f.Err = strings.Join(msgs, " ")
 	}
 	var ids []string
+	if n.WriteOnly && b.opt.Unreadable[path] {
+		ids = append(ids, f.ID+"-lost")
+	}
 	if f.Help != "" {
 		ids = append(ids, f.ID+"-help")
 	}
@@ -363,8 +370,13 @@ func (b *builder) field(name string, n *Node, v any, required bool, path, errPat
 		if n.WriteOnly {
 			f.Secret, f.SecretSet = true, b.opt.Secrets[path]
 			f.InputType, f.Value = "password", ""
+			f.SecretLost = b.opt.Unreadable[path]
 			f.Placeholder = "Enter " + f.Label
-			if f.SecretSet {
+			switch {
+			case f.SecretLost:
+				f.SecretSet = true // keeps the clear box
+				f.Placeholder = "Enter this value again"
+			case f.SecretSet:
 				f.Placeholder = "Stored. Leave blank to keep it."
 			}
 		}
