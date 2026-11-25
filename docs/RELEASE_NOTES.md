@@ -1,5 +1,11 @@
 # Release notes
 
+## Unreleased: dry run for entity updates
+
+- **What.** `PUT` and `PATCH /api/v1/entities/{id}` take `?dry_run=1`, merge patches included, and MCP `entities_update` takes `dry_run: true`. The update runs its checks, sanitising and `before_save` filters but stores nothing and emits no events. The answer lists the `changes` (`path`, `before`, `after`) and the `version` they were built from; send that version back as `If-Match` or `version` to apply exactly that diff. See [Edit safely when several programs write](site/admin/users-and-api-keys.md#edit-safely-when-several-programs-write).
+- **Compatibility.** Additive: without `dry_run` nothing changes.
+- **Migration.** None. **Rollback floor:** unchanged.
+
 ## Unreleased: merge patches for entity attributes
 
 - **What.** `PATCH /api/v1/entities/{id}` with `Content-Type: application/merge-patch+json` merges the sent `attributes` into the stored ones (JSON merge patch, RFC 7396): only the keys sent change, `null` removes a key, nested objects merge, arrays replace whole. MCP `entities_update` takes `merge: true` for the same. The merged result is validated and stored as one version, like a full write. `If-Match` and `version` work as before; send them with a merge. See [Edit safely when several programs write](site/admin/users-and-api-keys.md#edit-safely-when-several-programs-write).

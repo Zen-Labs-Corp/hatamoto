@@ -335,7 +335,7 @@ with `<reason>`). One failed call there still fails open. While the circuit brea
 switched off (3 failed calls in a row, see above), the save is **refused**
 instead, with the message that the plugin hook is disabled after repeated
 failures; it works again when the 30 seconds are over. Filters of other hooks
-stay fail open.
+stay fail open. The filter also runs for an update dry run (`dry_run`): it receives the normal `update` draft (after a merge patch is applied) and must not have side effects beyond returning the draft.
 
 `comment.check` is the second deliberate exception, and it fails closed in the other direction: it runs on a comment a visitor is submitting, and any error, trap, timeout, `hatamoto:reject:` answer, busy plugin or open circuit breaker **holds the comment for moderation** (it is not lost and not published). All plugins share one budget of 500 ms for the whole chain, and each call also has the plugin's own hook timeout (default 250 ms, `limits.hook_timeouts_ms["comment.check"]`). A cold plugin instance may not start within the budget, so the first comment after a restart can be held. The filter is registered only while the plugin holds `comments.read`.
 
