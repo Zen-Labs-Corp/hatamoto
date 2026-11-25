@@ -315,6 +315,30 @@ func (f *fake) EnsureMenuAtLocation(_ context.Context, in menu.EnsureInput) (*me
 	f.menus[in.Location] = m
 	return m, true, nil
 }
+func (f *fake) GetMenuWithItems(_ context.Context, id uuid.UUID) (*menu.Menu, error) {
+	for _, m := range f.menus {
+		if m.ID == id {
+			return m, nil
+		}
+	}
+	return nil, menu.ErrMenuNotFound
+}
+func (f *fake) ReplaceMenu(_ context.Context, id uuid.UUID, fields *menu.UpdateMenuInput, items []menu.ReplaceItem) (*menu.Menu, error) {
+	for _, m := range f.menus {
+		if m.ID == id {
+			f.write("replace menu %s", m.Slug)
+			if fields != nil && fields.Name != nil {
+				m.Name = *fields.Name
+			}
+			m.Items = nil
+			for _, it := range items {
+				m.Items = append(m.Items, &menu.MenuItem{Label: it.Label, LinkType: it.LinkType})
+			}
+			return m, nil
+		}
+	}
+	return nil, menu.ErrMenuNotFound
+}
 
 // Site
 

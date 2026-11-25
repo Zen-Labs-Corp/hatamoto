@@ -432,12 +432,15 @@ func (pl *Plan) planMenus(ctx context.Context, d Deps, kitThemeLocs []string) er
 			pl.Menus = append(pl.Menus, step)
 			continue
 		}
-		_, err := d.Menus.GetMenuByLocation(ctx, km.Location)
+		seeded, err := seededMenu(ctx, d, km.Location)
 		switch {
 		case errors.Is(err, menu.ErrMenuNotFound):
 			step.Action = ActionCreate
 		case err != nil:
 			return err
+		case seeded != nil:
+			step.Action = ActionCreate
+			step.Note = "replaces the new-site menu"
 		default:
 			step.Action = ActionKeep
 			pl.Kept = append(pl.Kept, fmt.Sprintf("menu '%s'", km.Name))
@@ -445,6 +448,24 @@ func (pl *Plan) planMenus(ctx context.Context, d Deps, kitThemeLocs []string) er
 		pl.Menus = append(pl.Menus, step)
 	}
 	return nil
+}
+
+// seededMenu returns the menu at location, with its items, when it is still the
+// untouched new-site seed (menu.IsUntouchedCoreSeed), which a kit replaces; nil
+// when the location holds a menu of the owner's. menu.ErrMenuNotFound when none.
+func seededMenu(ctx context.Context, d Deps, location string) (*menu.Menu, error) {
+	m, err := d.Menus.GetMenuByLocation(ctx, location)
+	if err != nil {
+		return nil, err
+	}
+	full, err := d.Menus.GetMenuWithItems(ctx, m.ID)
+	if err != nil {
+		return nil, err
+	}
+	if menu.IsUntouchedCoreSeed(full) {
+		return full, nil
+	}
+	return nil, nil
 }
 
 func (pl *Plan) planSwitches(ctx context.Context, d Deps) error {

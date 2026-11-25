@@ -407,6 +407,21 @@ func applyMenus(ctx context.Context, d Deps, pl *Plan, res *Result) error {
 		if err != nil {
 			return fmt.Errorf("creating menu %s: %w", km.Location, err)
 		}
+		if !created && step.Action == ActionCreate {
+			// The location holds the new-site seed (checked again here: the owner may
+			// have edited it since the plan): the kit's menu replaces it.
+			seeded, err := seededMenu(ctx, d, km.Location)
+			if err != nil {
+				return fmt.Errorf("reading menu %s: %w", km.Location, err)
+			}
+			if seeded != nil {
+				name := km.Name
+				if _, err := d.Menus.ReplaceMenu(ctx, seeded.ID, &menu.UpdateMenuInput{Name: &name}, items); err != nil {
+					return fmt.Errorf("replacing menu %s: %w", km.Location, err)
+				}
+				created = true
+			}
+		}
 		if created {
 			res.created("menus")
 		} else {
