@@ -73,6 +73,15 @@ func TestMCPIntegration(t *testing.T) {
 	schemaID, userID := uuid.New(), uuid.New()
 	exec(`INSERT INTO hatamoto_entity_schemas (id,name,slug,schema,settings) VALUES ($1,$2,$2,'{"type":"object"}',$3)`,
 		schemaID, schemaSlug, `{"url_pattern":"/{slug}"}`)
+	evSchemaID, evSlug := uuid.New(), "mcpit-ev-"+sfx
+	evSchema := `{"type":"object","x-schema-org-type":"Event","properties":{
+"name":{"type":"string","x-schema-org-property":"name"},
+"location":{"type":"string","x-schema-org-property":"location"},
+"status":{"type":"string","enum":["scheduled","cancelled"],"x-schema-org-property":"eventStatus","x-schema-org-enum":{"canceled":"https://schema.org/EventCancelled"}},
+"date_start":{"type":"string","format":"date","x-schema-org-property":"startDate","x-schema-org-datetime":{"time":"time_start"}},
+"time_start":{"type":"string"}}}`
+	exec(`INSERT INTO hatamoto_entity_schemas (id,name,slug,schema,settings) VALUES ($1,$2,$2,$3,$4)`,
+		evSchemaID, evSlug, evSchema, `{"url_pattern":"/events/{slug}"}`)
 	exec(`INSERT INTO hatamoto_users (id,email,password_hash,role) VALUES ($1,$2,'x','owner')`, userID, "mcp-"+sfx+"@example.test")
 	var hadSite bool
 	if err := db.Pool().QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_site_config)`).Scan(&hadSite); err != nil {
@@ -91,6 +100,8 @@ func TestMCPIntegration(t *testing.T) {
 		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_menus WHERE slug=$1`, "mcp-menu-"+sfx)
 		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_entities WHERE schema_id=$1`, schemaID)
 		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_entity_schemas WHERE id=$1`, schemaID)
+		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_entities WHERE schema_id=$1`, evSchemaID)
+		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_entity_schemas WHERE id=$1`, evSchemaID)
 		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_users WHERE id=$1`, userID)
 	})
 
@@ -308,6 +319,14 @@ func TestMCPIntegration(t *testing.T) {
 	ld := mustCall(rw, "jsonld_validate", map[string]any{"entity_id": id})
 	if ld["source"] != "rendered page" || ld["report"].(map[string]any)["blocks"].(float64) < 1 {
 		t.Errorf("jsonld: %v (page had ld+json: %v)", ld, strings.Contains(string(html), "ld+json"))
+	}
+	ev := mustCall(rw, "entities_create", map[string]any{
+		"schema": evSlug, "name": "Story hour " + sfx, "slug": "mcp-ev-" + sfx,
+		"attributes": map[string]any{"status": "cancelled", "date_start": "2026-12-05", "time_start": "18:30", "location": "Main hall"},
+	})
+	evReport := mustCall(rw, "jsonld_validate", map[string]any{"entity_id": ev["id"]})["report"].(map[string]any)
+	if evReport["valid"] != false || !strings.Contains(string(mustJSON(t, evReport["nodes"])), `x-schema-org-enum on \"status\": \"canceled\" is not one of the enum values`) {
+		t.Errorf("annotation findings missing: %v", evReport)
 	}
 	if s := mustCall(rw, "search", map[string]any{"query": "again"}); s["total"] == nil {
 		t.Errorf("search: %v", s)

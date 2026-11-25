@@ -212,7 +212,7 @@ func (s *Server) registerInsight() {
 	type ldIn struct {
 		EntityID string `json:"entity_id"`
 	}
-	register(s, toolSpec{name: "jsonld_validate", description: "Render a page's JSON-LD (the live page when published, otherwise generated from the draft) and check it: valid JSON, @context, @type, and the fields Google expects per type.", scope: readScope, action: authz.ActionEntityRead, idempotent: true},
+	register(s, toolSpec{name: "jsonld_validate", description: "Render a page's JSON-LD (the live page when published, otherwise generated from the draft) and check it: valid JSON, @context, @type, and the fields Google expects per type. It also checks the content type's x-schema-org-enum and x-schema-org-datetime annotations.", scope: readScope, action: authz.ActionEntityRead, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in ldIn) (any, error) {
 			id, err := parseID("entity_id", in.EntityID)
 			if err != nil {
@@ -227,6 +227,10 @@ func (s *Server) registerInsight() {
 				return nil, err
 			}
 			rep := ValidateJSONLD(blocks)
+			if e.Schema != nil {
+				f := entity.CheckSchemaAnnotations(e.Schema.Schema)
+				rep = AddAnnotationFindings(rep, f.RootType, f.Errors, f.Warnings)
+			}
 			return object{"entity_id": id, "source": source, "url": s.d.PageURL(ctx, e), "report": rep}, nil
 		})
 }
