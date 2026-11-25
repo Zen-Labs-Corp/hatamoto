@@ -766,12 +766,12 @@ func (a *Admin) entityTabs(id, active string) []ui.Tab {
 }
 
 // renderAttrs renders the schema's own fields. SEO keys are shown by the SEO panel.
-func renderAttrs(sc *entity.EntitySchema, values map[string]any, errs schemaform.Errors) (template.HTML, error) {
+func renderAttrs(sc *entity.EntitySchema, values map[string]any, errs schemaform.Errors, loc *time.Location) (template.HTML, error) {
 	schema, err := schemaform.WithoutProperties(sc.Schema, slices.Concat(seoKeys, seoSchemaKeys, seoSitemapKeys, seoCrumbKeys)...)
 	if err != nil {
 		return "", err
 	}
-	return schemaform.Render(schema, values, schemaform.Options{Prefix: attrPrefix, Errors: errs})
+	return schemaform.Render(schema, values, schemaform.Options{Prefix: attrPrefix, Errors: errs, Location: loc})
 }
 
 func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status int, f *entityForm, e *entity.Entity, sc *entity.EntitySchema, values map[string]any, errs schemaform.Errors, parentID, authorID string, picked map[string]bool) {
@@ -779,7 +779,7 @@ func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status 
 		f.Review, f.reviewDone = a.reviewStateFor(r.Context(), e), true
 	}
 	a.fill(r, f, sc, e, parentID, authorID, picked)
-	html, err := renderAttrs(sc, values, errs)
+	html, err := renderAttrs(sc, values, errs, a.siteLocation(r.Context()))
 	if err != nil {
 		a.serverError(w, r, "The form for this entity type could not be built", err)
 		return
@@ -1047,7 +1047,7 @@ func (a *Admin) readEntityForm(r *http.Request, sc *entity.EntitySchema, prev ma
 		p.f.Errors["name"] = "This entity type's schema is invalid."
 		return p
 	}
-	attrs, errs := schemaform.Decode(schema, r.PostForm, prev, schemaform.Options{Prefix: attrPrefix})
+	attrs, errs := schemaform.Decode(schema, r.PostForm, prev, schemaform.Options{Prefix: attrPrefix, Location: a.siteLocation(r.Context())})
 	p.attrs, p.errs = attrs, errs
 	p.f.SEO.keepUnpostedSchema(r, prev)
 	p.f.SEO.keepUnpostedRobots(r, prev)
