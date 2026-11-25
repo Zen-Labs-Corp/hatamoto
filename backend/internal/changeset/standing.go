@@ -579,7 +579,7 @@ func checkCreateItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it Stored
 		}
 		st.slugs[key] = true
 	}
-	if reason := checkCreateText(pl); reason != "" {
+	if reason := checkCreateText(pl, p); reason != "" {
 		return reason
 	}
 	if reason := checkCreateAttributes(ctx, tx, schemaDoc, pl.Attributes, p); reason != "" {
@@ -690,7 +690,7 @@ func tooLargeValue(v any, over func(string) bool) bool {
 // other strings a create stores: name, slug, locale and the search text. The
 // public site prints and links them like any attribute, so a create carries no
 // link, path or picture in them either.
-func checkCreateText(pl entityPayload) string {
+func checkCreateText(pl entityPayload, p StandingPolicy) string {
 	strs := []string{pl.Name, pl.Slug, pl.Locale}
 	if pl.SEO != nil {
 		strs = append(strs, pl.SEO.MetaTitle, pl.SEO.MetaDescription, pl.SEO.Robots, pl.SEO.Canonical)
@@ -698,10 +698,16 @@ func checkCreateText(pl entityPayload) string {
 	if slices.ContainsFunc(strs, schemafield.MentionsImageMarkup) {
 		return "it carries image markup, which never qualifies."
 	}
-	if slices.ContainsFunc(strs, schemafield.LooksLikeURLOrPath) || carriesLink(strs) {
+	if slices.ContainsFunc(strs, schemafield.LooksLikeURLOrPath) || p.declaresLinks() && carriesLink(strs) {
 		return "it carries links, paths or files, which need your review."
 	}
 	return ""
+}
+
+// declaresLinks reports whether the policy lists link fields. Only then does
+// the create gate scan for links beyond the old URL and path check.
+func (p StandingPolicy) declaresLinks() bool {
+	return p.Create != nil && len(p.Create.LinkFields) > 0
 }
 
 // carriesLink reports whether the risk classifier's link scan finds any link
@@ -806,7 +812,7 @@ func checkCreateAttributes(ctx context.Context, tx rowQuerier, schemaDoc []byte,
 		rest = nil
 		collectStrings(trimmed, &rest)
 	}
-	if slices.ContainsFunc(rest, schemafield.LooksLikeURLOrPath) || carriesLink(rest) {
+	if slices.ContainsFunc(rest, schemafield.LooksLikeURLOrPath) || p.declaresLinks() && carriesLink(rest) {
 		return "it carries links, paths or files, which need your review."
 	}
 	return ""

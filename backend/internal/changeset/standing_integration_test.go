@@ -621,6 +621,14 @@ func TestStandingCreatePublishes(t *testing.T) {
 		}
 	})
 
+	// Without link_fields the gate behaves as it always did: a host-less
+	// markdown link in a value or the name is not a link the gate refuses.
+	t.Run("no_link_fields_hostless_markdown_link", func(t *testing.T) {
+		s.setSchema(linkFieldsSchema)
+		publish(s.newItem("nlf", map[string]any{"name": "Song [Live](Remix)",
+			"attributes": map[string]any{"title": "T", "notes": "See [the programme](#programme)"}}))
+	})
+
 	t.Run("cover_charge", func(t *testing.T) {
 		s.setSchema(linkFieldsSchema)
 		publish(s.newItem("cc", map[string]any{"attributes": map[string]any{"title": "T", "cover": "£10"}}))
