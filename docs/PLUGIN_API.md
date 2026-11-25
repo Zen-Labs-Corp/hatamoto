@@ -855,7 +855,7 @@ A changeset stays staged for review as a whole, with nothing published, when any
 - is too large to publish on its own: a single string over 64 KiB, more than 4,096 strings (map keys included), or attributes over 256 KiB;
 - would take the hour past `create.max_per_hour`.
 
-A create that sets `status` to `published` goes live when the rule allows it; without `status` it lands as a draft. `status` is ignored for an entry the key already maps to, so an update never changes a status. A changeset that mixes a create with anything outside the rule waits as a whole. A new entry cannot carry terms: an entity item has no terms field, and a changeset with a term item waits for review.
+A create that sets `status` to `published` goes live when the rule allows it; without `status` it lands as a draft. `status` is ignored for an entry the key maps to when the changeset is published, so an update never changes a status, even from a changeset staged before the entry existed. A changeset that mixes a create with anything outside the rule waits as a whole. A new entry cannot carry terms: an entity item has no terms field, and a changeset with a term item waits for review.
 
 ### `on_run_step`
 
