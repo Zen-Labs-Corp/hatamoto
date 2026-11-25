@@ -354,6 +354,14 @@ func TestRateLimited429(t *testing.T) {
 	}
 }
 
+func TestRateLimited429DryRun(t *testing.T) {
+	h := newKeyHarness(t, false, map[string]*auth.APIKey{"k": testKey(auth.ScopeAll)})
+	rec := do(h.handler, "PATCH", "/api/v1/entities/6f1b1d52-8b3e-4a52-9c2f-0a1b2c3d4e5f?dry_run=1", "k")
+	if rec.Code != http.StatusTooManyRequests || h.reachedKey.Load() != 0 || h.reachedFall.Load() != 0 {
+		t.Fatalf("got %d reached key=%d fallback=%d, want 429 and neither", rec.Code, h.reachedKey.Load(), h.reachedFall.Load())
+	}
+}
+
 func TestHeaderPlusCookieStillKeyPath(t *testing.T) {
 	h := newKeyHarness(t, true, map[string]*auth.APIKey{"k": testKey(auth.ScopeAll)})
 	req := httptest.NewRequest("GET", "/api/v1/users", nil)
