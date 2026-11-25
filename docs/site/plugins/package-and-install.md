@@ -81,7 +81,7 @@ A **package** is one `.hmp` file that holds a whole plugin. **Signing** proves w
 
 ### Ship content types
 
-A plugin package may hold `schemas/<name>.json`, a JSON Schema document whose `title` names the type. A schema that has no `sections/<name>.html` next to it is a content type, not a builder section. Hatamoto creates the type when the plugin is enabled and shows "Create the content types ..." on the permission prompt. A type that already exists is never overwritten; if the name is taken by something the plugin did not install, the install or enable is refused. Disabling or uninstalling the plugin keeps the types and their content unless you ask for their removal when you uninstall. At most 16 types per package.
+A plugin package may hold `schemas/<name>.json`, a JSON Schema document whose `title` names the type. A schema that has no `sections/<name>.html` next to it is a content type, not a builder section. Hatamoto creates the type when the plugin is enabled and shows "Create the content types ..." on the permission prompt. When the plugin is updated, a type it installed gains the properties its new schema adds, as optional fields; nothing existing is removed or changed, so your edits and entries are kept, and the update prompt lists the new fields. A type that someone else installed is never changed; if the name is taken by something the plugin did not install, the install or enable is refused. Disabling or uninstalling the plugin keeps the types and their content unless you ask for their removal when you uninstall. At most 16 types per package.
 
 ## Check it worked
 
