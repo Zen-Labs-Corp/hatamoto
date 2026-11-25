@@ -154,6 +154,20 @@ func TestArchiveEmptyState(t *testing.T) {
 			}
 		}
 	})
+	t.Run("other content types keep the plain note", func(t *testing.T) {
+		v := hierarchyView()
+		v.Kind, v.SchemaSlug, v.Page.Name = KindArchive, "notes", "Notes"
+		v.Site.Feeds = rss
+		out := render(v)
+		if !strings.Contains(out, `<p class="hm-empty">Nothing here yet`) {
+			t.Errorf("missing plain note:\n%s", out)
+		}
+		for _, bad := range []string{"hm-empty-state", "No posts yet", "Subscribe"} {
+			if strings.Contains(out, bad) {
+				t.Errorf("%q on a non-post archive:\n%s", bad, out)
+			}
+		}
+	})
 	t.Run("taxonomy keeps the plain note", func(t *testing.T) {
 		v := hierarchyView()
 		v.Kind, v.Term, v.Page.Name = KindTaxonomy, &TermView{Kind: "tag", Slug: "go", Name: "Go", URL: "/tag/go"}, "Go"

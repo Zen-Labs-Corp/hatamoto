@@ -4,5 +4,5 @@
 <h1 class="hm-listing__title">{{.Page.Name}}</h1>
 {{with .Page.Description}}<p class="hm-listing__lede">{{.}}</p>
 {{end}}{{template "term-chips" dict "Terms" (terms "category" 12) "Label" (t . "categories")}}</header>
-{{if .Items}}{{template "post-list" .}}{{else}}{{template "archive-empty" .}}{{end}}
+{{if .Items}}{{template "post-list" .}}{{else if eq .SchemaSlug "post"}}{{template "archive-empty" .}}{{else}}{{template "post-list" .}}{{end}}
 </div>{{end}}
