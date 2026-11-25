@@ -4,9 +4,11 @@ package packages
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"errors"
 	"io"
 	"log/slog"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -15,6 +17,7 @@ import (
 
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const productSchema = `{"title":"Product","description":"Things for sale","type":"object","properties":{"price":{"type":"number"}}}`
@@ -245,5 +248,246 @@ func TestUninstallKeepContentRevokesPluginEntries(t *testing.T) {
 	}
 	if _, err := svc.PluginDelete(ctx, "shop", "product", e.ID); !errors.Is(err, entity.ErrNotPluginOwned) {
 		t.Fatalf("delete by a package reusing the name: %v, want ErrNotPluginOwned", err)
+	}
+}
+
+// packWith is schemaPack with the product schema replaced.
+func packWith(name, schemaJSON string) map[string][]byte {
+	files := schemaPack(name)
+	files["schemas/product.json"] = []byte(schemaJSON)
+	return files
+}
+
+const productWithSKU = `{"title":"Product","type":"object","properties":{"price":{"type":"number"},"sku":{"type":"string","title":"SKU"}},"required":["sku"]}`
+
+func (r *rig) storedSchema(slug string) map[string]any {
+	r.t.Helper()
+	var raw []byte
+	if err := r.pool.QueryRow(context.Background(), `SELECT schema FROM hatamoto_entity_schemas WHERE slug = $1`, slug).Scan(&raw); err != nil {
+		r.t.Fatal(err)
+	}
+	var m map[string]any
+	if err := jsonx.Unmarshal(raw, &m, jsonx.Stored); err != nil {
+		r.t.Fatal(err)
+	}
+	return m
+}
+
+func (r *rig) storedProps(slug string) map[string]any {
+	r.t.Helper()
+	p, _ := r.storedSchema(slug)["properties"].(map[string]any)
+	return p
+}
+
+func TestUpdateAddsFieldToOwnedType(t *testing.T) {
+	for _, ordered := range []bool{false, true} {
+		t.Run(map[bool]string{false: "plain", true: "ordered"}[ordered], func(t *testing.T) {
+			r, svc := schemaRig(t)
+			ctx := context.Background()
+			if err := r.installPack(schemaPack("shop")); err != nil {
+				t.Fatal(err)
+			}
+			if ordered {
+				sc, err := svc.GetSchemaBySlug(ctx, "product")
+				if err != nil {
+					t.Fatal(err)
+				}
+				s := jsontext.Value(`{"title":"Product","type":"object","properties":{"price":{"type":"number"}},"x-hm-order":["price"]}`)
+				if _, err := svc.UpdateSchema(ctx, sc.ID, &entity.UpdateSchemaInput{Schema: &s}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := r.installPack(packWith("shop", productWithSKU)); err != nil {
+				t.Fatal(err)
+			}
+			if _, ok := r.storedProps("product")["sku"]; !ok {
+				t.Fatalf("sku not added: %v", r.storedProps("product"))
+			}
+			if req, _ := r.storedSchema("product")["required"].([]any); slices.Contains(req, any("sku")) {
+				t.Fatalf("sku became required: %v", req)
+			}
+			if ordered {
+				if got := r.storedSchema("product")["x-hm-order"]; !reflect.DeepEqual(got, []any{"price", "sku"}) {
+					t.Fatalf("x-hm-order = %v", got)
+				}
+			}
+			if n, _ := auditWidgets(t, r, "package.schemas.extend", "plugin:shop"); n != 1 {
+				t.Fatalf("package.schemas.extend audited %d times, want 1", n)
+			}
+		})
+	}
+}
+
+func TestUpdateKeepsRemovedAndRetypedFields(t *testing.T) {
+	r, _ := schemaRig(t)
+	if err := r.installPack(schemaPack("shop")); err != nil {
+		t.Fatal(err)
+	}
+	retyped := `{"title":"Product","type":"object","properties":{"price":{"type":"string"},"sku":{"type":"string"}}}`
+	if err := r.installPack(packWith("shop", retyped)); err != nil {
+		t.Fatal(err)
+	}
+	dropped := `{"title":"Product","type":"object","properties":{"color":{"type":"string"}}}`
+	if err := r.installPack(packWith("shop", dropped)); err != nil {
+		t.Fatal(err)
+	}
+	p := r.storedProps("product")
+	if !reflect.DeepEqual(p["price"], map[string]any{"type": "number"}) {
+		t.Fatalf("price = %v, want the stored number type", p["price"])
+	}
+	for _, k := range []string{"sku", "color"} {
+		if _, ok := p[k]; !ok {
+			t.Fatalf("%s missing: %v", k, p)
+		}
+	}
+}
+
+func TestUpdateKeepsOwnerAddedField(t *testing.T) {
+	r, svc := schemaRig(t)
+	ctx := context.Background()
+	if err := r.installPack(schemaPack("shop")); err != nil {
+		t.Fatal(err)
+	}
+	sc, err := svc.GetSchemaBySlug(ctx, "product")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := jsontext.Value(`{"title":"Product","type":"object","properties":{"price":{"type":"number"},"note":{"type":"string"}}}`)
+	if _, err := svc.UpdateSchema(ctx, sc.ID, &entity.UpdateSchemaInput{Schema: &s}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.installPack(packWith("shop", productWithSKU)); err != nil {
+		t.Fatal(err)
+	}
+	p := r.storedProps("product")
+	for _, k := range []string{"note", "sku", "price"} {
+		if _, ok := p[k]; !ok {
+			t.Fatalf("%s missing: %v", k, p)
+		}
+	}
+	after, err := svc.GetSchemaBySlug(ctx, "product")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Name != sc.Name || !reflect.DeepEqual(after.Description, sc.Description) {
+		t.Fatalf("name/description changed: %q %v -> %q %v", sc.Name, sc.Description, after.Name, after.Description)
+	}
+}
+
+func TestUpdateLeavesOthersTypesAlone(t *testing.T) {
+	t.Run("owner type", func(t *testing.T) {
+		r, svc := schemaRig(t)
+		if _, err := svc.CreateSchema(context.Background(), &entity.CreateSchemaInput{Name: "Mine", Slug: "product", Schema: []byte(productSchema)}); err != nil {
+			t.Fatal(err)
+		}
+		before := r.storedSchema("product")
+		if err := r.installPack(packWith("shop", productWithSKU)); !errors.Is(err, ErrContentTypeTaken) {
+			t.Fatalf("err = %v, want ErrContentTypeTaken", err)
+		}
+		if !reflect.DeepEqual(before, r.storedSchema("product")) {
+			t.Fatalf("owner type changed: %v", r.storedSchema("product"))
+		}
+	})
+	t.Run("other plugin", func(t *testing.T) {
+		r, _ := schemaRig(t)
+		ctx := context.Background()
+		if err := r.installPack(schemaPack("shop")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := r.pool.Exec(ctx, `UPDATE hatamoto_entity_schemas SET origin_plugin = 'other' WHERE slug = 'product'`); err != nil {
+			t.Fatal(err)
+		}
+		before := r.storedSchema("product")
+		// the type is taken by another plugin, so the update is refused
+		if err := r.installPack(packWith("shop", productWithSKU)); !errors.Is(err, ErrContentTypeTaken) {
+			t.Fatalf("err = %v, want ErrContentTypeTaken", err)
+		}
+		if !reflect.DeepEqual(before, r.storedSchema("product")) {
+			t.Fatalf("another plugin's type changed: %v", r.storedSchema("product"))
+		}
+	})
+}
+
+func TestReenableIsIdempotent(t *testing.T) {
+	r, _ := schemaRig(t)
+	ctx := context.Background()
+	if err := r.installPack(schemaPack("shop")); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.installPack(packWith("shop", productWithSKU)); err != nil {
+		t.Fatal(err)
+	}
+	updatedAt := func() (ts time.Time) {
+		if err := r.pool.QueryRow(ctx, `SELECT updated_at FROM hatamoto_entity_schemas WHERE slug = 'product'`).Scan(&ts); err != nil {
+			t.Fatal(err)
+		}
+		return ts
+	}
+	before := updatedAt()
+	if err := r.mgr.SetEnabled(ctx, "shop", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.mgr.SetEnabled(ctx, "shop", true); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.installPack(packWith("shop", productWithSKU)); err != nil {
+		t.Fatal(err)
+	}
+	if got := updatedAt(); !got.Equal(before) {
+		t.Fatalf("updated_at moved %v -> %v", before, got)
+	}
+	if n, _ := auditWidgets(t, r, "package.schemas.extend", "plugin:shop"); n != 1 {
+		t.Fatalf("package.schemas.extend audited %d times, want 1", n)
+	}
+}
+
+func TestInvalidMergeKeepsSchema(t *testing.T) {
+	r, _ := schemaRig(t)
+	if err := r.installPack(schemaPack("shop")); err != nil {
+		t.Fatal(err)
+	}
+	before := r.storedSchema("product")
+	bad := `{"title":"Product","type":"object","properties":{"price":{"type":"number"},"broken":{"title":"no type"}}}`
+	if err := entity.ValidateSchemaShape(jsontext.Value(bad)); err == nil {
+		t.Fatal("test premise: the shape check accepts a property without a type")
+	}
+	if err := r.installPack(packWith("shop", bad)); err != nil {
+		t.Fatalf("install failed on an invalid merge: %v", err)
+	}
+	if !reflect.DeepEqual(before, r.storedSchema("product")) {
+		t.Fatalf("stored schema changed: %v", r.storedSchema("product"))
+	}
+	if n, _ := auditWidgets(t, r, "package.schemas.extend", "plugin:shop"); n != 0 {
+		t.Fatalf("extend audited %d times for a refused merge", n)
+	}
+}
+
+func TestSchemaPreviewMatchesInstall(t *testing.T) {
+	r, _ := schemaRig(t)
+	ctx := context.Background()
+	if err := r.installPack(schemaPack("shop")); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := PackFiles(packWith("shop", productWithSKU), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg, err := Parse(raw, DefaultLimits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	create, extend, err := r.mgr.SchemaPreview(ctx, pkg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(create) != 0 || len(extend) != 1 || extend[0].Slug != "product" ||
+		!reflect.DeepEqual(extend[0].Added, []string{"sku"}) || !reflect.DeepEqual(extend[0].Labels, []string{"SKU"}) {
+		t.Fatalf("preview create=%v extend=%+v", create, extend)
+	}
+	if err := r.installPack(packWith("shop", productWithSKU)); err != nil {
+		t.Fatal(err)
+	}
+	if create, extend, err = r.mgr.SchemaPreview(ctx, pkg); err != nil || len(create) != 0 || len(extend) != 0 {
+		t.Fatalf("preview after install: create=%v extend=%+v err=%v", create, extend, err)
 	}
 }
