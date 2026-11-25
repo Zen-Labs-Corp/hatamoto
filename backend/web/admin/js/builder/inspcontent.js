@@ -456,7 +456,8 @@ export function createContent(ctx) {
         "aria-label": `Remove filter ${n}`,
         onclick: () => {
           rows.splice(i, 1);
-          draw1(-1);
+          draw1(Math.min(i, rows.length - 1), "a");
+          if (!rows.length) add.focus();
           store();
           api.announce(`Filter ${n} removed`);
         },
