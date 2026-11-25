@@ -179,6 +179,8 @@ A change that would not validate is still a `200`, with the reasons in `errors` 
 - A slug or locale that clashes with another entry is only caught by the real write. A dry run can answer with no errors and the real call then fail with `409`.
 - It needs the same update permission as the real change and counts against the rate limit.
 
+For how scopes, review, `If-Match`, restore and the audit log fit together, read [Edit your site with AI safely](../ai-seo/edit-your-site-with-ai-safely.md).
+
 ### Entries over the API
 
 - `GET /api/v1/entities` answers 20 entries per page. `?limit=` takes 1 to 100 and clamps a larger number to 100; `?page=` walks the pages. `per_page` is refused, the parameter is `limit`.
