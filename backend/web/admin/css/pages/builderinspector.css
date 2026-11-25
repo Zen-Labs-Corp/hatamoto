@@ -186,8 +186,10 @@
 .hm-bs-style .hm-bs-grp__more, .hm-bs-content .hm-bs-grp__more { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; padding-inline-start: var(--space-2); border-inline-start: 1px solid var(--border); }
 .hm-bs-style .hm-bs-grp__more[hidden], .hm-bs-content .hm-bs-grp__more[hidden] { display: none; }
 .hm-bs-content .hm-bs-attrs { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; } /* a query loop: Sort by attribute, then the filter rows */
-.hm-bs-content .hm-bs-frow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1-5); min-width: 0; } /* one filter: attribute, operator, value, Remove */
-.hm-bs-content .hm-bs-frow > select, .hm-bs-content .hm-bs-frow > input { flex: 1 1 6rem; min-width: 0; }
+.hm-bs-content .hm-bs-frow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-1-5); min-width: 0; } /* one filter: attribute and Remove on a line, then the operator, then the value, each at full width */
+.hm-bs-content .hm-bs-frow > select, .hm-bs-content .hm-bs-frow > input { grid-column: 1 / -1; min-width: 0; }
+.hm-bs-content .hm-bs-frow > select:first-child { grid-column: 1; }
+.hm-bs-content .hm-bs-frow > :last-child { grid-column: 2; grid-row: 1; }
 .hm-bs-style .hm-bs-width .hm-bs-opts { flex-wrap: nowrap; }
 @media (forced-colors: active) {
   .hm-bs-style .hm-bs-fld { border-color: ButtonBorder; }
