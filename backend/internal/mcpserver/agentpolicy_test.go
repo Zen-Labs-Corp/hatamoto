@@ -47,6 +47,7 @@ func TestAgentPolicyMCPRequireReviewStagesWithTheKeyAsRequester(t *testing.T) {
 	for tool, args := range map[string]map[string]any{
 		"entities_publish": {},
 		"entities_update":  {"name": "New"},
+		"entities_restore": {"version": 1},
 	} {
 		text, isErr := run(tool, args)
 		if isErr {
@@ -71,6 +72,7 @@ func TestAgentPolicyMCPDenyShowsTheReason(t *testing.T) {
 	for tool, args := range map[string]map[string]any{
 		"entities_publish": {},
 		"entities_update":  {"name": "New"},
+		"entities_restore": {"version": 1},
 	} {
 		text, isErr := run(tool, args)
 		if !isErr || !strings.Contains(text, "not on weekends") {

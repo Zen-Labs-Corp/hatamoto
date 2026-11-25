@@ -408,6 +408,7 @@ func (s *Server) registerContent() {
 	s.registerTerms()
 	s.registerMenus()
 	s.registerRedirects()
+	s.registerVersions()
 }
 
 func (s *Server) registerMedia() {

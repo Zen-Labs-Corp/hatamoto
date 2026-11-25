@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
 	"hatamoto.dev/core/internal/config"
@@ -66,10 +68,29 @@ func (s *Server) mountMCP(r *httpx.Group) {
 			name:  s.mcpReplyName,
 		}
 	}
+	if s.userRepo != nil {
+		deps.UserName = s.mcpUserName
+	}
 	h := mcpserver.New(deps, "1")
 	for _, method := range []string{http.MethodPost, http.MethodGet, http.MethodDelete} {
 		r.Handle(method+" /mcp", h)
 	}
+}
+
+// mcpUserName is a person's display name for version history; false when the
+// user is unknown or has no name. Never the login email: an MCP key must not
+// learn staff addresses (same rule as mcpReplyName).
+func (s *Server) mcpUserName(ctx context.Context, id uuid.UUID) (string, bool) {
+	u, err := s.userRepo.GetByID(ctx, id)
+	if err != nil || u == nil {
+		return "", false
+	}
+	if u.Name != nil {
+		if n := strings.TrimSpace(*u.Name); n != "" && !strings.EqualFold(n, u.Email) {
+			return n, true
+		}
+	}
+	return "", false
 }
 
 func mcpAllowedOrigins(cfg *config.Config) []string {

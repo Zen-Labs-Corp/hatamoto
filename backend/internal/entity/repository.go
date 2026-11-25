@@ -58,6 +58,8 @@ type EntityRepository interface {
 	PruneVersions(ctx context.Context, keep int) (int64, error)
 	GetVersion(ctx context.Context, entityID uuid.UUID, version int) (*EntityVersion, error)
 	ListVersions(ctx context.Context, entityID uuid.UUID, limit int) ([]*EntityVersion, error)
+	// ListVersionsPage returns stored versions newest first WITHOUT attributes, and the total count.
+	ListVersionsPage(ctx context.Context, entityID uuid.UUID, offset, limit int) ([]*EntityVersion, int, error)
 }
 
 // PostgresSchemaRepository implements SchemaRepository using PostgreSQL.
@@ -1452,6 +1454,43 @@ func (r *PostgresEntityRepository) ListVersions(ctx context.Context, entityID uu
 	}
 
 	return versions, rows.Err()
+}
+
+// ListVersionsPage returns one page of an entity's versions, newest first,
+// without their attributes, plus the total number of stored versions.
+func (r *PostgresEntityRepository) ListVersionsPage(ctx context.Context, entityID uuid.UUID, offset, limit int) ([]*EntityVersion, int, error) {
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer conn.Release()
+
+	var total int
+	if err := conn.QueryRow(ctx, `SELECT count(*) FROM hatamoto_entity_versions WHERE entity_id = $1`, entityID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to count entity versions: %w", err)
+	}
+
+	rows, err := conn.Query(ctx, `
+		SELECT id, entity_id, version, changed_by, change_summary, created_at, live_at
+		FROM hatamoto_entity_versions
+		WHERE entity_id = $1
+		ORDER BY version DESC
+		LIMIT $2 OFFSET $3
+	`, entityID, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list entity versions: %w", err)
+	}
+	defer rows.Close()
+
+	versions := make([]*EntityVersion, 0, limit)
+	for rows.Next() {
+		var v EntityVersion
+		if err := rows.Scan(&v.ID, &v.EntityID, &v.Version, &v.ChangedBy, &v.ChangeSummary, &v.CreatedAt, &v.LiveAt); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan entity version: %w", err)
+		}
+		versions = append(versions, &v)
+	}
+	return versions, total, rows.Err()
 }
 
 func pgError(err error) *pgconn.PgError {

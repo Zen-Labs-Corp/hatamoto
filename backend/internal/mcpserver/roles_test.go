@@ -111,9 +111,9 @@ func TestReadOnlyKeysCannotWrite(t *testing.T) {
 // contentRoleTools are the write tools an author, contributor or reviewer key may reach, with the zero
 // Object the gate asks: everything else is refused at the gate.
 var contentRoleTools = map[string][]string{
-	"author":      {"entities_create", "entities_update", "entities_publish", "entities_unpublish", "media_upload", "builder_apply_ops"},
-	"contributor": {"entities_create", "entities_update", "media_upload", "builder_apply_ops"},
-	"reviewer":    {"entities_update", "entities_publish", "entities_unpublish", "media_upload", "builder_apply_ops"},
+	"author":      {"entities_create", "entities_update", "entities_publish", "entities_unpublish", "entities_restore", "media_upload", "builder_apply_ops"},
+	"contributor": {"entities_create", "entities_update", "entities_restore", "media_upload", "builder_apply_ops"},
+	"reviewer":    {"entities_update", "entities_publish", "entities_unpublish", "entities_restore", "media_upload", "builder_apply_ops"},
 }
 
 // The author, contributor and reviewer roles act within their content rights: the gate answers each write
