@@ -69,7 +69,7 @@ approved comments of public entities, and may add to the spam score of a new
 comment in the `comment.check` filter. It never gets the commenter's email, a
 hash of it, the IP address, the user agent or the author's web address, no
 unapproved comment through the host API, and it has no function to write or
-moderate comments. The `comment.check` filter fails closed: an error, trap,
+moderate comments (`comments.moderate` acts on its own content type's comments; `comments.identity` creates commenters, never comments). The `comment.check` filter fails closed: an error, trap,
 timeout, reject or open circuit breaker holds the comment for moderation.
 
 The `client.key` keys are bound to the plugin name, not to the package or its
@@ -79,6 +79,26 @@ signer: a different package installed later under the same name and granted
 | Guarantee | Package | Tests |
 |---|---|---|
 | A commenter key is derived per plugin, only for plugins with `comments.read`, and never on webhooks | `internal/pluginhost`, `internal/server` | `TestCommentEventKeyPerPlugin`, `TestCommentKeyNotOnWebhooks`, `TestRenderPageCommenterKey` |
+
+A plugin that holds `comments.identity` can sign visitors in as commenters it
+vouches for: they have no email, and core stores no password for them (the
+plugin checks its own passwords). The plugin names an account; core ties one
+commenter to the plugin and that account, never to an email address, so a typed
+email never reaches such a commenter and two plugins never share one. The
+browser cookie is built by core, never shown to the plugin. A plugin removed or
+stripped of the grant leaves the cookies it caused valid until they expire or an
+owner uses Sign out all devices or Block on the commenter; core does not track
+which cookies a plugin caused.
+
+| Guarantee | Package | Tests |
+|---|---|---|
+| A `commenter_session` is honoured only on a non-GET public route of a plugin holding `comments.identity`, with a valid shape; any refusal drops the plugin's headers and cookies, and a route without it is unchanged | `internal/pluginhost` | `TestCommenterSessionApplied`, `TestCommenterSessionRefusedByGate`, `TestCommenterSessionRefusedOnAdminMount`, `TestCommenterSessionCallbackRefusal`, `TestRouteWithoutCommenterSessionUnchanged` |
+| A commenter session is set only for a same-origin request; a cross-site request gets no cookie | `internal/server` (Postgres) | `TestPluginCommenterSession` |
+| `comments.identity.ensure` and `revoke` need the grant, take a valid account only, and share the writes limiter | `internal/pluginhost` | `TestCommentsIdentityDeniedUntilGranted`, `TestCommentsIdentityInvalidAccount`, `TestCommentsIdentityRateLimitSharedWithWrites` |
+| An update that newly asks for `comments.identity` needs the owner's confirmation (the manifest check that it also holds `comments.read` and declares `entity_schema` lives in the separate SDK module's own tests) | `internal/packages` | `TestContractConfirmFlags` |
+| A typed email never reaches a plugin commenter | `internal/comment` (Postgres) | `TestFindCommenterNeverMatchesPluginRow` |
+| A plugin commenter posts without an email, keyed on the commenter id; a commenter with no email and no plugin is still asked to sign in | `internal/commentsubmit` | `TestSubmitVouchedCommenterPosts`, `TestSubmitVouchedLimitsByCommenterID`, `TestSubmitNoEmailNoOriginStillSignIn` |
+| The idle-commenter purge never deletes a plugin commenter | `internal/comment/identity` (Postgres) | `TestPurgeKeepsPluginCommenter` |
 
 ### Static hosting islands
 

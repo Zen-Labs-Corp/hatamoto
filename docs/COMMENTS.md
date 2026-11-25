@@ -97,7 +97,7 @@ No raw IP address is stored, only keyed hashes (`ip_hash` and `net_hash`), which
 
 ## Plugins
 
-Plugins that hold `comments.moderate` can mark comments dead, restore them and rank them on their own content type, and hear of changes through `comment.updated` and `comment.deleted` (see the plugin API). Plugins can add to a comment's spam score through a hook that never sees the IP address or the email. Not written yet.
+Plugins that hold `comments.identity` can sign visitors in as commenters without an email (see Identity below). Plugins that hold `comments.moderate` can mark comments dead, restore them and rank them on their own content type, and hear of changes through `comment.updated` and `comment.deleted` (see the plugin API). Plugins can add to a comment's spam score through a hook that never sees the IP address or the email. Not written yet.
 
 ## For developers
 
@@ -228,6 +228,8 @@ The hourly job `comment_drafts_purge` deletes drafts with status `draft` older t
 4. `POST /-/comments/signout` clears `hm_c` on this browser and redirects to `/-/comments/signin?out=1`. It does not bump `token_version`: a copied cookie stays valid until it expires or an admin revokes the commenter's devices.
 
 Both POSTs refuse a browser that is not same-origin (`403`) and need a single-use form token (`hm_ct`, subject `signin` or `signout`); a missing or used token shows the form again with a fresh one. The routes are limited per client like the confirm link, are sent `no-store`, `noindex` and `no-referrer`, are not cached, and the link token is redacted in logs. A sign-in link whose comment was deleted afterwards still works, because the mail went to the address owner.
+
+**Commenters a plugin signs in.** A plugin that holds `comments.identity` (see [PLUGIN_API.md](PLUGIN_API.md#commenter-sign-in-by-a-plugin-sdk-029)) can vouch for its own accounts. Such a commenter has no email: it exists for one plugin and one account id the plugin chose. The plugin signs a browser in or out through its own route; core builds the `hm_c` cookie, with the same lifetime rules as above (`device_cookie_days`, capped by the plugin's `max_age`), and the plugin never sees it. `POST /-/comments/signout` clears it as for any commenter, and an owner's Sign out all devices ends every sign-in of the commenter. On a content type with a sign-in policy these commenters post keyed on the commenter: no confirmation or reply mail goes out and no email-domain check applies. Blocks, spam checks, trust levels, slow mode and captcha are unchanged. They are not purged when idle. In Settings > Comments > Commenters the Identity column reads `plugin: <name>` for them and `Email` for the rest. Export and Erase work for them from their row; erasing removes core's records only, not the plugin's own account data, which is for the plugin's author to delete.
 
 Without a mail service the sign-in routes answer `404` like the confirm link; a locked form still shows its sign-in line, and that link leads to the 404. On such a site sign-out therefore happens by the `hm_c` cookie expiring.
 

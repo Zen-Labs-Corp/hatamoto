@@ -33,7 +33,7 @@ owner edits or deletes like any other.
   "sdk": "^0.27",
   "title": "Community",
   "description": "A community site with ranked stories and threaded comments.",
-  "requires": ["comment.policy", "comment.rank", "plugin.entity-write", "comment.signin"],
+  "requires": ["comment.identity", "comment.policy", "comment.rank", "plugin.entity-write", "comment.signin"],
   "plugins": [{"name": "example-board", "range": "^1", "grant": "all"}],
   "themes": [{"name": "example-theme", "range": "^1", "activate": false}],
   "schemas": [
@@ -124,8 +124,8 @@ owner edits or deletes like any other.
   `activate` are separate ticks and default to off. On an existing site a kit
   only adds; it never changes what is already there.
 - `requires` lists core feature names. Core publishes the list of features it
-  has; the names are `comment.policy`, `comment.rank`, `plugin.entity-write`
-  and `comment.signin`. If a required feature is missing, the apply is refused
+  has; the names are `comment.identity`, `comment.policy`, `comment.rank`,
+  `comment.signin` and `plugin.entity-write`. If a required feature is missing, the apply is refused
   and the message names the missing features. A `switches.comment_policy` entry
   for a feature not listed in `requires` is skipped, with a message.
 
@@ -226,9 +226,10 @@ turns on writes `comments.policy`.
 ## Features
 
 Core knows a fixed list of feature names a kit may put in `requires`:
-`comment.policy`, `comment.rank`, `comment.signin` and `plugin.entity-write`.
-`kit.Features()` (package `internal/kit`) returns the ones this build has. This
-build has `comment.policy`, `comment.rank` and `plugin.entity-write`; `comment.signin` is not available yet. A name is added
+`comment.identity`, `comment.policy`, `comment.rank`, `comment.signin` and
+`plugin.entity-write`. `kit.Features()` (package `internal/kit`) returns the ones
+this build has. This build has all five. `comment.identity` means a plugin with
+`comments.identity` can sign visitors in as email-less commenters (SDK 0.29). A name is added
 only by the change that makes the feature work. `hatamoto kit check` prints a note for each
 required name this build does not have yet ("needs a newer Hatamoto") and for
 each name it does not know at all.
