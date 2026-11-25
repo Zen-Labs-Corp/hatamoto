@@ -647,7 +647,7 @@ Error codes: `capability_denied` (the error also has `capability`: the missing p
 | `comments.restore` (`sdk.FnCommentsRestore`, SDK 0.27) | `{ "ids": [1 to 100 ids] }` | `{ "changed": n }`. All or nothing: an unknown id or one on a content type the plugin did not create is `not_owned` and nothing changes. Needs `comments.moderate` |
 | `comments.set_rank` (`sdk.FnCommentsSetRank`, SDK 0.27) | `{ "items": [ CommentRankItem ] }`, 1 to 200 items of `{ "id", "rank" }` (`rank` is a number) | `{ "changed": n }`. Higher rank sorts first among siblings, at every level (top-level comments and the replies under each comment), when the content type orders by rank; ties and unranked comments (rank 0) are newest first, so rank the replies too if their order matters. Fires no event; each entity's cached page is invalidated at most once per batch and once per 10 seconds. All or nothing, `not_owned` as above. Needs `comments.moderate` |
 | `comments.set_viewer` (`sdk.FnCommentsSetViewer`, SDK 0.27) | `{ "commenter_key", "show_dead" }` | `{}`. Stores the show-dead flag for that commenter; it affects only the plugin's own content type and takes effect within 30 seconds. `show_dead` false clears the flag. Needs `comments.moderate` |
-| `settings.get` | `{}` | the plugin's own settings object, schema defaults merged in (write-only values included: they are the plugin's own secrets) |
+| `settings.get` | `{}` | the plugin's own settings object, schema defaults merged in (write-only values included: they are the plugin's own secrets; one that cannot be read is left out) |
 | `log` | `{ "level": "debug|info|warn|error", "message" }` | `{}`. At most 10 lines/s (burst 20), then `rate_limited`; messages are cut at 4 KiB |
 | `mail.send` | `{ "to": [1..10 plain addresses], "subject", "text"?, "html"? }` | `{ "sent": n }`. Goes through the site's mail service and From identity; owner-set recipients per hour (default 360, which is 6 a minute; 1 to 3600, set by the owner on the plugin Permissions tab; burst clamp(N/36, 10, 100), so a very low quota still allows a short burst of up to 10; one token per recipient), then `rate_limited` "mail quota (N recipients per hour) reached"; `unavailable` when mail is not configured. The plugin cannot change the limit |
 | `http.fetch` | `{ "method"?, "url", "headers"?, "body"? or "body_b64"?, "timeout_ms"? }` | `{ "status", "headers", "body" or "body_b64", "truncated"? }`. At most 600 requests per plugin per minute (`HATAMOTO_PLUGIN_FETCH_PER_MINUTE`, burst 60), then `rate_limited`. `truncated` means the body was cut at 1 MiB: treat it as an error, ask for less (the Search Console plugin sends `prettyPrint=false` and pages of 1,000 rows) |
@@ -1174,7 +1174,13 @@ copying:
   that says a value is stored and never fills it in, not even after a failed
   save); the plugin reads them with `settings.get`. An empty value keeps the
   stored one; the form's "Clear the stored value" box, or `null` in the JSON API,
-  removes it.
+  removes it. Write-only values are stored sealed with the server secret
+  (AES-256-GCM), bound to the plugin and the key, and `settings.get` returns the
+  plain value. After the server secret changes (a restore with `--force`, a
+  rotation) a sealed value cannot be read: `settings.get` leaves the key out, so
+  the plugin sees it as unset, and the form asks for the value again. Only
+  top-level properties are handled: a nested `writeOnly` is neither masked nor
+  sealed.
 - **OAuth through plugin routes.** An authenticated route starts the flow (state
   and PKCE verifier in `kv` with a TTL), a *public* route is the redirect target
   and trusts only the one-time state.

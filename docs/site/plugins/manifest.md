@@ -170,7 +170,7 @@ Two limits are not in the manifest. The module file `plugin.wasm` may be at most
 
 ## settings_schema
 
-A JSON Schema object backs the admin's settings form and the endpoints `GET` and `PUT /api/v1/plugins/{name}/settings`. The guest reads the stored values with the `settings.get` host function (permission `settings`), with the schema's `default` values merged in. A property with `"writeOnly": true` is never returned by the API or the form, which makes it suitable for secrets. An empty value keeps the stored one. The gtm plugin shows the shape:
+A JSON Schema object backs the admin's settings form and the endpoints `GET` and `PUT /api/v1/plugins/{name}/settings`. The guest reads the stored values with the `settings.get` host function (permission `settings`), with the schema's `default` values merged in. A property with `"writeOnly": true` is never returned by the API or the form, which makes it suitable for secrets. An empty value keeps the stored one. A write-only value is stored sealed and only the plugin can read it back; after the server secret changes, the owner enters it again on the Settings tab. This applies to top-level properties only. The gtm plugin shows the shape:
 
 ```json
 "settings_schema": {

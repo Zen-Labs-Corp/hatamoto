@@ -13,12 +13,13 @@ import (
 )
 
 type fakePlugins struct {
-	list     []PluginInfo
-	settings map[string]map[string]any
-	saved    []map[string]any
-	secrets  map[string]map[string]bool
-	quota    map[string]int
-	quotaSet []int
+	list       []PluginInfo
+	settings   map[string]map[string]any
+	saved      []map[string]any
+	secrets    map[string]map[string]bool
+	unreadable map[string]map[string]bool
+	quota      map[string]int
+	quotaSet   []int
 }
 
 func (f *fakePlugins) MailQuota(name string) (int, int) {
@@ -58,8 +59,8 @@ func (f *fakePlugins) Grant(_ context.Context, name string, perms []string) erro
 func (f *fakePlugins) Settings(_ context.Context, name string) (map[string]any, error) {
 	return f.settings[name], nil
 }
-func (f *fakePlugins) StoredSecrets(_ context.Context, name string) (map[string]bool, error) {
-	return f.secrets[name], nil
+func (f *fakePlugins) StoredSecrets(_ context.Context, name string) (map[string]bool, map[string]bool, error) {
+	return f.secrets[name], f.unreadable[name], nil
 }
 func (f *fakePlugins) SaveSettings(_ context.Context, name string, v map[string]any) (schemaform.Errors, error) {
 	// The real one validates after restoring write-only values; the form
@@ -379,6 +380,51 @@ func TestPluginSettingsNeverEchoWriteOnlyValues(t *testing.T) {
 	g.do("POST", "/admin/plugins/vault/settings", "owner-token", url.Values{"site_id": {"x"}, "api_key": {""}, "api_key__clear": {"1"}}, nil)
 	if v, ok := fp.saved[1]["api_key"]; !ok || v != nil {
 		t.Errorf("the clear box must send null: %v", fp.saved[1])
+	}
+}
+
+func TestPluginSettingsUnreadableSecret(t *testing.T) {
+	t.Parallel()
+
+	g, fp := newPluginRig(t)
+	fp.list = append(fp.list, PluginInfo{Name: "vault", Version: "1.0.0", Loaded: true, SettingsSchema: []byte(secretSchema)})
+	fp.settings["vault"] = map[string]any{"site_id": "abc"}
+	fp.unreadable = map[string]map[string]bool{"vault": {"api_key": true}}
+
+	check := func(what, body string) {
+		t.Helper()
+		for _, want := range []string{"Enter this value again", "cannot be read", `name="api_key__clear"`} {
+			if !strings.Contains(body, want) {
+				t.Errorf("%s: form missing %q", what, want)
+			}
+		}
+		if strings.Contains(body, "Stored. Leave blank") {
+			t.Errorf("%s: an unreadable value must not say it is stored", what)
+		}
+	}
+	rec := g.do("GET", "/admin/plugins/vault/settings", "owner-token", nil, nil)
+	if rec.Code != 200 {
+		t.Fatalf("GET: %d", rec.Code)
+	}
+	check("GET", rec.Body.String())
+	rec = g.do("POST", "/admin/plugins/vault/settings", "owner-token", url.Values{"site_id": {""}, "api_key": {""}}, nil)
+	if rec.Code != 422 {
+		t.Fatalf("invalid save: %d", rec.Code)
+	}
+	check("422", rec.Body.String())
+
+	fp.saved = nil
+	g.do("POST", "/admin/plugins/vault/settings", "owner-token", url.Values{"site_id": {"x"}, "api_key": {""}}, nil)
+	if v, ok := fp.saved[0]["api_key"]; ok {
+		t.Errorf("a blank save while unreadable must keep nothing: %v", v)
+	}
+	g.do("POST", "/admin/plugins/vault/settings", "owner-token", url.Values{"site_id": {"x"}, "api_key": {"new-key"}}, nil)
+	if fp.saved[1]["api_key"] != "new-key" {
+		t.Errorf("a new value replaces it: %v", fp.saved[1])
+	}
+	g.do("POST", "/admin/plugins/vault/settings", "owner-token", url.Values{"site_id": {"x"}, "api_key": {""}, "api_key__clear": {"1"}}, nil)
+	if v, ok := fp.saved[2]["api_key"]; !ok || v != nil {
+		t.Errorf("the clear box must send null: %v", fp.saved[2])
 	}
 }
 

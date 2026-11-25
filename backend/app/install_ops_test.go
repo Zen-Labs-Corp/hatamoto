@@ -99,3 +99,27 @@ func TestStoredManifestMatchesHostReader(t *testing.T) {
 		t.Fatalf("settingsSchema alone was bound: %s %v", m.SettingsSchema, err)
 	}
 }
+
+func TestCLIPluginSettingsKeyNeedsSecret(t *testing.T) {
+	t.Setenv("HATAMOTO_SECRET", "")
+	t.Setenv("JWT_SECRET", "")
+	t.Setenv("HATAMOTO_SECRETS_DIR", t.TempDir())
+	if key, err := cliPluginSettingsKey(); err == nil || !strings.Contains(err.Error(), "server secret") || key != nil {
+		t.Fatalf("no secret: key=%v err=%v, want an error naming the server secret", key, err)
+	}
+	t.Setenv("HATAMOTO_SECRET", strings.Repeat("s", 32))
+	key, err := cliPluginSettingsKey()
+	if err != nil || len(key) != 32 {
+		t.Fatalf("with a secret: %d-byte key, %v", len(key), err)
+	}
+}
+
+func TestRefuseUnreadable(t *testing.T) {
+	if err := refuseUnreadable("p", nil); err != nil {
+		t.Fatalf("readable settings refused: %v", err)
+	}
+	err := refuseUnreadable("p", []string{"a", "b"})
+	if err == nil || !strings.Contains(err.Error(), "a, b") || !strings.Contains(err.Error(), "nothing was written") {
+		t.Fatalf("unreadable settings not refused: %v", err)
+	}
+}

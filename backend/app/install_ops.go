@@ -211,6 +211,19 @@ func apiKeyCreator(ctx context.Context, db *database.DB, email string) (*uuid.UU
 	return &id, nil
 }
 
+// cliPluginSettingsKey is the key a server started now would use; no secret is
+// an error, never a plain write.
+func cliPluginSettingsKey() ([]byte, error) {
+	secret, err := serverSecret()
+	if err != nil {
+		return nil, fmt.Errorf("read the server secret: %w", err)
+	}
+	if secret == "" {
+		return nil, errors.New("plugin settings set needs the server secret (HATAMOTO_SECRET or secrets.env)")
+	}
+	return pluginhost.SettingsKey(secret), nil
+}
+
 func runPluginSettingsSet(ctx context.Context, args []string, stdin io.Reader, out io.Writer) error {
 	if len(args) < 2 {
 		//lint:ignore ST1005 the usage line is the same text as the help, which ends in "..."
@@ -240,9 +253,16 @@ func runPluginSettingsSet(ctx context.Context, args []string, stdin io.Reader, o
 	if len(man.SettingsSchema) == 0 {
 		return fmt.Errorf("plugin %q declares no settings", plugin)
 	}
-	store := pluginhost.NewSettingsStore(db.Pool())
-	old, err := store.Get(ctx, plugin)
+	key, err := cliPluginSettingsKey()
 	if err != nil {
+		return err
+	}
+	store := pluginhost.NewSettingsStore(db.Pool(), key, slog.New(slog.NewTextHandler(os.Stderr, nil)))
+	old, unreadable, err := store.GetChecked(ctx, plugin)
+	if err != nil {
+		return err
+	}
+	if err := refuseUnreadable(plugin, unreadable); err != nil {
 		return err
 	}
 	merged, keys, err := applySettingPairs(man.SettingsSchema, old, pairs)
@@ -260,13 +280,23 @@ func runPluginSettingsSet(ctx context.Context, args []string, stdin io.Reader, o
 		}
 		return fmt.Errorf("settings of %s are not valid:%s", plugin, b.String())
 	}
-	if err := store.Put(ctx, plugin, merged); err != nil {
+	if err := store.Put(ctx, plugin, man.SettingsSchema, merged); err != nil {
 		return err
 	}
 	// Key names only: a value may be a secret.
 	auditCLI(ctx, db.Pool(), slog.New(slog.NewTextHandler(os.Stderr, nil)), "plugin.settings", "plugin:"+plugin, map[string]any{"keys": keys})
 	fmt.Fprintf(out, "saved %s settings: %s\n", plugin, strings.Join(keys, ", "))
 	return nil
+}
+
+// refuseUnreadable stops a save when stored values cannot be opened with this
+// secret: writing would seal the rest under it and leave the server unable to
+// read them. It names keys only, never values.
+func refuseUnreadable(plugin string, keys []string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	return fmt.Errorf("stored settings of %s cannot be read with this server secret (%s); use the secret the server runs with, nothing was written", plugin, strings.Join(keys, ", "))
 }
 
 // applySettingPairs sets key=value pairs over the stored settings. A value is

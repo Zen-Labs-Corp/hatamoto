@@ -159,7 +159,7 @@ func newRig(t *testing.T) *rig {
 	t.Cleanup(func() { rt.Close(context.Background()) })
 	pdb := pluginhost.NewPluginDB(pool, log)
 	grants := pluginhost.NewGrantStore(pool)
-	rt.Configure(pluginhost.Config{Grants: grants, Services: pluginhost.Services{DB: pdb, Settings: pluginhost.NewSettingsStore(pool)}})
+	rt.Configure(pluginhost.Config{Grants: grants, Services: pluginhost.Services{DB: pdb, Settings: pluginhost.NewSettingsStore(pool, pluginhost.SettingsKey(strings.Repeat("k", 32)), nil)}})
 	eng, err := render.New(render.Options{Logger: log})
 	if err != nil {
 		t.Fatal(err)
