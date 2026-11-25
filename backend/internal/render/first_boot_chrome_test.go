@@ -1,6 +1,8 @@
 package render
 
 import (
+	"io/fs"
+	"os"
 	"strings"
 	"testing"
 )
@@ -168,4 +170,15 @@ func TestArchiveEmptyState(t *testing.T) {
 			t.Errorf("search empty state changed:\n%s", out)
 		}
 	})
+}
+
+// A theme layer that ships its own partials/blog.html replaces that file
+// whole; the empty archive must not depend on anything defined in it.
+func TestArchiveEmptyStateSurvivesBlogPartialOverride(t *testing.T) {
+	e := newTestEngine(t, Options{Data: fakeData{}, Layers: []fs.FS{os.DirFS("testdata/themes/blog-partial")}})
+	v := hierarchyView()
+	v.Kind, v.SchemaSlug, v.Page.Name = KindArchive, "post", "Blog"
+	if out := renderToString(t, e, v); !strings.Contains(out, "No posts yet") {
+		t.Errorf("missing empty state:\n%s", out)
+	}
 }
