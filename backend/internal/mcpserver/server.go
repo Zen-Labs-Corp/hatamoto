@@ -94,6 +94,10 @@ type Deps struct {
 	// Comments serves the comments_* tools; optional, the tools say so when nil.
 	Comments Comments
 
+	// UserName resolves a person's display name for version history; nil means
+	// names show as "Unknown user".
+	UserName func(ctx context.Context, id uuid.UUID) (string, bool)
+
 	// SEO and NotFound serve the seo_* tools; both are optional and the tools
 	// say so when one is nil.
 	SEO      seosvc.Service
@@ -317,6 +321,7 @@ func publicError(l *slog.Logger, tool string, err error) error {
 	case errors.Is(err, entity.ErrReviewPending), errors.Is(err, entity.ErrReviewUnsupported):
 		return err
 	case errors.Is(err, entity.ErrSchemaNotFound), errors.Is(err, entity.ErrEntityNotFound),
+		errors.Is(err, entity.ErrVersionNotFound), errors.Is(err, entity.ErrRestoreInvalid),
 		errors.Is(err, entity.ErrSlugAlreadyExists), errors.Is(err, entity.ErrValidationFailed),
 		errors.Is(err, entity.ErrParentNotFound), errors.Is(err, entity.ErrParentCycle), errors.Is(err, entity.ErrParentTooDeep),
 		errors.Is(err, entity.ErrAuthorNotFound), errors.Is(err, entity.ErrHasChildren),
