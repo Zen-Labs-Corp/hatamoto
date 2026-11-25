@@ -113,7 +113,7 @@ func TestNeverListDropsEditLineWhenFilterRequested(t *testing.T) {
 }
 
 func TestNeverListDropsLiveLineWhenWriteOrModerateRequested(t *testing.T) {
-	for _, perm := range []string{sdk.PermEntitiesWriteOwn, sdk.PermCommentsModerate, sdk.PermCommentsIdentity} {
+	for _, perm := range []string{sdk.PermEntitiesWriteOwn, sdk.PermCommentsModerate} {
 		got := Group([]string{perm}, false, false).Never
 		for _, s := range got {
 			if s.Title == "Change your live site directly" {
@@ -131,7 +131,7 @@ func TestNeverListDropsLiveLineWhenWriteOrModerateRequested(t *testing.T) {
 }
 
 func TestGroupShowsContractPermissionsAsReview(t *testing.T) {
-	for _, p := range []string{sdk.PermClientKey, sdk.PermEntitiesWriteOwn, sdk.PermCommentsModerate} {
+	for _, p := range []string{sdk.PermClientKey, sdk.PermEntitiesWriteOwn, sdk.PermCommentsModerate, sdk.PermCommentsIdentity} {
 		g := Group([]string{p}, false, false)
 		if len(g.Can) != 1 || g.Can[0].Kind != KindReview || !g.Can[0].Warn {
 			t.Errorf("%s: %+v, want one review statement with a warning", p, g.Can)
