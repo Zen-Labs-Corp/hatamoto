@@ -422,6 +422,13 @@ func (s *Service) GetEntityByParentSlug(ctx context.Context, parent *uuid.UUID, 
 
 // UpdateEntity modifies an entity.
 func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.UUID, input *UpdateEntityInput) (*Entity, error) {
+	return s.updateEntity(ctx, id, userID, input, nil)
+}
+
+// updateEntity is the body of UpdateEntity. With a non-nil preview it stops
+// before anything is staged, stored or emitted and fills the preview instead
+// (see DryRunUpdate).
+func (s *Service) updateEntity(ctx context.Context, id uuid.UUID, userID *uuid.UUID, input *UpdateEntityInput, preview *UpdatePreview) (*Entity, error) {
 	// Get current entity to validate against its schema
 	existing, err := s.entityRepo.GetByID(ctx, id)
 	if err != nil {
@@ -437,6 +444,9 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 	}
 	if err := authorizeReview(ctx, plan, authz.ActionEntityUpdate, existing.AuthzObject()); err != nil {
 		return nil, err
+	}
+	if preview != nil {
+		preview.Version, preview.authorized = existing.Version, true
 	}
 	if !input.KeepUpdatedAt && askedDirectly(existing) {
 		if err := askAgentPolicy(ctx, existing, agentpolicystate.ActionEdit); err != nil {
@@ -563,6 +573,15 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 		if plan, err = s.settleLockedPlan(ctx, existing, st, plan, authz.ActionEntityUpdate, input.KeepUpdatedAt); err != nil {
 			return nil, err
 		}
+	}
+	if preview != nil { // dry run: stop before anything is staged or stored
+		if plan.Held && unsupported {
+			return nil, ErrReviewUnsupported
+		}
+		if input.ExpectedVersion != nil && *input.ExpectedVersion != existing.Version {
+			return nil, &VersionConflictError{Current: existing.Version} // as holdUpdate
+		}
+		return nil, preview.fill(existing.Attributes, attrs, plan.Held)
 	}
 	if plan.Held {
 		if unsupported {

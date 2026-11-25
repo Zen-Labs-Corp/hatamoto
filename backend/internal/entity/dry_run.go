@@ -2,10 +2,14 @@ package entity
 
 import (
 	"bytes"
+	"context"
 	"encoding/json/jsontext"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
+
+	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/jsonx"
 )
@@ -92,4 +96,22 @@ func diffPath(prefix, key string) string {
 		return key
 	}
 	return prefix + "." + key
+}
+
+// DryRunUpdate runs UpdateEntity's checks, merge, sanitising and before_save
+// hooks and returns what it would store, without staging, storing or emitting.
+// Validation and plugin refusals are part of the answer (Errors); every other
+// error is returned as the real write returns it. The input is consumed as by
+// UpdateEntity; do not reuse it.
+func (s *Service) DryRunUpdate(ctx context.Context, id uuid.UUID, userID *uuid.UUID, input *UpdateEntityInput) (*UpdatePreview, error) {
+	p := newUpdatePreview()
+	_, err := s.updateEntity(ctx, id, userID, input, p)
+	if err != nil && p.authorized && (errors.Is(err, ErrValidationFailed) || errors.Is(err, ErrRejectedByPlugin)) {
+		p.Changes, p.Errors, p.PendingReview = []AttributeChange{}, []string{err.Error()}, false
+		return p, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
 }
