@@ -10,15 +10,15 @@ A plugin reaches the server through one imported function, `hm_call`, in the was
 
 ## SDK version
 
-The contract between the server and a plugin is the Go module `hatamoto.dev/sdk`. The current SDK version is `0.28.0`. The manifest declares the range a plugin was built against, and the server refuses a plugin whose range does not contain a version it serves. This server serves `0.28.0` and also plugins built for `0.5.0` to `0.27.1` (see [The sdk range](manifest.md#the-sdk-range)). Minor versions are additive, and before 1.0 a breaking change bumps the minor.
+The contract between the server and a plugin is the Go module `hatamoto.dev/sdk`. The current SDK version is `0.28.1`. The manifest declares the range a plugin was built against, and the server refuses a plugin whose range does not contain a version it serves. This server serves `0.28.1` and also plugins built for `0.5.0` to `0.28.0` (see [The sdk range](manifest.md#the-sdk-range)). Minor versions are additive, and before 1.0 a breaking change bumps the minor.
 
 ```go
 // backend/pkg/sdk/version.go
-const Version = "0.28.0"
+const Version = "0.28.1"
 var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0", "0.22.0", "0.22.2", "0.23.0", "0.24.0", "0.25.0", "0.26.0", "0.27.0", "0.27.1"}
 ```
 
-Fetch it with `go get hatamoto.dev/sdk@v0.28.0`. SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. The import path is a vanity path that points at the public SDK repository, so it does not change if the repository moves. It is a root module with plain tags: version `v0.27.0` is the git tag `v0.27.0`. The SDK root package has no dependencies beyond the standard library, and its `guest` subpackage is the Go layer over the Extism PDK. The Go helpers are `guest.OnAction`, `guest.OnFilter`, `guest.OnHTTP`, `guest.OnCron`, `guest.OnRunStep`, `guest.OnFunc`, `guest.Call`, `guest.Config`, `guest.Log`, `guest.Reject`, `guest.CapabilityDenied` and `guest.Handle`.
+Fetch it with `go get hatamoto.dev/sdk@v0.28.1`. SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. The import path is a vanity path that points at the public SDK repository, so it does not change if the repository moves. It is a root module with plain tags: version `v0.27.0` is the git tag `v0.27.0`. The SDK root package has no dependencies beyond the standard library, and its `guest` subpackage is the Go layer over the Extism PDK. The Go helpers are `guest.OnAction`, `guest.OnFilter`, `guest.OnHTTP`, `guest.OnCron`, `guest.OnRunStep`, `guest.OnFunc`, `guest.Call`, `guest.Config`, `guest.Log`, `guest.Reject`, `guest.CapabilityDenied` and `guest.Handle`.
 
 ## How calls work
 
@@ -157,7 +157,7 @@ A function not allowed in the current phase fails with `phase_denied`, and so do
 | `media.import_url` | fetch | `{ "url", "filename"? }` | `{ "handle" }` |
 | `site.info` | transform | `{}` | `{ "title", "tagline"?, "time_zone", "language", "locales"?, "url_patterns"? }` |
 | `entities.slug_taken` | transform | `{ "schema", "slug", "locale"? }` | `{ "taken" }`, published public entities only |
-| `changeset.entity.upsert` | transform | `{ "source_key", "schema", "slug"?, "parent_key"?, "translation_of"?, "locale"?, "name", "attributes"?, "seo"? }` | `{ "source_key", "created" }` |
+| `changeset.entity.upsert` | transform | `{ "source_key", "schema", "slug"?, "parent_key"?, "translation_of"?, "locale"?, "name", "attributes"?, "status"?, "seo"? }` | `{ "source_key", "created" }` |
 | `changeset.term.upsert` / `changeset.person.upsert` | transform | `{ "source_key", "kind", "slug", "name", "description"? }` / `{ "source_key", "slug", "name", "bio"? }` | `{ "source_key", "created" }` |
 | `changeset.media.alt` | transform | `{ "media_id", "alt" }`; the run declares `proposes: ["media_alt"]` | `{ "source_key", "created" }` |
 | `changeset.media.attach` | transform | `{ "source_key", "handle", "alt"?, "caption"?, "credit"? }` | `{ "source_key", "created" }` |

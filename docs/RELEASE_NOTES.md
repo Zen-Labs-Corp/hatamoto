@@ -1,5 +1,11 @@
 # Release notes
 
+## Unreleased: entity upserts can ask to publish (SDK 0.28.1)
+
+- **Plugin authors.** `changeset.entity.upsert` takes an optional `status`: `draft` (the default) or `published`; anything else is `invalid_argument`. A create that the create rule of an approved standing approval allows is published with that status. Anywhere else, and without an approval, a `published` create waits for review as before.
+- **Compatibility.** Additive. A 0.28.0 host refuses the unknown member, so a plugin that sends `status` declares `sdk` `^0.28.1`.
+- **Migration.** None. **Rollback floor:** unchanged, but a plugin that declares `^0.28.1` is refused as incompatible by an older binary, so rolling back stops it from loading.
+
 ## Unreleased: dry run for entity updates
 
 - **What.** `PUT` and `PATCH /api/v1/entities/{id}` take `?dry_run=1`, merge patches included, and MCP `entities_update` takes `dry_run: true`. The update runs its checks, sanitising and `before_save` filters but stores nothing and emits no events. The answer lists the `changes` (`path`, `before`, `after`) and the `version` they were built from; send that version back as `If-Match` or `version` to apply exactly that diff. See [Edit safely when several programs write](site/admin/users-and-api-keys.md#edit-safely-when-several-programs-write).
