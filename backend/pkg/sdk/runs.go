@@ -75,7 +75,8 @@ type Run struct {
 type StandingApproval struct {
 	// Fields are the attribute keys the run may change, for example "price".
 	Fields []string `json:"fields"`
-	// Schemas are the entity schema slugs the rule applies to.
+	// Schemas are the content type slugs the rule applies to (the
+	// entity_schema slug rule, dashes allowed).
 	Schemas []string `json:"schemas"`
 	// MaxPerHour caps the changes published an hour; 0 means
 	// DefaultStandingPerHour, and the value may not exceed it.
@@ -120,10 +121,14 @@ func (m Manifest) validateStanding(r Run) error {
 		if len(list) == 0 || len(list) > MaxStandingFields {
 			return fmt.Errorf("sdk: plugin %q: run %q: standing_approval.%s needs 1..%d entries", m.Name, r.Name, label, MaxStandingFields)
 		}
+		pat := identPattern // fields are attribute keys
+		if label != "fields" {
+			pat = entitySchemaPattern // schemas and create.schemas are content type slugs
+		}
 		seen := map[string]bool{}
 		for _, v := range list {
-			if !identPattern.MatchString(v) || seen[v] {
-				return fmt.Errorf("sdk: plugin %q: run %q: standing_approval.%s: bad or duplicate entry %q (want %s)", m.Name, r.Name, label, v, identPattern)
+			if !pat.MatchString(v) || seen[v] {
+				return fmt.Errorf("sdk: plugin %q: run %q: standing_approval.%s: bad or duplicate entry %q (want %s)", m.Name, r.Name, label, v, pat)
 			}
 			seen[v] = true
 		}
