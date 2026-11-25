@@ -85,3 +85,28 @@ func (s *Service) archivePath(ctx context.Context, schema string) string {
 	}
 	return s.archivePaths(ctx, schema)
 }
+
+// IsUntouchedCoreSeed reports whether m (loaded with its items) is still
+// exactly what the new-site seed creates (server.SeedNewSiteMenus): the Header
+// with at most its one Blog link to the post archive, or the empty Footer, with
+// the core name and slug. A kit may replace such a menu; a menu the owner
+// renamed, re-slugged or gave other items is theirs.
+func IsUntouchedCoreSeed(m *Menu) bool {
+	if m == nil || m.Location == nil {
+		return false
+	}
+	switch *m.Location {
+	case LocationHeader:
+		if m.Name != "Header" || m.Slug != LocationHeader || len(m.Items) > 1 {
+			return false
+		}
+		if len(m.Items) == 0 {
+			return true
+		}
+		it := m.Items[0]
+		return it.ParentID == nil && it.Label == "Blog" && it.LinkType == LinkTypeArchive && it.EntityID == nil
+	case LocationFooter:
+		return m.Name == "Footer" && m.Slug == LocationFooter && len(m.Items) == 0
+	}
+	return false
+}

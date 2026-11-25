@@ -275,6 +275,48 @@ func TestApplyKeepsAHeldMenuLocation(t *testing.T) {
 	}
 }
 
+// The Header the new-site seed made (one Blog link) is not the owner's yet: the
+// kit's menu replaces it. Relabelled, it is the owner's and is kept.
+func TestApplyReplacesTheNewSiteHeader(t *testing.T) {
+	for _, label := range []string{"Blog", "Weblog"} {
+		t.Run(label, func(t *testing.T) {
+			r := newKitRig(t)
+			ctx := context.Background()
+			r.publishFixture("", nil)
+			loc, post := "header", "post"
+			m, err := r.mnus.CreateMenu(ctx, &menu.CreateMenuInput{Name: "Header", Slug: "header", Location: &loc})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := r.mnus.CreateMenuItem(ctx, m.ID, &menu.CreateMenuItemInput{Label: label, LinkType: menu.LinkTypeArchive, SchemaSlug: &post}); err != nil {
+				t.Fatal(err)
+			}
+			seeded := label == "Blog"
+			pl, res := r.apply(Accepts{})
+			if pl.Menus[0].Action != map[bool]Action{true: ActionCreate, false: ActionKeep}[seeded] {
+				t.Fatalf("plan: %+v", pl.Menus)
+			}
+			full, err := r.mnus.GetMenuWithItems(ctx, m.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if seeded {
+				if res.Created["menus"] != 1 || len(full.Items) != 3 || full.Items[0].Label == "Blog" {
+					t.Fatalf("created=%v items=%+v", res.Created, full.Items)
+				}
+				// Applied again, the kit's own menu is kept.
+				if _, res := r.apply(Accepts{}); res.Created["menus"] != 0 || !slices.Contains(res.Kept, "menu 'Header'") {
+					t.Fatalf("second apply: created=%v kept=%v", res.Created, res.Kept)
+				}
+				return
+			}
+			if res.Created["menus"] != 0 || len(full.Items) != 1 || full.Items[0].Label != "Weblog" {
+				t.Fatalf("owner menu changed: created=%v items=%+v", res.Created, full.Items)
+			}
+		})
+	}
+}
+
 // A kit menu at a location the kit's own theme declares: activating the theme
 // seeds that location first, so the kit's menu is kept and listed (ensure-only).
 func TestApplyKitMenuAtAThemeLocationIsKeptAfterActivation(t *testing.T) {

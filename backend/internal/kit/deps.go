@@ -49,6 +49,8 @@ type Pages interface {
 type Menus interface {
 	GetMenuByLocation(ctx context.Context, location string) (*menu.Menu, error)
 	EnsureMenuAtLocation(ctx context.Context, in menu.EnsureInput) (*menu.Menu, bool, error)
+	GetMenuWithItems(ctx context.Context, menuID uuid.UUID) (*menu.Menu, error)
+	ReplaceMenu(ctx context.Context, id uuid.UUID, fields *menu.UpdateMenuInput, items []menu.ReplaceItem) (*menu.Menu, error)
 }
 
 // Site is the site configuration. Homepage returns nil when none is set.
