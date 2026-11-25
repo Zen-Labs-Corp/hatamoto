@@ -44,19 +44,39 @@ func pluginSettingsView(schema []byte, stored jsontext.Value) jsontext.Value {
 	return pluginhost.MaskWriteOnly(schema, pluginhost.MergeDefaults(schema, stored))
 }
 
+// maskUnreadable shows a key whose sealed value cannot be read as a stored
+// write-only value (""), so the response looks the same as for a readable one.
+func maskUnreadable(view jsontext.Value, keys []string) jsontext.Value {
+	if len(keys) == 0 {
+		return view
+	}
+	obj := map[string]jsontext.Value{}
+	if err := jsonx.Unmarshal(view, &obj, jsonx.StoredLoose); err != nil || obj == nil {
+		return view
+	}
+	for _, k := range keys {
+		obj[k] = jsontext.Value(`""`)
+	}
+	out, err := jsonx.MarshalPinned(obj)
+	if err != nil {
+		return view
+	}
+	return out
+}
+
 // handleGetPluginSettings returns GET /api/v1/plugins/{name}/settings.
 func (s *Server) handleGetPluginSettings(w http.ResponseWriter, r *http.Request) {
 	name, schema, ok := s.pluginSettingsTarget(w, r)
 	if !ok {
 		return
 	}
-	stored, err := s.pluginSettingsStore.Get(r.Context(), name)
+	stored, unreadable, err := s.pluginSettingsStore.GetChecked(r.Context(), name)
 	if err != nil {
 		s.logger.Error("load plugin settings", slog.String("plugin", name), slog.String("error", err.Error()))
 		writeError(w, http.StatusInternalServerError, "failed to load settings")
 		return
 	}
-	writeJSON(w, http.StatusOK, pluginSettingsView(schema, stored))
+	writeJSON(w, http.StatusOK, maskUnreadable(pluginSettingsView(schema, stored), unreadable))
 }
 
 // handlePutPluginSettings validates the body against the plugin's schema

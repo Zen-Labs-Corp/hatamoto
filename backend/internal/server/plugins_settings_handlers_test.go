@@ -98,6 +98,17 @@ func TestPluginSettingsGetMergesDefaults(t *testing.T) {
 	}
 }
 
+func TestPluginSettingsGetUnreadableSecret(t *testing.T) {
+	_, store, h := pluginTestServer()
+	store.data["hello"] = jsontext.Value(`{"greeting":"hey"}`)
+	store.unreadable = map[string][]string{"hello": {"api_key"}}
+	rec := doPlugin(h, "GET", "/plugins/hello/settings", "")
+	body := rec.Body.String()
+	if rec.Code != 200 || !strings.Contains(body, `"api_key":""`) || !strings.Contains(body, `"greeting":"hey"`) {
+		t.Fatalf("%d %s", rec.Code, body)
+	}
+}
+
 func TestPluginSettingsNotFound(t *testing.T) {
 	_, _, h := pluginTestServer()
 	for _, name := range []string{"missing", "noschema"} {
