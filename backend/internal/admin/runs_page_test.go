@@ -67,3 +67,61 @@ func TestRunsTabGuards(t *testing.T) {
 		t.Errorf("not wired: %d, want 503", rec.Code)
 	}
 }
+
+func TestRunsTabMessage(t *testing.T) {
+	t.Parallel()
+
+	const msg = "Imported 87 events, 13 skipped (duplicates)"
+	cancelled := runView("failed", "fetch")
+	cancelled.Reason = "cancelled"
+	tests := []struct {
+		name  string
+		rv    RunView
+		extra string
+	}{
+		{"finished", runView("finished", "transform"), ""},
+		{"failed", runView("failed", "fetch"), ""},
+		{"cancelled", cancelled, "Cancelled"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			rv := tc.rv
+			rv.Message = msg
+			g, _, _, _ := newRunsRig(t, rv)
+			rec := g.do("GET", "/admin/plugins/hello/runs", "owner-token", nil, nil)
+			if rec.Code != 200 {
+				t.Fatalf("runs tab: %d", rec.Code)
+			}
+			body := rec.Body.String()
+			for _, want := range []string{`title="` + msg + `"`, "hm-table__clip", ">Message<", `href="/admin/plugins/hello/runs/` + rv.ID.String() + `"`, tc.extra} {
+				if !strings.Contains(body, want) {
+					t.Errorf("runs tab lacks %q", want)
+				}
+			}
+			if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) != 0 {
+				t.Errorf("a11y: %v", issues)
+			}
+		})
+	}
+
+	t.Run("escaped", func(t *testing.T) {
+		t.Parallel()
+		rv := runView("finished", "transform")
+		rv.Message = "<b>bold</b> done"
+		g, _, _, _ := newRunsRig(t, rv)
+		body := g.do("GET", "/admin/plugins/hello/runs", "owner-token", nil, nil).Body.String()
+		if !strings.Contains(body, "&lt;b&gt;bold&lt;/b&gt; done") || strings.Contains(body, "<b>bold</b>") {
+			t.Error("a message is escaped, never rendered as markup")
+		}
+	})
+
+	t.Run("empty", func(t *testing.T) {
+		t.Parallel()
+		g, _, _, _ := newRunsRig(t, runView("finished", "transform"))
+		body := g.do("GET", "/admin/plugins/hello/runs", "owner-token", nil, nil).Body.String()
+		if !strings.Contains(body, "—") {
+			t.Error("a run without a message shows a dash")
+		}
+	})
+}
