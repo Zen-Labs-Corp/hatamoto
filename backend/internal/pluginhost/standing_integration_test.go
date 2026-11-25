@@ -276,3 +276,21 @@ func TestNoRunStartHostFunction(t *testing.T) {
 		t.Fatalf("host functions changed:\n got %q\nwant %q", got, want)
 	}
 }
+
+// Only cron runs are offered to the standing gate; an owner-started run
+// stays staged for review.
+func TestAutoPublishOnlyCronRuns(t *testing.T) {
+	r := newCronRig(t)
+	id := int64(42)
+	run := plugrun.Run{Plugin: cronPlugin, Name: "sync", ChangesetID: &id}
+	run.Trigger = plugrun.TriggerOwner
+	r.rt.autoPublish(context.Background(), run)
+	if got := r.gate.published; len(got) != 0 {
+		t.Fatalf("an owner run was offered to the gate: %v", got)
+	}
+	run.Trigger = plugrun.TriggerCron
+	r.rt.autoPublish(context.Background(), run)
+	if got := r.gate.published; !reflect.DeepEqual(got, []int64{42}) {
+		t.Fatalf("gate was asked about %v, want [42]", got)
+	}
+}

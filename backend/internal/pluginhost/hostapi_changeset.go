@@ -157,6 +157,11 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw jsonte
 			return nil, invalid("locale is required with translation_of")
 		}
 	}
+	switch in.Status {
+	case "", "draft", "published":
+	default:
+		return nil, invalid("status must be draft or published")
+	}
 	s, err := a.stager(ctx, e.plugin)
 	if err != nil {
 		return nil, err
@@ -185,6 +190,18 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw jsonte
 	for k, v := range map[string]string{"slug": in.Slug, "parent_key": in.ParentKey, "locale": in.Locale, "translation_of": in.TranslationOf} {
 		if v != "" {
 			p[k] = v
+		}
+	}
+	// A status applies to a create only. For an entry the key already maps to
+	// it is dropped, so an update never changes the status the owner set. Publish
+	// drops it again for a key mapped since staging.
+	if in.Status != "" {
+		_, mapped, err := a.svc.Changesets.Resolve(ctx, e.plugin, changeset.KindEntity, in.SourceKey)
+		if err != nil {
+			return nil, err
+		}
+		if !mapped {
+			p["status"] = in.Status
 		}
 	}
 	// An upsert is the whole document: attributes left out are empty.

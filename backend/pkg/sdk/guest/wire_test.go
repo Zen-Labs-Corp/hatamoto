@@ -632,7 +632,7 @@ var wireCases = []struct{ typ, state, want string }{
 	{"SEO", "full", `{"meta_title":"s\u003c","meta_description":"s\u003c","canonical":"s\u003c","robots":"s\u003c"}`},
 	{"SEO", "edge", `{}`},
 	{"EntityUpsert", "zero", `{"source_key":"","schema":"","name":""}`},
-	{"EntityUpsert", "full", `{"source_key":"s\u003c","schema":"s\u003c","slug":"s\u003c","parent_key":"s\u003c","locale":"s\u003c","translation_of":"s\u003c","name":"s\u003c","attributes":{"a":1},"seo":{"meta_title":"s\u003c","meta_description":"s\u003c","canonical":"s\u003c","robots":"s\u003c"}}`},
+	{"EntityUpsert", "full", `{"source_key":"s\u003c","schema":"s\u003c","slug":"s\u003c","parent_key":"s\u003c","locale":"s\u003c","translation_of":"s\u003c","name":"s\u003c","attributes":{"a":1},"seo":{"meta_title":"s\u003c","meta_description":"s\u003c","canonical":"s\u003c","robots":"s\u003c"},"status":"s\u003c"}`},
 	{"EntityUpsert", "edge", `{"source_key":"","schema":"","name":"","attributes":{},"seo":{}}`},
 	{"EntityUpsert", "edge null", `{"source_key":"","schema":"","name":"","attributes":null,"seo":{}}`},
 	{"EntityUpsert", "edge empty string", `{"source_key":"","schema":"","name":"","attributes":"","seo":{}}`},

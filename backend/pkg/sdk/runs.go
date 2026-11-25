@@ -382,6 +382,12 @@ type EntityUpsert struct {
 	Name          string         `json:"name"`
 	Attributes    jsontext.Value `json:"attributes,omitempty"`
 	SEO           *SEO           `json:"seo,omitzero"`
+	// Status is the status a new entry gets at publish: "" (draft), "draft"
+	// or "published". It applies when the upsert creates an entry and is
+	// ignored for an entry the source key already maps to. A standing
+	// approval's create rule may publish a "published" create on its own;
+	// anywhere else it waits for review. SDK 0.28.1: an older host refuses it.
+	Status string `json:"status,omitempty"`
 }
 
 // TermUpsert stages a category, tag or other term.

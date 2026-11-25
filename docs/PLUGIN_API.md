@@ -8,7 +8,7 @@ Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.
 >
 > **Content type updates (compat, no SDK change).** When an installed plugin is updated (while enabled) or enabled again, core compares each shipped `schemas/<slug>.json` with the stored schema of a content type that plugin installed and adds the top-level properties the stored one lacks, as optional fields (never added to `required`; appended to `x-hm-order` when the stored schema has one). Nothing else changes: existing properties are never removed, retyped or edited, whoever added them, so the owner's edits and existing entries are kept; a property the new schema drops or retypes stays as stored and is logged. A type the site or another plugin owns is never touched. A fresh install never changes an existing type, even one a plugin of the same name left behind. An owner who deleted a shipped field gets it back at the next update or when the plugin is enabled again. In the admin, the update prompt lists the fields each type gains, and an update that adds fields is reviewed rather than applied in one click (also in Update all); a disabled plugin has nothing to review, its fields are added when it is enabled. No manifest field or SDK range is involved; a plugin whose schemas do not change sees no difference. Rolling back keeps the added fields.
 >
-> **0.28 changes (additive over 0.27).** New: the manifest field `standing_approval.create.link_fields` (at most 8 top-level keys of plain `format: uri` fields of the create schemas; in an approved run's automatic creates each may hold one strict `https://` link, and the owner sees the fields on the approval line). A plugin that relies on it declares `^0.28`: an older host ignores the field and its creates with links wait for review. The host reports `0.28.0`, so declare `"sdk": "^0.28"`.
+> **0.28 changes (additive over 0.27).** New: the manifest field `standing_approval.create.link_fields` (at most 8 top-level keys of plain `format: uri` fields of the create schemas; in an approved run's automatic creates each may hold one strict `https://` link, and the owner sees the fields on the approval line). A plugin that relies on it declares `^0.28`: an older host ignores the field and its creates with links wait for review. **0.28.1** (additive): `changeset.entity.upsert` takes `status` (`draft` or `published`, default draft). A create that a standing approval's create rule allows is published with that status; anywhere else it waits for review. It applies only when the upsert creates an entry and is ignored for an entry the key already maps to. A 0.28.0 host refuses the unknown member, so a plugin that sends it declares `^0.28.1`. The host reports `0.28.1`, so declare `"sdk": "^0.28"`, or `^0.28.1` to send `status`.
 >
 > **0.27.1 changes (additive over 0.27.0).** `standing_approval.schemas` and `standing_approval.create.schemas` accept content type slugs (the `entity_schema` rule `^[a-z]([a-z0-9]|-[a-z0-9]){0,39}$`) in addition to identifiers, so a run can hold a standing approval on a type such as `calendar-event`. `standing_approval.fields` keeps the identifier rule. A 0.27.0 host refuses such a manifest at load, so a plugin that names a dashed slug declares `"sdk": "^0.27.1"`. Manifests that were valid under 0.27.0 stay valid.
 >
@@ -183,13 +183,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.28.0`; plugins built for `^0.5` to `^0.27.1` still load, unless they request a removed write permission):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.28.1`; plugins built for `^0.5` to `^0.28.0` still load, unless they request a removed write permission):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.28.0
+go get hatamoto.dev/sdk@v0.28.1
 ```
 
 SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -199,7 +199,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.28.0` is the git tag `v0.28.0`. The core repository stays
+plain release tags: version `0.28.1` is the git tag `v0.28.1`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`), or `--tag v<Version>-rc.N` for a release candidate of the same tree. Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -216,7 +216,7 @@ different repository.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.28 is current (0.28.0).
+> SDK 0.28 is current (0.28.1).
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
@@ -559,7 +559,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 |---|---|
 | `name` | `^[a-z][a-z0-9-]{1,39}$`; equals the directory name. `browse`, `security` and `webhooks` are reserved: a new install under them is refused (the admin serves `/plugins/browse` and `/plugins/security`), while a plugin already installed as `browse` or `security` can still be updated and uninstalled |
 | `version` | the plugin's own semver |
-| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.28.0 and also serves `^0.5` to `^0.27.1` plugins |
+| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.28.1 and also serves `^0.5` to `^0.28.0` plugins |
 | `license` | `""` (default) or `"commercial"` (SDK 0.26). A commercial plugin installs and runs only on a host whose edition registered a plugin key (`edition.RegisterPluginKey`), is signed by that key and is entitled (`edition.PluginEntitled`). Declare `"sdk": "^0.26"` or later: an older host ignores the field, so install refuses a range that admits one. A new install refuses any other value (`"Commercial"`, `"MIT"`, an object); a plugin already installed with one keeps loading as a normal plugin, because only the exact string `"commercial"` has meaning when a manifest is loaded |
 | `description` | optional |
 | `config` | string map readable in the guest (`pdk.GetConfig`) |
@@ -855,7 +855,7 @@ A changeset stays staged for review as a whole, with nothing published, when any
 - is too large to publish on its own: a single string over 64 KiB, more than 4,096 strings (map keys included), or attributes over 256 KiB;
 - would take the hour past `create.max_per_hour`.
 
-A changeset that mixes a create with anything outside the rule waits as a whole. A new entry cannot carry terms: an entity item has no terms field, and a changeset with a term item waits for review.
+A create that sets `status` to `published` goes live when the rule allows it; without `status` it lands as a draft. `status` is ignored for an entry the key maps to when the changeset is published, so an update never changes a status, even from a changeset staged before the entry existed. A changeset that mixes a create with anything outside the rule waits as a whole. A new entry cannot carry terms: an entity item has no terms field, and a changeset with a term item waits for review.
 
 ### `on_run_step`
 
@@ -908,7 +908,7 @@ All run in the transform phase and stage an item; each returns `{ "source_key", 
 
 | Function | Arguments |
 |---|---|
-| `changeset.entity.upsert` | `{ "source_key", "schema", "slug"?, "parent_key"?, "translation_of"? (an entity id or the source key of an entity staged earlier or published by an earlier run: at publish the entity joins the source's translation group, so `locale` is required and must differ from the source's; a missing source or a refused link skips the item as a conflict, and a revert puts the previous group back; SDK 0.18), "locale"? (a new entity with none gets the site language, or `und` for a type marked "Shared across languages"), "name", "attributes"?, "seo"? }`; `parent_key` is the source key of a parent staged earlier in the run or mapped by an earlier run; `seo` is `{ "meta_title", "meta_description", "canonical", "robots" }` |
+| `changeset.entity.upsert` | `{ "source_key", "schema", "slug"?, "parent_key"?, "translation_of"? (an entity id or the source key of an entity staged earlier or published by an earlier run: at publish the entity joins the source's translation group, so `locale` is required and must differ from the source's; a missing source or a refused link skips the item as a conflict, and a revert puts the previous group back; SDK 0.18), "locale"? (a new entity with none gets the site language, or `und` for a type marked "Shared across languages"), "name", "attributes"?, "status"? (`draft` or `published`; anything else is `invalid_argument`; applies when the upsert creates an entry, ignored for an entry the key already maps to; SDK 0.28.1), "seo"? }`; `parent_key` is the source key of a parent staged earlier in the run or mapped by an earlier run; `seo` is `{ "meta_title", "meta_description", "canonical", "robots" }` |
 | `changeset.term.upsert` | `{ "source_key", "kind", "slug", "name", "description"? }` |
 | `changeset.person.upsert` | `{ "source_key", "slug", "name", "bio"? }`: a byline, never a user account. It is a term of the byline kind; where the site has none, the call is `unavailable` |
 | `changeset.media.alt` | `{ "media_id", "alt" }` (SDK 0.18): stages a new alt text for media the owner uploaded; the run must declare `proposes: ["media_alt"]`; media another source owns is `not_owned`, a missing one `not_found`; publish applies it and revert restores the old text |

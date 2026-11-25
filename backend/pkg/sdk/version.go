@@ -159,9 +159,16 @@ package sdk
 // top-level keys of plain uri fields) lets an approved run's new entries carry one
 // https link in each. A plugin that relies on it declares ^0.28: an older host
 // ignores the field and such creates wait for review.
-const Version = "0.28.0"
+//
+// 0.28.1 is additive over 0.28.0: EntityUpsert.Status ("", draft or published)
+// asks for the status a new entry gets (ignored for an entry the key already
+// maps to). A create rule of a standing approval may
+// publish a published create on its own; anywhere else it waits for review. A
+// 0.28.0 host refuses the unknown member, so a plugin that sends it declares
+// ^0.28.1.
+const Version = "0.28.1"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.
 // Caret ranges before 1.0 stop at the next minor, so a purely additive minor
 // lists its predecessors here. 0.4 plugins were native Go.
-var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0", "0.22.0", "0.22.2", "0.23.0", "0.24.0", "0.25.0", "0.26.0", "0.27.0", "0.27.1"}
+var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0", "0.22.0", "0.22.2", "0.23.0", "0.24.0", "0.25.0", "0.26.0", "0.27.0", "0.27.1", "0.28.0"}

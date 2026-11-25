@@ -195,6 +195,15 @@ func (e *Engine) publishItem(ctx context.Context, tx pgx.Tx, cs changesetRow, it
 			return err
 		}
 	}
+	// A plugin's status request is for the entry it creates. The target is known
+	// only now, so an item staged as a create cannot move the status of an entry
+	// the key has mapped to since (an edit changeset names its target and keeps it).
+	if cs.Kind != ChangesetEdit && it.Kind == KindEntity && target != "" {
+		var err error
+		if it.Payload, err = dropPayloadStatus(it.Payload); err != nil {
+			return err
+		}
+	}
 	// The object may have changed hands since the item was staged. A person
 	// may edit an object of any origin, so an edit skips the check.
 	if cs.Kind != ChangesetEdit {
@@ -310,4 +319,21 @@ func takeOverOrigin(before jsontext.Value) (string, error) {
 // takeOverDetail is the entity.take_over audit detail of an applied edit item.
 func takeOverDetail(cs int64, from string) map[string]any {
 	return map[string]any{"from": from, "changeset": cs}
+}
+
+// dropPayloadStatus returns an entity payload without its status member.
+func dropPayloadStatus(payload jsontext.Value) (jsontext.Value, error) {
+	var m map[string]jsontext.Value
+	if err := decodePayload(payload, &m); err != nil {
+		return nil, err
+	}
+	if _, ok := m["status"]; !ok {
+		return payload, nil
+	}
+	delete(m, "status")
+	out, err := jsonx.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode payload: %w", err)
+	}
+	return out, nil
 }

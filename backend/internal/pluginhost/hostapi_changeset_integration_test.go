@@ -302,3 +302,126 @@ func TestRunEntityReadsPublishedOnly(t *testing.T) {
 		t.Fatalf("list in a run: %+v", list.Items)
 	}
 }
+
+// A requested status reaches the staged payload and publishes only under a
+// create rule that lists the schema.
+func TestChangesetFnsEntityStatusUnderPolicy(t *testing.T) {
+	stage := func(r *csRig, k, status string) {
+		r.mustCall(sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: r.key(k), Schema: r.schema, Slug: r.key(k),
+			Name: "N", Attributes: jsontext.Value(`{"content":"x"}`), Status: status})
+	}
+	pol := func(r *csRig, schemas ...string) changeset.StandingPolicy {
+		return changeset.StandingPolicy{Plugin: r.rc.Plugin, Schemas: []string{r.schema},
+			Create: &changeset.CreatePolicy{Schemas: schemas, MaxPerHour: 10}}
+	}
+	t.Run("payload", func(t *testing.T) {
+		r := newCSRig(t)
+		stage(r, "pub", "published")
+		stage(r, "dflt", "")
+		stage(r, "drf", "draft")
+		q := `SELECT count(*) FROM hatamoto_changeset_items WHERE changeset_id = $1 AND source_key = $2 AND payload->>'status' IS NOT DISTINCT FROM $3`
+		if n := r.count(q, r.cs, r.key("pub"), "published"); n != 1 {
+			t.Errorf("published item payload has no status published")
+		}
+		if n := r.count(`SELECT count(*) FROM hatamoto_changeset_items WHERE changeset_id = $1 AND source_key = $2 AND NOT payload ? 'status'`, r.cs, r.key("dflt")); n != 1 {
+			t.Errorf("default item payload carries a status key")
+		}
+	})
+	t.Run("payload_draft", func(t *testing.T) {
+		r := newCSRig(t)
+		stage(r, "drf", "draft")
+		q := `SELECT count(*) FROM hatamoto_changeset_items WHERE changeset_id = $1 AND source_key = $2 AND payload->>'status' = 'draft'`
+		if n := r.count(q, r.cs, r.key("drf")); n != 1 {
+			t.Errorf("draft item payload has no status draft")
+		}
+	})
+	t.Run("update_ignores_status", func(t *testing.T) {
+		r := newCSRig(t)
+		stage(r, "pub", "published")
+		if res := r.publish(); res.Applied == 0 {
+			t.Fatalf("create not applied: %+v", res)
+		}
+		if _, err := r.runs.DB.Pool().Exec(context.Background(), `UPDATE hatamoto_entities SET status = 'draft' WHERE slug = $1`, r.key("pub")); err != nil {
+			t.Fatal(err)
+		}
+		r.newChangeset()
+		stage(r, "pub", "published")
+		if n := r.count(`SELECT count(*) FROM hatamoto_changeset_items WHERE changeset_id = $1 AND source_key = $2 AND NOT payload ? 'status'`, r.cs, r.key("pub")); n != 1 {
+			t.Fatalf("update payload carries a status")
+		}
+		if res := r.publish(); res.Applied != 1 {
+			t.Fatalf("update not applied: %+v", res)
+		}
+		if n := r.count(`SELECT count(*) FROM hatamoto_entities WHERE slug = $1 AND status = 'draft'`, r.key("pub")); n != 1 {
+			t.Fatalf("the update changed the status the owner set")
+		}
+	})
+	// Two changesets staged before the key was mapped both carry the status; the
+	// later one must not undo what the owner did after the first published.
+	t.Run("older_changeset_keeps_owner_status", func(t *testing.T) {
+		r := newCSRig(t)
+		first := r.cs
+		stage(r, "pub", "published")
+		r.newChangeset()
+		second := r.cs
+		stage(r, "pub", "published")
+		r.cs = first
+		if res := r.publish(); res.Applied != 1 {
+			t.Fatalf("first publish: %+v", res)
+		}
+		if _, err := r.runs.DB.Pool().Exec(context.Background(), `UPDATE hatamoto_entities SET status = 'draft' WHERE slug = $1`, r.key("pub")); err != nil {
+			t.Fatal(err)
+		}
+		r.cs = second
+		if res := r.publish(); res.Applied != 1 {
+			t.Fatalf("second publish: %+v", res)
+		}
+		if n := r.count(`SELECT count(*) FROM hatamoto_entities WHERE slug = $1 AND status = 'draft'`, r.key("pub")); n != 1 {
+			t.Fatalf("the older changeset republished an entry the owner unpublished")
+		}
+	})
+	t.Run("listed_publishes", func(t *testing.T) {
+		r := newCSRig(t)
+		stage(r, "pub", "published")
+		v, _, err := r.eng.PublishUnderPolicy(context.Background(), r.cs, pol(r, r.schema), 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !v.OK {
+			t.Fatalf("%+v", v)
+		}
+		if n := r.count(`SELECT count(*) FROM hatamoto_entities WHERE slug = $1 AND status = 'published'`, r.key("pub")); n != 1 {
+			t.Fatalf("published entities = %d, want 1", n)
+		}
+	})
+	t.Run("unlisted_stays", func(t *testing.T) {
+		r := newCSRig(t)
+		stage(r, "pub", "published")
+		v, _, err := r.eng.PublishUnderPolicy(context.Background(), r.cs, pol(r, "other-"+r.tag), 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if v.OK {
+			t.Fatalf("a schema the rule does not list was published: %+v", v)
+		}
+		if n := r.entities(); n != 0 {
+			t.Fatalf("entities = %d, want 0", n)
+		}
+	})
+	t.Run("no_approval_stays", func(t *testing.T) {
+		r := newCSRig(t)
+		stage(r, "pub", "published")
+		// A policy without a create rule is what an approval-less plugin has.
+		v, _, err := r.eng.PublishUnderPolicy(context.Background(), r.cs,
+			changeset.StandingPolicy{Plugin: r.rc.Plugin, Schemas: []string{r.schema}}, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if v.OK {
+			t.Fatalf("a create without a create rule was published: %+v", v)
+		}
+		if n := r.entities(); n != 0 {
+			t.Fatalf("entities = %d, want 0", n)
+		}
+	})
+}
