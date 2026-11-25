@@ -55,7 +55,8 @@
 #     the suffix and the "builder" field are builds of builder revision 1 (they staged only
 #     migrations/ ui/ assets/); they are still read, and reused only when they hold every
 #     packed directory the pinned source has, else the plugin is rebuilt into a new -b<rev>
-#     file (an existing archive file is never replaced). A manifest whose full commit matches a
+#     file (an existing archive file is never replaced). A build of a revision above 1 but below
+#     BUILDER_REV is always rebuilt. A manifest whose full commit matches a
 #     sidecar written for the current signing key (a rotated key rebuilds into a new file)
 #     reuses that .hmp byte for byte (no fetch, no build); its sha256 must still match
 #     the sidecar, else the run dies. New builds are written here only after every
@@ -102,7 +103,11 @@ for d in "${pack_dirs[@]}"; do [[ $d =~ ^[a-z]+$ ]] || die "bad directory name \
 # Builder revision, recorded in each new archive sidecar and file name (-b<REV>). Bump it whenever a
 # builder change alters what a package holds for the same commit, so new builds get new file names
 # (the archive is append-only). 1 (no suffix, no "builder" field) staged only migrations/ ui/ assets/.
-BUILDER_REV=2
+# A build with a revision between 1 and BUILDER_REV is always rebuilt (only revision 1 gets the
+# directory completeness check, as it is the one known to drop directories); the current revision is reused.
+# HATAMOTO_TEST_BUILDER_REV overrides the value (test seam only).
+BUILDER_REV=${HATAMOTO_TEST_BUILDER_REV:-2}
+[[ $BUILDER_REV =~ ^[1-9][0-9]{0,2}$ ]] || die "bad HATAMOTO_TEST_BUILDER_REV \"$BUILDER_REV\""
 [ -f "$key" ] || die "key file $key not found"
 # The signer's key id (as `keys generate` writes it into the key file) is part of the archive identity.
 key_id=$(jq -r '.key_id // empty' "$key" 2>/dev/null) || key_id=
@@ -684,8 +689,8 @@ authenticate_archive() {
   [ "$pj" = "$name $1" ] || die "$name: archived version \"$name $1\" does not match plugin.json \"$pj\" at pinned commit $commit; refusing the archive (rolled back?)"
 }
 
-# archive_complete <hmp>: an archived build from an older builder revision is reused only when it
-# holds every packed directory the pinned source has (revision 1 dropped schemas/, sections/, ...).
+# archive_complete <hmp>: a legacy (revision 1) archived build is reused only when it holds every
+# packed directory the pinned source has (revision 1 dropped schemas/, sections/, ...).
 archive_complete() {
   local have want d missing=
   if [ -z "$auth_fetched" ]; then
@@ -728,7 +733,12 @@ reuse_archive() {
     want="$name-$sv-${commit:0:12}-$key_id"; [ "$sb" = 1 ] || want+="-b$sb"
     [ "$(basename "$hmp")" = "$want.hmp" ] || die "$name: archived file name $(basename "$hmp") does not match its sidecar"
     authenticate_archive "$sv"
-    if [ "$sb" -lt "$BUILDER_REV" ] && ! archive_complete "$hmp"; then continue; fi
+    if [ "$sb" = 1 ] && [ "$BUILDER_REV" -gt 1 ]; then
+      archive_complete "$hmp" || continue
+    elif [ "$sb" -lt "$BUILDER_REV" ]; then
+      echo "build-community: $name: archived $(basename "$hmp") is builder revision $sb, current is $BUILDER_REV; rebuilding"
+      continue
+    fi
     cp "$hmp" "$stage/packages/$name.hmp"
     echo "build-community: $name: reusing archived $(basename "$hmp")"
     built_from=archive
