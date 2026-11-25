@@ -6,7 +6,7 @@ import { find, unchanged } from "@hm/builder/store";
 import { bindOps, unbindOps, sourcesFor, chipText, inLoop } from "@hm/builder/bindops";
 import { seedNode } from "@hm/builder/palette";
 import { plainLabel } from "@hm/builder/inspector";
-import { MAX_FILTERS, MAX_DAYS, MAX_VALUE, attrsFor, sortable, opsFor, valueKind, cleanFilters } from "@hm/builder/loopattrs";
+import { MAX_FILTERS, MAX_DAYS, MAX_VALUE, attrsFor, sortable, opsFor, valueKind, cleanFilters, staleAfterSchemaChange } from "@hm/builder/loopattrs";
 import { declFor, cleanParams, setCount, nextParams, filtersLabel, tooLong, MAX_PARAM_BYTES } from "@hm/builder/loopparams";
 
 export const PROP_NAMES = { text: "Text", level: "Level", href: "Link", src: "Image address", url: "Video address", poster: "Poster image", linktext: "Link text", count: "Number of columns", slug: "Form", single: "Open one item at a time", ordered: "Numbered", alt: "Alt text", layout: "Layout", tag: "HTML tag", hidden: "Disabled (not rendered)", decorative: "Decorative (no alt text needed)" };
@@ -506,12 +506,20 @@ export function createContent(ctx) {
       const slot = attrSlot;
       // the attribute rows are rebuilt only when what they depend on changes: a half-filled row survives edits elsewhere
       let seen = null;
+      let before = null;
       const sync = (e) => {
         if (e?.target && slot.contains?.(e.target)) return;
         const p = find(api.getDoc(), node.id)?.p ?? node.p ?? {};
         const sig = [p.from, p.source, p.schema, p.context].join("|");
         if (sig === seen) return;
         seen = sig;
+        // the sort and filters belong to the schema they were set for: one undoable step clears them with a schema or Context change
+        const was = before;
+        before = p;
+        if (was && staleAfterSchemaChange(was, p)) {
+          commit([{ op: "setProp", id: node.id, key: "order_by", value: null }, { op: "setProp", id: node.id, key: "filters", value: null }], { label: "Clear Sort and Filters (schema changed)" });
+          api.announce("Sort and filters cleared because the schema changed");
+        }
         const g = filtersGroup(node) ?? attrGroup(node);
         slot.replaceChildren(...(g ? [g] : []));
       };

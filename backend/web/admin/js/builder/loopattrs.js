@@ -72,3 +72,10 @@ export function cleanFilters(rows, attrs) {
   }
   return out.length ? out : null;
 }
+
+/** Whether a change of a loop's schema or Context leaves sort and filters that no longer fit: the attributes belong to the schema they were set for. */
+export function staleAfterSchemaChange(before, after) {
+  const same = (before?.schema ?? "") === (after?.schema ?? "") && !before?.context === !after?.context;
+  if (same || (after?.from && after.from !== "query")) return false;
+  return Boolean(after?.order_by) || (Array.isArray(after?.filters) && after.filters.length > 0);
+}

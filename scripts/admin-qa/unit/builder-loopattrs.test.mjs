@@ -2,7 +2,7 @@
 // Run: node --test scripts/admin-qa/unit/builder-loopattrs.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MAX_FILTERS, attrsFor, cleanFilters, opsFor, sortable, valueKind } from "../../../backend/web/admin/js/builder/loopattrs.js";
+import { MAX_FILTERS, attrsFor, cleanFilters, opsFor, sortable, staleAfterSchemaChange, valueKind } from "../../../backend/web/admin/js/builder/loopattrs.js";
 
 const attrs = [
   { key: "start_date", label: "Start date", type: "date" },
@@ -78,4 +78,18 @@ test("next_days takes a whole number of days from 0 to 3650", () => {
 test("cleanFilters keeps at most three rows", () => {
   const rows = Array.from({ length: 5 }, () => ({ attr: "start_date", op: "from_today" }));
   assert.equal(cleanFilters(rows, attrs).length, MAX_FILTERS);
+});
+
+test("a schema or Context change with sort or filters set leaves stale rows to clear", () => {
+  const set = { from: "query", schema: "event", order_by: { attr: "start_date", dir: "asc" } };
+  assert.equal(staleAfterSchemaChange(set, { ...set, schema: "post" }), true);
+  assert.equal(staleAfterSchemaChange(set, { ...set, context: true }), true);
+  assert.equal(staleAfterSchemaChange({ schema: "event" }, { schema: "post", filters: [{ attr: "a", op: "eq", value: "x" }] }), true);
+});
+
+test("nothing to clear when the schema is the same, nothing is set, or the loop reads a source", () => {
+  const set = { from: "query", schema: "event", filters: [{ attr: "a", op: "eq", value: "x" }] };
+  assert.equal(staleAfterSchemaChange(set, { ...set, limit: 3 }), false);
+  assert.equal(staleAfterSchemaChange({ schema: "event" }, { schema: "post" }), false);
+  assert.equal(staleAfterSchemaChange(set, { ...set, schema: "post", from: "events" }), false);
 });
