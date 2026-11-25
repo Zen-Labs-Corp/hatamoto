@@ -1054,6 +1054,7 @@ func TestStandingCreateRefusals(t *testing.T) {
 			map[string]any{"seo": map[string]any{"meta_description": "[x](//evil.example/x)"}}), "links, paths or files"},
 		{"link_field_md_protocol_relative_no_own_host", linkRow("lf21e", map[string]any{"notes": "[x](//evil.example/x)"},
 			func() { s.policy.OwnHosts = nil }), "links, paths or files"},
+		{"link_field_smuggled_markdown_link", linkRow("lf22", map[string]any{"ticket_url": "https://tickets.example/e/1)[Pay%20here](//evil.example/pay"}), "links, paths or files"},
 		{"link_field_image_named_key", linkRow("lf20", map[string]any{"logo": "https://tickets.example/e/1"},
 			func() { s.policy.Create.LinkFields = []string{"logo"} }), "image or file"},
 		{"cap_zero", func() int64 {

@@ -826,7 +826,15 @@ func declaredLinks(attrs, props map[string]any, aliased map[string]bool, p Stand
 		if !isStr || s == "" || aliased[k] || !schemafield.LinkFieldDef(k, props[k]) {
 			continue
 		}
-		if h, valid := schemafield.LinkHost(s); valid && !schemafield.SameSiteHost(h, p.OwnHosts) {
+		h, valid := schemafield.LinkHost(s)
+		if !valid || schemafield.SameSiteHost(h, p.OwnHosts) {
+			continue
+		}
+		// The classifier must see this one link and no other: a value that
+		// smuggles a second, markdown-form link is not the declared link.
+		var r scanResult
+		r.scan(s)
+		if len(r.links) == 1 && !r.links[0].bad && r.links[0].host == h {
 			ok[k] = true
 		}
 	}
