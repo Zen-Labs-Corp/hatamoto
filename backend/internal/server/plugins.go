@@ -78,6 +78,8 @@ func (s *Server) setupPlugins() {
 		Grants:     grants,
 		MailQuotas: quotas,
 		ClientKeys: pluginClientKeys(s.cfg),
+
+		CommenterSession: s.pluginCommenterSession,
 		Services: pluginhost.Services{
 			Entities:  s.entityService,
 			Paths:     pluginEntityPaths{s},
