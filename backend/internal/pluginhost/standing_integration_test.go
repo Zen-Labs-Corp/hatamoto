@@ -229,6 +229,8 @@ func TestNoRunStartHostFunction(t *testing.T) {
 		"changeset.term.upsert",
 		"comments.by_author",
 		"comments.counts",
+		"comments.identity.ensure",
+		"comments.identity.revoke",
 		"comments.mark_dead",
 		"comments.restore",
 		"comments.set_rank",

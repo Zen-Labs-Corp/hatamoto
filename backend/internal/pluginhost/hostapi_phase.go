@@ -98,6 +98,9 @@ var fnPhases = map[string]phaseSet{
 	sdk.FnCommentsSetRank: phNone, sdk.FnCommentsSetViewer: phNone,
 	sdk.FnCommentsByAuthor: phNone, sdk.FnCommentsSubtree: phNone,
 	sdk.FnFormsSubmissions: phNone,
+
+	// SDK 0.29: account identity is a live-request matter, never a run's.
+	sdk.FnCommentsIdentityEnsure: phNone, sdk.FnCommentsIdentityRevoke: phNone,
 }
 
 // runOnly are the functions that exist only inside a run. They carry no
