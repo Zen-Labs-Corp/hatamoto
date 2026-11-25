@@ -172,10 +172,7 @@ func (r *changesetReviewer) Recent(ctx context.Context, plugin string, limit int
 func runView(run plugrun.Run) admin.RunView {
 	v := admin.RunView{ID: run.ID, Plugin: run.Plugin, Name: run.Name, State: run.State, Phase: run.Phase, Reason: run.Reason,
 		Steps: run.Steps, Hosts: run.Hosts, CreatedAt: run.CreatedAt, UpdatedAt: run.UpdatedAt}
-	var p struct {
-		Done, Total int
-		Message     string
-	}
+	var p sdk.RunProgressArgs // the document run.progress stores
 	if jsonx.Unmarshal(run.Progress, &p, jsonx.Stored) == nil {
 		v.Done, v.Total, v.Message = p.Done, p.Total, p.Message
 	}
