@@ -528,10 +528,29 @@ every direct child except a `loopempty`). Markup: `<div class="hm-n hm-loop hm-n
 | `term` | `<kind>:<slug>` | none |
 | `author` | person slug | none |
 | `order` | `newest`, `oldest`, `updated`, `name`, `name_desc`, `manual`, `popular_7`, `popular_30`, `popular_90` (most pageviews over the last 7, 30 or 90 days, the newest filling the gap; counts are never shown) | `newest` |
+| `order_by` | `{"attr": "<key>", "dir": "asc" \| "desc"}`: sort by one top-level attribute of the schema (`dir` defaults to `asc`); wins over `order`. Dates sort as `YYYY-MM-DD` text, numbers as numbers. Only on a `query` loop | none |
+| `filters` | up to 3 items, all of which must match (AND): `{"attr": "<key>", "op": "<op>", "value": ..., "days": N}`. Only on a `query` loop, top-level attribute keys only | none |
 | `limit` | 1 to 48 | 12 |
 | `offset` | 0 to 1000 | 0 |
 | `paging` | `none`, `pages` | `none` |
 | `exclude_current` | boolean | off |
+
+Filter operators and values:
+
+| `op` | Matches | `value` / `days` |
+| --- | --- | --- |
+| `eq`, `ne` | the attribute equals (`ne`: exists and differs) | `value`: a string or a number, required |
+| `lt`, `lte`, `gt`, `gte` | numeric comparison | `value`: a number, required |
+| `from_today` | date on or after today | none |
+| `before_today` | date before today | none |
+| `next_days` | date from today to today plus `days`, both included | `days`: a whole number, 0 to 3650, required |
+
+Dates are `YYYY-MM-DD` attributes (`format: date`); date-times and dotted paths are not matched. "Today" is the
+current date in the site time zone, and a page whose loop has a today-relative filter is cached at most until the
+next local midnight. An entity whose attribute is missing or of another type does not match a filter. The same props
+are accepted by `builder_apply_ops` and `builder_validate`, which refuse a fourth filter, an unknown `op` or a value
+that does not fit its `op` with the same message the admin shows. Filters on large schemas read every row of that
+schema, like sorting by an attribute does.
 
 Data rules: only published entities are listed; the built-in `block` and `theme_part` rows, hidden people and
 scheduled or draft rows never are. A failed or empty query renders the `loopempty` children, if any (a failed query
@@ -557,11 +576,12 @@ the part's markup before and after the slot is all the archive prints. With a `l
 archive is built entirely from nodes. Taxonomy and author layouts are not wrapped by parts, so a category archive
 cannot be built this way yet; a page entity with a `query` loop covers region-style pages.
 
-**Limits.** No expression language, no nested loops, no bound rich text or component content, no filters on
-attributes and no "menu order" (entities have no such column), no scheduled items, no search-result loops. The
+**Limits.** No expression language, no nested loops, no bound rich text or component content, and no "menu order" (entities have no such column), no scheduled items, no search-result loops. Attribute filters cover top-level
+attributes only (no OR, at most 3, dates as `YYYY-MM-DD`). The
 canvas shows at most 3 items; only the first carries selection markers. A doc with `b` or `loop` is
 builder-only, so it has no derived `page_sections`. **Rollback:** an older binary cannot parse `b`, `loop` or
-`loopempty`; use them only after the new binary is live.
+`loopempty`; use them only after the new binary is live. Rollback floor: a binary from before the attribute sort
+and filters refuses a loop that stores `order_by` or `filters`.
 
 ## Plugin extensions
 
