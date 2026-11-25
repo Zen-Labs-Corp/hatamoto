@@ -76,6 +76,25 @@ function init() {
   const MAX_RUN_INPUTS = 16;
   const shown = (v) => (v.length > 80 ? v.slice(0, 79) + "…" : v);
   let starting = false;
+  // askConfirm is core's #hm-confirm (openConfirm) without the post: true when the person presses
+  // Start, false on Cancel, Esc, or when the dialog is missing or busy. Both listeners go on the first answer.
+  function askConfirm(openConfirm, opts) {
+    return new Promise((resolve) => {
+      const dlg = document.getElementById("hm-confirm");
+      if (!dlg || dlg.open) return resolve(false);
+      const form = dlg.querySelector("form");
+      const done = (v) => {
+        form.removeEventListener("submit", onSubmit);
+        dlg.removeEventListener("close", onClose);
+        resolve(v);
+      };
+      const onSubmit = (e) => { e.preventDefault(); done(true); dlg.close(); };
+      const onClose = () => done(false);
+      if (!openConfirm({ action: "", ...opts })) return resolve(false);
+      form.addEventListener("submit", onSubmit);
+      dlg.addEventListener("close", onClose);
+    });
+  }
   async function startRun(name, inputs) {
     if (!runs.size) throw new Error("only the site owner can start runs");
     const run = runs.get(name);
@@ -92,10 +111,10 @@ function init() {
     if (starting) throw new Error("a run start is already waiting");
     starting = true;
     try {
-      const { askConfirm } = await import("@hm/components");
+      const { openConfirm } = await import("@hm/components");
       const list = entries.map(([k, v]) => `${k}=${shown(v)}`).join(" ");
       const label = run.title || run.name;
-      const ok = await askConfirm({ title: "Start run?", okLabel: "Start", message: `Start run '${label}'${list ? ` with: ${list}` : ""}?`, opener: frame });
+      const ok = await askConfirm(openConfirm, { title: "Start run?", okLabel: "Start", message: `Start run '${label}'${list ? ` with: ${list}` : ""}?`, opener: frame });
       if (!ok) return { ok: false, error: "cancelled" };
       const res = await fetch(run.start, {
         method: "POST",

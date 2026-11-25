@@ -68,10 +68,10 @@ func TestPluginFrameStartsRunsThroughCoreConfirm(t *testing.T) {
 	if i, j := strings.Index(js, `return startRun(`), strings.Index(js, `await fetch(bridge`); i < 0 || j < 0 || i > j {
 		t.Error("run.start must return before the bridge request")
 	}
-	comps := string(readFileT(t, "../../web/admin/js/components.js"))
-	for _, want := range []string{`export function askConfirm`, `e.preventDefault()`, `removeEventListener("submit"`} {
-		if !strings.Contains(comps, want) {
-			t.Errorf("components.js lost %q", want)
+	// The one-shot listeners live here, not in components.js, which the builder's JS budget counts.
+	for _, want := range []string{`function askConfirm(`, `e.preventDefault()`, `removeEventListener("submit"`, `removeEventListener("close"`} {
+		if !strings.Contains(js, want) {
+			t.Errorf("pluginframe.js lost %q", want)
 		}
 	}
 }
