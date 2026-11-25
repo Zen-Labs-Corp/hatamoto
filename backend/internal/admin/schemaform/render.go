@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/schemafield"
@@ -36,6 +37,10 @@ type UIHint struct {
 
 // Options configure Render and Decode.
 type Options struct {
+	// Location is the site time zone. date-time fields are posted naive by the
+	// datetime-local picker and normalised to RFC 3339 in it, and stored values
+	// are shown in it. nil leaves date-time values as typed and stored.
+	Location *time.Location
 	// Prefix namespaces field names ("content."), so section forms do not
 	// clash with the entity's own fields.
 	Prefix string

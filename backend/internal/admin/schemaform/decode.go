@@ -132,6 +132,14 @@ func (d *decoder) node(name string, n *Node, readPath, errPath string, required 
 		if v == "" {
 			return nil, unset
 		}
+		if k == "text" && n.Format == "date-time" && d.opt.Location != nil {
+			out, msg := naiveToRFC3339(v, d.opt.Location)
+			if msg != "" {
+				d.errorf(errPath, msg)
+				return nil, untouched
+			}
+			v = out
+		}
 		return v, set
 	case "number":
 		if !d.has(readPath) {
