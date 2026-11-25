@@ -3,6 +3,7 @@
 package standing
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -83,4 +84,62 @@ func TestDigestSplitsAutomaticCreatesFromUpdates(t *testing.T) {
 		}
 	}
 	t.Fatal("run missing from the digest")
+}
+
+// Hosts come from the links the approval's link fields hold in applied creates,
+// once per entry and host; an approval without link fields yields none.
+func TestDigestCountsLinkedHostsOfAutomaticCreates(t *testing.T) {
+	s, ctx := newStore(t)
+	for _, tc := range []struct {
+		name string
+		link []string
+		want map[string]int
+	}{
+		{"declared", []string{"ticket_url", "online_url"}, map[string]int{"tickets.example": 2, "meet.example": 1}},
+		{"undeclared", nil, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := testPlugin(t, s, ctx)
+			policy := Policy{Schemas: []string{"event"}, MaxPerHour: 5, Create: &CreatePolicy{Schemas: []string{"event"}, MaxPerHour: 5, LinkFields: tc.link}}
+			ap, err := s.Approve(ctx, p, "prices", policy, sampleFP("1.0.0"), "owner@example.com")
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, cs := insertRun(t, s, p, "cron", "published", true, time.Now().UTC().Add(-time.Hour))
+			if _, err := s.DB.Pool().Exec(ctx, `UPDATE hatamoto_changesets SET approval_id = $1 WHERE id = $2`, ap.ID, cs); err != nil {
+				t.Fatal(err)
+			}
+			for i, attrs := range []map[string]any{
+				{"ticket_url": "https://tickets.example/e/1", "online_url": "https://tickets.example/live"},
+				{"ticket_url": "https://tickets.example/e/2", "online_url": "https://meet.example/r"},
+				{"ticket_url": "http://bad.example/e/3", "notes": "https://other.example/"},
+			} {
+				payload, _ := json.Marshal(map[string]any{"schema": "event", "attributes": attrs})
+				if _, err := s.DB.Pool().Exec(ctx, `
+					INSERT INTO hatamoto_changeset_items (changeset_id, seq, kind, op, source_key, result, payload)
+					VALUES ($1, $2, 'entity', 'upsert', $3, 'applied', $4::jsonb)`, cs, i, "k"+string(rune('a'+i)), string(payload)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			got, err := s.Digest(ctx, time.Now().UTC().Add(-24*time.Hour))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, d := range got {
+				if d.Plugin != p {
+					continue
+				}
+				if d.Created != 3 || len(d.Hosts) != len(tc.want) {
+					t.Fatalf("Created=%d Hosts=%v, want 3 and %v", d.Created, d.Hosts, tc.want)
+				}
+				for h, n := range tc.want {
+					if d.Hosts[h] != n {
+						t.Fatalf("Hosts = %v, want %v", d.Hosts, tc.want)
+					}
+				}
+				return
+			}
+			t.Fatal("run missing from the digest")
+		})
+	}
 }

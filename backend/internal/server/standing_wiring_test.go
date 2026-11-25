@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -255,7 +256,7 @@ func TestStandingAdminMapsRuleAndApproval(t *testing.T) {
 	r := newStandingRig()
 	a := standingAdmin{svc: func() *standingService { return r.svc }}
 	ctx := context.Background()
-	rule, ok := a.Rule("pricer")
+	rule, ok := a.Rule(ctx, "pricer")
 	if !ok || rule.Run != "prices" || rule.MaxPerHour != 50 || rule.Fields[0] != "price" || rule.Schemas[0] != "product" {
 		t.Fatalf("Rule = %+v, %v", rule, ok)
 	}
@@ -269,7 +270,7 @@ func TestStandingAdminMapsRuleAndApproval(t *testing.T) {
 		t.Fatalf("Active after approving = %+v, %v", got, err)
 	}
 	none := standingAdmin{svc: func() *standingService { return nil }}
-	if _, ok := none.Rule("pricer"); ok {
+	if _, ok := none.Rule(ctx, "pricer"); ok {
 		t.Fatal("no rule without the service")
 	}
 	if err := none.Approve(ctx, "pricer", "prices", "x", "1.0.0", standingHash); !errors.Is(err, ErrStandingUnavailable) {
@@ -494,5 +495,19 @@ func TestSiteOwnHosts(t *testing.T) {
 	}
 	if got := (&Server{cfg: &config.Config{}}).siteOwnHosts(context.Background()); len(got) != 0 {
 		t.Fatalf("no address configured: hosts = %v", got)
+	}
+}
+
+// Link fields are named by the schema title, else the humanised key.
+func TestStandingLinkFieldLabels(t *testing.T) {
+	svc := &standingService{schemas: func(_ context.Context, slug string) (jsontext.Value, bool, error) {
+		if slug != "event" {
+			return nil, false, nil
+		}
+		return jsontext.Value(`{"type":"object","properties":{"ticket_url":{"type":"string","format":"uri","title":"Ticket link"},"online_url":{"type":"string","format":"uri"}}}`), true, nil
+	}}
+	got := svc.linkFieldLabels(context.Background(), &standing.CreatePolicy{Schemas: []string{"gone", "event"}, LinkFields: []string{"ticket_url", "online_url", "other_url"}})
+	if want := []string{"Ticket link", "Online url", "Other url"}; !slices.Equal(got, want) {
+		t.Fatalf("labels = %v, want %v", got, want)
 	}
 }

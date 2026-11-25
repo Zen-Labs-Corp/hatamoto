@@ -3,9 +3,11 @@ package server
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/standing"
 )
 
@@ -31,7 +33,7 @@ func (s *Server) standingAdmin() standingAdmin {
 	}}
 }
 
-func (a standingAdmin) Rule(plugin string) (admin.StandingRule, bool) {
+func (a standingAdmin) Rule(ctx context.Context, plugin string) (admin.StandingRule, bool) {
 	svc := a.svc()
 	if svc == nil {
 		return admin.StandingRule{}, false
@@ -43,6 +45,7 @@ func (a standingAdmin) Rule(plugin string) (admin.StandingRule, bool) {
 	rule := admin.StandingRule{Version: r.Version, Hash: r.Hash, Run: r.Run, Fields: r.Policy.Fields, Schemas: r.Policy.Schemas, MaxPerHour: r.Policy.MaxPerHour}
 	if c := r.Policy.Create; c != nil {
 		rule.CreateSchemas, rule.CreateMaxPerHour = c.Schemas, c.MaxPerHour
+		rule.LinkFieldLabels = svc.linkFieldLabels(ctx, c)
 	}
 	return rule, true
 }
@@ -110,7 +113,33 @@ func (a standingAdmin) Digest(ctx context.Context, since time.Time) ([]admin.Sta
 	}
 	out := make([]admin.StandingDigestRow, len(rows))
 	for i, d := range rows {
-		out[i] = admin.StandingDigestRow{Plugin: d.Plugin, Changes: d.Changes, Created: d.Created}
+		out[i] = admin.StandingDigestRow{Plugin: d.Plugin, Changes: d.Changes, Created: d.Created, Hosts: d.Hosts}
 	}
 	return out, nil
+}
+
+// linkFieldLabels names each link field by the title of the first create schema
+// that has it, else by the humanised key.
+func (s *standingService) linkFieldLabels(ctx context.Context, c *standing.CreatePolicy) []string {
+	var tops [][]schemaform.TopField
+	for _, slug := range c.Schemas {
+		if s.schemas == nil {
+			break
+		}
+		if raw, ok, err := s.schemas(ctx, slug); err == nil && ok {
+			tops = append(tops, schemaform.TopFields(raw))
+		}
+	}
+	labels := make([]string, 0, len(c.LinkFields))
+	for _, key := range c.LinkFields {
+		label := schemaform.Humanize(key)
+		for _, fields := range tops {
+			if i := slices.IndexFunc(fields, func(f schemaform.TopField) bool { return f.Key == key }); i >= 0 {
+				label = fields[i].Label
+				break
+			}
+		}
+		labels = append(labels, label)
+	}
+	return labels
 }
