@@ -376,13 +376,14 @@ func (d *decoder) repeater(n *Node, readPath, errPath string, pv any) (any, outc
 		ep := errPath + "." + strconv.Itoa(len(items))
 		var val any
 		var blank bool
-		// The item stored at the index the form was rendered with.
+		// Only used to keep an untouched date-time (see keepStoredDateTime).
 		var prevItem any
 		if i >= 0 && i < len(prevItems) {
 			prevItem = prevItems[i]
 		}
 		if scalar {
-			v, oc := d.node(lastSeg(readPath), it, rp, ep, false, prevItem)
+			v, oc := d.node(lastSeg(readPath), it, rp, ep, false, nil)
+			v = d.keepStoredDateTime(it, v, oc, prevItem)
 			blank = oc != set
 			val = v
 		} else {
@@ -392,7 +393,8 @@ func (d *decoder) repeater(n *Node, readPath, errPath string, pv any) (any, outc
 			prevMap, _ := prevItem.(map[string]any)
 			sets := 0
 			for _, p := range it.Props {
-				v, oc := d.node(p.Name, p.Node, rp+"."+p.Name, ep+"."+p.Name, it.isRequired(p.Name), firstSet(valueOf(prevMap, p.Name, p.Node), valueOf(m, p.Name, p.Node)))
+				v, oc := d.node(p.Name, p.Node, rp+"."+p.Name, ep+"."+p.Name, it.isRequired(p.Name), valueOf(m, p.Name, p.Node))
+				v = d.keepStoredDateTime(p.Node, v, oc, valueOf(prevMap, p.Name, p.Node))
 				if oc == set {
 					sets++
 				}
@@ -466,10 +468,26 @@ func defaultItem(it *Node) map[string]any {
 	return m
 }
 
-// firstSet returns a unless it is nil.
-func firstSet(a, b any) any {
-	if a != nil {
-		return a
+// keepStoredDateTime keeps the stored date-time string of a repeater item when
+// the decoded value shows the same picker text. Items are matched to the
+// stored array by their submitted index, which is not a stable identity after
+// a remove, move or re-render, so prev may belong to another item. That is
+// safe only because the stored string is used solely when it renders to the
+// same local wall time as what was posted: a wrong match keeps a value that
+// shows the same picker text. Nothing else is taken from prev.
+func (d *decoder) keepStoredDateTime(n *Node, v any, oc outcome, prev any) any {
+	if oc != set || n.Format != "date-time" || d.opt.Location == nil {
+		return v
 	}
-	return b
+	got, ok1 := v.(string)
+	stored, ok2 := prev.(string)
+	if !ok1 || !ok2 {
+		return v
+	}
+	a, _ := pickerValue(got, d.opt.Location)
+	b, _ := pickerValue(stored, d.opt.Location)
+	if a != "" && a == b {
+		return stored
+	}
+	return v
 }

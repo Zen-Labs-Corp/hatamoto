@@ -178,3 +178,29 @@ func TestDecodeDateTimeRepeaterItemUntouched(t *testing.T) {
 		t.Errorf("changed item: %v", r)
 	}
 }
+
+func TestDecodeRepeaterCompactedDoesNotLeakOtherItem(t *testing.T) {
+	const schema = `{"type":"object","properties":{"rows":{"type":"array","items":{"type":"object","properties":{"title":{"type":"string"},"slot":{"type":"string","format":"date-time"}}}}}}`
+	prev := map[string]any{"rows": []any{
+		map[string]any{"title": map[string]any{"url": "a", "alt": "A"}, "slot": "2026-11-01T06:30:00Z"},
+		map[string]any{"title": "b", "slot": "2026-06-14T21:00:00+02:00"},
+	}}
+	// Item 0 was removed; the survivor was re-indexed to 0.
+	form := url.Values{
+		"_present.rows": {"1"},
+		"rows.0.title":  {"b"},
+		"rows.0.slot":   {"2026-06-14T16:00"},
+	}
+	got, errs := Decode(jsontext.Value(schema), form, prev, newYork(t))
+	rows, _ := got["rows"].([]any)
+	if len(errs) != 0 || len(rows) != 1 {
+		t.Fatalf("got %v, %v", got, errs)
+	}
+	row := rows[0].(map[string]any)
+	if row["title"] != "b" {
+		t.Errorf("title took another item's value: %v", row["title"])
+	}
+	if row["slot"] != "2026-06-14T16:00:00-04:00" {
+		t.Errorf("slot: %v", row["slot"])
+	}
+}
