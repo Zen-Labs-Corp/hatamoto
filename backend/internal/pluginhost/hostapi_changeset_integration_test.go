@@ -349,9 +349,35 @@ func TestChangesetFnsEntityStatusUnderPolicy(t *testing.T) {
 		if n := r.count(`SELECT count(*) FROM hatamoto_changeset_items WHERE changeset_id = $1 AND source_key = $2 AND NOT payload ? 'status'`, r.cs, r.key("pub")); n != 1 {
 			t.Fatalf("update payload carries a status")
 		}
-		r.publish()
+		if res := r.publish(); res.Applied != 1 {
+			t.Fatalf("update not applied: %+v", res)
+		}
 		if n := r.count(`SELECT count(*) FROM hatamoto_entities WHERE slug = $1 AND status = 'draft'`, r.key("pub")); n != 1 {
 			t.Fatalf("the update changed the status the owner set")
+		}
+	})
+	// Two changesets staged before the key was mapped both carry the status; the
+	// later one must not undo what the owner did after the first published.
+	t.Run("older_changeset_keeps_owner_status", func(t *testing.T) {
+		r := newCSRig(t)
+		first := r.cs
+		stage(r, "pub", "published")
+		r.newChangeset()
+		second := r.cs
+		stage(r, "pub", "published")
+		r.cs = first
+		if res := r.publish(); res.Applied != 1 {
+			t.Fatalf("first publish: %+v", res)
+		}
+		if _, err := r.runs.DB.Pool().Exec(context.Background(), `UPDATE hatamoto_entities SET status = 'draft' WHERE slug = $1`, r.key("pub")); err != nil {
+			t.Fatal(err)
+		}
+		r.cs = second
+		if res := r.publish(); res.Applied != 1 {
+			t.Fatalf("second publish: %+v", res)
+		}
+		if n := r.count(`SELECT count(*) FROM hatamoto_entities WHERE slug = $1 AND status = 'draft'`, r.key("pub")); n != 1 {
+			t.Fatalf("the older changeset republished an entry the owner unpublished")
 		}
 	})
 	t.Run("listed_publishes", func(t *testing.T) {

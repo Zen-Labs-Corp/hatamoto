@@ -193,7 +193,8 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw jsonte
 		}
 	}
 	// A status applies to a create only. For an entry the key already maps to
-	// it is dropped, so an update never changes the status the owner set.
+	// it is dropped, so an update never changes the status the owner set. Publish
+	// drops it again for a key mapped since staging.
 	if in.Status != "" {
 		_, mapped, err := a.svc.Changesets.Resolve(ctx, e.plugin, changeset.KindEntity, in.SourceKey)
 		if err != nil {
