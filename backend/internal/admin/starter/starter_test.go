@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/firstboot"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
@@ -348,7 +349,13 @@ func TestRerunLeavesAnEditedMenuAlone(t *testing.T) {
 func TestIsSeedBothShapes(t *testing.T) {
 	doc, _ := jsonx.Marshal(builder.FromSections([]builder.Section{{ID: "welcome", Type: "hero", Content: map[string]any{}}}))
 	other, _ := jsonx.Marshal(builder.FromSections([]builder.Section{{ID: "mine", Type: "hero", Content: map[string]any{}}}))
+	home, _ := jsonx.Marshal(firstboot.HomeDoc("S"))
+	extra := firstboot.HomeDoc("S")
+	extra.Nodes = append(extra.Nodes, builder.FromSections([]builder.Section{{ID: "mine", Type: "hero", Content: map[string]any{}}}).Nodes...)
+	withMine, _ := jsonx.Marshal(extra)
 	for attrs, want := range map[string]bool{
+		`{"page_doc":` + string(home) + `}`:               true,
+		`{"page_doc":` + string(withMine) + `}`:           false,
 		`{"page_sections":[{"id":"welcome"}]}`:            true,
 		`{"page_doc":` + string(doc) + `}`:                true,
 		`{"page_doc":` + string(other) + `}`:              false,
@@ -500,5 +507,75 @@ func TestNameSeedHomeKeepsAChangedHeadline(t *testing.T) {
 	}
 	if home.Name != "Acme" || string(home.Attributes) != attrs {
 		t.Errorf("name=%q attributes=%s", home.Name, home.Attributes)
+	}
+}
+
+// newSeedHome is the home page as the current first boot makes it: the full
+// firstboot.HomeDoc, named after the site name the server started with.
+func newSeedHome(t *testing.T, m *mem, name string) *entity.Entity {
+	t.Helper()
+	doc, err := jsonx.Marshal(firstboot.HomeDoc(name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	attrs, err := jsonx.Marshal(map[string]any{"page_doc": jsontext.Value(doc), "content": "<p>x</p>"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := &entity.Entity{ID: uuid.New(), SchemaID: m.schemas["page"], Name: name, Slug: "home", Status: entity.StatusPublished, Attributes: jsontext.Value(attrs)}
+	m.entities["home"] = e
+	return e
+}
+
+func TestNameSeedHomeRenamesTheHomeDocHero(t *testing.T) {
+	m := newMem()
+	home := newSeedHome(t, m, "My Hatamoto site")
+	before := firstboot.HomeDoc("My Hatamoto site")
+	changed, err := m.installer().NameSeedHome(context.Background(), Options{SiteName: "Acme"})
+	if err != nil || !changed {
+		t.Fatalf("changed=%v err=%v", changed, err)
+	}
+	var a struct {
+		Doc jsontext.Value `json:"page_doc"`
+	}
+	if err := jsonx.Unmarshal(home.Attributes, &a); err != nil {
+		t.Fatal(err)
+	}
+	d, err := builder.Parse(a.Doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cs := builder.Components(d)
+	if len(cs) != 4 {
+		t.Fatalf("%d components, want 4", len(cs))
+	}
+	if h, _ := cs[0].P["content"].(map[string]any); h["headline"] != "Acme" || h["eyebrow"] != "Hello world" {
+		t.Errorf("hero = %v", h)
+	}
+	for i, c := range cs[1:] {
+		want := builder.Components(before)[i+1]
+		got, _ := jsonx.Marshal(c.P)
+		exp, _ := jsonx.Marshal(want.P)
+		if string(got) != string(exp) {
+			t.Errorf("section %s changed:\n%s\nwant\n%s", c.ID, got, exp)
+		}
+	}
+	if !IsSeed(home) {
+		t.Error("the renamed page must still be the seed")
+	}
+}
+
+func TestInstallReplacesTheHomeDocSeed(t *testing.T) {
+	m := newMem()
+	homeID := newSeedHome(t, m, "My Hatamoto site").ID
+	if _, err := m.installer().Install(context.Background(), Options{SiteName: "Acme"}); err != nil {
+		t.Fatal(err)
+	}
+	home := m.entities["home"]
+	if home.ID != homeID {
+		t.Error("the seeded home page was duplicated instead of reused")
+	}
+	if got := string(home.Attributes); !contains(got, `"starter":true`) || contains(got, `"welcome`) {
+		t.Errorf("home attributes: %s", got)
 	}
 }
