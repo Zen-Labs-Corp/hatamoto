@@ -157,6 +157,11 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw jsonte
 			return nil, invalid("locale is required with translation_of")
 		}
 	}
+	switch in.Status {
+	case "", "draft", "published":
+	default:
+		return nil, invalid("status must be draft or published")
+	}
 	s, err := a.stager(ctx, e.plugin)
 	if err != nil {
 		return nil, err
@@ -182,7 +187,7 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw jsonte
 		}
 	}
 	p := map[string]any{"schema": in.Schema, "name": in.Name}
-	for k, v := range map[string]string{"slug": in.Slug, "parent_key": in.ParentKey, "locale": in.Locale, "translation_of": in.TranslationOf} {
+	for k, v := range map[string]string{"slug": in.Slug, "parent_key": in.ParentKey, "locale": in.Locale, "translation_of": in.TranslationOf, "status": in.Status} {
 		if v != "" {
 			p[k] = v
 		}
