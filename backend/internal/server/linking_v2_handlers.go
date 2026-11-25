@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -15,6 +14,7 @@ import (
 	"hatamoto.dev/core/internal/auditctx"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/httpx"
 	linkingv2 "hatamoto.dev/core/internal/linking/v2"
 )
 
@@ -385,15 +385,12 @@ func (s *Server) handleListLinkRules(w http.ResponseWriter, r *http.Request) {
 		}
 		filter.TargetEntityID = &id
 	}
-	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
-		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-			filter.Page = p
-		}
-	}
-	if ppStr := r.URL.Query().Get("per_page"); ppStr != "" {
-		if pp, err := strconv.Atoi(ppStr); err == nil && pp > 0 {
-			filter.PerPage = pp
-		}
+	pp := httpx.NewPaging(r.URL.Query(), 0)
+	filter.Page = pp.Page("page", 0)
+	filter.PerPage = pp.Size("per_page", "limit", 0) // 0: the service default
+	if pp.Err() != nil {
+		writeError(w, http.StatusBadRequest, pp.Err().Error())
+		return
 	}
 	if sort := r.URL.Query().Get("sort"); sort != "" {
 		filter.Sort = sort

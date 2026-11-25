@@ -2,11 +2,11 @@ package agents
 
 import (
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/jsonx"
 )
 
@@ -92,19 +92,17 @@ func (h *AdminHandlers) parseRange(w http.ResponseWriter, r *http.Request) (Rang
 	return rg, true
 }
 
-// parsePage reads page/per_page. A page beyond maxPage is answered with 400
-// (ok=false): deep OFFSETs only force a full scan, then discard it.
+// parsePage reads page/per_page (httpx.Paging): a value it cannot honour is
+// answered with 400 (ok=false), never replaced by the default, and so is a
+// page beyond maxPage (deep OFFSETs only force a full scan, then discard it).
+// A per_page over maxPerPage is clamped and the answer reports it.
 func parsePage(w http.ResponseWriter, r *http.Request) (page, perPage int, p Page, ok bool) {
-	page, perPage = 1, defaultPerPage
-	if v, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && v > 0 {
-		if v > maxPage {
-			jsonx.WriteError(w, http.StatusBadRequest, "page must not exceed 10000")
-			return 0, 0, Page{}, false
-		}
-		page = v
-	}
-	if v, err := strconv.Atoi(r.URL.Query().Get("per_page")); err == nil && v > 0 {
-		perPage = min(v, maxPerPage)
+	pg := httpx.NewPaging(r.URL.Query(), maxPerPage)
+	page = pg.Page("page", maxPage)
+	perPage = pg.Size("per_page", "limit", defaultPerPage)
+	if err := pg.Err(); err != nil {
+		jsonx.WriteError(w, http.StatusBadRequest, err.Error())
+		return 0, 0, Page{}, false
 	}
 	return page, perPage, Page{Limit: perPage, Offset: (page - 1) * perPage}, true
 }

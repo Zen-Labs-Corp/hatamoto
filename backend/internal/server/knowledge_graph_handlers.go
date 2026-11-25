@@ -2,11 +2,11 @@ package server
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/seo"
 )
@@ -49,17 +49,12 @@ func llmsEntries(all []*entity.SitemapEntry, idx *seo.Settings) []*entity.Sitema
 func (s *Server) handleKnowledgeGraph(w http.ResponseWriter, r *http.Request) {
 
 	// Parse pagination
-	page := 1
-	perPage := 50
-	if p := r.URL.Query().Get("page"); p != "" {
-		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
-			page = parsed
-		}
-	}
-	if pp := r.URL.Query().Get("per_page"); pp != "" {
-		if parsed, err := strconv.Atoi(pp); err == nil && parsed > 0 && parsed <= 100 {
-			perPage = parsed
-		}
+	pp := httpx.NewPaging(r.URL.Query(), 0)
+	page := pp.Page("page", 0)
+	perPage := pp.Size("per_page", "limit", 50)
+	if pp.Err() != nil {
+		writeError(w, http.StatusBadRequest, pp.Err().Error())
+		return
 	}
 
 	schemaFilter := r.URL.Query().Get("schema")

@@ -10,12 +10,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/authz"
+	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/middleware"
 )
@@ -95,18 +95,12 @@ func (s *Server) handleMediaList(w http.ResponseWriter, r *http.Request) {
 		Search:   r.URL.Query().Get("search"),
 	}
 
-	limit := 50
-	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
-			limit = l
-		}
-	}
-
-	offset := 0
-	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
-		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
-			offset = o
-		}
+	pp := httpx.NewPaging(r.URL.Query(), 0)
+	limit := pp.Size("limit", "per_page", 50)
+	offset := pp.Offset("offset")
+	if pp.Err() != nil {
+		writeError(w, http.StatusBadRequest, pp.Err().Error())
+		return
 	}
 
 	result, err := s.mediaService.List(r.Context(), filter, limit, offset)

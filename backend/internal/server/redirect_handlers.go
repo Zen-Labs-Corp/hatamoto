@@ -3,9 +3,9 @@ package server
 import (
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/redirect"
 )
 
@@ -15,11 +15,12 @@ func (s *Server) handleList404Entries(w http.ResponseWriter, r *http.Request) {
 	params := redirect.NotFoundListParams{
 		Search: r.URL.Query().Get("search"),
 	}
-	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil {
-		params.Page = p
-	}
-	if pp, err := strconv.Atoi(r.URL.Query().Get("per_page")); err == nil {
-		params.PerPage = pp
+	pp := httpx.NewPaging(r.URL.Query(), 0)
+	params.Page = pp.Page("page", 0)
+	params.PerPage = pp.Size("per_page", "limit", 50)
+	if pp.Err() != nil {
+		writeError(w, http.StatusBadRequest, pp.Err().Error())
+		return
 	}
 
 	entries, total, err := s.redirectService.List404Entries(r.Context(), params)
@@ -78,11 +79,12 @@ func (s *Server) handleListRedirects(w http.ResponseWriter, r *http.Request) {
 	params := redirect.RedirectListParams{
 		Search: r.URL.Query().Get("search"),
 	}
-	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil {
-		params.Page = p
-	}
-	if pp, err := strconv.Atoi(r.URL.Query().Get("per_page")); err == nil {
-		params.PerPage = pp
+	pp := httpx.NewPaging(r.URL.Query(), 0)
+	params.Page = pp.Page("page", 0)
+	params.PerPage = pp.Size("per_page", "limit", 50)
+	if pp.Err() != nil {
+		writeError(w, http.StatusBadRequest, pp.Err().Error())
+		return
 	}
 
 	redirects, total, err := s.redirectService.ListRedirects(r.Context(), params)
