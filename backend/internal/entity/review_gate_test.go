@@ -314,7 +314,9 @@ func TestReviewGateClassifiesEveryInputField(t *testing.T) {
 		"BylinePersonID": refused, "ClearBylinePerson": refused, "BylineOrg": refused, "ClearParent": refused,
 		// ChangeSummary: the publish writes its own. ExpectedVersion: checked when the change is held.
 		// KeepUpdatedAt: machine writes skip the gate. TakeOwnership: the publish sets the origin.
+		// MergeAttributes: resolved to the full attributes before staging.
 		"ChangeSummary": notCarried, "ExpectedVersion": notCarried, "KeepUpdatedAt": notCarried, "TakeOwnership": notCarried,
+		"MergeAttributes": notCarried,
 	}
 	typ := reflect.TypeOf(UpdateEntityInput{})
 	for i := 0; i < typ.NumField(); i++ {

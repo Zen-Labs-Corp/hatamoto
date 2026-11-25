@@ -109,7 +109,7 @@ curl -X PATCH -H "X-API-Key: <your-key>" -H "Content-Type: application/json" \
   https://example.com/api/v1/entities/<id>
 ```
 
-`attributes` is replaced as a whole, so send back everything you read with your change. Per-entry SEO fields (such as `meta_title`) are attributes too and advance the version.
+With `application/json`, `attributes` is replaced as a whole, so send back everything you read with your change. Per-entry SEO fields (such as `meta_title`) are attributes too and advance the version.
 
 If the entry has moved on, nothing is written and the answer is `412` with the current version, also as the `ETag` header:
 
@@ -118,6 +118,22 @@ If the entry has moved on, nothing is written and the answer is `412` with the c
 ```
 
 Read the entry again, redo the change and retry. The check is atomic with the write: of two writers holding the same tag, exactly one succeeds.
+
+To change only some attributes, send a merge patch instead:
+
+```bash
+curl -X PATCH -H "X-API-Key: <your-key>" -H "Content-Type: application/merge-patch+json" \
+  -H 'If-Match: "9"' -d '{"attributes": {"room": "B", "notes": null}}' \
+  https://example.com/api/v1/entities/<id>
+```
+
+- Only `attributes` merge; other fields work as usual.
+- Only the keys you send change. `null` removes a key (except `page_doc: null`, which keeps the stored document), nested objects merge and arrays replace whole. `"attributes": null` is refused with `400`.
+- `PUT` always replaces `attributes` as a whole.
+- The merged result is validated like a full write. A merge that removes a required attribute answers `400` and names it.
+- Send `If-Match` with a merge. Without it a merge can overwrite another program's change to a different attribute.
+
+How `If-Match` works:
 
 - `If-Match` works on `PUT` and `PATCH /api/v1/entities/{id}`, `PATCH /api/v1/entities/{id}/status` and `POST /api/v1/entities/{id}/restore/{version}`. On a restore, the `{version}` in the address is the version to restore and `If-Match` is the current version you expect.
 - The header is optional. Without it a change is applied as before. `If-Match` on `DELETE` is ignored.

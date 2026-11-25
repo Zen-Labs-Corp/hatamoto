@@ -205,6 +205,10 @@ type UpdateEntityInput struct {
 	// compares it with the stored version under its row lock and returns a
 	// *VersionConflictError instead of writing when they differ.
 	ExpectedVersion *int `json:"-"`
+	// MergeAttributes makes Attributes a JSON merge patch (RFC 7396) on the
+	// stored attributes instead of their replacement. Service.UpdateEntity
+	// resolves it to the merged object before validating and clears it.
+	MergeAttributes bool `json:"-"`
 	// KeepUpdatedAt leaves updated_at as it is (the version still advances).
 	// Internal: used by `builder convert`, so a lossless shape
 	// change does not look like a content edit (JSON-LD dateModified, sitemap lastmod).

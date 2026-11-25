@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json/jsontext"
 	"errors"
+	"mime"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -393,8 +394,11 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 	// (UpdateEntityInput.Status decodes nothing, so it was silently dropped).
 	var body struct {
 		entity.UpdateEntityInput
-		Position *int           `json:"position"`
-		Status   jsontext.Value `json:"status"`
+		// Attributes shadows UpdateEntityInput.Attributes: there a JSON null
+		// decodes to nil, which a merge patch must tell apart from "omitted".
+		Attributes jsontext.Value `json:"attributes"`
+		Position   *int           `json:"position"`
+		Status     jsontext.Value `json:"status"`
 	}
 	if err := parseJSON(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -405,10 +409,16 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	input := body.UpdateEntityInput
+	// PUT always replaces; PATCH merges attributes only when asked (RFC 7396).
+	merge := r.Method == http.MethodPatch && isMergePatch(r.Header.Get("Content-Type"))
+	if a := body.Attributes; len(a) > 0 && (merge || a.Kind() != 'n') {
+		input.Attributes = &a // a replace-mode null leaves the attributes alone, as before
+	}
 	// decided before the expected version and the API-key summary are set, which would make every request look like an edit
 	moveOnly := body.Position != nil && isMoveOnly(input)
 	// A move-only request stores no content version, so it does not evaluate the tag.
 	input.ExpectedVersion = m.expected()
+	input.MergeAttributes = merge // after moveOnly, like ExpectedVersion
 
 	if k, ok := middleware.GetAPIKey(r.Context()); ok {
 		input.ChangeSummary = apiKeySummary(k.Name, input.ChangeSummary)
@@ -458,6 +468,12 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 
 	setETag(w, ent.Version)
 	writeJSON(w, http.StatusOK, ent)
+}
+
+// isMergePatch reports whether ct is application/merge-patch+json (any case, parameters allowed).
+func isMergePatch(ct string) bool {
+	mt, _, err := mime.ParseMediaType(ct)
+	return err == nil && mt == "application/merge-patch+json"
 }
 
 // isMoveOnly reports whether in sets nothing but a parent change.

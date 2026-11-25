@@ -27,7 +27,7 @@ var ciNames = jsonv2.MatchCaseInsensitiveNames(true)
 //     each item carries id, schema_id, name, slug, status, attributes, parent_id.
 //   - POST /api/v1/entities takes CreateEntityInput (schema_id, name, slug,
 //     attributes, parent_id) and answers 201 with the entity.
-//   - PATCH /api/v1/entities/{id} takes UpdateEntityInput (name, attributes
+//   - PATCH /api/v1/entities/{id} (this client sends application/json, so attributes replace; merge-patch+json would merge) takes UpdateEntityInput (name, attributes
 //     replace the stored values) and answers 200 with the entity.
 //   - PATCH /api/v1/entities/{id}/status takes {"status":"published"}.
 //   - Slug clash answers 409 {"error","code":"slug_exists"}. With a {path} URL
