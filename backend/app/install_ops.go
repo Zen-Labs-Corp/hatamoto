@@ -211,6 +211,19 @@ func apiKeyCreator(ctx context.Context, db *database.DB, email string) (*uuid.UU
 	return &id, nil
 }
 
+// cliPluginSettingsKey is the key a server started now would use; no secret is
+// an error, never a plain write.
+func cliPluginSettingsKey() ([]byte, error) {
+	secret, err := serverSecret()
+	if err != nil {
+		return nil, fmt.Errorf("read the server secret: %w", err)
+	}
+	if secret == "" {
+		return nil, errors.New("plugin settings set needs the server secret (HATAMOTO_SECRET or secrets.env)")
+	}
+	return pluginhost.SettingsKey(secret), nil
+}
+
 func runPluginSettingsSet(ctx context.Context, args []string, stdin io.Reader, out io.Writer) error {
 	if len(args) < 2 {
 		//lint:ignore ST1005 the usage line is the same text as the help, which ends in "..."
@@ -240,7 +253,11 @@ func runPluginSettingsSet(ctx context.Context, args []string, stdin io.Reader, o
 	if len(man.SettingsSchema) == 0 {
 		return fmt.Errorf("plugin %q declares no settings", plugin)
 	}
-	store := pluginhost.NewSettingsStore(db.Pool())
+	key, err := cliPluginSettingsKey()
+	if err != nil {
+		return err
+	}
+	store := pluginhost.NewSettingsStore(db.Pool(), key, slog.New(slog.NewTextHandler(os.Stderr, nil)))
 	old, err := store.Get(ctx, plugin)
 	if err != nil {
 		return err
@@ -260,7 +277,7 @@ func runPluginSettingsSet(ctx context.Context, args []string, stdin io.Reader, o
 		}
 		return fmt.Errorf("settings of %s are not valid:%s", plugin, b.String())
 	}
-	if err := store.Put(ctx, plugin, merged); err != nil {
+	if err := store.Put(ctx, plugin, man.SettingsSchema, merged); err != nil {
 		return err
 	}
 	// Key names only: a value may be a secret.

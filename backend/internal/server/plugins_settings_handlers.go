@@ -18,7 +18,8 @@ import (
 // pluginSettingsStore is the persistence the settings handlers need.
 type pluginSettingsStore interface {
 	Get(ctx context.Context, plugin string) (jsontext.Value, error)
-	Put(ctx context.Context, plugin string, v jsontext.Value) error
+	GetChecked(ctx context.Context, plugin string) (jsontext.Value, []string, error)
+	Put(ctx context.Context, plugin string, schema []byte, v jsontext.Value) error
 }
 
 const maxPluginSettingsBody = 256 << 10
@@ -93,7 +94,7 @@ func (s *Server) handlePutPluginSettings(w http.ResponseWriter, r *http.Request)
 		writeJSON(w, http.StatusBadRequest, validationFailed(fields))
 		return
 	}
-	if err := s.pluginSettingsStore.Put(r.Context(), name, merged); err != nil {
+	if err := s.pluginSettingsStore.Put(r.Context(), name, schema, merged); err != nil {
 		s.logger.Error("save plugin settings", slog.String("plugin", name), slog.String("error", err.Error()))
 		writeError(w, http.StatusInternalServerError, "failed to save settings")
 		return

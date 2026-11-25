@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -36,16 +37,16 @@ func TestSettingsStoreRoundTrip(t *testing.T) {
 
 	const name = "it-settings-plugin"
 	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM hatamoto_plugin_settings WHERE plugin=$1`, name) })
-	store := NewSettingsStore(pool)
+	store := NewSettingsStore(pool, SettingsKey(strings.Repeat("k", 32)), nil)
 
 	got, err := store.Get(ctx, name)
 	if err != nil || string(got) != `{}` {
 		t.Fatalf("absent: %s, %v", got, err)
 	}
-	if err := store.Put(ctx, name, jsontext.Value(`{"retries":7}`)); err != nil {
+	if err := store.Put(ctx, name, []byte(testSchema), jsontext.Value(`{"retries":7}`)); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Put(ctx, name, jsontext.Value(`{"retries":8}`)); err != nil { // upsert
+	if err := store.Put(ctx, name, []byte(testSchema), jsontext.Value(`{"retries":8}`)); err != nil { // upsert
 		t.Fatal(err)
 	}
 	stored, err := store.Get(ctx, name)

@@ -31,7 +31,7 @@ func pluginClientKeys(c *config.Config) *clientkey.Deriver {
 // database changes). Every plugin is isolated: one that fails to load is
 // reported by GET /api/v1/plugins and the rest (and the server) carry on.
 func (s *Server) setupPlugins() {
-	s.pluginSettings = pluginhost.NewSettingsStore(s.db.Pool())
+	s.pluginSettings = pluginhost.NewSettingsStore(s.db.Pool(), pluginhost.SettingsKey(s.cfg.Secret), s.logger)
 	s.pluginSettingsStore = s.pluginSettings
 
 	rt, err := pluginhost.NewRuntime(s.logger, s.hooks, s.cfg.Plugins.CacheDir)

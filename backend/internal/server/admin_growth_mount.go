@@ -578,7 +578,7 @@ func (p pluginAdmin) SaveSettings(ctx context.Context, name string, values map[s
 		}
 		return errs, nil
 	}
-	if err := p.s.pluginSettingsStore.Put(ctx, name, merged); err != nil {
+	if err := p.s.pluginSettingsStore.Put(ctx, name, schema, merged); err != nil {
 		return nil, err
 	}
 	p.s.invalidateRendered(ctx) // plugin settings feed template funcs, filters and sitemaps

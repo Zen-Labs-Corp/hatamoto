@@ -17,7 +17,10 @@ import (
 	"hatamoto.dev/sdk"
 )
 
-type memSettings struct{ data map[string]jsontext.Value }
+type memSettings struct {
+	data       map[string]jsontext.Value
+	unreadable map[string][]string
+}
 
 func (m *memSettings) Get(_ context.Context, p string) (jsontext.Value, error) {
 	if v, ok := m.data[p]; ok {
@@ -25,7 +28,11 @@ func (m *memSettings) Get(_ context.Context, p string) (jsontext.Value, error) {
 	}
 	return jsontext.Value(`{}`), nil
 }
-func (m *memSettings) Put(_ context.Context, p string, v jsontext.Value) error {
+func (m *memSettings) GetChecked(ctx context.Context, p string) (jsontext.Value, []string, error) {
+	v, err := m.Get(ctx, p)
+	return v, m.unreadable[p], err
+}
+func (m *memSettings) Put(_ context.Context, p string, _ []byte, v jsontext.Value) error {
 	m.data[p] = v
 	return nil
 }

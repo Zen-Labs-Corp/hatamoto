@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -24,11 +25,24 @@ type FieldError struct {
 	Message string `json:"message"`
 }
 
-// SettingsStore persists plugin settings in hatamoto_plugin_settings.
-type SettingsStore struct{ pool *pgxpool.Pool }
+// SettingsStore persists plugin settings in hatamoto_plugin_settings. Values
+// of top-level writeOnly properties are stored sealed (see SealedPrefix).
+type SettingsStore struct {
+	pool *pgxpool.Pool
+	key  []byte
+	log  *slog.Logger
+	warn unreadableWarner
+}
 
-// NewSettingsStore returns a store over pool.
-func NewSettingsStore(pool *pgxpool.Pool) *SettingsStore { return &SettingsStore{pool: pool} }
+// NewSettingsStore returns a store over pool. key is SettingsKey(serverSecret);
+// with a nil key write-only values cannot be saved and sealed ones read as
+// unset. A nil log uses slog.Default().
+func NewSettingsStore(pool *pgxpool.Pool, key []byte, log *slog.Logger) *SettingsStore {
+	if log == nil {
+		log = slog.Default()
+	}
+	return &SettingsStore{pool: pool, key: key, log: log}
+}
 
 // CompileSchema compiles a plugin settings schema (JSON Schema 2020-12).
 func CompileSchema(schema []byte) (*jsonschema.Schema, error) {
@@ -51,8 +65,27 @@ func CompileSchema(schema []byte) (*jsonschema.Schema, error) {
 	return sch, nil
 }
 
-// Get returns the stored settings object, or {} when none were saved.
+// Get returns the stored settings object with sealed values opened, or {} when
+// none were saved. A value that cannot be opened is left out (the plugin sees
+// it as unset), never an error.
 func (s *SettingsStore) Get(ctx context.Context, plugin string) (jsontext.Value, error) {
+	v, _, err := s.GetChecked(ctx, plugin)
+	return v, err
+}
+
+// GetChecked is Get plus the sorted names of the keys whose sealed value
+// cannot be opened (for example after a restore under another server secret).
+func (s *SettingsStore) GetChecked(ctx context.Context, plugin string) (jsontext.Value, []string, error) {
+	raw, err := s.getRaw(ctx, plugin)
+	if err != nil {
+		return nil, nil, err
+	}
+	v, bad := openSealed(s.key, plugin, raw)
+	s.warn.warn(s.log, plugin, bad)
+	return v, bad, nil
+}
+
+func (s *SettingsStore) getRaw(ctx context.Context, plugin string) (jsontext.Value, error) {
 	var raw []byte
 	err := s.pool.QueryRow(ctx, `SELECT settings FROM hatamoto_plugin_settings WHERE plugin = $1`, plugin).Scan(&raw)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -64,9 +97,14 @@ func (s *SettingsStore) Get(ctx context.Context, plugin string) (jsontext.Value,
 	return jsontext.Value(raw), nil
 }
 
-// Put upserts the full settings object.
-func (s *SettingsStore) Put(ctx context.Context, plugin string, v jsontext.Value) error {
-	_, err := s.pool.Exec(ctx, `
+// Put upserts the full settings object, sealing the top-level writeOnly values
+// that schema names. It never writes a writeOnly value in plain.
+func (s *SettingsStore) Put(ctx context.Context, plugin string, schema []byte, v jsontext.Value) error {
+	v, err := sealWriteOnly(s.key, plugin, schema, v)
+	if err != nil {
+		return fmt.Errorf("pluginhost: save settings for %q: %w", plugin, err)
+	}
+	_, err = s.pool.Exec(ctx, `
 		INSERT INTO hatamoto_plugin_settings (plugin, settings, updated_at)
 		VALUES ($1, $2::jsonb, now())
 		ON CONFLICT (plugin) DO UPDATE SET settings = EXCLUDED.settings, updated_at = now()`,
