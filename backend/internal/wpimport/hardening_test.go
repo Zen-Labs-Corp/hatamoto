@@ -5,6 +5,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/firstboot"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestSafeMenuURL(t *testing.T) {
@@ -31,6 +35,16 @@ func TestSiteKeySeparatesSubsitesOnOneHost(t *testing.T) {
 }
 
 func TestIsStarterContent(t *testing.T) {
+	home, err := jsonx.Marshal(firstboot.HomeDoc("S"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	withMine := firstboot.HomeDoc("S")
+	withMine.Nodes = append(withMine.Nodes, builder.FromSections([]builder.Section{{ID: "mine", Type: "hero", Content: map[string]any{}}}).Nodes...)
+	mine, err := jsonx.Marshal(withMine)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for attrs, want := range map[string]bool{
 		`{"starter":true,"content":"x"}`:                    true,
 		`{"page_sections":[{"id":"welcome"}]}`:              true,
@@ -39,7 +53,9 @@ func TestIsStarterContent(t *testing.T) {
 		`{"starter":false,"page_sections":[{"id":"hero"}]}`: false,
 		`{"page_doc":{"v":2,"nodes":[{"id":"c-welcome","t":"container","p":{"tag":"section","v1":true},"c":[{"id":"welcome","t":"component","p":{"type":"hero","content":{}}}]}]}}`: true,
 		`{"page_doc":{"v":2,"nodes":[{"id":"c-x","t":"container","p":{"tag":"section","v1":true},"c":[{"id":"x","t":"component","p":{"type":"hero","content":{}}}]}]}}`:             false,
-		`not json`: false,
+		`{"page_doc":` + string(home) + `}`: true,
+		`{"page_doc":` + string(mine) + `}`: false,
+		`not json`:                          false,
 	} {
 		if got := isStarterContent([]byte(attrs)); got != want {
 			t.Errorf("isStarterContent(%s) = %v", attrs, got)
