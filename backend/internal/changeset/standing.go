@@ -223,7 +223,11 @@ func (e *Engine) checkPolicyIn(ctx context.Context, tx pgx.Tx, cs changesetRow, 
 	if p.createsEnabled() {
 		staged := 0
 		for _, it := range items {
-			if isCleanCreate(ctx, tx, p, it) {
+			clean, err := isCleanCreate(ctx, tx, p, it)
+			if err != nil {
+				return err
+			}
+			if clean {
 				staged++
 			}
 		}
@@ -252,7 +256,13 @@ func (e *Engine) checkPolicyIn(ctx context.Context, tx pgx.Tx, cs changesetRow, 
 		if len(v.Reasons) >= maxPolicyReasons {
 			break
 		}
-		if risks[it.Seq].needsLook(p, isCleanCreate(ctx, tx, p, it)) {
+		createLinks := false
+		if risks[it.Seq].risk != string(RiskLow) && p.Create != nil && len(p.Create.LinkFields) > 0 {
+			if createLinks, err = isCleanCreate(ctx, tx, p, it); err != nil {
+				return err
+			}
+		}
+		if risks[it.Seq].needsLook(p, createLinks) {
 			v.refuse(fmt.Sprintf("Change %d needs a closer look.", it.Seq))
 			continue
 		}
@@ -309,12 +319,15 @@ func checkStandingItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it Stor
 	if len(it.BlobKeys) > 0 {
 		return "files never qualify."
 	}
-	if isCleanCreate(ctx, tx, p, it) {
+	clean, err := isCleanCreate(ctx, tx, p, it)
+	if err != nil {
+		return "its target could not be read."
+	}
+	if clean {
 		return checkCreateItem(ctx, tx, p, it, st)
 	}
 	target := it.TargetID
 	if target == "" {
-		var err error
 		if target, err = mappedTarget(ctx, tx, Origin(p.Plugin), it.Kind, it.SourceKey); err != nil {
 			return "its target could not be read."
 		}
@@ -507,12 +520,12 @@ type standingRun struct {
 // judge: an entity upsert with no target and no live or stale mapping. Anything
 // else (a mapped key, a target that is gone) is not a create and keeps the
 // update rule's refusal.
-func isCleanCreate(ctx context.Context, tx rowQuerier, p StandingPolicy, it StoredItem) bool {
+func isCleanCreate(ctx context.Context, tx rowQuerier, p StandingPolicy, it StoredItem) (bool, error) {
 	if !p.createsEnabled() || it.Kind != KindEntity || it.Op != OpUpsert || it.TargetID != "" {
-		return false
+		return false, nil
 	}
 	mapped, err := mappedTarget(ctx, tx, Origin(p.Plugin), it.Kind, it.SourceKey)
-	return err == nil && mapped == ""
+	return err == nil && mapped == "", err
 }
 
 // Entity attribute keys the SEO block of a payload merges into, which a schema
