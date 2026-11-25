@@ -78,4 +78,4 @@ If the agent reports `forbidden: the API key lacks the read:reports scope`, the 
 
 If the agent runs in a web page and gets `403`, the request came from a browser address your site does not trust. A developer can allow it with `HATAMOTO_MCP_ALLOWED_ORIGINS`; see [MCP server](mcp.md#origin-check).
 
-Every request the agent makes is written to an audit log, and anything it changes appears in the content's history tagged with `[mcp:research agent]`. When you later want the agent to draft content, give it a separate key with **Write entities**, and read [MCP server](mcp.md#good-practice) first.
+Every request the agent makes is written to an audit log, and anything it changes appears in the content's history tagged with `[mcp:research agent]`. When you later want the agent to draft content, give it a separate key with **Write entities**, and read [MCP server](mcp.md#good-practice) and [Edit your site with AI safely](edit-your-site-with-ai-safely.md) first.
