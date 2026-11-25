@@ -5,8 +5,11 @@
 //                                      -> {status, content_type, body} (body is text)
 //   hatamoto.host(fn, args)            call a host function the owner granted
 //                                      -> {ok, result|error}   (owner only; an editor's page uses routes)
-//   hatamoto.runInputs(values)         hand the run's input values to core's start form
+//   hatamoto.runInputs(values)         hand the run's input values to core's start form (Runs tab)
 //                                      -> {ok:true}   (declared inputs only; core starts the run)
+//   hatamoto.runInputs(run, inputs)    start the declared run: core asks the owner first, outside the frame
+//                                      -> {ok:true, run_id, url} | {ok:false, error}   ("cancelled" when the owner says no)
+//                                      Owner only; needs a click in the page just before, else the promise rejects.
 //   hatamoto.camera.available          true when the owner granted the camera (also in the ready value)
 //   hatamoto.camera.capture()          ask for one photo from the camera (only if the owner granted it)
 //                                      -> {ok:true, image:"data:image/jpeg;base64,...", width, height}
@@ -53,7 +56,7 @@
     ready,
     route: (method, path, body, query) => send({ op: "route", method, path, body, query }),
     host: (fn, args) => send({ op: "host", fn, args }),
-    runInputs: (values) => send({ op: "inputs", values }),
+    runInputs: (nameOrValues, inputs) => (typeof nameOrValues === "string" ? send({ op: "run.start", run: nameOrValues, inputs }) : send({ op: "inputs", values: nameOrValues })),
     camera: { available: false, capture: () => send({ op: "camera.capture" }) },
   };
   parent.postMessage({ hm: 1, op: "ready" }, "*");

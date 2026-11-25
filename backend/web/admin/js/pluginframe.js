@@ -8,6 +8,7 @@
 //   iframe -> {hm:1, id, nonce, op:"route", method, path, query, body}  (the plugin's own routes)
 //   iframe -> {hm:1, id, nonce, op:"host", fn, args}                    (a granted host function; owner only)
 //   iframe -> {hm:1, id, nonce, op:"inputs", values}                    (run inputs, kept in core's start form; no request is made)
+//   iframe -> {hm:1, id, nonce, op:"run.start", run, inputs}            (owner only, needs a recent click: core's confirm names the run and inputs; Start posts to the owner-only start route)
 //   iframe -> {hm:1, id, nonce, op:"camera.capture"}                    (only with the owner's camera grant and a recent click: core's own dialog, one JPEG back; no request is made)
 //
 // The bridge belongs to the ONE document the frame loads first. A sandboxed
@@ -38,6 +39,10 @@ function init() {
   const bridge = holder.dataset.bridge;
   const camera = holder.dataset.camera === "1";
   const functions = new Set((holder.dataset.functions || "").split(",").filter(Boolean));
+  let runs = new Map();
+  try {
+    runs = new Map(JSON.parse(holder.dataset.runs || "[]").map((r) => [r.name, r]));
+  } catch { /* no runs: the page is not the owner's */ }
   const notice = holder.querySelector("[data-hm-pluginframe-notice]");
   const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content ?? "";
 
@@ -65,10 +70,90 @@ function init() {
     return { ok: true };
   }
 
+  // Starting a run from the page: only the owner's page carries data-runs. Core asks in its own
+  // dialog (run title and every input, values cut to 80 characters in the message only), and
+  // only Start posts to the owner-only start route. Values are refused, never cut, in the POST.
+  const MAX_RUN_INPUTS = 16;
+  // shown quotes a value for the dialog: control and bidi characters become spaces, and a cut
+  // value ends in "…" with its full length, so a long value cannot pass as a short one.
+  const shown = (v) => {
+    const t = v.replace(/[\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]/g, " ");
+    return JSON.stringify(t.length > 80 ? t.slice(0, 79) + "… (" + t.length + " characters)" : t);
+  };
+  let starting = false;
+  // A cancel cools the frame down: 3 s, and after 3 cancels no more starts until the page reloads.
+  const COOLDOWN_MS = 3000, MAX_CANCELS = 3, CLICK_GUARD_MS = 500;
+  let cancels = 0, coolUntil = 0;
+  // askConfirm is core's #hm-confirm (openConfirm) without the post: true when the person presses
+  // Start, false on Cancel, Esc, or when the dialog is missing or busy. Both listeners go on the first answer.
+  function askConfirm(openConfirm, opts) {
+    return new Promise((resolve) => {
+      const dlg = document.getElementById("hm-confirm");
+      if (!dlg || dlg.open) return resolve(false);
+      const form = dlg.querySelector("form");
+      const done = (v) => {
+        form.removeEventListener("submit", onSubmit);
+        dlg.removeEventListener("close", onClose);
+        resolve(v);
+      };
+      const openedAt = Date.now();
+      // A double-click on the page lands on Start as the dialog opens: ignore submits for a moment.
+      const onSubmit = (e) => { e.preventDefault(); if (Date.now() - openedAt < CLICK_GUARD_MS) return; done(true); dlg.close(); };
+      const onClose = () => done(false);
+      if (!openConfirm({ action: "", ...opts })) return resolve(false);
+      form.addEventListener("submit", onSubmit);
+      dlg.addEventListener("close", onClose);
+    });
+  }
+  async function startRun(name, inputs) {
+    if (!runs.size) throw new Error("only the site owner can start runs");
+    const run = runs.get(name);
+    if (!run) throw new Error(`no run named "${name}"`);
+    const values = inputs ?? {};
+    if (typeof values !== "object" || Array.isArray(values)) throw new Error("inputs must be an object");
+    const entries = Object.entries(values).map(([k, v]) => [k, String(v ?? "")]);
+    if (entries.length > MAX_RUN_INPUTS) throw new Error(`more than ${MAX_RUN_INPUTS} inputs`);
+    for (const [k, v] of entries) {
+      if (!run.inputs.includes(k)) throw new Error(`unknown input "${k}"`);
+      if (new TextEncoder().encode(v).length > MAX_INPUT) throw new Error(`input "${k}" is longer than ${MAX_INPUT} bytes`);
+    }
+    if (!navigator.userActivation?.isActive) throw new Error("starting a run needs a click on the page first");
+    if (starting) throw new Error("a run start is already waiting");
+    if (cancels >= MAX_CANCELS) throw new Error("the owner cancelled too many starts; reload the page to try again");
+    if (Date.now() < coolUntil) throw new Error("the owner just cancelled a start; wait a few seconds before asking again");
+    starting = true;
+    try {
+      const { openConfirm } = await import("@hm/components");
+      const list = entries.map(([k, v]) => `${shown(k)}: ${shown(v)}`).join("\n");
+      const label = run.title || run.name;
+      const net = run.host ? `It may reach ${shown(run.host)}.` : "It may reach no other site.";
+      const ok = await askConfirm(openConfirm, { title: "Start run?", okLabel: "Start", message: `Start run ${shown(label)}${list ? ` with:\n${list}` : ""}\n${net}`, opener: frame });
+      if (!ok) {
+        cancels++;
+        coolUntil = Date.now() + COOLDOWN_MS;
+        return { ok: false, error: "cancelled" };
+      }
+      const res = await fetch(run.start, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { Accept: "application/json", "X-CSRF-Token": csrf() },
+        body: new URLSearchParams(entries.map(([k, v]) => ["input_" + k, v])),
+      });
+      const out = await res.json().catch(() => null);
+      if (!out || typeof out.ok !== "boolean") return { ok: false, error: `the run could not be started (${res.status})` };
+      if (out.ok) document.dispatchEvent(new CustomEvent("hm:toast", { detail: { kind: "success", message: `Started the ${label} run.` } }));
+      return out;
+    } finally {
+      starting = false;
+    }
+  }
+
   async function forward(m) {
     let body;
     if (m.op === "inputs") {
       return setRunInputs(m.values);
+    } else if (m.op === "run.start") {
+      return startRun(m.run, m.inputs);
     } else if (m.op === "camera.capture") {
       if (!camera) throw new Error("camera is not available to this plugin's page");
       // Starting the camera needs a person's click (in the page or its frame), not a script.
