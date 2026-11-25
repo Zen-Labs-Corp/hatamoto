@@ -1,30 +1,48 @@
 # Release notes
 
-## Unreleased: entity upserts can ask to publish (SDK 0.28.1)
+## v1.4.6: entity upserts can ask to publish (SDK 0.28.1)
 
 - **Plugin authors.** `changeset.entity.upsert` takes an optional `status`: `draft` (the default) or `published`; anything else is `invalid_argument`. A create that the create rule of an approved standing approval allows is published with that status. Anywhere else, and without an approval, a `published` create waits for review as before. `status` applies only when the upsert creates an entry; for an entry the source key already maps to it is ignored, so an import that always sends it keeps its updates under the standing update rules and never changes a status the owner set.
 - **Compatibility.** Additive. A 0.28.0 host refuses the unknown member, so a plugin that sends `status` declares `sdk` `^0.28.1`.
 - **Migration.** None. **Rollback floor:** unchanged, but a plugin that declares `^0.28.1` is refused as incompatible by an older binary, so rolling back stops it from loading.
 
-## Unreleased: dry run for entity updates
+## v1.4.6: dry run for entity updates
 
 - **What.** `PUT` and `PATCH /api/v1/entities/{id}` take `?dry_run=1`, merge patches included, and MCP `entities_update` takes `dry_run: true`. The update runs its checks, sanitising and `before_save` filters but stores nothing and emits no events. The answer lists the `changes` (`path`, `before`, `after`) and the `version` they were built from; send that version back as `If-Match` or `version` to apply exactly that diff. See [Edit safely when several programs write](site/admin/users-and-api-keys.md#edit-safely-when-several-programs-write).
 - **Compatibility.** Additive: without `dry_run` nothing changes.
 - **Migration.** None. **Rollback floor:** unchanged.
 
-## Unreleased: merge patches for entity attributes
+## v1.4.6: merge patches for entity attributes
 
 - **What.** `PATCH /api/v1/entities/{id}` with `Content-Type: application/merge-patch+json` merges the sent `attributes` into the stored ones (JSON merge patch, RFC 7396): only the keys sent change, `null` removes a key, nested objects merge, arrays replace whole. MCP `entities_update` takes `merge: true` for the same. The merged result is validated and stored as one version, like a full write. `If-Match` and `version` work as before; send them with a merge. See [Edit safely when several programs write](site/admin/users-and-api-keys.md#edit-safely-when-several-programs-write).
 - **Default.** Unchanged: `PATCH` with `application/json`, `PUT` and `entities_update` without `merge` still replace `attributes` as a whole.
 - **Migration.** None. **Rollback floor:** none for data. Before rolling back, stop clients from sending merge patches (`Content-Type: application/merge-patch+json`, MCP `merge: true`): an older binary treats them as a full replace of `attributes`.
 
-## Unreleased: enum and date + time annotations for JSON-LD
+## v1.4.6: enum and date + time annotations for JSON-LD
 
 - **What.** A content type's JSON Schema can map an enum attribute to a schema.org URL with `x-schema-org-enum`, and print a date attribute plus a time attribute as one ISO 8601 value in the site time zone with `x-schema-org-datetime`. A cancelled event prints `"eventStatus": "https://schema.org/EventCancelled"`, and a value with no mapping prints nothing. `jsonld_validate` reports mappings the generator would ignore.
 - **Compatibility.** Additive. Schemas without the new keys print as before, and the `schema_org_type` allowed list is unchanged.
 - **Migration.** None. **Rollback floor:** unchanged. An older binary ignores the keys and prints the stored value.
 
-## Unreleased: standing approvals on dashed content types (SDK 0.27.1)
+## v1.4.6: list, read and restore entry versions over MCP
+
+- **What.** Three MCP tools. `entities_versions` (`read:entities`) lists an entry's stored versions, newest first, with the version number, `created_at`, `changed_by` (a display name, never an email address) and `change_summary`, paged with `page` and `limit` (default 20, max 100). `entities_version_get` (`read:entities`) returns one version's `attributes` exactly as stored, `page_doc` included. `entities_restore` (`write:entities`) restores through the same service as `POST /api/v1/entities/{id}/restore/{version}`; an optional `expected_version` that is stale answers `conflict:` and stores nothing. Review and a registered publishing policy apply as they do on REST, so a held restore answers `pending_review`. A restore made over MCP is stored with the summary `[mcp:<key name>] Restored from version N`. See [Versions and restore](MCP.md#versions-and-restore).
+- **Compatibility.** Additive. REST and admin restores are unchanged.
+- **Migration.** None. **Rollback floor:** unchanged.
+
+## v1.4.6: query loop sorts and filters by an attribute
+
+- **What.** A builder query loop can sort by one of the entry's own attributes (`order_by: {attr, dir}`) and filter on up to 3 attributes (`filters: [{attr, op, value}]`). Date attributes compare with today in the site time zone (`from_today`, `before_today`, `next_days` N), numbers with `eq`, `lt`, `lte`, `gt`, `gte`, enums and text with `eq` and `ne`. A page whose loop uses a today-relative filter is cached only until the next local midnight. The inspector has "Sort by attribute" and "Filters" rows for From = Query, and the MCP `builder_*` tools accept the same props. See [Query loop](BUILDER.md).
+- **Compatibility.** Additive. Top-level attribute keys only; dates are compared as `YYYY-MM-DD`. A static export freezes a today-relative loop at export time.
+- **Migration.** None. **Rollback floor:** an older binary refuses a builder doc that stores `order_by` or `filters`; remove them before rolling back.
+
+## v1.4.6: write-only plugin settings encrypted at rest
+
+- **What.** Plugin settings marked `"writeOnly": true` are sealed at rest with the same encryption core uses for its own secrets (AES-256-GCM, key derived from the server secret). Existing plain values are sealed once at boot; the log reports only counts. Plugins still read the plain value with `settings.get`. If a sealed value cannot be opened, for example after restoring a backup on a server with a different secret, the plugin sees the setting as unset and the plugin's Settings tab asks for the value again in the field itself.
+- **Compatibility.** No change for plugins. `hatamoto export` never contained plugin settings and still does not; backups carry the sealed form. Changing the server secret means entering write-only plugin settings again.
+- **Migration.** None (values are sealed inside the existing column). **Rollback floor:** an older binary hands the sealed string to the plugin as the value; after a rollback, enter the write-only settings again (see [Upgrades](UPGRADES.md)).
+
+## v1.4.6: standing approvals on dashed content types (SDK 0.27.1)
 
 - **Plugin authors.** `standing_approval.schemas` and `standing_approval.create.schemas` now accept content type slugs with dashes (such as `calendar-event`, at most 40 bytes) as well as identifiers (such as `calendar_event`, accepted before). `fields` still take identifiers. Every manifest valid under SDK 0.27.0 stays valid, and an exact `0.27.0` range still loads.
 - **Compatibility.** Additive. A host before this change refuses a manifest that names a dashed slug, so a plugin that does declares `sdk` `^0.27.1`.
