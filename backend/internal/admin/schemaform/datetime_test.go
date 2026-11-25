@@ -3,6 +3,7 @@ package schemaform
 import (
 	"encoding/json/jsontext"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 )
@@ -81,5 +82,53 @@ func TestDecodeDateTimeWithoutLocationIsUntouched(t *testing.T) {
 func TestValidateDateTimeStaysStrict(t *testing.T) {
 	if errs := Validate(jsontext.Value(dateTimeSchema), jsontext.Value(`{"start":"2026-06-14T19:00"}`)); len(errs) == 0 {
 		t.Error("naive date-time passed the validator")
+	}
+}
+
+func renderStart(t *testing.T, stored string, opt Options) string {
+	t.Helper()
+	out, err := Render(jsontext.Value(dateTimeSchema), map[string]any{"start": stored}, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
+
+func TestRenderDateTimeInSiteZone(t *testing.T) {
+	opt := newYork(t)
+	cases := []struct {
+		stored, value string
+		step          bool
+	}{
+		{"2026-06-14T23:00:00Z", "2026-06-14T19:00", false},
+		{"2026-06-14T23:00:30Z", "2026-06-14T19:00:30", true},
+		{"2026-06-14T19:00", "2026-06-14T19:00", false},
+	}
+	for _, c := range cases {
+		out := renderStart(t, c.stored, opt)
+		if !strings.Contains(out, `type="datetime-local"`) || !strings.Contains(out, `value="`+c.value+`"`) {
+			t.Errorf("%q: want value %q in %s", c.stored, c.value, out)
+		}
+		if strings.Contains(out, `step="1"`) != c.step {
+			t.Errorf("%q: step present = %v, want %v", c.stored, !c.step, c.step)
+		}
+	}
+}
+
+func TestRenderDateTimeWithoutLocationIsRaw(t *testing.T) {
+	out := renderStart(t, "2026-06-14T23:00:00Z", Options{})
+	if !strings.Contains(out, `value="2026-06-14T23:00:00Z"`) || strings.Contains(out, "step=") {
+		t.Errorf("not raw: %s", out)
+	}
+}
+
+func TestDateTimeRoundTrip(t *testing.T) {
+	opt := newYork(t)
+	got, errs := Decode(jsontext.Value(dateTimeSchema), url.Values{"start": {"2026-06-14T19:00:30"}}, nil, opt)
+	if len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	if out := renderStart(t, got["start"].(string), opt); !strings.Contains(out, `value="2026-06-14T19:00:30"`) {
+		t.Errorf("round trip lost the value: %s", out)
 	}
 }

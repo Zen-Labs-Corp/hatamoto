@@ -27,3 +27,18 @@ func naiveToRFC3339(v string, loc *time.Location) (out, msg string) {
 	}
 	return v, ""
 }
+
+// pickerValue turns a stored RFC 3339 value into the datetime-local value in
+// loc. Seconds are shown (step "1") only when nonzero: the picker's default
+// 60 s step would otherwise block the submit. Other values pass through.
+func pickerValue(stored string, loc *time.Location) (value, step string) {
+	t, err := time.Parse(time.RFC3339Nano, stored)
+	if err != nil {
+		return stored, ""
+	}
+	t = t.In(loc)
+	if t.Second() != 0 {
+		return t.Format(pickerSeconds), "1"
+	}
+	return t.Format(pickerMinutes), ""
+}

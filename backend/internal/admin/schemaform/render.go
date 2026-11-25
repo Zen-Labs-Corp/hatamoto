@@ -364,6 +364,9 @@ func (b *builder) field(name string, n *Node, v any, required bool, path, errPat
 		if f.InputType == "" {
 			f.InputType = "text"
 		}
+		if n.Format == "date-time" && b.opt.Location != nil {
+			f.Value, f.Step = pickerValue(f.Value, b.opt.Location)
+		}
 		f.Placeholder = firstNonEmpty(hint.Placeholder, n.Description, "Enter "+f.Label)
 		if n.WriteOnly {
 			f.Secret, f.SecretSet = true, b.opt.Secrets[path]
