@@ -233,17 +233,22 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 			Body: body, Name: req.Post.Get(names.Name), Email: typedEmail, Notify: notify,
 		}}, nil
 	}
+	var vouched *comment.Commenter // a plugin-vouched commenter with no readable email
 	if signIn && !admin {
 		// Policy schema: the identity is the signed-in commenter, never the post.
 		if req.DeviceCommenter == nil {
 			return fixable(CodeSignIn)
 		}
-		_, opened, err := p.Policy.CommenterEmail(ctx, *req.DeviceCommenter)
-		if errors.Is(err, comment.ErrNotFound) || (err == nil && opened == "") {
+		cm, opened, err := p.Policy.CommenterEmail(ctx, *req.DeviceCommenter)
+		switch {
+		case errors.Is(err, comment.ErrNotFound):
 			return fixable(CodeSignIn)
-		}
-		if err != nil {
+		case err != nil:
 			return Outcome{}, err
+		case opened == "" && cm.OriginPlugin == "":
+			return fixable(CodeSignIn)
+		case opened == "":
+			vouched = &cm
 		}
 		email = opened
 		if p.Drafter == nil {
@@ -265,6 +270,8 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	var commenterKey string
 	if admin {
 		commenterKey = "admin|" + req.AdminUserID.String()
+	} else if vouched != nil {
+		commenterKey = "commenter|" + vouched.ID.String()
 	} else {
 		commenterKey = keys.HashEmail(email)
 	}
@@ -315,7 +322,7 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	if n := utf8.RuneCountInString(name); n < 1 || n > MaxNameRunes {
 		return fixable(CodeName)
 	}
-	if !admin {
+	if !admin && vouched == nil {
 		switch err := p.Identity.CheckEmail(ctx, email); {
 		case errors.Is(err, identity.ErrEmailInvalid):
 			return fixable(CodeEmail)
@@ -338,7 +345,9 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	}
 	// The commenter lookup comes before the checks; step 11 reuses the result.
 	var known *comment.Commenter
-	if !admin {
+	if vouched != nil {
+		known = vouched
+	} else if !admin {
 		cm, err := p.Comments.Commenter(ctx, commenterKey)
 		switch {
 		case errors.Is(err, comment.ErrNotFound):
@@ -394,6 +403,10 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 		SpamScore: sr.Score, SpamVerdict: verdict,
 		SpamReasons: append(append([]string{}, sr.Reasons...), why...),
 		Locale:      req.Locale, NotifyReplies: notify && !admin,
+	}
+
+	if vouched != nil {
+		draft.CommenterID = &vouched.ID
 	}
 
 	// 12. Store. An unconfirmed address waits as a draft; the verdict is held
