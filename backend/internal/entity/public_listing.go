@@ -27,7 +27,8 @@ type ListFilter struct {
 	// PersonID restricts to entities credited to this person.
 	PersonID uuid.UUID
 	// Search is a websearch-syntax query matched against the entity's
-	// full-text vector (name, excerpt, content), best match first. Entities
+	// full-text vector (name, excerpt, content), best match first; words
+	// inside Japanese, Chinese and Korean text match too (search_cjk.go). Entities
 	// marked no_index never appear in search results.
 	Search string
 	// ExcludeSchemaSlugs leaves entities of these schemas out of a Search; it
@@ -211,14 +212,22 @@ func (r *PostgresPublicRepository) ListPublishedFiltered(ctx context.Context, f 
 		where = append(where, "e.id = ANY("+arg(f.IDs)+")")
 	}
 	if q := strings.TrimSpace(f.Search); q != "" {
-		p := arg(q)
+		// A query with Japanese, Chinese or Korean text matches the bigram
+		// index of those runs (search_cjk.go); any other query is read by
+		// websearch_to_tsquery exactly as before.
+		var tsq string
+		if cjk := segmentlessTSQuery(q); cjk != "" {
+			tsq = "to_tsquery('simple', " + arg(cjk) + ")"
+		} else {
+			tsq = "websearch_to_tsquery('simple', " + arg(q) + ")"
+		}
 		where = append(where,
-			"e.search_vector @@ websearch_to_tsquery('simple', "+p+")",
+			"e.search_vector @@ "+tsq,
 			"NOT "+NoIndexSQL)
 		if len(f.ExcludeSchemaSlugs) > 0 {
 			where = append(where, "s.slug <> ALL("+arg(f.ExcludeSchemaSlugs)+")")
 		}
-		rank = "ts_rank(e.search_vector, websearch_to_tsquery('simple', " + p + ")) DESC, "
+		rank = "ts_rank(e.search_vector, " + tsq + ") DESC, "
 	}
 	cond := strings.Join(where, " AND ")
 	from := `FROM hatamoto_entities e JOIN hatamoto_entity_schemas s ON e.schema_id = s.id WHERE ` + cond

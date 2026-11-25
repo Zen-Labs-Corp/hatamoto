@@ -20,17 +20,17 @@ func TestShapeCrumbs(t *testing.T) {
 		want []BreadcrumbItem
 	}{
 		{"zero settings", crumbInput{Home: home, Entry: entry, Archive: arch},
-			[]BreadcrumbItem{{"Home", "/"}, {"Blog", "/blog"}, {"Post", "/blog/post"}}},
+			[]BreadcrumbItem{{Label: "Home", Href: "/", defaultHome: true}, {Label: "Blog", Href: "/blog"}, {Label: "Post", Href: "/blog/post"}}},
 		{"no archive", crumbInput{Home: home, Entry: entry},
-			[]BreadcrumbItem{{"Home", "/"}, {"Post", "/blog/post"}}},
+			[]BreadcrumbItem{{Label: "Home", Href: "/", defaultHome: true}, {Label: "Post", Href: "/blog/post"}}},
 		{"home label", crumbInput{Home: home, Entry: entry, Cfg: seo.Breadcrumbs{HomeLabel: "Start"}},
-			[]BreadcrumbItem{{"Start", "/"}, {"Post", "/blog/post"}}},
+			[]BreadcrumbItem{{Label: "Start", Href: "/"}, {Label: "Post", Href: "/blog/post"}}},
 		{"term between archive and entry", crumbInput{Home: home, Entry: entry, Archive: arch, Term: term},
-			[]BreadcrumbItem{{"Home", "/"}, {"Blog", "/blog"}, {"News", "/category/news"}, {"Post", "/blog/post"}}},
+			[]BreadcrumbItem{{Label: "Home", Href: "/", defaultHome: true}, {Label: "Blog", Href: "/blog"}, {Label: "News", Href: "/category/news"}, {Label: "Post", Href: "/blog/post"}}},
 		{"entry title", crumbInput{Home: home, Entry: entry, Title: "  Short  "},
-			[]BreadcrumbItem{{"Home", "/"}, {"Short", "/blog/post"}}},
+			[]BreadcrumbItem{{Label: "Home", Href: "/", defaultHome: true}, {Label: "Short", Href: "/blog/post"}}},
 		{"blank title keeps name", crumbInput{Home: home, Entry: entry, Title: "  "},
-			[]BreadcrumbItem{{"Home", "/"}, {"Post", "/blog/post"}}},
+			[]BreadcrumbItem{{Label: "Home", Href: "/", defaultHome: true}, {Label: "Post", Href: "/blog/post"}}},
 	} {
 		if got := shapeCrumbs(tc.in); !reflect.DeepEqual(got, tc.want) {
 			t.Errorf("%s: got %v, want %v", tc.name, got, tc.want)
@@ -83,14 +83,14 @@ func TestLocaleRootCrumb(t *testing.T) {
 		saved string
 		want  []BreadcrumbItem
 	}{
-		{"prefixed locale", multi, "fr", "", []BreadcrumbItem{{"Francais", "/fr"}, {"Post", "/fr/blog/post"}}},
-		{"prefixed locale, name fallback", multi, "es", "", []BreadcrumbItem{{"Spanish", "/fr"}, {"Post", "/fr/blog/post"}}},
-		{"saved label loses on a prefixed locale", multi, "fr", "Start", []BreadcrumbItem{{"Francais", "/fr"}, {"Post", "/fr/blog/post"}}},
-		{"unprefixed default locale", multi, "en", "", []BreadcrumbItem{{"Home", "/fr"}, {"Post", "/fr/blog/post"}}},
-		{"saved label on the default locale", multi, "en", "Start", []BreadcrumbItem{{"Start", "/fr"}, {"Post", "/fr/blog/post"}}},
-		{"one locale", one, "en", "", []BreadcrumbItem{{"Home", "/fr"}, {"Post", "/fr/blog/post"}}},
-		{"shared page", multi, entity.LocaleShared, "", []BreadcrumbItem{{"Home", "/fr"}, {"Post", "/fr/blog/post"}}},
-		{"nil set", nil, "fr", "", []BreadcrumbItem{{"Home", "/fr"}, {"Post", "/fr/blog/post"}}},
+		{"prefixed locale", multi, "fr", "", []BreadcrumbItem{{Label: "Francais", Href: "/fr"}, {Label: "Post", Href: "/fr/blog/post"}}},
+		{"prefixed locale, name fallback", multi, "es", "", []BreadcrumbItem{{Label: "Spanish", Href: "/fr"}, {Label: "Post", Href: "/fr/blog/post"}}},
+		{"saved label loses on a prefixed locale", multi, "fr", "Start", []BreadcrumbItem{{Label: "Francais", Href: "/fr"}, {Label: "Post", Href: "/fr/blog/post"}}},
+		{"unprefixed default locale", multi, "en", "", []BreadcrumbItem{{Label: "Home", Href: "/fr", defaultHome: true}, {Label: "Post", Href: "/fr/blog/post"}}},
+		{"saved label on the default locale", multi, "en", "Start", []BreadcrumbItem{{Label: "Start", Href: "/fr"}, {Label: "Post", Href: "/fr/blog/post"}}},
+		{"one locale", one, "en", "", []BreadcrumbItem{{Label: "Home", Href: "/fr", defaultHome: true}, {Label: "Post", Href: "/fr/blog/post"}}},
+		{"shared page", multi, entity.LocaleShared, "", []BreadcrumbItem{{Label: "Home", Href: "/fr", defaultHome: true}, {Label: "Post", Href: "/fr/blog/post"}}},
+		{"nil set", nil, "fr", "", []BreadcrumbItem{{Label: "Home", Href: "/fr", defaultHome: true}, {Label: "Post", Href: "/fr/blog/post"}}},
 	} {
 		got := shapeCrumbs(crumbInput{
 			Home:      BreadcrumbItem{Href: "/fr"},

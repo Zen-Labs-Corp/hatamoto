@@ -43,7 +43,7 @@ The main columns of `hatamoto_entities` (from the baseline and later migrations)
 | `author_id`, `byline_person_id`, `byline_org` | the byline (see People below) |
 | `variant_key` | marks a plugin-owned variant row sharing a slug |
 | `slug_nested` | internal copy of "this type uses nested URLs", kept by triggers |
-| `search_vector` | generated full-text index of the name, `excerpt` and `content`, used by the site search |
+| `search_vector` | generated full-text index of the name, `excerpt` and `content`, used by the site search; runs of Japanese, Chinese and Korean text are indexed as overlapping bigrams (`hatamoto_search_text`) |
 | `created_by`, `updated_by`, `created_at`, `updated_at` | audit columns |
 
 The database check on `status` also tolerates a historical `redirected` value from the baseline; the application code only reads and writes the four statuses above.

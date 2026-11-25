@@ -11,8 +11,9 @@ import (
 
 // applyLocale fills the locale part of a page view on a multi-locale site:
 // PageView.Locale, the per-request site language, and the alternates with the
-// x-default URL. It does nothing on a one-locale site, and never changes the
-// shared SiteView (v.Site is a per-request copy).
+// x-default URL. On a one-locale site it only sets the local business: the
+// site's own office, when its switch is on. It never changes the shared
+// SiteView (v.Site is a per-request copy).
 func (s *Server) applyLocale(ctx context.Context, rr *routeResult, v *render.PageView, baseURL string) {
 	if rr == nil {
 		return
@@ -29,6 +30,10 @@ func (s *Server) applyLocaleSnap(ctx context.Context, snap *entity.URLSnapshot, 
 	business func(set *entity.LocaleSet, loc string) (*render.BusinessView, string)) {
 	set := snap.Locales()
 	if !set.Multi() {
+		// One locale: no alternates, locale names or geo region, but the office
+		// of the default business prints its LocalBusiness like the default
+		// locale of a multi-locale site does (#414).
+		v.Business, _ = business(set, set.Default())
 		return
 	}
 	var ent *entity.Entity

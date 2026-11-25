@@ -131,6 +131,11 @@ type PageView struct {
 	BaseURL    string
 	Path       string
 	Breadcrumb []Crumb
+	// HomeCrumbDefault says the first crumb of Breadcrumb has no label of the
+	// owner's (no saved home label, no locale name). The renderer then names
+	// it with the theme string breadcrumb_home of the page's locale, in the
+	// visible trail and in the BreadcrumbList JSON-LD alike.
+	HomeCrumbDefault bool `json:"-"`
 	// NoBreadcrumbLD leaves the BreadcrumbList JSON-LD out of the head; the
 	// visible trail (Breadcrumb) is unaffected.
 	NoBreadcrumbLD bool

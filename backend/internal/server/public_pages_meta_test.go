@@ -7,6 +7,23 @@ import (
 	"hatamoto.dev/core/internal/entity"
 )
 
+// TestEntryPageMeta: the homepage and every other page share one head builder,
+// so a page with only a description gets it as its meta description (#411).
+func TestEntryPageMeta(t *testing.T) {
+	t.Parallel()
+	ent := &entity.Entity{Name: "南房総", Schema: &entity.EntitySchema{Slug: "page"}}
+	got := entryPageMeta(ent, map[string]any{"description": "説明", "featured_image": "/f.jpg"}, "https://example.com/")
+	want := PageMeta{Title: "南房総", Description: "説明", OGImage: "/f.jpg", CanonicalURL: "https://example.com/"}
+	if got != want {
+		t.Errorf("description only: got %+v, want %+v", got, want)
+	}
+	got = entryPageMeta(ent, map[string]any{"meta_title": "T", "meta_description": "M", "description": "D", "og_image": "/og.jpg"}, "c")
+	want = PageMeta{Title: "T", Description: "M", OGImage: "/og.jpg", CanonicalURL: "c"}
+	if got != want {
+		t.Errorf("explicit values: got %+v, want %+v", got, want)
+	}
+}
+
 func TestMetaDescriptionAndImage(t *testing.T) {
 	t.Parallel()
 	person := &entity.EntitySchema{Slug: "person"}

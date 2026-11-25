@@ -152,8 +152,15 @@ func TestEntityLocale_IndexNamesAndScope(t *testing.T) {
 	if code != "23505" || name != "uq_entities_schema_parent_slug" {
 		t.Errorf("nested clash = %s %s, want 23505 uq_entities_schema_parent_slug", code, name)
 	}
+	// Checked right after this migration: a later one that rebuilds the table
+	// (202611251600_entity_search_cjk regenerates search_vector) writes the
+	// default into every row and clears atthasmissing.
+	at, _ := scratchDB(t)
+	if _, err := provider(t, at).UpTo(ctx, entityLocaleVersion); err != nil {
+		t.Fatalf("up to %d: %v", entityLocaleVersion, err)
+	}
 	var missing bool
-	if err := db.QueryRowContext(ctx, `SELECT atthasmissing FROM pg_attribute
+	if err := at.QueryRowContext(ctx, `SELECT atthasmissing FROM pg_attribute
 		WHERE attrelid = 'public.hatamoto_entities'::regclass AND attname = 'locale'`).Scan(&missing); err != nil || !missing {
 		t.Errorf("locale default is not metadata-only (atthasmissing=%v, %v)", missing, err)
 	}

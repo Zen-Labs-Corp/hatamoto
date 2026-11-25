@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json/jsontext"
+	"fmt"
 	"net/http/httptest"
 	"reflect"
 	"regexp"
@@ -542,5 +543,90 @@ func TestOrgView_IgnoresDefaultBusinessGeo(t *testing.T) {
 	b, errB := orgView(geo)
 	if errA != nil || errB != nil || !reflect.DeepEqual(a, b) {
 		t.Errorf("orgView changed with geo: %+v vs %+v (%v, %v)", a, b, errA, errB)
+	}
+}
+
+// A one-locale site prints the default business's LocalBusiness (with its
+// subtype) when the office switch is on, linked to the Organization, and
+// nothing new when it is off (#414).
+func TestLocaleBusiness_OneLocaleOffice(t *testing.T) {
+	office := func(on bool) *siteconfig.Config {
+		cfg := businessConfig(`{}`)
+		cfg.Language = "ja"
+		cfg.PostalAddress = jsontext.Value(`{"street":"Example Street 1","city":"Sample City","country":"JP"}`)
+		cfg.BusinessProfile = jsontext.Value(fmt.Sprintf(`{"name":"Example Library","business_type":"Library","office":%v,`+
+			`"opening_hours":[{"days":["Tuesday"],"opens":"09:00","closes":"18:00"}],"free_entry":true}`, on))
+		return cfg
+	}
+	empty, err := entity.NewLocaleSet("", nil, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed, err := entity.NewLocaleSet("ja", []entity.LocaleEntry{{Tag: "ja"}}, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, set := range map[string]*entity.LocaleSet{"no locales": empty, "nil set": nil, "one listed locale": listed} {
+		b, err := localeBusiness(office(true), set, "")
+		if err != nil || b == nil || b.ID != "ja" || b.Type != "Library" {
+			t.Fatalf("%s, office on: %+v, %v; want the ja Library", name, b, err)
+		}
+		if b, err := localeBusiness(office(false), set, ""); err != nil || b != nil {
+			t.Errorf("%s, office off: %+v, %v; want nil", name, b, err)
+		}
+	}
+
+	b, _ := localeBusiness(office(true), empty, "")
+	engine, err := render.New(render.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	v := &render.PageView{BaseURL: "https://example.test", Path: "/", Business: b, Site: render.SiteView{Name: "Example Site", Language: "ja"}}
+	if err := engine.RenderPage(&out, v); err != nil {
+		t.Fatal(err)
+	}
+	var lib map[string]any
+	var types []string
+	for _, m := range ldRE.FindAllSubmatch(out.Bytes(), -1) {
+		var doc struct {
+			Graph []map[string]any `json:"@graph"`
+		}
+		if jsonx.Unmarshal(m[1], &doc) != nil {
+			continue
+		}
+		for _, n := range doc.Graph {
+			types = append(types, n["@type"].(string))
+			if n["@type"] == "Library" {
+				lib = n
+			}
+		}
+	}
+	if !reflect.DeepEqual(types, []string{"Organization", "Library", "WebSite"}) || lib == nil {
+		t.Fatalf("graph = %v", types)
+	}
+	parent, _ := lib["parentOrganization"].(map[string]any)
+	if lib["@id"] != "https://example.test#localbusiness-ja" || parent["@id"] != "https://example.test#organization" ||
+		lib["openingHoursSpecification"] == nil || lib["isAccessibleForFree"] != true {
+		t.Errorf("Library node = %v", lib)
+	}
+
+	// applyLocale hands the business to every page of a one-locale site.
+	reg := entity.NewURLRegistry(pageSchemaLister{}, nil)
+	reg.SetLocales(func(context.Context) (*entity.LocaleSet, error) { return nil, nil })
+	snap, err := reg.Snapshot(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, on := range []bool{true, false} {
+		cfg := office(on)
+		pv := &render.PageView{}
+		(&Server{}).applyLocaleSnap(context.Background(), snap, &routeResult{}, pv, "https://example.test", func(set *entity.LocaleSet, loc string) (*render.BusinessView, string) {
+			b, _ := localeBusiness(cfg, set, loc)
+			return b, localeGeoRegion(cfg, set, loc)
+		})
+		if (pv.Business != nil) != on || pv.Locale != "" || pv.GeoRegion != "" || pv.Locales != nil {
+			t.Errorf("office %v: Business=%+v Locale=%q GeoRegion=%q", on, pv.Business, pv.Locale, pv.GeoRegion)
+		}
 	}
 }

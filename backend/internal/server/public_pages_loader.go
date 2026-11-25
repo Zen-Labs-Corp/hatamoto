@@ -142,19 +142,7 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 		attrs = make(map[string]interface{})
 	}
 
-	// Build meta
-	meta := PageMeta{
-		CanonicalURL: baseURL + loc.Path,
-	}
-	if title, ok := attrs["meta_title"].(string); ok && title != "" {
-		meta.Title = title
-	} else {
-		meta.Title = ent.Name
-	}
-	meta.Description, meta.OGImage = metaDescriptionAndImage(attrs, ent.Schema)
-	if seo.EntryNoIndex(ent.Metadata, ent.Attributes) {
-		meta.NoIndex = true
-	}
+	meta := entryPageMeta(ent, attrs, baseURL+loc.Path)
 
 	// Build breadcrumb.
 	//
@@ -246,22 +234,12 @@ func (s *Server) loadHomepage(r *http.Request) (*PublicPageResponse, pageOutcome
 		attrs = make(map[string]interface{})
 	}
 
-	meta := PageMeta{
-		Title:        ent.Name,
-		CanonicalURL: baseURL + home,
-	}
-	if desc, ok := attrs["meta_description"].(string); ok {
-		meta.Description = desc
-	}
-	if ogImage, ok := attrs["og_image"].(string); ok {
-		meta.OGImage = ogImage
-	}
-
 	response := PublicPageResponse{
 		Entity:         ent,
 		JSONLD:         jsonLD,
-		Meta:           meta,
+		Meta:           entryPageMeta(ent, attrs, baseURL+home),
 		NoBreadcrumbLD: noBreadcrumbLD,
+		ExtraJSONLD:    entity.CustomJSONLDDocs(ent.Attributes),
 		bylines:        bl,
 	}
 
@@ -272,6 +250,20 @@ func (s *Server) loadHomepage(r *http.Request) (*PublicPageResponse, pageOutcome
 	)
 
 	return &response, pageOutcome{Status: http.StatusOK}, nil
+}
+
+// entryPageMeta is the head metadata of an entry's page, the same for the
+// homepage and every other page so the two cannot drift apart: the title
+// (meta_title, else the name), the description and image chain of
+// metaDescriptionAndImage, the canonical address and the entry's noindex flag.
+func entryPageMeta(ent *entity.Entity, attrs map[string]any, canonical string) PageMeta {
+	meta := PageMeta{Title: ent.Name, CanonicalURL: canonical}
+	if title, ok := attrs["meta_title"].(string); ok && title != "" {
+		meta.Title = title
+	}
+	meta.Description, meta.OGImage = metaDescriptionAndImage(attrs, ent.Schema)
+	meta.NoIndex = seo.EntryNoIndex(ent.Metadata, ent.Attributes)
+	return meta
 }
 
 // personDescriptionRunes bounds a meta description made from a bio.

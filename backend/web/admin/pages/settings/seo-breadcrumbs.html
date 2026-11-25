@@ -4,7 +4,7 @@
 <form method="post" action="{{adminPath}}/settings/seo/breadcrumbs" class="hm-cardform">
 {{template "hm/csrf" $}}
 {{template "hm/card-start" dict "ID" "trail" "Title" "Trail" "Heading" "h2" "Description" "How the breadcrumb trail reads. The defaults reproduce the trail as it was before these settings existed."}}
-{{template "hm/field" dict "ID" "breadcrumbs-home_label" "Name" "home_label" "Label" "Home label" "Value" .State.HomeLabel "Placeholder" "Home" "Help" "The first crumb. Blank keeps Home." "Error" (index .Errs "breadcrumbs-home_label") "Attrs" (attrmap "maxlength" (printf "%d" .MaxLabel) "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "breadcrumbs-home_label" "Name" "home_label" "Label" "Home label" "Value" .State.HomeLabel "Placeholder" "Home" "Help" "The first crumb, on every locale. Blank uses the theme string breadcrumb home, which Theme > Strings translates per locale." "Error" (index .Errs "breadcrumbs-home_label") "Attrs" (attrmap "maxlength" (printf "%d" .MaxLabel) "autocomplete" "off")}}
 {{template "hm/field" dict "ID" "breadcrumbs-show_home" "Name" "show_home" "Label" "Show home crumb" "Control" "switch" "Value" "true" "OffValue" "false" "Checked" (not .State.HideHome) "Help" "Search engines still get the full trail."}}
 {{template "hm/field" dict "ID" "breadcrumbs-separator" "Name" "separator" "Label" "Separator" "Control" "select" "Options" .Separators "Help" "Used by themes that print one." "Error" (index .Errs "breadcrumbs-separator")}}
 {{template "hm/field" dict "ID" "breadcrumbs-hide_current" "Name" "hide_current" "Label" "Hide the current page" "Control" "switch" "Value" "true" "OffValue" "false" "Checked" .State.HideCurrent "Help" "Leaves the page itself out of the visible trail. Search engines still get it."}}

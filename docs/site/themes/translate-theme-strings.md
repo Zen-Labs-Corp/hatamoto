@@ -48,6 +48,10 @@ A partial called with `dict` has no page data of its own. Pass the strings in, t
 
 A key that is not declared prints as the key itself, so a typo is easy to spot. Section templates can call `{{t . "key"}}` directly.
 
+## Strings every theme has
+
+A theme is layered over the built-in theme, so it inherits the built-in theme's strings and can declare the same key with its own default. One of them is read by core rather than by a template: `breadcrumb_home`, the first crumb of the breadcrumb trail. Its text is used in the visible trail and in the `BreadcrumbList` JSON-LD, unless the owner saved a home label under Settings > SEO > Breadcrumbs or the page belongs to a locale served under a prefix (then the crumb is the locale's name).
+
 ## How the owner translates them
 
 The owner opens **Theme > Strings** (`<admin>/theme/strings`, owners only). On a site with more than one locale there is a tab for each locale; pick one. The page lists every string of the active theme with its key, the theme's default text and a field for the chosen locale. A blank field means "use the default". Saving writes only the filled fields and clears the page cache.

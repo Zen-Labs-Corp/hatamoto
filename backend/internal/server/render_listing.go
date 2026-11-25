@@ -390,7 +390,7 @@ func (s *Server) fillCappedArchive(ctx context.Context, rr *routeResult, cfg *en
 	}
 	v.Archive, v.Pagination = av, nil
 	if av.Group != nil {
-		v.Breadcrumb = crumbs(s.groupCrumbs(ctx, cfg, rr, av.Group))
+		setCrumbs(v, s.groupCrumbs(ctx, cfg, rr, av.Group))
 	}
 	v.Page.CanonicalURL = v.BaseURL + rr.CanonicalURL
 	if v.Page.Name == "" {
