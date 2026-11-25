@@ -521,3 +521,23 @@ func TestFreshInstallDoesNotExtendKeptTypes(t *testing.T) {
 		t.Fatalf("update after the fresh install did not extend: %v", r.storedProps("product"))
 	}
 }
+
+// A new type that fails to create does not keep the owned types from gaining
+// their fields.
+func TestExtendSurvivesFailedCreate(t *testing.T) {
+	r, _ := schemaRig(t)
+	if err := r.installPack(schemaPack("shop")); err != nil {
+		t.Fatal(err)
+	}
+	files := packWith("shop", productWithSKU)
+	files["schemas/venue.json"] = []byte(`{"title":"Venue","type":"object","properties":{"broken":{"title":"no type"}}}`)
+	if err := r.installPack(files); err != nil {
+		t.Fatal(err)
+	}
+	if _, found := r.typeOwner("venue"); found {
+		t.Fatal("test premise: the invalid type was created")
+	}
+	if _, ok := r.storedProps("product")["sku"]; !ok {
+		t.Fatalf("sku not added after a failed create: %v", r.storedProps("product"))
+	}
+}
