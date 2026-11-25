@@ -77,17 +77,20 @@ func (s *Server) mountMCP(r *httpx.Group) {
 	}
 }
 
-// mcpUserName is a person's display name for version history: the name, else
-// the login email; false when the user is unknown.
+// mcpUserName is a person's display name for version history; false when the
+// user is unknown or has no name. Never the login email: an MCP key must not
+// learn staff addresses (same rule as mcpReplyName).
 func (s *Server) mcpUserName(ctx context.Context, id uuid.UUID) (string, bool) {
 	u, err := s.userRepo.GetByID(ctx, id)
 	if err != nil || u == nil {
 		return "", false
 	}
-	if u.Name != nil && *u.Name != "" {
-		return *u.Name, true
+	if u.Name != nil {
+		if n := strings.TrimSpace(*u.Name); n != "" && !strings.EqualFold(n, u.Email) {
+			return n, true
+		}
 	}
-	return u.Email, u.Email != ""
+	return "", false
 }
 
 func mcpAllowedOrigins(cfg *config.Config) []string {

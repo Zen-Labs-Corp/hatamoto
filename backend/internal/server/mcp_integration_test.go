@@ -232,7 +232,7 @@ func TestMCPIntegration(t *testing.T) {
 		t.Fatalf("versions: %v", vl)
 	}
 	first := vrows[0].(map[string]any)
-	if first["changed_by"] != "mcp-"+sfx+"@example.test" {
+	if first["changed_by"] != "Unknown user" { // the test user has no name; never the email
 		t.Errorf("changed_by = %v", first["changed_by"])
 	}
 	if _, has := first["attributes"]; has {

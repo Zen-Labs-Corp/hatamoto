@@ -73,7 +73,7 @@ Three tools cover an entry's stored history. They list and read stored earlier v
 - `entities_version_get` takes `id` and `version` and returns that version's row with its `attributes` as stored, `page_doc` included. Read it next to `entities_get` to show a before and after.
 - `entities_restore` takes `id`, `version` and optionally `expected_version`. It uses the same service as the REST restore endpoint and stores the old content as a new version with the summary `[mcp:<key name>] Restored from version N`, so nothing is erased from the history. It returns the same entity summary as `entities_update`. When the review switch holds the change, the result is `pending_review` as described above and nothing is stored yet.
 
-`changed_by` is the person the change is attributed to. For a change made with a key that is the key's creator; the key name shows in the `[mcp:<key name>]` tag of the `change_summary`.
+`changed_by` is the person the change is attributed to, by display name and never an email address (a person without a name shows as `Unknown user`). For a change made with a key that is the key's creator; the key name shows in the `[mcp:<key name>]` tag of the `change_summary`.
 
 ## SEO tools
 
