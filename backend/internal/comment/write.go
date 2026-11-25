@@ -172,6 +172,8 @@ func (s *Service) Store(ctx context.Context, d Draft) (Comment, error) {
 				return err
 			}
 			commenterID = &id
+		} else if d.CommenterID != nil {
+			commenterID = d.CommenterID
 		}
 
 		var confirmedAt, approvedAt *time.Time

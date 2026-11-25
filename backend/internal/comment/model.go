@@ -257,6 +257,7 @@ type Commenter struct {
 	TokenVersion    int
 	CreatedAt       time.Time
 	LastSeenAt      time.Time
+	OriginPlugin    string // "" = email commenter; else the plugin that vouches for it
 }
 
 // Draft is an already formatted and scored submission (Service.Store input).
@@ -266,6 +267,9 @@ type Draft struct {
 	Email        string // raw; hashed and sealed by the service. Empty for admin replies.
 	AuthorName   string
 	AuthorUserID *uuid.UUID
+	// CommenterID attributes the comment to a commenter a plugin vouches for
+	// (one without email); used only when Email is empty.
+	CommenterID *uuid.UUID
 
 	BodyRaw, BodyHTML string
 	HasLinks          bool
