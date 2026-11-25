@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/fs"
 	"maps"
+	"slices"
 	"sort"
 	"strings"
 
@@ -190,15 +191,8 @@ func parseWidgetSpec(name string, raw []byte, pack bool) (kindSpec, error) {
 		return kindSpec{}, err
 	}
 	for key, p := range ws.Properties {
-		if p.Type == "array" {
+		if pack && hasArrayType(p.Type) {
 			return kindSpec{}, fmt.Errorf("prop %q: array props are not supported, use child nodes", key)
-		}
-		if ts, ok := p.Type.([]any); ok {
-			for _, t := range ts {
-				if t == "array" {
-					return kindSpec{}, fmt.Errorf("prop %q: array props are not supported, use child nodes", key)
-				}
-			}
 		}
 		if p.Widget != "" {
 			widgets[key] = p.Widget
@@ -218,6 +212,15 @@ func parseWidgetSpec(name string, raw []byte, pack bool) (kindSpec, error) {
 		return kindSpec{}, err
 	}
 	return kindSpec{children: m.Children, schema: string(raw), meta: &m, order: order, widgets: widgets, accepts: accepts, bind: bind}, nil
+}
+
+// hasArrayType reports whether a schema "type" (a name or a list of names) includes array.
+func hasArrayType(t any) bool {
+	if t == "array" {
+		return true
+	}
+	ts, _ := t.([]any)
+	return slices.Contains(ts, any("array"))
 }
 
 // propertyOrder returns the keys of the top-level "properties" object in

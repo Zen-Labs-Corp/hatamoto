@@ -11,7 +11,7 @@ import (
 )
 
 // PropInfo describes one prop of a node kind, derived from its compiled
-// schema. Type is "string", "integer", "boolean" or "object".
+// schema. Type is "string", "integer", "boolean", "object" or "array".
 type PropInfo struct {
 	Key      string
 	Type     string
@@ -298,6 +298,12 @@ func CoerceProp(kind, key, raw string) (any, error) {
 				return nil, fmt.Errorf("builder: %s: not a JSON object", key)
 			}
 			v = m
+		case "array":
+			var a []any
+			if err := jsonx.Unmarshal([]byte(raw), &a); err != nil || a == nil {
+				return nil, fmt.Errorf("builder: %s: not a JSON array", key)
+			}
+			v = a
 		default:
 			return nil, fmt.Errorf("builder: prop %q has unsupported type %q", key, ps.Types[0])
 		}

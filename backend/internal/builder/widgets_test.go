@@ -56,8 +56,6 @@ func TestLoadWidgetsAcceptsValid(t *testing.T) {
 
 func TestLoadWidgetsRejects(t *testing.T) {
 	cases := map[string]string{
-		"array prop":        `{"x-hm":{"label":"A","group":"Content"},"properties":{"items":{"type":"array"}}}`,
-		"array union":       `{"x-hm":{"label":"A","group":"Content"},"properties":{"items":{"type":["null","array"]}}}`,
 		"bad group":         `{"x-hm":{"label":"A","group":"Nope"},"properties":{}}`,
 		"no x-hm":           `{"properties":{}}`,
 		"no label":          `{"x-hm":{"group":"Content"}}`,
@@ -76,12 +74,27 @@ func TestLoadWidgetsRejects(t *testing.T) {
 	}
 }
 
+// A plugin widget cannot take array props; the embedded ones can (the loop's filters).
+func TestPackWidgetRejectsArrayProps(t *testing.T) {
+	for name, schema := range map[string]string{
+		"array prop":  `{"x-hm":{"label":"A","group":"Content"},"properties":{"items":{"type":"array"}}}`,
+		"array union": `{"x-hm":{"label":"A","group":"Content"},"properties":{"items":{"type":["null","array"]}}}`,
+	} {
+		if _, err := parseWidgetSpec("probe", []byte(schema), true); err == nil {
+			t.Errorf("%s: accepted for a pack widget", name)
+		}
+		if _, err := parseWidgetSpec("probe", []byte(schema), false); err != nil {
+			t.Errorf("%s: refused for an embedded widget: %v", name, err)
+		}
+	}
+}
+
 func mapWith(kind, schema string) fstest.MapFS {
 	return fstest.MapFS{"widgets/" + kind + "/schema.json": {Data: []byte(schema)}}
 }
 
 func TestEmbeddedWidgetsLoad(t *testing.T) {
-	// Whatever ships must have merged cleanly at init (no array props, valid meta).
+	// Whatever ships must have merged cleanly at init (valid meta).
 	for name, k := range reg.Load().kinds {
 		if k.meta == nil {
 			continue

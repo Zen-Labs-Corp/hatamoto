@@ -270,3 +270,44 @@ func TestApplyOpsLegacySections(t *testing.T) {
 		t.Errorf("wrap of plain top-level nodes: %v", err)
 	}
 }
+
+func TestApplyOpsLoopFilters(t *testing.T) {
+	const loopBase = `{"v":2,"nodes":[{"id":"lp","t":"loop","p":{"schema":"event"}}]}`
+	from := func(attr, op string, extra ...any) object {
+		f := object{"attr": attr, "op": op}
+		for i := 0; i+1 < len(extra); i += 2 {
+			f[extra[i].(string)] = extra[i+1]
+		}
+		return f
+	}
+	ok := []any{from("start_date", "from_today"), from("status", "ne", "value", "cancelled")}
+	doc := mustDoc(t, loopBase)
+	if _, err := applyOps(doc, []opIn{
+		{Op: "setProp", ID: "lp", Key: "filters", Value: ok},
+		{Op: "setProp", ID: "lp", Key: "order_by", Value: object{"attr": "start_date", "dir": "asc"}},
+	}); err != nil {
+		t.Fatalf("valid filters: %v", err)
+	}
+	if err := doc.Validate(); err != nil {
+		t.Fatalf("doc invalid after valid ops: %v", err)
+	}
+	for name, filters := range map[string][]any{
+		"four filters": {from("a", "from_today"), from("b", "from_today"), from("c", "from_today"), from("d", "from_today")},
+		"bad op":       {from("a", "like", "value", "x")},
+		"bad value":    {from("a", "lt", "value", "abc")},
+		"missing days": {from("a", "next_days")},
+	} {
+		_, err := applyOps(mustDoc(t, loopBase), []opIn{{Op: "setProp", ID: "lp", Key: "filters", Value: filters}})
+		if err == nil {
+			t.Errorf("%s: accepted", name)
+			continue
+		}
+		// The same props on a doc validated directly give the same error.
+		direct := mustDoc(t, loopBase)
+		direct.Nodes[0].P["filters"] = filters
+		want := direct.Validate()
+		if want == nil || !strings.HasSuffix(err.Error(), want.Error()) {
+			t.Errorf("%s: ops error %q does not end with the Validate error %v", name, err, want)
+		}
+	}
+}

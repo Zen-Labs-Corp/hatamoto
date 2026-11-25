@@ -37,6 +37,40 @@ func TestLoopProps(t *testing.T) {
 		{"bad order", map[string]any{"order": "random"}, false},
 		{"bad paging", map[string]any{"paging": "infinite"}, false},
 		{"unknown prop", map[string]any{"sql": "x"}, false},
+		{"order_by asc", map[string]any{"order_by": map[string]any{"attr": "start_date", "dir": "asc"}}, true},
+		{"order_by desc", map[string]any{"order_by": map[string]any{"attr": "start_date", "dir": "desc"}}, true},
+		{"order_by no dir", map[string]any{"order_by": map[string]any{"attr": "start_date"}}, true},
+		{"order_by with order", map[string]any{"order": "name", "order_by": map[string]any{"attr": "n"}}, true},
+		{"order_by dotted", map[string]any{"order_by": map[string]any{"attr": "a.b"}}, false},
+		{"order_by no attr", map[string]any{"order_by": map[string]any{"dir": "asc"}}, false},
+		{"order_by bad dir", map[string]any{"order_by": map[string]any{"attr": "n", "dir": "up"}}, false},
+		{"order_by extra", map[string]any{"order_by": map[string]any{"attr": "n", "x": 1}}, false},
+		{"three filters", map[string]any{"filters": []any{
+			map[string]any{"attr": "start_date", "op": "from_today"},
+			map[string]any{"attr": "status", "op": "ne", "value": "cancelled"},
+			map[string]any{"attr": "seats", "op": "gte", "value": 10.0}}}, true},
+		{"next_days 0", map[string]any{"filters": []any{map[string]any{"attr": "d", "op": "next_days", "days": 0.0}}}, true},
+		{"next_days 3650", map[string]any{"filters": []any{map[string]any{"attr": "d", "op": "next_days", "days": 3650.0}}}, true},
+		{"before_today", map[string]any{"from": "query", "filters": []any{map[string]any{"attr": "d", "op": "before_today"}}}, true},
+		{"eq number", map[string]any{"filters": []any{map[string]any{"attr": "n", "op": "eq", "value": 3.0}}}, true},
+		{"four filters", map[string]any{"filters": []any{
+			map[string]any{"attr": "a", "op": "from_today"}, map[string]any{"attr": "b", "op": "from_today"},
+			map[string]any{"attr": "c", "op": "from_today"}, map[string]any{"attr": "d", "op": "from_today"}}}, false},
+		{"op like", map[string]any{"filters": []any{map[string]any{"attr": "n", "op": "like", "value": "x"}}}, false},
+		{"lt text", map[string]any{"filters": []any{map[string]any{"attr": "n", "op": "lt", "value": "abc"}}}, false},
+		{"lt no value", map[string]any{"filters": []any{map[string]any{"attr": "n", "op": "lt"}}}, false},
+		{"eq no value", map[string]any{"filters": []any{map[string]any{"attr": "n", "op": "eq"}}}, false},
+		{"eq days", map[string]any{"filters": []any{map[string]any{"attr": "n", "op": "eq", "value": "a", "days": 1.0}}}, false},
+		{"next_days no days", map[string]any{"filters": []any{map[string]any{"attr": "d", "op": "next_days"}}}, false},
+		{"next_days 3651", map[string]any{"filters": []any{map[string]any{"attr": "d", "op": "next_days", "days": 3651.0}}}, false},
+		{"next_days 1.5", map[string]any{"filters": []any{map[string]any{"attr": "d", "op": "next_days", "days": 1.5}}}, false},
+		{"next_days value", map[string]any{"filters": []any{map[string]any{"attr": "d", "op": "next_days", "days": 1.0, "value": "x"}}}, false},
+		{"from_today value", map[string]any{"filters": []any{map[string]any{"attr": "d", "op": "from_today", "value": "x"}}}, false},
+		{"filter unknown key", map[string]any{"filters": []any{map[string]any{"attr": "d", "op": "from_today", "x": 1}}}, false},
+		{"filter attr dotted", map[string]any{"filters": []any{map[string]any{"attr": "a.b", "op": "from_today"}}}, false},
+		{"filters on archive", map[string]any{"from": "archive", "filters": []any{map[string]any{"attr": "d", "op": "from_today"}}}, false},
+		{"order_by on archive", map[string]any{"from": "archive", "order_by": map[string]any{"attr": "d"}}, false},
+		{"order_by on source", map[string]any{"from": "source", "source": "ext.a-b.c", "order_by": map[string]any{"attr": "d"}}, false},
 	}
 	for _, c := range cases {
 		err := loopDoc(c.p).Validate()
@@ -45,6 +79,21 @@ func TestLoopProps(t *testing.T) {
 		}
 		if err != nil && !errors.Is(err, ErrInvalid) {
 			t.Errorf("%s: %v does not wrap ErrInvalid", c.name, err)
+		}
+	}
+}
+
+func TestCoercePropArray(t *testing.T) {
+	got, err := CoerceProp("loop", "filters", `[{"attr":"d","op":"from_today"}]`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a, ok := got.([]any); !ok || len(a) != 1 {
+		t.Errorf("got %#v", got)
+	}
+	for _, raw := range []string{`{"attr":"d"}`, `nope`, `null`, `[{"attr":"d","op":"like"}]`} {
+		if v, err := CoerceProp("loop", "filters", raw); err == nil {
+			t.Errorf("CoerceProp(%q) = %v, want an error", raw, v)
 		}
 	}
 }
@@ -170,6 +219,13 @@ func TestKindsLoop(t *testing.T) {
 		if k.Kind == "loop" && k.Seed[0].C[0].B["text"] != "loop.item.title" {
 			t.Error("Seed shared")
 		}
+	}
+	types := map[string]string{}
+	for _, p := range l.Props {
+		types[p.Key] = p.Type
+	}
+	if types["order_by"] != "object" || types["filters"] != "array" {
+		t.Errorf("order_by/filters types = %q/%q", types["order_by"], types["filters"])
 	}
 	for _, p := range l.Props {
 		if p.Key == "schema" && p.Widget != "datalist:schemas" {

@@ -30,7 +30,8 @@ type BootKind struct {
 
 // BootProp is the JSON view of a PropInfo.
 type BootProp struct {
-	Key      string   `json:"key"`
+	Key string `json:"key"`
+	// Type is string, integer, number, boolean, object or array.
 	Type     string   `json:"type"`
 	Enum     []any    `json:"enum,omitempty"`
 	Min      *float64 `json:"min,omitempty"`

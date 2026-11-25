@@ -183,6 +183,11 @@ func (d *Doc) Validate() error {
 					return invalid("%s: %v", x.ID, err)
 				}
 			}
+			if x.T == "loop" {
+				if err := loopAttrErr(x.ID, x.P); err != nil {
+					return err
+				}
+			}
 			if err := validateBinds(r, x, inLoop); err != nil {
 				return invalid("%s: %v", x.ID, err)
 			}
@@ -250,4 +255,53 @@ func (d *Doc) Count() int {
 	}
 	walk(d.Nodes)
 	return n
+}
+
+// loopAttrErr checks order_by and filters beyond their JSON shape: only on a
+// query loop, and each filter's value fits its operator.
+func loopAttrErr(id string, p map[string]any) error {
+	if p["order_by"] == nil && p["filters"] == nil {
+		return nil
+	}
+	if from, _ := p["from"].(string); from != "" && from != "query" {
+		return invalid("%s: sort and filters need a query loop", id)
+	}
+	fs, _ := p["filters"].([]any)
+	for i, f := range fs {
+		m, _ := f.(map[string]any)
+		op, _ := m["op"].(string)
+		value, hasValue := m["value"]
+		_, hasDays := m["days"]
+		n := i + 1
+		switch op {
+		case "from_today", "before_today":
+			if hasValue || hasDays {
+				return invalid("%s: filter %d: %s takes no value", id, n, op)
+			}
+		case "next_days":
+			if hasValue {
+				return invalid("%s: filter %d: %s takes days, not a value", id, n, op)
+			}
+			if !hasDays {
+				return invalid("%s: filter %d: %s needs days", id, n, op)
+			}
+		case "lt", "lte", "gt", "gte":
+			if hasDays {
+				return invalid("%s: filter %d: %s takes no days", id, n, op)
+			}
+			switch value.(type) {
+			case float64, int, int64:
+			default:
+				return invalid("%s: filter %d: %s needs a number", id, n, op)
+			}
+		case "eq", "ne":
+			if hasDays {
+				return invalid("%s: filter %d: %s takes no days", id, n, op)
+			}
+			if !hasValue {
+				return invalid("%s: filter %d: %s needs a value", id, n, op)
+			}
+		}
+	}
+	return nil
 }
