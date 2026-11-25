@@ -183,6 +183,12 @@ A user who sets up a second factor must send `code` (an authenticator code or a 
 
 Authenticator secrets and recovery codes are keyed from `HATAMOTO_SECRET`. If you rotate that secret, every user's authenticator app and recovery codes stop working and sign-in fails at the second step. Run `hatamoto user reset-2fa` for each affected user afterwards; they set two-step sign-in up again.
 
+## Write-only plugin settings are sealed
+
+Plugin settings marked `writeOnly` are stored sealed with the server secret. The first boot of this version seals the values already stored and logs `plugin settings: sealed write-only values count=N plugins=M`. There is no migration to run. A plugin installed or updated later with a new write-only property is sealed on the next save or the next boot.
+
+Plugins read the plain value as before and need no change. Rolling back to the previous binary hands plugins the sealed text instead of the secret, so enter those values again on each plugin's Settings tab after a rollback. Rotating `HATAMOTO_SECRET` has the same effect: enter the write-only values again.
+
 ## Plugins write through runs
 
 Core 1.1.0 (SDK 0.17.0) removes the direct content write API of plugins with no shim; see [ADR 0004](adr/0004-plugin-changesets.md). The five permissions `entities.write`, `terms.write`, `menus.write`, `media.write` and `redirects.write` and the twelve functions behind them are gone. Content now enters through a run: the plugin stages changes into a changeset and the owner publishes or discards it.
