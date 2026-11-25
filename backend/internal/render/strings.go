@@ -3,6 +3,7 @@ package render
 import (
 	"io/fs"
 	"maps"
+	"slices"
 
 	"encoding/json/jsontext"
 	"hatamoto.dev/core/internal/jsonx"
@@ -101,4 +102,26 @@ func stringsOf(v any) map[string]string {
 		return m
 	}
 	return nil
+}
+
+// homeCrumbKey is the theme string that names the home crumb when the owner
+// saved no label for it (Settings > SEO > Breadcrumbs) and it is not a locale
+// name. The built-in theme declares it as "Home", and every theme inherits it.
+const homeCrumbKey = "breadcrumb_home"
+
+// localizeHomeCrumb names the home crumb with the theme string of the page's
+// locale when v.HomeCrumbDefault is set, so a site in another language prints
+// its own word in the visible trail and the BreadcrumbList JSON-LD (#413).
+// It replaces the trail rather than writing into it: the slice may be shared.
+func localizeHomeCrumb(v *PageView) {
+	if !v.HomeCrumbDefault || len(v.Breadcrumb) == 0 {
+		return
+	}
+	label := v.strs[homeCrumbKey]
+	if label == "" || label == v.Breadcrumb[0].Name {
+		return
+	}
+	trail := slices.Clone(v.Breadcrumb)
+	trail[0].Name = label
+	v.Breadcrumb = trail
 }

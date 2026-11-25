@@ -129,7 +129,7 @@ func pageViewFromRoute(rr *routeResult, baseURL, path string) *render.PageView {
 	case rr.Page != nil:
 		p := rr.Page
 		v.Page = pageMeta(p.Meta)
-		v.Breadcrumb = crumbs(p.Breadcrumb)
+		setCrumbs(v, p.Breadcrumb)
 		v.NoBreadcrumbLD = p.NoBreadcrumbLD
 		v.JSONLD = append(jsonLDDocs(p.JSONLD), p.ExtraJSONLD...)
 		v.AICrawlerComment = p.AICrawlerComment
@@ -442,6 +442,13 @@ func pageMeta(m PageMeta) render.PageMeta {
 		Title: m.Title, Description: m.Description, OGImage: m.OGImage,
 		CanonicalURL: m.CanonicalURL, NoIndex: m.NoIndex,
 	}
+}
+
+// setCrumbs gives v the trail in, and says whether its home crumb takes the
+// theme's localised label (see BreadcrumbItem.defaultHome).
+func setCrumbs(v *render.PageView, in []BreadcrumbItem) {
+	v.Breadcrumb = crumbs(in)
+	v.HomeCrumbDefault = len(in) > 0 && in[0].defaultHome
 }
 
 func crumbs(in []BreadcrumbItem) []render.Crumb {

@@ -50,7 +50,8 @@ func TestDefaultThemeHasNoHardcodedStrings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	used := map[string]bool{}
+	// Keys the renderer reads in Go rather than in a template.
+	used := map[string]bool{homeCrumbKey: true}
 	scanned := 0
 	for _, dir := range []string{"layouts", "partials", "sections"} {
 		files, err := fs.Glob(fsys, dir+"/*.html")

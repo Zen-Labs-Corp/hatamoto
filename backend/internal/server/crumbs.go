@@ -50,6 +50,7 @@ func localeRootLabel(set *entity.LocaleSet, tag string) string {
 func shapeCrumbs(in crumbInput) []BreadcrumbItem {
 	home := in.Home
 	home.Label = in.Cfg.Home()
+	home.defaultHome = in.Cfg.HomeLabel == "" && in.HomeLabel == ""
 	if in.HomeLabel != "" {
 		home.Label = in.HomeLabel
 	}

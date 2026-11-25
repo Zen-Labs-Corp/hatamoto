@@ -63,6 +63,10 @@ type PageMeta struct {
 type BreadcrumbItem struct {
 	Label string `json:"label"`
 	Href  string `json:"href"`
+	// defaultHome marks a home crumb with no label of the owner's (no saved
+	// home label, no locale name): the renderer names it with the theme
+	// string breadcrumb_home of the page's locale.
+	defaultHome bool
 }
 
 // ContentSegmentResponse represents a content segment in the public API.

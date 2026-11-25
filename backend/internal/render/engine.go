@@ -703,6 +703,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	tmpl := le.tmpl
 	settings := *e.settings.Load()
 	v.strs = resolveStrings(c.theme.Strings, v.StringOverrides)
+	localizeHomeCrumb(v)
 	d := &pageData{
 		PageView:   *v,
 		CSSHref:    AssetPrefix + c.cssName,
