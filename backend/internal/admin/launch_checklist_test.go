@@ -213,3 +213,39 @@ func TestReadLaunchStateOneFailingReadIsLeftOut(t *testing.T) {
 		t.Errorf("unwired sources must stay unknown: %+v", s)
 	}
 }
+
+// launchBlockedForms is a FormStore whose list read hangs until released.
+type launchBlockedForms struct {
+	FormStore
+	release chan struct{}
+}
+
+func (f launchBlockedForms) ListForms(context.Context, string) ([]*form.Form, error) {
+	<-f.release
+	return nil, nil
+}
+
+// A source that hangs past the page deadline is left out; the card still renders.
+func TestDashLaunchSlowReadIsLeftOutNotAnError(t *testing.T) {
+	t.Parallel()
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	g := newRig(t, func(d *Deps) {
+		d.Growth.Forms = launchBlockedForms{release: release}
+		d.Backups = &fakeBackups{} // no backup yet: an open item, so the card shows
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), dashTimeout)
+	defer cancel()
+	v := g.a.buildDash(ctx, []dashJob{*g.a.launchJob()})
+	if len(v.Sections) != 1 || v.Sections[0].State == dashError || v.Sections[0].Launch == nil {
+		t.Fatalf("a slow read must leave the item out, not turn the card into an error: %+v", v.Sections)
+	}
+	res := dashResult{Sec: v.Sections[0]}
+	for _, grp := range res.Sec.Launch.Groups {
+		for _, it := range grp.Items {
+			if it.Title == "Contact form" {
+				t.Errorf("the slow forms read must leave the Contact form row out")
+			}
+		}
+	}
+}

@@ -353,6 +353,10 @@ func (a *Admin) launchBackupsRead(ctx context.Context) (func(*launchState), erro
 // readLaunchState runs one small read per source in parallel. A source that
 // is not wired or fails is left unknown (a failure is logged), never an error.
 func (a *Admin) readLaunchState(ctx context.Context) launchState {
+	// Bound the reads under the page's deadline, like the Site health card, so a
+	// slow source is left out and the card still renders.
+	ctx, cancel := context.WithTimeout(ctx, healthTimeout)
+	defer cancel()
 	reads := a.launchReads()
 	applies := make([]func(*launchState), len(reads))
 	fns := make([]func(context.Context) error, len(reads))
