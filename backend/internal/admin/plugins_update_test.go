@@ -187,6 +187,69 @@ func TestPluginUpdateNeedingReviewShowsThePrompt(t *testing.T) {
 	}
 }
 
+func TestPluginUpdateContentTypeChangesShowThePrompt(t *testing.T) {
+	t.Parallel()
+
+	g, pk, _ := updateRig(t)
+	pk.fetchAs["alpha"] = "plugin-types:alpha"
+	rec := g.do("POST", "/admin/plugins/alpha/update", "owner-token", url.Values{}, nil)
+	body := rec.Body.String()
+	if rec.Code != 200 || !strings.Contains(body, `name="staged"`) {
+		t.Fatalf("want the permission prompt, got %d %s", rec.Code, body)
+	}
+	if len(pk.installed) != 0 {
+		t.Fatalf("installed without review: %+v", pk.installed)
+	}
+	text := visibleText(body)
+	for _, want := range []string{
+		"Organizer gains 1 field (Show contact publicly).",
+		"Event gains 2 fields (Embed URL, Join link visibility).",
+		"Kept as is: price.",
+		"Existing entries keep their data.",
+		"Create the content type Venue",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("prompt lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "I understand") {
+		t.Errorf("prompt asks for a confirmation:\n%s", text)
+	}
+}
+
+func TestPluginUpdateAllSetsAsideContentTypeChanges(t *testing.T) {
+	t.Parallel()
+
+	g, pk, _ := updateRig(t)
+	pk.fetchAs["alpha"] = "plugin-types:alpha"
+	rec := g.do("POST", "/admin/plugins/update-all", "owner-token", url.Values{}, nil)
+	if len(pk.installed) != 1 || pk.installed[0].data != "plugin:beta" {
+		t.Fatalf("installs: %+v", pk.installed)
+	}
+	if f := updateFlash(t, rec); f.Message != "Updated 1 plugin (beta). 2 need review: alpha, gtm." {
+		t.Errorf("flash %q", f.Message)
+	}
+}
+
+func TestTypeChangeLine(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		in         TypeChange
+		line, kept string
+	}{
+		{TypeChange{Name: "Organizer", Added: []string{"Show contact publicly"}}, "Organizer gains 1 field (Show contact publicly).", ""},
+		{TypeChange{Name: "Event", Added: []string{"Embed URL", "Join link visibility"}, Kept: []string{"price"}}, "Event gains 2 fields (Embed URL, Join link visibility).", "Kept as is: price."},
+	} {
+		if got := tc.in.Line(); got != tc.line {
+			t.Errorf("Line %q, want %q", got, tc.line)
+		}
+		if got := tc.in.KeptLine(); got != tc.kept {
+			t.Errorf("KeptLine %q, want %q", got, tc.kept)
+		}
+	}
+}
+
 func TestPluginUpdateRefusals(t *testing.T) {
 	t.Parallel()
 

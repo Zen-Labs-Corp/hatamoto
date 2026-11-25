@@ -522,7 +522,7 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		}
 	}
 	if p.Kind == KindPlugin && (!updating || prev.Enabled) {
-		if err := m.installSchemas(ctx, p); err != nil {
+		if err := m.installSchemas(ctx, p, updating); err != nil {
 			m.Logger.Error("packages: content types not installed; they install when the plugin is enabled again", "plugin", p.Name, "error", err)
 		}
 	}
@@ -1087,7 +1087,7 @@ func (m *Manager) SetEnabled(ctx context.Context, name string, on bool) error {
 		// A plugin installed before content types existed may ship a schema the
 		// rules refuse, or one whose name the owner has since taken. That must
 		// not keep a working plugin switched off.
-		if err := m.installSchemas(ctx, p); err != nil {
+		if err := m.installSchemas(ctx, p, true); err != nil {
 			m.Logger.Error("packages: content types not installed; the plugin is enabled without them", "plugin", name, "error", err)
 		}
 	}

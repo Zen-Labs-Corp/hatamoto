@@ -8,8 +8,10 @@ import (
 	"io/fs"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/internal/entity"
@@ -31,8 +33,9 @@ const (
 var schemaSlugRe = regexp.MustCompile(`^[a-z]([a-z0-9]|-[a-z0-9]){0,63}$`)
 
 // SchemaStore is the entity service as the manager uses it: it creates the
-// types of a plugin and removes them again.
+// types of a plugin, extends them and removes them again.
 type SchemaStore interface {
+	UpdateSchema(ctx context.Context, id uuid.UUID, input *entity.UpdateSchemaInput) (*entity.EntitySchema, error)
 	CreateSchema(ctx context.Context, input *entity.CreateSchemaInput) (*entity.EntitySchema, error)
 	RemovePluginSchemas(ctx context.Context, plugin string) ([]string, error)
 	PluginSchemaUses(ctx context.Context, plugin string) ([]entity.PluginSchemaUse, error)
@@ -145,10 +148,14 @@ func (m *Manager) checkSchemas(ctx context.Context, p *Package) error {
 	return nil
 }
 
-// installSchemas creates the content types of the plugin that do not exist yet.
-// A type that exists is left alone (never overwritten); one taken by something
-// else refuses. A failure removes the types this call created.
-func (m *Manager) installSchemas(ctx context.Context, p *Package) error {
+// installSchemas creates the content types of the plugin that do not exist yet;
+// one taken by something else refuses. A failure while creating removes the
+// types this call created. With extend (the plugin was already installed), a
+// type this plugin already owns also gains the properties it lacks and nothing
+// else changes. A fresh install never extends: types kept by an earlier
+// uninstall are the owner's. Extending runs even when creating failed and is best effort: a failure is logged and
+// the stored schema is kept.
+func (m *Manager) installSchemas(ctx context.Context, p *Package, extend bool) error {
 	if m.Schemas == nil {
 		return nil
 	}
@@ -166,6 +173,11 @@ func (m *Manager) installSchemas(ctx context.Context, p *Package) error {
 	owners, err := m.schemaOwners(ctx, m.Pool, slugs)
 	if err != nil {
 		return err
+	}
+	if extend {
+		// Independent of creating: a type that fails to create must not keep
+		// the owned ones from gaining their fields.
+		defer m.extendSchemas(ctx, p, cts)
 	}
 	var created []string
 	for _, ct := range cts {
@@ -188,4 +200,131 @@ func (m *Manager) installSchemas(ctx context.Context, p *Package) error {
 		m.Audit(ctx, "package.schemas.install", "plugin:"+p.Name, map[string]any{"content_types": created})
 	}
 	return nil
+}
+
+// TypeChange is what an install would do to one content type the plugin already owns.
+type TypeChange struct {
+	Slug, Name string // Name: the stored row's name (the owner may have renamed it)
+	ID         uuid.UUID
+	SchemaMerge
+}
+
+// schemaChanges merges each shipped schema into the stored schema of the same
+// slug owned by p (origin_plugin = p.Name). Types owned by the site or another
+// plugin are never read. A type whose JSON cannot be merged is logged and skipped.
+func (m *Manager) schemaChanges(ctx context.Context, p *Package, cts []ContentType) ([]TypeChange, error) {
+	if len(cts) == 0 {
+		return nil, nil
+	}
+	slugs := make([]string, len(cts))
+	for i, ct := range cts {
+		slugs[i] = ct.Slug
+	}
+	rows, err := m.Pool.Query(ctx, `SELECT id, slug, name, schema FROM hatamoto_entity_schemas WHERE slug = ANY($1) AND `+schemaOriginCol+` = $2`, slugs, p.Name)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	type row struct {
+		id     uuid.UUID
+		name   string
+		schema []byte
+	}
+	stored := map[string]row{}
+	for rows.Next() {
+		var r row
+		var slug string
+		if err := rows.Scan(&r.id, &slug, &r.name, &r.schema); err != nil {
+			return nil, err
+		}
+		stored[slug] = r
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	var out []TypeChange
+	for _, ct := range cts {
+		r, ok := stored[ct.Slug]
+		if !ok {
+			continue
+		}
+		merge, err := MergeSchema(r.schema, ct.Schema)
+		if err != nil {
+			m.Logger.Warn("packages: stored content type cannot be merged with the shipped schema; left as stored", "plugin", p.Name, "content_type", ct.Slug, "err", err)
+			continue
+		}
+		out = append(out, TypeChange{Slug: ct.Slug, Name: r.name, ID: r.id, SchemaMerge: merge})
+	}
+	return out, nil
+}
+
+// extendSchemas adds the new shipped properties to the types p already owns.
+// The read in schemaChanges and the UpdateSchema write are not one lock: an
+// admin saving the same type in that window is overwritten (accepted race).
+func (m *Manager) extendSchemas(ctx context.Context, p *Package, cts []ContentType) {
+	changes, err := m.schemaChanges(ctx, p, cts)
+	if err != nil {
+		m.Logger.Error("packages: content types not extended", "plugin", p.Name, "err", err)
+		return
+	}
+	added := map[string][]string{}
+	kept := map[string][]string{}
+	for _, tc := range changes {
+		others := append(slices.Clone(tc.Retyped), tc.Missing...)
+		if len(others) > 0 {
+			m.Logger.Warn("packages: content type fields kept as stored", "plugin", p.Name, "content_type", tc.Slug, "retyped", tc.Retyped, "not_shipped", tc.Missing)
+		}
+		if len(tc.Added) == 0 {
+			continue
+		}
+		merged := tc.Merged
+		if _, err := m.Schemas.UpdateSchema(ctx, tc.ID, &entity.UpdateSchemaInput{Schema: &merged}); err != nil {
+			m.Logger.Error("packages: content type not extended; the stored schema is kept", "plugin", p.Name, "content_type", tc.Slug, "err", err)
+			continue
+		}
+		added[tc.Slug] = tc.Added
+		if len(others) > 0 {
+			kept[tc.Slug] = others
+		}
+	}
+	if len(added) > 0 {
+		m.Audit(ctx, "package.schemas.extend", "plugin:"+p.Name, map[string]any{"content_types": added, "kept": kept})
+	}
+}
+
+// SchemaPreview says, without writing, what installing p would do to content
+// types: the names of the types it would create (slug not taken by anyone) and
+// the owned types it would extend (Added non-empty and the merged schema valid).
+func (m *Manager) SchemaPreview(ctx context.Context, p *Package) (create []string, extend []TypeChange, err error) {
+	if m.Schemas == nil || m.Pool == nil || p.Kind != KindPlugin {
+		return nil, nil, nil
+	}
+	cts, err := p.EntitySchemas()
+	if err != nil || len(cts) == 0 {
+		return nil, nil, err
+	}
+	slugs := make([]string, len(cts))
+	for i, ct := range cts {
+		slugs[i] = ct.Slug
+	}
+	owners, err := m.schemaOwners(ctx, m.Pool, slugs)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, ct := range cts {
+		if _, taken := owners[ct.Slug]; !taken {
+			create = append(create, ct.Name)
+		}
+	}
+	changes, err := m.schemaChanges(ctx, p, cts)
+	if err != nil {
+		return nil, nil, err
+	}
+	v := entity.NewValidator()
+	for _, tc := range changes {
+		if len(tc.Added) > 0 && v.ValidateSchema(tc.Merged) == nil {
+			extend = append(extend, tc)
+		}
+	}
+	return create, extend, nil
 }
