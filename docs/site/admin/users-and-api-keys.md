@@ -148,7 +148,7 @@ To try a change first, add `?dry_run=1`:
 
 ```bash
 curl -X PATCH -H "X-API-Key: <your-key>" -H "Content-Type: application/merge-patch+json" \
-  -H 'If-Match: "7"' -d '{"attributes": {"venue": "Room 2"}}' \
+  -H 'If-Match: "7"' -d '{"attributes": {"venue": "Room 2", "hours": {"open": "10:00"}}}' \
   "https://example.com/api/v1/entities/<id>?dry_run=1"
 ```
 
@@ -169,13 +169,14 @@ Nothing is stored. The answer is `200` with the current version as `ETag`:
 A change that would not validate is still a `200`, with the reasons in `errors` and no `changes`:
 
 ```json
-{"dry_run": true, "version": 7, "changes": [], "errors": ["attributes.date_start: must be a date"]}
+{"dry_run": true, "version": 7, "changes": [], "errors": ["attribute validation failed: doesn't validate with mem:///entity/schema.json#; missing properties: 'title'"]}
 ```
 
 - Send the `ETag` back as `If-Match` to apply exactly this change. If the entry moved on meanwhile, the real call answers `412` as usual.
 - It works with `PUT`, plain `PATCH` and a merge patch (`application/merge-patch+json`). With a merge patch the changes show the merged result.
 - `after` is the value as it would be stored, after sanitising. Attributes that stay the same are not listed.
-- A bad value in the request itself, or `position`, answers `400` as without `dry_run`.
+- `position` (a move) is refused with `400` in a dry run; without `dry_run` it is a normal move. A malformed request answers `400` as usual.
+- A slug or locale that clashes with another entry is only caught by the real write. A dry run can answer with no errors and the real call then fail with `409`.
 - It needs the same update permission as the real change and counts against the rate limit.
 
 ### Entries over the API
