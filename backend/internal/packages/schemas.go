@@ -250,7 +250,7 @@ func (m *Manager) schemaChanges(ctx context.Context, p *Package, cts []ContentTy
 		}
 		merge, err := MergeSchema(r.schema, ct.Schema)
 		if err != nil {
-			m.Logger.Error("packages: content type cannot be merged; the stored schema is kept", "plugin", p.Name, "content_type", ct.Slug, "err", err)
+			m.Logger.Warn("packages: stored content type cannot be merged with the shipped schema; left as stored", "plugin", p.Name, "content_type", ct.Slug, "err", err)
 			continue
 		}
 		out = append(out, TypeChange{Slug: ct.Slug, Name: r.name, ID: r.id, SchemaMerge: merge})

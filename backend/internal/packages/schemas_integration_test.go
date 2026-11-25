@@ -3,6 +3,7 @@
 package packages
 
 import (
+	"bytes"
 	"context"
 	"encoding/json/jsontext"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"log/slog"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -539,5 +541,37 @@ func TestExtendSurvivesFailedCreate(t *testing.T) {
 	}
 	if _, ok := r.storedProps("product")["sku"]; !ok {
 		t.Fatalf("sku not added after a failed create: %v", r.storedProps("product"))
+	}
+}
+
+// Looking at what an install would do writes nothing, so it must not log an
+// error worded as a failed install.
+func TestSchemaPreviewLogsNoError(t *testing.T) {
+	r, _ := schemaRig(t)
+	ctx := context.Background()
+	if err := r.installPack(schemaPack("shop")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.pool.Exec(ctx, `UPDATE hatamoto_entity_schemas SET schema = '[]' WHERE slug = 'product'`); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := PackFiles(packWith("shop", productWithSKU), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg, err := Parse(raw, DefaultLimits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var logs bytes.Buffer
+	r.mgr.Logger = slog.New(slog.NewTextHandler(&logs, nil))
+	if _, extend, err := r.mgr.SchemaPreview(ctx, pkg); err != nil || len(extend) != 0 {
+		t.Fatalf("preview extend=%+v err=%v", extend, err)
+	}
+	if !strings.Contains(logs.String(), "cannot be merged") {
+		t.Fatalf("test premise: the unmergeable type was not reported: %q", logs.String())
+	}
+	if strings.Contains(logs.String(), "level=ERROR") {
+		t.Fatalf("preview logged an error: %s", logs.String())
 	}
 }
