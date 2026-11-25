@@ -83,6 +83,16 @@ fi
 key=$work/t.key
 [ -f "$key" ] || fail "throwaway key not created"
 
+# The hand-written build loops (Makefile, plugin template, authoring guide) copy exactly the packed directories.
+want=$("$bin" plugin pack --list-dirs | tr '\n' ' ' | sed 's/ $//')
+for f in Makefile examples/plugin-template/Makefile docs/PLUGINS_WRITE_AND_SUBMIT.md; do
+  got=$(grep -o 'for d in [a-z ]*; do' "$root/$f") || fail "$f: no build loop"
+  [ "$(sort -u <<<"$got" | wc -l)" = 1 ] || fail "$f: more than one build loop list"
+  [ "$(sed 's/^for d in //; s/; do$//' <<<"$got" | head -1)" = "$want" ] || fail "$f: build loop lists \"$got\", want \"$want\""
+done
+grep -q 'plugin pack --list-dirs' "$here/build-community.sh" || fail "build-community.sh does not read --list-dirs"
+echo "ok: packed directory lists"
+
 good=0123456789abcdef0123456789abcdef01234567
 # manifest <dir> <file-name> <json>
 manifest() {

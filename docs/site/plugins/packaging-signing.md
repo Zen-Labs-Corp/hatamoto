@@ -109,7 +109,7 @@ It lists every `.hmp` in the directory and prints `<out> signed by <key id>, val
 
 ## Building the example plugins
 
-The example plugins in `examples/plugins` build with `make plugin-<name>` from the repository root. The rule runs `GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o build/plugin.wasm .` inside the plugin directory and copies `plugin.json` next to it, plus `migrations/`, `ui/` and `assets/` if they exist. The result is `examples/plugins/<name>/build/`, the directory you pass to `hatamoto plugin pack`. `make plugins` builds `hello`, `searchconsole`, `gtm` and `datasource-demo`. Your own plugin builds with the same `go build` line, with no TinyGo needed.
+The example plugins in `examples/plugins` build with `make plugin-<name>` from the repository root. The rule runs `GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o build/plugin.wasm .` inside the plugin directory and copies `plugin.json` next to it, plus every directory `hatamoto plugin pack --list-dirs` names (`assets/`, `layouts/`, `migrations/`, `partials/`, `schemas/`, `sections/`, `tags/`, `ui/`, `widgets/`) that exists. The result is `examples/plugins/<name>/build/`, the directory you pass to `hatamoto plugin pack`. `make plugins` builds `hello`, `searchconsole`, `gtm` and `datasource-demo`. Your own plugin builds with the same `go build` line, with no TinyGo needed.
 
 ## Development override
 

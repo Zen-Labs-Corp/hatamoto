@@ -33,7 +33,8 @@ all: build
 
 # --- Build ------------------------------------------------------------------
 # WASM plugins under examples/plugins/<name>: plugin.wasm (standard Go, wasip1
-# reactor) plus plugin.json, migrations/, ui/ and assets/, staged in <name>/build/ ready
+# reactor) plus plugin.json and every directory `hatamoto plugin pack --list-dirs` names
+# (migrations/, ui/, assets/, schemas/, sections/, partials/, widgets/, ...), staged in <name>/build/ ready
 # for `hatamoto plugin pack`. hello is the reference (datasource-demo the builder data source). The
 # first-party plugins (gtm, searchconsole) live in the hatamoto-first-party monorepo and reach the registry through
 # the plugins repo manifests, like every other plugin.
@@ -43,7 +44,7 @@ plugin-%:
 	rm -rf examples/plugins/$*/build
 	cd examples/plugins/$* && GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o build/plugin.wasm .
 	cp examples/plugins/$*/plugin.json examples/plugins/$*/build/plugin.json
-	for d in migrations ui assets; do if [ -d examples/plugins/$*/$$d ]; then cp -r examples/plugins/$*/$$d examples/plugins/$*/build/$$d; fi; done
+	for d in assets layouts migrations partials schemas sections tags ui widgets; do if [ -d examples/plugins/$*/$$d ]; then cp -r examples/plugins/$*/$$d examples/plugins/$*/build/$$d; fi; done
 	@echo "Built examples/plugins/$*/build/"
 
 plugins: $(addprefix plugin-,$(PLUGINS))
