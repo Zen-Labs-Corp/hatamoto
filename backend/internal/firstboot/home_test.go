@@ -130,6 +130,8 @@ func TestIsSeedIDs(t *testing.T) {
 		{"home doc", home, true},
 		{"extra section", []string{"welcome", "mine"}, false},
 		{"empty", nil, false},
+		{"unknown welcome- id", []string{"welcome-foo"}, false},
+		{"seed plus unknown welcome- id", []string{"welcome", "welcome-foo"}, false},
 		{"prefix without dash", []string{"welcomex"}, false},
 	} {
 		if got := IsSeedIDs(tc.ids); got != tc.want {

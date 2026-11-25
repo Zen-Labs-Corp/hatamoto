@@ -4,8 +4,6 @@
 package firstboot
 
 import (
-	"strings"
-
 	"hatamoto.dev/core/internal/builder"
 )
 
@@ -75,15 +73,23 @@ func HomeDoc(siteName string) *builder.Doc {
 	})
 }
 
+// seedIDs is every section ID HomeDoc emits (SeedID alone is the old seed).
+var seedIDs = map[string]bool{
+	SeedID:                  true,
+	SeedIDPrefix + "make":   true,
+	SeedIDPrefix + "run":    true,
+	SeedIDPrefix + "import": true,
+}
+
 // IsSeedIDs reports whether a page's section IDs are the first-boot seed's:
-// at least one, each "welcome" or "welcome-*". The old one-section seed
-// matches too.
+// at least one, each exactly one of the IDs HomeDoc emits. The old
+// one-section seed matches too.
 func IsSeedIDs(ids []string) bool {
 	if len(ids) == 0 {
 		return false
 	}
 	for _, id := range ids {
-		if id != SeedID && !strings.HasPrefix(id, SeedIDPrefix) {
+		if !seedIDs[id] {
 			return false
 		}
 	}
