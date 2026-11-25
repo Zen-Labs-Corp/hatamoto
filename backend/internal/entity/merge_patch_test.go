@@ -2,6 +2,7 @@ package entity
 
 import (
 	"encoding/json/jsontext"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -28,7 +29,8 @@ func TestMergePatch(t *testing.T) {
 		{"array target", `[1,2]`, `{"a":"b","c":null}`, `{"a":"b"}`},
 		{"null leaves no key", `{}`, `{"a":{"bb":{"ccc":null}}}`, `{"a":{"bb":{}}}`},
 		{"empty target", ``, `{"a":1}`, `{"a":1}`},
-		{"unparsable target", `{nope`, `{"a":1}`, `{"a":1}`},
+		{"null target", `null`, `{"a":1}`, `{"a":1}`},
+		{"string target", `"x"`, `{"a":1}`, `{"a":1}`},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -66,5 +68,13 @@ func TestMergePatchInvalidPatch(t *testing.T) {
 	t.Parallel()
 	if _, err := MergePatch(jsontext.Value(`{"a":1}`), jsontext.Value(`{"a":`)); err == nil {
 		t.Error("want an error for an invalid patch")
+	}
+}
+
+func TestMergePatchUnparsableTarget(t *testing.T) {
+	t.Parallel()
+	_, err := MergePatch(jsontext.Value(`{nope`), jsontext.Value(`{"a":1}`))
+	if !errors.Is(err, ErrStoredAttributes) {
+		t.Errorf("err = %v, want ErrStoredAttributes", err)
 	}
 }

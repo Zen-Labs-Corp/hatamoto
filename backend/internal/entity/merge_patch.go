@@ -1,7 +1,10 @@
 package entity
 
 import (
+	"bytes"
 	"encoding/json/jsontext"
+	"errors"
+	"fmt"
 
 	"hatamoto.dev/core/internal/jsonx"
 )
@@ -10,7 +13,12 @@ import (
 // object members merge recursively, a null member removes the key, and any
 // other value (arrays included) replaces the target's value whole. A patch
 // that is not an object replaces the whole target. A target that is empty,
-// unparsable or not an object counts as {}. Numbers keep their exact digits.
+// null or valid JSON but not an object counts as {}; one that does not parse
+// is an error wrapping ErrStoredAttributes, so stored data is never dropped
+// silently. Numbers keep their exact digits.
+// ErrStoredAttributes marks a merge target that is not valid JSON.
+var ErrStoredAttributes = errors.New("stored attributes are not valid JSON")
+
 func MergePatch(target, patch jsontext.Value) (jsontext.Value, error) {
 	var p any
 	if err := jsonx.Unmarshal(patch, &p, jsonx.ExactNumbers); err != nil {
@@ -21,7 +29,11 @@ func MergePatch(target, patch jsontext.Value) (jsontext.Value, error) {
 		return patch.Clone(), nil
 	}
 	var t any
-	_ = jsonx.Unmarshal(target, &t, jsonx.ExactNumbersLoose)
+	if len(bytes.TrimSpace(target)) > 0 {
+		if err := jsonx.Unmarshal(target, &t, jsonx.ExactNumbersLoose); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrStoredAttributes, err)
+		}
+	}
 	tm, _ := t.(map[string]any)
 	return jsonx.Marshal(mergePatchObject(tm, pm))
 }

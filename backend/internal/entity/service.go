@@ -452,6 +452,9 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 			return nil, fmt.Errorf("%w: attributes: null in a merge patch would remove every attribute; send null for each attribute to remove", ErrValidationFailed)
 		}
 		merged, err := MergePatch(existing.Attributes, *input.Attributes)
+		if errors.Is(err, ErrStoredAttributes) {
+			return nil, err // stored data, not the caller's input: not a validation error
+		}
 		if err != nil {
 			return nil, fmt.Errorf("%w: attributes: %v", ErrValidationFailed, err)
 		}
