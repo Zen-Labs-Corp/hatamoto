@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // Vouch raises a commenter to known or trusted; it also unblocks. The level is
@@ -26,6 +27,19 @@ func (s *Service) Vouch(ctx context.Context, commenterID uuid.UUID, level TrustL
 		return ErrNotFound
 	}
 	return nil
+}
+
+// ForgetPlugin detaches every commenter plugin vouches for: the origin is
+// cleared, so a later package with the same name cannot reach the accounts,
+// and token_version is bumped, so the sessions it vouched for stop working. An
+// email-less commenter keeps its 'plugin:<uuid>' key (never an address hash, so
+// no typed email reaches it) and, with no origin, falls under the idle purge.
+func ForgetPlugin(ctx context.Context, db interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}, plugin string) error {
+	_, err := db.Exec(ctx, `UPDATE hatamoto_commenters SET origin_plugin = NULL, origin_account = NULL,
+		token_version = token_version + 1 WHERE origin_plugin = $1`, plugin)
+	return err
 }
 
 // Block sets a commenter to blocked and revokes every device cookie.

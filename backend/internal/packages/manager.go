@@ -24,6 +24,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/idle"
 	"hatamoto.dev/core/internal/jsonx"
@@ -1016,6 +1017,11 @@ func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, opts Un
 		if err != nil {
 			return fmt.Errorf("handing the entries of %q to the owner (uninstall is unfinished; try again): %w", name, err)
 		}
+	}
+	// Commenters the plugin vouched for: a later package with this name must not
+	// inherit their accounts or sessions.
+	if err := comment.ForgetPlugin(ctx, m.Pool, name); err != nil {
+		return fmt.Errorf("detaching the commenters of %q (uninstall is unfinished; try again): %w", name, err)
 	}
 	if opts.DropData {
 		if m.Dropper != nil {
