@@ -185,6 +185,9 @@
 .hm-bs-style .hm-bs-morebtn:focus-visible, .hm-bs-content .hm-bs-morebtn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .hm-bs-style .hm-bs-grp__more, .hm-bs-content .hm-bs-grp__more { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; padding-inline-start: var(--space-2); border-inline-start: 1px solid var(--border); }
 .hm-bs-style .hm-bs-grp__more[hidden], .hm-bs-content .hm-bs-grp__more[hidden] { display: none; }
+.hm-bs-content .hm-bs-attrs { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; } /* a query loop: Sort by attribute, then the filter rows */
+.hm-bs-content .hm-bs-frow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1-5); min-width: 0; } /* one filter: attribute, operator, value, Remove */
+.hm-bs-content .hm-bs-frow > select, .hm-bs-content .hm-bs-frow > input { flex: 1 1 6rem; min-width: 0; }
 .hm-bs-style .hm-bs-width .hm-bs-opts { flex-wrap: nowrap; }
 @media (forced-colors: active) {
   .hm-bs-style .hm-bs-fld { border-color: ButtonBorder; }

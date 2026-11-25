@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 71396,
+      "value": 71751,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -11,16 +11,16 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 109037,
+      "value": 109177,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 109317
     },
     "editor_js_total_gzip": {
-      "value": 297454,
+      "value": 300514,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 297776
+      "cap": 301538
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -40,10 +40,6 @@
     }
   },
   "history": [
-    {
-      "reason": "builder chrome rebased onto the Translations drawer: admin_css_gzip 57618 -> 57994 (+376 B), the drawer opener and lazy chunk plus the chrome work, measured",
-      "date": "2026-11-01"
-    },
     {
       "reason": "builder chrome rebased onto the Translations drawer: canvas_host_gzip 7986 -> 8045 (+59 B), the drawer opener and lazy chunk plus the chrome work, measured",
       "date": "2026-11-01"
@@ -119,6 +115,10 @@
     {
       "reason": "section examples: the Insert card stores the example and opens the Content tab (editor_js_first_gzip 108481 -> 109037, cap 108761 -> 109317, the previous 280 B of headroom kept; editor_js_total_gzip 296752 -> 297454)",
       "date": "2026-11-23"
+    },
+    {
+      "reason": "query loop sort and attribute filters (loopattrs module, inspector rows): editor_js_total_gzip 297454 -> 300514, cap 297776 -> 301538; editor_js_first_gzip 109037 -> 109177; admin_css_gzip 71396 -> 71751, measured",
+      "date": "2026-11-25"
     }
   ]
 }

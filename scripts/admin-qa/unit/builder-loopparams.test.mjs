@@ -163,3 +163,76 @@ test("editing the Source field keeps the filters (render and the plugin host dro
   src.fire("input");
   assert.deepEqual(commits.at(-1).ops, [{ op: "setProp", id: "l", key: "source", value: "ext.cal.event" }]);
 });
+
+const attrKinds = [{ kind: "loop", props: [{ key: "from", type: "string", enum: ["query", "source"] }, { key: "schema", type: "string" }, { key: "order_by", type: "object" }, { key: "filters", type: "array" }] }];
+const schemaAttrs = {
+  event: [
+    { key: "start_date", label: "Start date", type: "date" },
+    { key: "status", label: "Status", type: "enum", enum: ["scheduled", "cancelled"] },
+    { key: "capacity", label: "Capacity", type: "number" },
+  ],
+};
+const setupAttrs = (p) => {
+  const commits = [];
+  const node = { id: "l", t: "loop", p };
+  const doc = { nodes: [node] };
+  const api = { kinds: attrKinds, getDoc: () => doc, bindSources: [], announce() {}, options: {}, loopSources, schemaAttrs };
+  const c = createContent({ api, root: new El("div"), commit: (ops, opts) => (commits.push({ ops, opts }), true), draw() {}, kindInfo: (t) => attrKinds.find((k) => k.kind === t), gen: () => 0, pushRich() {}, setFields() {} });
+  return { panel: c.contentPanel(node), commits };
+};
+const labelled = (panel, re) => find(panel, (n) => n.tag === "select" && re.test(n.attrs["aria-label"] ?? ""));
+const optionsOf = (sel) => all(sel, (n) => n.tag === "option").map((o) => o.textContent);
+
+test("a query loop shows the Sort row and filter rows of its schema's attributes", () => {
+  const { panel, commits } = setupAttrs({ from: "query", schema: "event", filters: [{ attr: "start_date", op: "from_today" }] });
+  const sort = find(panel, (n) => n.tag === "select" && n.attrs.id?.endsWith("-sort"));
+  assert.deepEqual(optionsOf(sort), ["None", "Start date", "Status", "Capacity"]);
+  assert.ok(find(panel, (n) => n.tag === "label" && n.attrs.for === sort.attrs.id), "the sort select is labelled");
+  sort.value = "start_date";
+  sort.fire("change");
+  assert.deepEqual(commits.at(-1).ops, [{ op: "setProp", id: "l", key: "order_by", value: { attr: "start_date", dir: "asc" } }]);
+  sort.value = "";
+  sort.fire("change");
+  assert.equal(commits.at(-1).ops[0].value, null);
+  assert.deepEqual(optionsOf(labelled(panel, /Filter 1 operator/)), ["is today or later", "is before today", "is within the next days"]);
+});
+
+test("rows add up to three, Add filter hides at three, a half-filled row is not stored", () => {
+  const { panel, commits } = setupAttrs({ from: "query", schema: "event" });
+  const add = find(panel, (n) => n.textContent === "Add filter");
+  assert.equal(add.hidden, false);
+  add.fire("click"); // Start date is today or later: complete at once
+  assert.deepEqual(commits.at(-1).ops[0].value, [{ attr: "start_date", op: "from_today" }]);
+  const attr2Add = () => add.fire("click");
+  attr2Add();
+  attr2Add();
+  assert.equal(add.hidden, true, "hidden at 3 rows");
+  assert.equal(all(panel, (n) => n.tag === "select" && /operator/.test(n.attrs["aria-label"] ?? "")).length, 3);
+  const attr = labelled(panel, /Filter 2 attribute/);
+  attr.value = "capacity";
+  attr.fire("change");
+  assert.deepEqual(optionsOf(labelled(panel, /Filter 2 operator/)), ["is", "is less than", "is at most", "is more than", "is at least"]);
+  const n = commits.length;
+  const val = find(panel, (x) => x.tag === "input" && x.attrs["aria-label"] === "Filter 2 value");
+  assert.equal(val.attrs.type, "number");
+  assert.equal(commits.at(-1).ops[0].value.length, 2, "the blank Capacity row is left out of the stored filters");
+  val.value = "50";
+  val.fire("input");
+  assert.equal(commits.length, n + 1);
+  assert.deepEqual(commits.at(-1).ops[0].value[1], { attr: "capacity", op: "eq", value: 50 });
+  assert.equal(commits.at(-1).opts.coalesce, true);
+  find(panel, (x) => x.attrs["aria-label"] === "Remove filter 2").fire("click");
+  assert.equal(add.hidden, false);
+  assert.equal(commits.at(-1).ops[0].value.length, 2);
+});
+
+test("an unknown schema or a context loop shows a hint, not rows; a source loop has no attribute rows", () => {
+  for (const p of [{ from: "query", schema: "nope" }, { from: "query", schema: "event", context: true }]) {
+    const { panel } = setupAttrs(p);
+    assert.ok(find(panel, (n) => n.tag === "p" && n.textContent === "Pick a schema to sort or filter by its fields"));
+    assert.equal(find(panel, (n) => n.textContent === "Add filter"), null);
+  }
+  const src = setupAttrs({ from: "source", source: "ext.cal.events" });
+  assert.equal(find(src.panel, (n) => n.textContent === "Add filter"), null);
+  assert.ok(find(src.panel, (n) => n.tag === "button" && /^Filters/.test(n.textContent)), "the plugin Filters group is unchanged");
+});
