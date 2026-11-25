@@ -5,7 +5,8 @@
 #
 # For every <plugins-repo-dir>/manifests/<name>.json (schema.json is skipped,
 # any other file name must be a valid plugin name): validate the manifest, fetch
-# the pinned commit, build it like `make plugin-<name>` into a fresh directory
+# the pinned commit, build it like `make plugin-<name>` (staging plugin.json and every directory
+# `hatamoto plugin pack --list-dirs` names) into a fresh directory
 # in the stage, pack and sign it into <packages-dir>/<name>.hmp, and add an entry
 # {title and about and features (when given), author, source, commit, tier: "community"} to <meta-file> (created when
 # absent; other keys are kept). A manifest with "tier": "first-party" gets
@@ -89,6 +90,11 @@ command -v jq >/dev/null || die "jq not found"
 command -v git >/dev/null || die "git not found"
 [ -d "$repo_dir/manifests" ] || die "$repo_dir/manifests not found"
 [ -x "$bin" ] || die "hatamoto binary $bin is not executable"
+# The directories `hatamoto plugin pack` packs, from the binary that packs (one list, no hand copy).
+dirs_out=$("$bin" plugin pack --list-dirs) || die "$bin plugin pack --list-dirs failed (hatamoto binary too old?)"
+mapfile -t pack_dirs <<<"$dirs_out"
+[ "${#pack_dirs[@]}" -gt 0 ] && [ -n "${pack_dirs[0]}" ] || die "$bin plugin pack --list-dirs printed nothing"
+for d in "${pack_dirs[@]}"; do [[ $d =~ ^[a-z]+$ ]] || die "bad directory name \"$d\" from $bin plugin pack --list-dirs"; done
 [ -f "$key" ] || die "key file $key not found"
 # The signer's key id (as `keys generate` writes it into the key file) is part of the archive identity.
 key_id=$(jq -r '.key_id // empty' "$key" 2>/dev/null) || key_id=
@@ -595,7 +601,7 @@ build_plugin() {
   want="$(realpath "$clone")${subdir:+/${subdir%/}}"
   src=$(realpath "$src")
   [ "$src" = "$want" ] || die "$name: subdir is a symlink or resolves outside the clone"
-  for e in plugin.json migrations ui assets; do
+  for e in plugin.json "${pack_dirs[@]}"; do
     [ ! -L "$src/$e" ] || die "$name: $e is a symlink"
   done
   [ -f "$src/plugin.json" ] || die "$name: no plugin.json in the pinned source"
@@ -634,7 +640,7 @@ build_plugin() {
     env GOOS=wasip1 GOARCH=wasm GOFLAGS="$build_flags" ${build_proxy:+GOPROXY="$build_proxy"} \
       go build -trimpath -buildmode=c-shared -o "$out/plugin.wasm" . &&
     cp plugin.json "$out/" &&
-    for d in migrations ui assets; do
+    for d in "${pack_dirs[@]}"; do
       if [ -d "$d" ]; then cp -rP "$d" "$out/$d" || exit 1; fi
     done
   ) || die "$name: build failed"

@@ -217,6 +217,40 @@ v=$(variant symsub sh -c 'mkdir -p real; mv main.go go.mod go.sum plugin.json re
 manifest "$work/symsub" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)" sub)"
 build_neg "symlinked subdir" "symlink or resolves outside" "$work/symsub"
 
+# Every directory `plugin pack` packs reaches the package (schemas/ sections/ partials/ widgets/ too).
+v=$(variant fulldirs sh -c 'rm -f README.md; mkdir -p schemas sections partials widgets/banner
+  printf "%s" "{\"title\":\"Acme note\",\"type\":\"object\",\"properties\":{\"title\":{\"type\":\"string\"}}}" >schemas/acme-note.json
+  printf "%s" "{\"title\":\"Acme card\",\"type\":\"object\",\"properties\":{\"title\":{\"type\":\"string\"}}}" >schemas/acme-card.json
+  printf "%s" "<div class=\"acme-card\">{{.P.title}}</div>" >sections/acme-card.html
+  printf "%s" "{{define \"acme-row\"}}<li>row</li>{{end}}" >partials/acme-row.html
+  printf "%s" "{\"type\":\"object\",\"additionalProperties\":false,\"x-hm\":{\"label\":\"Banner\",\"children\":true},\"properties\":{\"title\":{\"type\":\"string\",\"x-hm-bind\":\"text\"}}}" >widgets/banner/schema.json
+  printf "%s" "<div {{.Attrs}}><h3>{{.P.title}}</h3>{{.Children}}</div>" >widgets/banner/widget.html
+  echo stray >widgets/banner/NOTES.txt')
+fsha=$(git -C "$v" rev-parse HEAD); freg="$work/fd-reg"
+manifest "$freg" acme-notes "$(base acme-notes "file://$v" "$fsha")"
+HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" "$script" "$freg" "$bin" "$key" "$work/fd-pk" "$work/fd-meta.json" >"$work/fd.log" 2>&1 || fail "fulldirs build: $(cat "$work/fd.log")"
+# Reference: the same source packed directly, with the wasm the registry built.
+ref="$work/fd-ref"; cp -r "$v" "$ref"; rm -rf "$ref/.git"
+unzip -p "$work/fd-pk/acme-notes.hmp" plugin.wasm >"$ref/plugin.wasm"
+"$bin" plugin pack "$ref" --key "$key" --out "$work/fd-ref.hmp" >/dev/null || fail "reference pack"
+diff <(unzip -Z1 "$work/fd-pk/acme-notes.hmp" | sort) <(unzip -Z1 "$work/fd-ref.hmp" | sort) || fail "fulldirs: file set differs from plugin pack"
+for f in schemas/acme-note.json sections/acme-card.html partials/acme-row.html widgets/banner/widget.html; do
+  unzip -Z1 "$work/fd-pk/acme-notes.hmp" | grep -qx "$f" || fail "fulldirs: $f missing"
+done
+! unzip -Z1 "$work/fd-pk/acme-notes.hmp" | grep -q NOTES.txt || fail "fulldirs: stray widget file packed"
+cmp "$work/fd-pk/acme-notes.hmp" "$work/fd-ref.hmp" || fail "fulldirs: bytes differ from plugin pack"
+echo "ok: every packed directory"
+
+# A symlinked packed directory, or a symlink inside one, is refused and nothing is published.
+v=$(variant symschemas sh -c 'ln -s /tmp schemas')
+manifest "$work/symschemas" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)")"
+build_neg "symlinked schemas" "schemas is a symlink" "$work/symschemas"
+[ ! -e "$work/bn-pk/acme-notes.hmp" ] || fail "symlinked schemas: package written"
+v=$(variant symschemafile sh -c 'mkdir -p schemas; ln -s ../plugin.json schemas/x.json')
+manifest "$work/symschemafile" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)")"
+build_neg "symlink inside schemas" "pack failed" "$work/symschemafile"
+[ ! -e "$work/bn-pk/acme-notes.hmp" ] || fail "symlink inside schemas: package written"
+
 # A committed prebuilt wasm must not be signed when the source does not compile.
 v=$(variant broken sh -c 'mkdir -p build; echo fake >build/plugin.wasm; echo "package main; func main() { undefined() }" >main.go')
 manifest "$work/broken" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)")"
