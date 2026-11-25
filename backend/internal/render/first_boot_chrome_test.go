@@ -104,6 +104,17 @@ func TestFooterChrome(t *testing.T) {
 			t.Errorf("missing RSS link:\n%s", f)
 		}
 	})
+	t.Run("access notice has no follow column", func(t *testing.T) {
+		v := minimalView()
+		v.Site.Feeds = rss
+		v.Access = &AccessView{Mode: "password"}
+		f := footerOf(t, v)
+		for _, bad := range []string{"sitemap.xml", "/feed.xml", "Follow"} {
+			if strings.Contains(f, bad) {
+				t.Errorf("%q on a gated page footer:\n%s", bad, f)
+			}
+		}
+	})
 	t.Run("credit", func(t *testing.T) {
 		v := minimalView()
 		want := `<p class="hm-footer__credit"><a href="https://hatamoto.dev">Powered by Hatamoto</a></p>`
