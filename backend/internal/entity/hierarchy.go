@@ -220,8 +220,9 @@ func bylineOf(attrs jsontext.Value) string {
 const maxBylineLen = 255
 
 // bylineFromText resolves the plain-text byline in attrs. ok is false when
-// there is nothing to resolve (no byline, or one longer than a name).
-func (s *Service) bylineFromText(ctx context.Context, attrs jsontext.Value) (b Byline, ok bool, err error) {
+// there is nothing to resolve (no byline, or one longer than a name). A dry
+// run only looks: a name with no person yet gives ok false, never a new person.
+func (s *Service) bylineFromText(ctx context.Context, attrs jsontext.Value, dry bool) (b Byline, ok bool, err error) {
 	if s.bylines == nil {
 		return b, false, nil
 	}
@@ -229,6 +230,13 @@ func (s *Service) bylineFromText(ctx context.Context, attrs jsontext.Value) (b B
 	// A byline longer than a name stays plain text.
 	if name == "" || utf8.RuneCountInString(name) > maxBylineLen {
 		return b, false, nil
+	}
+	if dry {
+		var found bool
+		if b, found, err = s.bylines.Lookup(ctx, name); err != nil {
+			return b, false, fmt.Errorf("failed to resolve byline %q: %w", name, err)
+		}
+		return b, found, nil
 	}
 	b, err = s.bylines.Resolve(ctx, name)
 	if err != nil {
@@ -254,7 +262,7 @@ func (s *Service) creditCreate(ctx context.Context, input *CreateEntityInput) er
 		// A legacy author id is stored as given; the foreign key verifies it.
 		return nil
 	default:
-		b, ok, err := s.bylineFromText(ctx, input.Attributes)
+		b, ok, err := s.bylineFromText(ctx, input.Attributes, false)
 		if err != nil || !ok {
 			return err
 		}
@@ -319,11 +327,15 @@ func (s *Service) syncBylineText(ctx context.Context, existing *Entity, input *U
 }
 
 // creditUpdate is creditCreate for an update; existing is the stored entity.
-func (s *Service) creditUpdate(ctx context.Context, existing *Entity, input *UpdateEntityInput) error {
+// A dry run (dry) writes nothing: no person is made and no mirror row touched.
+func (s *Service) creditUpdate(ctx context.Context, existing *Entity, input *UpdateEntityInput, dry bool) error {
 	setPerson := func(id uuid.UUID) error {
 		input.BylinePersonID = &id
 		off := false
 		input.BylineOrg = &off
+		if dry {
+			return nil
+		}
 		mirror, err := s.mirrorOf(ctx, id)
 		if err != nil {
 			return err
@@ -367,7 +379,7 @@ func (s *Service) creditUpdate(ctx context.Context, existing *Entity, input *Upd
 		if bylineOf(*input.Attributes) == bylineOf(existing.Attributes) {
 			return nil
 		}
-		b, ok, err := s.bylineFromText(ctx, *input.Attributes)
+		b, ok, err := s.bylineFromText(ctx, *input.Attributes, dry)
 		if err != nil || !ok {
 			return err
 		}

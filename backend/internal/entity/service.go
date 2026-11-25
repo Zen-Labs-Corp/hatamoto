@@ -553,7 +553,7 @@ func (s *Service) updateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 			return nil, err
 		}
 	}
-	if err := s.creditUpdate(ctx, existing, input); err != nil {
+	if err := s.creditUpdate(ctx, existing, input, preview != nil); err != nil {
 		return nil, err
 	}
 

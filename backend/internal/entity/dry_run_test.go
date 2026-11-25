@@ -241,3 +241,61 @@ func TestDryRunUpdateMergeRemovesRequiredIsAnswer(t *testing.T) {
 	testutil.Contains(t, p.Errors[0], "title")
 	testutil.JSONEqual(t, `{"title":"Hello","body":"World"}`, string(ent.Attributes))
 }
+
+// writeCountingBylines counts the calls that write through the byline resolver.
+type writeCountingBylines struct {
+	fakeBylines
+	resolves, mirrors int
+}
+
+func (f *writeCountingBylines) Resolve(ctx context.Context, name string) (Byline, error) {
+	f.resolves++
+	return f.fakeBylines.Resolve(ctx, name)
+}
+
+func (f *writeCountingBylines) Mirror(ctx context.Context, id uuid.UUID) (*uuid.UUID, error) {
+	f.mirrors++
+	return f.fakeBylines.Mirror(ctx, id)
+}
+
+func TestDryRunUpdateWritesNoBylines(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	setup := func() (*Service, *Entity, *writeCountingBylines, uuid.UUID) {
+		svc, sr, er := newTestService()
+		ent := seedEntity(t, er, seedSchema(t, sr))
+		f := &writeCountingBylines{}
+		svc.bylines = f
+		bob, err := f.fakeBylines.Resolve(ctx, "Bob")
+		testutil.RequireNoError(t, err)
+		return svc, ent, f, *bob.PersonID
+	}
+	byID := func(id uuid.UUID) *UpdateEntityInput { return &UpdateEntityInput{BylinePersonID: &id} }
+	byText := func() *UpdateEntityInput {
+		return &UpdateEntityInput{Attributes: attrsValue(`{"title":"Hello","body":"World","author":"Jane Typo"}`)}
+	}
+
+	t.Run("byline_person_id", func(t *testing.T) {
+		svc, ent, f, bob := setup()
+		_, err := svc.DryRunUpdate(ctx, ent.ID, &testUserID, byID(bob))
+		testutil.RequireNoError(t, err)
+		testutil.Equal(t, 0, f.resolves)
+		testutil.Equal(t, 0, f.mirrors)
+		_, err = svc.UpdateEntity(ctx, ent.ID, &testUserID, byID(bob))
+		testutil.RequireNoError(t, err)
+		testutil.True(t, f.mirrors > 0)
+	})
+	t.Run("new author text", func(t *testing.T) {
+		svc, ent, f, _ := setup()
+		p, err := svc.DryRunUpdate(ctx, ent.ID, &testUserID, byText())
+		testutil.RequireNoError(t, err)
+		testutil.Equal(t, 0, len(p.Errors))
+		testutil.Equal(t, 0, f.resolves)
+		testutil.Equal(t, 0, f.mirrors)
+		_, ok := f.people["Jane Typo"]
+		testutil.True(t, !ok)
+		_, err = svc.UpdateEntity(ctx, ent.ID, &testUserID, byText())
+		testutil.RequireNoError(t, err)
+		testutil.True(t, f.resolves > 0 && f.mirrors > 0)
+	})
+}
