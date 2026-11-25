@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"math"
 	"sort"
 	"strings"
 	"testing"
@@ -242,5 +243,14 @@ func TestEntitiesRestoreTakeOverAudited(t *testing.T) {
 		if got := strings.Contains(strings.Join(tools, ","), "entities_take_over"); got != took {
 			t.Errorf("took = %v, audit tools = %v", took, tools)
 		}
+	}
+}
+
+// A page that would overflow the offset is a user error naming page.
+func TestEntitiesVersionsHugePage(t *testing.T) {
+	r, e := newVersionsRig(t)
+	text, isErr := r.call(t, "entities_versions", map[string]any{"id": e.ID.String(), "page": int64(math.MaxInt64), "limit": 100})
+	if !isErr || !strings.Contains(text, "page") || strings.Contains(text, "internal error") {
+		t.Errorf("huge page: err=%v %q", isErr, text)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"errors"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,6 +13,9 @@ import (
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/entity"
 )
+
+// maxPage keeps (page-1)*limit far from overflowing the offset.
+const maxPage = math.MaxInt32
 
 // versionRow is one stored version in a list: no attributes, so a long
 // history stays small. entities_version_get returns them.
@@ -76,6 +80,9 @@ func (s *Server) registerVersions() {
 			if in.Page != nil {
 				if *in.Page < 1 {
 					return nil, userErr("page must be at least 1")
+				}
+				if *in.Page > maxPage {
+					return nil, userErr("page is too large")
 				}
 				page = *in.Page
 			}
