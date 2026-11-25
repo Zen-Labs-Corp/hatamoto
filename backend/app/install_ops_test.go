@@ -113,3 +113,13 @@ func TestCLIPluginSettingsKeyNeedsSecret(t *testing.T) {
 		t.Fatalf("with a secret: %d-byte key, %v", len(key), err)
 	}
 }
+
+func TestRefuseUnreadable(t *testing.T) {
+	if err := refuseUnreadable("p", nil); err != nil {
+		t.Fatalf("readable settings refused: %v", err)
+	}
+	err := refuseUnreadable("p", []string{"a", "b"})
+	if err == nil || !strings.Contains(err.Error(), "a, b") || !strings.Contains(err.Error(), "nothing was written") {
+		t.Fatalf("unreadable settings not refused: %v", err)
+	}
+}

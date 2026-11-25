@@ -258,8 +258,11 @@ func runPluginSettingsSet(ctx context.Context, args []string, stdin io.Reader, o
 		return err
 	}
 	store := pluginhost.NewSettingsStore(db.Pool(), key, slog.New(slog.NewTextHandler(os.Stderr, nil)))
-	old, err := store.Get(ctx, plugin)
+	old, unreadable, err := store.GetChecked(ctx, plugin)
 	if err != nil {
+		return err
+	}
+	if err := refuseUnreadable(plugin, unreadable); err != nil {
 		return err
 	}
 	merged, keys, err := applySettingPairs(man.SettingsSchema, old, pairs)
@@ -284,6 +287,16 @@ func runPluginSettingsSet(ctx context.Context, args []string, stdin io.Reader, o
 	auditCLI(ctx, db.Pool(), slog.New(slog.NewTextHandler(os.Stderr, nil)), "plugin.settings", "plugin:"+plugin, map[string]any{"keys": keys})
 	fmt.Fprintf(out, "saved %s settings: %s\n", plugin, strings.Join(keys, ", "))
 	return nil
+}
+
+// refuseUnreadable stops a save when stored values cannot be opened with this
+// secret: writing would seal the rest under it and leave the server unable to
+// read them. It names keys only, never values.
+func refuseUnreadable(plugin string, keys []string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	return fmt.Errorf("stored settings of %s cannot be read with this server secret (%s); use the secret the server runs with, nothing was written", plugin, strings.Join(keys, ", "))
 }
 
 // applySettingPairs sets key=value pairs over the stored settings. A value is
