@@ -659,7 +659,8 @@ func (s goldenStores) rig(t *testing.T) *rig {
 }
 
 // TestDashboardGoldens pins the Overview for an owner, an editor, a site with
-// no data, a site where every store fails, and one without analytics.
+// no data, a site where every store fails, one without analytics and one
+// showing the launch checklist.
 func TestDashboardGoldens(t *testing.T) {
 	full := dashGoldenFixture(t)
 	empty := goldenStores{content: &contentRig{ents: newFakeEntities(), terms: newFakeTerms(), media: newFakeMedia(), authors: full.content.authors},
@@ -671,6 +672,9 @@ func TestDashboardGoldens(t *testing.T) {
 	failing.updates = &fakeUpdates{viewErr: errors.New("down")}
 	noAnalytics := dashGoldenFixture(t)
 	noAnalytics.agents, noAnalytics.referrals = nil, nil
+	// A site with unfinished items: the Overview shows the launch checklist.
+	launch := dashGoldenFixture(t)
+	launch.forms = newFakeForms()
 	for _, tc := range []struct {
 		name, token string
 		s           goldenStores
@@ -680,6 +684,7 @@ func TestDashboardGoldens(t *testing.T) {
 		{"empty", "owner-token", empty},
 		{"error", "owner-token", failing},
 		{"no-analytics", "owner-token", noAnalytics},
+		{"launch", "owner-token", launch},
 	} {
 		g := tc.s.rig(t)
 		rec := g.do("GET", "/admin", tc.token, nil, nil)
@@ -851,5 +856,72 @@ func TestDashboardPartialScanUsesThePlainSpark(t *testing.T) {
 	}
 	if st.Spark.PrevLine != "" || st.Spark.Divider != "" {
 		t.Errorf("partial scan drew the split spark: %+v", st.Spark)
+	}
+}
+
+// spyHome counts the launch checklist's home page lookups.
+type spyHome struct {
+	EntityStore
+	reads atomic.Int32
+}
+
+func (s *spyHome) GetEntityBySlug(ctx context.Context, slug string) (*entity.Entity, error) {
+	s.reads.Add(1)
+	return s.EntityStore.GetEntityBySlug(ctx, slug)
+}
+
+// launchRig is an Overview with the stores the checklist reads; forms decides
+// whether the Contact form item is done.
+func launchRig(t *testing.T, site *fakeSite, withForm bool) (*rig, *spyHome) {
+	t.Helper()
+	c := newContentRig(t)
+	ff := newFakeForms()
+	if withForm {
+		ff.addForm("Contact", contactFields...)
+	}
+	home := &spyHome{EntityStore: c.ents}
+	return newRig(t, func(d *Deps) {
+		d.Site = site
+		d.Content = ContentDeps{Entities: home, Terms: c.terms, Media: c.media, Authors: c.authors}
+		d.Growth.Forms = ff
+	}), home
+}
+
+func TestDashboardLaunchChecklist(t *testing.T) {
+	t.Parallel()
+
+	g, home := launchRig(t, newFakeSite("Acme Site"), false)
+	body := g.do("GET", "/admin", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{`id="dash-launch"`, `role="progressbar"`, "Make it yours", "Run it properly", "Hide checklist", `action="/admin/launch-checklist/hide"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("owner page lacks %q", want)
+		}
+	}
+	if strings.Index(body, `id="dash-launch"`) > strings.Index(body, "hm-dash__kpis") {
+		t.Error("the launch card is above the KPI row")
+	}
+
+	editor := g.do("GET", "/admin", "editor-token", nil, nil).Body.String()
+	if strings.Contains(editor, "dash-launch") {
+		t.Error("an editor sees the launch checklist")
+	}
+	if n := home.reads.Load(); n != 1 {
+		t.Errorf("the home page was read %d times, want 1 (the owner only)", n)
+	}
+}
+
+func TestDashboardLaunchChecklistHiddenOrDone(t *testing.T) {
+	t.Parallel()
+
+	hidden := newFakeSite("Acme Site")
+	hidden.cfg.ThemeExtra = []byte(`{"launch_checklist_hidden":true}`)
+	g, _ := launchRig(t, hidden, false)
+	if body := g.do("GET", "/admin", "owner-token", nil, nil).Body.String(); strings.Contains(body, "dash-launch") {
+		t.Error("a hidden checklist is still shown")
+	}
+
+	g, _ = launchRig(t, newFakeSite("Acme Site"), true)
+	if body := g.do("GET", "/admin", "owner-token", nil, nil).Body.String(); strings.Contains(body, "dash-launch") {
+		t.Error("a checklist with every item done is still shown")
 	}
 }

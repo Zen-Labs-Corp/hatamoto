@@ -1,6 +1,12 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Overview" "Description" "The last 7 days on your site."}}
-{{if .Stats}}<div class="hm-statgrid hm-dash__kpis">{{range .Stats}}<div class="hm-dash__kpi">{{template "hm/stat" dict "Variant" "ticker" "Stat" .Stat}}
+{{with .Top}}{{range .}}{{with .Launch}}<div class="hm-dash--top">
+{{template "hm/card-start" dict "ID" "dash-launch" "Title" "Launch checklist" "Description" "Finish these before you share the site."}}
+{{template "hm/progress" .Progress}}
+{{range .Groups}}<h3 class="hm-dash__group">{{.Name}}</h3>
+<ul class="hm-dash__rows" role="list">{{range .Items}}<li class="hm-dash__launch"><span class="hm-dash__state">{{if eq .State "done"}}{{template "hm/badge" (dict "Kind" "success" "Icon" "check" "Label" "Done")}}{{else if eq .State "warn"}}{{template "hm/badge" (dict "Kind" "warning" "Icon" "alert" "Label" "Needs attention")}}{{else}}{{template "hm/badge" (dict "Kind" "muted" "Label" "To do")}}{{end}}</span><span class="hm-dash__launch-text"><span class="hm-dash__launch-title">{{if .Href}}<a href="{{.Href}}">{{.Title}}</a>{{else}}{{.Title}}{{end}}</span><span class="hm-muted">{{.Detail}}</span>{{with .Note}}<span class="hm-muted">{{.}}</span>{{end}}</span>{{with .Action}}{{template "hm/button" .}}{{end}}</li>{{end}}</ul>{{end}}
+<p class="hm-dash__launch-foot hm-muted">Items tick off by themselves as you change settings.</p>
+{{with .HideHref}}{{template "hm/card-foot"}}<form method="post" action="{{.}}">{{template "hm/csrf" $}}{{template "hm/button" (dict "Label" "Hide checklist" "Variant" "ghost" "Size" "sm" "Type" "submit")}}</form>{{template "hm/card-foot-end"}}{{else}}{{template "hm/card-end"}}{{end}}</div>{{else}}<div class="hm-dash--top">{{template "hm/card-start" dict "ID" .ID "Title" .Title}}{{template "hm/callout" (dict "Kind" "error" "Title" "Couldn't load this card." "Body" .ErrMsg)}}{{template "hm/button" (dict "Label" "Reload the page" "Href" (adminPath) "Variant" "ghost")}}{{template "hm/card-end"}}</div>{{end}}{{end}}{{end}}{{if .Stats}}<div class="hm-statgrid hm-dash__kpis">{{range .Stats}}<div class="hm-dash__kpi">{{template "hm/stat" dict "Variant" "ticker" "Stat" .Stat}}
 {{if .Failed}}{{template "hm/callout" (dict "Kind" "error" "Title" "Couldn't load." "Body" "These numbers could not be read.")}}{{template "hm/button" (dict "Label" "Reload the page" "Href" (adminPath) "Variant" "ghost")}}
 {{end}}</div>{{end}}</div>{{end}}
 <div class="hm-dash hm-dash--cols{{if .OneColumn}} hm-dash--one{{end}}">{{with .Left}}<div class="hm-dash__col">{{template "dash-cards" .}}</div>{{end}}{{with .Right}}<div class="hm-dash__col">{{template "dash-cards" .}}</div>{{end}}</div>

@@ -499,6 +499,15 @@ colour that is not a token; anything a second page needs becomes a partial.
   Recent submissions and the Comments card; the 404 log, analytics and update stores are not called for
   them. A store that is not wired omits its cards.
 - **Bounds.** One context with a 4 s timeout covers the page; the cards run in parallel.
+- **Launch checklist.** `#dash-launch` is a full-width card above the KPI row (`dashView.Top()`), shown only to
+  users who may manage settings (`settings.manage`). It lists up to ten items in two groups, "Make it yours" and
+  "Run it properly", built by the pure `launchItems` from the site's real state: each row is an `hm/badge`
+  (done, warning or "To do"), a title, a detail line and an `hm/button` size sm that links to the page that fixes it.
+  Only Email delivery and Backups can warn, and only a warning row carries a primary button. A source that is
+  not wired or fails leaves its item out, and the count (`hm/progress`, "N of M") covers the shown items. The card is
+  not rendered once every shown item is done, or after the owner hides it: "Hide checklist" posts to
+  `<admin>/launch-checklist/hide`, which stores `theme_extra.launch_checklist_hidden` through `PatchThemeExtra`.
+  Row layout is `css/pages/dashboard.css`, from tokens.
 
 - **Grid.** Two independent columns (`.hm-dash--cols`, each a `.hm-dash__col` stack), so a
   short card leaves no gap under it in the other column. Left: Site health (`#dash-health`)
@@ -525,6 +534,7 @@ colour that is not a token; anything a second page needs becomes a partial.
 | Comments | settings (cached) + one count + 5 pending rows |
 | Pages AI crawlers fetch most | 8 rows, last 30 days |
 | Site health | the existing health checks, grouped; read-only |
+| Launch checklist | one read per source in parallel; backups, off-site and content counts are shared with the Site health and content cards (read once per build); no theme registry call |
 | Activity | newest 6 of the audit log merged with update history; one source failing leaves the other |
 
 Labels say what is counted: "Missing pages" is the exact number of open addresses seen

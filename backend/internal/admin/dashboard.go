@@ -79,6 +79,7 @@ type dashSection struct {
 	Tracker                *ui.Tracker
 	Rows                   []dashRow // recent submissions
 	Health                 []healthGroup
+	Launch                 *launchCard // the launch checklist, only on #dash-launch
 	Activity               []activityRow
 	More                   *ui.Button // link to the full screen, last in the card (only Label and Href are used)
 	ErrMsg                 string
@@ -98,6 +99,9 @@ type dashView struct {
 	Stats    []dashKPI
 	Sections []*dashSection
 }
+
+// Top is the full-width card above the KPI row: the launch checklist.
+func (v *dashView) Top() []*dashSection { return v.pick("dash-launch") }
 
 // Left and Right are the two independent columns of the card grid, each in
 // display order: Site health and Activity on the left, the analytics and
@@ -639,6 +643,9 @@ func (a *Admin) dashJobs(v viewer) []dashJob {
 	}
 	if v.Can(authz.ActionCommentRead) {
 		candidates = append(candidates, a.commentsJob(owner))
+	}
+	if v.Can(authz.ActionSettingsManage) {
+		candidates = append(candidates, a.launchJob())
 	}
 	if owner {
 		candidates = append(candidates, a.healthJob(), a.referralsJob(), a.missingJob(), a.topPagesJob(), a.activityJob())

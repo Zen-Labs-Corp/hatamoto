@@ -375,3 +375,55 @@ func (a *Admin) readLaunchState(ctx context.Context) launchState {
 	}
 	return s
 }
+
+// launchGroup is the items of one group, in display order.
+type launchGroup struct {
+	Name  string
+	Items []launchItem
+}
+
+// launchCard is the model of the Overview's launch checklist card.
+type launchCard struct {
+	Groups   []launchGroup
+	Progress ui.Progress
+	HideHref string // the POST that hides the card; empty when the site store is not wired
+}
+
+// launchJob is the launch checklist card, for users who manage settings.
+func (a *Admin) launchJob() *dashJob {
+	return &dashJob{Name: "launch checklist", SecPos: 10, Run: a.dashLaunch,
+		Fallback: dashSection{ID: "dash-launch", Title: "Launch checklist", ErrMsg: "The launch checklist could not be built."}}
+}
+
+// dashLaunch builds the card. It returns no card when the owner hid it, when no
+// item can be shown, or when every shown item is done.
+func (a *Admin) dashLaunch(ctx context.Context) (dashResult, error) {
+	if a.deps.Site != nil {
+		cfg, err := a.deps.Site.Get(ctx)
+		if err != nil {
+			return dashResult{}, err
+		}
+		if launchHidden(cfg) {
+			return dashResult{}, nil
+		}
+	}
+	items := launchItems(a.adminPath, a.readLaunchState(ctx))
+	done, total := launchProgress(items)
+	if total == 0 || done == total {
+		return dashResult{}, nil
+	}
+	card := &launchCard{Progress: ui.Progress{Label: "Launch checklist progress", Value: fmt.Sprintf("%d of %d", done, total),
+		Pct: float64(done) / float64(total) * 100, Kind: "info", Thin: true}}
+	if a.deps.Site != nil {
+		card.HideHref = a.adminPath + launchHidePath
+	}
+	for _, it := range items {
+		if n := len(card.Groups); n == 0 || card.Groups[n-1].Name != it.Group {
+			card.Groups = append(card.Groups, launchGroup{Name: it.Group})
+		}
+		g := &card.Groups[len(card.Groups)-1]
+		g.Items = append(g.Items, it)
+	}
+	return dashResult{Sec: &dashSection{ID: "dash-launch", Title: "Launch checklist", Description: "Finish these before you share the site.",
+		State: dashOK, Launch: card}}, nil
+}
