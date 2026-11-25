@@ -119,7 +119,7 @@ func latestBackup(st BackupsState) (BackupInfo, bool) {
 }
 
 func (a *Admin) healthBackup(ctx context.Context) (*healthCheck, error) {
-	st, err := a.deps.Backups.List(ctx)
+	st, err := a.dashBackups(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ const (
 )
 
 func (a *Admin) healthOffsite(ctx context.Context) (*healthCheck, error) {
-	v, err := a.deps.Offsite.View(ctx)
+	v, err := a.dashOffsite(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func offsiteCheck(c *healthCheck, v OffsiteView, now time.Time) *healthCheck {
 }
 
 func (a *Admin) healthDisk(ctx context.Context) (*healthCheck, error) {
-	st, err := a.deps.Backups.List(ctx)
+	st, err := a.dashBackups(ctx)
 	if err != nil || st.FreeBytes == 0 { // 0: unknown
 		return nil, err
 	}

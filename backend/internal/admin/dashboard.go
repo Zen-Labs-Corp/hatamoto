@@ -191,6 +191,7 @@ func failedStats(labels []string) []ui.Stat {
 // shows n/a KPI cards and an error card; the cause is only logged.
 func (a *Admin) buildDash(ctx context.Context, jobs []dashJob) *dashView {
 	ctx = context.WithValue(ctx, dashScanKey{}, &dashScanMemo{ctx: ctx})
+	ctx = context.WithValue(ctx, dashReadsKey{}, &dashReads{ctx: ctx})
 	res := make([]dashResult, len(jobs))
 	fns := make([]func(context.Context) error, len(jobs))
 	for i, j := range jobs {
@@ -257,18 +258,83 @@ func (a *Admin) buildDash(ctx context.Context, jobs []dashJob) *dashView {
 	return v
 }
 
-// dashContent is the Published and Drafts cards, from the one grouped count
-// the entity list uses. Block and layout part types are left out, as there.
-func (a *Admin) dashContent(ctx context.Context) ([]ui.Stat, error) {
+// onceRead runs one read at most once and hands every caller its result.
+type onceRead[T any] struct {
+	once sync.Once
+	v    T
+	err  error
+}
+
+func (o *onceRead[T]) get(f func() (T, error)) (T, error) {
+	o.once.Do(func() { o.v, o.err = f() })
+	return o.v, o.err
+}
+
+// dashCountsRead is the schemas and the grouped entity counts of the site.
+type dashCountsRead struct {
+	schemas []*entity.EntitySchema
+	rows    []entity.SchemaStatusCount
+}
+
+// dashReads shares the reads that several cards make between the jobs of one
+// page build, like dashScanMemo does for the submissions scan.
+type dashReads struct {
+	ctx     context.Context // the page build's context: a read outlives the first caller's deadline
+	backups onceRead[BackupsState]
+	offsite onceRead[OffsiteView]
+	counts  onceRead[dashCountsRead]
+}
+
+type dashReadsKey struct{}
+
+// dashBackups lists the backups, once per page build when ctx carries a
+// dashReads (buildDash adds one).
+func (a *Admin) dashBackups(ctx context.Context) (BackupsState, error) {
+	if m, ok := ctx.Value(dashReadsKey{}).(*dashReads); ok {
+		return m.backups.get(func() (BackupsState, error) { return a.deps.Backups.List(m.ctx) })
+	}
+	return a.deps.Backups.List(ctx)
+}
+
+// dashOffsite reads the off-site backup settings, once per page build when ctx
+// carries a dashReads.
+func (a *Admin) dashOffsite(ctx context.Context) (OffsiteView, error) {
+	if m, ok := ctx.Value(dashReadsKey{}).(*dashReads); ok {
+		return m.offsite.get(func() (OffsiteView, error) { return a.deps.Offsite.View(m.ctx) })
+	}
+	return a.deps.Offsite.View(ctx)
+}
+
+// dashCounts reads the schemas and the grouped entity counts, once per page
+// build when ctx carries a dashReads.
+func (a *Admin) dashCounts(ctx context.Context) (dashCountsRead, error) {
+	if m, ok := ctx.Value(dashReadsKey{}).(*dashReads); ok {
+		return m.counts.get(func() (dashCountsRead, error) { return a.readDashCounts(m.ctx) })
+	}
+	return a.readDashCounts(ctx)
+}
+
+func (a *Admin) readDashCounts(ctx context.Context) (dashCountsRead, error) {
 	es := a.deps.Content.Entities
 	schemas, err := es.ListSchemas(ctx)
 	if err != nil {
-		return nil, err
+		return dashCountsRead{}, err
 	}
 	rows, err := es.CountEntitiesBySchemaStatus(ctx)
 	if err != nil {
+		return dashCountsRead{}, err
+	}
+	return dashCountsRead{schemas: schemas, rows: rows}, nil
+}
+
+// dashContent is the Published and Drafts cards, from the one grouped count
+// the entity list uses. Block and layout part types are left out, as there.
+func (a *Admin) dashContent(ctx context.Context) ([]ui.Stat, error) {
+	c, err := a.dashCounts(ctx)
+	if err != nil {
 		return nil, err
 	}
+	schemas, rows := c.schemas, c.rows
 	hidden := map[uuid.UUID]bool{}
 	for _, id := range reuseSchemaIDs(schemas) {
 		hidden[id] = true
