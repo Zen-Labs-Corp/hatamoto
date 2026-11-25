@@ -5,7 +5,7 @@
 
 | Check | Fails when |
 |---|---|
-| `/releases/channels/{stable,edge,canary,lts}.json` | not 200, not JSON, no `.index.expires_at`, or it expires in fewer than `EXPIRY_DAYS` (7) days. Manifests are valid 14 days and re-signed daily, so under 7 days left means signing stopped. Until the signed `lts.json` is uploaded, the check fails with `HTTP 404` on that file. |
+| `/releases/channels/{stable,edge,canary,lts}.json` | not 200, not JSON, no `.index.expires_at`, or it expires in fewer than `EXPIRY_DAYS` (7) days. Manifests are valid 14 days and re-signed daily, so under 7 days left means signing stopped. |
 | `/registry.json` | not 200, or no `.index.packages` |
 | `/sdk?go-get=1` | not 200, or no `go-import` tag for `<host>/sdk` |
 | `/.well-known/security.txt` | not 200, no `Contact`, or `Expires` in fewer than `SECURITY_TXT_DAYS` (30) days |

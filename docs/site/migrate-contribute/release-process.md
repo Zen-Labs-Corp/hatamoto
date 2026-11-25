@@ -161,7 +161,7 @@ The unsigned channel sources are public: `releases/channels/{canary,edge,lts,sta
 
 Signing and upload happen off GitHub, on the maintainer's signing machine. After a channel change is merged, and once a day, that machine signs the four channel files at the head of `main` with the manifest key, verifies each one against the embedded trust, and uploads them with a deploy key that the release server pins to the channels directory (`rrsync -wo -munge`, `--no-links`). A run that signed an older `main` than the current head publishes nothing, so a stale run cannot overwrite newer state. Neither key, nor any workflow that could use one, is in this repository: `scripts/test-channels-public.sh` (part of `make check`) fails on a channel signing workflow, a channel secret name or a tracked key file. An outside contributor's pull request can therefore never reach the manifest key.
 
-`lts.json` started as an empty source. Until the signing machine's run includes it, the live `lts.json` is missing and the freshness alarm reports it.
+The daily run signs and uploads all four, `lts` included, even while `lts.json` lists no releases. A signer that skips a channel leaves that live file missing, and the freshness alarm reports it.
 
 A signed manifest is valid for 14 days, so boxes keep updating for two weeks even if the signing machine is down.
 
