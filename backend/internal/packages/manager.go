@@ -24,6 +24,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/idle"
 	"hatamoto.dev/core/internal/jsonx"
@@ -91,10 +92,10 @@ type ConfirmationRequired struct {
 	// NewEntitiesFilter: the update newly asks for entities.filter (it sees
 	// and may change every save); it counts as widened access too.
 	NewEntitiesFilter bool
-	// NewClientKey, NewEntityWrite and NewCommentsModerate: the update newly
-	// asks for client.key, entities.write.own or comments.moderate (SDK 0.27);
-	// each counts as widened access too.
-	NewClientKey, NewEntityWrite, NewCommentsModerate bool
+	// NewClientKey, NewEntityWrite, NewCommentsModerate and NewCommentsIdentity:
+	// the update newly asks for client.key, entities.write.own, comments.moderate
+	// or comments.identity; each counts as widened access too.
+	NewClientKey, NewEntityWrite, NewCommentsModerate, NewCommentsIdentity bool
 	// EntitySchemaChanged: the update writes (and moderates) another content
 	// type than the installed version (OldEntitySchema -> NewEntitySchema, both
 	// set); NewEntityFields are entity_fields keys the update adds on the same
@@ -132,7 +133,7 @@ func (e *ConfirmationRequired) Error() string {
 		why = append(why, fmt.Sprintf("it is signed by %s, not %s", orUnsigned(e.NewSigner), orUnsigned(e.OldSigner)))
 	}
 	if e.WidenedAccess {
-		why = append(why, "it can reach further than the installed version (new web addresses, http.fetch.any or JavaScript on your pages, site.scripts, reviewing every save with entities.filter, pseudonymous visitor keys (client.key), writing its own content type (entities.write.own), moderating comments (comments.moderate), redirecting visitors from new pages, or a tag loading from new hosts)")
+		why = append(why, "it can reach further than the installed version (new web addresses, http.fetch.any or JavaScript on your pages, site.scripts, reviewing every save with entities.filter, pseudonymous visitor keys (client.key), writing its own content type (entities.write.own), moderating comments (comments.moderate), signing visitors in as commenters (comments.identity), redirecting visitors from new pages, or a tag loading from new hosts)")
 	}
 	if len(e.Missing) > 0 {
 		why = append(why, fmt.Sprintf("the active theme would lose %d section type(s) the content uses", len(e.Missing)))
@@ -648,6 +649,7 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 		c.NewClientKey = newlyAsks(prev.Manifest, p, sdk.PermClientKey)
 		c.NewEntityWrite = newlyAsks(prev.Manifest, p, sdk.PermEntitiesWriteOwn)
 		c.NewCommentsModerate = newlyAsks(prev.Manifest, p, sdk.PermCommentsModerate)
+		c.NewCommentsIdentity = newlyAsks(prev.Manifest, p, sdk.PermCommentsIdentity)
 		c.OldEntitySchema, c.NewEntitySchema, c.EntitySchemaChanged, c.NewEntityFields = entityWriteChange(prev.Manifest, p)
 		c.NewCSPHosts = newCSPHosts(prev.Manifest, p)
 		c.NewRequestHeaders = newRequestHeaders(prev.Manifest, p)
@@ -659,7 +661,7 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 			c.NewTagHosts, c.TagCategoryChanged = newTagAccess(prevPkg, p)
 		}
 		c.TagCompareFailed = loadErr != nil
-		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || c.NewEntitiesFilter || c.NewClientKey || c.NewEntityWrite || c.NewCommentsModerate || c.EntitySchemaChanged || len(c.NewEntityFields) > 0 || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0 || len(c.NewRedirectPaths) > 0 || len(c.NewTagHosts) > 0 || c.TagCategoryChanged || c.TagCompareFailed
+		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || c.NewEntitiesFilter || c.NewClientKey || c.NewEntityWrite || c.NewCommentsModerate || c.NewCommentsIdentity || c.EntitySchemaChanged || len(c.NewEntityFields) > 0 || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0 || len(c.NewRedirectPaths) > 0 || len(c.NewTagHosts) > 0 || c.TagCategoryChanged || c.TagCompareFailed
 	}
 	if !c.Downgrade && !c.SignerChange && !c.WidenedAccess && len(c.Missing) == 0 {
 		return nil, nil
@@ -1015,6 +1017,11 @@ func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, opts Un
 		if err != nil {
 			return fmt.Errorf("handing the entries of %q to the owner (uninstall is unfinished; try again): %w", name, err)
 		}
+	}
+	// Commenters the plugin vouched for: a later package with this name must not
+	// inherit their accounts or sessions.
+	if err := comment.ForgetPlugin(ctx, m.Pool, name); err != nil {
+		return fmt.Errorf("detaching the commenters of %q (uninstall is unfinished; try again): %w", name, err)
 	}
 	if opts.DropData {
 		if m.Dropper != nil {

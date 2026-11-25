@@ -78,6 +78,8 @@ func (s *Server) setupPlugins() {
 		Grants:     grants,
 		MailQuotas: quotas,
 		ClientKeys: pluginClientKeys(s.cfg),
+
+		CommenterSession: s.pluginCommenterSession,
 		Services: pluginhost.Services{
 			Entities:  s.entityService,
 			Paths:     pluginEntityPaths{s},
@@ -104,6 +106,7 @@ func (s *Server) setupPlugins() {
 	}
 	if keys != nil {
 		cfg.CommenterKey = keys.Commenter
+		cfg.Services.CommentIdentity = pluginCommentIdentity{s: s, derive: keys.Commenter}
 	}
 	if s.db != nil {
 		cfg.Services.Groups = entity.NewGroupStore(s.db.Pool())

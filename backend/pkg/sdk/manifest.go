@@ -905,12 +905,19 @@ func (m Manifest) validatePagePathPrefixes() error {
 func (m Manifest) validateEntityWrite() error {
 	writes := slices.Contains(m.Permissions, PermEntitiesWriteOwn)
 	moderates := slices.Contains(m.Permissions, PermCommentsModerate)
+	identity := slices.Contains(m.Permissions, PermCommentsIdentity)
+	if identity && !slices.Contains(m.Permissions, PermCommentsRead) {
+		return fmt.Errorf("sdk: plugin %q: permission %q needs %q", m.Name, PermCommentsIdentity, PermCommentsRead)
+	}
 	if m.EntitySchema == "" {
 		if writes {
 			return fmt.Errorf("sdk: plugin %q: permission %q needs entity_schema", m.Name, PermEntitiesWriteOwn)
 		}
 		if moderates {
 			return fmt.Errorf("sdk: plugin %q: permission %q needs entity_schema", m.Name, PermCommentsModerate)
+		}
+		if identity {
+			return fmt.Errorf("sdk: plugin %q: permission %q needs entity_schema", m.Name, PermCommentsIdentity)
 		}
 		if len(m.EntityFields) > 0 {
 			return fmt.Errorf("sdk: plugin %q: entity_fields needs entity_schema", m.Name)

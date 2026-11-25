@@ -79,6 +79,13 @@ const (
 	// set_viewer act on comments of the plugin's entity_schema only, and makes
 	// include_dead count on reads. There is no comment create function.
 	PermCommentsModerate Permission = "comments.moderate"
+
+	// PermCommentsIdentity (SDK 0.29.0) lets a plugin sign visitors in as
+	// commenters it vouches for: comments.identity.ensure|revoke and the
+	// commenter_session field of a public route response. Such a commenter has
+	// no email. A manifest asking for it must also hold comments.read and
+	// declare entity_schema (which itself needs entities.write.own).
+	PermCommentsIdentity Permission = "comments.identity"
 )
 
 // Permissions lists every capability, in a stable order.
@@ -89,6 +96,7 @@ var Permissions = []Permission{
 	PermBuilderData, PermBuilderIsland, PermSiteScripts,
 	PermPackagesInspect, PermEntitiesFilter, PermCommentsRead,
 	PermClientKey, PermEntitiesWriteOwn, PermCommentsModerate,
+	PermCommentsIdentity,
 }
 
 // ValidPermission reports whether p is a known capability.

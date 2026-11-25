@@ -3,17 +3,18 @@ package kit
 import "slices"
 
 // KnownFeatures are the core feature names a kit may require (docs/KITS.md).
-var KnownFeatures = []string{"comment.policy", "comment.rank", "comment.signin", "plugin.entity-write"}
+var KnownFeatures = []string{"comment.identity", "comment.policy", "comment.rank", "comment.signin", "plugin.entity-write"}
 
 // present lists the features this build has. A name is added only by the change
-// that makes it work: comment.policy is the per-type community policy (Settings >
+// that makes it work: comment.identity is a plugin holding comments.identity
+// signing visitors in as email-less commenters (SDK 0.29); comment.policy is the per-type community policy (Settings >
 // Comments > Content types), which a kit turns on through Deps.SchemaComments;
 // comment.rank is the rank sort of a comment type (order "rank"), which orders
 // every sibling level by the rank a plugin writes; comment.signin is the
 // standalone comment sign-in and sign-out pages (/-/comments/signin);
 // plugin.entity-write is a plugin writing entries of the one content type it
 // owns (entities.write.own).
-var present = []string{"comment.policy", "comment.rank", "comment.signin", "plugin.entity-write"}
+var present = []string{"comment.identity", "comment.policy", "comment.rank", "comment.signin", "plugin.entity-write"}
 
 // Features returns the feature names this core has.
 func Features() []string { return slices.Clone(present) }

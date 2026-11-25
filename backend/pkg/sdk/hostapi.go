@@ -3,6 +3,8 @@ package sdk
 import (
 	"encoding/json/jsontext"
 	"fmt"
+	"unicode"
+	"unicode/utf8"
 )
 
 // HostFunc is the name of the one host function every plugin may import
@@ -103,6 +105,83 @@ const (
 	FnCommentsByAuthor  = "comments.by_author"  // comments.read: CommentsByAuthorArgs -> CommentThread (newest first, 50 per page; approved, and dead only with include_dead + comments.moderate on the plugin's own type; listed by the comment's own status, so a reply under a hidden parent still appears)
 	FnCommentsSubtree   = "comments.subtree"    // comments.read: CommentSubtreeArgs -> CommentSubtree
 )
+
+// Host functions of the SDK 0.29 contract.
+const (
+	// comments.identity: CommentsIdentityArgs -> CommentsIdentityEnsured
+	FnCommentsIdentityEnsure = "comments.identity.ensure"
+	// comments.identity: CommentsIdentityArgs -> CommentsIdentityRevoked
+	FnCommentsIdentityRevoke = "comments.identity.revoke"
+)
+
+// MaxIdentityAccountBytes caps a plugin account id.
+const MaxIdentityAccountBytes = 128
+
+// CommentsIdentityArgs names one of the plugin's own accounts.
+type CommentsIdentityArgs struct {
+	Account string `json:"account"`
+}
+
+// CommentsIdentityEnsured answers comments.identity.ensure: the plugin-scoped
+// key of the account's commenter, stable across calls.
+type CommentsIdentityEnsured struct {
+	CommenterKey string `json:"commenter_key"`
+}
+
+// CommentsIdentityRevoked answers comments.identity.revoke: false when the
+// plugin has no commenter for the account.
+type CommentsIdentityRevoked struct {
+	Revoked bool `json:"revoked"`
+}
+
+// ValidIdentityAccount reports whether s is a usable plugin account id: 1 to
+// MaxIdentityAccountBytes bytes of valid UTF-8 without control characters.
+func ValidIdentityAccount(s string) bool {
+	if s == "" || len(s) > MaxIdentityAccountBytes || !utf8.ValidString(s) {
+		return false
+	}
+	for _, r := range s {
+		if unicode.IsControl(r) {
+			return false
+		}
+	}
+	return true
+}
+
+// CommenterSession asks the host to sign this browser in as the commenter of
+// Account, or out (SignOut). Honoured only on a non-GET public route response
+// of a plugin holding comments.identity, from a same-origin request.
+type CommenterSession struct {
+	Account string `json:"account,omitempty"`
+	// Link binds the browser's current commenter to Account when that
+	// commenter belongs to no plugin account yet. The binding cannot be
+	// undone and the host cannot prove the browser's commenter is the
+	// account's owner: send Link only from an explicit connect action by
+	// the signed-in user, never on a routine signup or login.
+	Link    bool `json:"link,omitempty"`
+	SignOut bool `json:"sign_out,omitempty"`
+	// MaxAge is the cookie lifetime in seconds; 0 means the site's
+	// device_cookie_days, and a larger value is capped to it.
+	MaxAge int `json:"max_age,omitempty"`
+}
+
+// Valid checks the shape: SignOut alone, or a valid Account with a
+// non-negative MaxAge.
+func (s CommenterSession) Valid() error {
+	if s.SignOut {
+		if s.Account != "" || s.Link || s.MaxAge != 0 {
+			return fmt.Errorf("sdk: commenter_session: sign_out takes no other field")
+		}
+		return nil
+	}
+	if !ValidIdentityAccount(s.Account) {
+		return fmt.Errorf("sdk: commenter_session: account must be 1 to %d bytes of text without control characters", MaxIdentityAccountBytes)
+	}
+	if s.MaxAge < 0 {
+		return fmt.Errorf("sdk: commenter_session: max_age must not be negative")
+	}
+	return nil
+}
 
 // Limits of the SDK 0.27 comment host functions.
 const (
@@ -247,6 +326,9 @@ type HTTPResponse struct {
 	// names only, stored as hmp_<plugin>_<name>, with the limits and flags of
 	// render.page's cookies. An admin route that sets one fails.
 	SetCookies []SetCookie `json:"set_cookies,omitempty"`
+	// CommenterSession signs the browser in or out as a commenter (SDK 0.29,
+	// permission comments.identity, non-GET public routes only).
+	CommenterSession *CommenterSession `json:"commenter_session,omitempty"`
 }
 
 // CronEvent is the input of an `on_cron_<name>` export.

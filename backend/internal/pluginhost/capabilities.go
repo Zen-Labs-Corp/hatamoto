@@ -45,6 +45,10 @@ type Config struct {
 	// CommenterKey derives the plugin's pseudonymous key for a commenter
 	// (pluginkey.Deriver.Commenter); nil means no commenter keys are handed out.
 	CommenterKey func(plugin string, commenter uuid.UUID) string
+	// CommenterSession applies a plugin's commenter_session on a public route
+	// response; the server sets it and it is read at call time. Nil makes such
+	// responses fail with 503.
+	CommenterSession CommenterSessionFunc
 }
 
 type capabilities struct {
@@ -73,6 +77,8 @@ func (r *Runtime) Configure(c Config) {
 	r.caps.admin.keys, r.caps.public.keys = r.clientKeys, r.clientKeys
 	r.caps.admin.keyed, r.caps.public.keyed = r.hasClientKey, r.hasClientKey
 	r.caps.public.keyFor = r.commenterKeyFor
+	r.caps.public.session = c.CommenterSession
+	r.caps.public.identity = func(p string) bool { return c.Grants.Has(p, sdk.PermCommentsIdentity) }
 }
 
 // SetMailQuota applies the plugin's new mail.send quota to its running

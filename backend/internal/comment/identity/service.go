@@ -395,6 +395,24 @@ func (s *Service) Cookie(c Confirmed, secure bool) *http.Cookie {
 	}
 }
 
+// CookieFor signs hm_c for a commenter a plugin vouched for: the stored
+// token_version, the site's device cookie lifetime, capped by maxAge when it is
+// positive. Unknown commenter: comment.ErrNotFound.
+func (s *Service) CookieFor(ctx context.Context, id uuid.UUID, secure bool, maxAge time.Duration) (*http.Cookie, error) {
+	tv, ok, err := s.store.TokenVersion(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, comment.ErrNotFound
+	}
+	life := s.cookieLifetime(ctx)
+	if maxAge > 0 && maxAge < life {
+		life = maxAge
+	}
+	return s.Cookie(Confirmed{CommenterID: id, TokenVersion: tv, CookieLifetime: life}, secure), nil
+}
+
 // ClearCookie builds the hm_c cookie that removes this browser's sign-in. It
 // does not touch token_version: a copied cookie stays valid until it expires or
 // an admin revokes the commenter.

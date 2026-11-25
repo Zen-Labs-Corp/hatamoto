@@ -6,7 +6,7 @@ import (
 )
 
 func TestKnownFeaturesPinned(t *testing.T) {
-	want := []string{"comment.policy", "comment.rank", "comment.signin", "plugin.entity-write"}
+	want := []string{"comment.identity", "comment.policy", "comment.rank", "comment.signin", "plugin.entity-write"}
 	if !slices.Equal(KnownFeatures, want) {
 		t.Fatalf("KnownFeatures = %v, want %v", KnownFeatures, want)
 	}
@@ -61,6 +61,15 @@ func TestFeaturesHasCommentSignIn(t *testing.T) {
 		t.Fatalf("Features = %v", Features())
 	}
 	if got := Missing([]string{"comment.signin"}); len(got) != 0 {
+		t.Fatalf("Missing = %v", got)
+	}
+}
+
+func TestFeaturesReportCommentIdentity(t *testing.T) {
+	if !slices.Contains(Features(), "comment.identity") {
+		t.Fatalf("Features = %v", Features())
+	}
+	if got := Missing([]string{"comment.identity"}); len(got) != 0 {
 		t.Fatalf("Missing = %v", got)
 	}
 }

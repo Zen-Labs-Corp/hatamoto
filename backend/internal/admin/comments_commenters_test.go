@@ -202,7 +202,7 @@ func TestCommentersPage(t *testing.T) {
 				t.Errorf("%s: table lacks %q", token, want)
 			}
 		}
-		for _, bad := range []string{"@", "http", "Website", "Email"} {
+		for _, bad := range []string{"@", "http", "Website"} {
 			if strings.Contains(table, bad) {
 				t.Errorf("%s: table contains %q", token, bad)
 			}

@@ -92,6 +92,7 @@ type EntityComments struct {
 // or a hash.
 type CommenterRow struct {
 	ID, Name, Trust string
+	Origin          string // vouching plugin; "" = email sign-in
 	ApprovedCount   int
 	LastSeen        time.Time
 }

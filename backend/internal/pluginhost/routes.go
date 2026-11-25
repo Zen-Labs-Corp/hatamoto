@@ -71,7 +71,11 @@ type RouteRegistry struct {
 	// keyFor derives the plugin's commenter key for a public request; nil on
 	// the admin registry and when no keys are configured.
 	keyFor func(ctx context.Context, plugin string) string
-	m      atomic.Pointer[map[string]*pluginRouter]
+	// identity reports whether a plugin holds comments.identity; session
+	// applies its commenter_session (see routes_session.go).
+	identity func(plugin string) bool
+	session  CommenterSessionFunc
+	m        atomic.Pointer[map[string]*pluginRouter]
 }
 
 // NewRouteRegistry returns a registry serving either the admin or the public
@@ -312,6 +316,9 @@ func (g *RouteRegistry) writeRouteResponse(w http.ResponseWriter, r *http.Reques
 	h.Set("X-Content-Type-Options", "nosniff")
 	for i := range res.SetCookies {
 		res.SetCookies[i].Name = PluginCookieName(m.Name, res.SetCookies[i].Name)
+	}
+	if res.CommenterSession != nil && !g.applySession(w, r, m.Name, res.CommenterSession) {
+		return
 	}
 	WriteSetCookies(w, r, res.SetCookies)
 	w.WriteHeader(status)

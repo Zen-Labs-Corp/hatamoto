@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // Vouch raises a commenter to known or trusted; it also unblocks. The level is
@@ -26,6 +27,19 @@ func (s *Service) Vouch(ctx context.Context, commenterID uuid.UUID, level TrustL
 		return ErrNotFound
 	}
 	return nil
+}
+
+// ForgetPlugin detaches every commenter plugin vouches for: the origin is
+// cleared, so a later package with the same name cannot reach the accounts,
+// and token_version is bumped, so the sessions it vouched for stop working. An
+// email-less commenter keeps its 'plugin:<uuid>' key (never an address hash, so
+// no typed email reaches it) and, with no origin, falls under the idle purge.
+func ForgetPlugin(ctx context.Context, db interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}, plugin string) error {
+	_, err := db.Exec(ctx, `UPDATE hatamoto_commenters SET origin_plugin = NULL, origin_account = NULL,
+		token_version = token_version + 1 WHERE origin_plugin = $1`, plugin)
+	return err
 }
 
 // Block sets a commenter to blocked and revokes every device cookie.
@@ -116,17 +130,19 @@ type Export struct {
 	Comments  []Comment
 }
 
-func (s *Service) commenterRow(ctx context.Context, q interface {
+// commenterRowBy reads one commenter by a column. where is "email_hash" or
+// "id": a constant of this file, never user input.
+func (s *Service) commenterRowBy(ctx context.Context, q interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
-}, emailHash string) (Commenter, []byte, error) {
+}, where string, arg any) (Commenter, []byte, error) {
 	var c Commenter
 	var trust string
 	var sealed []byte
 	err := q.QueryRow(ctx, `SELECT id, email_hash, email_sealed, trust_level, approved_count, first_approved_at,
-			last_spam_at, token_version, created_at, last_seen_at
-		FROM hatamoto_commenters WHERE email_hash = $1`, emailHash).
+			last_spam_at, token_version, created_at, last_seen_at, coalesce(origin_plugin, '')
+		FROM hatamoto_commenters WHERE `+where+` = $1`, arg).
 		Scan(&c.ID, &c.EmailHash, &sealed, &trust, &c.ApprovedCount, &c.FirstApprovedAt, &c.LastSpamAt,
-			&c.TokenVersion, &c.CreatedAt, &c.LastSeenAt)
+			&c.TokenVersion, &c.CreatedAt, &c.LastSeenAt, &c.OriginPlugin)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Commenter{}, nil, ErrNotFound
 	}
@@ -137,13 +153,22 @@ func (s *Service) commenterRow(ctx context.Context, q interface {
 // ExportByEmail returns the commenter record and every comment of one address
 // (a data-subject access request). Unknown address: ErrNotFound.
 func (s *Service) ExportByEmail(ctx context.Context, email string) (Export, error) {
-	h := s.keys.HashEmail(email)
-	c, sealed, err := s.commenterRow(ctx, s.db.Pool(), h)
+	c, _, err := s.commenterRowBy(ctx, s.db.Pool(), "email_hash", s.keys.HashEmail(email))
+	if err != nil {
+		return Export{}, err
+	}
+	return s.ExportByID(ctx, c.ID)
+}
+
+// ExportByID is ExportByEmail for a commenter known by id, including one a
+// plugin vouches for (Email is then empty). Unknown id: ErrNotFound.
+func (s *Service) ExportByID(ctx context.Context, id uuid.UUID) (Export, error) {
+	c, sealed, err := s.commenterRowBy(ctx, s.db.Pool(), "id", id)
 	if err != nil {
 		return Export{}, err
 	}
 	out := Export{Commenter: c}
-	out.Email, _ = s.keys.OpenEmail(sealed, h)
+	out.Email, _ = s.keys.OpenEmail(sealed, c.EmailHash)
 	rows, err := s.db.Pool().Query(ctx, `SELECT `+commentColumns+` FROM hatamoto_comments
 		WHERE commenter_id = $1 ORDER BY created_at, seq`, c.ID)
 	if err != nil {
@@ -172,12 +197,21 @@ const deletedBody = "[deleted]"
 // are recomputed, OnDeleted fires for each deleted comment that was ever announced (pending included) and OnUpdated for each
 // anonymised one (same status, new content). Unknown: ErrNotFound.
 func (s *Service) EraseByEmail(ctx context.Context, email string) (EraseResult, error) {
-	h := s.keys.HashEmail(email)
+	return s.erase(ctx, "email_hash", s.keys.HashEmail(email))
+}
+
+// EraseByID is EraseByEmail for a commenter known by id, including one a plugin
+// vouches for. Unknown id: ErrNotFound.
+func (s *Service) EraseByID(ctx context.Context, id uuid.UUID) (EraseResult, error) {
+	return s.erase(ctx, "id", id)
+}
+
+func (s *Service) erase(ctx context.Context, where string, arg any) (EraseResult, error) {
 	now := s.utcNow()
 	var res EraseResult
 	var deleted, anonymised []Comment
 	err := s.db.WithTx(ctx, func(tx pgx.Tx) error {
-		c, _, err := s.commenterRow(ctx, tx, h)
+		c, _, err := s.commenterRowBy(ctx, tx, where, arg)
 		if err != nil {
 			return err
 		}

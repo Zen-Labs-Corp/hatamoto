@@ -82,6 +82,8 @@ type Services struct {
 	Comments CommentReader
 	// CommentModerator serves the comments.moderate functions; nil = unavailable.
 	CommentModerator CommentModerator
+	// CommentIdentity serves comments.identity.ensure/revoke; nil = unavailable.
+	CommentIdentity CommentIdentity
 	// Audit records a plugin's successful write on the owner-visible audit log; nil = not recorded.
 	Audit    func(ctx context.Context, action, target string, detail map[string]any)
 	Mail     Mailer
@@ -274,6 +276,8 @@ func (a *API) toHostError(plugin string, err error) *sdk.HostError {
 		return herr(sdk.ErrUnavailable, "%s", err.Error())
 	case errors.Is(err, changeset.ErrNotOwned):
 		return herr(sdk.ErrNotOwned, "object belongs to the owner")
+	case errors.Is(err, ErrCommentIdentityUnavailable):
+		return herr(sdk.ErrUnavailable, "%s", err.Error())
 	case errors.Is(err, ErrCommentNotOwned):
 		return herr(sdk.ErrNotOwned, "comment is not on the plugin's content type")
 	case errors.Is(err, changeset.ErrNotStaged), errors.Is(err, changeset.ErrExpired):
@@ -452,6 +456,10 @@ var hostFns = map[string]hostFn{
 	sdk.FnCommentsSetViewer: {perm: sdk.PermCommentsModerate, run: fnCommentsSetViewer},
 	sdk.FnCommentsByAuthor:  {perm: sdk.PermCommentsRead, run: fnCommentsByAuthor},
 	sdk.FnCommentsSubtree:   {perm: sdk.PermCommentsRead, run: fnCommentsSubtree},
+
+	// SDK 0.29 functions (hostapi_identity.go).
+	sdk.FnCommentsIdentityEnsure: {perm: sdk.PermCommentsIdentity, run: fnCommentsIdentityEnsure},
+	sdk.FnCommentsIdentityRevoke: {perm: sdk.PermCommentsIdentity, run: fnCommentsIdentityRevoke},
 }
 
 func fnPermissions(_ context.Context, a *API, e *callEnv, _ jsontext.Value) (any, error) {
