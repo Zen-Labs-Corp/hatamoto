@@ -128,10 +128,12 @@ curl -X PATCH -H "X-API-Key: <your-key>" -H "Content-Type: application/merge-pat
 ```
 
 - Only `attributes` merge; other fields work as usual.
-- Only the keys you send change. `null` removes a key, nested objects merge and arrays replace whole. `"attributes": null` is refused with `400`.
+- Only the keys you send change. `null` removes a key (except `page_doc: null`, which keeps the stored document), nested objects merge and arrays replace whole. `"attributes": null` is refused with `400`.
 - `PUT` always replaces `attributes` as a whole.
 - The merged result is validated like a full write. A merge that removes a required attribute answers `400` and names it.
 - Send `If-Match` with a merge. Without it a merge can overwrite another program's change to a different attribute.
+
+How `If-Match` works:
 
 - `If-Match` works on `PUT` and `PATCH /api/v1/entities/{id}`, `PATCH /api/v1/entities/{id}/status` and `POST /api/v1/entities/{id}/restore/{version}`. On a restore, the `{version}` in the address is the version to restore and `If-Match` is the current version you expect.
 - The header is optional. Without it a change is applied as before. `If-Match` on `DELETE` is ignored.

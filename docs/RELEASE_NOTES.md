@@ -4,7 +4,7 @@
 
 - **What.** `PATCH /api/v1/entities/{id}` with `Content-Type: application/merge-patch+json` merges the sent `attributes` into the stored ones (JSON merge patch, RFC 7396): only the keys sent change, `null` removes a key, nested objects merge, arrays replace whole. MCP `entities_update` takes `merge: true` for the same. The merged result is validated and stored as one version, like a full write. `If-Match` and `version` work as before; send them with a merge. See [Edit safely when several programs write](site/admin/users-and-api-keys.md#edit-safely-when-several-programs-write).
 - **Default.** Unchanged: `PATCH` with `application/json`, `PUT` and `entities_update` without `merge` still replace `attributes` as a whole.
-- **Migration.** None. **Rollback floor:** none.
+- **Migration.** None. **Rollback floor:** none for data. Before rolling back, stop clients from sending merge patches (`Content-Type: application/merge-patch+json`, MCP `merge: true`): an older binary treats them as a full replace of `attributes`.
 
 ## Unreleased: standing approvals on dashed content types (SDK 0.27.1)
 

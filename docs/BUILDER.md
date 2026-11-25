@@ -215,8 +215,8 @@ that must keep rendering. In the builder: select all the text and press **Clear*
 editor, which stores plain text again; but a **line break** (Shift+Enter) is markup, so a text with a line break keeps
 `html` after Clear until the break is deleted. The no-JS outline cannot remove `html` (an empty `html` field there is a
 no-op). Through the API, send the page_doc with `p.html` removed from those nodes (`text` already holds the plain
-projection; `entities_update` / `PATCH /api/v1/entities/{id}` replace `attributes` as a whole, so read, delete
-`p.html`, send back).
+projection; `entities_update` / `PATCH /api/v1/entities/{id}` replace `attributes` as a whole unless the opt-in merge is used
+(`merge: true` / `application/merge-patch+json`), so read, delete `p.html`, send back).
 
 Nothing is rewritten by the upgrade itself, so rolling back and forward again restores the pages (presets saved in between excepted, see above). Before a rollback,
 remove the new keys from pages that must keep rendering (older documents are byte-identical in output and are not
