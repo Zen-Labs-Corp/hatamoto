@@ -538,16 +538,20 @@ func (p pluginAdmin) Settings(ctx context.Context, name string) (map[string]any,
 	return out, nil
 }
 
-func (p pluginAdmin) StoredSecrets(ctx context.Context, name string) (map[string]bool, error) {
+func (p pluginAdmin) StoredSecrets(ctx context.Context, name string) (map[string]bool, map[string]bool, error) {
 	schema := p.schema(name)
 	if p.s.pluginSettingsStore == nil || len(schema) == 0 {
-		return nil, errors.New("plugin has no settings")
+		return nil, nil, errors.New("plugin has no settings")
 	}
-	stored, err := p.s.pluginSettingsStore.Get(ctx, name)
+	stored, bad, err := p.s.pluginSettingsStore.GetChecked(ctx, name)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return pluginhost.WriteOnlySet(schema, stored), nil
+	unreadable := make(map[string]bool, len(bad))
+	for _, k := range bad {
+		unreadable[k] = true
+	}
+	return pluginhost.WriteOnlySet(schema, stored), unreadable, nil
 }
 
 // SaveSettings validates against the plugin's schema and stores the result,

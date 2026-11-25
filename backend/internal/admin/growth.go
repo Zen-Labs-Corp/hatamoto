@@ -228,9 +228,11 @@ type PluginAdmin interface {
 	// Settings is the stored settings with schema defaults merged and write-only
 	// values masked.
 	Settings(ctx context.Context, name string) (map[string]any, error)
-	// StoredSecrets names the writeOnly settings that hold a value; the form
-	// says "stored" for them and never shows the value.
-	StoredSecrets(ctx context.Context, name string) (map[string]bool, error)
+	// StoredSecrets names the writeOnly settings that hold a value (stored; the
+	// form says "stored" and never shows the value) and those whose sealed value
+	// cannot be read (unreadable, e.g. after a restore under another server
+	// secret; the form asks for the value again).
+	StoredSecrets(ctx context.Context, name string) (stored, unreadable map[string]bool, err error)
 	// SaveSettings validates against the plugin's schema; problems come back as
 	// field errors (dotted paths), not as an error.
 	SaveSettings(ctx context.Context, name string, values map[string]any) (schemaform.Errors, error)

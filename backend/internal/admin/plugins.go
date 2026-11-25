@@ -470,13 +470,13 @@ func (a *Admin) renderPlugin(w http.ResponseWriter, r *http.Request, pa PluginAd
 		title = d.UI.Title
 	}
 	if d.Owner && len(p.SettingsSchema) > 0 {
-		secrets, err := pa.StoredSecrets(r.Context(), p.Name)
+		secrets, unreadable, err := pa.StoredSecrets(r.Context(), p.Name)
 		if err != nil {
 			a.logger().Error("load plugin secrets state failed", "plugin", p.Name, "err", err)
 			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be loaded.")
 			return
 		}
-		form, err := schemaform.Render(p.SettingsSchema, values, schemaform.Options{Errors: errs, OpenPath: openPath, Secrets: secrets})
+		form, err := schemaform.Render(p.SettingsSchema, values, schemaform.Options{Errors: errs, OpenPath: openPath, Secrets: secrets, Unreadable: unreadable})
 		if err != nil {
 			a.logger().Error("render plugin settings form failed", "plugin", p.Name, "err", err)
 			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings form of this plugin could not be built.")
