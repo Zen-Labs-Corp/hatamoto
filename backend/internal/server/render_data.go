@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -135,6 +136,18 @@ func (d *renderData) Query(q render.QuerySpec) render.QueryResult {
 	if id, err := uuid.Parse(q.ExcludeID); err == nil {
 		f.ExcludeID = id
 	}
+	if len(q.Filters) > 0 {
+		now := time.Now
+		if d.now != nil {
+			now = d.now
+		}
+		loc := d.s.siteLocation(ctx)
+		var relative bool
+		f.Conds, relative = attrConds(q.Filters, now().In(loc))
+		if relative {
+			empty.ExpiresIn = untilLocalMidnight(now(), loc)
+		}
+	}
 	if q.Author != "" {
 		id, ok := d.authorID(ctx, q.Author)
 		if !ok {
@@ -187,7 +200,52 @@ func (d *renderData) Query(q render.QuerySpec) render.QueryResult {
 	return render.QueryResult{
 		Items: items,
 		Total: total, Page: page, Pages: queryPages(total, f.Offset, limit), Limit: limit,
+		ExpiresIn: empty.ExpiresIn,
 	}
+}
+
+// attrConds turns loop filters into listing conditions, with today as the
+// local date of the site. relative reports a filter that depends on today.
+func attrConds(fs []render.AttrFilter, today time.Time) (conds []entity.AttrCond, relative bool) {
+	const iso = "2006-01-02"
+	text := func(f render.AttrFilter) string {
+		if f.IsNum {
+			return strconv.FormatFloat(f.Num, 'f', -1, 64)
+		}
+		return f.Text
+	}
+	for _, f := range fs {
+		c := entity.AttrCond{Key: f.Attr, Num: f.Num}
+		switch f.Op {
+		case "eq":
+			c.Op, c.Text = entity.CondEq, text(f)
+		case "ne":
+			c.Op, c.Text = entity.CondNe, text(f)
+		case "lt", "lte", "gt", "gte":
+			c.Op = map[string]entity.AttrOp{"lt": entity.CondLt, "lte": entity.CondLe, "gt": entity.CondGt, "gte": entity.CondGe}[f.Op]
+			if !f.IsNum {
+				c.Op = 0 // a text value on a numeric operator matches nothing
+			}
+		case "from_today":
+			c.Op, c.Text, relative = entity.CondDateGe, today.Format(iso), true
+		case "before_today":
+			c.Op, c.Text, relative = entity.CondDateLt, today.Format(iso), true
+		case "next_days":
+			conds = append(conds, entity.AttrCond{Key: f.Attr, Op: entity.CondDateGe, Text: today.Format(iso)})
+			c.Op, c.Text, relative = entity.CondDateLe, today.AddDate(0, 0, max(f.Days, 0)).Format(iso), true
+		}
+		conds = append(conds, c)
+	}
+	return conds, relative
+}
+
+// untilLocalMidnight is the time from now to the next midnight in loc (a
+// 23 or 25 hour day included), at least a second so a page rendered at the
+// stroke of midnight still gets a cap.
+func untilLocalMidnight(now time.Time, loc *time.Location) time.Duration {
+	t := now.In(loc)
+	next := time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, 0, loc)
+	return max(next.Sub(now), time.Second)
 }
 
 // queryPages is the number of pages of total matches after skipping offset
@@ -207,6 +265,9 @@ func queryAttrKeys(q render.QuerySpec) []string {
 	}
 	if k, ok := strings.CutPrefix(strings.TrimPrefix(q.Order, "-"), "attr:"); ok && k != "" {
 		keys = append(keys, k)
+	}
+	for _, f := range q.Filters {
+		keys = append(keys, f.Attr)
 	}
 	return keys
 }
