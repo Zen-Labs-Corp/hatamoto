@@ -1029,11 +1029,27 @@ func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID
 	return s.RestoreVersionIf(ctx, entityID, userID, version, nil)
 }
 
+// RestoreOption adjusts one restore; callers without options get the default
+// change summary.
+type RestoreOption func(*restoreOptions)
+
+type restoreOptions struct{ summaryTag string }
+
+// RestoreSummaryTag prefixes the stored change summary, e.g.
+// "[mcp:key] Restored from version 3".
+func RestoreSummaryTag(tag string) RestoreOption {
+	return func(o *restoreOptions) { o.summaryTag = tag }
+}
+
 // RestoreVersionIf restores version as a new version. The write is conditional
 // on the version read here, so an edit stored in between is never overwritten
 // (*VersionConflictError). A non-nil expected is the caller's own precondition
 // on the current version and is checked first.
-func (s *Service) RestoreVersionIf(ctx context.Context, entityID uuid.UUID, userID *uuid.UUID, version int, expected *int) (*Entity, error) {
+func (s *Service) RestoreVersionIf(ctx context.Context, entityID uuid.UUID, userID *uuid.UUID, version int, expected *int, opts ...RestoreOption) (*Entity, error) {
+	var o restoreOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
 	// Get the version to restore
 	ver, err := s.entityRepo.GetVersion(ctx, entityID, version)
 	if err != nil {
@@ -1083,6 +1099,9 @@ func (s *Service) RestoreVersionIf(ctx context.Context, entityID uuid.UUID, user
 	}
 
 	changeSummary := fmt.Sprintf("Restored from version %d", version)
+	if o.summaryTag != "" {
+		changeSummary = o.summaryTag + " " + changeSummary
+	}
 
 	locked := lockedStatus(existing.Schema, restoredAttrs)
 	if plan, err = s.settleLockedPlan(ctx, existing, locked, plan, authz.ActionEntityVersionRestore, false); err != nil {
