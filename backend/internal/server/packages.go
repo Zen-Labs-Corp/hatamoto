@@ -112,6 +112,8 @@ func (s *Server) setupPackages() {
 	s.retireWebhooksPlugin(ctx)
 	// The gtm and google-analytics plugins moved into Settings > Privacy & tracking > Tracking.
 	s.retireTrackingPlugins(ctx)
+	// After the retire steps (legacyPluginID reads the table raw) and before any plugin loads.
+	s.sealPluginSettings(ctx)
 	s.packages.Reconcile(ctx)
 	if s.cfg.Plugins.Dir != "" {
 		s.logger.Warn("packages: HATAMOTO_PLUGIN_DIR is a development override; do not use it in production", slog.String("dir", s.cfg.Plugins.Dir))
