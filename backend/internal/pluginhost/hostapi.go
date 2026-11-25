@@ -1030,7 +1030,7 @@ func fnEntitiesList(ctx context.Context, a *API, env *callEnv, raw jsontext.Valu
 		}
 		filter.TermID, filter.TermExact = &t.ID, true
 	}
-	page := &entity.KeysetPage{Limit: clamp(args.Limit, 50, 200), Direction: "next"}
+	page := &entity.KeysetPage{Limit: clamp(args.Limit, 50, entity.MaxListLimit), Direction: "next"}
 	if args.Cursor != "" {
 		page.Cursor = &args.Cursor
 	}
