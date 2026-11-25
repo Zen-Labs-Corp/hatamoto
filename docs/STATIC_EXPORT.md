@@ -388,6 +388,8 @@ only the total from the last run.
 
 ## Known gaps
 
+- **Date filters are frozen at export time.** A query loop filtered relative to
+  today shows the list as of the export; export again to refresh.
 - **Other query URLs**, such as the knowledge graph's `?schema=` and a
   `?page=` combined with another key, are not exported. Each is skipped,
   counted and reported as a warning (the list is capped). Listing pages

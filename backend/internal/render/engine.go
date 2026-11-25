@@ -928,7 +928,12 @@ func (e *Engine) RenderNotFound(w io.Writer, v *PageView) error {
 	if nv.Page.Title == "" {
 		nv.Page.Title = "Page not found"
 	}
-	return e.execute(w, []string{"404"}, &nv, http.StatusNotFound)
+	err := e.execute(w, []string{"404"}, &nv, http.StatusNotFound)
+	// A loop in a theme part caps the cache age on the copy; hand it back.
+	if nv.MaxCacheAge > 0 && (v.MaxCacheAge <= 0 || nv.MaxCacheAge < v.MaxCacheAge) {
+		v.MaxCacheAge = nv.MaxCacheAge
+	}
+	return err
 }
 
 // RenderAccess renders layouts/coming-soon.html (noindex, no sections) for a

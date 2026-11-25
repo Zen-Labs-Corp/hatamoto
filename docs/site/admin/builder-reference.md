@@ -217,6 +217,8 @@ The `loop` widget lists published entities and repeats its children once per ite
 | Schema, or the page's own type | the entity type to list |
 | Term, Author | filter by a `<kind>:<slug>` term or a person slug |
 | Order | **Newest** (default), **Oldest**, **Recently updated**, **Name**, **Name, Z to A**, **Manual order**, **Most viewed, last 7 days**, **Most viewed, last 30 days** or **Most viewed, last 90 days** (the newest fill the gap; no counts are shown; only the first 100 items are served) |
+| Sort by attribute | sort by one field of the type, such as a start date, soonest (**Ascending**) or latest (**Descending**) first; used instead of Order. Only when From is `query` |
+| Filters | up to 3 rows, all of which must match: a field, a condition and a value (a date field offers **is today or later**, **is before today** and **is within the next days**; a number field **is**, **is less than**, **is at most**, **is more than**, **is at least**; a text or choice field **is** and **is not**). Only when From is `query` |
 | Limit | 1 to 48 (12) |
 | Offset | 0 to 1000 (0) |
 | Paging | `none` (default) or `pages` |
@@ -228,8 +230,9 @@ The `loop` widget lists published entities and repeats its children once per ite
 | Nesting | A loop inside a loop is refused when you save. |
 | Loops per render | At most 8, counting those in header, footer and archive parts and in blocks. Later loops print nothing publicly and show a "Loop limit reached" notice in the canvas. |
 | Paging | With `pages` the loop shows a pagination nav and `?page=N` selects the window, only on a page that is not itself a listing and only for its first paged loop. See [URL patterns](../ai-seo/url-patterns.md). |
+| Dates | "Today" is the date in the site time zone. A page whose loop filters by today is refreshed at the next local midnight at the latest. |
 | Canvas | Shows at most 3 items. A loop with no result shows a dashed "No items match" box with its empty state. |
-| Older releases | A page that uses a loop or a binding cannot be read by an older release, so use them only once the new version runs everywhere. |
+| Older releases | A page that uses a loop, a binding, or a loop's sort or filters cannot be read by an older release, so use them only once the new version runs everywhere. |
 
 ### An archive built in the builder
 

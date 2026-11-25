@@ -192,9 +192,10 @@ func (a *Admin) builderShellData(r *http.Request, e *entity.Entity, sc *entity.E
 			canStyle = false
 		}
 	}
+	options, schemaAttrs := a.builderOptions(r)
 	bootMap := map[string]any{
 		"doc": doc, "version": e.Version, "status": string(e.Status), "name": e.Name, "user": user, "entity": id,
-		"kinds": kinds, "bindSources": bindSources, "sections": sections, "options": a.builderOptions(r), "loopSources": loopSources(), "pageList": a.builderPageList(r, e), "design": a.builderDesign(r), "reuse": a.builderReuse(r, e, sc),
+		"kinds": kinds, "bindSources": bindSources, "sections": sections, "options": options, "schemaAttrs": schemaAttrs, "loopSources": loopSources(), "pageList": a.builderPageList(r, e), "design": a.builderDesign(r), "reuse": a.builderReuse(r, e, sc),
 		"urls": map[string]string{
 			"stage": base + "/builder/stage", "render": base + "/edit/render", "component": base + "/builder/component",
 			"save": base + "/builder/save", "seo": base + "/builder/seo", "analyze": base + "/builder/analyze", "nodeVersions": base + "/builder/node-versions", "paste": base + "/builder/paste", "stylespec": a.adminPath + "/builder/stylespec", "presets": a.adminPath + "/builder/presets", "details": base, "versions": sh.VersionsHref, "view": sh.ViewHref, "theme": a.adminPath + "/theme/colours",
@@ -230,19 +231,24 @@ const (
 // locations, public schema slugs, "<kind>:<slug>" terms and the plugin item
 // sources a loop can read, from the services
 // that are wired (an empty list otherwise: the inspector then shows a plain
-// text field).
-func (a *Admin) builderOptions(r *http.Request) map[string][]string {
+// text field). The second result lists, per schema slug, the attributes a
+// query loop can sort or filter by (schemas with none are left out).
+func (a *Admin) builderOptions(r *http.Request) (map[string][]string, map[string][]schemaform.Attr) {
 	out := map[string][]string{"forms": {}, "menus": {}, "schemas": {}, "terms": {}, "sources": {}, "pages": a.builderPages(r), "reserved": builder.ReservedAnchors}
 	for _, src := range builder.ExtSources() {
 		if src.Kind == builder.ExtItems {
 			out["sources"] = append(out["sources"], src.ID())
 		}
 	}
+	attrs := map[string][]schemaform.Attr{}
 	if es := a.deps.Content.Entities; es != nil {
 		if list, err := es.ListSchemas(r.Context()); err == nil {
 			for _, sc := range list {
 				if !entity.IsReuseSlug(sc.Slug) {
 					out["schemas"] = append(out["schemas"], sc.Slug)
+					if as := schemaform.Attrs(sc.Schema); len(as) > 0 {
+						attrs[sc.Slug] = as
+					}
 				}
 			}
 		}
@@ -272,7 +278,7 @@ func (a *Admin) builderOptions(r *http.Request) map[string][]string {
 			}
 		}
 	}
-	return out
+	return out, attrs
 }
 
 // walkRoutable calls visit for every entity of a schema that has a public URL

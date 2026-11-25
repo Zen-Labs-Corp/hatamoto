@@ -163,6 +163,17 @@ func (w *widgetCtx) queryLoop(limit int) ([]RelatedItem, *Pagination) {
 	if spec.Order == "" {
 		spec.Order = loopOrders["newest"]
 	}
+	if ob, ok := w.P["order_by"].(map[string]any); ok {
+		if k := str(ob, "attr"); k != "" {
+			spec.Order = "attr:" + k
+			if str(ob, "dir") == "desc" {
+				spec.Order = "-attr:" + k
+			}
+		}
+	}
+	if fs, ok := w.P["filters"].([]any); ok {
+		spec.Filters = loopFilters(fs)
+	}
 	if w.P["exclude_current"] == true {
 		spec.ExcludeID = v.EntityID
 	}
@@ -170,6 +181,9 @@ func (w *widgetCtx) queryLoop(limit int) ([]RelatedItem, *Pagination) {
 		spec.Page = min(max(v.PageNum, 1), MaxQueryPage)
 	}
 	res := ds.Query(spec)
+	if res.ExpiresIn > 0 && (v.MaxCacheAge <= 0 || res.ExpiresIn < v.MaxCacheAge) {
+		v.MaxCacheAge = res.ExpiresIn
+	}
 	if p, ok := ds.(VariantPrefetcher); ok {
 		var urls []string
 		for _, it := range res.Items {
@@ -189,4 +203,25 @@ func (w *widgetCtx) queryLoop(limit int) ([]RelatedItem, *Pagination) {
 	pg := NewPagination(v.Path, nil, page, limit, min(max(res.Total-spec.Offset, 0), MaxQueryPage*limit))
 	v.loopPaged = &loopPaged{Pagination: pg, Page: page, Out: v.PageNum > max(res.Pages, 1)}
 	return res.Items, pg
+}
+
+// loopFilters reads the loop's filters prop (validated by the builder; numbers
+// arrive as float64).
+func loopFilters(fs []any) []AttrFilter {
+	out := make([]AttrFilter, 0, len(fs))
+	for _, f := range fs {
+		m, _ := f.(map[string]any)
+		af := AttrFilter{Attr: str(m, "attr"), Op: str(m, "op")}
+		switch x := m["value"].(type) {
+		case string:
+			af.Text = x
+		case float64:
+			af.Num, af.IsNum = x, true
+		}
+		if d, ok := m["days"].(float64); ok {
+			af.Days = int(d)
+		}
+		out = append(out, af)
+	}
+	return out
 }

@@ -3,6 +3,7 @@ package render
 import (
 	"html/template"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -39,7 +40,7 @@ func TestQueryFuncBuildsClampedSpec(t *testing.T) {
 	spy := &spyData{result: QueryResult{Items: fakeItems, Total: 30, Page: 2, Pages: 3}}
 	got := execFuncs(t, spy, `{{$r := query (dict "schema" "blog" "attr" "series_slug" "eq" "x" "author" "jo" "term" "category:news" "order" "attr:part" "limit" 500 "page" "2")}}{{$r.Total}}/{{$r.Page}}/{{$r.Pages}}/{{$r.Limit}}/{{len $r.Items}}`, nil)
 	want := QuerySpec{Schema: "blog", Attr: "series_slug", Eq: "x", EqSet: true, Author: "jo", Term: "category:news", Order: "attr:part", Limit: MaxQueryLimit, Page: 2}
-	if spy.q != want {
+	if !reflect.DeepEqual(spy.q, want) {
 		t.Errorf("spec = %+v, want %+v", spy.q, want)
 	}
 	if got != "30/2/3/100/2" {
@@ -240,7 +241,7 @@ func TestPopularFuncBuildsPopularQuery(t *testing.T) {
 		spy := &spyData{result: QueryResult{Items: fakeItems}}
 		got := execFuncs(t, spy, `{{len (`+tt.call+`)}}`, nil)
 		want := QuerySpec{Schema: "post", Order: tt.order, Limit: tt.limit, Page: 1}
-		if spy.q != want || got != "2" {
+		if !reflect.DeepEqual(spy.q, want) || got != "2" {
 			t.Errorf("%s: spec = %+v items %s, want %+v", tt.call, spy.q, got, want)
 		}
 	}

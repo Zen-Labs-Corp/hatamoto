@@ -6,6 +6,7 @@ import { find, unchanged } from "@hm/builder/store";
 import { bindOps, unbindOps, sourcesFor, chipText, inLoop } from "@hm/builder/bindops";
 import { seedNode } from "@hm/builder/palette";
 import { plainLabel } from "@hm/builder/inspector";
+import { MAX_FILTERS, MAX_DAYS, MAX_VALUE, attrsFor, sortable, opsFor, valueKind, cleanFilters, staleAfterSchemaChange } from "@hm/builder/loopattrs";
 import { declFor, cleanParams, setCount, nextParams, filtersLabel, tooLong, MAX_PARAM_BYTES } from "@hm/builder/loopparams";
 
 export const PROP_NAMES = { text: "Text", level: "Level", href: "Link", src: "Image address", url: "Video address", poster: "Poster image", linktext: "Link text", count: "Number of columns", slug: "Form", single: "Open one item at a time", ordered: "Numbered", alt: "Alt text", layout: "Layout", tag: "HTML tag", hidden: "Disabled (not rendered)", decorative: "Decorative (no alt text needed)" };
@@ -72,6 +73,16 @@ export function createContent(ctx) {
   const { api, root, visibilityGroup, commit, draw, kindInfo, gen, pushRich, setFields } = ctx;
 
   const setProp = (id, key, value, opts = {}) => commit([{ op: "setProp", id, key, value }], { label: `Change ${propName(key)}`, ...opts });
+
+  /** The ops for a change of a loop's From, Schema or Context: the sort and filters belong to the schema (and a query loop) they were set for, so they clear in the same step.
+   * base: the loop's props before the change (the ones a typing run started with); while the run is on, they are written back or cleared again as the value changes. */
+  const loopOps = (node, key, value, base) => {
+    const ops = [{ op: "setProp", id: node.id, key, value }];
+    if (node.t !== "loop" || !["from", "schema", "context"].includes(key) || !(base?.order_by || base?.filters)) return ops;
+    const stale = staleAfterSchemaChange(base, { ...base, [key]: value });
+    for (const k of ["order_by", "filters"]) ops.push({ op: "setProp", id: node.id, key: k, value: stale ? null : base[k] ?? null });
+    return ops;
+  };
 
   function propField(node, p) {
     const field = baseField(node, p);
@@ -152,6 +163,7 @@ export function createContent(ctx) {
     const name = contact?.name ?? (p.accept === "document" ? "Document" : propName(p.key));
     const err = h("span", { class: "hm-bs-err", id: `${id}-e`, hidden: true, text: "A value is required." });
     let el;
+    let run = null; // a typing run's start: the loop's props when the field took focus, and its undo session
     const extra = [];
     const kind = controlOf(p);
     if (kind === "richtext") return richField(node, p, id, name);
@@ -159,7 +171,7 @@ export function createContent(ctx) {
       const sw = switchRow(id, name);
       el = sw.input;
       el.checked = cur === true;
-      el.addEventListener("change", () => setProp(node.id, p.key, el.checked ? true : null));
+      el.addEventListener("change", () => commit(loopOps(node, p.key, el.checked ? true : null, find(api.getDoc(), node.id)?.p), { label: `Change ${propName(p.key)}` }));
       return h("div", { class: "hm-field hm-bs-field hm-bs-field--check" }, sw.label);
     }
     const apply = (raw, opts) => {
@@ -179,7 +191,10 @@ export function createContent(ctx) {
       else if (p.key === "tag" && node.t === "container" && (value === null || value === "div") && cur().aria && !cur().href && !find(api.getDoc(), node.id)?.b?.href) {
         // a plain div takes no accessible name: drop the one it had in the same step
         commit([{ op: "setProp", id: node.id, key: "tag", value }, { op: "setProp", id: node.id, key: "aria", value: null }], { label: "Change HTML tag", ...opts });
-      } else setProp(node.id, p.key, value, { label: `Change ${name}`, ...opts });
+      } else {
+        const ops = loopOps(node, p.key, value, run?.base ?? cur());
+        commit(ops, { label: `Change ${name}`, ...opts, ...(run && ops.length > 1 ? { coalesce: run.session } : {}) });
+      }
     };
     if (node.t === "columns" && p.key === "count") {
       // the count and the child containers change together (columnsops.js): empty ones are added or removed, never content
@@ -280,6 +295,10 @@ export function createContent(ctx) {
         extra.push(h("span", { class: "hm-muted", id: `${id}-h`, text: contact.help }));
       }
       el.value = cur ?? "";
+      if (node.t === "loop" && p.key === "schema") {
+        el.addEventListener("focus", () => (run = { base: find(api.getDoc(), node.id)?.p ?? {}, session: `schema:${node.id}:${++uid}` }));
+        el.addEventListener("blur", () => (run = null));
+      }
       el.addEventListener("input", () => apply(el.value, { coalesce: true, label: `Change ${name}` }));
     }
     return h("div", { class: "hm-field hm-bs-field" }, h("label", { class: "hm-field__label", for: id, text: name }), el, ...extra, err);
@@ -367,6 +386,111 @@ export function createContent(ctx) {
     return h("div", { class: "hm-bs-field" }, toggle, box);
   }
 
+  /** A query loop's own-attribute rows (Sort by attribute, Filters): the loop schema's attributes from the boot; a hint when the schema is unknown; null when the loop reads a plugin source or the archive. */
+  function attrGroup(node) {
+    const now = find(api.getDoc(), node.id) ?? node;
+    if (now.p?.from && now.p.from !== "query") return null;
+    const attrs = now.p?.context ? [] : attrsFor(api.schemaAttrs, now.p?.schema);
+    if (!attrs.length) return h("p", { class: "hm-muted", text: "Pick a schema to sort or filter by its fields" });
+    const byKey = new Map(attrs.map((a) => [a.key, a]));
+    const gid = `hm-bs-p${++uid}`;
+    const field = (label, id, control) => h("div", { class: "hm-field hm-bs-field" }, h("label", { class: "hm-field__label", for: id, text: label }), control);
+    const select = (props, options, value) => {
+      const el = h("select", { class: "hm-field__control", ...props }, ...options.map(([v, text]) => h("option", { value: v, text })));
+      el.value = value;
+      return el;
+    };
+
+    // Sort by attribute: one attribute and a direction; the Order field above is used when none is picked.
+    const sorts = sortable(attrs);
+    const ob = now.p?.order_by;
+    const sortAttr = select({ id: `${gid}-sort` }, [["", "None"], ...sorts.map((a) => [a.key, a.label])], sorts.some((a) => a.key === ob?.attr) ? ob.attr : "");
+    const sortDir = select({ id: `${gid}-dir` }, [["asc", "Ascending"], ["desc", "Descending"]], ob?.dir === "desc" ? "desc" : "asc");
+    const sortChange = () => {
+      dirField.hidden = !sortAttr.value;
+      setProp(node.id, "order_by", sortAttr.value ? { attr: sortAttr.value, dir: sortDir.value } : null, { label: "Change Sort by attribute" });
+    };
+    sortAttr.addEventListener("change", sortChange);
+    sortDir.addEventListener("change", sortChange);
+    const dirField = field("Direction", `${gid}-dir`, sortDir);
+    dirField.hidden = !sortAttr.value;
+
+    // Filters: rows live here so a half-filled row is kept; only complete rows are stored.
+    const rows = (Array.isArray(now.p?.filters) ? now.p.filters : [])
+      .filter((f) => byKey.has(f?.attr))
+      .slice(0, MAX_FILTERS)
+      .map((f) => ({ attr: f.attr, op: f.op, value: f.value === undefined ? "" : String(f.value), days: f.days === undefined ? "" : String(f.days) }));
+    const box = h("div", { class: "hm-bs-grp__more" });
+    const store = (opts = {}) => {
+      const value = cleanFilters(rows, attrs);
+      const cur = find(api.getDoc(), node.id)?.p?.filters ?? null;
+      if (JSON.stringify(value) !== JSON.stringify(cur)) setProp(node.id, "filters", value, { label: "Change Filters", ...opts });
+    };
+    const add = actButton("Add filter", {
+      onclick: () => {
+        const a = attrs[0];
+        rows.push({ attr: a.key, op: opsFor(a.type)[0][0], value: "", days: "" });
+        draw1(rows.length - 1);
+        store();
+      },
+    });
+    const rowEl = (row, i) => {
+      const a = byKey.get(row.attr);
+      const n = i + 1;
+      const ctl = (kind, props) => {
+        const el = kind === "select" ? select({ ...props }, [["", "Pick a value"], ...(a.enum ?? []).map((v) => [v, v])], row.value) : h("input", { class: "hm-field__control", ...props });
+        if (kind !== "select") el.value = kind === "days" ? row.days : row.value;
+        return el;
+      };
+      const kind = valueKind(a.type, row.op);
+      const attrSel = select({ "aria-label": `Filter ${n} attribute`, "data-focus": `f${n}a` }, attrs.map((x) => [x.key, x.label]), row.attr);
+      const opSel = select({ "aria-label": `Filter ${n} operator`, "data-focus": `f${n}o` }, opsFor(a.type), row.op);
+      attrSel.addEventListener("change", () => {
+        row.attr = attrSel.value;
+        row.op = opsFor(byKey.get(row.attr).type)[0][0];
+        row.value = row.days = "";
+        draw1(i, "a");
+        store();
+      });
+      opSel.addEventListener("change", () => {
+        if (valueKind(a.type, opSel.value) !== valueKind(a.type, row.op)) row.value = row.days = "";
+        row.op = opSel.value;
+        draw1(i, "o");
+        store();
+      });
+      let val = null;
+      if (kind === "select") {
+        val = ctl("select", { "aria-label": `Filter ${n} value` });
+        val.addEventListener("change", () => ((row.value = val.value), store()));
+      } else if (kind !== "none") {
+        const days = kind === "days";
+        val = ctl(kind, days ? { type: "number", min: "0", max: String(MAX_DAYS), step: "1", "aria-label": `Filter ${n} days` } : kind === "number" ? { type: "number", step: "any", "aria-label": `Filter ${n} value` } : { type: "text", maxlength: String(MAX_VALUE), "aria-label": `Filter ${n} value` });
+        val.addEventListener("input", () => {
+          row[days ? "days" : "value"] = val.value;
+          store({ coalesce: true });
+        });
+      }
+      const remove = actButton("Remove", {
+        "aria-label": `Remove filter ${n}`,
+        onclick: () => {
+          rows.splice(i, 1);
+          draw1(Math.min(i, rows.length - 1), "a");
+          if (!rows.length) add.focus();
+          store();
+          api.announce(`Filter ${n} removed`);
+        },
+      });
+      return h("div", { class: "hm-bs-frow" }, attrSel, remove, opSel, val);
+    };
+    const draw1 = (focusRow, part = "a") => {
+      box.replaceChildren(...rows.map(rowEl), add);
+      add.hidden = rows.length >= MAX_FILTERS;
+      if (focusRow >= 0) box.querySelector(`[data-focus="f${focusRow + 1}${part}"]`)?.focus();
+    };
+    draw1(-1);
+    return h("div", { class: "hm-bs-attrs" }, field("Sort by attribute (optional)", `${gid}-sort`, sortAttr), dirField, h("span", { class: "hm-field__label", text: "Filters" }), box);
+  }
+
   /** opts.only: [key, ...aliases] of the one content field to show (the Inspector's field mode); the other fields stay in the form, hidden. */
   function contentPanel(node, opts = {}) {
     if (node.t === "ref") {
@@ -382,8 +506,13 @@ export function createContent(ctx) {
     }
     const panel = h("div", { class: "hm-bs-content" });
     // field mode (opts.only) edits one content field: the section's own props (its Title) are not that field's
-    const props = opts.only ? [] : (kindInfo(node.t)?.props ?? []).filter((p) => !ADVANCED.has(p.key) && !SKIP.has(p.key) && p.type !== "object" && !(p.key === "html" && INLINE.has(node.t)) && !(node.t === "list" && p.key === "items"));
-    for (const p of orderProps(node, props)) panel.append(propField(node, p));
+    const props = opts.only ? [] : (kindInfo(node.t)?.props ?? []).filter((p) => !ADVANCED.has(p.key) && !SKIP.has(p.key) && p.type !== "object" && p.type !== "array" && !(p.key === "html" && INLINE.has(node.t)) && !(node.t === "list" && p.key === "items"));
+    // a query loop's Sort by attribute and Filters follow its Order field (set up below, after the props)
+    const attrSlot = node.t === "loop" && !opts.only ? h("div") : null;
+    for (const p of orderProps(node, props)) {
+      panel.append(propField(node, p));
+      if (attrSlot && p.key === "order") panel.append(attrSlot);
+    }
     if (ITEMS.has(node.t))
       import("@hm/builder/items")
         .then((m) => {
@@ -393,14 +522,20 @@ export function createContent(ctx) {
         .catch(console.error);
     if (node.t === "loop" && !opts.only) {
       // the group follows the Source field: it appears, changes or goes as the source does (not while a filter itself is edited)
-      const slot = h("div");
+      const slot = attrSlot;
+      // the attribute rows are rebuilt only when what they depend on changes: a half-filled row survives edits elsewhere
+      let seen = null;
       const sync = (e) => {
         if (e?.target && slot.contains?.(e.target)) return;
-        const g = filtersGroup(node);
+        const p = find(api.getDoc(), node.id)?.p ?? node.p ?? {};
+        const sig = [p.from, p.source, p.schema, p.context].join("|");
+        if (sig === seen) return;
+        seen = sig;
+        const g = filtersGroup(node) ?? attrGroup(node);
         slot.replaceChildren(...(g ? [g] : []));
       };
       sync();
-      panel.append(slot);
+      if (!slot.parentNode) panel.append(slot); // no Order field: after the props
       panel.addEventListener("input", sync);
       panel.addEventListener("change", sync);
     }
