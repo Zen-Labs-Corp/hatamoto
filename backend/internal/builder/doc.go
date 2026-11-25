@@ -5,6 +5,7 @@
 package builder
 
 import (
+	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
@@ -289,9 +290,7 @@ func loopAttrErr(id string, p map[string]any) error {
 			if hasDays {
 				return invalid("%s: filter %d: %s takes no days", id, n, op)
 			}
-			switch value.(type) {
-			case float64, int, int64:
-			default:
+			if !isNumber(value) {
 				return invalid("%s: filter %d: %s needs a number", id, n, op)
 			}
 		case "eq", "ne":
@@ -304,4 +303,16 @@ func loopAttrErr(id string, p map[string]any) error {
 		}
 	}
 	return nil
+}
+
+// isNumber reports whether v is a JSON number in any form a doc holds: a Go
+// number from Parse, or the raw text ParseExact keeps (a jsontext.Value).
+func isNumber(v any) bool {
+	switch x := v.(type) {
+	case float64, int, int64:
+		return true
+	case jsontext.Value:
+		return x.Kind() == '0'
+	}
+	return false
 }

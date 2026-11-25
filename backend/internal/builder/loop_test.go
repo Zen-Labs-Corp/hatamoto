@@ -258,3 +258,18 @@ func TestSeedLimits(t *testing.T) {
 		t.Errorf("seed nested 3 deep: %v", err)
 	}
 }
+
+// ParseExact (the entity write path) holds numbers as jsontext.Value, so a
+// numeric filter must validate there too.
+func TestLoopNumericFilterParseExact(t *testing.T) {
+	for _, op := range []string{"lt", "lte", "gt", "gte"} {
+		raw := `{"v":2,"nodes":[{"id":"l","t":"loop","p":{"schema":"e","filters":[{"attr":"n","op":"` + op + `","value":10.5}]}}]}`
+		if _, err := ParseExact([]byte(raw)); err != nil {
+			t.Errorf("%s: %v", op, err)
+		}
+	}
+	bad := `{"v":2,"nodes":[{"id":"l","t":"loop","p":{"schema":"e","filters":[{"attr":"n","op":"gte","value":"10"}]}}]}`
+	if _, err := ParseExact([]byte(bad)); err == nil {
+		t.Error("a string value passed gte")
+	}
+}
