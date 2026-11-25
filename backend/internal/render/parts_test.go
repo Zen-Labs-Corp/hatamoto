@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"hatamoto.dev/core/internal/budgetfile"
 	"hatamoto.dev/core/internal/builder"
@@ -403,5 +404,28 @@ func TestPartsReplaceIgnoredOutsideArchive(t *testing.T) {
 	amk := views()["archive"]
 	if got, want := page(t, e, assigned(amk(), map[string]string{builder.SlotArchive: partArch})), page(t, plain, amk()); got != want {
 		t.Error("a part with a hidden slot must fall back to the theme markup")
+	}
+}
+
+// A loop in a theme part caps the cache age while the 404 renders a copy of
+// the view; the cap must reach the caller's view.
+func TestNotFoundPartLoopCapsCacheAge(t *testing.T) {
+	loop := &builder.Node{ID: "lp", T: "loop", P: map[string]any{"schema": "event", "limit": float64(3)}}
+	src := fakeParts{parts: map[string]partDef{partFooter: {builder.SlotFooter, docOf(loop)}}}
+	ds := &expiringData{loopData: loopData{n: 1}, in: 3 * time.Hour}
+	e, err := New(Options{Layers: []fs.FS{themeOptIn(`["footer"]`)}, Refs: src, Data: ds})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := minimalView()
+	v.Site.Design.Parts = map[string]string{builder.SlotFooter: partFooter}
+	if err := e.RenderNotFound(&bytes.Buffer{}, v); err != nil {
+		t.Fatal(err)
+	}
+	if len(ds.specs) == 0 {
+		t.Fatal("the footer loop never ran")
+	}
+	if v.MaxCacheAge != 3*time.Hour {
+		t.Errorf("MaxCacheAge = %v, want 3h", v.MaxCacheAge)
 	}
 }
