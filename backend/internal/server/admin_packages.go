@@ -138,6 +138,16 @@ func (p *packageAdmin) updateFor(ctx context.Context, kind packages.Kind, name, 
 	return ""
 }
 
+// adminTypeChanges turns the install preview into the prompt's list. Fields
+// the plugin dropped (Missing) are not shown.
+func adminTypeChanges(in []packages.TypeChange) []admin.TypeChange {
+	var out []admin.TypeChange
+	for _, tc := range in {
+		out = append(out, admin.TypeChange{Name: tc.Name, Added: tc.Labels, Kept: tc.Retyped})
+	}
+	return out
+}
+
 // newPermissions are the registry entry's permissions that the installed
 // manifest does not list: what an update would ask for on top of today.
 func newPermissions(offered, installed []string) []string {
@@ -384,6 +394,14 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 		// Install refuses this whatever Confirm says, so do not offer it.
 		if err := packages.CheckDeveloperPin(row, pkg, developerKey); err != nil && sum.Problem == "" {
 			sum.Problem = err.Error()
+		}
+		if pkg.Kind == packages.KindPlugin {
+			// What the install would do to content types: create the missing
+			// ones, extend the ones this plugin owns. A failed read keeps the
+			// plain list.
+			if create, extend, err := p.mgr().SchemaPreview(ctx, pkg); err == nil {
+				sum.ContentTypes, sum.TypeChanges = create, adminTypeChanges(extend)
+			}
 		}
 	}
 	// First-party is a claim about whose plugin this is, so it needs a

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/packages"
 )
 
@@ -100,5 +101,18 @@ func TestUnreviewedProblem(t *testing.T) {
 	p.cached, p.cacheErr = nil, packages.ErrRegistryOff
 	if got := p.unreviewedProblem(ctx, "gtm", reg, []string{"site.scripts"}); got != "" {
 		t.Fatalf("registry off: %q", got)
+	}
+}
+
+func TestAdminTypeChanges(t *testing.T) {
+	if got := adminTypeChanges(nil); got != nil {
+		t.Fatalf("nil input = %v, want nil", got)
+	}
+	in := []packages.TypeChange{{Name: "Organizer", SchemaMerge: packages.SchemaMerge{
+		Labels: []string{"Show contact publicly"}, Retyped: []string{"age"}, Missing: []string{"gone"},
+	}}}
+	want := []admin.TypeChange{{Name: "Organizer", Added: []string{"Show contact publicly"}, Kept: []string{"age"}}}
+	if got := adminTypeChanges(in); !reflect.DeepEqual(got, want) {
+		t.Fatalf("adminTypeChanges = %+v, want %+v", got, want)
 	}
 }
