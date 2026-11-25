@@ -113,7 +113,7 @@ func TestNeverListDropsEditLineWhenFilterRequested(t *testing.T) {
 }
 
 func TestNeverListDropsLiveLineWhenWriteOrModerateRequested(t *testing.T) {
-	for _, perm := range []string{sdk.PermEntitiesWriteOwn, sdk.PermCommentsModerate} {
+	for _, perm := range []string{sdk.PermEntitiesWriteOwn, sdk.PermCommentsModerate, sdk.PermCommentsIdentity} {
 		got := Group([]string{perm}, false, false).Never
 		for _, s := range got {
 			if s.Title == "Change your live site directly" {

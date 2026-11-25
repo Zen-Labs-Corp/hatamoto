@@ -35,6 +35,10 @@ var texts = map[string]Text{
 		Help:  "Marks comments on its own content type dead or restores them and sets their order, without your review. It cannot post comments or touch other content types. Logged in the audit log.",
 		Short: "Moderates comments on its own content type.", Warn: true,
 	},
+	sdk.PermCommentsIdentity: {
+		Help:  "Signs visitors in as commenters with accounts this plugin manages (no email). Those commenters can then post comments. Logged in the audit log.",
+		Short: "Sign visitors in as commenters.", Warn: true,
+	},
 	sdk.PermSettings:  {Help: "Store its own settings"},
 	sdk.PermLog:       {Help: "Write to the server log"},
 	sdk.PermMailSend:  {Help: "Send email"},

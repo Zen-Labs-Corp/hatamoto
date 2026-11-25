@@ -27,7 +27,7 @@ func TestWarnSet(t *testing.T) {
 		}
 	}
 	slices.Sort(got)
-	want := []string{"builder.island", "client.key", "comments.moderate", "entities.filter", "entities.write.own", "http.fetch.any", "site.scripts"}
+	want := []string{"builder.island", "client.key", "comments.identity", "comments.moderate", "entities.filter", "entities.write.own", "http.fetch.any", "site.scripts"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("warn set = %v, want %v", got, want)
 	}
