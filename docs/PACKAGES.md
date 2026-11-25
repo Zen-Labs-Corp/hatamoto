@@ -443,12 +443,15 @@ hatamoto theme pack <dir> [--key F] [--out F]
 hatamoto theme pack (--archive F --sha256 H | --package F) [--registry] [--expect-name N] [--screenshot-out D] [--key F] [--out F]
 hatamoto theme check <dir> | --archive F --sha256 H | --package F [--registry] [--expect-name N] [--screenshot-out D]
 hatamoto plugin pack <dir> [--key F] [--out F]
+hatamoto plugin pack --list-dirs
 hatamoto theme dev <dir> --dev [--no-activate] [--confirm]
 hatamoto package install <file|url|name> [--grant P,P|all] [--source upload|url|dev] [--dev] [--confirm]
 hatamoto kit check <dir|file> | kit pack <dir> --key F | kit apply <name|file|url> | kit list   (see KITS.md)
 hatamoto registry index <dir> --key F [--meta F] [--out F] [--url-prefix P] [--valid-days N]
 hatamoto registry page <registry.json> [--out F] [--title T] [--intro T] [--write-url U] [--submit-url U] [--install-hint T] [--trusted-key K]
 ```
+
+`plugin pack --list-dirs` prints the top-level directories a package may hold; build scripts copy exactly these before packing.
 
 The second `theme pack` and `theme check` are what the registry builder uses: they read the theme from
 an author zip (`--archive`, which needs its `--sha256`) or from an already packed `.hmp` (`--package`, re-read, its

@@ -33,7 +33,8 @@ all: build
 
 # --- Build ------------------------------------------------------------------
 # WASM plugins under examples/plugins/<name>: plugin.wasm (standard Go, wasip1
-# reactor) plus plugin.json, migrations/, ui/ and assets/, staged in <name>/build/ ready
+# reactor) plus plugin.json and every directory `hatamoto plugin pack --list-dirs` names
+# (migrations/, ui/, assets/, schemas/, sections/, partials/, widgets/, ...), staged in <name>/build/ ready
 # for `hatamoto plugin pack`. hello is the reference (datasource-demo the builder data source). The
 # first-party plugins (gtm, searchconsole) live in the hatamoto-first-party monorepo and reach the registry through
 # the plugins repo manifests, like every other plugin.
@@ -43,7 +44,7 @@ plugin-%:
 	rm -rf examples/plugins/$*/build
 	cd examples/plugins/$* && GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o build/plugin.wasm .
 	cp examples/plugins/$*/plugin.json examples/plugins/$*/build/plugin.json
-	for d in migrations ui assets; do if [ -d examples/plugins/$*/$$d ]; then cp -r examples/plugins/$*/$$d examples/plugins/$*/build/$$d; fi; done
+	for d in assets layouts migrations partials schemas sections tags ui widgets; do if [ -d examples/plugins/$*/$$d ]; then cp -r examples/plugins/$*/$$d examples/plugins/$*/build/$$d; fi; done
 	@echo "Built examples/plugins/$*/build/"
 
 plugins: $(addprefix plugin-,$(PLUGINS))
@@ -129,7 +130,7 @@ registry: registry-guard
 	mkdir -p registry/packages registry/screenshots
 	cd backend && go build -o ../registry/.hatamoto ./cmd/hatamoto
 	printf '{}' > registry/meta.json
-	env -u HATAMOTO_ALLOW_FILE_REPOS -u HATAMOTO_ALLOW_FILE_ARCHIVES -u HATAMOTO_SDK_REPLACE COMMUNITY_SKIP="$(COMMUNITY_SKIP)" FIRST_PARTY_OWNERS="$(FIRST_PARTY_OWNERS)" ARCHIVE_DIR="$(ARCHIVE_DIR)" HATAMOTO_MIRROR_BASE="$(MIRROR_BASE)" HATAMOTO_TRUST_MIRROR_VENDOR="$(TRUST_MIRROR_VENDOR)" HATAMOTO_BUILD_GOTOOLCHAIN="$(BUILD_GOTOOLCHAIN)" registry/build-community.sh "$(COMMUNITY_DIR)" registry/.hatamoto "$(HATAMOTO_REGISTRY_KEY_FILE)" registry/packages registry/meta.json || exit 1
+	env -u HATAMOTO_ALLOW_FILE_REPOS -u HATAMOTO_ALLOW_FILE_ARCHIVES -u HATAMOTO_SDK_REPLACE -u HATAMOTO_TEST_BUILDER_REV COMMUNITY_SKIP="$(COMMUNITY_SKIP)" FIRST_PARTY_OWNERS="$(FIRST_PARTY_OWNERS)" ARCHIVE_DIR="$(ARCHIVE_DIR)" HATAMOTO_MIRROR_BASE="$(MIRROR_BASE)" HATAMOTO_TRUST_MIRROR_VENDOR="$(TRUST_MIRROR_VENDOR)" HATAMOTO_BUILD_GOTOOLCHAIN="$(BUILD_GOTOOLCHAIN)" registry/build-community.sh "$(COMMUNITY_DIR)" registry/.hatamoto "$(HATAMOTO_REGISTRY_KEY_FILE)" registry/packages registry/meta.json || exit 1
 	env -u HATAMOTO_ALLOW_FILE_REPOS -u HATAMOTO_ALLOW_FILE_ARCHIVES HATAMOTO_THEMES_SKIP="$(THEMES_SKIP)" registry/build-community-themes.sh "$(COMMUNITY_DIR)" registry/.hatamoto "$(HATAMOTO_REGISTRY_KEY_FILE)" registry/packages registry/meta.json registry/screenshots "$(ARCHIVE_DIR)" || exit 1
 	env -u HATAMOTO_ALLOW_FILE_REPOS -u HATAMOTO_ALLOW_FILE_ARCHIVES HATAMOTO_KITS_SKIP="$(KITS_SKIP)" registry/build-community-kits.sh "$(COMMUNITY_DIR)" registry/.hatamoto "$(HATAMOTO_REGISTRY_KEY_FILE)" registry/packages registry/meta.json "$(ARCHIVE_DIR)" || exit 1
 	registry/.hatamoto registry index registry/packages --meta registry/meta.json --key "$(HATAMOTO_REGISTRY_KEY_FILE)" --out registry/registry.json --url-prefix packages/

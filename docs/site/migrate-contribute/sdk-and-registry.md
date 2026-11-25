@@ -21,7 +21,7 @@ Plugins are sandboxed WASM modules. Go plugins are built with the standard toolc
 GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o build/plugin.wasm .
 ```
 
-`make plugin-hello` does this for the reference plugin, stages `plugin.json` and any `migrations`, `ui` and `assets` directories into `examples/plugins/hello/build/`, and leaves it ready to pack. Any language with an Extism plugin development kit can produce a plugin, because the contract is JSON payloads and named exports.
+`make plugin-hello` does this for the reference plugin, stages `plugin.json` and every directory `hatamoto plugin pack --list-dirs` names (`assets`, `layouts`, `migrations`, `partials`, `schemas`, `sections`, `tags`, `ui`, `widgets`) that exists into `examples/plugins/hello/build/`, and leaves it ready to pack. Any language with an Extism plugin development kit can produce a plugin, because the contract is JSON payloads and named exports.
 
 The import path is a vanity path: the project's web host answers a `go-get` request with the location of the code repository, so the path never changes when the repository moves. The SDK repository is a root module with plain `vX.Y.Z` tags, for example `v0.12.0`. Core stays the source of truth: `scripts/publish-sdk.sh` exports `backend/pkg/sdk` to the SDK repository and tags it with `Version`, and SDK changes are sent to core.
 

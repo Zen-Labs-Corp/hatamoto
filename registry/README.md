@@ -137,9 +137,20 @@ the pinned commit cannot break a publish.
   finds no `src/<commit>` tag for them and builds them from the monorepo (or
   reuses the archived build).
 - **Signed build archive.** `ARCHIVE_DIR` (default `registry/archive`) keeps every
-  signed build forever as `<name>/<name>-<version>-<commit12>-<keyid>.hmp` plus a
-  sidecar `.json` with `{name, version, commit, key_id, sha256}`. A manifest whose
+  signed build forever as `<name>/<name>-<version>-<commit12>-<keyid>-b<rev>.hmp` plus a
+  sidecar `.json` with `{name, version, commit, key_id, sha256, builder}`. A manifest whose
   full commit matches a sidecar written for the current signing key reuses that `.hmp` byte for byte: no fetch, no build.
+  Files without the `-b<rev>` suffix and the `builder` field are builds of builder
+  revision 1, which staged only `migrations/`, `ui/` and `assets/`. They are still read,
+  and reused only when they hold every directory the pinned source has that
+  `hatamoto plugin pack --list-dirs` names; otherwise the plugin is rebuilt into a new
+  `-b<rev>` file and the old file stays. Bump `BUILDER_REV` in `build-community.sh` when a
+  builder change alters what a package holds for the same commit: an archived build of a
+  revision below the current one is then always rebuilt into a new file, legacy builds
+  included (the directory check applies only while the current revision is 2, the step
+  from revision 1); the current revision is reused. With
+  `HATAMOTO_ARCHIVE_OFFLINE=1` (nothing fetched) the directory check cannot run and the
+  legacy build is reused with a warning.
   After a key rotation the old files stay and the new key builds into new files.
   Reuse trusts the sidecar sha256 (a mismatch aborts the run) and also requires the
   `.hmp`'s own `plugin.json` name and version to match the sidecar and the file

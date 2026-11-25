@@ -5,7 +5,8 @@
 #
 # For every <plugins-repo-dir>/manifests/<name>.json (schema.json is skipped,
 # any other file name must be a valid plugin name): validate the manifest, fetch
-# the pinned commit, build it like `make plugin-<name>` into a fresh directory
+# the pinned commit, build it like `make plugin-<name>` (staging plugin.json and every directory
+# `hatamoto plugin pack --list-dirs` names) into a fresh directory
 # in the stage, pack and sign it into <packages-dir>/<name>.hmp, and add an entry
 # {title and about and features (when given), author, source, commit, tier: "community"} to <meta-file> (created when
 # absent; other keys are kept). A manifest with "tier": "first-party" gets
@@ -49,8 +50,13 @@
 #     The meta "source" is the manifest repo while it answers, else the mirror when the
 #     mirror has the commit.
 #   ARCHIVE_DIR=<dir>             append-only archive of signed builds:
-#     <dir>/<name>/<name>-<version>-<commit12>-<keyid>.hmp plus a .json sidecar
-#     {name, version, commit, key_id, sha256}. A manifest whose full commit matches a
+#     <dir>/<name>/<name>-<version>-<commit12>-<keyid>-b<rev>.hmp plus a .json sidecar
+#     {name, version, commit, key_id, sha256, builder}; <rev> is BUILDER_REV. Files without
+#     the suffix and the "builder" field are builds of builder revision 1 (they staged only
+#     migrations/ ui/ assets/); they are still read, and reused only when they hold every
+#     packed directory the pinned source has, else the plugin is rebuilt into a new -b<rev>
+#     file (an existing archive file is never replaced). A build of a revision above 1 but below
+#     BUILDER_REV is always rebuilt. A manifest whose full commit matches a
 #     sidecar written for the current signing key (a rotated key rebuilds into a new file)
 #     reuses that .hmp byte for byte (no fetch, no build); its sha256 must still match
 #     the sidecar, else the run dies. New builds are written here only after every
@@ -89,6 +95,21 @@ command -v jq >/dev/null || die "jq not found"
 command -v git >/dev/null || die "git not found"
 [ -d "$repo_dir/manifests" ] || die "$repo_dir/manifests not found"
 [ -x "$bin" ] || die "hatamoto binary $bin is not executable"
+# The directories `hatamoto plugin pack` packs, from the binary that packs (one list, no hand copy).
+dirs_out=$("$bin" plugin pack --list-dirs) || die "$bin plugin pack --list-dirs failed (hatamoto binary too old?)"
+mapfile -t pack_dirs <<<"$dirs_out"
+[ "${#pack_dirs[@]}" -gt 0 ] && [ -n "${pack_dirs[0]}" ] || die "$bin plugin pack --list-dirs printed nothing"
+for d in "${pack_dirs[@]}"; do [[ $d =~ ^[a-z]+$ ]] || die "bad directory name \"$d\" from $bin plugin pack --list-dirs"; done
+# Builder revision, recorded in each new archive sidecar and file name (-b<REV>). Bump it whenever a
+# builder change alters what a package holds for the same commit, so new builds get new file names
+# (the archive is append-only). 1 (no suffix, no "builder" field) staged only migrations/ ui/ assets/.
+# A build with a revision below BUILDER_REV is always rebuilt, legacy (1) included. The one exception is
+# the 1 -> 2 step (BUILDER_REV == 2): there a legacy build is reused when it holds every directory the
+# pinned source has, as a missing directory was the only difference. The current revision is reused.
+# HATAMOTO_TEST_BUILDER_REV overrides the value (test seam only; at least 2).
+BUILDER_REV=${HATAMOTO_TEST_BUILDER_REV:-2}
+[[ $BUILDER_REV =~ ^[1-9][0-9]{0,2}$ ]] || die "bad HATAMOTO_TEST_BUILDER_REV \"$BUILDER_REV\""
+[ "$BUILDER_REV" -ge 2 ] || die "HATAMOTO_TEST_BUILDER_REV \"$BUILDER_REV\" is below 2 (revision 1 is the legacy, unsuffixed build)"
 [ -f "$key" ] || die "key file $key not found"
 # The signer's key id (as `keys generate` writes it into the key file) is part of the archive identity.
 key_id=$(jq -r '.key_id // empty' "$key" 2>/dev/null) || key_id=
@@ -595,7 +616,7 @@ build_plugin() {
   want="$(realpath "$clone")${subdir:+/${subdir%/}}"
   src=$(realpath "$src")
   [ "$src" = "$want" ] || die "$name: subdir is a symlink or resolves outside the clone"
-  for e in plugin.json migrations ui assets; do
+  for e in plugin.json "${pack_dirs[@]}"; do
     [ ! -L "$src/$e" ] || die "$name: $e is a symlink"
   done
   [ -f "$src/plugin.json" ] || die "$name: no plugin.json in the pinned source"
@@ -634,7 +655,7 @@ build_plugin() {
     env GOOS=wasip1 GOARCH=wasm GOFLAGS="$build_flags" ${build_proxy:+GOPROXY="$build_proxy"} \
       go build -trimpath -buildmode=c-shared -o "$out/plugin.wasm" . &&
     cp plugin.json "$out/" &&
-    for d in migrations ui assets; do
+    for d in "${pack_dirs[@]}"; do
       if [ -d "$d" ]; then cp -rP "$d" "$out/$d" || exit 1; fi
     done
   ) || die "$name: build failed"
@@ -650,6 +671,7 @@ build_plugin() {
 # unreachable: refuse, unless HATAMOTO_ARCHIVE_OFFLINE=1 (warning).
 authenticate_archive() {
   local c="$stage/work/$name-auth" got=
+  auth_fetched=
   rm -rf "$c"; mkdir -p "$c"
   git "${git_opts[@]}" -C "$c" init -q
   if [ -n "$mirror_base" ] && git "${git_opts[@]}" -C "$c" fetch -q --depth 2 --no-recurse-submodules "$mirror_base/$name" "refs/tags/src/$commit" 2>/dev/null; then
@@ -659,6 +681,7 @@ authenticate_archive() {
   elif git "${git_opts[@]}" -C "$c" fetch -q --depth 1 --no-recurse-submodules "$repo" "$commit" 2>/dev/null; then
     got=1
   fi
+  auth_fetched=$got
   if [ -z "$got" ]; then
     [ "${HATAMOTO_ARCHIVE_OFFLINE:-}" = 1 ] || die "$name: cannot reach the mirror or $repo to check the archived version against $commit (HATAMOTO_ARCHIVE_OFFLINE=1 reuses it unchecked)"
     echo "build-community: WARNING: $name: archived version $1 NOT checked against $commit (HATAMOTO_ARCHIVE_OFFLINE=1)" >&2
@@ -666,6 +689,24 @@ authenticate_archive() {
   fi
   local pj; pj=$(git -C "$c" show "$commit:${subdir:+${subdir%/}/}plugin.json" 2>/dev/null | jq -r '[.name, .version] | join(" ")' 2>/dev/null) || pj=
   [ "$pj" = "$name $1" ] || die "$name: archived version \"$name $1\" does not match plugin.json \"$pj\" at pinned commit $commit; refusing the archive (rolled back?)"
+}
+
+# archive_complete <hmp>: a legacy (revision 1) archived build is reused only when it holds every
+# packed directory the pinned source has (revision 1 dropped schemas/, sections/, ...).
+archive_complete() {
+  local have want d missing=
+  if [ -z "$auth_fetched" ]; then
+    echo "build-community: WARNING: $name: directories of archived $(basename "$1") NOT checked against the source (HATAMOTO_ARCHIVE_OFFLINE=1)" >&2
+    return 0
+  fi
+  want=$(git -C "$stage/work/$name-auth" ls-tree -d --name-only "$commit:${subdir%/}") || die "$name: cannot list the pinned source tree"
+  have=$(unzip -Z1 "$1" | awk -F/ 'NF>1{print $1}' | sort -u) || die "$name: cannot list archived $1"
+  for d in "${pack_dirs[@]}"; do
+    if inlist "$want" "$d" && ! inlist "$have" "$d"; then missing+=" $d/"; fi
+  done
+  [ -z "$missing" ] && return 0
+  echo "build-community: $name: archived $(basename "$1") lacks$missing (builder revision older than $BUILDER_REV); rebuilding"
+  return 1
 }
 
 # reuse_archive: copy the archived .hmp whose sidecar commit equals $commit into the
@@ -685,12 +726,21 @@ reuse_archive() {
     unzip -p "$hmp" plugin.json >"$stage/work/$name-archived-plugin.json" 2>/dev/null || die "$name: cannot read plugin.json from archived $hmp"
     check_description "$stage/work/$name-archived-plugin.json" "$title" "$name"
     # The sidecar is unauthenticated: the package's own plugin.json and the file name must agree with it.
-    local inner sv
+    local inner sv sb want
     sv=$(jq -r '.version // empty' "$side")
+    sb=$(jq -r '.builder // 1' "$side")
+    [[ $sb =~ ^[1-9][0-9]{0,2}$ ]] || die "$name: archive sidecar $side has a bad builder revision"
     inner=$(unzip -p "$hmp" plugin.json 2>/dev/null | jq -r '[.name, .version] | join(" ")' 2>/dev/null) || inner=
     [ "$inner" = "$name $sv" ] || die "$name: archived $hmp holds plugin.json \"$inner\" but its sidecar says \"$name $sv\""
-    [ "$(basename "$hmp")" = "$name-$sv-${commit:0:12}-$key_id.hmp" ] || die "$name: archived file name $(basename "$hmp") does not match its sidecar"
+    want="$name-$sv-${commit:0:12}-$key_id"; [ "$sb" = 1 ] || want+="-b$sb"
+    [ "$(basename "$hmp")" = "$want.hmp" ] || die "$name: archived file name $(basename "$hmp") does not match its sidecar"
     authenticate_archive "$sv"
+    if [ "$sb" = 1 ] && [ "$BUILDER_REV" = 2 ]; then
+      archive_complete "$hmp" || continue
+    elif [ "$sb" -lt "$BUILDER_REV" ]; then
+      echo "build-community: $name: archived $(basename "$hmp") is builder revision $sb, current is $BUILDER_REV; rebuilding"
+      continue
+    fi
     cp "$hmp" "$stage/packages/$name.hmp"
     echo "build-community: $name: reusing archived $(basename "$hmp")"
     built_from=archive
@@ -710,11 +760,11 @@ for f in ${manifests[@]+"${manifests[@]}"}; do
   if [ -n "${ARCHIVE_DIR:-}" ] && [ "$built_from" != archive ]; then
     version=$(jq -r '.version // empty' "$stage/out/$name/plugin.json")
     [[ $version =~ ^[0-9A-Za-z][0-9A-Za-z._+-]{0,63}$ ]] || die "$name: plugin.json version is missing or unsafe for the archive"
-    af="$name-$version-${commit:0:12}-$key_id"
+    af="$name-$version-${commit:0:12}-$key_id-b$BUILDER_REV"
     mkdir -p "$stage/archive/$name"
     cp "$stage/packages/$name.hmp" "$stage/archive/$name/$af.hmp"
-    jq -n --arg n "$name" --arg v "$version" --arg c "$commit" --arg k "$key_id" --arg h "$(sha256sum "$stage/packages/$name.hmp" | cut -d' ' -f1)" \
-      '{name:$n, version:$v, commit:$c, key_id:$k, sha256:$h}' >"$stage/archive/$name/$af.json"
+    jq -n --arg n "$name" --arg v "$version" --arg c "$commit" --arg k "$key_id" --arg h "$(sha256sum "$stage/packages/$name.hmp" | cut -d' ' -f1)" --argjson b "$BUILDER_REV" \
+      '{name:$n, version:$v, commit:$c, key_id:$k, sha256:$h, builder:$b}' >"$stage/archive/$name/$af.json"
   fi
   # Point at the author's repo while it still answers, else at our mirror, but only
   # when the mirror really has the commit (it was just fetched, or its tag is there).

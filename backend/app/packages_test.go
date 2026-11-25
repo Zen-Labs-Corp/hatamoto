@@ -12,7 +12,7 @@ import (
 )
 
 func TestParseArgsRoutesPackageCommands(t *testing.T) {
-	for _, args := range [][]string{{"keys", "generate"}, {"theme", "pack", "d"}, {"theme", "check", "d"}, {"plugin", "pack", "d"}, {"theme", "dev", "d"}, {"package", "install", "f"}, {"registry", "page", "f"}, {"registry", "index", "d"}} {
+	for _, args := range [][]string{{"keys", "generate"}, {"theme", "pack", "d"}, {"theme", "check", "d"}, {"plugin", "pack", "d"}, {"plugin", "pack", "--list-dirs"}, {"theme", "dev", "d"}, {"package", "install", "f"}, {"registry", "page", "f"}, {"registry", "index", "d"}} {
 		if cmd, err := parseArgs(args); err != nil || cmd != cmdPackages {
 			t.Errorf("%v: %v %v", args, cmd, err)
 		}
@@ -131,5 +131,23 @@ func TestPackTagPackPrintsSummaryAndRefusesBadDeclaration(t *testing.T) {
 	err := runPack(packages.KindPlugin, []string{bad, "--out", filepath.Join(t.TempDir(), "x.hmp")}, &bytes.Buffer{})
 	if err == nil || !strings.Contains(err.Error(), "tags/acme.json: category must be one of") {
 		t.Errorf("bad declaration packed: %v", err)
+	}
+}
+
+func TestPluginPackListDirs(t *testing.T) {
+	t.Chdir(t.TempDir())
+	var out bytes.Buffer
+	if err := runPack(packages.KindPlugin, []string{"--list-dirs"}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if want := strings.Join(packages.PackTopDirs(), "\n") + "\n"; out.String() != want {
+		t.Errorf("out = %q, want %q", out.String(), want)
+	}
+	if ents, _ := os.ReadDir("."); len(ents) != 0 {
+		t.Errorf("--list-dirs wrote files: %v", ents)
+	}
+	err := runPack(packages.KindPlugin, []string{"d", "--list-dirs"}, &out)
+	if err == nil || !strings.Contains(err.Error(), "--list-dirs") {
+		t.Errorf("positional with --list-dirs: %v", err)
 	}
 }

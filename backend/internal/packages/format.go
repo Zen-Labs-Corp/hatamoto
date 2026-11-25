@@ -21,6 +21,7 @@ import (
 	"path"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -79,6 +80,18 @@ var DefaultLimits = Limits{
 var topDirs = map[string]bool{
 	"sections": true, "schemas": true, "layouts": true, "partials": true,
 	"assets": true, "migrations": true, "ui": true, "widgets": true, "tags": true,
+}
+
+// PackTopDirs returns the top-level directories a package may hold, sorted.
+// Builders that stage a plugin before `plugin pack` copy exactly these
+// (`hatamoto plugin pack --list-dirs` prints them). The slice is a copy.
+func PackTopDirs() []string {
+	out := make([]string, 0, len(topDirs))
+	for d := range topDirs {
+		out = append(out, d)
+	}
+	slices.Sort(out)
+	return out
 }
 
 // topFiles are the files allowed at the root next to the directories.
