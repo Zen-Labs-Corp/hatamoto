@@ -416,10 +416,10 @@ arch="$work/archive"
 sdkenv=(HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk")
 env "${sdkenv[@]}" ARCHIVE_DIR="$arch" "$script" "$reg" "$bin" "$key" "$work/a1-pk" "$work/a1-meta.json" >/dev/null || fail "archive build"
 kid=$(jq -r .key_id "$key")
-af="acme-notes-0.2.0-${sha:0:12}-$kid"
+af="acme-notes-0.2.0-${sha:0:12}-$kid-b2"
 [ -s "$arch/acme-notes/$af.hmp" ] || fail "archive: no .hmp in $(find "$arch")"
 jq -e --arg c "$sha" --arg k "$kid" --arg h "$(sha256sum "$arch/acme-notes/$af.hmp" | cut -d' ' -f1)" \
-  '.name == "acme-notes" and .version == "0.2.0" and .commit == $c and .key_id == $k and .sha256 == $h' "$arch/acme-notes/$af.json" >/dev/null || fail "archive sidecar: $(cat "$arch/acme-notes/$af.json")"
+  '.name == "acme-notes" and .version == "0.2.0" and .commit == $c and .key_id == $k and .sha256 == $h and .builder == 2' "$arch/acme-notes/$af.json" >/dev/null || fail "archive sidecar: $(cat "$arch/acme-notes/$af.json")"
 cmp "$arch/acme-notes/$af.hmp" "$work/a1-pk/acme-notes.hmp" || fail "archived .hmp differs from the package"
 # Upstream gone, no mirror, and a go that must not run: the archived bytes are reused.
 shim="$work/shim"; mkdir -p "$shim"
@@ -454,7 +454,7 @@ if PATH="$shim:$PATH" HATAMOTO_ALLOW_FILE_REPOS=1 ARCHIVE_DIR="$arch" "$script" 
 grep -q "cannot fetch" "$work/ar.log" || fail "rotation reuse: $(cat "$work/ar.log")"
 cp -r "$arch" "$work/arch-rot"
 env "${sdkenv[@]}" ARCHIVE_DIR="$work/arch-rot" "$script" "$reg" "$bin" "$key2" "$work/k2-pk" "$work/k2-meta.json" >"$work/ar.log" 2>&1 || fail "rotation rebuild: $(cat "$work/ar.log")"
-af2="acme-notes-0.2.0-${sha:0:12}-$kid2"
+af2="acme-notes-0.2.0-${sha:0:12}-$kid2-b2"
 [ -s "$work/arch-rot/acme-notes/$af2.hmp" ] && [ -s "$work/arch-rot/acme-notes/$af.hmp" ] || fail "rotation: expected both files: $(ls "$work/arch-rot/acme-notes")"
 cmp "$arch/acme-notes/$af.hmp" "$work/arch-rot/acme-notes/$af.hmp" || fail "rotation changed the old archive file"
 jq -e --arg k "$kid2" '.key_id == $k' "$work/arch-rot/acme-notes/$af2.json" >/dev/null || fail "rotation sidecar"
@@ -465,7 +465,7 @@ cmp "$work/arch-rot/acme-notes/$af2.hmp" "$work/k3-pk/acme-notes.hmp" || fail "r
 cp -r "$arch" "$work/arch-ver"; jq '.version = "9.9.9"' "$arch/acme-notes/$af.json" >"$work/arch-ver/acme-notes/$af.json"
 reuse_run "$reg" "$work/s1-pk" "$work/s1-meta.json" "$work/arch-ver" && fail "sidecar with a wrong version reused"
 grep -q "holds plugin.json" "$work/ar.log" || fail "sidecar version: $(cat "$work/ar.log")"
-cp -r "$arch" "$work/arch-fn"; wrong="acme-notes-0.2.0-${sha:0:11}z-$kid"
+cp -r "$arch" "$work/arch-fn"; wrong="acme-notes-0.2.0-${sha:0:11}z-$kid-b2"
 mv "$work/arch-fn/acme-notes/$af.hmp" "$work/arch-fn/acme-notes/$wrong.hmp"; mv "$work/arch-fn/acme-notes/$af.json" "$work/arch-fn/acme-notes/$wrong.json"
 reuse_run "$reg" "$work/s2-pk" "$work/s2-meta.json" "$work/arch-fn" && fail "misnamed archive file reused"
 grep -q "file name .* does not match" "$work/ar.log" || fail "sidecar file name: $(cat "$work/ar.log")"
@@ -478,7 +478,7 @@ grep -q "sidecar sha256" "$work/ar.log" || fail "tamper: $(cat "$work/ar.log")"
 v=$(variant newer sh -c 'sed -i "s/0.2.0/0.3.0/" plugin.json')
 nsha=$(git -C "$v" rev-parse HEAD); nreg="$work/newer-reg"; manifest "$nreg" acme-notes "$(base acme-notes "file://$v" "$nsha")"
 cp -r "$arch" "$work/arch-rb"
-rb="acme-notes-0.2.0-${nsha:0:12}-$kid"
+rb="acme-notes-0.2.0-${nsha:0:12}-$kid-b2"
 mv "$work/arch-rb/acme-notes/$af.hmp" "$work/arch-rb/acme-notes/$rb.hmp"; rm "$work/arch-rb/acme-notes/$af.json"
 jq --arg c "$nsha" '.commit = $c' "$arch/acme-notes/$af.json" >"$work/arch-rb/acme-notes/$rb.json"
 reuse_run "$nreg" "$work/rb-pk" "$work/rb-meta.json" "$work/arch-rb" && fail "rolled-back .hmp reused"
@@ -488,6 +488,47 @@ mkdir -p "$work/mirrors-rb"; mkmirror acme-notes "$v" "$work/mirrors-rb" sh -c '
 manifest "$work/ghost-newer" acme-notes "$(base acme-notes "file://$work/does-not-exist" "$nsha")"
 mirror_run "rollback via mirror" "$work/ghost-newer" "$work/mirrors-rb" "$work/rb2-pk" "$work/rb2-meta.json" ARCHIVE_DIR="$work/arch-rb" && fail "rolled-back .hmp reused (mirror)"
 grep -q "does not match plugin.json" "$work/mr.log" || fail "rollback mirror: $(cat "$work/mr.log")"
+# Builder revision: a legacy build (no "builder", unsuffixed name) is reused only when it holds every
+# packed directory its pinned source has; otherwise it is rebuilt into a new -b2 file and the old one stays.
+legacy_name="acme-notes-0.2.0-${sha:0:12}-$kid"
+cp -r "$arch" "$work/arch-leg"; ld="$work/arch-leg/acme-notes"
+mv "$ld/$af.hmp" "$ld/$legacy_name.hmp"; mv "$ld/$af.json" "$ld/$legacy_name.json"
+jq 'del(.builder)' "$arch/acme-notes/$af.json" >"$ld/$legacy_name.json"
+reuse_run "$reg" "$work/lg-pk" "$work/lg-meta.json" "$work/arch-leg" || fail "legacy complete build: $(cat "$work/ar.log")"
+grep -q "reusing archived $legacy_name.hmp" "$work/ar.log" || fail "legacy complete not reused: $(cat "$work/ar.log")"
+cmp "$ld/$legacy_name.hmp" "$work/lg-pk/acme-notes.hmp" || fail "legacy complete: reused bytes differ"
+# A legacy build without the directories the fulldirs source has.
+fid="$work/arch-inc/acme-notes"; mkdir -p "$fid" "$work/inc-src"
+unzip -p "$work/fd-pk/acme-notes.hmp" plugin.json >"$work/inc-src/plugin.json"
+unzip -p "$work/fd-pk/acme-notes.hmp" plugin.wasm >"$work/inc-src/plugin.wasm"
+"$bin" plugin pack "$work/inc-src" --key "$key" --out "$fid/acme-notes-0.2.0-${fsha:0:12}-$kid.hmp" >/dev/null || fail "legacy incomplete: pack"
+jq -n --arg c "$fsha" --arg k "$kid" --arg h "$(sha256sum "$fid/acme-notes-0.2.0-${fsha:0:12}-$kid.hmp" | cut -d' ' -f1)" \
+  '{name:"acme-notes", version:"0.2.0", commit:$c, key_id:$k, sha256:$h}' >"$fid/acme-notes-0.2.0-${fsha:0:12}-$kid.json"
+leg_h=$(sha256sum "$fid"/*-"$kid".hmp "$fid"/*-"$kid".json | cut -d' ' -f1)
+env "${sdkenv[@]}" ARCHIVE_DIR="$work/arch-inc" "$script" "$freg" "$bin" "$key" "$work/inc-pk" "$work/inc-meta.json" >"$work/ar.log" 2>&1 || fail "legacy incomplete rebuild: $(cat "$work/ar.log")"
+grep -q "lacks" "$work/ar.log" && grep -q "rebuilding" "$work/ar.log" || fail "legacy incomplete: no rebuild logged: $(cat "$work/ar.log")"
+b2="$fid/acme-notes-0.2.0-${fsha:0:12}-$kid-b2"
+[ -s "$b2.hmp" ] && jq -e '.builder == 2' "$b2.json" >/dev/null || fail "legacy incomplete: no -b2 build: $(ls "$fid")"
+[ "$leg_h" = "$(sha256sum "$fid"/*-"$kid".hmp "$fid"/*-"$kid".json | cut -d' ' -f1)" ] || fail "legacy incomplete: legacy files changed"
+cmp "$b2.hmp" "$work/inc-pk/acme-notes.hmp" || fail "legacy incomplete: package is not the -b2 build"
+unzip -Z1 "$b2.hmp" | grep -qx schemas/acme-note.json || fail "legacy incomplete: rebuilt package lacks schemas/"
+# The -b2 build is reused on the next run without a build (go shim would fail).
+reuse_run "$freg" "$work/inc2-pk" "$work/inc2-meta.json" "$work/arch-inc" || fail "b2 reuse: $(cat "$work/ar.log")"
+grep -q "reusing archived $(basename "$b2").hmp" "$work/ar.log" || fail "b2 not reused: $(cat "$work/ar.log")"
+cmp "$b2.hmp" "$work/inc2-pk/acme-notes.hmp" || fail "b2 reuse: bytes differ"
+# Offline, the directory check cannot run: the legacy build is reused with a warning.
+cp -r "$work/arch-inc" "$work/arch-off"; rm "$work/arch-off/acme-notes/"*-b2.*
+manifest "$work/ghost-fd" acme-notes "$(base acme-notes "file://$work/does-not-exist" "$fsha")"
+offline=1
+reuse_run "$work/ghost-fd" "$work/off-pk" "$work/off-meta.json" "$work/arch-off" || fail "offline legacy: $(cat "$work/ar.log")"
+offline=
+grep -q "NOT checked against the source" "$work/ar.log" || fail "offline legacy: no warning: $(cat "$work/ar.log")"
+# A bad builder revision dies.
+cp -r "$arch" "$work/arch-bb"; jq '.builder = "x"' "$arch/acme-notes/$af.json" >"$work/arch-bb/acme-notes/$af.json"
+reuse_run "$reg" "$work/bb-pk" "$work/bb-meta.json" "$work/arch-bb" && fail "bad builder revision reused"
+grep -q "bad builder revision" "$work/ar.log" || fail "bad builder: $(cat "$work/ar.log")"
+echo "ok: builder revision"
+
 # A genuine archive through the mirror alone is accepted (the upstream is gone).
 mirror_run "genuine via mirror" "$ghost" "$mb" "$work/g-pk" "$work/g-meta.json" ARCHIVE_DIR="$arch" || fail "genuine via mirror: $(cat "$work/mr.log")"
 # No temp files are left in the archive.
