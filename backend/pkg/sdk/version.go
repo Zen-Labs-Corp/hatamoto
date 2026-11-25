@@ -161,7 +161,8 @@ package sdk
 // ignores the field and such creates wait for review.
 //
 // 0.28.1 is additive over 0.28.0: EntityUpsert.Status ("", draft or published)
-// asks for the status a new entry gets. A create rule of a standing approval may
+// asks for the status a new entry gets (ignored for an entry the key already
+// maps to). A create rule of a standing approval may
 // publish a published create on its own; anywhere else it waits for review. A
 // 0.28.0 host refuses the unknown member, so a plugin that sends it declares
 // ^0.28.1.

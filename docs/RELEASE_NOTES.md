@@ -2,7 +2,7 @@
 
 ## Unreleased: entity upserts can ask to publish (SDK 0.28.1)
 
-- **Plugin authors.** `changeset.entity.upsert` takes an optional `status`: `draft` (the default) or `published`; anything else is `invalid_argument`. A create that the create rule of an approved standing approval allows is published with that status. Anywhere else, and without an approval, a `published` create waits for review as before.
+- **Plugin authors.** `changeset.entity.upsert` takes an optional `status`: `draft` (the default) or `published`; anything else is `invalid_argument`. A create that the create rule of an approved standing approval allows is published with that status. Anywhere else, and without an approval, a `published` create waits for review as before. `status` applies only when the upsert creates an entry; for an entry the source key already maps to it is ignored, so an import that always sends it keeps its updates under the standing update rules and never changes a status the owner set.
 - **Compatibility.** Additive. A 0.28.0 host refuses the unknown member, so a plugin that sends `status` declares `sdk` `^0.28.1`.
 - **Migration.** None. **Rollback floor:** unchanged, but a plugin that declares `^0.28.1` is refused as incompatible by an older binary, so rolling back stops it from loading.
 

@@ -73,7 +73,7 @@ A plugin that uses `csp`, `request_headers`, `translation_of`, `changeset.media.
 
 A plugin that uses `standing_approval.create.link_fields` declares `^0.28`: an older host ignores the field.
 
-A plugin that sends `status` on `changeset.entity.upsert` declares `^0.28.1`: a 0.28.0 host refuses the unknown member.
+A plugin that sends `status` on `changeset.entity.upsert` declares `^0.28.1`: a 0.28.0 host refuses the unknown member. `status` applies when the upsert creates an entry and is ignored for an entry the key already maps to.
 
 A plugin that uses `page_query`, `page_path_prefixes`, `entity_schema` or `entity_fields`, or asks for `client.key`, `entities.write.own` or `comments.moderate`, declares `^0.27`: an older host ignores the fields and refuses the permissions.
 

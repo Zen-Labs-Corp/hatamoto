@@ -187,9 +187,20 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw jsonte
 		}
 	}
 	p := map[string]any{"schema": in.Schema, "name": in.Name}
-	for k, v := range map[string]string{"slug": in.Slug, "parent_key": in.ParentKey, "locale": in.Locale, "translation_of": in.TranslationOf, "status": in.Status} {
+	for k, v := range map[string]string{"slug": in.Slug, "parent_key": in.ParentKey, "locale": in.Locale, "translation_of": in.TranslationOf} {
 		if v != "" {
 			p[k] = v
+		}
+	}
+	// A status applies to a create only. For an entry the key already maps to
+	// it is dropped, so an update never changes the status the owner set.
+	if in.Status != "" {
+		_, mapped, err := a.svc.Changesets.Resolve(ctx, e.plugin, changeset.KindEntity, in.SourceKey)
+		if err != nil {
+			return nil, err
+		}
+		if !mapped {
+			p["status"] = in.Status
 		}
 	}
 	// An upsert is the whole document: attributes left out are empty.
