@@ -104,6 +104,7 @@ func (s *Server) setupPlugins() {
 	}
 	if keys != nil {
 		cfg.CommenterKey = keys.Commenter
+		cfg.Services.CommentIdentity = pluginCommentIdentity{s: s, derive: keys.Commenter}
 	}
 	if s.db != nil {
 		cfg.Services.Groups = entity.NewGroupStore(s.db.Pool())
