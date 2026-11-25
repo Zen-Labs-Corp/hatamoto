@@ -5,6 +5,7 @@ package kit
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"net/http"
@@ -298,5 +299,47 @@ func TestApplyKitMenuAtAThemeLocationIsKeptAfterActivation(t *testing.T) {
 	}
 	if name, err := r.d.Packages.ActiveTheme(ctx); err != nil || name != "community-look" {
 		t.Errorf("active theme %q %v", name, err)
+	}
+}
+
+// A fresh site has no explicit homepage: "/" serves its first-boot "home" page.
+// The plan must still count it as fresh, so the theme and homepage ticks start on.
+func TestPlanFreshSiteWithoutExplicitHomepage(t *testing.T) {
+	r := newKitRig(t)
+	ctx := context.Background()
+	r.publishFixture("", nil)
+	sc, err := r.ents.GetSchemaBySlug(ctx, "page")
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed := `{"page_doc":{"v":2,"nodes":[{"t":"container","id":"c-welcome","p":{"v1":true,"tag":"section"},"c":[{"t":"component","id":"welcome","p":{"type":"hero","content":{"headline":"Example"}}}]}]}}`
+	if _, err := r.d.Pages.CreatePublished(ctx, &entity.CreateEntityInput{SchemaID: sc.ID, Name: "Example", Slug: "home", Attributes: []byte(seed)}, nil); err != nil {
+		t.Fatal(err)
+	}
+	plan := func() *Plan {
+		raw, err := r.d.Packages.Fetch(ctx, packages.KindKit, "community")
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, origin, err := r.mgr.VerifyKit(ctx, raw, packages.SourceRegistry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		pl, err := BuildPlan(ctx, r.d, p, Options{Origin: origin})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return pl
+	}
+	if !plan().Fresh {
+		t.Fatal("seed home page without an explicit homepage: plan not fresh")
+	}
+	home := r.page("home")
+	edited := jsontext.Value(strings.Replace(seed, `"id":"welcome"`, `"id":"mine"`, 1))
+	if _, err := r.ents.UpdateEntity(ctx, home.ID, nil, &entity.UpdateEntityInput{Attributes: &edited}); err != nil {
+		t.Fatal(err)
+	}
+	if plan().Fresh {
+		t.Fatal("edited home page: plan still fresh")
 	}
 }

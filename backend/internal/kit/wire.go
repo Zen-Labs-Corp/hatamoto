@@ -149,10 +149,20 @@ type siteAdapter struct {
 	address  func(ctx context.Context) string
 }
 
+// Homepage is the page the site serves at "/": the one set in the site
+// settings, else the page with the slug "home", as the public site resolves it
+// (a fresh site has no explicit homepage and serves its first-boot "home" page).
 func (a siteAdapter) Homepage(ctx context.Context) (*entity.Entity, error) {
 	cfg, err := a.site.Get(ctx)
-	if err != nil || cfg.HomepageEntityID == uuid.Nil {
+	if err != nil {
 		return nil, err
+	}
+	if cfg.HomepageEntityID == uuid.Nil {
+		e, err := a.entities.GetEntityBySlug(ctx, "home")
+		if errors.Is(err, entity.ErrEntityNotFound) || (err == nil && e.Status != entity.StatusPublished) {
+			return nil, nil
+		}
+		return e, err
 	}
 	e, err := a.entities.GetEntity(ctx, cfg.HomepageEntityID)
 	if errors.Is(err, entity.ErrEntityNotFound) {
