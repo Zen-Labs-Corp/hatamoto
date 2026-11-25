@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/form"
 	"strings"
 	"testing"
@@ -247,5 +248,40 @@ func TestDashLaunchSlowReadIsLeftOutNotAnError(t *testing.T) {
 				t.Errorf("the slow forms read must leave the Contact form row out")
 			}
 		}
+	}
+}
+
+// The home page item follows the homepage picked in Settings, not the slug "home".
+func TestLaunchHomeFollowsConfiguredHomepage(t *testing.T) {
+	t.Parallel()
+	const seed = `{"page_sections":[{"id":"welcome"}]}`
+	const edited = `{"page_sections":[{"id":"hero"},{"id":"cta"}]}`
+	ents := newFakeEntities()
+	page := ents.addSchema(1, "Page", "page", `{"type":"object"}`, `{}`, true)
+	ents.addEntity(10, page, "Home", "home", entity.StatusPublished, seed, t0)
+	ents.addEntity(11, page, "Landing", "landing", entity.StatusPublished, edited, t0)
+	g := newRig(t, func(d *Deps) { d.Content.Entities = ents })
+	site := g.a.deps.Site.(*fakeSite)
+
+	run := func() launchState {
+		t.Helper()
+		apply, err := g.a.launchHome(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		var s launchState
+		apply(&s)
+		return s
+	}
+	if s := run(); s.HomeEdited || s.HomeID != fid(10) {
+		t.Errorf("without a chosen homepage the slug home is read: %+v", s)
+	}
+	site.cfg.HomepageEntityID = fid(11)
+	if s := run(); !s.HomeEdited || s.HomeID != fid(11) {
+		t.Errorf("the chosen homepage must be read, not the untouched home page: %+v", s)
+	}
+	site.cfg.HomepageEntityID = fid(99)
+	if s := run(); !s.HomeKnown || !s.HomeEdited {
+		t.Errorf("a missing chosen homepage counts as done: %+v", s)
 	}
 }

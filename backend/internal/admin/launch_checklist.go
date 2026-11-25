@@ -285,10 +285,25 @@ func (a *Admin) launchReads() []launchRead {
 	return rs
 }
 
-// launchHome reads whether the first-boot home page was replaced. A site
+// launchHome reads whether the first-boot home page was replaced. It checks the
+// page the owner picked as the homepage, else the one with slug "home". A site
 // without a home page counts as done.
 func (a *Admin) launchHome(ctx context.Context) (func(*launchState), error) {
-	e, err := a.deps.Content.Entities.GetEntityBySlug(ctx, "home")
+	var id uuid.UUID
+	if a.deps.Site != nil {
+		cfg, err := a.deps.Site.Get(ctx)
+		if err != nil {
+			return nil, err
+		}
+		id = cfg.HomepageEntityID
+	}
+	var e *entity.Entity
+	var err error
+	if id != uuid.Nil {
+		e, err = a.deps.Content.Entities.GetEntity(ctx, id)
+	} else {
+		e, err = a.deps.Content.Entities.GetEntityBySlug(ctx, "home")
+	}
 	switch {
 	case errors.Is(err, entity.ErrEntityNotFound):
 		return func(s *launchState) { s.HomeKnown, s.HomeEdited = true, true }, nil
