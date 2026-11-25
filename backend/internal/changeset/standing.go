@@ -693,15 +693,27 @@ func tooLargeValue(v any, over func(string) bool) bool {
 func checkCreateText(pl entityPayload) string {
 	strs := []string{pl.Name, pl.Slug, pl.Locale}
 	if pl.SEO != nil {
-		strs = append(strs, pl.SEO.MetaTitle, pl.SEO.MetaDescription, pl.SEO.Robots)
+		strs = append(strs, pl.SEO.MetaTitle, pl.SEO.MetaDescription, pl.SEO.Robots, pl.SEO.Canonical)
 	}
 	if slices.ContainsFunc(strs, schemafield.MentionsImageMarkup) {
 		return "it carries image markup, which never qualifies."
 	}
-	if slices.ContainsFunc(strs, schemafield.LooksLikeURLOrPath) {
+	if slices.ContainsFunc(strs, schemafield.LooksLikeURLOrPath) || carriesLink(strs) {
 		return "it carries links, paths or files, which need your review."
 	}
 	return ""
+}
+
+// carriesLink reports whether the risk classifier's link scan finds any link
+// in strs, markdown and protocol-relative forms included. The link_host waiver
+// rests on this: a link the classifier sees is never waived unless it is an
+// accepted link-field value, which the callers take out first.
+func carriesLink(strs []string) bool {
+	var r scanResult
+	for _, s := range strs {
+		r.scan(s)
+	}
+	return len(r.links) > 0
 }
 
 // checkCreateAttributes refuses a new entry that carries a media reference:
@@ -794,7 +806,7 @@ func checkCreateAttributes(ctx context.Context, tx rowQuerier, schemaDoc []byte,
 		rest = nil
 		collectStrings(trimmed, &rest)
 	}
-	if slices.ContainsFunc(rest, schemafield.LooksLikeURLOrPath) {
+	if slices.ContainsFunc(rest, schemafield.LooksLikeURLOrPath) || carriesLink(rest) {
 		return "it carries links, paths or files, which need your review."
 	}
 	return ""

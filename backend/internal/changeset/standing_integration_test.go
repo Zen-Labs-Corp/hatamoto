@@ -1047,6 +1047,13 @@ func TestStandingCreateRefusals(t *testing.T) {
 			func() {
 				s.setSchema(strings.Replace(linkFieldsSchema, `"ticket_url":{"type":"string","format":"uri"}`, `"ticket_url":{"type":"string","format":"uri","x-hm-field":"url"}`, 1))
 			}), ""},
+		{"link_field_md_protocol_relative_notes", linkRow("lf21", map[string]any{"ticket_url": "https://tickets.example/e/1", "notes": "Tickets: [x](//evil.example/x)"}), "links, paths or files"},
+		{"link_field_md_protocol_relative_angle_notes", linkRow("lf21b", map[string]any{"ticket_url": "https://tickets.example/e/1", "notes": "[x](<//evil.example>)"}), "links, paths or files"},
+		{"link_field_md_protocol_relative_description", linkRow("lf21c", map[string]any{"notes": "[x](//evil.example/x)"}), "links, paths or files"},
+		{"link_field_md_protocol_relative_seo", linkRow("lf21d", map[string]any{"ticket_url": "https://tickets.example/e/1"}, "",
+			map[string]any{"seo": map[string]any{"meta_description": "[x](//evil.example/x)"}}), "links, paths or files"},
+		{"link_field_md_protocol_relative_no_own_host", linkRow("lf21e", map[string]any{"notes": "[x](//evil.example/x)"},
+			func() { s.policy.OwnHosts = nil }), "links, paths or files"},
 		{"link_field_image_named_key", linkRow("lf20", map[string]any{"logo": "https://tickets.example/e/1"},
 			func() { s.policy.Create.LinkFields = []string{"logo"} }), "image or file"},
 		{"cap_zero", func() int64 {
