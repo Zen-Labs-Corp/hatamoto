@@ -207,6 +207,31 @@ func TestPublicPagesJSON_Integration(t *testing.T) {
 			t.Error("emit_breadcrumb=off: NoBreadcrumbLD is false on the homepage")
 		}
 	})
+	// A homepage with only a description (no meta_description) takes it for its
+	// meta description, like any other page, and featured_image for og:image;
+	// the head and the WebPage node agree. Its custom JSON-LD block prints too.
+	t.Run("homepage description fallback", func(t *testing.T) {
+		exec(`UPDATE hatamoto_entity_schemas SET settings = settings || '{"emit_webpage":"on"}'::jsonb WHERE id = $1`, schemaID)
+		exec(`UPDATE hatamoto_entities SET attributes = $2::jsonb WHERE schema_id = $1 AND slug = 'home'`, schemaID,
+			`{"description":"ホームの説明","featured_image":"/media/f.png","custom_jsonld":"{\"@context\":\"https://schema.org\",\"@type\":\"Library\"}"}`)
+		t.Cleanup(func() {
+			exec(`UPDATE hatamoto_entity_schemas SET settings = settings - 'emit_webpage' WHERE id = $1`, schemaID)
+			exec(`UPDATE hatamoto_entities SET attributes = $2::jsonb WHERE schema_id = $1 AND slug = 'home'`, schemaID, sections)
+		})
+		res, out, err := srv.loadHomepage(req("/"))
+		if err != nil || out.NotFound || res == nil {
+			t.Fatalf("loadHomepage: %v %+v", err, out)
+		}
+		if res.Meta.Description != "ホームの説明" || res.Meta.OGImage != "/media/f.png" {
+			t.Errorf("meta = (%q, %q), want the description and the featured image", res.Meta.Description, res.Meta.OGImage)
+		}
+		if ld := string(marshal(t, res.JSONLD)); !strings.Contains(ld, `"description":"ホームの説明"`) {
+			t.Errorf("WebPage JSON-LD lacks the same description: %s", ld)
+		}
+		if len(res.ExtraJSONLD) != 1 || !strings.Contains(string(res.ExtraJSONLD[0]), `"Library"`) {
+			t.Errorf("homepage custom JSON-LD = %s, want the Library block", res.ExtraJSONLD)
+		}
+	})
 	t.Run("not found", func(t *testing.T) {
 		if res, out, err := srv.loadPublicPage(req("/pj-missing"), "pj-missing"); err != nil || !out.NotFound {
 			t.Fatalf("missing page: res=%v out=%+v err=%v", res, out, err)
