@@ -92,9 +92,17 @@ func TestRunsValidate(t *testing.T) {
 			r.Cron = "tick"
 			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"a" + strings.Repeat("b", 40)}}
 		}, "schemas: bad or duplicate"},
+		{"standing dashed schema 40 chars", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"a-" + strings.Repeat("b", 38)}}
+		}, ""},
+		{"standing dashed schema 41 chars", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"a-" + strings.Repeat("b", 39)}}
+		}, "schemas: bad or duplicate"},
 		{"standing schema refused 0", func(r *Run) {
 			r.Cron = "tick"
-			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"calendar_event"}}
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"a_" + strings.Repeat("b", 31)}}
 		}, "schemas: bad or duplicate"},
 		{"standing schema refused 1", func(r *Run) {
 			r.Cron = "tick"
@@ -112,7 +120,16 @@ func TestRunsValidate(t *testing.T) {
 			r.Cron = "tick"
 			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"1abc"}}
 		}, "schemas: bad or duplicate"},
-		{"standing create underscore schema", func(r *Run) { withCreate(r, []string{"calendar_event"}, 5) }, "create.schemas: bad or duplicate"},
+		{"standing underscore schema", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"calendar_event"}}
+		}, ""},
+		{"standing create underscore schema", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = &StandingApproval{Fields: []string{"price"}, Schemas: []string{"calendar_event"}}
+			r.StandingApproval.Create = &StandingCreate{Schemas: []string{"calendar_event"}, MaxPerHour: 5}
+		}, ""},
+		{"standing create refused uppercase", func(r *Run) { withCreate(r, []string{"Calendar_event"}, 5) }, "create.schemas: bad or duplicate"},
 		{"standing dashed field", func(r *Run) {
 			r.Cron = "tick"
 			r.StandingApproval = validStanding()

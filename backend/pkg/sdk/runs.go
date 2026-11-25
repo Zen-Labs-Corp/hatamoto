@@ -121,14 +121,20 @@ func (m Manifest) validateStanding(r Run) error {
 		if len(list) == 0 || len(list) > MaxStandingFields {
 			return fmt.Errorf("sdk: plugin %q: run %q: standing_approval.%s needs 1..%d entries", m.Name, r.Name, label, MaxStandingFields)
 		}
-		pat := identPattern // fields are attribute keys
+		// fields are attribute keys; schemas and create.schemas accept an
+		// identifier (what 0.27.0 allowed) or a content type slug (dashes).
+		match := func(v string) bool { return identPattern.MatchString(v) }
+		want := identPattern.String()
 		if label != "fields" {
-			pat = entitySchemaPattern // schemas and create.schemas are content type slugs
+			match = func(v string) bool {
+				return identPattern.MatchString(v) || len(v) <= MaxEntitySchemaLen && entitySchemaPattern.MatchString(v)
+			}
+			want = identPattern.String() + " or " + entitySchemaPattern.String()
 		}
 		seen := map[string]bool{}
 		for _, v := range list {
-			if !pat.MatchString(v) || seen[v] {
-				return fmt.Errorf("sdk: plugin %q: run %q: standing_approval.%s: bad or duplicate entry %q (want %s)", m.Name, r.Name, label, v, pat)
+			if !match(v) || seen[v] {
+				return fmt.Errorf("sdk: plugin %q: run %q: standing_approval.%s: bad or duplicate entry %q (want %s)", m.Name, r.Name, label, v, want)
 			}
 			seen[v] = true
 		}
