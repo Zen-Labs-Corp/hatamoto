@@ -132,3 +132,49 @@ func TestDateTimeRoundTrip(t *testing.T) {
 		t.Errorf("round trip lost the value: %s", out)
 	}
 }
+
+func TestDecodeDateTimeUntouchedKeepsStored(t *testing.T) {
+	opt := newYork(t)
+	for _, stored := range []string{
+		"2026-11-01T06:30:00Z",      // second 01:30 of the fall-back night
+		"2026-06-14T21:00:00+02:00", // source offset
+		"2026-06-14T23:00:00.250Z",  // fraction
+	} {
+		shown, _ := pickerValue(stored, opt.Location)
+		got, errs := Decode(jsontext.Value(dateTimeSchema), url.Values{"start": {shown}}, map[string]any{"start": stored}, opt)
+		if len(errs) != 0 || got["start"] != stored {
+			t.Errorf("stored %q posted %q: got %v, %v", stored, shown, got["start"], errs)
+		}
+	}
+}
+
+func TestDecodeDateTimeChangedIsNormalised(t *testing.T) {
+	got, errs := Decode(jsontext.Value(dateTimeSchema), url.Values{"start": {"2026-06-14T20:00"}}, map[string]any{"start": "2026-06-14T21:00:00+02:00"}, newYork(t))
+	if len(errs) != 0 || got["start"] != "2026-06-14T20:00:00-04:00" {
+		t.Errorf("got %v, %v", got["start"], errs)
+	}
+}
+
+func TestDecodeDateTimeRepeaterItemUntouched(t *testing.T) {
+	opt := newYork(t)
+	prev := map[string]any{"rows": []any{
+		map[string]any{"slot": "2026-11-01T06:30:00Z"},
+		map[string]any{"slot": "2026-06-14T21:00:00+02:00"},
+	}}
+	form := url.Values{
+		"_present.rows": {"1"},
+		"rows.0.slot":   {"2026-11-01T01:30"},
+		"rows.1.slot":   {"2026-06-14T16:00"}, // changed from 15:00
+	}
+	got, errs := Decode(jsontext.Value(dateTimeSchema), form, prev, opt)
+	rows, _ := got["rows"].([]any)
+	if len(errs) != 0 || len(rows) != 2 {
+		t.Fatalf("got %v, %v", got, errs)
+	}
+	if r := rows[0].(map[string]any)["slot"]; r != "2026-11-01T06:30:00Z" {
+		t.Errorf("untouched item: %v", r)
+	}
+	if r := rows[1].(map[string]any)["slot"]; r != "2026-06-14T16:00:00-04:00" {
+		t.Errorf("changed item: %v", r)
+	}
+}

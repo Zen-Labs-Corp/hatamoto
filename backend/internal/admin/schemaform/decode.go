@@ -133,6 +133,13 @@ func (d *decoder) node(name string, n *Node, readPath, errPath string, required 
 			return nil, unset
 		}
 		if k == "text" && n.Format == "date-time" && d.opt.Location != nil {
+			if p, ok := pv.(string); ok {
+				// Untouched picker: keep the stored string as is (offset, fraction,
+				// and which of two repeated DST hours it meant).
+				if shown, _ := pickerValue(p, d.opt.Location); shown == v {
+					return p, set
+				}
+			}
 			out, msg := naiveToRFC3339(v, d.opt.Location)
 			if msg != "" {
 				d.errorf(errPath, msg)
@@ -223,7 +230,7 @@ func (d *decoder) node(name string, n *Node, readPath, errPath string, required 
 	case "object", "object-synth":
 		return d.object(n, k, readPath, errPath, required, pv)
 	case "repeater":
-		return d.repeater(n, readPath, errPath)
+		return d.repeater(n, readPath, errPath, pv)
 	}
 	return nil, untouched
 }
@@ -331,7 +338,8 @@ func (d *decoder) indices(path string) ([]int, bool) {
 	return list, true
 }
 
-func (d *decoder) repeater(n *Node, readPath, errPath string) (any, outcome) {
+func (d *decoder) repeater(n *Node, readPath, errPath string, pv any) (any, outcome) {
+	prevItems, _ := pv.([]any)
 	if !d.present(readPath) {
 		return nil, untouched
 	}
@@ -368,17 +376,23 @@ func (d *decoder) repeater(n *Node, readPath, errPath string) (any, outcome) {
 		ep := errPath + "." + strconv.Itoa(len(items))
 		var val any
 		var blank bool
+		// The item stored at the index the form was rendered with.
+		var prevItem any
+		if i >= 0 && i < len(prevItems) {
+			prevItem = prevItems[i]
+		}
 		if scalar {
-			v, oc := d.node(lastSeg(readPath), it, rp, ep, false, nil)
+			v, oc := d.node(lastSeg(readPath), it, rp, ep, false, prevItem)
 			blank = oc != set
 			val = v
 		} else {
 			// The item starts from the keys the form could not edit (_keep), then
 			// the schema's properties are laid over it.
 			m := cloneMap(d.keep(rp))
+			prevMap, _ := prevItem.(map[string]any)
 			sets := 0
 			for _, p := range it.Props {
-				v, oc := d.node(p.Name, p.Node, rp+"."+p.Name, ep+"."+p.Name, it.isRequired(p.Name), valueOf(m, p.Name, p.Node))
+				v, oc := d.node(p.Name, p.Node, rp+"."+p.Name, ep+"."+p.Name, it.isRequired(p.Name), firstSet(valueOf(prevMap, p.Name, p.Node), valueOf(m, p.Name, p.Node)))
 				if oc == set {
 					sets++
 				}
@@ -450,4 +464,12 @@ func defaultItem(it *Node) map[string]any {
 		}
 	}
 	return m
+}
+
+// firstSet returns a unless it is nil.
+func firstSet(a, b any) any {
+	if a != nil {
+		return a
+	}
+	return b
 }
