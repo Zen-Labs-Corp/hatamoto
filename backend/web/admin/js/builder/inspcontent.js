@@ -480,7 +480,7 @@ export function createContent(ctx) {
           api.announce(`Filter ${n} removed`);
         },
       });
-      return h("div", { class: "hm-bs-frow" }, attrSel, opSel, val, remove);
+      return h("div", { class: "hm-bs-frow" }, attrSel, remove, opSel, val);
     };
     const draw1 = (focusRow, part = "a") => {
       box.replaceChildren(...rows.map(rowEl), add);
