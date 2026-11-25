@@ -106,6 +106,73 @@ For a custom content type with no annotations, set `schema_org_type` in its sett
 
 The generated node has `@type`, `name`, `description` (the first of `description`, `meta_description` and `excerpt` that is set), `url`, `@id`, `image` (the first of `featured_image`, `image` and `og_image`), `datePublished` and `dateModified`, plus `headline` for the three article types. Types that need fields a generic document cannot supply, which are `FAQPage`, `Product` and `Event`, are refused on save: use annotations or a plugin builder for those. A stored value that is no longer valid is ignored for JSON-LD and never affects URL routing.
 
+### Annotating a content type
+
+Annotations in a content type's JSON Schema describe its JSON-LD. They work on any annotated property of any type, at the root and in nested objects.
+
+- `x-schema-org-type` on the root sets the `@type`.
+- `x-schema-org-property` on an attribute names the schema.org property it prints as.
+- `x-schema-org-enum` on an attribute with an `enum` maps each stored value to a schema.org URL. The target is a full `https://schema.org/` URL, which prints as is, or a bare term such as `EventCancelled`, which becomes `https://schema.org/EventCancelled`. A value with no entry prints nothing.
+- `x-schema-org-datetime` on a date attribute (a string with `format: date`) is `{"time": "<time attribute>"}`. The date and the time attribute print as one ISO 8601 value in the site time zone. The time attribute never prints on its own.
+
+The two keys `x-schema-org-enum` and `x-schema-org-datetime` cannot share a property. The time zone is the site time zone, never a key of the schema.
+
+| Stored value | Printed |
+|---|---|
+| A date and a valid time (`HH:MM` or `HH:MM:SS`) | The date and time with the zone offset |
+| A date and no time | The date as stored |
+| A date and an invalid time | The date only |
+| An invalid date | Nothing |
+
+This schema describes an event. The `location` attribute is a text attribute, so `location` prints as plain text.
+
+```json
+{
+  "type": "object",
+  "x-schema-org-type": "Event",
+  "properties": {
+    "name": {"type": "string", "x-schema-org-property": "name"},
+    "location": {"type": "string", "x-schema-org-property": "location"},
+    "date_start": {
+      "type": "string", "format": "date",
+      "x-schema-org-property": "startDate",
+      "x-schema-org-datetime": {"time": "time_start"}
+    },
+    "time_start": {"type": "string", "format": "time"},
+    "date_end": {
+      "type": "string", "format": "date",
+      "x-schema-org-property": "endDate",
+      "x-schema-org-datetime": {"time": "time_end"}
+    },
+    "time_end": {"type": "string", "format": "time"},
+    "status": {
+      "type": "string",
+      "enum": ["scheduled", "cancelled", "postponed", "other"],
+      "x-schema-org-property": "eventStatus",
+      "x-schema-org-enum": {
+        "cancelled": "https://schema.org/EventCancelled",
+        "postponed": "https://schema.org/EventPostponed"
+      }
+    }
+  }
+}
+```
+
+An entry with `date_start` `2026-12-05`, `time_start` `18:30`, `date_end` `2026-12-05`, `time_end` `20:00` and `status` `cancelled`, on a site whose time zone is Europe/Paris, prints these properties (others left out):
+
+```json
+{
+  "@type": "Event",
+  "name": "Story hour",
+  "url": "https://example.com/events/story-hour",
+  "startDate": "2026-12-05T18:30:00+01:00",
+  "endDate": "2026-12-05T20:00:00+01:00",
+  "eventStatus": "https://schema.org/EventCancelled"
+}
+```
+
+With `status` set to `other`, the node has no `eventStatus` key. With an empty `time_start`, `startDate` is `2026-12-05`.
+
 ### Structured data settings
 
 The **Structured data** card of an entity type (Settings > Entity types) holds the settings below. They are keys of the schema's settings (see [URL patterns](url-patterns.md#schema-settings)). A type that sets none of them prints the same JSON-LD as before.
@@ -200,6 +267,26 @@ The check covers valid JSON, a top-level `@context`, an `@type` on every node, a
 
 Other types only get their `@type` checked, because the checker guards against broken output and is not a full schema.org validator. For rich-result eligibility, also run a page through Google's Rich Results Test.
 
+The tool also reads the content type's JSON Schema and reports `x-schema-org-enum` and `x-schema-org-datetime` mappings the page ignores. The findings sit on the node of the schema's root type, and any error makes the report invalid. A bad mapping does not block saving the content type, and the page leaves the value out. `<path>` is the attribute name, with nested names joined by `.` and list items written `<name>[]`.
+
+Errors:
+
+- `x-schema-org-enum on "<path>": must map enum values to schema.org URLs or terms`
+- `x-schema-org-enum on "<path>": the property has no enum`
+- `x-schema-org-enum on "<path>": "<key>" is not one of the enum values`
+- `x-schema-org-enum on "<path>": "<target>" is not a schema.org URL or term`
+- `x-schema-org-datetime on "<path>": must be {"time": "<property>"}`
+- `x-schema-org-datetime on "<path>": the property is not a string with format date`
+- `x-schema-org-datetime on "<path>": "<time>" is not a property`
+- `x-schema-org-datetime on "<path>": "<time>" is not a string`
+- `x-schema-org-enum on "<path>": the property has no x-schema-org-property`, and the same for `x-schema-org-datetime`
+- `"<path>": x-schema-org-enum and x-schema-org-datetime cannot be combined`
+
+Warnings:
+
+- `x-schema-org-enum on "<path>": "<target>" is not an eventStatus value`, for an `eventStatus` property whose target is not `EventScheduled`, `EventCancelled`, `EventPostponed`, `EventRescheduled` or `EventMovedOnline`
+- `x-schema-org-datetime on "<path>": "<time>" also prints on its own as "<property>"`
+
 To look at a page's blocks without MCP:
 
 ```bash
@@ -211,4 +298,5 @@ curl -s https://example.com/blog/hello \
 
 - The JSON-LD `url` values change when the URL pattern, the public base URL or, for dated addresses, the site time zone changes. Compare them before and after such a change, as [Check your sitemap and structured data](check-sitemap-and-structured-data.md) describes.
 - A `schema_org_type` outside the allowed list, or one of `FAQPage`, `Product` and `Event`, is refused when the content type is saved.
+- An enum value with no mapping, or a mapping the checker reports, prints nothing for that property.
 - An entity whose document cannot be built is left out of the knowledge-graph feed.

@@ -93,6 +93,28 @@ func ValidateJSONLD(blocks [][]byte) JSONLDReport {
 	return rep
 }
 
+// AddAnnotationFindings attaches schema annotation findings to the first node of the
+// schema's root type, or to a new node of that type when the page has none. Any error
+// makes the report invalid.
+func AddAnnotationFindings(rep JSONLDReport, rootType string, errs, warns []string) JSONLDReport {
+	if len(errs) == 0 && len(warns) == 0 {
+		return rep
+	}
+	i := slices.IndexFunc(rep.Nodes, func(n JSONLDNode) bool {
+		return slices.Contains(strings.Split(n.Type, ","), rootType)
+	})
+	if i < 0 {
+		rep.Nodes = append(rep.Nodes, JSONLDNode{Type: rootType})
+		i = len(rep.Nodes) - 1
+	}
+	rep.Nodes[i].Errors = append(rep.Nodes[i].Errors, errs...)
+	rep.Nodes[i].Warnings = append(rep.Nodes[i].Warnings, warns...)
+	if len(errs) > 0 {
+		rep.Valid = false
+	}
+	return rep
+}
+
 func contextIsSchemaOrg(c any) bool {
 	switch v := c.(type) {
 	case string:

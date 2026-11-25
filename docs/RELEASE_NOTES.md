@@ -6,6 +6,12 @@
 - **Default.** Unchanged: `PATCH` with `application/json`, `PUT` and `entities_update` without `merge` still replace `attributes` as a whole.
 - **Migration.** None. **Rollback floor:** none for data. Before rolling back, stop clients from sending merge patches (`Content-Type: application/merge-patch+json`, MCP `merge: true`): an older binary treats them as a full replace of `attributes`.
 
+## Unreleased: enum and date + time annotations for JSON-LD
+
+- **What.** A content type's JSON Schema can map an enum attribute to a schema.org URL with `x-schema-org-enum`, and print a date attribute plus a time attribute as one ISO 8601 value in the site time zone with `x-schema-org-datetime`. A cancelled event prints `"eventStatus": "https://schema.org/EventCancelled"`, and a value with no mapping prints nothing. `jsonld_validate` reports mappings the generator would ignore.
+- **Compatibility.** Additive. Schemas without the new keys print as before, and the `schema_org_type` allowed list is unchanged.
+- **Migration.** None. **Rollback floor:** unchanged. An older binary ignores the keys and prints the stored value.
+
 ## Unreleased: standing approvals on dashed content types (SDK 0.27.1)
 
 - **Plugin authors.** `standing_approval.schemas` and `standing_approval.create.schemas` now accept content type slugs with dashes (such as `calendar-event`, at most 40 bytes) as well as identifiers (such as `calendar_event`, accepted before). `fields` still take identifiers. Every manifest valid under SDK 0.27.0 stays valid, and an exact `0.27.0` range still loads.

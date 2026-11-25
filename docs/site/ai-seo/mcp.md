@@ -112,7 +112,7 @@ Lists return at most 100 rows. The default page size is 20 for `entities_list` a
 | `media_upload` | `filename`, `data_base64`, `alt_text`, `caption` | Adds a file to the media library. |
 | `sitemap_preview` | `sub` | The sitemap XML as crawlers get it now, or one child sitemap, with counts of `<url>` and `<sitemap>` entries. |
 | `llms_txt_preview` | none | The `/llms.txt` text as crawlers get it now. |
-| `jsonld_validate` | `entity_id` | Renders and checks a page's JSON-LD. See [JSON-LD](json-ld.md#the-checker). |
+| `jsonld_validate` | `entity_id` | Renders and checks a page's JSON-LD and the content type's JSON-LD annotations. See [JSON-LD](json-ld.md#the-checker). |
 | `analytics_crawler_hits` | `from`, `to`, `entity_id`, `limit` | AI crawler fetches per page and agent. With `entity_id`, also that page's last fetch per agent, first crawl, and `search_first_crawl_at` (first search engine crawl). |
 | `analytics_first_crawls` | `from`, `to`, `limit` | Pages first crawled in the range, which agent, and how long after publishing. |
 | `analytics_google` | `from`, `to`, `filter`, `limit` | Googlebot crawling: crawls, verified share, pages crawled of published, median publish to first crawl, and per-page rows. `filter` is `all`, `not-crawled`, `errors` or `stale`. |

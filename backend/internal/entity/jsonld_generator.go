@@ -7,6 +7,7 @@ import (
 	"encoding/json/jsontext"
 	"sort"
 	"strings"
+	"time"
 
 	"hatamoto.dev/core/internal/jsonx"
 )
@@ -21,6 +22,12 @@ type SchemaProperty struct {
 	Properties        map[string]*SchemaProperty `json:"properties,omitempty"`
 	Items             *SchemaProperty            `json:"items,omitempty"`
 	Required          []string                   `json:"required,omitempty"`
+
+	// The three fields below are typed any on purpose: a malformed annotation
+	// must never make the schema fail to parse (the whole document would be lost).
+	Enum              any `json:"enum,omitempty"`                  // JSON Schema enum, read by the checker
+	SchemaOrgEnum     any `json:"x-schema-org-enum,omitempty"`     // stored value to schema.org URL or term
+	SchemaOrgDatetime any `json:"x-schema-org-datetime,omitempty"` // {"time": "<sibling property>"}
 }
 
 // SchemaDefinition represents the top-level JSON Schema with semantic annotations.
@@ -68,6 +75,7 @@ func GenerateSchemaDrivernJSONLD(ent *Entity, baseURL string) map[string]any {
 	// Always include entity URL, @id, and dateModified
 	entityURL := buildEntityURLForJSONLD(ent, baseURL)
 	jsonLD["url"] = entityURL
+	loc := currentURLSnapshot().Location()
 	jsonLD["@id"] = entityURL + "#" + strings.ToLower(schemaDef.SchemaOrgType)
 	st := schemaSettingsOf(ent)
 	jsonLD["dateModified"] = modifiedTime(ent, attrs, st, ent.PublishedAt).Format("2006-01-02T15:04:05Z07:00")
@@ -79,7 +87,7 @@ func GenerateSchemaDrivernJSONLD(ent *Entity, baseURL string) map[string]any {
 
 	// Walk schema properties and map attribute values
 	if schemaDef.Properties != nil {
-		mapPropertiesToJSONLD(jsonLD, attrs, schemaDef.Properties, schemaDef.SchemaOrgType)
+		mapPropertiesToJSONLD(jsonLD, attrs, schemaDef.Properties, schemaDef.SchemaOrgType, loc)
 	}
 
 	applyStructuredLinks(jsonLD, st, baseURL)
@@ -101,14 +109,14 @@ func GenerateSchemaDrivernJSONLD(ent *Entity, baseURL string) map[string]any {
 }
 
 // mapPropertiesToJSONLD walks schema properties and maps attribute values to JSON-LD keys.
-func mapPropertiesToJSONLD(jsonLD map[string]any, attrs map[string]any, properties map[string]*SchemaProperty, parentType string) {
+func mapPropertiesToJSONLD(jsonLD map[string]any, attrs map[string]any, properties map[string]*SchemaProperty, parentType string, loc *time.Location) {
 	for attrKey, prop := range properties {
 		if prop.SchemaOrgProperty == "" {
 			// No semantic mapping — check if this is a container object whose
 			// nested properties have direct mappings (like contact.email → email).
 			if prop.Type == "object" && prop.Properties != nil {
 				if nestedAttrs, ok := attrs[attrKey].(map[string]any); ok {
-					mapFlattenedPropertiesToJSONLD(jsonLD, nestedAttrs, prop.Properties)
+					mapFlattenedPropertiesToJSONLD(jsonLD, nestedAttrs, prop.Properties, loc)
 				}
 			}
 			continue
@@ -123,14 +131,16 @@ func mapPropertiesToJSONLD(jsonLD map[string]any, attrs map[string]any, properti
 
 		switch prop.Type {
 		case "object":
-			mapObjectProperty(jsonLD, ldKey, attrValue, prop)
+			mapObjectProperty(jsonLD, ldKey, attrValue, prop, loc)
 
 		case "array":
-			mapArrayProperty(jsonLD, ldKey, attrValue, prop, parentType)
+			mapArrayProperty(jsonLD, ldKey, attrValue, prop, parentType, loc)
 
 		default:
-			// Scalar values — handle special cases
-			mapScalarProperty(jsonLD, ldKey, attrValue, prop)
+			// Scalar values: annotated properties first, then the special cases
+			if !mapAnnotatedScalar(jsonLD, attrs, ldKey, attrValue, prop, loc) {
+				mapScalarProperty(jsonLD, ldKey, attrValue, prop)
+			}
 		}
 	}
 }
@@ -138,7 +148,7 @@ func mapPropertiesToJSONLD(jsonLD map[string]any, attrs map[string]any, properti
 // mapFlattenedPropertiesToJSONLD maps nested object properties directly to the parent JSON-LD
 // when the container object has no x-schema-org-property. This handles patterns like
 // contact.email → email on the parent, contact.phone → telephone on the parent.
-func mapFlattenedPropertiesToJSONLD(jsonLD map[string]any, attrs map[string]any, properties map[string]*SchemaProperty) {
+func mapFlattenedPropertiesToJSONLD(jsonLD map[string]any, attrs map[string]any, properties map[string]*SchemaProperty, loc *time.Location) {
 	for attrKey, prop := range properties {
 		if prop.SchemaOrgProperty == "" {
 			continue
@@ -159,6 +169,10 @@ func mapFlattenedPropertiesToJSONLD(jsonLD map[string]any, attrs map[string]any,
 			continue
 		}
 
+		if mapAnnotatedScalar(jsonLD, attrs, ldKey, attrValue, prop, loc) {
+			continue
+		}
+
 		// Simple scalar mapping
 		if strVal, ok := attrValue.(string); ok && strVal != "" {
 			jsonLD[ldKey] = strVal
@@ -169,7 +183,7 @@ func mapFlattenedPropertiesToJSONLD(jsonLD map[string]any, attrs map[string]any,
 }
 
 // mapObjectProperty maps a JSON object attribute to a nested JSON-LD object.
-func mapObjectProperty(jsonLD map[string]any, ldKey string, attrValue any, prop *SchemaProperty) {
+func mapObjectProperty(jsonLD map[string]any, ldKey string, attrValue any, prop *SchemaProperty, loc *time.Location) {
 	objMap, ok := attrValue.(map[string]any)
 	if !ok || len(objMap) == 0 {
 		return
@@ -181,7 +195,7 @@ func mapObjectProperty(jsonLD map[string]any, ldKey string, attrValue any, prop 
 			"@type": prop.SchemaOrgType,
 		}
 		if prop.Properties != nil {
-			mapPropertiesToJSONLD(subObj, objMap, prop.Properties, prop.SchemaOrgType)
+			mapPropertiesToJSONLD(subObj, objMap, prop.Properties, prop.SchemaOrgType, loc)
 		}
 		// Only include if there's more than just @type
 		if len(subObj) > 1 {
@@ -191,7 +205,7 @@ func mapObjectProperty(jsonLD map[string]any, ldKey string, attrValue any, prop 
 		// Plain object without schema.org type — map nested properties directly
 		subObj := map[string]any{}
 		if prop.Properties != nil {
-			mapPropertiesToJSONLD(subObj, objMap, prop.Properties, "")
+			mapPropertiesToJSONLD(subObj, objMap, prop.Properties, "", loc)
 		}
 		if len(subObj) > 0 {
 			jsonLD[ldKey] = subObj
@@ -200,7 +214,7 @@ func mapObjectProperty(jsonLD map[string]any, ldKey string, attrValue any, prop 
 }
 
 // mapArrayProperty maps a JSON array attribute to a JSON-LD array.
-func mapArrayProperty(jsonLD map[string]any, ldKey string, attrValue any, prop *SchemaProperty, parentType string) {
+func mapArrayProperty(jsonLD map[string]any, ldKey string, attrValue any, prop *SchemaProperty, parentType string, loc *time.Location) {
 	arr, ok := attrValue.([]any)
 	if !ok || len(arr) == 0 {
 		return
@@ -234,7 +248,7 @@ func mapArrayProperty(jsonLD map[string]any, ldKey string, attrValue any, prop *
 					"@type": items.SchemaOrgType,
 				}
 				if items.Properties != nil {
-					mapPropertiesToJSONLD(subObj, itemMap, items.Properties, items.SchemaOrgType)
+					mapPropertiesToJSONLD(subObj, itemMap, items.Properties, items.SchemaOrgType, loc)
 				}
 				if len(subObj) > 1 {
 					typedArr = append(typedArr, subObj)
@@ -262,7 +276,7 @@ func mapArrayProperty(jsonLD map[string]any, ldKey string, attrValue any, prop *
 		for _, item := range arr {
 			if itemMap, ok := item.(map[string]any); ok {
 				subObj := map[string]any{}
-				mapPropertiesToJSONLD(subObj, itemMap, items.Properties, "")
+				mapPropertiesToJSONLD(subObj, itemMap, items.Properties, "", loc)
 				if len(subObj) > 0 {
 					objArr = append(objArr, subObj)
 				}

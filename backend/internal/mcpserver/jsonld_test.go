@@ -1,8 +1,12 @@
 package mcpserver
 
 import (
+	"encoding/json/jsontext"
+	"reflect"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/entity"
 )
 
 func TestValidateJSONLD(t *testing.T) {
@@ -70,5 +74,57 @@ func TestValidateJSONLDAcceptsAnIDOnlyAuthor(t *testing.T) {
 	doc := `{"@context":"https://schema.org","@type":"Article","headline":"H","author":{"@id":"https://x.test#organization"},"datePublished":"2026-01-01"}`
 	if rep := ValidateJSONLD([][]byte{[]byte(doc)}); !rep.Valid {
 		t.Errorf("id-only author rejected: %+v", rep)
+	}
+}
+
+const eventBlock = `{"@context":"https://schema.org","@type":"Event","name":"N","startDate":"2026-12-05","location":"Hall"}`
+
+func TestAddAnnotationFindings(t *testing.T) {
+	valid := ValidateJSONLD([][]byte{[]byte(eventBlock)})
+	if !valid.Valid {
+		t.Fatalf("event block invalid: %+v", valid)
+	}
+
+	rep := AddAnnotationFindings(valid, "Event", []string{"bad mapping"}, []string{"soft"})
+	if rep.Valid {
+		t.Error("error left the report valid")
+	}
+	if len(rep.Nodes) != 1 || rep.Nodes[0].Errors[len(rep.Nodes[0].Errors)-1] != "bad mapping" || rep.Nodes[0].Warnings[len(rep.Nodes[0].Warnings)-1] != "soft" {
+		t.Errorf("findings not on the Event node: %+v", rep.Nodes)
+	}
+
+	warnOnly := AddAnnotationFindings(ValidateJSONLD([][]byte{[]byte(eventBlock)}), "Event", nil, []string{"soft"})
+	if !warnOnly.Valid {
+		t.Error("warning made the report invalid")
+	}
+
+	article := ValidateJSONLD([][]byte{[]byte(`{"@context":"https://schema.org","@type":"Article","headline":"H"}`)})
+	n := len(article.Nodes)
+	rep = AddAnnotationFindings(article, "Event", []string{"bad mapping"}, nil)
+	if len(rep.Nodes) != n+1 || rep.Nodes[n].Type != "Event" || rep.Nodes[n].Errors[0] != "bad mapping" {
+		t.Errorf("no new Event node: %+v", rep.Nodes)
+	}
+
+	same := ValidateJSONLD([][]byte{[]byte(eventBlock)})
+	if got := AddAnnotationFindings(same, "Event", nil, nil); !reflect.DeepEqual(got, ValidateJSONLD([][]byte{[]byte(eventBlock)})) {
+		t.Errorf("no findings changed the report: %+v", got)
+	}
+}
+
+func TestJSONLDValidateSchemaMapping(t *testing.T) {
+	schema := `{"type":"object","x-schema-org-type":"Event","properties":{"status":{"type":"string","enum":["cancelled"],"x-schema-org-property":"eventStatus","x-schema-org-enum":{"canceled":"https://schema.org/EventCancelled","cancelled":"EventGone/.."}}}}`
+	f := entity.CheckSchemaAnnotations(jsontext.Value(schema))
+	rep := AddAnnotationFindings(ValidateJSONLD([][]byte{[]byte(eventBlock)}), f.RootType, f.Errors, f.Warnings)
+	if rep.Valid {
+		t.Fatal("report valid")
+	}
+	joined := strings.Join(rep.Nodes[0].Errors, "|")
+	for _, want := range []string{
+		`x-schema-org-enum on "status": "canceled" is not one of the enum values`,
+		`x-schema-org-enum on "status": "EventGone/.." is not a schema.org URL or term`,
+	} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("missing %q in %s", want, joined)
+		}
 	}
 }
