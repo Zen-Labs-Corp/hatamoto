@@ -194,6 +194,7 @@ func TestPluginEmptyStateFollowsTheDeclaredUI(t *testing.T) {
 		{"quiet", off, []string{failed, hidden, nothing}}, // turned off, no UI
 		{"stuck", blocked + ", so it is not running. Reason: needs a newer host", []string{off, failed, hidden, nothing, leaving}},
 		{"leaving", leaving, []string{off, failed, hidden, nothing, blocked}},
+		{"hello", "This plugin has no settings. Its admin page is on the Hello board tab.", []string{off, failed, hidden, nothing}},
 		{"edonly", hidden, []string{off, failed, nothing}},  // UI exists, the owner may not see it
 		{"devonly", nothing, []string{off, failed, hidden}}, // loaded, nothing declared
 	} {
@@ -231,6 +232,10 @@ func TestPluginsSubnavForEditors(t *testing.T) {
 
 	g, _, _ := newPackageRig(t)
 	rec := g.do("GET", "/admin/plugins/board/settings", "editor-token", nil, nil)
+	if rec.Code != 302 || rec.Header().Get("Location") != "/admin/plugins/board/app" {
+		t.Fatalf("editor on Settings: %d %q, want a redirect to the screen", rec.Code, rec.Header().Get("Location"))
+	}
+	rec = g.do("GET", "/admin/plugins/board/app", "editor-token", nil, nil)
 	body := rec.Body.String()
 	if rec.Code != 200 {
 		t.Fatalf("editor on an editor-open plugin: %d", rec.Code)
@@ -350,12 +355,15 @@ func TestPluginPagesPassA11y(t *testing.T) {
 	t.Parallel()
 
 	g, _, _ := newPackageRig(t)
-	for _, p := range []string{"/admin/plugins", "/admin/plugins/hello/settings", "/admin/plugins/hello/permissions", "/admin/plugins/devonly/settings"} {
+	for _, p := range []string{"/admin/plugins", "/admin/plugins/hello/settings", "/admin/plugins/hello/app", "/admin/plugins/hello/permissions", "/admin/plugins/devonly/settings"} {
 		rec := g.do("GET", p, "owner-token", nil, nil)
 		if rec.Code != 200 {
 			t.Fatalf("%s: %d", p, rec.Code)
 		}
 		a11yOK(t, rec.Body.String())
+	}
+	if body := g.do("GET", "/admin/plugins/hello/settings", "owner-token", nil, nil).Body.String(); strings.Contains(body, "data-hm-pluginframe") || strings.Contains(body, "plugin-page") {
+		t.Error("the Settings tab carries no plugin frame")
 	}
 }
 
@@ -371,8 +379,12 @@ func TestPluginTabsHaveDistinctTitles(t *testing.T) {
 		return m[1]
 	}
 	settings, perms := title("/admin/plugins/hello/settings"), title("/admin/plugins/hello/permissions")
+	app := title("/admin/plugins/hello/app")
 	if !strings.Contains(settings, "hello settings") || !strings.Contains(perms, "hello permissions") {
 		t.Errorf("titles %q and %q", settings, perms)
+	}
+	if !strings.Contains(app, "Hello board") || app == settings || app == perms {
+		t.Errorf("the screen tab title %q must be its own", app)
 	}
 }
 

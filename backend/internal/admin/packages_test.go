@@ -999,7 +999,10 @@ func TestPluginPagesJoinTheSubnavByRole(t *testing.T) {
 			t.Errorf("the owner's subnav lacks %s", name)
 		}
 	}
-	editor := g.do("GET", "/admin/plugins/board/settings", "editor-token", nil, nil).Body.String()
+	if rec := g.do("GET", "/admin/plugins/board/settings", "editor-token", nil, nil); rec.Code != 302 || rec.Header().Get("Location") != "/admin/plugins/board/app" {
+		t.Errorf("an editor's Settings goes to the screen: %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	editor := g.do("GET", "/admin/plugins/board/app", "editor-token", nil, nil).Body.String()
 	if strings.Contains(editor, "/admin/plugins/ownerui/settings") || strings.Contains(editor, "All plugins") {
 		t.Error("an owner-only plugin and All plugins must not be in the editor's subnav")
 	}

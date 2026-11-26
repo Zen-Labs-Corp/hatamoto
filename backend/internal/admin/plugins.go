@@ -449,29 +449,26 @@ func (a *Admin) handlePluginGrant(w http.ResponseWriter, r *http.Request) {
 
 // ---- plugin page (settings tab) ----
 
-// pluginPageData is the Settings tab. An editor gets only the UI frame: Owner
-// is false and the form, header actions and tabs are left out.
+// pluginPageData is the Settings tab: the settings form of a plugin for its
+// manager. ScreenLabel names the plugin's own screen tab, when it has one.
 type pluginPageData struct {
 	pluginHead
-	Owner     bool
-	HasSchema bool
-	Form      template.HTML
-	UI        *pluginUIData
-	Inactive  bool
-	Summary   []ui.FieldError
+	Owner       bool
+	HasSchema   bool
+	Form        template.HTML
+	ScreenLabel string
+	Inactive    bool
+	Summary     []ui.FieldError
 }
 
 // renderPlugin renders the Settings tab of p for the signed-in role. values
 // are the form's current values (read only for an owner and a plugin with a
 // settings schema).
 func (a *Admin) renderPlugin(w http.ResponseWriter, r *http.Request, pa PluginAdmin, status int, p PluginInfo, values map[string]any, errs schemaform.Errors, openPath string) {
-	role := userFrom(r.Context()).Role
 	owner := a.canObj(r.Context(), authz.ActionPluginManage, pluginObject(p.Name))
-	d := pluginPageData{pluginHead: a.newPluginHead(r, p, "settings", owner), Owner: owner, UI: a.pluginUIFor(r, p, role), Inactive: !p.Loaded && (p.Package == nil || (!p.Package.WidgetOnly && !p.Package.TagPack))}
-	setCameraPolicy(w, d.UI)
-	title := p.Name + " settings"
-	if !d.Owner && d.UI != nil {
-		title = d.UI.Title
+	d := pluginPageData{pluginHead: a.newPluginHead(r, p, "settings", owner), Owner: owner, Inactive: !p.Loaded && (p.Package == nil || (!p.Package.WidgetOnly && !p.Package.TagPack))}
+	if a.mayOpenScreen(r.Context(), p) {
+		d.ScreenLabel = screenLabel(p)
 	}
 	if d.Owner && len(p.SettingsSchema) > 0 {
 		secrets, unreadable, err := pa.StoredSecrets(r.Context(), p.Name)
@@ -493,16 +490,9 @@ func (a *Admin) renderPlugin(w http.ResponseWriter, r *http.Request, pa PluginAd
 			d.Summary = append(d.Summary, ui.FieldError{ID: strings.ReplaceAll(path, ".", "-"), Label: schemaform.Humanize(path[strings.LastIndex(path, ".")+1:]), Message: m})
 		}
 	}
-	v := a.NewView(w, r, title)
-	if d.UI == nil {
-		// A plugin admin app in the frame keeps the wide page: it lays out for the full column.
-		v.Width = "narrow"
-	}
-	if d.Owner {
-		v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: p.Name}}
-	} else {
-		v.Crumbs = []Crumb{{Label: title}}
-	}
+	v := a.NewView(w, r, p.Name+" settings")
+	v.Width = "narrow"
+	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: p.Name}}
 	v.Data = d
 	a.Render(w, r, status, "plugins/plugin", v)
 }
@@ -709,9 +699,9 @@ func (a *Admin) pluginWithSettings(w http.ResponseWriter, r *http.Request) (Plug
 	return pa, p, true
 }
 
-// handlePluginSettings shows a plugin's Settings tab: for the owner every
-// installed plugin, for an editor only a plugin whose UI admits them (anything
-// else answers like an unknown plugin).
+// handlePluginSettings shows a plugin's Settings tab to its manager, for every
+// installed plugin. An editor whose plugin UI admits them is sent to the
+// plugin's screen; anything else answers like an unknown plugin.
 func (a *Admin) handlePluginSettings(w http.ResponseWriter, r *http.Request) {
 	pa, ok := a.pluginAdmin(w, r)
 	if !ok {
@@ -729,8 +719,12 @@ func (a *Admin) handlePluginSettings(w http.ResponseWriter, r *http.Request) {
 		a.ErrorBack(w, r, http.StatusNotFound, "Plugin not found", "That plugin is not installed, or it is not available to you.", a.adminPath, "Back to the admin")
 		return
 	}
+	if !manage {
+		http.Redirect(w, r, a.pluginURL(p.Name, "app"), http.StatusFound)
+		return
+	}
 	var values map[string]any
-	if manage && len(p.SettingsSchema) > 0 {
+	if len(p.SettingsSchema) > 0 {
 		var err error
 		if values, err = pa.Settings(r.Context(), p.Name); err != nil {
 			a.logger().Error("load plugin settings failed", "plugin", p.Name, "err", err)

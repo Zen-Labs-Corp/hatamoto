@@ -86,6 +86,9 @@ func TestPluginPageWidthFollowsTheFrame(t *testing.T) {
 	if body := g.do("GET", "/admin/plugins/hello/app", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `data-width="wide"`) || strings.Contains(body, `data-width="narrow"`) {
 		t.Error("a plugin page with an admin UI frame must keep the wide page")
 	}
+	if body := g.do("GET", "/admin/plugins/hello/settings", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `data-width="narrow"`) {
+		t.Error("the Settings tab is a narrow form page")
+	}
 	if body := g.do("GET", "/admin/plugins/devonly/settings", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `data-width="narrow"`) {
 		t.Error("a plugin page without a frame must be narrow")
 	}
