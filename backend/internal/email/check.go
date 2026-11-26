@@ -6,12 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"net/smtp"
 	"net/textproto"
 	"strconv"
+	"syscall"
 	"time"
 
 	"hatamoto.dev/core/internal/runenv"
+	"hatamoto.dev/core/internal/safefetch"
 )
 
 // checkTimeout caps Check so a firewalled port cannot hang a request.
@@ -61,6 +64,13 @@ func (e *CheckError) UserMessage() string {
 	case StageSender:
 		return fmt.Sprintf("%s did not accept the From address (%s).", where, e.detail())
 	default:
+		var ar *AddrRefusedError
+		if errors.As(e.err, &ar) {
+			return fmt.Sprintf("Could not connect to %s: Security None only connects to localhost or a private network address (this host resolved to %s). Use STARTTLS or TLS (SSL).", where, ar.Addr)
+		}
+		if errors.Is(e.err, ErrNoneCredentials) {
+			return fmt.Sprintf("Could not connect to %s: Security None with a username and password only works for localhost. Use STARTTLS or TLS (SSL).", where)
+		}
 		if e.Code == 0 {
 			// A refused or timed-out dial, or something that is not an SMTP
 			// server: never echo the raw error (it can carry another
@@ -106,6 +116,18 @@ func Check(ctx context.Context, c Config) error {
 	return nil
 }
 
+// noneControl returns the dialer hook that refuses every resolved address
+// allow rejects. It runs before the connection is made.
+func noneControl(allow func(netip.Addr) bool) func(network, address string, _ syscall.RawConn) error {
+	return func(_, address string, _ syscall.RawConn) error {
+		ap, err := netip.ParseAddrPort(address)
+		if err != nil || !allow(ap.Addr()) {
+			return &AddrRefusedError{Addr: ap.Addr().WithZone("").Unmap()}
+		}
+		return nil
+	}
+}
+
 // dial opens an SMTP session per c.Security and authenticates when
 // credentials are set. The caller must call the returned close function. All
 // I/O is bounded by ctx. Failures are *CheckError.
@@ -117,7 +139,18 @@ func dial(ctx context.Context, c Config) (*smtp.Client, func(), error) {
 	addr := net.JoinHostPort(c.SMTPHost, strconv.Itoa(c.SMTPPort))
 	tlsCfg := &tls.Config{ServerName: c.SMTPHost, RootCAs: c.RootCAs, MinVersion: tls.VersionTLS12}
 
-	conn, err := (&net.Dialer{Timeout: checkTimeout}).DialContext(ctx, "tcp", addr)
+	d := &net.Dialer{Timeout: checkTimeout}
+	if c.Security == SecurityNone {
+		if errors.Is(CheckNone(c.SMTPHost, c.SMTPUsername != "" || c.SMTPPassword != ""), ErrNoneCredentials) {
+			return nil, nil, newCheckError(StageConnect, c, ErrNoneCredentials)
+		}
+		allow := c.NoneAddrAllowed
+		if allow == nil {
+			allow = safefetch.PrivateNetworkAddr
+		}
+		d.Control = noneControl(allow)
+	}
+	conn, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, nil, newCheckError(StageConnect, c, err)
 	}

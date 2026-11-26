@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"html/template"
 	"log/slog"
+	"net/netip"
 	"net/url"
 	"os"
 	"strings"
@@ -48,6 +49,10 @@ type Config struct {
 	// RootCAs overrides the system roots when verifying the server
 	// certificate. Nil means system roots; tests use it for self-signed certs.
 	RootCAs *x509.CertPool
+	// NoneAddrAllowed decides which resolved addresses Security None may
+	// connect to. Nil means loopback or a private network
+	// (safefetch.PrivateNetworkAddr). For tests.
+	NoneAddrAllowed func(netip.Addr) bool
 }
 
 // Security is the transport protection used for an SMTP connection.
