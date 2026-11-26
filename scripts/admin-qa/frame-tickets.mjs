@@ -105,6 +105,8 @@ await shot(p, "blog-preview.png");
 
 // ---- (c) plugin page ----
 await p.goto(`${base}/admin/plugins/frameplug/settings`);
+check((await p.locator("[data-hm-pluginframe]").count()) === 0, "the plugin Settings tab renders no frame");
+await p.goto(`${base}/admin/plugins/frameplug/app`);
 const holder = p.locator("[data-hm-pluginframe]");
 check((await holder.count()) === 1, "the plugin page renders its frame holder");
 const pluginSrc = (await holder.getAttribute("data-src").catch(() => "")) || "";
@@ -203,7 +205,7 @@ for (const [where, url] of [["an admin page", adminPage], ["a public page", publ
   check(isAdmin404(used), `plugin document with the spent ticket from ${where}: the admin 404`, String(used.status));
 }
 // A fresh ticket loads once, and its scripts and styles never need one.
-await p.goto(`${base}/admin/plugins/frameplug/settings`);
+await p.goto(`${base}/admin/plugins/frameplug/app`);
 const src2 = (await p.locator("[data-hm-pluginframe]").getAttribute("data-src")) || "";
 await p.waitForTimeout(1000); // the real frame spends src2
 const again = await frameLoad(p, src2);

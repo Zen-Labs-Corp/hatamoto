@@ -19,7 +19,7 @@ const check = (ok, msg, detail = "") => {
 
 const b = await launch("chromium");
 const p = await newSession(b, { width: 1440 });
-const pageUrl = `${base}/admin/plugins/frameplug/settings`;
+const pageUrl = `${base}/admin/plugins/frameplug/app`;
 const pframe = () => p.frames().find((f) => f.url().includes("/plugin-ui/frameplug/index.html"));
 const startPosts = [];
 p.on("request", (req) => {

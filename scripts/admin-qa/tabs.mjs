@@ -2,7 +2,7 @@
 // overflow-x: auto shows a scrollbar on every row). On
 // analytics-crawlers, settings-types, settings-redirects and plugins, at 1440
 // and 390, light and dark: no .hm-tabs__list (underline or segmented) has
-// scrollHeight > clientHeight. The plugins detail pages (Settings, Permissions) are checked on the
+// scrollHeight > clientHeight. The plugins detail pages (the Frames screen tab, Settings, Permissions) are checked on the
 // frameplug fixture, which run-local.sh loads for this script (HATAMOTO_PLUGIN_DIR).
 // node scripts/admin-qa/tabs.mjs      Exit 1 when a row overflows.
 import { launch, newSession, writeResult, base, role } from "./lib.mjs";
@@ -12,6 +12,7 @@ const names = ["analytics-crawlers", "settings-types", "settings-redirects", "pl
 const b = await launch("chromium");
 // The seeded instance has no plugin with a settings page: these paths need fixtures/frame-plugin.
 const extra = [
+  { name: "plugin-app", path: "/admin/plugins/frameplug/app" },
   { name: "plugin-settings", path: "/admin/plugins/frameplug/settings" },
   { name: "plugin-permissions", path: "/admin/plugins/frameplug/permissions" },
 ];
