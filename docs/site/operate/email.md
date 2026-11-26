@@ -61,7 +61,7 @@ Under Docker, the `mailpit` service in `docker-compose.yml` is a catcher that do
 docker compose --profile mail up -d
 ```
 
-Then in **Settings > Email** choose **Custom**, set **Host** to `mailpit`, **Port** to `1025` and **Security** to **None**, and leave **Username** and **Password** blank. Send a test email and read it in the catcher's web page at `http://localhost:8025`. Port 1025 is not published on the host: only the `hatamoto` container reaches it.
+Then in **Settings > Email** choose **Custom**, set **Host** to `mailpit`, **Port** to `1025` and **Security** to **None**, and leave **Username** and **Password** blank. Send a test email and read it in the catcher's web page at `http://localhost:8025`. The web page listens on the server's own address only, because it shows every message, reset links included, without a sign-in. On a remote server open it through an SSH tunnel (`ssh -L 8025:localhost:8025 you@your-server`), then browse to `http://localhost:8025` on your own machine. Port 1025 is not published on the host: only the `hatamoto` container reaches it.
 
 To use the environment instead, set this and restart:
 

@@ -55,13 +55,14 @@ services:
       - "8090:8090"
 
   # Optional mail catcher for testing email: docker compose --profile mail up
-  # Web UI on http://localhost:8025. In Settings > Email use host mailpit,
+  # Web UI on http://localhost:8025, bound to localhost only: it shows every
+  # message in full, with no sign-in. In Settings > Email use host mailpit,
   # port 1025, Security None, and leave Username and Password blank.
   mailpit:
-    image: axllent/mailpit
+    image: axllent/mailpit:v1.34
     profiles: [mail]
     ports:
-      - "8025:8025"
+      - "127.0.0.1:8025:8025"
 
 volumes:
   pgdata:

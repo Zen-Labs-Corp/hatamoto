@@ -89,3 +89,31 @@ func TestComposeKeepsSecretsVolumeWhereItWas(t *testing.T) {
 		t.Error("top-level volumes: no longer declares secrets")
 	}
 }
+
+// The mail catcher shows every message in full and has no sign-in, so its web
+// UI must stay on the loopback address, and its image must not float.
+func TestComposeMailpitIsLocalAndPinned(t *testing.T) {
+	raw, err := os.ReadFile("../../docker-compose.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(raw)
+	i := strings.Index(text, "\n  mailpit:")
+	if i < 0 {
+		t.Fatal("no mailpit service")
+	}
+	block := text[i+1:]
+	if j := strings.Index(block, "\n\n"); j >= 0 {
+		block = block[:j]
+	}
+	if !strings.Contains(block, `- "127.0.0.1:8025:8025"`) {
+		t.Errorf("mailpit UI must be published on 127.0.0.1 only:\n%s", block)
+	}
+	for _, l := range strings.Split(block, "\n") {
+		if line := strings.TrimSpace(l); strings.HasPrefix(line, "image:") {
+			if ref := strings.TrimSpace(strings.TrimPrefix(line, "image:")); !strings.Contains(ref, ":v") {
+				t.Errorf("mailpit image %q must be pinned to a version tag", ref)
+			}
+		}
+	}
+}
