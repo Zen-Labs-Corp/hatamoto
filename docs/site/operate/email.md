@@ -22,19 +22,19 @@ In this guide you connect Hatamoto to an SMTP server and send a test message. Ha
 
 2. Choose a **Provider**. **Amazon SES** and **Gmail / Google Workspace** fill in the host for you; for SES, pick the **Amazon SES region** (it starts as `us-east-1`). For any other provider choose **Custom** and enter its **Host**. Use the provider's host name, not an IP address, because the certificate is checked against that name.
 
-3. Set **Port** and **Security** to what the provider asks for. **STARTTLS** usually goes with port 587, and **TLS (SSL)** with port 465. **None** sends without encryption and is accepted only for `localhost`, `127.0.0.1` or `::1`, such as a mail catcher on the same machine.
+3. Set **Port** and **Security** to what the provider asks for. **STARTTLS** usually goes with port 587, and **TLS (SSL)** with port 465. **None** sends without encryption. It is allowed for `localhost`, `127.0.0.1` or `::1`, or for a host on a private network (Docker, LAN, Tailscale) when **Username** and **Password** are left blank. See [Test with a mail catcher](#test-with-a-mail-catcher).
 
 4. Enter the **Username** and **Password**, or leave both blank if the server needs no sign-in. If you later change the host or the user name, enter the password again: a blank password keeps the saved one only while those two stay the same.
 
 5. Enter the **From address** and, optionally, a **From name**. A blank From name uses your site name, and follows it when you rename the site.
 
-6. Select **Save**. Hatamoto first checks that it can connect and sign in, without sending mail. If a step fails, the page shows the server's answer and nothing is saved. It applies at once.
+6. Select **Save**. Hatamoto first checks that it can connect and sign in, without sending mail. If a step fails, the page shows the error and nothing is saved. It applies at once.
 
 7. Select **Send a test email** to send a message to your own address.
 
 ### Use the environment instead
 
-To keep mail settings in the server's environment, leave **Settings > Email** empty and add the `SMTP_*` variables: under systemd in `/opt/hatamoto/config/hatamoto.env`, under Docker in the `environment:` block of the `hatamoto` service, written as `KEY: value`. These variables always use STARTTLS, so a port such as 465 needs the admin form instead. Quote a value that has spaces, as below: the file is also loaded by bash for the `hatamoto` commands, and systemd removes the quotes.
+To keep mail settings in the server's environment, leave **Settings > Email** empty and add the `SMTP_*` variables: under systemd in `/opt/hatamoto/config/hatamoto.env`, under Docker in the `environment:` block of the `hatamoto` service, written as `KEY: value`. These variables use STARTTLS unless `SMTP_SECURITY` says `tls` or `none`, so a port such as 465 needs `SMTP_SECURITY=tls` or the admin form. Quote a value that has spaces, as below: the file is also loaded by bash for the `hatamoto` commands, and systemd removes the quotes.
 
 ```ini
 SMTP_HOST=smtp.example.com
@@ -50,6 +50,36 @@ Set `SMTP_FROM` whenever `SMTP_HOST` is a real host: Hatamoto refuses to start w
 Settings saved in the admin replace these variables as a whole, not field by field. **Use the server's SMTP_* settings instead** on **Settings > Email** deletes the saved settings and goes back to the environment.
 
 While email is off, Hatamoto still works: owners get one-time links to pass on, and form submissions are kept in the admin without a notification. The full list of mails, these fallbacks and the rules for several processes are in the [configuration reference](configuration-reference.md#email-delivery).
+
+### Test with a mail catcher
+
+A mail catcher accepts every message and shows it in a web page instead of delivering it, so you can test email without a real account. It speaks plain SMTP, so you use Security **None**.
+
+Under Docker, the `mailpit` service in `docker-compose.yml` is a catcher that does not start by default. Start it with:
+
+```bash
+docker compose --profile mail up -d
+```
+
+Then in **Settings > Email** choose **Custom**, set **Host** to `mailpit`, **Port** to `1025` and **Security** to **None**, and leave **Username** and **Password** blank. Send a test email and read it in the catcher's web page at `http://localhost:8025`. Port 1025 is not published on the host: only the `hatamoto` container reaches it.
+
+To use the environment instead, set this and restart:
+
+```ini
+SMTP_HOST=mailpit
+SMTP_PORT=1025
+SMTP_SECURITY=none
+SMTP_FROM=site@example.test
+```
+
+A catcher on your LAN or on a Tailscale network works the same way. Use its host name or address as **Host**. Security None connects only to loopback (`localhost`, `127.0.0.1`, `::1`) and to private addresses: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10` (Tailscale), `fc00::/7` and link-local addresses. A host name is checked when Hatamoto connects: if it resolves to a public address, the connection is refused and the page names that address.
+
+Two rules keep this safe:
+
+- With a user name or password, None works only for `localhost`, `127.0.0.1` or `::1`. Credentials are never sent unencrypted to another host. For a catcher on a private network, leave both blank.
+- None is unencrypted. Anyone on the network path can read the mail, so use it for testing and for trusted networks only. For a real provider, use STARTTLS or TLS (SSL).
+
+On **Settings > Email** the status line reads "Email sends unencrypted to mailpit on your private network." while None is saved for a host that is not loopback.
 
 ## The email log
 
