@@ -401,3 +401,29 @@ func TestEmailAdminKeepPasswordRequiresSameHostAndUsername(t *testing.T) {
 		t.Fatalf("unchanged host/username: %v", err)
 	}
 }
+
+func TestEmailAdminSwitchToNoneClearsPassword(t *testing.T) {
+	store := &memStore{}
+	a, _, _ := newTestAdapter(t, store)
+	ctx := context.Background()
+	start := admin.EmailInput{
+		Provider: mailsettings.ProviderCustom, Host: "smtp.example.test", Port: 587,
+		Security: email.SecurityStarttls, Username: "u", Password: "secret-pw", FromAddress: "from@example.test",
+	}
+	if err := a.Save(ctx, start, false); err != nil {
+		t.Fatal(err)
+	}
+	if len(store.set.PasswordSealed) == 0 {
+		t.Fatal("setup: password should be sealed")
+	}
+	none := admin.EmailInput{
+		Provider: mailsettings.ProviderCustom, Host: "mailpit", Port: 1025,
+		Security: email.SecurityNone, FromAddress: "from@example.test",
+	}
+	if err := a.Save(ctx, none, false); err != nil {
+		t.Fatal(err)
+	}
+	if store.set.PasswordSealed != nil || store.set.Username != "" {
+		t.Fatalf("saved = %+v, want no username and no sealed password", store.set)
+	}
+}
