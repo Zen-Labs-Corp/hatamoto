@@ -49,6 +49,7 @@ file system and no host access except through capabilities the owner granted.
 | Community and developer packages cannot carry tracking tags | `internal/packages` (Postgres) | `TestInstallRefusesTagPackFromRestrictedOrigin` |
 | A standing approval cannot add a translation link | `internal/changeset` (Postgres) | `TestStandingUpdateRefusesNewTranslationLink` |
 | A plugin's admin page runs in a sandboxed iframe, its bridge carries only granted capabilities, and the camera is opened by core's page, never by plugin code, only after the owner granted `ui.allow:camera` | `internal/admin` | `TestPluginUIPageIsASandboxedIframe`, `TestBridgeCarriesOnlyGrantedCapabilities`, `TestBridgeIsRateLimitedPerUserAndPlugin`, `TestPluginPageCameraPolicyFollowsTheGrant` |
+| A plugin page may only resize its own frame: the height message is accepted only from that frame's window, during its first document, with the greeting nonce, clamped to 320-20000 px, and is never forwarded to the bridge | `internal/admin` | `TestPluginFrameHeightIsLocalAndClamped`, `TestPluginSDKReportsHeight` |
 
 The camera follows the same rule. The plugin page's iframe keeps its sandbox and
 Content-Security-Policy, so plugin code cannot open a camera. Core's trusted admin
