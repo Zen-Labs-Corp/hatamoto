@@ -12,3 +12,12 @@ test("a second load blanks the frame and shows the notice", () => {
   assert.match(code, /dead = true;\s*frame\.src = "about:blank";\s*if \(notice\) notice\.hidden = false;/);
   assert.doesNotMatch(code, /frame\.src\s*=\s*src\s*;[\s\S]*frame\.src\s*=\s*src\s*;/, "the ticket URL is set once");
 });
+
+test("the height op is local: after the nonce check, before forward, no frame.src", () => {
+  const code = src.replace(/\/\/.*$/gm, "");
+  const nonce = code.indexOf("m.nonce !== nonce");
+  const height = code.indexOf('m.op === "height"');
+  const forward = code.indexOf("await forward(m)");
+  assert.ok(nonce > 0 && nonce < height && height < forward, "source/nonce checks come first, forward last");
+  assert.equal((code.match(/frame\.src\s*=/g) || []).length, 2, "the height op adds no navigation");
+});

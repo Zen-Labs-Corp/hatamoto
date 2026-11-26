@@ -10,6 +10,7 @@
 //   iframe -> {hm:1, id, nonce, op:"inputs", values}                    (run inputs, kept in core's start form; no request is made)
 //   iframe -> {hm:1, id, nonce, op:"run.start", run, inputs}            (owner only, needs a recent click: core's confirm names the run and inputs; Start posts to the owner-only start route)
 //   iframe -> {hm:1, id, nonce, op:"camera.capture"}                    (only with the owner's camera grant and a recent click: core's own dialog, one JPEG back; no request is made)
+//   iframe -> {hm:1, nonce, op:"height", height}                       (the page's height; only the screen tab's frame follows it, clamped 320..20000 px; no request, no reply)
 //
 // The bridge belongs to the ONE document the frame loads first. A sandboxed
 // frame can still navigate itself, and the next document has the same opaque
@@ -38,6 +39,7 @@ function init() {
   const plugin = holder.dataset.plugin;
   const bridge = holder.dataset.bridge;
   const camera = holder.dataset.camera === "1";
+  const fit = holder.dataset.fit === "1"; // only the screen tab sizes its frame to the page
   const functions = new Set((holder.dataset.functions || "").split(",").filter(Boolean));
   let runs = new Map();
   try {
@@ -50,6 +52,17 @@ function init() {
   const nonce = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
   let loads = 0;
   let dead = false;
+
+  // The page reports its height; only this frame is resized, within bounds.
+  const MIN_HEIGHT = 320;
+  const MAX_HEIGHT = 20000;
+  const setHeight = (h) => {
+    if (typeof h !== "number" || !Number.isFinite(h)) return;
+    const n = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.ceil(h)));
+    const edge = frame.offsetHeight - frame.clientHeight; // borders (box-sizing: border-box)
+    frame.style.minHeight = "0";
+    frame.style.height = n + edge + "px";
+  };
 
   const reply = (msg) => {
     if (!dead && loads <= 1) frame.contentWindow?.postMessage({ hm: 1, ...msg }, "*");
@@ -204,6 +217,10 @@ function init() {
       return;
     }
     if (m.nonce !== nonce) return;
+    if (m.op === "height") {
+      if (fit) setHeight(m.height);
+      return; // local only: nothing is forwarded or replied
+    }
     try {
       const result = await forward(m);
       reply({ type: "result", id: m.id, result });
