@@ -396,10 +396,13 @@ func TestPluginPageShowsPackageControls(t *testing.T) {
 
 	g, _, _ := newPackageRig(t)
 	body := g.do("GET", "/admin/plugins/hello/settings", "owner-token", nil, nil).Body.String()
-	for _, want := range []string{"Update to 2.0.0", "Turn off", `name="name" value="hello"`, `href="/admin/plugins/hello/permissions"`, `data-src="/plugin-ui/hello/index.html?t=`} {
+	for _, want := range []string{"Update to 2.0.0", "Turn off", `name="name" value="hello"`, `href="/admin/plugins/hello/permissions"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("settings tab missing %q", want)
 		}
+	}
+	if app := g.do("GET", "/admin/plugins/hello/app", "owner-token", nil, nil).Body.String(); !strings.Contains(app, `data-src="/plugin-ui/hello/index.html?t=`) {
+		t.Error("the screen tab carries the frame")
 	}
 	if strings.Contains(body, "Uninstall") {
 		t.Error("Uninstall lives on the Permissions tab")
@@ -836,7 +839,7 @@ func TestPluginUIPageIsASandboxedIframe(t *testing.T) {
 	t.Parallel()
 
 	g, _, _ := newPackageRig(t)
-	rec := g.do("GET", "/admin/plugins/hello/settings", "owner-token", nil, nil)
+	rec := g.do("GET", "/admin/plugins/hello/app", "owner-token", nil, nil)
 	body := rec.Body.String()
 	if rec.Code != 200 {
 		t.Fatalf("status %d", rec.Code)
@@ -867,6 +870,9 @@ func TestPluginUIPageIsASandboxedIframe(t *testing.T) {
 	for _, c := range []struct{ plugin, token string }{{"ownerui", "editor-token"}, {"devonly", "editor-token"}, {"ghost", "owner-token"}} {
 		if rec := g.do("GET", "/admin/plugins/"+c.plugin+"/settings", c.token, nil, nil); rec.Code != 404 {
 			t.Errorf("%s as %s: %d", c.plugin, c.token, rec.Code)
+		}
+		if rec := g.do("GET", "/admin/plugins/"+c.plugin+"/app", c.token, nil, nil); rec.Code != 404 {
+			t.Errorf("%s app as %s: %d", c.plugin, c.token, rec.Code)
 		}
 	}
 	// Every installed plugin has a page for the owner, UI or not.
