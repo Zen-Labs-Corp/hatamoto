@@ -47,6 +47,7 @@ func (a *Admin) mountPlugins(authed *httpx.Group) {
 	both.HandleFunc("GET /plugins/go", a.handlePluginsGo)
 	both.HandleFunc("GET /plugins/{name}", a.handlePluginRedirect)
 	both.HandleFunc("GET /plugins/{name}/settings", a.handlePluginSettings)
+	both.HandleFunc("GET /plugins/{name}/app", a.handlePluginApp)
 	owner.HandleFunc("POST /plugins/{name}/settings", a.handlePluginSettingsSave)
 	owner.HandleFunc("GET /plugins/{name}/permissions", a.handlePluginPermissions)
 	owner.HandleFunc("POST /plugins/{name}/grant", a.handlePluginGrant)
@@ -526,6 +527,48 @@ func (a *Admin) handlePluginsGo(w http.ResponseWriter, r *http.Request) {
 // handlePluginRedirect sends /admin/plugins/{name} to the plugin's Settings tab.
 func (a *Admin) handlePluginRedirect(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.pluginURL(r.PathValue("name"), "settings"), http.StatusFound)
+}
+
+// pluginAppData is a plugin's own screen: its admin page in the frame.
+type pluginAppData struct {
+	pluginHead
+	Owner bool
+	UI    *pluginUIData
+}
+
+// handlePluginApp shows the plugin's own screen, the first tab of a plugin
+// with an admin page, to the roles its ui admits (anything else answers like
+// an unknown plugin).
+func (a *Admin) handlePluginApp(w http.ResponseWriter, r *http.Request) {
+	pa, ok := a.pluginAdmin(w, r)
+	if !ok {
+		return
+	}
+	name := r.PathValue("name")
+	p, found := a.findPlugin(pa, name)
+	manage := a.canObj(r.Context(), authz.ActionPluginManage, pluginObject(name))
+	var frame *pluginUIData
+	if found && a.mayOpenScreen(r.Context(), p) {
+		frame = a.pluginUIFor(r, p, userFrom(r.Context()).Role)
+	}
+	if frame == nil {
+		if manage {
+			a.ErrorBack(w, r, http.StatusNotFound, "Plugin not found", "That plugin is not installed, or it is not available to you.", a.adminPath+"/plugins", "Back to plugins")
+			return
+		}
+		a.ErrorBack(w, r, http.StatusNotFound, "Plugin not found", "That plugin is not installed, or it is not available to you.", a.adminPath, "Back to the admin")
+		return
+	}
+	d := pluginAppData{pluginHead: a.newPluginHead(p, "app", manage), Owner: manage, UI: frame}
+	setCameraPolicy(w, d.UI)
+	v := a.NewView(w, r, d.UI.Title) // a wide page: the app lays out for the full column
+	if manage {
+		v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: p.Name}}
+	} else {
+		v.Crumbs = []Crumb{{Label: d.UI.Title}}
+	}
+	v.Data = d
+	a.Render(w, r, http.StatusOK, "plugins/app", v)
 }
 
 // pluginPermsData is the Permissions tab.

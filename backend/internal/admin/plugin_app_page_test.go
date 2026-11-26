@@ -1,6 +1,9 @@
 package admin
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestPluginHomeTab(t *testing.T) {
 	ui := &PluginUIInfo{Title: "Board", Roles: []string{"owner", "editor"}}
@@ -38,6 +41,50 @@ func TestScreenLabel(t *testing.T) {
 	} {
 		if got := screenLabel(c.p); got != c.want {
 			t.Errorf("%+v: got %q, want %q", c.p, got, c.want)
+		}
+	}
+}
+
+func TestPluginAppPage(t *testing.T) {
+	t.Parallel()
+
+	g, _, fp := newPackageRig(t)
+	fp.list = append(fp.list, PluginInfo{Name: "edonly", Version: "1.0.0", Loaded: true, UI: &PluginUIInfo{Title: "E", Roles: []string{"editor"}}})
+
+	rec := g.do("GET", "/admin/plugins/hello/app", "owner-token", nil, nil)
+	body := rec.Body.String()
+	if rec.Code != 200 {
+		t.Fatalf("owner app: %d", rec.Code)
+	}
+	for _, want := range []string{`data-hm-pluginframe`, `data-fit="1"`, `data-src="/plugin-ui/hello/index.html?t=`, `sandbox="allow-scripts"`, `data-width="wide"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("owner app page lacks %q", want)
+		}
+	}
+	if strings.Contains(body, `id="plugin-page"`) || strings.Contains(body, `data-width="narrow"`) {
+		t.Error("the screen tab is a wide page without a card")
+	}
+	a11yOK(t, body)
+
+	body = g.do("GET", "/admin/plugins/board/app", "editor-token", nil, nil).Body.String()
+	if !strings.Contains(body, `data-functions=""`) || !strings.Contains(body, "data-hm-pluginframe") {
+		t.Errorf("editor app page: no frame or host functions leaked:\n%s", body)
+	}
+	for _, owned := range []string{"hm-tabs", "Turn off", "/admin/plugins/board/permissions"} {
+		if strings.Contains(body, owned) {
+			t.Errorf("an editor's screen must not carry %q", owned)
+		}
+	}
+
+	for _, c := range []struct{ token, path string }{
+		{"editor-token", "/admin/plugins/ownerui/app"},
+		{"editor-token", "/admin/plugins/devonly/app"},
+		{"owner-token", "/admin/plugins/devonly/app"},
+		{"owner-token", "/admin/plugins/ghost/app"},
+		{"owner-token", "/admin/plugins/edonly/app"},
+	} {
+		if rec := g.do("GET", c.path, c.token, nil, nil); rec.Code != 404 {
+			t.Errorf("%s %s: %d, want 404", c.token, c.path, rec.Code)
 		}
 	}
 }
