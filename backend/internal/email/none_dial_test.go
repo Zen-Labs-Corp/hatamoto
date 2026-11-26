@@ -116,3 +116,32 @@ func TestNoneCredentialsGuardBeforeDial(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// A loopback name that resolves to a private non-loopback address must not
+// get the password: with credentials only loopback addresses pass.
+func TestNoneCredentialsAllowLoopbackOnly(t *testing.T) {
+	t.Parallel()
+	cfg := Config{SMTPHost: "localhost", SMTPUsername: "u", SMTPPassword: "p", Security: SecurityNone}
+	allow := noneAllow(cfg)
+	for addr, want := range map[string]bool{
+		"127.0.0.1": true, "::1": true, "::ffff:127.0.0.1": true,
+		"10.0.0.5": false, "192.168.1.2": false, "fd00::1": false, "203.0.113.5": false,
+	} {
+		if got := allow(netip.MustParseAddr(addr)); got != want {
+			t.Errorf("%s: allowed = %v, want %v", addr, got, want)
+		}
+	}
+	// Through the real hook: the refused private address is named.
+	err := noneControl(allow)("tcp", "10.0.0.5:25", nil)
+	var ar *AddrRefusedError
+	if !errors.As(err, &ar) || ar.Addr != netip.MustParseAddr("10.0.0.5") {
+		t.Fatalf("err = %v", err)
+	}
+	if err := noneControl(allow)("tcp", "127.0.0.1:25", nil); err != nil {
+		t.Fatalf("loopback: %v", err)
+	}
+	// Without credentials a private address is still fine.
+	if !noneAllow(Config{Security: SecurityNone})(netip.MustParseAddr("10.0.0.5")) {
+		t.Error("private address refused without credentials")
+	}
+}

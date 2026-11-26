@@ -128,6 +128,21 @@ func noneControl(allow func(netip.Addr) bool) func(network, address string, _ sy
 	}
 }
 
+// noneAllow picks the addresses a Security None dial may reach. With
+// credentials the host passed CheckNone as a loopback name, so the resolved
+// address must be loopback too: a name that resolves elsewhere must not
+// receive the password in plain text. NoneAddrAllowed overrides both.
+func noneAllow(c Config) func(netip.Addr) bool {
+	switch {
+	case c.NoneAddrAllowed != nil:
+		return c.NoneAddrAllowed
+	case c.SMTPUsername != "" || c.SMTPPassword != "":
+		return func(a netip.Addr) bool { return a.WithZone("").Unmap().IsLoopback() }
+	default:
+		return safefetch.PrivateNetworkAddr
+	}
+}
+
 // dial opens an SMTP session per c.Security and authenticates when
 // credentials are set. The caller must call the returned close function. All
 // I/O is bounded by ctx. Failures are *CheckError.
@@ -144,11 +159,7 @@ func dial(ctx context.Context, c Config) (*smtp.Client, func(), error) {
 		if errors.Is(CheckNone(c.SMTPHost, c.SMTPUsername != "" || c.SMTPPassword != ""), ErrNoneCredentials) {
 			return nil, nil, newCheckError(StageConnect, c, ErrNoneCredentials)
 		}
-		allow := c.NoneAddrAllowed
-		if allow == nil {
-			allow = safefetch.PrivateNetworkAddr
-		}
-		d.Control = noneControl(allow)
+		d.Control = noneControl(noneAllow(c))
 	}
 	conn, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {
