@@ -115,6 +115,9 @@ type emailData struct {
 	Saved      bool
 	// Using is the "Using:" line: where the live settings come from.
 	Using string
+	// Unencrypted is the host saved settings send to without encryption on a
+	// private network (Security None, not loopback). Empty otherwise.
+	Unencrypted string
 	// Retention is the email log retention card; nil hides it.
 	Retention *emailRetention
 }
@@ -171,7 +174,7 @@ func newEmailFields(v EmailSettingsView, echo emailFormEcho, errs []ui.FieldErro
 	for _, s := range []struct{ v, label string }{
 		{string(email.SecurityStarttls), "STARTTLS"},
 		{string(email.SecurityTLS), "TLS (SSL)"},
-		{string(email.SecurityNone), "None (localhost only)"},
+		{string(email.SecurityNone), "None (no encryption)"},
 	} {
 		f.SecurityOptions = append(f.SecurityOptions, ui.Option{Value: s.v, Label: s.label, Selected: sec == s.v})
 	}
@@ -343,6 +346,9 @@ func (a *Admin) renderEmail(w http.ResponseWriter, r *http.Request, status int, 
 		Form: newEmailFields(stored, echo, errs), Summary: errs, CheckFailed: checkFailed,
 		Configured: stored.Configured, Disabled: stored.Disabled, Saved: stored.Saved, Using: emailUsing(stored.Source),
 		Retention: ret,
+	}
+	if stored.Source == EmailSourceSaved && stored.Security == email.SecurityNone && !email.IsLoopbackHost(stored.Host) {
+		d.Unencrypted = stored.Host
 	}
 	v := a.NewView(w, r, "Email")
 	v.Section, v.Tab = "email", "email"

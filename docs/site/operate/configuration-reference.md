@@ -127,7 +127,8 @@ These variables are used only while nothing is saved in **Settings > Email** in 
 | Variable | Default | Meaning |
 |---|---|---|
 | `SMTP_HOST` | `localhost` | SMTP host. Email is off while it is empty or `localhost`. |
-| `SMTP_PORT` | `587` | SMTP port (integer). These variables always use STARTTLS; for TLS (SSL) on port 465, use **Settings > Email**. |
+| `SMTP_PORT` | `587` | SMTP port (integer). Set `SMTP_SECURITY=tls` for implicit TLS on port 465. |
+| `SMTP_SECURITY` | `starttls` | `starttls`, `tls` or `none`, in any letter case. Unset means `starttls`. Any other value stops the startup. With `none`, `SMTP_HOST=localhost` counts as set up, and the rules for the **None** setting below apply, including no username or password for a host that is not loopback. |
 | `SMTP_USERNAME` | empty | SMTP login user. Authentication is used only when both user and password are set. |
 | `SMTP_PASSWORD` | empty | SMTP login password. |
 | `SMTP_FROM` | `noreply@localhost` | Sender address. The boot fails if `SMTP_HOST` is a real host and this is still the default. |
@@ -350,7 +351,7 @@ See [Outbound connections](outbound-connections.md).
 
 ## Email delivery
 
-Email settings come from one of two places:
+Saved admin settings replace all the `SMTP_*` variables as a whole, including `SMTP_SECURITY`. Email settings come from one of two places:
 
 | Source | Used when |
 |---|---|
@@ -364,7 +365,7 @@ Email settings come from one of two places:
 | Field | Rule |
 |---|---|
 | Provider | **Custom**, **Amazon SES** or **Gmail / Google Workspace**. SES uses `email-smtp.<region>.amazonaws.com` (region default `us-east-1`); Gmail uses `smtp.gmail.com`. Host is only read for Custom. |
-| Security | **STARTTLS** (plain connection upgraded, usually port 587), **TLS (SSL)** (encrypted from the first byte, usually port 465) or **None**. None is accepted only for `localhost`, `127.0.0.1` or `::1`. With saved settings, `localhost` counts as set up, for a local mail catcher. |
+| Security | **STARTTLS** (plain connection upgraded, usually port 587), **TLS (SSL)** (encrypted from the first byte, usually port 465) or **None**. None sends without encryption. It is always allowed for `localhost`, `127.0.0.1` and `::1`. A host on a private network (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`, `fc00::/7` or link-local) is allowed only while Username and Password are blank. At connect time Hatamoto refuses any other address, including a host name that resolves to one. With saved settings, `localhost` counts as set up, for a local mail catcher. See [Test with a mail catcher](email.md#test-with-a-mail-catcher). |
 | Username, Password | Both blank means no sign-in. The password is encrypted with `HATAMOTO_SECRET` and never shown. A blank password keeps the saved one only while host and username are unchanged. |
 | From address, From name | A blank From name uses the site name stored in the database, looked up when each mail is sent, so a rename applies at once. |
 
@@ -372,9 +373,9 @@ Email settings come from one of two places:
 
 ### The connection
 
-Hatamoto connects to the host and port, protects the connection as the Security setting says (always STARTTLS for the `SMTP_*` variables), and authenticates with PLAIN authentication when both a user and a password are set. The server certificate is checked against the host name. So:
+Hatamoto connects to the host and port, protects the connection as the Security setting says (STARTTLS for the `SMTP_*` variables unless `SMTP_SECURITY` says otherwise), and authenticates with PLAIN authentication when both a user and a password are set. The server certificate is checked against the host name. So:
 
-- With the `SMTP_*` variables, use a submission port that offers STARTTLS (587 is the usual one, and the default). Ports with implicit TLS, such as 465, need **TLS (SSL)** in **Settings > Email**.
+- With the `SMTP_*` variables, use a submission port that offers STARTTLS (587 is the usual one, and the default), or set `SMTP_SECURITY=tls` for a port with implicit TLS, such as 465.
 - The certificate must be valid for the host name. Use the provider's host name, not an IP address.
 - With STARTTLS, a server that does not offer it fails the send, and the error is logged.
 
@@ -395,7 +396,7 @@ Reset and invitation links are built from `PUBLIC_BASE_URL` or the Site address 
 
 ### Without email
 
-While nothing is saved in **Settings > Email** and `SMTP_HOST` is empty or `localhost`:
+While nothing is saved in **Settings > Email** and `SMTP_HOST` is empty or `localhost` (with `SMTP_SECURITY=none`, `localhost` counts as set up):
 
 - Invitations and password resets show a one-time link to the owner, to pass on by hand.
 - The forgot-password page points to the command line instead: `hatamoto user reset-password --email you@example.com`.
@@ -411,6 +412,8 @@ Each process sends directly. There is no shared mail queue, and a failed send is
 |---|---|
 | `failed to dial SMTP server` | The host or port cannot be reached from the server. |
 | `failed to start TLS` | The server does not offer STARTTLS, or its certificate does not match the host name. |
+| `Could not connect to <host>:<port>: Security None only connects to localhost or a private network address (this host resolved to <address>). Use STARTTLS or TLS (SSL).` | Security None met a public address. Nothing was sent. Use a host on a private network, or STARTTLS or TLS (SSL). |
+| `Could not connect to <host>:<port>: Security None with a username and password only works for localhost. Use STARTTLS or TLS (SSL).` | Security None has a user name or password and the host is not loopback. Leave both blank, or use STARTTLS or TLS (SSL). |
 | an authentication error | The username or password is wrong for this provider. |
 | `saved SMTP password cannot be read (the server SECRET changed)` | `HATAMOTO_SECRET` changed since the password was saved. The `SMTP_*` variables are used until an owner enters it again. |
 
@@ -444,6 +447,8 @@ Roles belong to the Postgres cluster, not to one database, so `pg_dump` of the d
 | `HATAMOTO_REGISTRY_URL "..." is http: the registry must be served over https` | The registry address is http and `HATAMOTO_REGISTRY_ALLOW_HTTP=true` is not set. |
 | `HATAMOTO_DEVELOPER_REGISTRY_URL "..." must be an https URL (or "off")` | The developer registry address is not an http or https URL with a host. |
 | `HATAMOTO_DEVELOPER_REGISTRY_URL "..." is http: the index must be served over https` | The developer registry address is http and `HATAMOTO_REGISTRY_ALLOW_HTTP=true` is not set. |
+| `SMTP_SECURITY: "..." is not supported, use starttls, tls or none` | `SMTP_SECURITY` holds another value. |
+| `SMTP_SECURITY=none: ...` | `none` with a username or password, or a public IP address, as `SMTP_HOST`. |
 | `SMTP_FROM is required when SMTP_HOST is set` | Email is on but the sender is still the default. |
 | `HATAMOTO_THEME_DIR is no longer read` | An old theme directory variable is still set. |
 

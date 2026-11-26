@@ -72,14 +72,8 @@ type Settings struct {
 	UpdatedAt      time.Time // set by the database
 }
 
-// IsLoopbackHost reports whether host is one of the three names Go's
-// smtp.PlainAuth accepts without TLS: "localhost", "127.0.0.1" and "::1",
-// compared exactly (callers lower-case the host first). Security "none" is
-// only accepted for these, so a wider rule would pass validation and then fail
-// at AUTH.
-func IsLoopbackHost(host string) bool {
-	return host == "localhost" || host == "127.0.0.1" || host == "::1"
-}
+// IsLoopbackHost: see email.IsLoopbackHost.
+func IsLoopbackHost(host string) bool { return email.IsLoopbackHost(host) }
 
 // Validate checks every field against its allowed values.
 func (s Settings) Validate() error {
@@ -111,8 +105,8 @@ func (s Settings) Validate() error {
 	switch s.Security {
 	case email.SecurityStarttls, email.SecurityTLS:
 	case email.SecurityNone:
-		if !IsLoopbackHost(s.Host) {
-			return errors.New("security None is only allowed for localhost, 127.0.0.1 or ::1")
+		if err := email.CheckNone(s.Host, s.Username != "" || s.HasPassword()); err != nil {
+			return fmt.Errorf("security none: %w", err)
 		}
 	default:
 		return fmt.Errorf("unknown security %q", s.Security)
@@ -214,6 +208,9 @@ func (s *Store) Get(ctx context.Context) (set Settings, found bool, err error) {
 
 // Save validates set and stores it as the single row.
 func (s *Store) Save(ctx context.Context, set Settings) error {
+	if set.Username == "" {
+		set.PasswordSealed = nil // no sign-in: never keep a stale sealed secret
+	}
 	if err := set.Validate(); err != nil {
 		return err
 	}

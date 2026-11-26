@@ -182,7 +182,7 @@ These are the ones most people set before opening a site to the world. Defaults 
 | `MEDIA_UPLOAD_DIR` | `./uploads` | Where uploaded files are stored. |
 | `HATAMOTO_UPDATES` | `auto` | `auto`, `notify` or `off`. |
 | `HATAMOTO_WORKER` | on | Set to `off` to stop the background worker in this process. |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` | host `localhost`, port `587` | Outgoing mail, used only while nothing is saved in **Settings > Email**. Email is off while `SMTP_HOST` is empty or `localhost` and nothing is saved there, and form notifications and other emails are skipped. `SMTP_FROM` is required once a real host is set. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_SECURITY` | host `localhost`, port `587`, security `starttls` | Outgoing mail, used only while nothing is saved in **Settings > Email**. `SMTP_SECURITY` is `starttls`, `tls` or `none`; any other value stops startup. Email is off while `SMTP_HOST` is empty or, unless `SMTP_SECURITY=none`, `localhost`, and nothing is saved there, and form notifications and other emails are skipped. `SMTP_FROM` is required once a real host is set. |
 
 ### Notes on a few of them
 

@@ -221,3 +221,35 @@ func TestSavedUnknownSecurityFallsBackToEnv(t *testing.T) {
 		}
 	}
 }
+
+func TestEnvEmailConfigSecurity(t *testing.T) {
+	t.Setenv("EMAIL_DISABLED", "")
+	ctx := context.Background()
+	base := config.SMTPConfig{Host: "localhost", Port: 587, From: "env@example.test", FromNameFromSite: true}
+
+	// SMTP_SECURITY unset: exactly as before.
+	cfg, res := resolveEmailConfig(ctx, quietLogger(), base, &fakeSettings{}, testSecret, "Site")
+	if cfg.Security != email.SecurityStarttls || cfg.AllowLocalhost || res.Source != emailSourceNone {
+		t.Fatalf("unset: security=%q allowLocalhost=%v source=%v", cfg.Security, cfg.AllowLocalhost, res.Source)
+	}
+
+	none := base
+	none.Security = "none"
+	cfg, res = resolveEmailConfig(ctx, quietLogger(), none, &fakeSettings{}, testSecret, "Site")
+	if cfg.Security != email.SecurityNone || !cfg.AllowLocalhost || res.Source != emailSourceServer {
+		t.Fatalf("none: security=%q allowLocalhost=%v source=%v", cfg.Security, cfg.AllowLocalhost, res.Source)
+	}
+	svc, err := email.NewService(cfg, quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !svc.IsConfigured() {
+		t.Fatal("none + localhost must count as configured")
+	}
+
+	tls := base
+	tls.Host, tls.Security = "smtp.example.test", "tls"
+	if cfg, _ = resolveEmailConfig(ctx, quietLogger(), tls, &fakeSettings{}, testSecret, "Site"); cfg.Security != email.SecurityTLS || cfg.AllowLocalhost {
+		t.Fatalf("tls: security=%q allowLocalhost=%v", cfg.Security, cfg.AllowLocalhost)
+	}
+}

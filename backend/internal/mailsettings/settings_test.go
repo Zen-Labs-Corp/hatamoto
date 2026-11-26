@@ -77,8 +77,16 @@ func TestValidate(t *testing.T) {
 		{"ses", ses, ""},
 		{"gmail", gmail, ""},
 		{"none on localhost", local, ""},
-		{"none on 127.0.0.2", mut(func(s *Settings) { s.Host, s.Security = "127.0.0.2", email.SecurityNone }), "localhost"},
-		{"none on LOCALHOST", mut(func(s *Settings) { s.Host, s.Security = "LOCALHOST", email.SecurityNone }), "localhost"},
+		{"none on 127.0.0.2 with credentials", mut(func(s *Settings) { s.Host, s.Security = "127.0.0.2", email.SecurityNone }), "security none"},
+		{"none on LOCALHOST with credentials", mut(func(s *Settings) { s.Host, s.Security = "LOCALHOST", email.SecurityNone }), "security none"},
+		{"none on 127.0.0.2 without credentials", mut(func(s *Settings) { s.Host, s.Security, s.Username = "127.0.0.2", email.SecurityNone, "" }), ""},
+		{"none on mailpit without credentials", mut(func(s *Settings) { s.Host, s.Security, s.Username = "mailpit", email.SecurityNone, "" }), ""},
+		{"none on private IP without credentials", mut(func(s *Settings) { s.Host, s.Security, s.Username = "10.0.0.5", email.SecurityNone, "" }), ""},
+		{"none on mailpit with username", mut(func(s *Settings) { s.Host, s.Security = "mailpit", email.SecurityNone }), "security none"},
+		{"none on mailpit with sealed password", mut(func(s *Settings) {
+			s.Host, s.Security, s.Username, s.PasswordSealed = "mailpit", email.SecurityNone, "", []byte("x")
+		}), "security none"},
+		{"none on public IP without credentials", mut(func(s *Settings) { s.Host, s.Security, s.Username = "203.0.113.5", email.SecurityNone, "" }), "private network"},
 		{"none on ::1", mut(func(s *Settings) { s.Host, s.Security = "::1", email.SecurityNone }), ""},
 		{"no credentials", mut(func(s *Settings) { s.Username = "" }), ""},
 		{"unknown provider", mut(func(s *Settings) { s.Provider = "postmark" }), "provider"},
@@ -91,7 +99,7 @@ func TestValidate(t *testing.T) {
 		{"port too big", mut(func(s *Settings) { s.Port = 65536 }), "port"},
 		{"unknown security", mut(func(s *Settings) { s.Security = "ssl" }), "security"},
 		{"empty security", mut(func(s *Settings) { s.Security = "" }), "security"},
-		{"none on public host", mut(func(s *Settings) { s.Security = email.SecurityNone }), "localhost"},
+		{"none on public host with credentials", mut(func(s *Settings) { s.Security = email.SecurityNone }), "username and password"},
 		{"from without at", mut(func(s *Settings) { s.FromAddress = "nope" }), "from address"},
 		{"from injection", mut(func(s *Settings) { s.FromAddress = "a@b.c\r\nBcc: x@y.z" }), "from address"},
 		{"from name injection", mut(func(s *Settings) { s.FromName = "A\nBcc: x" }), "from name"},
@@ -196,6 +204,38 @@ func TestSaveAndClear(t *testing.T) {
 	db.execErr = errors.New("down")
 	if err := st.Clear(context.Background()); err == nil {
 		t.Fatal("expected clear error")
+	}
+}
+
+func TestSaveClearsPasswordWithoutUsername(t *testing.T) {
+	db := &fakeDB{}
+	s := valid()
+	s.Username = ""
+	s.PasswordSealed = []byte("stale")
+	if err := NewStore(db).Save(context.Background(), s); err != nil {
+		t.Fatal(err)
+	}
+	if db.execArgs[6] != nil && len(db.execArgs[6].([]byte)) != 0 {
+		t.Fatalf("password_sealed = %v, want nil", db.execArgs[6])
+	}
+	s.Username = "u"
+	if err := NewStore(db).Save(context.Background(), s); err != nil {
+		t.Fatal(err)
+	}
+	if string(db.execArgs[6].([]byte)) != "stale" {
+		t.Fatalf("password_sealed = %v, want kept with a username", db.execArgs[6])
+	}
+}
+
+func TestNoneErrorsWrapRule(t *testing.T) {
+	s := valid()
+	s.Host, s.Security = "mailpit", email.SecurityNone
+	if err := s.Validate(); !errors.Is(err, email.ErrNoneCredentials) {
+		t.Fatalf("err = %v, want ErrNoneCredentials", err)
+	}
+	s.Username, s.Host = "", "203.0.113.5"
+	if err := s.Validate(); !errors.Is(err, email.ErrNonePublicAddr) {
+		t.Fatalf("err = %v, want ErrNonePublicAddr", err)
 	}
 }
 

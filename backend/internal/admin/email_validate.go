@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"net/url"
 	"strconv"
 	"strings"
@@ -100,10 +101,7 @@ func validateEmail(form url.Values, stored EmailSettingsView, passwordReadable b
 	case email.SecurityStarttls, email.SecurityTLS:
 		in.Security = sec
 	case email.SecurityNone:
-		in.Security = sec
-		if in.Host != "" && !mailsettings.IsLoopbackHost(in.Host) {
-			bad("security", "Security", "None is only allowed for localhost, 127.0.0.1 or ::1. Use STARTTLS or TLS (SSL) for any other host.")
-		}
+		in.Security = sec // the None rule runs after the password is known, below
 	default:
 		bad("security", "Security", "Choose STARTTLS, TLS (SSL) or None.")
 	}
@@ -126,6 +124,15 @@ func validateEmail(form url.Values, stored EmailSettingsView, passwordReadable b
 		echo.KeepPassword = true
 	default:
 		bad("password", "Password", "Enter the password for this host and username.")
+	}
+
+	if in.Security == email.SecurityNone && in.Host != "" {
+		switch err := email.CheckNone(in.Host, in.Username != "" || in.Password != "" || echo.KeepPassword); {
+		case errors.Is(err, email.ErrNoneCredentials):
+			bad("security", "Security", "None with a username and password only works for localhost. Leave Username and Password blank for a mail catcher on a private network, or use STARTTLS or TLS (SSL).")
+		case errors.Is(err, email.ErrNonePublicAddr):
+			bad("security", "Security", "None only connects to localhost or a private network address. Use STARTTLS or TLS (SSL) for this host.")
+		}
 	}
 
 	switch {

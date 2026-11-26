@@ -110,6 +110,29 @@ func TestEmailPageGoldenAndNoPassword(t *testing.T) {
 	compareGolden(t, "pages/settings-email.html", normalizePage(body))
 }
 
+func TestEmailPageUnencryptedStatus(t *testing.T) {
+	t.Parallel()
+
+	const line = "Email sends unencrypted to mailpit on your private network."
+	for _, tc := range []struct {
+		name string
+		host string
+		src  EmailSource
+		want bool
+	}{
+		{"saved none on private host", "mailpit", EmailSourceSaved, true},
+		{"saved none on loopback", "localhost", EmailSourceSaved, false},
+		{"env source", "mailpit", EmailSourceServer, false},
+	} {
+		v := savedEmailView()
+		v.Host, v.Security, v.Source = tc.host, email.SecurityNone, tc.src
+		body := newEmailRig(t, &fakeEmailSettings{view: v}).get(t)
+		if got := strings.Contains(body, line); got != tc.want {
+			t.Errorf("%s: shows status = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestEmailPageNotSetUp(t *testing.T) {
 	t.Parallel()
 

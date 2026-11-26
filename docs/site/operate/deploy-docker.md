@@ -12,7 +12,7 @@ In this guide you make the Docker stack from the getting-started guide fit for p
 - Docker with Compose 2.24.4 or later (`docker compose version`).
 - The `Dockerfile`, `.env` and `docker-compose.yml` from [Install with Docker](../getting-started/install-docker.md), in one directory. `VERSION` in `.env` selects the release that is downloaded and is what `hatamoto version` prints. It must have the form `vX.Y.Z`, with the leading `v`; find the current one as described in [Install the binary](../getting-started/install-binary.md).
 - A domain name. You add HTTPS next, in [Put a reverse proxy in front](reverse-proxy-tls.md).
-- SMTP credentials, if the site sends email. Enter them at Settings > Email, or as `SMTP_*` variables in the override file below. See [Set up email](email.md).
+- SMTP credentials, if the site sends email. Enter them at Settings > Email, or as `SMTP_*` variables in the override file below. See [Set up email](email.md). To try email without a real account, see [Test with a mail catcher](email.md#test-with-a-mail-catcher).
 
 ## Steps
 
