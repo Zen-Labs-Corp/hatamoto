@@ -48,14 +48,14 @@
 - **Compatibility.** Additive. A host before this change refuses a manifest that names a dashed slug, so a plugin that does declares `sdk` `^0.27.1`.
 - **Migration.** None. **Rollback floor:** unchanged, but a plugin that declares `^0.27.1` is refused as incompatible by an older binary, so rolling back stops it from loading.
 
-## Unreleased: render.page page_query and page_path_prefixes (SDK 0.27)
+## v1.4.5: render.page page_query and page_path_prefixes (SDK 0.27)
 
 - **Plugin authors.** A `render.page` plugin can declare `page_query` (up to 16 query keys, for example `p`): the payload's `query` then holds the first value of each declared key present, and a value over 256 bytes is dropped. Values are passed as received, so escape them on output. It can also declare `page_path_prefixes` (up to 8, for example `/item/`): the filter runs for every page under a prefix (`/item/<x>`, not `/item`), and a plugin that declares only prefixes is not called elsewhere. `/` and prefixes whose first segment core serves are refused at load and install.
 - **Page cache.** Pages under a declared prefix are private, uncached and per visitor, like `page_paths`. The query never changes which pages are filtered or cached. A URL under a prefix that resolves to no page is a 404 rendered afresh on every request; it does not call the plugin.
 - **Compatibility.** Additive. A host before this change ignores both fields: it passes no query, and a plugin that declares only `page_path_prefixes` is called on every page there (site-wide, uncached). Declare `sdk` `^0.27` to rely on them.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: conditional writes (If-Match) and a restore race fix
+## v1.4.4: conditional writes (If-Match) and a restore race fix
 
 - **What.** `GET /api/v1/entities/{id}` and every successful entity update, status change and restore (`PUT`/`PATCH`, `PATCH .../status`, `POST .../restore/{version}`) return the attribute (content) version as the `ETag`. An optional `If-Match` on those writes (one strong tag, or `*`) applies the change only while the version still matches; otherwise nothing is written and the answer is `412` with `current_version` and the current `ETag`. A list or a malformed value is `400`. After compression the tag may arrive weakened as `W/"9"`; send it back exactly as received and it is read as version 9. The version tracks the attribute (content) version: changes to the name, slug, locale, the separate `metadata` column, parent, byline and status do not advance it, so two such changes made with the same tag can both succeed. MCP `entities_update`, `entities_publish` and `entities_unpublish` take an optional `version`; a stale one is refused with `conflict: stale version X; current version is Y (re-read with entities_get)`. The comparison is atomic with the write. See [Edit safely when several programs write](site/admin/users-and-api-keys.md#edit-safely-when-several-programs-write).
 - **Changed.** On these routes a list or malformed `If-Match` now answers `400`; it used to be ignored. `If-Match` on `DELETE` is still ignored, and creating an entry sets no `ETag`.
@@ -63,19 +63,19 @@
 - **Docs.** The MCP builder note that the version check and the write are not one atomic step was wrong; the check was already atomic.
 - **Default.** `If-Match` and `version` are optional: clients that send neither behave as before, except for the restore conflict above. Migration: none. **Rollback floor:** none.
 
-## Unreleased: llms.txt site summary and llms-full.txt
+## v1.4.3: llms.txt site summary and llms-full.txt
 
 - **What.** `/llms.txt` is now a plain-words summary of the site in the llmstxt.org shape: the site name, a one-line summary, a short details paragraph (location, contact, opening hours), then lists of Key pages, Pages, one list per other content type, Posts and People, and an Optional list with the knowledge graph, sitemap, posts feed and full text. It is one file; on a site with several public locales each extra locale adds its own sections, titled with the locale name. A new `/llms-full.txt` holds the Markdown text of every listed page, in the same order, up to a size cap (2 MB by default); when pages do not fit, the file ends with a line that says how many were left out. Both files leave out pages that opted out, noindex entries and types, drafts, private people and anything the sitemap leaves out. A new tab, Settings > SEO > AI files ("Files for AI tools"), has a switch for each file, a summary override, the number of posts listed and a read-only view of when each file last changed. See [Robots, llms.txt and AI crawlers](site/ai-seo/robots-llms.md#llmstxt).
 - **Freshness.** Both files are built on demand and kept in the render cache, which every content or settings change clears, so the next fetch after a change builds a new file. The header is `Cache-Control: public, max-age=300, s-maxage=300` (it was one hour), so a shared cache may show the old file for up to five minutes. "Recently changed" and "Last updated" on the AI files tab move when the file is next built, not at the moment of the edit.
 - **Default.** Both files on, the newest 20 posts per locale in `llms.txt`, a 2 MB cap on `llms-full.txt`. A switched-off file answers 404 and the static export skips it. The new `ai_files` section of the SEO API (`GET|PATCH /api/v1/settings/seo`, MCP `seo_get` and `seo_update`) holds `llms_off`, `full_off`, `summary`, `posts` and `full_cap_kb`; the cap can be set there only.
 - **Migration.** New table `hatamoto_ai_files_state` (`202611251200`), added by `hatamoto migrate`; expand-only. **Rollback floor:** none. An older binary ignores the table and the `ai_files` key, serves the old `llms.txt` and answers 404 for `llms-full.txt`.
 
-## Unreleased: database pool for compiled-in modules
+## v1.4.2: database pool for compiled-in modules
 
 - **What.** A new public Go package, `module/db`, gives a wrapper module core's database pool with `db.Pool()` in `serve` and in module commands, so a module no longer needs its own connection. Before the database opens, and in other commands, it returns `db.ErrNotReady`. See [Plugin API](PLUGIN_API.md#go-module-extension-points).
 - **Default.** A standard build calls nothing and behaves as before. Migration: none.
 
-## Unreleased: agent publishing policy (compiled-in modules)
+## v1.4.2: agent publishing policy (compiled-in modules)
 
 - **What.** A wrapper module can register an agent publishing policy with `agentpolicy.Register`. For a write made with an API key (REST and MCP) that publishes, schedules, restores or edits live content, unpublishes or archives it, edits a reusable block, theme part or person, or inserts a link into a published entry, the policy answers allow, require review or deny. People are not asked. See [ADR 0016](adr/0016-agent-publishing-policy.md) and [Plugin API](PLUGIN_API.md#go-module-extension-points).
 - **Outcomes.** Require review stages the change even when the site's review switch is off: REST answers `202` and MCP returns `pending_review`, as for any staged change, and, when only the policy held it, it is recorded with the requester `api-key:<key id>` so the key's creator may approve it (a change the site's own rule held keeps the creator as requester). A key needs `write:entities` and a creator role that may request review, so a Contributor's key may stage a publish of its own entry, as a Contributor may. Deny refuses the write: REST `403` with the reason, MCP an error with it, and one `agent_policy.deny` audit row. The site's own review rule still applies and the stricter answer wins. A policy that errors, panics or returns an empty decision refuses the write.
@@ -83,7 +83,7 @@
 - **Not covered yet.** Creating drafts, media, menus, redirects, terms and settings. Unpublish, archive and the edit of a block, theme part or person cannot be staged, so a Require review answer refuses them. An API key cannot delete entities, so delete is not asked. A staged agent change is decided where other review changes are decided; there is no screen for it yet.
 - **Default.** With no policy registered nothing changes. Migration: none.
 
-## Unreleased: one review step for changes to published content
+## v1.4.2: one review step for changes to published content
 
 - **Review switch.** The site has a review switch, off by default, stored in one new column. Owners turn it on in Settings > Content > Entity models > Review. With it off, and with no review policy registered, every write behaves as before.
 - **Who waits.** With the switch on, an Author's, Editor's or Contributor's publish, schedule, restore, or edit of a published entry is staged as one change waiting for review instead of being written; the live entry and the public page do not change. One change waits per entry: the same person sending again replaces their waiting change, and another person's change to the entry is refused (unless it was sent back, which a new change replaces) with "<Name>'s change to this entry is waiting for review." Owners and Reviewers publish directly. A registered review policy may decide otherwise. A reviewer approves (the change is published) or sends it back with a comment; nobody can decide their own change, whatever their role. The requester gets a "Review decision" mail. Blocks and theme parts are not held. Three new actions carry the rules: `entity.review.bypass`, `entity.review.request` and `entity.review.decide`.
@@ -96,20 +96,20 @@
 - **Authorizers.** An authorizer registered by a wrapper module must answer the three new actions `entity.review.bypass`, `entity.review.request` and `entity.review.decide`; an authorizer that errors on an unknown action refuses the write when the review switch is on.
 - **Migration.** One column, `review_enabled` on `hatamoto_site_config` (expand only). **Rollback floor: this release.** The previous release ignores the review switch, so rolling back turns review off without notice and people's changes to published entries are written directly. Waiting changes stay staged.
 
-## Unreleased: built-in roles
+## v1.4.2: built-in roles
 
 - **Roles.** Four built-in roles: Author, Contributor, Reviewer and Read-only. Read-only users can see the admin and change nothing (admin, REST API, MCP). Author creates and edits, publishes, unpublishes, deletes and restores their own entries. Contributor creates and edits, deletes and restores their own drafts and never publishes, also not by scheduling. Reviewer edits, publishes, unpublishes and restores any entry but cannot create or delete. All three upload media and change or delete only media they uploaded. Own means the user who created the entry; entries without a known creator are changed only by owners, editors and reviewers. `hatamoto entity ... --as EMAIL` applies that user's role. Invite or create them in Settings > Users or with `hatamoto user create --role`. New roles never see plugin pages, and an API key acts with at most its creator's current role.
 - **Compiled-in authorizers.** `authz.Object` has two new fields, `CreatedBy` and `Status`. A new action, `content.write`, guards the content screens and routes, so an authorizer that does not delegate to `Default` must answer it or owners and editors lose content writes. Content routes no longer ask `site.write`, so a policy that denies `site.write` to freeze writes must deny `content.write` as well. The entity service now asks `entity.create`, `entity.update`, `entity.publish`, `entity.unpublish`, `entity.delete` and `entity.version.restore` with the entry's Object for every caller, owners included, from the admin, REST API, MCP and `--as`; a strict allow-list authorizer must answer them or it refuses owners.
 - **Migration.** Widens the user and invite role checks (expand only). Do not roll back below this release once a user has one of the new roles.
 
-## Unreleased: LTS update channel
+## v1.4.2: LTS update channel
 
 - **Updates.** A fourth update channel, `lts`, for long-term support lines: security fixes only, for 18 months, on one long-term support line per major version. Choose it only while the server runs an LTS version: on any other version, or while no LTS line exists, it gets no updates at all, not even security fixes. Choose it in Settings > Updates or with `HATAMOTO_UPDATE_CHANNEL=lts`. Older binaries ignore `lts` with a warning.
 - **Release process.** LTS branches `lts/vX.Y` are cut from a minor on stable; fixes are cherry-picked and built and signed like any release.
 - **Docs.** [Release process](site/migrate-contribute/release-process.md), [Upgrades](UPGRADES.md).
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: routes, jobs and mail for compiled-in modules
+## v1.4.2: routes, jobs and mail for compiled-in modules
 
 - **Wrapper modules.** Three new public Go packages let a module that calls `app.Main` register, from an `init` function: an HTTP handler under its own public prefix (`module/route`), a recurring job that runs about once per interval across all servers sharing the database (`module/job`), and mail to the owners or to one user through core's mail path (`module/mail`). A standard build registers nothing and behaves as before.
 - **Routes.** Core applies its sign-in rate limit and a body cap and does no authentication; the module checks its callers. Prefixes core serves are refused, and `serve` exits at boot when a prefix collides with the admin address, the API prefix or a scanner probe path.
@@ -118,7 +118,7 @@
 - **Docs.** [ADR 0012](adr/0012-module-runtime-hooks.md), the "Go module extension points" section in [Plugin API](PLUGIN_API.md), [Security model](SECURITY_MODEL.md) and [Staging](STAGING.md).
 - **Migration.** New table `hatamoto_job_claims` (`202611221100`), expand-only. Rollback floor: unchanged.
 
-## Unreleased: single sign-on with OpenID Connect
+## v1.4.2: single sign-on with OpenID Connect
 
 - **Sign-in.** Single sign-on with OpenID Connect (Microsoft Entra ID, Okta, Google Workspace and others) in Settings > Sign-in; off by default. People are created on first sign-in under the owner's rules: verified email, allowed domains, default role, and an optional switch to link an existing account by email. Every sign-in outcome is written to the audit log.
 - **Extension point.** A provider may implement `ProviderAvailability` to hide itself while it is off, and an error may carry an `AuditReason`. Both are additive; see [ADR 0010](adr/0010-sign-in-providers.md).
@@ -126,7 +126,7 @@
 - **Docs.** [Single sign-on](SSO.md).
 - **Migration.** One new table, `hatamoto_signin_oidc`, added by `hatamoto migrate`; the previous release never reads it. Rollback floor: unchanged, but a person created by single sign-on has no password; see [ADR 0010](adr/0010-sign-in-providers.md) before rolling back.
 
-## Unreleased: the audit log records sign-ins, user, key and settings changes and every content write
+## v1.4.2: the audit log records sign-ins, user, key and settings changes and every content write
 
 - **Admin.** The audit log also lists sign-ins, failed sign-ins (the typed address only as a keyed hash), sign-outs, user, invite and API key changes, settings saves (changed field names, never values), webhook, content type, template and link rule changes, and term, menu, redirect and media changes. Autosaves, forms, people and connection tests are not recorded.
 - **API.** Entity writes with an API key or a session are recorded with the key or the user as actor, in the same transaction as the change. Term, menu, redirect and media writes are recorded too.
@@ -136,7 +136,7 @@
 - **Changed.** Admin entity saves are now recorded in the same transaction (rows keep their shape). A registered audit sink can refuse a row, which fails that write; a save followed by a publish is two writes, so a refused publish leaves the saved content in place. CLI key creation is now recorded as `api_key.created` on `api_key:<id>` (was `apikey.create` on `apikey:<id>`); older rows keep their name.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: searchable audit log
+## v1.4.2: searchable audit log
 
 - **Admin.** The Audit log searches and filters by text, source, actor, action and date range, shows a Source and a Result column, and pages with an Older button that never repeats or skips a row. A search always covers a date range (30 days by default, 366 at most).
 - **Agent calls.** Agent (MCP) tool calls appear in the same list as source Agent, with the key name as who. A refused call shows "Refused". Arguments are searched; only the target taken from them (slug, path, id or name) is shown.
@@ -144,21 +144,21 @@
 - **Unchanged.** The Overview Activity card, what is written to either audit table, and the default retention.
 - **Migration.** Two columns on `hatamoto_site_config` with defaults and two indexes on `hatamoto_mcp_audit`. Expand only. Rollback floor: unchanged, an older release ignores them, but it prunes at the old fixed periods (1 year for admin entries, 90 days for agent calls), so entries kept longer than that are removed at its next cleanup.
 
-## Unreleased: module extension points (commands, migrations, secrets, services)
+## v1.4.2: module extension points (commands, migrations, secrets, services)
 
 - **Wrapper modules.** New public Go packages let a module that calls `app.Main` register, from an `init` function: a CLI command (`module/cli`), its own database migrations (`module/migrate`), sealed secrets under its own key domain (`module/secret`) and a background service that runs in `serve` (`module/service`). A standard build registers nothing and behaves as before: same help text, same `migrate status`, same schema.
 - **Migrations.** Module migrations run after core's, in `serve` and `hatamoto migrate`, and are recorded in `module_<name>_goose_db_version`, never in `goose_db_version`. A failed module migration is logged and does not stop `serve`, but `hatamoto migrate` exits non-zero. Once a module registers, `hatamoto migrate status` adds a `module <name>` section per module. Module tables stay after a downgrade.
 - **Docs.** [ADR 0007](adr/0007-module-extension-points.md), a "Go module extension points" section in [Plugin API](PLUGIN_API.md) and module commands in [Command line](CLI.md).
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: owner-only Settings pages and banners for compiled-in modules
+## v1.4.2: owner-only Settings pages and banners for compiled-in modules
 
 - **Modules.** A new public Go package, `hatamoto.dev/core/adminpages`, lets a wrapper module that calls `app.Main` add owner-only pages under Settings and owner banners at the top of the admin, from an `init` function. `adminpages/designcheck.Check` checks a module's templates against core's design rules in a test.
 - **Unchanged.** A standard build registers nothing, so no page or banner appears and nothing else changes.
 - **Docs.** [ADR 0008](adr/0008-module-admin-pages.md) has the compatibility rules.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: refused plugin templates listed at install, in plain words
+## v1.4.2: refused plugin templates listed at install, in plain words
 
 - **Admin.** A plugin's page lists templates that are not registered as soon as the install, update or enable finishes, one plain sentence each. The 256 KiB output limit is named as its own reason instead of a scripts stop.
 - **API.** `templates_refused` in `GET /api/v1/plugins` keeps its shape. It is filled right after install, and also lists output-limit stops (additive).
@@ -166,34 +166,34 @@
 - **Unchanged.** Installs are never blocked by a refused template; the template rules and the 256 KiB cap are the same.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: release records can carry another edition's builds
+## v1.4.2: release records can carry another edition's builds
 
 - **Records.** A release record may carry `editions`: per edition name, then platform, the same `sha256` and `size` as `artifacts`. It is omitted when empty, so records of the default build are unchanged, and older releases ignore it. The release tooling adds it when `dist/` holds all four builds of an edition, checks it in `verify --dir`, and `publish-release.sh` uploads exactly the files the signed record names.
 - **Updates.** A build of another edition installs only its own edition's binary and refuses a release that has none. The default build never takes an edition's binary.
 - **CLI.** `version --json` adds `edition`.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: audit sink
+## v1.4.2: audit sink
 
 - **Audit sink.** A new public Go package, `hatamoto.dev/core/audit`, lets a wrapper module that calls `app.Main` register one sink from an `init` function and call `audit.Record` inside its own transaction. The sink sees the events core writes to the audit log (not MCP tool calls). A changeset publish and signing everyone out call it inside their transaction, so a sink that returns an error rolls the change back; every other writer calls it after the change committed and only logs a sink error. A standard build registers nothing and behaves as before. See [ADR 0009](adr/0009-audit-sink.md).
 - **Audit log.** `hatamoto_admin_audit` gains the actor kind, an API key id (not filled yet), the request address, user agent and request id, and a result. Existing rows keep an empty actor kind. A changeset publish is now one row, not up to three, and its actor is the user's email.
 - **Migration.** Six new columns with defaults and three indexes on `hatamoto_admin_audit`. Expand only; the index builds briefly block writes to the table. Rollback floor: unchanged, an older release still writes the table.
 
-## Unreleased: sign-in providers
+## v1.4.2: sign-in providers
 
 - **Sign-in providers.** A new public Go package, `hatamoto.dev/core/auth`, lets a wrapper module that calls `app.Main` register sign-in providers and one sign-in policy from an `init` function, and gives it a provisioning API for users and linked identities. Provider sign-in ends in the same session code as a password sign-in, so the access end date, the lockout, the sign-in policy and the second step apply. A registered policy that errors refuses the sign-in. See [ADR 0010](adr/0010-sign-in-providers.md).
 - **Login page.** Each registered provider shows as a "Continue with <name>" button; the routes are `<admin>/login/provider/<id>/start` and `/callback`. A standard build registers nothing and nothing changes.
 - **Users without a password.** The user store accepts a user with no password. Such a user signs in through a provider, a passkey or a password-set link.
 - **Migration.** One new table, `hatamoto_user_identities`. Expand only. Rollback floor: the schema is unchanged, but a user created without a password is stored with a NULL password hash that the previous release cannot read. Roll back only while no such user exists, or after each has a password (`hatamoto user reset-password`).
 
-## Unreleased: review policy for human edits (off)
+## v1.4.2: review policy for human edits (off)
 
 - **Review policy.** A new public Go package, `hatamoto.dev/core/review`, lets a wrapper module that calls `app.Main` register, from an `init` function, the review stages a human edit must pass before it is published. A standard build registers nothing and nothing changes: with the site's review switch off an edit has no stages, and with it on it has one stage, "Review", for the `reviewers` group (Owner, Editor and Reviewer). A policy that returns an error, or a stage without a name or group, holds the edit: it is never published.
 - **Edits as changesets.** The changeset engine can stage a human edit as a changeset of kind `edit`. It records who asked and the stages, which publish needs approved in order. An edit never expires and the hourly sweeper leaves it alone; run changesets keep their 72 hour limit. A person may edit an object of any origin, so an edit skips the plugin ownership check. Nothing in the admin or the API stages an edit yet.
 - **Docs.** [ADR 0011](adr/0011-review-policy.md).
 - **Migration.** Three columns on `hatamoto_changesets` (`kind`, `requested_by`, `stages`, all with defaults) and one new table, `hatamoto_changeset_stage_decisions`. Expand only. Rollback floor: unchanged. Existing changesets stay plain run changesets.
 
-## Unreleased: run one site on several servers
+## v1.4.2: run one site on several servers
 
 - **Scheduled jobs.** With several servers on one database, housekeeping jobs and plugin cron jobs now run on one server per interval; the others skip that tick. A failed claim query runs the job anyway and logs a warning. A server that restarts skips its startup run of a claimed job that ran within its last lease.
 - **Previews.** The one-time tickets behind the builder canvas, draft previews and plugin admin pages are kept in the database, so a ticket minted on one server opens on another. No sticky sessions are needed.
@@ -202,64 +202,64 @@
 - **Docs.** [Scaling](SCALING.md) and the operator pages describe the setup; ADR 0014 records the purge hook.
 - **Migration.** One new table, `hatamoto_frame_tickets`. Scheduled jobs reuse `hatamoto_job_claims`. Expand only. Rollback floor: unchanged.
 
-## Unreleased: authorization interface
+## v1.4.2: authorization interface
 
 - **Authorization.** A new public Go package, `hatamoto.dev/core/authz`, lets a wrapper module that calls `app.Main` register an authorizer from an `init` function. It answers whether a signed-in user or an API key may perform a named action on an object. With nothing registered the answers equal today's owner, editor and API key rules. A registered authorizer replaces the default and can call `authz.Default()` for the rest; an error denies.
 - **Unchanged.** No route, screen or tool asks it yet, so behaviour is identical.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: capability checks in screens and notifications
+## v1.4.2: capability checks in screens and notifications
 
 - **Authorization.** Screens, navigation, notification recipients and API key checks ask the authorization interface; with nothing registered the answers are unchanged.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: more time zones in the site settings
+## v1.4.2: more time zones in the site settings
 
 - **Time zone.** The list in the setup wizard and in Settings > General offered no zone for places whose clock follows its own rules, so their sites had to pick a neighbour that is an hour or more off for part of the year: Queensland and Darwin, Iran, Afghanistan, Nepal, Myanmar, Morocco, the Azores, Cape Verde, Venezuela and its neighbours on UTC-4, New Caledonia, Fiji and Tonga, and, since 1 November 2026 in the time zone data, British Columbia, Alberta and Manitoba. Each now has a zone of its own: `Australia/Brisbane`, `Australia/Darwin`, `Asia/Tehran`, `Asia/Kabul`, `Asia/Kathmandu`, `Asia/Yangon`, `Africa/Casablanca`, `Atlantic/Azores`, `Atlantic/Cape_Verde`, `America/Caracas`, `Pacific/Noumea`, `Pacific/Fiji`, `Pacific/Tongatapu`, `America/Vancouver`, `America/Edmonton` and `America/Winnipeg`.
 - **Existing sites.** Nothing changes. A site keeps its zone; one on a neighbour's zone can switch to its own in Settings > General.
 - **Migration.** None. Rollback floor: unchanged. An older release shows a newly listed zone as the current value, as it does any unlisted one.
 
-## Unreleased: the home page takes the site name at setup
+## v1.4.2: the home page takes the site name at setup
 
 - **Setup.** The server makes the home page on its first start, before the setup wizard asks for the site name, so the page was named after the default "My Hatamoto site". It kept that name after setup, and with it the page title and `og:title` of the home page; with **Start empty** the hero headline kept it too. Finishing the wizard now gives the untouched first-boot home page the site name, as its page name and as its headline. **Install starter content** now renames the page as well; it already rewrote the content.
 - **Existing sites.** Nothing changes. A home page that is no longer the first-boot page is never touched, and a headline that was changed is kept.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: comments data model (off)
+## v1.4.2: comments data model (off)
 
 - **Comments data model.** The tables and Go services for comments exist: storage, threads, trust levels, a blocklist, a safe-HTML formatter, and a comment-only spam decision. Nothing is wired to the server. Comments stay off; nothing is visible.
 - **Docs.** [Comments](COMMENTS.md) has a developer section with the contracts.
 - **Migration.** Six new tables (hatamoto_comments, hatamoto_commenters, hatamoto_comment_settings, hatamoto_comment_entities, hatamoto_comment_blocks, hatamoto_comment_form_tokens). Expand only. Rollback floor: unchanged.
 
-## Unreleased: edition package and site id
+## v1.4.0: edition package and site id
 
 - **Editions.** A new public Go package, `hatamoto.dev/core/edition`, lets a wrapper module that calls `app.Main` register an edition name and a feature gate from an `init` function. A standard build registers nothing: the edition is `community` and every gated feature is off. A gate that errors denies.
 - **CLI.** `hatamoto version` ends with the edition, for example `(community)`. `version --json` gained `edition` later (see "release records can carry another edition's builds").
 - **Site id.** Each install gets a stable random id stored in the database (kept by a backup restore, not by content export/import). Hatamoto never sends it anywhere.
 - **Migration.** One new table, `hatamoto_site_identity`, created with its single row. Expand only. Rollback floor: unchanged.
 
-## Unreleased: plugin templates refused by 1.3.8's range rule register again
+## v1.3.9: plugin templates refused by 1.3.8's range rule register again
 
 - **Plugin templates.** Plugin templates refused by 1.3.8's range rule register again. A plugin section or partial may `range` over any value; every plugin loop draws on one budget of 100000 iterations per page render, enforced while the page renders. A render that reaches it stops the loop, is served but not cached, and logs "plugin template range budget exceeded" with the plugin and template (at most once a minute each). 1.3.7 had no cap on plugin loops, so a page whose plugin loops exceed 100000 iterations is now cut short, served uncached and marked degraded.
 - **Admin.** A plugin's page lists, under Needs attention, every section or partial that is not registered and why; `GET /api/v1/plugins` returns the same list as `templates_refused`.
 - **Unchanged.** The scripts, theme-name, structural markup, call-graph and range-depth rules and the 256 KiB sample-render cap.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: render.page page_paths (SDK 0.24.0)
+## v1.3.9: render.page page_paths (SDK 0.24.0)
 
 - **Plugin authors.** A plugin whose `render.page` filter only matters on a few pages can declare them in the new manifest field `page_paths` (up to 16 exact public request paths without a trailing slash, for example `/members` or `/account`; a locale-prefixed or alternate URL of the same content is not covered and is page-cached, so list every URL the filter must act on). The filter is then called only for those paths. A plugin that declares none behaves exactly as before: it is called on every page.
 - **Page cache.** While any plugin handles `render.page` on every page, no page is shared-cached. Pages outside the declared paths of the plugins that declare them are page-cached and served with public `Cache-Control` again. Declared paths stay private, uncached and per visitor.
 - **Compatibility.** Additive. An older host ignores `page_paths` and calls the filter on every page, so a plugin that keeps a lower `sdk` range must still check `p.Path` in its filter; declare `^0.24` to rely on the host doing the scoping. The host refuses a path it serves itself (for example `/admin`) at load and at install.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: profile photo only for public profiles
+## v1.3.9: profile photo only for public profiles
 
 - **Complete your profile.** The photo is needed only when **Show my public profile** is on. A user whose profile stays hidden completes the step with a name alone. The site already shows a person who is not public as a name only, with no photo.
 - **Profile form.** The Photo field on Your profile and on Complete your profile no longer shows Required. It carries the hint "Needed for a public profile." Saving a public profile without a photo is refused with "Add a photo to show your public profile."
 - **Existing users.** Nobody is newly sent to the step. A user with a hidden profile and no photo is let through.
 - **Migration.** None. Rollback floor: unchanged. An older release sends users with a hidden profile and no photo back to the step.
 
-## Unreleased: plugin host limits, entities.filter permission and tag pack origin rule
+## v1.3.9: plugin host limits, entities.filter permission and tag pack origin rule
 
 - **Wasm modules.** The host now caps the total table entries a plugin module declares, and it refuses a module that repeats a section. Reference types are off when a module loads. Go `wasip1` guests are unaffected. A guest built with reference types must disable them (see PLUGIN_API.md). A plugin that is over a limit is not loaded after the upgrade; its status and the log name the reason.
 - **Instantiation.** Instantiating a module is bounded by the start timeout (5 s) at load. Compiling is not part of that bound.
@@ -272,18 +272,18 @@
 - **Automatic updates.** A standing approval no longer lets a run link a page to a translation; such an item waits for review. Resending a link the page already has stays inside the approval.
 - **Migration.** None. One reserved row in `hatamoto_plugin_grants` holds the snapshot of the installed plugins that have not been kept yet; a grant row is written for each plugin that is kept. Rollback floor: unchanged; an older release reads a stored `entities.filter` grant as an unknown permission only if a manifest lists it.
 
-## Unreleased: owner-only key scopes and registry index freshness
+## v1.3.9: owner-only key scopes and registry index freshness
 
 - **Scopes.** `read:seo`, `write:seo` and `write:terms` (also through `*`) now work only while the key's creator is an owner. Keys created by an editor, including `*` keys and keys made with `hatamoto apikey create --as <editor's email>`, lose them: REST answers 403 and MCP answers `forbidden`. Create a new key as an owner for integrations that need them.
 - **Packages.** The server remembers the newest registry index time (`issued_at`) it has accepted for each registry URL and refuses an older signed index with "registry index is older than one already accepted". Re-sign the index with a current time to clear it.
 - **Migration.** Adds the `hatamoto_registry_seen` table. Rollback floor: unchanged; an older release never reads it.
 
-## Unreleased: plugin markup URL attributes
+## v1.3.9: plugin markup URL attributes
 
 - **Plugins.** In a plugin partial or section without `site.scripts`, a template action in a URL attribute (`href`, `src`, `action`, `formaction`, `poster`, `cite`, `data`, `background`, `xlink:href`) may no longer form part of the URL scheme. That covers `href="{{.X}}:y"`, `href="java{{.X}}:..."`, two actions before the first `/`, `?` or `#`, and a literal before an action that is not a scheme, like `href="post-{{.X}}"`. Such templates are not registered, and the plugin's admin page shows the reason. Grant `site.scripts`, or put a literal `/`, `?`, `#` or `http(s):`/`mailto:`/`tel:` prefix first. See `docs/PLUGIN_API.md`.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: install stats always detailed
+## v1.3.7: install stats always detailed
 
 - **Setup.** The wizard no longer has a Stats step. It has seven screens: Your account, Admin address, Your site, Email, Look, Content and Done.
 - **Settings.** Settings > Updates has one switch, **Share usage stats with Hatamoto**, on by default. Install stats are on (the Detailed report) or off. The Basic level is gone, and so is **Reset ID**: turn stats off and on again for a new ID. The one-time notice now reads "Hatamoto shares usage stats (version, site address, plugins, theme, error counts)." with Change in Settings and Got it. `HATAMOTO_TELEMETRY=off` still turns stats off for good.
@@ -291,20 +291,20 @@
 - **Notice.** Existing installs with stats on see the reworded notice once.
 - **Migration.** Data-only: installs on Basic move to Detailed; Off stays Off. Rollback floor: unchanged; an older release reads the same level values.
 
-## Unreleased: read:forms API-key scope
+## v1.3.4: read:forms API-key scope
 
 - **Scopes.** New API key scope `read:forms`. Existing keys do not gain it, except `*` keys, which allow everything and so can now read form submissions, which hold visitors' personal data (answers, IP address, browser, and the page and referrer they came from). Review any `*` key before you upgrade. The admin key form lists it as **Read forms**.
 - **REST.** `GET /api/v1/forms`, `GET /api/v1/forms/{id}` and `GET /api/v1/forms/{id}/submissions` (paged with `limit` and `offset`, newest first) accept the key. Reading one submission by id, and every write, stay closed to keys.
 - **Migration.** None. Rollback floor: unchanged. An older release still accepts a key that carries `read:forms`, but the scope grants nothing there, so the forms routes answer 403, and updating that key's scopes over REST is refused until the scope is removed.
 
-## Unreleased: Locale-aware links, locale names and locale-rooted breadcrumbs
+## v1.3.3: Locale-aware links, locale names and locale-rooted breadcrumbs
 
 - **Breadcrumbs.** On multi-locale sites, pages of a locale served under a prefix now show the locale name as the first breadcrumb instead of Home; the default locale served without a prefix is unchanged. No setting. The BreadcrumbList JSON-LD lists the same crumbs. A saved home label does not apply on those pages.
 - **Themes.** New template func `localeURL`: `{{ localeURL . "/contact" }}` prefixes the page's locale segment onto a site-relative path (`/fr/contact`) and leaves absolute URLs, anchors, `mailto:`/`tel:`, already prefixed and shared paths alone. New data: `.LocaleName` on the page and `.Name` on each `.Alternates` item. All additive; nothing is renamed.
 - **Setting.** Settings > Locales has **Keep visitors in their locale** (`visitor_entry.keep_locale` over REST), off by default. When on, `url`-type section fields get the page's locale prefix at render time; stored content is untouched, and rich text and builder-page nodes are not rewritten. With it off the rendered pages are byte-identical.
 - **Migration.** None. The setting lives in the existing `visitor_entry` JSON. Rollback floor: unchanged; an older release ignores the new key.
 
-## Unreleased: Visitors of / land in their own locale
+## v1.3.3: Visitors of / land in their own locale
 
 - **Visitor entry.** Settings > Locales has a **Visitor entry** panel for sites with two or more locales. Turn on **Send visitors of / to their locale** and `/`, and any entry paths you list, answer `302` to the visitor's locale: the saved choice first, then the country from the CDN header (`CF-IPCountry` or `CloudFront-Viewer-Country`) matched against the new per-locale **Countries**, then the default locale. The response is never shared-cacheable. An optional old cookie name is read when the visitor has no saved choice.
 - **Switcher.** `GET /locale?l=<segment>&to=<path>` saves the choice in the `hm_locale` cookie and redirects to a same-site path under that locale. The segment `locale` is now reserved: a locale cannot take it, a plugin cannot declare `/locale` in `redirect_paths`, and a page with the slug `locale` on a multi-locale site is shadowed by the switcher.
@@ -312,19 +312,19 @@
 - **Nothing changes until the setting is on.** With it off, and on a one-locale site, there is no redirect and no new header; stored locales stay as they were.
 - **Migration.** Adds the `visitor_entry` column (default `{}`) to `hatamoto_site_config`. Rollback floor: unchanged; an older release ignores the column and the countries.
 
-## Unreleased: plugin camera on the admin page
+## v1.3.2: plugin camera on the admin page
 
 - **Camera.** A plugin whose manifest declares `"ui": {"allow": ["camera"]}` can ask for one photo with `hatamoto.camera.capture()`. Core opens its own capture dialog on the admin page, the person clicks **Capture**, and the page gets one JPEG (at most 1280 px, about 1 MB) or `cancelled`, `denied` or `unavailable`. The owner ticks the camera switch on the install prompt or the plugin's Permissions tab; it is off by default, kept on update and revoked on uninstall. The page's sandbox and CSP are unchanged, and the camera policy is sent only on granted plugin pages.
 - **SDK.** `hatamoto.dev/sdk` 0.22.2 adds `ui.allow` and the `ui.allow:camera` grant. A plugin that relies on it declares `^0.22.2`; an older host ignores it.
 - **Migration.** None. Rollback floor: unchanged; an older release ignores `ui.allow` and the extra grant string.
 
-## Unreleased: Per-plugin mail quota
+## v1.3.2: Per-plugin mail quota
 
 - **Owner-set limit.** The owner sets how many recipients a plugin may email per hour (default 360, which is the previous 6 a minute; 1 to 3600) on the plugin's Permissions tab, for a plugin that declares `mail.send`. Saving is audited and applies at once, without a restart. The plugin cannot change it.
 - **SDK.** `hatamoto.dev/sdk` 0.22.1: `permissions()` returns `mail: {recipients_per_hour}` for a plugin granted `mail.send`; a refused send reads "mail quota (N recipients per hour) reached".
 - **Migration.** Adds the nullable `mail_per_hour` column to `hatamoto_plugin_grants` (NULL means 360). Rollback floor: unchanged; an older release ignores the column and uses its fixed limit.
 
-## Unreleased: Detailed install stats by default
+## v1.3.1: Detailed install stats by default
 
 - **On by default.** A new install, and an existing one whose owner was never asked, sends the Detailed [install stats](site/operate/install-stats.md) once setup is finished. Release builds only: development builds and public demos send nothing.
 - **Setup wizard.** The Stats step now preselects Detailed.
@@ -332,13 +332,13 @@
 - **Choices are kept.** An owner who chose Off or Basic is never changed. `HATAMOTO_TELEMETRY=off` still rules everything out: nothing is sent, no default is written, and the step and notice are left out.
 - **Migration.** Adds the `default_notice_pending` column to `hatamoto_install_stats`. Rollback floor: unchanged; an older release reads a defaulted install as an owner who chose Detailed and keeps sending.
 
-## Unreleased: SDK 0.22.0, standing approval create
+## v1.3.2: SDK 0.22.0, standing approval create
 
 - **Create rule.** A cron run's `standing_approval` can add `create: {schemas, max_per_hour}` (1 to 100 an hour, separate from the update cap) so the approved run also publishes new entries of those schemas by itself, through the normal entity path. Anything else still waits for review, and a changeset that mixes a create with something outside the rule waits as a whole. The approval screen shows the extra line, the daily summary lists new entries in their own section, and adding or changing `create` voids an existing approval. A rule without `create` behaves as before. A plugin that declares it needs `^0.22`; an older host ignores it and creates wait for review.
 - **SDK.** `hatamoto.dev/sdk` 0.22.0 adds the optional `create` on `standing_approval`; `CompatibleWith` now ends at `0.21.0`.
 - **Migration.** None. Rollback floor: unchanged; a plugin that declares `^0.22` loads only on a server that serves SDK 0.22.
 
-## Unreleased: Detailed install stats
+## v1.2.0: Detailed install stats
 
 - **Three levels.** Install stats now have Off, Basic and Detailed, chosen with a radio group in the setup wizard, the owner banner and Settings > Updates. The "what is sent" preview is gone from the admin: a **What is collected** link opens the [Install stats](site/operate/install-stats.md) page, which lists what each level sends.
 - **Basic is unchanged.** An install that opted in before sends exactly the same three keys and stays on Basic until an owner chooses Detailed. Owners on Basic are offered Detailed once in a banner, and **Dismiss** ends the offer.
@@ -347,13 +347,13 @@
 - **Operator override.** `HATAMOTO_TELEMETRY=off` rules out both levels.
 - **Migration.** Adds the stats level, last reported version and health counts to the install stats row. Rollback floor: unchanged; an older release reads Basic and Detailed as the old opt-in and keeps sending its three keys.
 
-## Unreleased: Compact density
+## v1.2.0: Compact density
 
 - **Display setting.** Your profile has a new Display card where you choose Comfortable or Compact. Compact shows about 10% more on screen (sidebar, navigation, tables, cards and controls are about 10% smaller), and text never goes below 11px. The choice is remembered in a cookie, so it applies to this browser only.
 - **Default unchanged.** Comfortable stays the default and looks exactly as before until someone opts in.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: Media in object storage
+## v1.2.0: Media in object storage
 
 - **Object storage.** `MEDIA_STORAGE=s3` with `HATAMOTO_MEDIA_S3_ENDPOINT`, `_REGION`, `_BUCKET`, `_PREFIX`, `_ACCESS_KEY` and `_SECRET_KEY` keeps the media library's bytes in an S3-compatible bucket. Upload, replace, delete, variants, rebuild, folders, usage and the plugin media functions work on it, nothing is written under `MEDIA_UPLOAD_DIR`, and `/media/...` addresses are unchanged: the server serves each file from the bucket with the object's ETag and the same `Cache-Control` as before. The default, `local`, is unchanged.
 - **Start and failures.** `serve` refuses to start on missing or invalid object storage settings, but not on an unreachable bucket: pages render, and uploads and `/media` requests fail with an error (`502` for a served file) and a log line. Owners see a Media storage row on the dashboard's Site health card.
@@ -362,7 +362,7 @@
 - **Quota.** The total-size quota counts local disk only; it does not apply to object storage.
 - **Migration.** None. Rollback floor: unchanged for sites on local disk, but raised for a site that switched to `MEDIA_STORAGE=s3`. A release without this feature ignores `MEDIA_STORAGE` and reads `MEDIA_UPLOAD_DIR` only, so it starts normally and serves no media (every `/media/...` address answers 404), and an automatic rollback does the same. Before you roll back, run `hatamoto media migrate --to local` and unset `MEDIA_STORAGE`. A backup taken on object storage carries manifest version 2, which a release without this feature refuses to restore; backups of a local site are unchanged.
 
-## Unreleased: Share tab and forms list
+## v1.1.0: Share tab and forms list
 
 - **Share tab.** A form's Share tab now lists the pages that use it (with views, submissions and conversion per page over 30 days), and gives the shortcode, the hosted link, the endpoint and generated HTML, each with Copy. A theme part or block is named by its area, not a path.
 - **Shortcode.** `[form slug="..."]` in rich text (a widget, a schema rich text field or `body`) shows the form. A Paused, Archived or unknown form shows nothing to visitors.
@@ -371,7 +371,7 @@
 - **Templates.** New form offers six templates and opens a dialog. A new form starts Paused.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: Submissions tab
+## v1.1.0: Submissions tab
 
 - **One place for submissions.** A form's Submissions tab now has stat cards (new, total, last 30 days, conversion), search across the answers, a status filter, bulk actions (mark read, spam, delete) and a drawer that shows one submission, with Reply, Mark as spam, Mark unread, Delete, Archive and Forward by email. Opening a new submission marks it read; `j` and `k` move between rows and `Esc` closes the drawer. Export CSV honours the search and the filter.
 - **Conversion.** Submissions divided by the visits that landed on the pages the form was sent from, over the last 30 days. It is not every page view, and shows "Not available" without analytics or visits.
@@ -379,13 +379,13 @@
 - **Email forward.** Forwarding a submission by email now reports its result as a message on the tab (a 303 back to it) instead of a separate 422 or 502 page.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: Form settings tab
+## v1.1.0: Form settings tab
 
 - **Keep submissions.** The Settings tab's "Keep submissions in the admin" switch writes `store_off` (absent means keep). Off stores no answers: they are only emailed and sent to hooks. The old `store_submissions` key is no longer read, so every existing form and every form created through the API keeps storing, as before; a form whose owner had switched it off on an earlier release keeps storing until the owner saves it from the Settings tab. If email is not configured or the form has no recipient, the answers are kept anyway and a warning is logged. A send that fails later is still lost.
 - **Nothing about the visitor.** With keeping off, the row holds only its id, status and time: no IP address, browser, page, referrer or attribution. The notification email still names the page and, unless "Do not record IP addresses" is on, the address. The per-form rate limit still applies.
 - **Migration.** None. Rollback floor: unchanged; an older release ignores the new keys and drops them the next time it saves that form.
 
-## Unreleased: Theme strings
+## v1.1.0: Theme strings
 
 - **Declare and use.** A theme can list its words under `strings` in `theme.json` and print them with `{{t . "key"}}`; `{{t . "key" n}}` replaces `{n}` in the text. A partial called with `dict` receives them as `"Strings" .Strings`. A key the theme did not declare prints as the key. A malformed `strings` block fails `hatamoto theme check` and packing; at runtime its invalid entries are ignored.
 - **Translate.** Owners edit them per locale in Theme > Strings (`<admin>/theme/strings`). A blank text falls back to the default locale's text, then to the theme's own. Saving is recorded in the audit log as `theme.strings`.
@@ -393,7 +393,7 @@
 - **Not covered.** The consent banner, widget text and `hm.js` are not theme strings.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: Form logic and new field types
+## v1.1.0: Form logic and new field types
 
 - **Types.** Forms gain `heading`, `paragraph` and `divider` (layout only: nothing is submitted, stored, exported or emailed), `hidden` (value resolved by the server from a query parameter, the page, the referrer or a fixed value; the page script sends the page URL and the visitor's referrer, so without JavaScript those three store nothing) and `consent` (always required, stored as `Yes`). Fields can be half or a third wide.
 - **Logic.** A field can show only when another field `is`, `is_not`, `contains`, is `filled` or is `empty`. A hidden field is never required and its value is dropped. A rule to itself, to a missing field or in a cycle is refused on save, in the admin, REST and MCP.
@@ -402,14 +402,14 @@
 - **Email, CSV and API.** A field with `in_email: false` is left out of the notification email; an email field with `block_free_email` refuses free-provider addresses. CSV export skips layout fields. The public form JSON also carries the new keys (`in_email`, static hidden values), which are not secret.
 - **Migration.** None. Rollback floor: unchanged; an older release ignores the new keys and drops them the next time it saves that form.
 
-## Unreleased: idle plugin instances are closed after 5 minutes
+## v1.1.0: idle plugin instances are closed after 5 minutes
 
 - **Idle eviction.** A plugin's pooled instances that have not been used for 5 minutes are closed, leaving one warm instance per plugin (the most recently used one). A burst of traffic that grew the pool no longer holds that memory until restart; when traffic returns, instances start again on demand. The window is fixed.
 - **Newest instance first.** The pool reuses the most recently returned plugin instance, so steady low traffic lets extra instances idle out and shrinks the pool to one.
 - **Memory tab.** Settings, Performance, Memory states the policy and shows "Closed since start: N", the number of instances closed this way since the server started.
 - **Migration.** None. Rollback floor: none.
 
-## Unreleased: encoding/json v1 is banned; JSON v2 across the backend
+## v1.0.9: encoding/json v1 is banned; JSON v2 across the backend
 
 The backend, the admin, MCP and REST output and the plugin SDK now use the JSON v2 packages (`encoding/json/v2`). The sections below on empty lists, the plugin host and the platform encoder give the detail.
 
@@ -421,7 +421,7 @@ The backend, the admin, MCP and REST output and the plugin SDK now use the JSON 
 - **Contributors.** The build fails on a new `encoding/json` (v1) import outside `backend/migrations/`.
 - **Migration.** The upgrade step `202611051000_normalise_stored_json_keys` rewrites the keys. Rollback floor: unchanged; the previous release reads what this one writes (`[]` where it wrote `null`).
 
-## Unreleased: CSV import and export
+## v1.0.9: CSV import and export
 
 - **Export.** **Export CSV** on a content type's list downloads its entries as CSV with the columns you pick: fixed columns plus one `attr:<path>` column per attribute. Cells that could run as a spreadsheet formula are prefixed with `'`.
 - **Import.** **Settings, Import, Import a CSV file instead** loads a CSV file into one content type in three steps: upload, map the columns, dry run and import. The Key column makes a second import update instead of add; an export writes `id:<id>` as the key of entries that were not imported, so any exported file imports again as updates. New entries are drafts unless the file gives a status. Updating by key changes only what the file carries: an empty cell or an unmapped column keeps the stored value, the default status applies to new rows only, and a JSON cell replaces its object. Clearing a value is not possible through CSV; edit the entry in the admin.
@@ -429,11 +429,11 @@ The backend, the admin, MCP and REST output and the plugin SDK now use the JSON 
 - **Limits.** 32 MiB, 50 000 rows, 500 rows per batch. `order` is not imported. The `entity.before_save` hook runs in a dry run.
 - **Migration.** None. Rollback floor: none (imported rows carry `metadata.import_key` as for any import).
 
-## Unreleased: Email protection
+## v1.1.0: Email protection
 
 - **Encoded addresses.** Email addresses and `mailto:` links on public pages are now written as character references, so simple harvesters that read the visible page miss them while visitors still see and click them, with scripts off too. It is on by default, existing sites included. Code, scripts, comments, the head, feeds, plugin routes, `llms.txt`, the API and the editor preview keep the plain address. The organisation email in structured data (Organization or LocalBusiness) also stays readable in the page source; leave that field empty if you do not want it published. Turn it off under Settings > Privacy > Protect email addresses.
 
-## Unreleased: Public link prefetch
+## v1.1.0: Public link prefetch
 
 - **Prefetch on hover.** Public pages carry one `speculationrules` block that prefetches same-site page links when a visitor hovers them, so the next page opens faster. Prefetch only, never prerender. It skips the admin address, non-page routes, logout-like paths, links with a query string and file downloads.
 - **Theme switch.** A theme turns it off with `"prefetch": false` in `theme.json`. There is no admin setting. Preview, canvas and access-notice pages carry no block.
@@ -441,14 +441,14 @@ The backend, the admin, MCP and REST output and the plugin SDK now use the JSON 
 - **Privacy.** A custom admin address is never printed on public pages; only the legacy `/admin` is named.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: Expiring user access
+## v1.1.0: Expiring user access
 
 - **End date.** Invites and users take an optional **Access ends on** date (end of that day in the site time zone). Once it passes, sign-in is refused, live sessions are refused on the next request and the API keys the person created stop working. Extending or clearing the date restores sign-in, not old sessions or keys.
 - **Worker.** A new hourly job `user_access` revokes sessions and keys, writes a `user.access_ended` audit entry and mails the other owners three days before an end. It can be switched off with `WORKER_DISABLE_JOBS=user_access`; the request-time check does not depend on it.
 - **API.** The JSON users endpoints accept `access_ends_at`, owners only.
 - **Migration.** Two additive columns (`access_ends_at` on users and on user tokens, plus two bookkeeping columns on users). Rollback floor: unchanged; an older release ignores the columns, so users with an end date can sign in again.
 
-## Unreleased: Popular content
+## v1.0.9: Popular content
 
 - **Template func.** `popular "post" 5 30` lists the published entities of a schema with the most pageviews over the last 7, 30 or 90 days (any other value or none means 30; limit 1 to 50), the newest filling any gap so the list is always full.
 - **Loop order.** The Loop widget's Order accepts `popular_7`, `popular_30` and `popular_90` (Most viewed). It lists the same entities as the func and works with the term, author and attribute filters and with paging (the first 100 rows are served).
@@ -456,14 +456,14 @@ The backend, the admin, MCP and REST output and the plugin SDK now use the JSON 
 - **Failures.** If the rollup cannot be read the list falls back to the newest entities and the page is served but not cached.
 - **Migration.** None. Rollback floor: remove popular loop orders first, an older release refuses them.
 
-## Unreleased: SDK 0.20.0, entity terms for plugins
+## v1.3.0: SDK 0.20.0, entity terms for plugins
 
 - **Terms on entities.** For a plugin whose `sdk` range requires 0.20 and that holds `terms.read`, `entities.get` and each item of `entities.list` carry `terms`: `[{kind, slug, name}]`, ordered by kind, then name (`[]` when the entity has none). Plugins built for `^0.19` or older, and plugins without `terms.read`, get the same bytes as before.
 - **Term filter.** `entities.list` takes `term: {kind, slug}` and keeps only entities carrying exactly that term (child terms do not match). It needs `terms.read`; an unknown term gives an empty page. In a run's fetch phase it applies to public entities only.
 - **SDK.** `hatamoto.dev/sdk` 0.20.0 adds `EntityTerm` and `EntityTermFilter`; `CompatibleWith` now ends at `0.19.0`. `EntityEvent` is unchanged.
 - **Migration.** None. Rollback floor: unchanged; a plugin that declares `^0.20` loads only on a server that serves SDK 0.20.
 
-## Unreleased: PDF widget
+## v1.0.9: PDF widget
 
 - **Widget.** A new **PDF** widget (Media group) shows a PDF from the media library in the browser's viewer, with a download link (the editor preview and sites with a live community script show the link only, as those pages cannot frame a file) and, when the library knows it, the file size. On a phone only the link shows. Height is 200 to 2000 pixels. No script runs on the page.
 - **Same-site framing.** A PDF served from `/media/` now allows framing by your own pages (not by a page in a CSP sandbox) (`X-Frame-Options: SAMEORIGIN`, `frame-ancestors 'self'`); other sites still cannot frame it, and every other file keeps `DENY`.
@@ -471,7 +471,7 @@ The backend, the admin, MCP and REST output and the plugin SDK now use the JSON 
 - **Picker.** The media picker takes a `type` parameter (`document` lists PDFs only; the default stays images), and a widget property can ask for it with `x-hm-accept`.
 - **Migration.** None. Rollback floor: unchanged; an older release does not know the `pdf` kind and would refuse a page that uses it, so remove the widget before you roll back.
 
-## Unreleased: Plugin host and SDK 0.19.0 on JSON v2
+## v1.0.9: Plugin host and SDK 0.19.0 on JSON v2
 
 The plugin host and the Go SDK read and write plugin data with the JSON v2 packages. Bytes between host and plugin are unchanged: plugins built for earlier SDKs (`^0.5` to `^0.18`) load and run as before.
 
@@ -484,7 +484,7 @@ The plugin host and the Go SDK read and write plugin data with the JSON v2 packa
 - **One manifest decoder.** Plugin manifest reads in the admin packages screen, the updater, the settings CLI and at boot use the same decoder as install.
 - **Migration.** None. Rollback floor: unchanged.
 
-## Unreleased: Admin branding
+## v1.0.9: Admin branding
 
 Settings > Branding: admin name, logo, accent colour and a Managed by line for the sign-in page and admin; colours that fail contrast are refused.
 
@@ -492,13 +492,13 @@ Settings > Branding: admin name, logo, accent colour and a Managed by line for t
 - **Contrast.** The accent must reach 4.5:1 on both the white admin background and the tinted highlight. The dark theme gets a lighter shade of it, worked out so every pair still passes. Reset to default clears all of it.
 - **Migration.** Five expand-only text columns on site config. Rollback floor: unchanged; an older binary ignores them and shows the default look.
 
-## Unreleased: Additional CSS
+## v1.0.9: Additional CSS
 
 - **Setting.** Theme > Additional CSS (owners only) takes the site's own CSS, up to 64 KB. It is checked on save (`@import`, `expression()`, `javascript:` URLs, `behavior` and `-moz-binding` are refused, with the line named) and served as its own fingerprinted stylesheet, linked after the theme's.
 - **WordPress import.** The old site's custom CSS comes across into the setting; refused parts are kept as a comment and listed in the report.
 - **Migration.** None: the CSS is stored in the existing site config. No new dependency.
 
-## Unreleased: Jobs screen
+## v1.0.9: Jobs screen
 
 Settings > Jobs (owners only) lists every scheduled job, core and plugin, with its schedule, last run, duration, result, last error and next run, and has a Run now button for the safe core jobs (never for jobs that send data out or for plugin jobs).
 
@@ -506,14 +506,14 @@ Settings > Jobs (owners only) lists every scheduled job, core and plugin, with i
 - **Job ids.** The fixed jobs now log under the same names `WORKER_DISABLE_JOBS` uses (`retention_purge`, `agent_verify` and so on, not the hyphenated forms).
 - **Migration.** One new table `hatamoto_job_status` (expand-only). No new dependency. Rollback floor: an older release ignores the table.
 
-## Unreleased: Version history limit
+## v1.0.9: Version history limit
 
 - **Setting.** Settings > Versions (owners only) sets how many earlier versions of each item are kept, 10 to 500. The daily prune reads it on every run.
 - **Default raised from 20 to 50.** More history is kept; nothing extra is deleted on upgrade.
 - **Live versions are kept.** A version that was live in the last 30 days is never pruned and does not count against the limit. The versions panel states the rule and marks those versions Live.
 - **Migration.** Two expand-only changes (a `live_at` column on versions, one column on site config). Rollback floor: unchanged; an older binary ignores both and prunes to 20 again.
 
-## Unreleased: Custom and self-hosted fonts
+## v1.0.9: Custom and self-hosted fonts
 
 Owners can upload `.woff2` fonts or download a Google font once, then pick body and heading fonts under Theme > Colours and fonts. Public pages serve the fonts from the site with `font-display: swap` and preload the body font. Visitors never contact Google.
 
@@ -522,27 +522,27 @@ Owners can upload `.woff2` fonts or download a Google font once, then pick body 
 - **Reserved address.** `/fonts/...` is now served by the site, like `/preview` and `/theme`: `/fonts` can no longer be the admin address, and an entry or schema URL under `/fonts/` stops resolving. Move such content to another path before you upgrade. Only `/fonts/<64 hex>.woff2` skips the site-access gate; any other `/fonts/...` page follows the mode.
 - **Migration.** One new table (expand-only). No new dependency, so docs/DEPENDENCIES.md is unchanged. Rollback floor: an older release ignores the table and the chosen family falls back to the system stack.
 
-## Unreleased: Manual order and page tree
+## v1.0.9: Manual order and page tree
 
 Pages, posts and terms can be put in a chosen order. Entities get a **Reorder** page (Move up, Move down, Indent, Outdent as plain forms); terms get the same buttons in Settings > Taxonomies. Agents use `entities_reorder` and `terms_reorder`, and `PATCH /entities/{id}` accepts `position`. Themes opt in with `order: "manual"` in a loop or `query`, and `terms "kind" 10 "manual"`.
 
 - **Behaviour.** Reordering saves no version and keeps `updated_at`; a plugin's page stays the plugin's. Moving to another parent redirects the old address.
 - **Migration.** Two additive columns (`sort_order`, default 0). Rollback floor: unchanged. An older binary ignores them.
 
-## Unreleased: ads.txt and app-ads.txt
+## v1.0.9: ads.txt and app-ads.txt
 
 Settings > SEO has a new ads.txt tab (owners only). Write your `ads.txt` and `app-ads.txt` there and the site serves them at `/ads.txt` and `/app-ads.txt` as plain text. Every line is checked on save and a bad one is named ("Line 2: ..."). An empty file answers a plain 404, unless a Settings > Redirects rule has `/ads.txt` as its source: then the redirect applies. A saved file takes precedence over such a rule. The AdSense card in Settings > Tracking links to the tab and adds the AdSense line for the saved id.
 
 - **Caching.** Served with `Cache-Control: public, max-age=60, s-maxage=60`.
 - **Site access.** Like the sitemap, both files answer a plain 404 (503 with `Retry-After` in maintenance mode) while coming soon, maintenance or password mode is on, never the themed page.
 - **Migration.** None. Rollback floor: unchanged. An older binary ignores the two new settings keys and `/ads.txt` returns the themed 404; an SEO save on the older binary drops them.
-## Unreleased: Schedule an unpublish, share a draft
+## v1.0.9: Schedule an unpublish, share a draft
 
 - **Unpublish at.** Pages, posts and other entries can be set to go back to draft at a chosen time, with an optional redirect from the old address. Publishing again turns the redirect off.
 - **Share preview.** Make a private link to a draft that works for 1 hour to 30 days and can be revoked. A link stops working once the entry is published, archived or deleted. Search engines are told not to list it.
 - **Migration.** Two new tables (expand-only). The previous release ignores them: scheduled unpublishes and preview links stop working until you upgrade again.
 
-## Unreleased: Media library plus
+## v1.0.9: Media library plus
 
 The media library now accepts SVG, can replace a file in place, and groups files in folders.
 
@@ -554,7 +554,7 @@ The media library now accepts SVG, can replace a file in place, and groups files
 
 **Rollback floor: unchanged.** An older release ignores folders it does not know and serves a stored SVG as a download instead of showing it, because it sniffs content differently.
 
-## Unreleased: Backup retention
+## v1.0.9: Backup retention
 
 Settings > Backups has a new "Backups to keep" page, opened from the ⋯ menu next to "Back up now". Owners choose how many finished backups of each kind (manual, pre-update, scheduled) stay on disk, from 1 to 50. Lowering a count asks for confirmation first and says how many backups it deletes.
 
@@ -565,7 +565,7 @@ Settings > Backups has a new "Backups to keep" page, opened from the ⋯ menu ne
 
 **Rollback note.** An older release ignores `retention.json` and keeps only 5 manual, 2 pre-update and 3 scheduled backups (or what its environment variables say). Its next backup removes the older ones, so a higher count you set here is lost on downgrade. Copy backups you want to keep elsewhere first.
 
-## Unreleased: JSON responses use [] and {} for empty lists and maps
+## v1.0.9: JSON responses use [] and {} for empty lists and maps
 
 REST, admin and MCP responses now say `[]` or `{}` where they used to say `null` for an empty list or map, and request bodies are read more strictly.
 
@@ -581,7 +581,7 @@ REST, admin and MCP responses now say `[]` or `{}` where they used to say `null`
 
 **Rollback floor: unchanged.** The previous release reads `[]` and `{}` the same way.
 
-## Unreleased: Content packages use the new JSON reader
+## v1.0.9: Content packages use the new JSON reader
 
 Content, taxonomy, changeset and settings data, the page builder, imports and JSON-LD now use the same stricter JSON reading and writing as the API.
 
@@ -594,7 +594,7 @@ Content, taxonomy, changeset and settings data, the page builder, imports and JS
 
 **Rollback floor: unchanged.** The previous release reads the new rows the same way.
 
-## Unreleased: Platform JSON on the new encoder
+## v1.0.9: Platform JSON on the new encoder
 
 Webhooks, packages, releases, backups, the updater, the supervisor, two-factor, forms, plugin runs and imports now use the same JSON reader and writer as the API. Everything that is signed, verified or sent to a receiver keeps its exact bytes.
 
@@ -616,7 +616,7 @@ Webhooks, packages, releases, backups, the updater, the supervisor, two-factor, 
 
 **Rollback floor: unchanged.** The previous release reads the stored `[]` and `{}` values the same way.
 
-## Unreleased: Contact button
+## v1.0.9: Contact button
 
 A new **Contact button** widget in the page builder, and a floating contact button for the whole site (Settings > Contact button, off by default). Both are plain links that open WhatsApp, a phone call, a text message or an email. A blank number or address uses the phone or email from the business details of the page's language. No script runs and nothing is sent to a third party until a visitor taps the link.
 
@@ -625,7 +625,7 @@ A new **Contact button** widget in the page builder, and a floating contact butt
 
 **Rollback floor: unchanged.** The previous release ignores the saved setting and shows no floating button; a page that holds a Contact button widget keeps its other content but the widget is not published until you upgrade again.
 
-## Unreleased: Off-site backups
+## v1.0.9: Off-site backups
 
 Settings > Backups has a new Off-site copy card. Point it at an S3-compatible bucket (Amazon S3, Cloudflare R2, Backblaze B2, MinIO or similar), pick a daily or weekly time in UTC, and each scheduled backup is uploaded (the provider checks each part's SHA-256 on receipt, and the size and recorded checksum are read back) and pruned to the number of copies you keep. "Back up and upload now" runs one on demand. The backups table gains an Off-site column and the dashboard health card an Off-site backup row.
 
@@ -637,17 +637,17 @@ Settings > Backups has a new Off-site copy card. Point it at an S3-compatible bu
 
 **Rollback floor: unchanged.** The previous release runs against the migrated data and ignores the new table; scheduled backups and uploads stop until you upgrade again.
 
-## Unreleased: Site access
+## v1.0.8: Site access
 
 - **Site access: coming soon, maintenance and password modes.** Settings > Site access holds the public site back with a themed page, a 503 with `Retry-After`, or one shared password, while signed-in admin users still see the real site. A banner reminds owners and editors on every admin page. New columns only (expand-only); the previous binary ignores them and shows the site as open.
 
-## Unreleased: Tag packs
+## v1.0.8: Tag packs
 
 A plugin package can now add tracking tags to Settings > Tracking with JSON files only (`tags/<name>.json`): no code, no permissions. Each tag loads after consent, adds only its own hosts to the page policy while it is on, and shows as "Tag pack" on the page. Registries list the hosts and category before install.
 
 **Rollback floor: unchanged.** Servers older than this release refuse a package with `tags/`. Uninstall tag packs before downgrading: a saved pack tag makes every Settings > Tracking save fail on an older server.
 
-## Unreleased: Tag manager in Settings > Tracking
+## v1.0.8: Tag manager in Settings > Tracking
 
 Settings > Tracking loads 13 common tags (Google Analytics 4, Tag Manager, Ads, Meta, Clarity, UET, LinkedIn, TikTok, Pinterest, Tawk.to, Crisp, HubSpot, AdSense) from one fingerprinted script, after cookie consent, with the page policy widened only for the tags you turn on.
 
@@ -659,7 +659,7 @@ Settings > Tracking loads 13 common tags (Google Analytics 4, Tag Manager, Ads, 
 
 **Rollback floor: unchanged.** The previous release ignores the new table; the removed plugins would have to be installed again and their IDs entered again, because their settings are deleted with them.
 
-## Unreleased: Cookie consent banner and Consent Mode v2
+## v1.0.8: Cookie consent banner and Consent Mode v2
 
 Settings > Privacy adds an optional cookie banner. Visitors can accept all, reject all or choose Analytics, Marketing and Functional, and the choice is announced to your scripts through `window.hm.consent`, the `hm:consent` event and Google Consent Mode v2. A choice is remembered for 12 months; the page shows daily counts of the choices without storing any visitor data.
 
@@ -670,7 +670,7 @@ Settings > Privacy adds an optional cookie banner. Visitors can accept all, reje
 
 **Rollback floor: unchanged.** The previous release runs against the migrated data and ignores the new tables.
 
-## Unreleased: Plugin SDK 0.18.0 adds eight things first-party plugins need
+## v1.0.8: Plugin SDK 0.18.0 adds eight things first-party plugins need
 
 SDK 0.18.0 is an additive minor over 0.17: plugins built for earlier ranges keep loading. The first publish takes the public SDK repository from v0.13.0 to v0.18.0 in one commit.
 
@@ -687,11 +687,11 @@ SDK 0.18.0 is an additive minor over 0.17: plugins built for earlier ranges keep
 
 A plugin that uses `csp`, `request_headers`, `translation_of`, `media_alt` or content types must declare `"sdk": "^0.18"`: an older host ignores those fields without an error.
 
-## Unreleased: WebP and AVIF image copies
+## v1.0.8: WebP and AVIF image copies
 
 - Resized images are also served as WebP (AVIF where it is smaller), with the original format as fallback. Settings > Media can rebuild the copies of existing images, and copies of WebP uploads are now real WebP files. Source builds need `-tags nodynamic`. Additive; no breaking change.
 
-## Unreleased: Plugins change content through runs and changesets (breaking for plugins that write)
+## v1.0.8: Plugins change content through runs and changesets (breaking for plugins that write)
 
 Core 1.1.0 with SDK 0.17.0 is a deliberate hard break of the plugin write API. A plugin can no longer change live content directly: it starts a run, stages its writes into a changeset, and the owner publishes or discards the changeset. There is no compatibility shim. Read the upgrade note before you move: [Plugins write through runs](UPGRADES.md#plugins-write-through-runs).
 
@@ -704,7 +704,7 @@ Core 1.1.0 with SDK 0.17.0 is a deliberate hard break of the plugin write API. A
 
 **Rollback floor: unchanged.** The 1.0.x binary runs against the migrated data and ignores the new tables. Publish or discard every open changeset before you roll back: 1.0.x cannot show or publish one, so its staged content would only wait for the 72 hour expiry. A plugin built for runs does not load on 1.0.x.
 
-## Unreleased: Business details live per locale
+## v1.0.8: Business details live per locale
 
 Every locale, the default one included, now has its own business details, edited under Settings > Locales > Business details. The default locale's card comes first and is your organisation and the fallback for the others. Settings > General keeps Identity, Homepage and Email, and the notification email moved into its Email card.
 
@@ -717,7 +717,7 @@ Every locale, the default one included, now has its own business details, edited
 
 **Rollback floor: unchanged.** The previous release runs against the migrated data; see the upgrade note for what it shows.
 
-## Unreleased: SEO settings over the API and MCP
+## v1.0.8: SEO settings over the API and MCP
 
 An owner, or a script with an API key, can now read and change the site's SEO settings through `GET` and `PATCH /api/v1/settings/seo`, and an MCP client can do the same with five new tools. This is a minor, additive release.
 
@@ -729,7 +729,7 @@ An owner, or a script with an API key, can now read and change the site's SEO se
 
 **Rollback floor: unchanged.**
 
-## Unreleased: Shared content in template lists on multi-locale sites
+## v1.0.7: Shared content in template lists on multi-locale sites
 
 Theme data funcs (`recent`, `query`, `terms`, `attrValues`) now include shared (`und`) content plus the default locale on multi-locale sites. Known limit: on a non-default locale page the lists still use the default locale plus shared content.
 
@@ -738,7 +738,7 @@ Theme data funcs (`recent`, `query`, `terms`, `attrValues`) now include shared (
 
 **Rollback floor: unchanged.**
 
-## Unreleased: Business details over the API and more graph fields
+## v1.0.7: Business details over the API and more graph fields
 
 An owner, or a script with an owner token, can now read and write the business profile and the per-locale cards through `GET` and `PATCH /api/v1/settings/site`. The profile also gains the fields the Organization and LocalBusiness graph could not print before, all editable in Settings > General > Business details and on each locale card.
 
@@ -752,7 +752,7 @@ An owner, or a script with an owner token, can now read and write the business p
 
 **Rollback floor: unchanged.**
 
-## Unreleased: Menus are always real data
+## v1.0.7: Menus are always real data
 
 Navigation now comes only from menus. Before, a site without a Header menu still showed an automatic list of its first pages and a Blog link; that render-time fallback is gone, so a location with no menu, or an assigned menu with no items, renders nothing.
 
@@ -769,7 +769,7 @@ Navigation now comes only from menus. Before, a site without a Header menu still
 
 **Rollback floor: unchanged.** An older binary ignores the new column. The seeded menus stay: a site that was seeded keeps its real Header (the old automatic list returns only where no Header menu exists), and a seeded Blog link keeps working because it also stores its path. In the older admin, saving a menu at a theme-declared (non-core) location clears that location.
 
-## Unreleased: Conversions and lead attribution
+## v1.0.6: Conversions and lead attribution
 
 **Analytics > Conversions** shows what turns into leads. A lead is every form submission that is not spam. Each submission now keeps the **first and last touch** of the visit it came from (channel, source, medium, campaign, landing page), so the page can show leads by channel per day, a funnel (Visits, Viewed 2+ pages, Saw a form, Started the form, Submitted), **AI: what you give vs what you get** (pages each AI company fetched against the visitors and leads its assistant sent back) and the Recent leads. **Analytics > Traffic** now fills its Leads and Conv. rate columns and the First touch | Last touch choice works (First is the default). Forms > Submissions gets a **Came from** card on each submission, and the CSV export gains six attribution columns after Referrer. MCP gets an `analytics_conversions` tool.
 
@@ -782,7 +782,7 @@ Navigation now comes only from menus. Before, a site without a Header menu still
 
 **Rollback floor: unchanged.** An older binary ignores the new columns and the new events.
 
-## Unreleased: Traffic tab
+## v1.0.6: Traffic tab
 
 **Analytics > Traffic** shows where visits come from: Visits, Pageviews, Channels (direct, organic search, paid, email, social, referral, AI assistants), Sources, Campaigns, Landing pages, Devices, Countries and Engagement, with a compare period. Overview gets a **Visits by channel** chart. Everything is cookieless: only daily counts are stored, with no visitor id, IP address, user agent or referrer URL. A visit is the first pageview of a tab or an arrival from another site. MCP gets an `analytics_traffic` tool.
 
@@ -796,7 +796,7 @@ Navigation now comes only from menus. Before, a site without a Header menu still
 
 **Rollback floor: unchanged.** An older binary ignores the new tables, and the legacy `pageview` and `ai_referral` counters are written as before.
 
-## Unreleased: Search engines and a Google section in Analytics
+## v1.0.6: Search engines and a Google section in Analytics
 
 "AI analytics" is now **Analytics**, with a new **Google** section next to Crawlers (same URLs, `/analytics/google` is new). Crawlers gains a Search engines group and an **AI only / AI + search** toggle on the hero chart. Google shows Googlebot crawls, the verified share, pages crawled of published, the median time from publishing to first crawl, a stacked response-class chart and a page table with All, Not crawled, Errors and Stale filters. Spoofed fetches are left out of page numbers, and dates are whole UTC days. Impressions, clicks and position appear only when a search performance source is connected; otherwise one notice says so. MCP gets `analytics_google` and `search_first_crawl_at` on a page's activity (additive).
 
@@ -806,13 +806,13 @@ Navigation now comes only from menus. Before, a site without a Header menu still
 
 **Rollback floor: unchanged.** An older binary ignores the new table; relabelled hits stay unverifiable.
 
-## Unreleased: Builder canvas and inspector, redrawn
+## v1.0.1: Builder canvas and inspector, redrawn
 
 The page builder's canvas and inspector are easier to read and to use. On the canvas: a toolbar beside the selected element (Parent, Duplicate, Wrap, Hide on this device, Delete, More), breadcrumbs and Fit, 100, 75 and 50 zoom above the page, a coloured band on Tablet and Phone, round **+** handles between elements (with **Choose an element…** and **Insert a ready-made section…**), **Enter** to edit a selected text and **Esc** to cancel, `Ctrl+K` for the command palette from the page, a shorter format bar on headings, a link panel that lists your pages and anchors, and `Ctrl+Z` to undo the last format while typing. In the inspector: a header with an **Element options** menu, a **Class** row (the word "preset" is gone from the screen), a Style tab that opens with the State switch and a few Essentials per element, source labels with one **Reset** per control, **Show on** switches for Desktop, Tablet and Phone, padding nested in margin, colours with site names, **None** and recent colours, a reordered Content tab, **Number of columns**, an **Items** panel for Tabs, Accordion and Gallery, and **Restore from an earlier version…** for a single element (new read-only route `GET /entities/{id}/builder/node-versions`).
 
 No migration; the stored document and its keys are unchanged, and nothing new is stored. **Rollback floor: none.**
 
-## Unreleased: Public fingerprint scrub and opaque-origin page scripts
+## v1.0.1: Public fingerprint scrub and opaque-origin page scripts
 
 Public responses no longer say what serves them. **Everyone is signed out once after this upgrade**: the session cookie is renamed (`__Host-s` over HTTPS, `s` on plain-HTTP dev), so each person signs in again once. The old `hatamoto_session` cookie is ignored. The admin sets no CSRF cookie; the only cookie like it is the JSON API session cookie, sent at login when `ENABLE_COOKIE_AUTH=true`. It is now its own session kind named `__Host-a` (or `a`), and the admin cookie no longer authenticates `/api/v1`. People who use the API with a cookie sign in again once; the login response carries the `csrf_token` to send in `X-CSRF-Token`.
 
@@ -831,11 +831,11 @@ Public responses no longer say what serves them. **Everyone is signed out once a
 
 **Rollback floor: unchanged.** An older binary reads the database as before. Sessions created under the new cookie names are not recognised by an older binary (it reads `hatamoto_session`), so everyone signs in once more after a rollback. A legacy session is revoked the first time its browser visits after the upgrade, so a rollback does not sign that browser back in; one that has not visited since the upgrade still holds a valid legacy session, and a rollback inside the idle window signs it back in. An older binary answers JSON on `/health` and `/ready`, which `scripts/ship.sh` accepts.
 
-## Unreleased: Recovery copies live on the server
+## v1.0.1: Recovery copies live on the server
 
 Unsaved work on a published post or page is now kept on the server, one copy per user and entity, instead of in the browser. It is written by four POST routes (`/entities/{id}/edit/recovery`, `/builder/recovery` and a `/discard` twin of each) and delivered inside the editor page. A copy survives sign-out and follows the user to another device. It is deleted by the user's own save, publish or update, by Discard, after 30 days (prune job), and with the entity or user. Drafts rely on draft autosave. Copies that older versions kept in `localStorage` are removed when the admin loads and are never restored, so a copy that was only in a browser is lost at the upgrade.
 
-## Unreleased: MCP builder tools
+## v1.0.1: MCP builder tools
 
 An MCP agent can now read the builder's vocabulary and build or edit a page by ops, with the same checks as the admin builder. New tools: `builder_kinds`, `builder_stylespec`, `builder_design`, `builder_get`, `builder_validate`, `builder_render`, `builder_templates_list`, `builder_template_nodes` (all `read:entities`) and `builder_apply_ops` (`write:entities`). `builder_apply_ops` takes the `version` `builder_get` returned: a stale version is refused with `conflict: ... current version is N`, and a batch with one bad op stores nothing. It runs the validator, the element-setting rules, the slot and block-reference rules and the sanitiser, stores one version ("Edited by <key> via MCP") and can publish. `wrap`, `unwrap` and `duplicate` are available beside the editor's six verbs; omitted node ids are generated and returned. Limits: 500 ops and 1 MiB of ops per call, 2 MiB of rendered output. See [MCP.md](MCP.md#builder-tools) for the tools and an example session that the test suite replays.
 
@@ -843,7 +843,7 @@ An MCP agent can now read the builder's vocabulary and build or edit a page by o
 - The admin builder is unchanged: its save, messages and boot data are the same bytes. The shared rules moved into `internal/entity`; the kinds boot JSON and the template node reader moved into `internal/builder`. No migration, no new dependency.
 - Known limits: the version check and the write are not one atomic step (two writers in the same few milliseconds can both pass, as in the admin builder); pages that still have only the legacy `page_sections` layout, posts and people are refused by the builder tools (`not_builder:`); only tree templates are offered.
 
-## Unreleased: Element settings in the builder
+## v1.0.1: Element settings in the builder
 
 Buttons, images, containers and galleries get the settings Elementor users expect. **Anchor** gives an element a public `id` (link to it with `#anchor`; the Link field suggests your pages and the page's anchors). **Accessible name** and **Tooltip** set `aria-label` and `title`. Links have **Open in new tab** (always `noopener noreferrer`) and **Nofollow**, **Sponsored** and **User generated content**. Images have a link, a **Caption** (a `figure`) and **Lightbox**, which a gallery can switch on for all its images; a container can be one big link. Duplicate or reserved anchors, a link plus a lightbox on one image, and a linked container with a button, form, menu or other link inside are refused on save with the reason.
 
@@ -859,7 +859,7 @@ Buttons, images, containers and galleries get the settings Elementor users expec
 
 Deferred: custom `data-*` attributes and `lang`, art-direction image sources, lightbox for video, links on list items and icons, popups, anchors on theme sections and blocks, a smooth-scroll script (use `scroll-behavior` in the theme CSS).
 
-## Unreleased: Inline rich text in the builder
+## v1.0.1: Inline rich text in the builder
 
 Headings and text can be formatted where they sit on the page. Double-click one: a bar offers bold, italic, underline, strike, code, link (with an Open in new tab option) and Clear; Ctrl/Cmd+B, I, U and K work too, Enter finishes, Shift+Enter adds a line break in a text, Esc restores. Pasted text keeps only those marks. The inspector's Text field for a heading or text is a small editor with the same marks, in step with the canvas, usable by keyboard and at phone width.
 
@@ -871,7 +871,7 @@ Headings and text can be formatted where they sit on the page. Double-click one:
 
 **Rollback floor: this release, for pages with formatted heading or text.** A node that carries `html` cannot be read by an older binary: the public page renders an empty body and the admin shows the page as broken. Before a rollback, remove `html` on pages that must keep rendering: press Clear in the bar (a text with a line break keeps `html` until the break is deleted) or send the page_doc through the API with `p.html` removed; the no-JS outline cannot remove it.
 
-## Unreleased: Builder direct manipulation
+## v1.0.1: Builder direct manipulation
 
 Work on the page itself. A right-click on the canvas or a structure row, Shift+F10 or the menu key opens an element menu (copy, cut, paste after or inside, duplicate, rename, wrap, unwrap, copy and paste style, delete). Copy and paste go through the system clipboard, so an element copied on one page pastes into another; the server validates and re-ids what is pasted (`POST /admin/entities/{id}/builder/paste`, writes nothing). Ctrl or Cmd plus click and Shift plus click select several elements for delete, duplicate, hide, wrap and copy in one undo step. F2 or a double-click renames a row (shown in the structure and canvas tags, never on the public page). The **Add section here** bars open a picker of layouts (1 to 4 columns, 33/67, 67/33, 2×2 grid). The selected element has a move handle on the canvas, and **History** (Ctrl+H) jumps to any earlier step of the session. See [builder-reference](site/admin/builder-reference.md) and [BUILDER.md](BUILDER.md#direct-manipulation-builder-e4).
 
@@ -883,7 +883,7 @@ Work on the page itself. A right-click on the canvas or a structure row, Shift+F
 
 Deferred: dragging several elements at once, editing the styles of several elements together, and history that survives a reload.
 
-## Unreleased: Builder inspector controls
+## v1.0.1: Builder inspector controls
 
 The Style tab's fields are now real controls: lengths have a number field, a unit menu and a slider; colours are a swatch with a palette popover (site colours, custom colour, hex); Spacing is a box model with a link toggle per ring; every row shows a set-here dot, a source label (Local, Preset, Inherited) and a Reset; groups are collapsible and show a dot when something inside is set. A slider drag is one undo step. Keyboard: Tab wraps inside the colour popover and Esc returns to the swatch. See [builder-reference](site/admin/builder-reference.md) and [BUILDER.md](BUILDER.md#style-controls).
 
@@ -892,7 +892,7 @@ The Style tab's fields are now real controls: lengths have a number field, a uni
 
 **Rollback floor: unchanged.** No document-model change; an older binary reads every page this release saves.
 
-## Unreleased: Builder states (hover, focus, pressed, parent hover)
+## v1.0.1: Builder states (hover, focus, pressed, parent hover)
 
 The Style tab gets a State switch: Normal, Hover, Focus, Pressed and, for an element with a parent, Parent hover. Every state has its own values per device, shown on the canvas while selected (editor only). New style keys: Transform (`tx ty sc rot skx sky torigin`), Filter (`blur bright contrast sat gray hue bblur blend`) and Transition (`trans tdur tease tdelay`). Transitions apply only for visitors who have not asked for reduced motion. A hover-lift card is Shadow Small, Transition Transform and shadow, and on Hover Move Y `-4px` and Shadow Large.
 
@@ -904,7 +904,7 @@ The Style tab gets a State switch: Normal, Hover, Focus, Pressed and, for an ele
 
 **Rollback floor: this release.** A page, section template or style preset with a state key (`base:hover`...) or a transform, filter or transition key cannot be read by an older binary: it rejects the key (`unknown breakpoint` for a state key, verified against the previous parse path) and the page renders an empty body publicly and is refused with 422 `invalid_page_doc` in the admin, as in the Style depth rollback note below. Nothing is rewritten by the upgrade; remove the new keys from pages that must keep rendering before a rollback.
 
-## Unreleased: Builder style depth (StyleSpec v2)
+## v1.0.1: Builder style depth (StyleSpec v2)
 
 The builder's Style tab goes from 27 to 77 keys: margins with `auto` and negative values, size limits, aspect ratio and image fit, `position` including `sticky` with offsets and stack order, typography (font, weight, line height, letter spacing, case, decoration), borders (width, per side, style, colour, per-corner radius), a background image and gradient, opacity, `display`, grid placement and gaps. Raw CSS is still never accepted: every key is a token, a listed option or a bounded pattern, and the same validation applies over REST, MCP and the admin (`GET /admin/builder/stylespec` lists them).
 
@@ -915,11 +915,11 @@ The builder's Style tab goes from 27 to 77 keys: margins with `auto` and negativ
 
 **Rollback floor: this release.** A page, section template or style preset that uses a new key, or a new value of an old key (`ta: justify`, `dir: row-reverse|column-reverse`), cannot be read by an older binary. The older binary validates styles whenever it parses a doc: the public page renders an empty body (and logs it), the admin shows the page as a broken doc and refuses saves with 422 `invalid_page_doc`, and a preset loses only its entries with new keys (a preset with only new keys is ignored but stays stored). Nothing is rewritten by the upgrade, so going forward again restores the pages, but saving the Style presets page on the older binary permanently deletes the new keys from presets that mix old and new keys. Remove the new keys from a page before rolling back if it must keep rendering. See [BUILDER.md](BUILDER.md#stylespec).
 
-## Unreleased: AI analytics in the admin sub-sidebar
+## v1.0.1: AI analytics in the admin sub-sidebar
 
 AI analytics is now five sections (Overview, Crawlers, Content, Referrals, Health) plus a page per agent, in the admin sub-sidebar like Settings and Theme. Old `?tab=` and `/pageviews` links redirect. The date picker can compare with the previous period. Chart.js is no longer shipped: the charts are drawn by the admin's own SVG modules, which makes the admin download about 208 KB smaller.
 
-## Unreleased: Default theme layout options
+## v1.0.1: Default theme layout options
 
 - Hero: optional `stripLabel` and `stripItems[]` show a labelled row of short items between the buttons and the media. Nothing changes for heroes that do not set them.
 - Split: optional `panelHeight: match` stretches the code panel to the height of the text column above 960px. The default (`auto`) is unchanged.
@@ -927,7 +927,7 @@ AI analytics is now five sections (Overview, Crawlers, Content, Referrals, Healt
 - Admin: the items of a tag strip (and the hero strip) are now edited one per line in a textarea, so an item can contain a comma. Before, the comma separated field split `htmx admin, no Node` into two items on save. Existing content is unchanged. A theme can use this for its own string arrays with `"x-hm-field": "lines"`.
 - The strip label is now linked to its list (`aria-labelledby`) in the hero and the tag strip.
 
-## Unreleased: Pages published from the CLI show up without a restart
+## v1.0.1: Pages published from the CLI show up without a restart
 
 A page or menu written by another process (`hatamoto entity create --publish`, an import, the scheduled-publish worker, another replica) now clears the running server's page cache. Previously the server kept serving the old cached pages (for example a header without the new page) until the cache entry expired.
 
@@ -938,7 +938,7 @@ How it works: a migration adds `hatamoto_content_changes`, an append-only log. T
 - Not covered: redirects (read live, as before), settings, terms, authors, media, forms, schemas, themes and plugins changed in another process. With several replicas those still reach the other replicas when the cache entry expires (`HATAMOTO_PAGE_CACHE_TTL`).
 - The cache lifetime and cache headers are unchanged.
 
-## Unreleased: Theme directory section
+## v1.0.1: Theme directory section
 
 A new core section type, "Theme directory", shows the themes of your signed registry
 (`HATAMOTO_REGISTRY_URL`) as cards with a screenshot, inside the normal site theme.
@@ -953,11 +953,11 @@ for registry themes. Authors check a theme with `hatamoto theme check ./mytheme 
 and repack and sign a pinned author zip with `hatamoto theme pack --archive F --sha256 H`
 (`theme pack` reads the zip; it does not build one).
 
-## Unreleased: Plugin scripts need the site.scripts permission
+## v1.0.1: Plugin scripts need the site.scripts permission
 
 Plugins' browser JavaScript (`assets/plugin.js`, `render.head` script tags) and plugin sections/partials with scripts now need the `site.scripts` permission. After updating, a plugin that ships a script stops running it until its author lists `site.scripts` and you grant it under Plugins > Permissions. Nothing is granted automatically. Stylesheets are unaffected. The permission is part of SDK 0.12.0 (Hatamoto v0.31.0). Hosts from v0.30.0 already enforce it, whatever `sdk` range the plugin declares; this is a behaviour change that should have been announced with a notice, see [STABILITY.md](../STABILITY.md).
 
-## Unreleased: Security hardening for self-hosters
+## v1.0.1: Security hardening for self-hosters
 
 - **Trusted proxies default to loopback only.** `X-Forwarded-*` headers are believed only from `127.0.0.0/8` and `::1`; private ranges are no longer trusted. A proxy on another address, and every Docker deployment (a host proxy reaches the container from the bridge gateway), must set `HATAMOTO_TRUSTED_PROXIES`. Until then every visitor looks like one client and the log shows a one-time warning. See [Trusted proxies](site/operate/configuration-reference.md#trusted-proxies).
 - **`HATAMOTO_AGENT_RANGES=off`** stops the daily download of AI-crawler IP ranges. Crawler hits are then verified from stored ranges and reverse DNS. See [Outbound connections](site/operate/outbound-connections.md).
@@ -965,7 +965,7 @@ Plugins' browser JavaScript (`assets/plugin.js`, `render.head` script tags) and 
 - **CSRF token never in a URL.** Multipart admin forms send it in the `X-CSRF-Token` header or as the first form field; a token in the query string is never accepted.
 - **Archive import and `/media`.** An imported file must match the media allowlist (files that do not are skipped with a warning), and `/media` serves types outside the allowlist as downloads in a sandbox.
 
-## Unreleased: Plugin versions and updates in Admin > Plugins
+## v1.0.1: Plugin versions and updates in Admin > Plugins
 
 Every plugin in the list now shows its version. When the registry has a newer one
 the row gets **Update to vX**, one click, and your granted permissions stay as they
@@ -977,7 +977,7 @@ reach (other signer, new allowed hosts, any-address fetching, site scripts, an
 older version) is never applied without your confirmation, from any button. With no
 registry set up, or one that cannot be reached, the list shows no update controls.
 
-## Unreleased: Plugin directory section
+## v1.0.1: Plugin directory section
 
 A new core section type, "Plugin directory", shows the plugins of your signed
 registry (`HATAMOTO_REGISTRY_URL`) as cards inside the normal site theme: header,
@@ -992,7 +992,7 @@ section shows a short unavailable message and the page still answers 200.
 `scripts/publish-registry.sh` uploads `registry/plugins/` only when it exists.
 The Caddy example no longer serves `/plugins` statically: it is proxied to the app.
 
-## Unreleased: one page model (breaking changes)
+## v1.0.1: one page model (breaking changes)
 
 `attributes.page_doc` is now the only page body model. The v1 `page_sections` list is a frozen, read-only legacy key.
 No migration; public HTML and the public pages JSON are unchanged.
@@ -1020,7 +1020,7 @@ No migration; public HTML and the public pages JSON are unchanged.
   a rollback binary shows the last mirror, which can be older than the doc. Convert (`builder convert`) before relying
   on the new behaviour, and keep a backup.
 
-## Unreleased: Webhooks are built in
+## v1.0.1: Webhooks are built in
 
 Outgoing webhooks are a core feature again, reversing the webhooks half of
 v1-19. Search Console stays a plugin. Receiver contract and setup:
@@ -1070,7 +1070,7 @@ v1-19. Search Console stays a plugin. Receiver contract and setup:
 **Pending contract:** the next minor drops `hatamoto_plugin_handover`
 (`-- hatamoto:contract unused-since v0.27`). Nothing in this release reads it.
 
-## Unreleased: Plugin directory
+## v1.0.1: Plugin directory
 
 **Upgrade steps**
 
@@ -1092,7 +1092,7 @@ older servers ignore them.
   or `FIRST_PARTY_ONLY=1` is set, so a publish cannot silently drop the
   community plugins.
 
-## Unreleased: People replace authors
+## v1.0.1: People replace authors
 
 **Upgrade steps**
 
@@ -1123,7 +1123,7 @@ older servers ignore them.
   `hatamoto_user_people`, and old archives get people on import.
 * `/api/v1/authors` is deprecated and only edits the rollback mirror.
 
-## Unreleased: Page cache controls in the admin
+## v1.0.1: Page cache controls in the admin
 
 **Upgrade steps**
 
