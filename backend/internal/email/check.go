@@ -37,6 +37,10 @@ type CheckError struct {
 	Host  string
 	Port  int
 	err   error
+	// codeOnly hides the server's reply text from UserMessage: a Security
+	// None host that is not loopback can be any service on the private
+	// network, and its reply must not reach the form.
+	codeOnly bool
 }
 
 func (e *CheckError) Error() string {
@@ -52,17 +56,28 @@ func (e *CheckError) detail() string {
 	return e.Msg
 }
 
+// userDetail is detail for the owner: the reply text is dropped when codeOnly.
+func (e *CheckError) userDetail() string {
+	if !e.codeOnly {
+		return e.detail()
+	}
+	if e.Code != 0 {
+		return "code " + strconv.Itoa(e.Code)
+	}
+	return "no reply code"
+}
+
 // UserMessage is the sentence shown to the owner, for example
 // "Could not sign in to smtp.x:587 (535 Authentication failed)."
 func (e *CheckError) UserMessage() string {
 	where := net.JoinHostPort(e.Host, strconv.Itoa(e.Port))
 	switch e.Stage {
 	case StageAuth:
-		return fmt.Sprintf("Could not sign in to %s (%s).", where, e.detail())
+		return fmt.Sprintf("Could not sign in to %s (%s).", where, e.userDetail())
 	case StageTLS:
-		return fmt.Sprintf("Could not set up a secure connection to %s (%s).", where, e.detail())
+		return fmt.Sprintf("Could not set up a secure connection to %s (%s).", where, e.userDetail())
 	case StageSender:
-		return fmt.Sprintf("%s did not accept the From address (%s).", where, e.detail())
+		return fmt.Sprintf("%s did not accept the From address (%s).", where, e.userDetail())
 	default:
 		var ar *AddrRefusedError
 		if errors.As(e.err, &ar) {
@@ -77,12 +92,13 @@ func (e *CheckError) UserMessage() string {
 			// service's banner and tells which ports are open).
 			return fmt.Sprintf("Could not connect to %s. Check the host, port and security.", where)
 		}
-		return fmt.Sprintf("Could not connect to %s (%s).", where, e.detail())
+		return fmt.Sprintf("Could not connect to %s (%s).", where, e.userDetail())
 	}
 }
 
 func newCheckError(stage string, c Config, err error) *CheckError {
-	ce := &CheckError{Stage: stage, Host: c.SMTPHost, Port: c.SMTPPort, Msg: err.Error(), err: err}
+	ce := &CheckError{Stage: stage, Host: c.SMTPHost, Port: c.SMTPPort, Msg: err.Error(), err: err,
+		codeOnly: c.Security == SecurityNone && !IsLoopbackHost(c.SMTPHost)}
 	var te *textproto.Error
 	if errors.As(err, &te) {
 		ce.Code, ce.Msg = te.Code, te.Msg

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/netip"
+	"net/textproto"
 	"strings"
 	"syscall"
 	"testing"
@@ -143,5 +144,32 @@ func TestNoneCredentialsAllowLoopbackOnly(t *testing.T) {
 	// Without credentials a private address is still fine.
 	if !noneAllow(Config{Security: SecurityNone})(netip.MustParseAddr("10.0.0.5")) {
 		t.Error("private address refused without credentials")
+	}
+}
+
+// A Security None host that is not loopback can be any service on the private
+// network: its reply text must not reach the owner, only the stage and code.
+func TestNoneUserMessageHidesReplyText(t *testing.T) {
+	t.Parallel()
+	reply := &textproto.Error{Code: 550, Msg: "secret-banner internal-service"}
+	for _, stage := range []string{StageConnect, StageAuth, StageSender, StageTLS} {
+		cfg := Config{SMTPHost: "10.0.0.5", SMTPPort: 25, Security: SecurityNone}
+		msg := newCheckError(stage, cfg, reply).UserMessage()
+		if strings.Contains(msg, "secret-banner") || !strings.Contains(msg, "550") {
+			t.Errorf("%s: message = %q", stage, msg)
+		}
+		// The server-side error keeps the full text for the log.
+		if !strings.Contains(newCheckError(stage, cfg, reply).Error(), "secret-banner") {
+			t.Errorf("%s: Error() lost the reply text", stage)
+		}
+		// Loopback and encrypted hosts keep today's message.
+		for _, keep := range []Config{
+			{SMTPHost: "localhost", SMTPPort: 25, Security: SecurityNone},
+			{SMTPHost: "10.0.0.5", SMTPPort: 25, Security: SecurityStarttls},
+		} {
+			if m := newCheckError(stage, keep, reply).UserMessage(); !strings.Contains(m, "secret-banner") {
+				t.Errorf("%s %v: message = %q", stage, keep.Security, m)
+			}
+		}
 	}
 }
