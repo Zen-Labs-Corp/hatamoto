@@ -32,20 +32,51 @@ func Errorf(format string, a ...any) error {
 	return fmt.Errorf("%w: %s", ErrBlocked, fmt.Sprintf(format, a...))
 }
 
-var blockedPrefixes = func() []netip.Prefix {
-	var out []netip.Prefix
-	for _, s := range []string{
-		"0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16",
-		"172.16.0.0/12", "192.0.0.0/24", "192.0.2.0/24", "192.88.99.0/24", "192.168.0.0/16",
-		"198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/3", // multicast and reserved
-		"::/96", "::ffff:0:0:0/96", // IPv4-compatible and SIIT forms embed an IPv4 address
-		"::/128", "::1/128", "64:ff9b::/96", "64:ff9b:1::/48", "100::/64", "2001::/32", "2001:db8::/32",
-		"fc00::/7", "fe80::/10", "ff00::/8",
-	} {
+func mustPrefixes(list ...string) []netip.Prefix {
+	out := make([]netip.Prefix, 0, len(list))
+	for _, s := range list {
 		out = append(out, netip.MustParsePrefix(s))
 	}
 	return out
-}()
+}
+
+// privatePrefixes are the ranges of a private network: RFC 1918, CGNAT
+// (Tailscale), link-local and IPv6 unique-local. Loopback is handled apart.
+var privatePrefixes = mustPrefixes(
+	"10.0.0.0/8", "100.64.0.0/10", "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16",
+	"fc00::/7", "fe80::/10",
+)
+
+var otherBlockedPrefixes = mustPrefixes(
+	"0.0.0.0/8", "127.0.0.0/8",
+	"192.0.0.0/24", "192.0.2.0/24", "192.88.99.0/24",
+	"198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/3", // multicast and reserved
+	"::/96", "::ffff:0:0:0/96", // IPv4-compatible and SIIT forms embed an IPv4 address
+	"::/128", "::1/128", "64:ff9b::/96", "64:ff9b:1::/48", "100::/64", "2001::/32", "2001:db8::/32",
+	"ff00::/8",
+)
+
+// blockedPrefixes is the one list of ranges a public fetch must not reach.
+var blockedPrefixes = append(append([]netip.Prefix{}, privatePrefixes...), otherBlockedPrefixes...)
+
+// PrivateNetworkAddr reports whether ip is loopback or on a private network
+// (RFC 1918, CGNAT 100.64/10, IPv6 ULA, link-local). Used for SMTP Security
+// None. A zone only picks the interface and is ignored.
+func PrivateNetworkAddr(ip netip.Addr) bool {
+	ip = ip.WithZone("").Unmap()
+	if !ip.IsValid() || ip.IsUnspecified() || ip.IsMulticast() || ip == netip.AddrFrom4([4]byte{255, 255, 255, 255}) {
+		return false
+	}
+	if ip.IsLoopback() {
+		return true
+	}
+	for _, p := range privatePrefixes {
+		if p.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
 
 // BlockedAddr reports whether a connection to ip must be refused.
 func BlockedAddr(ip netip.Addr) bool {
