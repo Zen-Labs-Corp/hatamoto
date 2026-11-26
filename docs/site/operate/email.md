@@ -63,13 +63,13 @@ docker compose --profile mail up -d
 
 Then in **Settings > Email** choose **Custom**, set **Host** to `mailpit`, **Port** to `1025` and **Security** to **None**, and leave **Username** and **Password** blank. Send a test email and read it in the catcher's web page at `http://localhost:8025`. The web page listens on the server's own address only, because it shows every message, reset links included, without a sign-in. On a remote server open it through an SSH tunnel (`ssh -L 8025:localhost:8025 you@your-server`), then browse to `http://localhost:8025` on your own machine. Port 1025 is not published on the host: only the `hatamoto` container reaches it.
 
-To use the environment instead, set this and restart:
+To use the environment instead, add this to the `environment:` block of the `hatamoto` service (under systemd, write the same names as `KEY=value` lines in `hatamoto.env`) and restart:
 
-```ini
-SMTP_HOST=mailpit
-SMTP_PORT=1025
-SMTP_SECURITY=none
-SMTP_FROM=site@example.test
+```yaml
+SMTP_HOST: mailpit
+SMTP_PORT: "1025"
+SMTP_SECURITY: none
+SMTP_FROM: site@example.test
 ```
 
 A catcher on your LAN or on a Tailscale network works the same way. Use its host name or address as **Host**. Security None connects only to loopback (`localhost`, `127.0.0.1`, `::1`) and to private addresses: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10` (Tailscale), `fc00::/7` and link-local addresses. A host name is checked when Hatamoto connects: if it resolves to a public address, the connection is refused and the page names that address.
