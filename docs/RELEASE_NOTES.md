@@ -3,7 +3,7 @@
 ## v1.4.6: Security None reaches a mail catcher on a private network
 
 - **What.** **Settings > Email** accepts Security **None** for a host on a private network (Docker, LAN, Tailscale: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`, `fc00::/7`, link-local) when Username and Password are blank. A new `SMTP_SECURITY` variable (`starttls`, `tls` or `none`) sets the same for the environment; with `none`, `SMTP_HOST=localhost` counts as set up. At connect time Hatamoto refuses a public address, including a host name that resolves to one, and the error names the address. `docker-compose.yml` has an optional `mailpit` catcher: `docker compose --profile mail up`. See [Test with a mail catcher](site/operate/email.md#test-with-a-mail-catcher).
-- **Compatibility.** None with a username or password still works only for `localhost`, `127.0.0.1` and `::1`. STARTTLS and TLS (SSL) are unchanged. With `SMTP_SECURITY` unset the environment uses STARTTLS as before.
+- **Compatibility.** None with a username or password still works only for `localhost`, `127.0.0.1` and `::1`. STARTTLS and TLS (SSL) are unchanged. With `SMTP_SECURITY` unset the environment uses STARTTLS as before. `SMTP_SECURITY` was ignored before; any value other than `starttls`, `tls` or `none` now stops startup.
 - **Migration.** None. **Rollback floor:** unchanged. An older binary reads a saved None row and sends without the private-network check.
 
 ## v1.4.6: entity upserts can ask to publish (SDK 0.28.1)
