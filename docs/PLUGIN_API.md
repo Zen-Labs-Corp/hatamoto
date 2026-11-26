@@ -2,6 +2,8 @@
 
 Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.md).
 
+> **Plugin screen is a tab (compat, no SDK change).** A plugin's admin page now opens as its own first tab, `<admin>/plugins/<name>/app`, sized to its content. Older cores show the same page under Settings. Nothing to migrate and no manifest field changed.
+>
 > **`entities.list` page size (compat, no SDK change; hosts reporting SDK 0.27.1).** `entities.list` returns up to the `limit` asked for, at most 200 (default 50); a larger `limit` is clamped to 200, not refused. Earlier hosts returned 20 items for any `limit` above 100. Page with `next_cursor` until it is `null`: a page can hold fewer items than `limit` and still have a cursor, so do not stop at a short page. Items are ordered newest first. If a page would exceed the 2 MiB result cap the call fails with `invalid_argument`; ask for a smaller `limit`. No argument, result field or SDK type changed.
 >
 > **Plugin pages start runs (compat, no SDK change).** On a plugin's admin page the owner's page may call `hatamoto.runInputs("<run>", {name: value})`: core asks the owner in its own dialog (the run title and every input), then starts the declared run; the promise gives `{ok:true, run_id, url}` or `{ok:false, error}` (`"cancelled"` when the owner says no). `hatamoto.runInputs({...})` with one object still fills the Runs tab's start form as before.
@@ -107,9 +109,11 @@ A manifest may declare a page of the plugin's own:
 "ui": {"title": "Leads", "entry": "index.html", "roles": ["owner", "editor"]}
 ```
 
-`ui/<entry>` (default `ui/index.html`) is shown on the plugin's Settings tab,
-`<admin>/plugins/<name>/settings`, for the listed roles (owner only by default),
-once the plugin is loaded. (`<admin>` is your install's private admin address, printed by `hatamoto admin-url`; tests and the QA harness pin it to `/admin`.) The old `/admin/plugins/<name>/ui` address redirects there. It runs in `<iframe sandbox="allow-scripts">` **without**
+`ui/<entry>` (default `ui/index.html`) is the plugin's own first tab,
+`<admin>/plugins/<name>/app`, labelled `ui.title` (the plugin name when empty).
+`<admin>/plugins/<name>` opens it for the listed roles (owner only by default),
+once the plugin is loaded. The Settings tab keeps only the settings form, and an
+editor listed in `ui.roles` sees only this screen. (`<admin>` is your install's private admin address, printed by `hatamoto admin-url`; tests and the QA harness pin it to `/admin`.) The old `/admin/plugins/<name>/ui` address redirects to the screen. It runs in `<iframe sandbox="allow-scripts">` **without**
 `allow-same-origin`: an opaque origin, so no admin cookies, no admin DOM, no
 storage. It is served from `/plugin-ui/<name>/` (outside the admin address) with:
 
@@ -118,6 +122,10 @@ Content-Security-Policy: sandbox allow-scripts; default-src 'none'; script-src '
   style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none';
   form-action 'none'; base-uri 'none'; frame-ancestors 'self'
 ```
+
+**Sizing.** The frame is full width and follows the page's height: `/plugin-ui/_sdk/bridge.js` reports it to the admin, which clamps it to 320-20000 px and applies it to the frame's own height only, after checking the frame's nonce. The page never scrolls inside the frame. Keep content in normal flow and do not size the page to `100vh` or `100%`. A page that does not load bridge.js keeps a fixed-height frame.
+
+**No menu entries.** A plugin cannot add items to the admin sidebar or any core menu. Its screen, Settings, Permissions and (owner) Runs tabs on its plugin page are the only places it appears.
 
 No inline script or style, no `eval`, no network of its own. The HTML document
 needs a signed-in user of an allowed role and the one-time ticket in its URL
