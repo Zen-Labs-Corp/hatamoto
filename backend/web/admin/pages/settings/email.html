@@ -9,7 +9,8 @@
 {{template "hm/card-start" dict "ID" "email" "Title" "Email" "Heading" "h2" "Description" "Password resets, invitations and form notices."}}
 <div class="hm-setlist"><div class="hm-setrow">
 <div class="hm-setrow__text"><p class="hm-setrow__name">Status</p>
-<p class="hm-field__help">Using: {{.Using}}</p></div>
+<p class="hm-field__help">Using: {{.Using}}</p>{{with .Unencrypted}}
+<p class="hm-field__help">Email sends unencrypted to {{.}} on your private network.</p>{{end}}</div>
 <div class="hm-setrow__control">{{if .Configured}}{{template "hm/badge" dict "Label" "Email is set up" "Kind" "success"}}{{else}}{{template "hm/badge" dict "Label" "Email is not set up" "Kind" "warning"}}{{end}}</div>
 </div></div>
 {{template "hm/emailfields" .Form}}

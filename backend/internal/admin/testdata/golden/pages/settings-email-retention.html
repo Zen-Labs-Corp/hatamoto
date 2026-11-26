@@ -143,7 +143,8 @@
 </div></div>
 <div class="hm-field">
 <label class="hm-field__label" for="security">Security</label>
-<div class="hm-select" data-hm-select><select class="hm-field__control" id="security" name="security"><option value="starttls" selected>STARTTLS</option><option value="tls">TLS (SSL)</option><option value="none">None (localhost only)</option></select></div>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="security" name="security" aria-describedby="security-help"><option value="starttls" selected>STARTTLS</option><option value="tls">TLS (SSL)</option><option value="none">None (no encryption)</option></select></div>
+<p class="hm-field__help" id="security-help">None sends without encryption. Allowed for localhost, or for a host on a private network (Docker, LAN, Tailscale) when Username and Password are left blank.</p>
 </div>
 <div class="hm-pair"><div class="hm-field">
 <label class="hm-field__label" for="username">Username</label>
