@@ -7,7 +7,7 @@
 <p align="center">
 The batteries-included CMS for the agentic era: builder, SEO, caching, forms, redirects,
 AI analytics, auto linking, entities, schema, Media optimizer and MCP in one Go binary plus Postgres.<br>
-Open source, no plugin stack, no PHP, no Node, install stats on by default, one switch to turn them off.
+Open source, no plugin stack, no PHP, no Node.
 </p>
 
 <p align="center">
