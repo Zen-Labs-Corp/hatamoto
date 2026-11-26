@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/adminpath"
+	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/runenv"
 )
 
@@ -147,11 +148,20 @@ type SMTPConfig struct {
 	Port     int
 	Username string
 	Password string
+	// Security is SMTP_SECURITY, lower-cased: "" (means starttls), "starttls",
+	// "tls" or "none".
+	Security string
 	From     string
 	FromName string
 	// FromNameFromSite is true when SMTP_FROM_NAME is unset: the admin's own
 	// emails then use the site name as it is in the database at send time.
 	FromNameFromSite bool
+}
+
+// Enabled reports whether SMTP_* turns email on: a host is set, and it is not
+// the default "localhost" unless SMTP_SECURITY=none (a local mail catcher).
+func (s SMTPConfig) Enabled() bool {
+	return s.Host != "" && (s.Host != "localhost" || s.Security == string(email.SecurityNone))
 }
 
 // ServerConfig holds HTTP server settings.
@@ -464,6 +474,7 @@ func Load() (*Config, error) {
 		Port:     getEnvInt("SMTP_PORT", 587),
 		Username: getEnv("SMTP_USERNAME", ""),
 		Password: getEnv("SMTP_PASSWORD", ""),
+		Security: strings.ToLower(strings.TrimSpace(getEnv("SMTP_SECURITY", ""))),
 		From:     getEnv("SMTP_FROM", DefaultSMTPFrom),
 		FromName: getEnv("SMTP_FROM_NAME", ""),
 	}
@@ -617,7 +628,18 @@ func (c *Config) Validate() error {
 	}
 	// Mail from noreply@localhost is rejected by real relays (and fails SPF and
 	// DMARC), so turning SMTP on without saying who the mail is from is an error.
-	if h := c.SMTP.Host; h != "" && h != "localhost" && c.SMTP.From == DefaultSMTPFrom {
+	switch email.Security(c.SMTP.Security) {
+	case "", email.SecurityStarttls, email.SecurityTLS:
+	case email.SecurityNone:
+		if c.SMTP.Enabled() {
+			if err := email.CheckNone(c.SMTP.Host, c.SMTP.Username != "" || c.SMTP.Password != ""); err != nil {
+				return fmt.Errorf("SMTP_SECURITY=none: %w", err)
+			}
+		}
+	default:
+		return fmt.Errorf("SMTP_SECURITY: %q is not supported, use starttls, tls or none", c.SMTP.Security)
+	}
+	if c.SMTP.Enabled() && c.SMTP.From == DefaultSMTPFrom {
 		return fmt.Errorf("SMTP_FROM is required when SMTP_HOST is set (the default %s cannot send)", DefaultSMTPFrom)
 	}
 	if m := c.Server.MediaStorage; m != "" && m != "local" && m != "s3" {

@@ -52,6 +52,10 @@ type smtpSettingsStore interface {
 
 // envEmailConfig is the configuration the server's SMTP_* environment gives.
 func envEmailConfig(env config.SMTPConfig) email.Config {
+	sec := email.Security(env.Security)
+	if sec == "" {
+		sec = email.SecurityStarttls
+	}
 	return email.Config{
 		SMTPHost:         env.Host,
 		SMTPPort:         env.Port,
@@ -60,7 +64,8 @@ func envEmailConfig(env config.SMTPConfig) email.Config {
 		FromAddress:      env.From,
 		FromName:         env.FromName,
 		FromNameFromSite: env.FromNameFromSite,
-		Security:         email.SecurityStarttls,
+		Security:         sec,
+		AllowLocalhost:   env.Security == string(email.SecurityNone),
 	}
 }
 
@@ -72,7 +77,7 @@ func resolveEmailConfig(ctx context.Context, logger *slog.Logger, env config.SMT
 	store smtpSettingsReader, secret, siteName string) (email.Config, emailResolution) {
 	envCfg := envEmailConfig(env)
 	envRes := emailResolution{Source: emailSourceNone}
-	if env.Host != "" && env.Host != "localhost" {
+	if env.Enabled() {
 		envRes.Source = emailSourceServer
 	}
 
