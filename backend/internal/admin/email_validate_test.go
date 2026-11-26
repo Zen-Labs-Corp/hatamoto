@@ -80,6 +80,14 @@ func TestValidateEmail(t *testing.T) {
 		{name: "custom needs port", form: emailForm("port", ""), wantIDs: "port"},
 		{name: "unknown security", form: emailForm("security", "ssl"), wantIDs: "security"},
 		{name: "none on public host", form: emailForm("security", "none"), wantIDs: "security"},
+		{name: "none on mailpit without credentials", form: emailForm("host", "mailpit", "port", "1025", "security", "none", "username", "", "password", "")},
+		{name: "none on private IP without credentials", form: emailForm("host", "10.0.0.5", "port", "1025", "security", "none", "username", "", "password", "")},
+		{name: "none on mailpit with credentials", form: emailForm("host", "mailpit", "port", "1025", "security", "none"), wantIDs: "security"},
+		{name: "none on mailpit keeping saved password", form: emailForm("host", "mailpit", "security", "none", "password", ""),
+			stored: EmailSettingsView{Saved: true, Host: "mailpit", Username: "user", PasswordSaved: true}, readable: true, wantIDs: "security"},
+		{name: "none on public IP without credentials", form: emailForm("host", "203.0.113.5", "port", "25", "security", "none", "username", "", "password", ""), wantIDs: "security"},
+		{name: "none on localhost with credentials", form: emailForm("host", "localhost", "port", "1025", "security", "none")},
+		{name: "gmail preset with none and credentials", form: emailForm("provider", "gmail", "security", "none"), wantIDs: "security"},
 		{name: "none on localhost", form: emailForm("host", "localhost", "port", "1025", "security", "none")},
 		{name: "none on 127.0.0.1", form: emailForm("host", "127.0.0.1", "port", "1025", "security", "none")},
 		{name: "none on 127.0.0.2 fails at validation", form: emailForm("host", "127.0.0.2", "port", "1025", "security", "none"), wantIDs: "security"},
@@ -157,5 +165,22 @@ func TestValidateEmailPasswordMessage(t *testing.T) {
 	_, _, errs := validateEmail(emailForm("password", ""), EmailSettingsView{}, false)
 	if len(errs) != 1 || errs[0].ID != "password" || errs[0].Message != "Enter the password for this host and username." {
 		t.Fatalf("errs = %+v", errs)
+	}
+}
+
+func TestValidateEmailNoneCopy(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		form url.Values
+		want string
+	}{
+		{"credentials", emailForm("host", "mailpit", "security", "none"), "Leave Username and Password blank for a mail catcher on a private network"},
+		{"public address", emailForm("host", "203.0.113.5", "security", "none", "username", "", "password", ""), "None only connects to localhost or a private network address."},
+	} {
+		_, _, errs := validateEmail(tc.form, EmailSettingsView{}, false)
+		if len(errs) != 1 || errs[0].ID != "security" || !strings.Contains(errs[0].Message, tc.want) {
+			t.Fatalf("%s: errs = %+v", tc.name, errs)
+		}
 	}
 }
