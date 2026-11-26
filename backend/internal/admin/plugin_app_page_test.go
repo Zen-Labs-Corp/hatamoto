@@ -88,3 +88,32 @@ func TestPluginAppPage(t *testing.T) {
 		}
 	}
 }
+
+func TestPluginTabsStartWithTheScreen(t *testing.T) {
+	t.Parallel()
+
+	g, _, fp := newPackageRig(t)
+	fp.list = append(fp.list, PluginInfo{Name: "untitled", Version: "1.0.0", Loaded: true, UI: &PluginUIInfo{}})
+
+	body := g.do("GET", "/admin/plugins/hello/app", "owner-token", nil, nil).Body.String()
+	nav := body[strings.Index(body, `aria-label="Plugin sections"`):]
+	first := nav[strings.Index(nav, "<a "):]
+	if !strings.HasPrefix(first, `<a `) || !strings.Contains(first[:strings.Index(first, "</a>")], `href="/admin/plugins/hello/app"`) ||
+		!strings.Contains(first[:strings.Index(first, "</a>")], `aria-current="page"`) {
+		t.Errorf("the first tab must be the active screen tab:\n%.400s", first)
+	}
+	i, j, k := strings.Index(nav, "Hello board"), strings.Index(nav, ">Settings<"), strings.Index(nav, ">Permissions<")
+	if i < 0 || i > j || j > k {
+		t.Errorf("tab order: screen %d, settings %d, permissions %d", i, j, k)
+	}
+
+	if body := g.do("GET", "/admin/plugins/devonly/settings", "owner-token", nil, nil).Body.String(); strings.Contains(body, "/devonly/app") {
+		t.Error("a plugin without ui has no screen tab")
+	}
+	if body := g.do("GET", "/admin/plugins/ownerui/settings", "owner-token", nil, nil).Body.String(); !strings.Contains(body, "Owner tool") {
+		t.Error("the screen tab carries the ui title")
+	}
+	if body := g.do("GET", "/admin/plugins/untitled/settings", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `href="/admin/plugins/untitled/app"`) || !strings.Contains(body, ">untitled<") {
+		t.Errorf("an untitled screen falls back to the plugin name:\n%s", body)
+	}
+}

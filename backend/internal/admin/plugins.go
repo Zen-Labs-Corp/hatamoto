@@ -198,11 +198,14 @@ func (a *Admin) newUpdateReview(p PluginInfo) *updateReview {
 	}
 }
 
-func (a *Admin) newPluginHead(p PluginInfo, tab string, owner bool) pluginHead {
-	tabs := []ui.Tab{
-		{Label: "Settings", Href: a.pluginURL(p.Name, "settings"), Active: tab == "settings"},
-		{Label: "Permissions", Href: a.pluginURL(p.Name, "permissions"), Active: tab == "permissions"},
+func (a *Admin) newPluginHead(r *http.Request, p PluginInfo, tab string, owner bool) pluginHead {
+	var tabs []ui.Tab
+	if a.mayOpenScreen(r.Context(), p) {
+		tabs = append(tabs, ui.Tab{Label: screenLabel(p), Href: a.pluginURL(p.Name, "app"), Active: tab == "app"})
 	}
+	tabs = append(tabs,
+		ui.Tab{Label: "Settings", Href: a.pluginURL(p.Name, "settings"), Active: tab == "settings"},
+		ui.Tab{Label: "Permissions", Href: a.pluginURL(p.Name, "permissions"), Active: tab == "permissions"})
 	if owner && len(p.Runs) > 0 {
 		tabs = append(tabs, ui.Tab{Label: "Runs", Href: a.pluginURL(p.Name, "runs"), Active: tab == "runs"})
 	}
@@ -464,7 +467,7 @@ type pluginPageData struct {
 func (a *Admin) renderPlugin(w http.ResponseWriter, r *http.Request, pa PluginAdmin, status int, p PluginInfo, values map[string]any, errs schemaform.Errors, openPath string) {
 	role := userFrom(r.Context()).Role
 	owner := a.canObj(r.Context(), authz.ActionPluginManage, pluginObject(p.Name))
-	d := pluginPageData{pluginHead: a.newPluginHead(p, "settings", owner), Owner: owner, UI: a.pluginUIFor(r, p, role), Inactive: !p.Loaded && (p.Package == nil || (!p.Package.WidgetOnly && !p.Package.TagPack))}
+	d := pluginPageData{pluginHead: a.newPluginHead(r, p, "settings", owner), Owner: owner, UI: a.pluginUIFor(r, p, role), Inactive: !p.Loaded && (p.Package == nil || (!p.Package.WidgetOnly && !p.Package.TagPack))}
 	setCameraPolicy(w, d.UI)
 	title := p.Name + " settings"
 	if !d.Owner && d.UI != nil {
@@ -559,7 +562,7 @@ func (a *Admin) handlePluginApp(w http.ResponseWriter, r *http.Request) {
 		a.ErrorBack(w, r, http.StatusNotFound, "Plugin not found", "That plugin is not installed, or it is not available to you.", a.adminPath, "Back to the admin")
 		return
 	}
-	d := pluginAppData{pluginHead: a.newPluginHead(p, "app", manage), Owner: manage, UI: frame}
+	d := pluginAppData{pluginHead: a.newPluginHead(r, p, "app", manage), Owner: manage, UI: frame}
 	setCameraPolicy(w, d.UI)
 	v := a.NewView(w, r, d.UI.Title) // a wide page: the app lays out for the full column
 	if manage {
@@ -605,7 +608,7 @@ func (a *Admin) handlePluginPermissions(w http.ResponseWriter, r *http.Request) 
 // renderPermissions draws the Permissions tab. A refused Mail card save comes
 // back through it with the field errors and the typed value.
 func (a *Admin) renderPermissions(w http.ResponseWriter, r *http.Request, status int, pa PluginAdmin, p PluginInfo, errs []ui.FieldError, typed string) {
-	d := pluginPermsData{pluginHead: a.newPluginHead(p, "permissions", true), HooksText: strings.Join(p.Hooks, ", "), Summary: errs, Errs: map[string]string{}}
+	d := pluginPermsData{pluginHead: a.newPluginHead(r, p, "permissions", true), HooksText: strings.Join(p.Hooks, ", "), Summary: errs, Errs: map[string]string{}}
 	for _, e := range errs {
 		d.Errs[e.ID] = e.Message
 	}

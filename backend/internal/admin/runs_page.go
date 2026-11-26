@@ -65,7 +65,7 @@ func (a *Admin) handlePluginRuns(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, r, "The runs could not be loaded", err)
 		return
 	}
-	d := pluginRunsData{pluginHead: a.newPluginHead(p, "runs", true), UI: a.pluginUIFor(r, p, "owner")}
+	d := pluginRunsData{pluginHead: a.newPluginHead(r, p, "runs", true), UI: a.pluginUIFor(r, p, "owner")}
 	setCameraPolicy(w, d.UI)
 	d.Form = a.runForm(p, recent)
 	d.Table = a.runsTable(r, p, recent)
