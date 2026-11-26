@@ -859,7 +859,7 @@ func TestPluginUIPageIsASandboxedIframe(t *testing.T) {
 	// The old /ui address redirects for both roles.
 	for _, token := range []string{"owner-token", "editor-token"} {
 		rec := g.do("GET", "/admin/plugins/board/ui", token, nil, nil)
-		if rec.Code != 301 || rec.Header().Get("Location") != "/admin/plugins/board/settings" {
+		if rec.Code != 301 || rec.Header().Get("Location") != "/admin/plugins/board/app" {
 			t.Errorf("/ui as %s: %d %q", token, rec.Code, rec.Header().Get("Location"))
 		}
 	}
@@ -988,8 +988,8 @@ func TestPluginPagesJoinTheSubnavByRole(t *testing.T) {
 
 	g, _, _ := newPackageRig(t)
 	owner := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String()
-	for _, name := range []string{"hello", "ownerui", "board", "quiet", "devonly"} {
-		if !strings.Contains(owner, `href="/admin/plugins/`+name+`/settings"`) {
+	for name, tab := range map[string]string{"hello": "app", "ownerui": "app", "board": "app", "quiet": "settings", "devonly": "settings"} {
+		if !strings.Contains(owner, `href="/admin/plugins/`+name+`/`+tab+`"`) {
 			t.Errorf("the owner's subnav lacks %s", name)
 		}
 	}
@@ -997,7 +997,7 @@ func TestPluginPagesJoinTheSubnavByRole(t *testing.T) {
 	if strings.Contains(editor, "/admin/plugins/ownerui/settings") || strings.Contains(editor, "All plugins") {
 		t.Error("an owner-only plugin and All plugins must not be in the editor's subnav")
 	}
-	if !strings.Contains(editor, `href="/admin/plugins/board/settings"`) {
+	if !strings.Contains(editor, `href="/admin/plugins/board/app"`) {
 		t.Error("the editor's subnav lists the plugins open to them")
 	}
 }

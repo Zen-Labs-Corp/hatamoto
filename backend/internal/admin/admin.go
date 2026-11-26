@@ -574,7 +574,7 @@ func New(d Deps) (*Admin, error) {
 			if v.Can(authz.ActionPluginManage) {
 				return a.url("plugins")
 			}
-			return a.url("plugins", url.PathEscape(a.firstUIPlugin(v.Role)), "settings")
+			return a.url("plugins", url.PathEscape(a.firstUIPlugin(v.Role)), "app")
 		}
 	})
 	a.wireNavCounts()

@@ -519,17 +519,33 @@ func (a *Admin) handlePluginsGo(w http.ResponseWriter, r *http.Request) {
 		to = a.adminPath + "/plugins"
 	}
 	if pa := a.deps.Growth.Plugins; pa != nil {
-		if p, found := a.findPlugin(pa, r.URL.Query().Get("plugin")); found && (a.canObj(r.Context(), authz.ActionPluginManage, pluginObject(p.Name)) ||
-			(a.canObj(r.Context(), authz.ActionPluginUIAccess, pluginObject(p.Name)) && uiAllows(p, role))) {
-			to = a.pluginURL(p.Name, "settings")
+		if p, found := a.findPlugin(pa, r.URL.Query().Get("plugin")); found {
+			obj := pluginObject(p.Name)
+			canManage, canUI := a.canObj(r.Context(), authz.ActionPluginManage, obj), a.canObj(r.Context(), authz.ActionPluginUIAccess, obj)
+			if canManage || (canUI && uiAllows(p, role)) {
+				to = a.pluginURL(p.Name, pluginHomeTab(p, role, canManage, canUI))
+			}
 		}
 	}
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
-// handlePluginRedirect sends /admin/plugins/{name} to the plugin's Settings tab.
+// handlePluginRedirect sends /admin/plugins/{name} to the plugin's first tab:
+// its own screen when the user may open it, else Settings.
 func (a *Admin) handlePluginRedirect(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, a.pluginURL(r.PathValue("name"), "settings"), http.StatusFound)
+	http.Redirect(w, r, a.pluginHome(r, r.PathValue("name")), http.StatusFound)
+}
+
+// pluginHome is the plugin's first tab for the signed-in user. Without a plugin
+// service or for an unknown plugin it is Settings (that page answers 503/404).
+func (a *Admin) pluginHome(r *http.Request, name string) string {
+	tab := "settings"
+	if pa := a.deps.Growth.Plugins; pa != nil {
+		if p, ok := a.findPlugin(pa, name); ok && a.mayOpenScreen(r.Context(), p) {
+			tab = "app"
+		}
+	}
+	return a.pluginURL(name, tab)
 }
 
 // pluginAppData is a plugin's own screen: its admin page in the frame.

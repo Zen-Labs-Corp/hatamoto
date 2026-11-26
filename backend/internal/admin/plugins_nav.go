@@ -46,7 +46,7 @@ func (a *Admin) pluginsNavFor(v viewer, path string) []PluginNavEntry {
 		cur := path == href || strings.HasPrefix(path, href+"/")
 		matched = matched || cur
 		out = append(out, PluginNavEntry{
-			ID: p.Name, Href: href + "/settings", Label: p.Name, Marker: st.Marker, Muted: !st.Active,
+			ID: p.Name, Href: href + "/" + pluginHomeTab(p, v.Role, v.CanObj(authz.ActionPluginManage, obj), v.CanObj(authz.ActionPluginUIAccess, obj)), Label: p.Name, Marker: st.Marker, Muted: !st.Active,
 			Current: cur,
 		})
 	}
