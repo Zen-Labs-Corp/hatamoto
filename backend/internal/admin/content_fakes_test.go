@@ -171,6 +171,18 @@ func (f *fakeEntities) schemaOf(id uuid.UUID) *entity.EntitySchema {
 	}
 	return nil
 }
+func (f *fakeEntities) GetEntityBySlug(_ context.Context, slug string) (*entity.Entity, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, e := range f.ents {
+		if e.Slug == slug {
+			c := *e
+			c.Schema = f.schemaOf(e.SchemaID)
+			return &c, nil
+		}
+	}
+	return nil, entity.ErrEntityNotFound
+}
 func (f *fakeEntities) GetEntity(_ context.Context, id uuid.UUID) (*entity.Entity, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

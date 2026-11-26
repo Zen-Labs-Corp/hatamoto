@@ -57,3 +57,26 @@ func TestDashboardActivityRowsStackOnPhones(t *testing.T) {
 		t.Error("the Activity kind badge stretches to its grid track")
 	}
 }
+
+// A launch checklist row is a marker, the text and the action in one grid row, and the
+// action drops under the text on phones.
+func TestDashboardLaunchRowsLayOutFromTokens(t *testing.T) {
+	t.Parallel()
+
+	b, err := os.ReadFile("../../../web/admin/css/pages/dashboard.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := string(b)
+	for _, want := range []string{
+		".hm-dash__launch { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr) auto;",
+		".hm-dash__launch .hm-dash__state { width: auto; }",
+		".hm-dash__launch-text { display: flex; flex-direction: column;",
+		".hm-dash--top { margin-top: var(--space-4); }",
+		"@media (max-width: 640px) { .hm-dash__launch { grid-template-columns: auto minmax(0, 1fr);",
+	} {
+		if !strings.Contains(css, want) {
+			t.Errorf("dashboard.css lacks %q", want)
+		}
+	}
+}

@@ -28,6 +28,8 @@ type EntityStore interface {
 	DeleteSchema(ctx context.Context, id uuid.UUID) error
 
 	GetEntity(ctx context.Context, id uuid.UUID) (*entity.Entity, error)
+	// GetEntityBySlug finds the entity with the slug, or entity.ErrEntityNotFound.
+	GetEntityBySlug(ctx context.Context, slug string) (*entity.Entity, error)
 	CreateEntity(ctx context.Context, userID *uuid.UUID, in *entity.CreateEntityInput) (*entity.Entity, error)
 	UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.UUID, in *entity.UpdateEntityInput) (*entity.Entity, error)
 	UpdateEntityStatus(ctx context.Context, id uuid.UUID, userID *uuid.UUID, status entity.EntityStatus) (*entity.Entity, error)

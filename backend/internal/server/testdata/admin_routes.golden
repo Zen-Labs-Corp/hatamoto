@@ -336,6 +336,7 @@ POST /admin/forms/submissions/bulk -> admin.(*Admin).handleSubmissionsBulk-fm
 POST /admin/forms/submissions/{sid}/delete -> admin.(*Admin).handleSubmissionDelete-fm
 POST /admin/forms/submissions/{sid}/email -> admin.(*Admin).handleSubmissionEmail-fm
 POST /admin/forms/submissions/{sid}/status -> admin.(*Admin).handleSubmissionStatus-fm
+POST /admin/launch-checklist/hide -> admin.(*Admin).handleLaunchChecklistHide-fm
 POST /admin/login -> admin.(*Admin).handleLogin-fm
 POST /admin/login/2fa -> admin.(*Admin).handleTwoStep-fm
 POST /admin/login/passkey/begin -> admin.(*Admin).handlePasskeyBegin-fm

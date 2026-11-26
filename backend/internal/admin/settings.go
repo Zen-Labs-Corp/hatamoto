@@ -58,6 +58,7 @@ func (a *Admin) mountSettings(authed *httpx.Group) {
 	owner.HandleFunc("GET /settings/general", a.handleGeneral)
 	owner.HandleFunc("POST /settings/general/identity", a.handleSiteSave)
 	owner.HandleFunc("POST /settings/general/email", a.handleNotifySave)
+	owner.HandleFunc("POST "+launchHidePath, a.handleLaunchChecklistHide)
 	a.mountAPIKeys(owner)
 	a.mountWebhooks(owner)
 	a.mountModulePages(owner)
