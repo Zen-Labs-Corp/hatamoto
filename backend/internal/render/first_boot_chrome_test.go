@@ -116,15 +116,10 @@ func TestFooterChrome(t *testing.T) {
 			}
 		}
 	})
-	t.Run("credit", func(t *testing.T) {
-		v := minimalView()
-		want := `<p class="hm-footer__credit"><a href="https://hatamoto.dev">Powered by Hatamoto</a></p>`
-		if f := footerOf(t, v); !strings.Contains(f, want) {
-			t.Errorf("missing credit:\n%s", f)
-		}
-		v.StringOverrides = map[string]string{"powered_by_url": "https://example.test/"}
-		if f := footerOf(t, v); !strings.Contains(f, `<a href="https://example.test/">Powered by Hatamoto</a>`) {
-			t.Errorf("credit URL override ignored:\n%s", f)
+	t.Run("no credit", func(t *testing.T) {
+		// Public pages never name the CMS (see public_fingerprint_test.go).
+		if f := footerOf(t, minimalView()); strings.Contains(strings.ToLower(f), "hatamoto") || strings.Contains(f, "credit") {
+			t.Errorf("footer names the CMS:\n%s", f)
 		}
 	})
 	t.Run("brand", func(t *testing.T) {

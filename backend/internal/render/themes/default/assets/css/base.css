@@ -220,7 +220,6 @@ main:focus { outline: none; } /* focus target of the skip link, not a control */
 .hm-footer__top .hm-footer__cols { margin-bottom: 0; }
 .hm-footer__title { font-family: var(--hm-font-mono); font-size: 0.6875rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--hm-label); }
 .hm-footer__bottom { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem; padding-top: 1.5rem; border-top: 1px solid var(--hm-hair); }
-.hm-footer__credit { margin: 0; }
 @media (max-width: 48rem) { .hm-footer__top { grid-template-columns: 1fr; } }
 
 /* Errors */
