@@ -1,0 +1,12 @@
+{
+  "type": "process_steps",
+  "id": "sec-process-where",
+  "content": {
+    "layout": "cards",
+    "heading": "Make it yours",
+    "steps": [
+      {"number": "01", "title": "Name and logo", "description": "<p>Set the site name.</p>", "where": "Settings › Site", "whereUrl": "https://example.test/docs/settings"},
+      {"number": "02", "title": "Edit this page", "description": "<p>Swap these sections.</p>", "where": "Pages › Home"}
+    ]
+  }
+}

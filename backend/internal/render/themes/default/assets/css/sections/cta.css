@@ -6,3 +6,8 @@
 .hm-cta--dark { background: var(--hm-sumi); color: #fff; border-radius: var(--hm-radius-lg); padding: 3.5rem 1.5rem; }
 .hm-cta--dark h2 { color: #fff; }
 .hm-cta--dark .hm-cta__subheadline { color: rgba(255, 255, 255, 0.8); }
+.hm-cta--kasumi { background: var(--hm-kasumi); border: 1px solid var(--hm-hair); border-radius: var(--hm-radius-lg); padding: 3.5rem 2rem; }
+.hm-cta--split { display: grid; grid-template-columns: 1fr auto; column-gap: 2rem; align-items: center; text-align: left; }
+.hm-cta--split .hm-cta__headline, .hm-cta--split .hm-cta__subheadline { grid-column: 1; max-width: none; margin-inline: 0; }
+.hm-cta--split .hm-cta__actions { grid-column: 2; grid-row: 1 / span 2; margin: 0; }
+@media (max-width: 40rem) { .hm-cta--split { grid-template-columns: 1fr; } .hm-cta--split .hm-cta__actions { grid-column: 1; grid-row: auto; margin-top: 1.25rem; } }

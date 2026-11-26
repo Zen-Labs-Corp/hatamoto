@@ -83,3 +83,8 @@
   .hm-article__image { margin-inline: -1.5rem; }
   .hm-article__image img { border-radius: 0; }
 }
+.hm-empty-state { margin-top: 2.5rem; padding: 4rem 1.5rem; text-align: center; border: 1px dashed var(--hm-hair); border-radius: var(--hm-radius-lg); background: var(--hm-kasumi); }
+.hm-empty-state__icon { display: inline-grid; place-items: center; width: 3rem; height: 3rem; border: 1px solid var(--hm-hair); border-radius: var(--hm-radius-md); background: var(--hm-bg); color: var(--hm-text); }
+.hm-empty-state__title { margin: 1.25rem 0 0.5rem; font-size: 1.25rem; }
+.hm-empty-state__text { max-width: 44ch; margin: 0 auto; color: var(--hm-hai); }
+.hm-empty-state__actions { margin: 1.5rem 0 0; }

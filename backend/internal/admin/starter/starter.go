@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/firstboot"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
@@ -190,8 +191,9 @@ func isStarter(e *entity.Entity) bool {
 	return jsonx.Unmarshal(e.Attributes, &a, jsonx.StoredLoose) == nil && a.Starter
 }
 
-// IsSeed reports the first-boot home page: a single "welcome" section, either
-// as legacy page_sections or as the only component of a page_doc.
+// IsSeed reports the first-boot home page: only "welcome" sections (see
+// firstboot.IsSeedIDs), either as legacy page_sections or as the components of
+// a page_doc.
 func IsSeed(e *entity.Entity) bool {
 	var a struct {
 		Sections []struct {
@@ -209,9 +211,17 @@ func IsSeed(e *entity.Entity) bool {
 			return false
 		}
 		cs := builder.Components(d)
-		return len(cs) == 1 && cs[0].ID == "welcome"
+		ids := make([]string, len(cs))
+		for i, c := range cs {
+			ids[i] = c.ID
+		}
+		return firstboot.IsSeedIDs(ids)
 	}
-	return len(a.Sections) == 1 && a.Sections[0].ID == "welcome"
+	ids := make([]string, len(a.Sections))
+	for i, sec := range a.Sections {
+		ids[i] = sec.ID
+	}
+	return firstboot.IsSeedIDs(ids)
 }
 
 // NameSeedHome gives the first-boot home page the site name, for a setup that
@@ -259,11 +269,17 @@ func seedHeadline(raw jsontext.Value, old, name string) (jsontext.Value, bool) {
 	if err != nil {
 		return nil, false
 	}
-	cs := builder.Components(d)
-	if len(cs) != 1 {
+	var hero *builder.Node
+	for _, c := range builder.Components(d) {
+		if c.ID == firstboot.SeedID {
+			hero = c
+			break
+		}
+	}
+	if hero == nil {
 		return nil, false
 	}
-	content, _ := cs[0].P["content"].(map[string]any)
+	content, _ := hero.P["content"].(map[string]any)
 	if headline, _ := content["headline"].(string); content == nil || headline != old {
 		return nil, false
 	}

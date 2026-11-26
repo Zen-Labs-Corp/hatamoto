@@ -1,73 +1,73 @@
 {
   "metrics": {
     "alloc_Loop12_allocs": {
-      "value": 14,
+      "value": 15,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_Loop12_bytes": {
-      "value": 633,
+      "value": 682,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
     },
     "alloc_RenderNode10_allocs": {
-      "value": 11,
+      "value": 12,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_RenderNode10_bytes": {
-      "value": 2560,
+      "value": 2610,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
     },
     "alloc_RenderPage72_allocs": {
-      "value": 597,
+      "value": 754,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_RenderPage72_bytes": {
-      "value": 75881,
+      "value": 82441,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
     },
     "alloc_RenderPageStat72_allocs": {
-      "value": 2213,
+      "value": 2378,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_RenderPageStat72_bytes": {
-      "value": 182676,
+      "value": 191464,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
     },
     "alloc_RenderTop10_allocs": {
-      "value": 46,
+      "value": 48,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_RenderTop10_bytes": {
-      "value": 7442,
+      "value": 7541,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
     },
     "alloc_comments_page50_allocs": {
-      "value": 26844,
+      "value": 27258,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_comments_page50_bytes": {
-      "value": 1098653,
+      "value": 1110283,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
@@ -78,7 +78,7 @@
       "tol_abs": 512
     },
     "comments_page50_bytes": {
-      "value": 81113,
+      "value": 81830,
       "unit": "bytes",
       "tol_pct": 5
     },
@@ -103,7 +103,7 @@
       "tol_pct": 5
     },
     "golden_page-shell_bytes": {
-      "value": 4554,
+      "value": 5096,
       "unit": "bytes",
       "tol_pct": 5
     },
@@ -128,7 +128,7 @@
       "tol_pct": 5
     },
     "page_allwidgets_html_bytes": {
-      "value": 40649,
+      "value": 41161,
       "unit": "bytes",
       "tol_pct": 5
     },
@@ -163,7 +163,7 @@
       "cap": 8192
     },
     "page_settings_html_bytes": {
-      "value": 7540,
+      "value": 8052,
       "unit": "bytes",
       "tol_pct": 5
     },
@@ -172,7 +172,7 @@
       "unit": "count"
     },
     "theme_default_css_gzip": {
-      "value": 15196,
+      "value": 15689,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -183,10 +183,6 @@
     }
   },
   "history": [
-    {
-      "reason": "e4 review fixes: v1 shape, clipboard on sections, visible refusals, menu rows (+1.2 KB total, +670 B first paint, canvas bridge +empty marker)",
-      "date": "2026-10-24"
-    },
     {
       "reason": "builder-e5: inline rich text (bridge normaliser/format, host selection, lazy fmtbar) - provisional, bridge normaliser and rich editing",
       "date": "2026-10-24"
@@ -262,6 +258,10 @@
     {
       "reason": "comments: 50-comment page render budget (new bytes and allocation entries for a 190-item thread with the open form; comments.css is its own asset, so the global theme css budget is unchanged)",
       "date": "2026-11-20"
+    },
+    {
+      "reason": "default theme first-boot chrome: monogram logo, footer columns and credit, framed empty archive",
+      "date": "2026-11-25"
     }
   ]
 }

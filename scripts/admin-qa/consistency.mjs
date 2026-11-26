@@ -52,6 +52,8 @@ function check({ sticky, list, spec }) {
     return t && el.matches(".hm-btn") ? `${s} "${t}"` : s;
   };
   const px = (v) => Math.round(parseFloat(v) * 100) / 100;
+  // Chrome serialises the same end alignment differently across versions (flex-end, end, flow-end, with an optional safe/unsafe prefix).
+  const endAligned = (v) => /^((safe|unsafe) )?(flex-end|end|flow-end)$/.test(v);
 
   // UI-D1, UI-D5 (footers), UI-D6
   for (const f of document.querySelectorAll(".hm-card__foot, .hm-savebar, .hm-dialog__foot")) {
@@ -63,7 +65,7 @@ function check({ sticky, list, spec }) {
     const btns = [...f.querySelectorAll(".hm-btn")].filter(visible);
     if (!isDialog) {
       if (cs.display !== "flex") out.push(["UI-D1", s, "display is not flex", cs.display]);
-      if (cs.justifyContent !== "flex-end") out.push(["UI-D1", s, "not right-aligned", cs.justifyContent]);
+      if (!endAligned(cs.justifyContent)) out.push(["UI-D1", s, "not right-aligned", cs.justifyContent]);
       if (cs.boxShadow !== "none") out.push(["UI-D1", s, "footer has a shadow", cs.boxShadow]);
       if (px(cs.borderTopLeftRadius) !== 0) out.push(["UI-D1", s, "footer has a radius", cs.borderTopLeftRadius]);
       if (!plain && px(cs.borderTopWidth) !== 1) out.push(["UI-D1", s, "top border is not 1px", cs.borderTopWidth]);
@@ -78,7 +80,7 @@ function check({ sticky, list, spec }) {
         const last = btns[btns.length - 1].getBoundingClientRect();
         // The footer sits at the parent's content edge, or flush with a padded card.
         if (Math.abs(fr.right - pr.right) > 1 && Math.abs(fr.right - edge) > 1) out.push(["UI-D1", s, "right edge off the parent edge", `${fr.right} vs ${edge}`]);
-        if (Math.abs(last.right - (fr.right - px(cs.paddingRight) - px(cs.borderRightWidth))) > 1 && cs.justifyContent === "flex-end" && !f.querySelector(".hm-savebar__aside, .hm-card__foot-note"))
+        if (Math.abs(last.right - (fr.right - px(cs.paddingRight) - px(cs.borderRightWidth))) > 1 && endAligned(cs.justifyContent) && !f.querySelector(".hm-savebar__aside, .hm-card__foot-note"))
           out.push(["UI-D1", s, "last button is not at the footer's right edge", `${last.right} vs ${fr.right - px(cs.paddingRight)}`]);
       }
     }

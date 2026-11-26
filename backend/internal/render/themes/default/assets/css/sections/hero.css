@@ -26,3 +26,6 @@
 .hm-hero__strip-items { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1.75rem; }
 .hm-hero--centered .hm-hero__strip-items { justify-content: center; }
 .hm-hero__strip-items li { font-size: 0.9375rem; color: var(--hm-text); }
+/* optional backdrop: a faint grid fading out from the centre, and a taller hero. */
+.hm-hero--grid { position: relative; isolation: isolate; min-height: 60vh; align-content: center; }
+.hm-hero--grid::before { content: ""; position: absolute; inset: 0; z-index: -1; background-image: linear-gradient(var(--hm-hair) 1px, transparent 1px), linear-gradient(90deg, var(--hm-hair) 1px, transparent 1px); background-size: 3.5rem 3.5rem; -webkit-mask-image: radial-gradient(ellipse at center, #000 25%, transparent 72%); mask-image: radial-gradient(ellipse at center, #000 25%, transparent 72%); }

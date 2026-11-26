@@ -18,7 +18,9 @@
       "label": {"type": "string", "title": "Label (replaces number)", "x-hm-field": "plaintext"},
       "title": {"type": "string", "title": "Title", "x-hm-alias": ["heading"], "x-hm-field": "plaintext"},
       "description": {"type": "string", "title": "Description", "x-hm-field": "richtext"},
-      "code": {"type": "string", "title": "Code (cards layout)", "x-hm-field": "code"}
+      "code": {"type": "string", "title": "Code (cards layout)", "x-hm-field": "code"},
+      "where": {"type": "string", "title": "Where (for example Settings › Site)", "x-hm-field": "plaintext"},
+      "whereUrl": {"type": "string", "title": "Where link", "x-hm-field": "url"}
     }}}
   }
 }

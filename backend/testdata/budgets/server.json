@@ -1,13 +1,13 @@
 {
   "metrics": {
     "alloc_RenderNodesEndpoint_allocs": {
-      "value": 9364,
+      "value": 9393,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_RenderNodesEndpoint_bytes": {
-      "value": 651005,
+      "value": 657508,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
@@ -30,10 +30,6 @@
     }
   },
   "history": [
-    {
-      "reason": "ai-analytics-redesign: SVG chart engine and five analytics sections replace Chart.js (-208 KB vendor)",
-      "date": "2026-10-23"
-    },
     {
       "reason": "builder-e0-budget-split: split editor_js_gzip into editor_js_first_gzip/editor_js_total_gzip (first-paint vs lazy)",
       "date": "2026-10-24"
@@ -109,6 +105,10 @@
     {
       "reason": "batch cache-miss render lookups",
       "date": "2026-11-21"
+    },
+    {
+      "reason": "default theme first-boot chrome: monogram logo, footer columns and credit, framed empty archive",
+      "date": "2026-11-25"
     }
   ]
 }

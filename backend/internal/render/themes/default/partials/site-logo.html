@@ -1,0 +1,1 @@
+{{define "site-logo"}}<a class="hm-logo" href="/">{{if .Site.LogoURL}}<img src="{{imgsrc .Site.LogoURL}}" alt="{{.Site.Name}}" height="28">{{else}}{{with initial .Site.Name}}<span class="hm-logo__mark" aria-hidden="true">{{.}}</span>{{end}}<span class="hm-logo__name">{{.Site.Name}}</span>{{end}}</a>{{end}}

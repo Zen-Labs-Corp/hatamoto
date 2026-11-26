@@ -303,6 +303,13 @@ func TestGoldenHierarchyTemplates(t *testing.T) {
 			v.Pagination, v.Items = listing("/blog", 5)
 			return v
 		},
+		"tpl-archive-empty": func() *PageView {
+			v := hierarchyView()
+			v.Kind, v.SchemaSlug, v.Page.Name = KindArchive, "post", "Blog"
+			v.Page.Description = "Notes from the field."
+			v.Site.Feeds = []FeedLink{{Title: "Field Notes", Type: "application/rss+xml", Href: "/feed.xml"}}
+			return v
+		},
 		"tpl-taxonomy": func() *PageView {
 			v := hierarchyView()
 			v.Kind, v.Term, v.Page.Name = KindTaxonomy, &TermView{Kind: "tag", Slug: "go", Name: "Go", URL: "/tag/go"}, "Go"

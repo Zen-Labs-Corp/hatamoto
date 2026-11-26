@@ -15,6 +15,7 @@
     "subheadline": {"type": "string", "title": "Subheadline", "x-hm-field": "richtext"},
     "buttonText": {"type": "string", "title": "Button text", "x-hm-field": "plaintext"},
     "buttonUrl": {"type": "string", "title": "Button URL", "x-hm-field": "url"},
-    "backgroundStyle": {"type": "string", "title": "Background", "enum": ["plain", "tinted", "dark"], "default": "plain"}
+    "backgroundStyle": {"type": "string", "title": "Background", "enum": ["plain", "tinted", "dark", "kasumi"], "default": "plain"},
+    "layout": {"type": "string", "title": "Layout", "enum": ["centered", "split"], "default": "centered"}
   }
 }

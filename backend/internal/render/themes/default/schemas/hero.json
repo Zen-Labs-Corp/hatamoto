@@ -26,6 +26,7 @@
       "url": {"type": "string", "title": "URL", "x-hm-field": "url"}
     }}},
     "layout": {"type": "string", "title": "Layout", "enum": ["centered", "split"], "default": "centered"},
+    "backdrop": {"type": "string", "title": "Backdrop", "enum": ["none", "grid"], "default": "none"},
     "commandChip": {"type": "string", "title": "Command chip", "x-hm-field": "plaintext"},
     "stripLabel": {"type": "string", "title": "Strip label", "description": "Optional. Shown before the strip items; not shown without items.", "x-hm-field": "plaintext"},
     "stripItems": {"type": "array", "title": "Strip items", "description": "Optional, shown under the buttons. One item per line; commas stay inside an item.", "x-hm-field": "lines", "items": {"type": "string"}},

@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/firstboot"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/person"
 )
@@ -86,8 +87,8 @@ func escapeLike(s string) string {
 
 // isStarterContent recognises what the setup wizard (admin/starter) leaves
 // behind: entities carrying "starter": true, and the untouched first-boot home
-// page, a single "welcome" section (legacy page_sections or the only component
-// of a page_doc).
+// page, only "welcome" sections (see firstboot.IsSeedIDs; legacy page_sections
+// or the components of a page_doc).
 func isStarterContent(attrs jsontext.Value) bool {
 	var a struct {
 		Starter  bool `json:"starter"`
@@ -108,9 +109,17 @@ func isStarterContent(attrs jsontext.Value) bool {
 			return false
 		}
 		cs := builder.Components(d)
-		return len(cs) == 1 && cs[0].ID == "welcome"
+		ids := make([]string, len(cs))
+		for i, c := range cs {
+			ids[i] = c.ID
+		}
+		return firstboot.IsSeedIDs(ids)
 	}
-	return len(a.Sections) == 1 && a.Sections[0].ID == "welcome"
+	ids := make([]string, len(a.Sections))
+	for i, sec := range a.Sections {
+		ids[i] = sec.ID
+	}
+	return firstboot.IsSeedIDs(ids)
 }
 
 // siteKey is the identity of a source site: lower-case host and path, so two

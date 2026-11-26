@@ -1,0 +1,14 @@
+{
+  "type": "hero",
+  "id": "sec-hero-grid",
+  "content": {
+    "eyebrow": "Hello world",
+    "headline": "Test Site",
+    "subheadline": "<p>This site is up and running.</p>",
+    "primaryCta": "Read the guide",
+    "ctaUrl": "https://example.test/guide",
+    "secondaryCta": "Take the tour",
+    "secondaryCtaUrl": "https://example.test/tour",
+    "backdrop": "grid"
+  }
+}

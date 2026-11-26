@@ -21,7 +21,7 @@ The engine wraps the output in `<section>` for you (through the `section` partia
 
 ```gotemplate
 {{define "section-cta"}}{{$c := .Content}}
-<div class="hm-container hm-cta hm-cta--{{default "plain" $c.backgroundStyle}}">
+<div class="hm-container hm-cta hm-cta--{{default "plain" $c.backgroundStyle}}{{if eq $c.layout "split"}} hm-cta--split{{end}}">
   <h2 class="hm-cta__headline" {{hmf "headline"}}>{{$c.headline}}</h2>
   {{with $c.subheadline}}<div class="hm-cta__subheadline" {{hmf "subheadline"}} data-hm-kind="richtext">{{.}}</div>{{end}}
   {{with $c.buttonText}}<p class="hm-cta__actions"><a class="hm-btn" href="{{cta $c.buttonUrl}}" {{hmf "buttonText"}}>{{.}}</a></p>{{end}}
@@ -91,14 +91,15 @@ The `contact_form` section renders a form chosen in the editor. When that form h
 | --- | --- | --- |
 | `features` | `eyebrow, heading, subheading, variant (cards\|list\|bento), columns, features[{title, description, number, category, tags, badge}]` | `bento` is the framed grid with numbered cells |
 | `content` | `layout (stack\|essay), eyebrow, asideGlyph, asideText, headline, body` | `essay` adds a sticky aside |
-| `process_steps` | `eyebrow, heading, subheading, layout (list\|cards), steps[{number, title, description, code}]` | `cards` shows a code box per step; the cards stay inside the container width |
+| `process_steps` | `eyebrow, heading, subheading, layout (list\|cards), steps[{number, title, description, code, where, whereUrl}]` | `cards` shows a code box per step; the cards stay inside the container width; `where` shows a small line under the step (for example where to find the setting), linked when `whereUrl` is set |
+| `cta` | `headline, subheadline, buttonText, buttonUrl, backgroundStyle (plain\|tinted\|dark\|kasumi), layout (centered\|split)` | `kasumi` is the soft tinted band; `split` puts the text on the left and the button on the right, and stacks them on narrow screens |
 | `tag_strip` | `label, items[]` | a label plus a row of short items |
 | `split` | `eyebrow, heading, lede, footnote, layout, ratio, rowsStyle (definitions\|chips-grid), rows[{term, description}], panel{title, meta, code, language}, outputs[{label, value}], panelHeight (auto\|match)` | text column plus code panel; `match` stretches the panel to the height of the text column above 960px (the code panel grows, outputs sit at the bottom) |
 | `card_columns` | `eyebrow, heading, subheading, columnCount, columns[{label, title, description, items[]}], notes[{title, text}]` | markers such as `columns.N.items.M` |
 | `comparison` | `eyebrow, heading, subheading, sides[{tag, title, tone (negative\|positive), items[]}]` | glyphs are CSS pseudo-elements, never content |
 | `plugin_directory` | `eyebrow, heading, subheading (alias intro), writeUrl, submitUrl, installHint, otherUrl, otherLabel, showSearch` | cards come from the server's signed registry, not from the fields; see below |
 | `theme_directory` | `eyebrow, heading, subheading (alias intro), writeUrl, submitUrl, installHint, otherUrl, otherLabel, showSearch` | cards come from the server's signed registry, not from the fields; see below |
-| `hero` | includes optional `panel`, `commandChip`, `stripLabel` and `stripItems[]` | the code panel shows with `layout: split` and no image; `stripLabel` plus `stripItems` show a row of short items between the actions and the media (the label needs items to render) |
+| `hero` | includes optional `panel`, `commandChip`, `stripLabel`, `stripItems[]` and `backdrop (none\|grid)` | the code panel shows with `layout: split` and no image; `stripLabel` plus `stripItems` show a row of short items between the actions and the media (the label needs items to render); `backdrop: grid` draws a faint grid behind a taller hero |
 
 ### Plugin directory
 

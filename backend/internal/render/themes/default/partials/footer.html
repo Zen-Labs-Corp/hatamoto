@@ -1,14 +1,29 @@
 {{define "footer"}}<footer class="hm-footer">
 <div class="hm-container">
-{{if .Site.FooterNav}}<nav class="hm-footer__cols" aria-label="{{t . "nav_footer"}}">
-{{range .Site.FooterNav}}<div class="hm-footer__col">
-{{if .Children}}<p class="hm-footer__title{{with .Class}} {{.}}{{end}}">{{.Label}}</p>
-<ul>{{range .Children}}<li>{{template "nav-link" dict "Item" . "Path" $.Path}}</li>{{end}}</ul>{{else}}<ul><li>{{template "nav-link" dict "Item" . "Path" $.Path}}</li></ul>{{end}}
+<div class="hm-footer__top">
+<div class="hm-footer__brand">{{template "site-logo" .}}
+{{with .Site.Tagline}}<p class="hm-footer__desc">{{.}}</p>
+{{end}}</div>
+{{$items := .Site.FooterNav}}{{if not $items}}{{$items = .Site.Nav}}{{end}}{{$loose := false}}{{range $items}}{{if not .Children}}{{$loose = true}}{{end}}{{end}}<nav class="hm-footer__cols" aria-label="{{t . "nav_footer"}}">
+{{if $loose}}<div class="hm-footer__col">
+<p class="hm-footer__title">{{t . "footer_pages"}}</p>
+<ul>{{range $items}}{{if not .Children}}<li>{{template "nav-link" dict "Item" . "Path" $.Path}}</li>{{end}}{{end}}</ul>
+</div>
+{{end}}{{range $items}}{{if .Children}}<div class="hm-footer__col">
+<p class="hm-footer__title{{with .Class}} {{.}}{{end}}">{{.Label}}</p>
+<ul>{{range .Children}}<li>{{template "nav-link" dict "Item" . "Path" $.Path}}</li>{{end}}</ul>
+</div>
+{{end}}{{end}}{{if not .Access}}<div class="hm-footer__col">
+<p class="hm-footer__title">{{t . "footer_follow"}}</p>
+<ul>{{range .Site.Feeds}}{{if eq .Type "application/rss+xml"}}<li><a href="{{.Href}}">{{t $ "footer_rss"}}</a></li>{{end}}{{end}}<li><a href="/sitemap.xml">{{t . "footer_sitemap"}}</a></li></ul>
 </div>
 {{end}}</nav>
-{{end}}{{if .Site.SocialLinks}}<ul class="hm-social">
+</div>
+{{if .Site.SocialLinks}}<ul class="hm-social">
 {{range .Site.SocialLinks}}<li><a href="{{cta .URL}}" target="_blank" rel="noopener noreferrer">{{.Label}}</a></li>
 {{end}}</ul>
-{{end}}<p class="hm-footer__legal">&copy; {{year}} {{.Site.Name}}</p>
+{{end}}<div class="hm-footer__bottom">
+<p class="hm-footer__legal">&copy; {{year}} {{.Site.Name}}</p>
+</div>
 </div>
 </footer>{{end}}
