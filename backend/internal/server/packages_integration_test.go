@@ -196,10 +196,13 @@ func TestPackagesIntegration(t *testing.T) {
 	})
 
 	t.Run("plugin page and bridge", func(t *testing.T) {
-		if old := get("/admin/plugins/capa/ui", true); old.Code != 301 || old.Header().Get("Location") != "/admin/plugins/capa/settings" {
+		if old := get("/admin/plugins/capa/ui", true); old.Code != 302 || old.Header().Get("Location") != "/admin/plugins/capa/app" {
 			t.Fatalf("the old /ui address: %d %q", old.Code, old.Header().Get("Location"))
 		}
-		host := get("/admin/plugins/capa/settings", true)
+		if settings := get("/admin/plugins/capa/settings", true).Body.String(); strings.Contains(settings, "data-hm-pluginframe") || strings.Contains(settings, "/plugin-ui/capa/") {
+			t.Error("the Settings tab carries no frame and mints no ticket")
+		}
+		host := get("/admin/plugins/capa/app", true)
 		if host.Code != 200 || !strings.Contains(host.Body.String(), `sandbox="allow-scripts"`) || strings.Contains(host.Body.String(), "allow-same-origin") {
 			t.Fatalf("host page: %d\n%s", host.Code, host.Body.String())
 		}
