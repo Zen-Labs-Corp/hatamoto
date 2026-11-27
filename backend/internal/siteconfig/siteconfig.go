@@ -72,6 +72,10 @@ func SitemapFileSegment(entries []LocaleEntry) string {
 
 // Config is the in-memory shape of the singleton row.
 type Config struct {
+	// CSPEnforce is the stored page protection choice: nil = never chosen
+	// (follow CSP_ENFORCE or the default), false = report-only (pinned on
+	// upgrade), true = enforce.
+	CSPEnforce *bool
 	// ReviewEnabled is the site's review switch: changes to published content
 	// by people without the bypass right wait for a reviewer.
 	ReviewEnabled bool
@@ -779,6 +783,23 @@ func (s *Store) SetReviewEnabled(ctx context.Context, on bool) error {
 	return nil
 }
 
+// SetCSPEnforce stores the page protection choice and drops the cached settings.
+func (s *Store) SetCSPEnforce(ctx context.Context, on bool) error {
+	conn, err := s.db.GetConn(database.WithSuperadmin(ctx))
+	if err != nil {
+		return fmt.Errorf("acquire db conn: %w", err)
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, `
+		UPDATE hatamoto_site_config SET csp_enforce = $1, updated_at = NOW()
+		WHERE id = TRUE`, on); err != nil {
+		return fmt.Errorf("set csp enforce: %w", err)
+	}
+	s.Invalidate()
+	return nil
+}
+
 // ReviewEnabled reads the switch from the database, bypassing the 60 s cache:
 // the review gate must not let a change through on a server whose cache is
 // stale. When the read fails, a fresh cached copy that says off answers off, so
@@ -912,6 +933,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 	var homepageEntityID *uuid.UUID
 	var themeExtra, postalAddress, locales, visitorEntry, businessProfile, localeProfiles []byte
 	var ttlSecs, ttlLegacy int
+	var cspEnforce sql.NullBool
 
 	err = conn.QueryRow(ctx, `
 		SELECT company_name, logo_url, custom_domain, primary_color,
@@ -930,7 +952,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		       entity_versions_keep, audit_retention_days, agent_audit_retention_days,
 		       admin_brand_name, admin_logo_url, admin_accent,
 		       admin_managed_by_text, admin_managed_by_url,
-		       visitor_entry, favicon_url, review_enabled
+		       visitor_entry, favicon_url, review_enabled, csp_enforce
 		FROM hatamoto_site_config
 		WHERE id = TRUE
 		LIMIT 1
@@ -950,13 +972,18 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		&cfg.EntityVersionsKeep, &cfg.AuditRetentionDays, &cfg.AgentAuditRetentionDays,
 		&cfg.AdminBrand.Name, &cfg.AdminBrand.LogoURL, &cfg.AdminBrand.Accent,
 		&cfg.AdminBrand.ManagedText, &cfg.AdminBrand.ManagedURL,
-		&visitorEntry, &cfg.FaviconURL, &cfg.ReviewEnabled,
+		&visitorEntry, &cfg.FaviconURL, &cfg.ReviewEnabled, &cspEnforce,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotConfigured
 	}
 	if err != nil {
 		return nil, fmt.Errorf("query site config: %w", err)
+	}
+
+	if cspEnforce.Valid {
+		v := cspEnforce.Bool
+		cfg.CSPEnforce = &v
 	}
 
 	cfg.PageCacheTTLSeconds = effectivePageCacheTTL(ttlSecs, ttlLegacy)

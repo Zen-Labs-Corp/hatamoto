@@ -126,13 +126,15 @@ type HatamotoConfig struct {
 	SiteName string
 }
 
-// SecurityConfig holds security-header toggles. CSPEnforce defaults to false
-// so every deploy ships Content-Security-Policy-Report-Only until an operator
-// explicitly opts into enforcement after verifying the admin editor + public
-// pages under the policy. HeadersDisabled is an escape hatch for local
-// debugging only — never set true in production.
+// SecurityConfig holds security-header toggles. CSPEnforce defaults to true:
+// public pages send an enforcing Content-Security-Policy. CSPEnforceSet is true
+// when CSP_ENFORCE was given in the environment; it then overrides the choice
+// stored in the site settings (which applies only while the variable is unset).
+// HeadersDisabled is an escape hatch for local debugging only — never set true
+// in production.
 type SecurityConfig struct {
-	CSPEnforce      bool
+	CSPEnforce      bool // env value, or true when CSP_ENFORCE is unset
+	CSPEnforceSet   bool // CSP_ENFORCE was set to a valid bool
 	HeadersDisabled bool
 }
 
@@ -410,8 +412,10 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	cspOn, cspSet := lookupEnvBool("CSP_ENFORCE", true)
 	cfg.Security = SecurityConfig{
-		CSPEnforce:      getEnvBool("CSP_ENFORCE", false),
+		CSPEnforce:      cspOn,
+		CSPEnforceSet:   cspSet,
 		HeadersDisabled: getEnvBool("SECURITY_HEADERS_DISABLED", false),
 	}
 
@@ -583,6 +587,17 @@ func getEnvBool(key string, defaultValue bool) bool {
 		}
 	}
 	return defaultValue
+}
+
+// lookupEnvBool returns the parsed value and true when key is set to a valid
+// bool, else def and false (unset, empty or unparseable all fall back).
+func lookupEnvBool(key string, def bool) (bool, bool) {
+	if v, ok := os.LookupEnv(key); ok && v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			return b, true
+		}
+	}
+	return def, false
 }
 
 // Defaults that let `hatamoto serve` boot with only DATABASE_URL. Email stays
