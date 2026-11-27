@@ -16,7 +16,7 @@ A manifest may declare a page of its own:
 
 > Your admin address is private to your install, for example `/k7qm-x2rf-9tdc`. Print it on the server with `hatamoto admin-url`. This page writes it as `<admin>`.
 
-`ui/<entry>` (default `ui/index.html`) is shown on the plugin's Settings tab at `<admin>/plugins/<name>/settings` for the listed roles (owner only by default), once the plugin is loaded. The old `<admin>/plugins/<name>/ui` address redirects there.
+`ui/<entry>` (default `ui/index.html`) is the plugin's own first tab at `<admin>/plugins/<name>/app`, labelled `ui.title` (the plugin name when empty), for the listed roles (owner only by default), once the plugin is loaded. It is full width and grows with its content, and Settings keeps only the settings form. A plugin cannot add sidebar or menu entries. The old `<admin>/plugins/<name>/ui` address redirects to the screen.
 
 ### The sandbox
 

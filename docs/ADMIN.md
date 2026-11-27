@@ -229,7 +229,7 @@ sidebar).
 | `<admin>/theme/*`: `themes*` (activate, settings, uninstall, install), `colours`, `design-system*`, `presets*`, `parts`, `blocks`, `templates*`, `menus*` (including `POST menus/preview`, the editor's live preview), `strings` (`GET ?locale=<tag>`, `POST`), `contact-button` | Go (the Theme area; the screens date from v1-10 to B6) |
 | `<admin>/settings/*`: `general` and `api-keys*`, `types*` (the type editor has a **Shared across languages** switch, `locale_neutral`, which only takes effect on a site with several languages, read-only on built-in types; the New form of a type with several languages offers **All languages (shared)**), `taxonomies*`, `redirects*` (rules, 404 log, explain), `linking*` (rules, suggestions, equity, import), `users*`, `import*` (WordPress wizard, `docs/IMPORT-WORDPRESS.md`), `export`, `performance*` (page cache) | Go (v1-23a; the screens date from v1-10 to v1-22b) |
 | `<admin>/analytics` (Overview), `/crawlers`, `/content`, `/referrals`, `/health`, `/agents/{id}`; `POST /crawlers/robots`; `data/{overview,agents,agent,pages,first-crawls,referrals,errors,robots}.json` (all take `from`, `to` and `compare=1`) | Go (v1-14, v1-23a, AI analytics redesign) |
-| `<admin>/plugins*` (list, install, update, enable, uninstall, upload), `plugins/{name}/settings` and `/permissions` (plugin pages), `/plugin-ui/*` (their sandboxed documents), `preview/theme/{name}` | Go (v1-18) |
+| `<admin>/plugins*` (list, install, update, enable, uninstall, upload), `plugins/{name}/app`, `/settings` and `/permissions` (plugin pages), `/plugin-ui/*` (their sandboxed documents), `preview/theme/{name}` | Go (v1-18) |
 | every old admin path (`schemas*`, `taxonomies*`, `menus*`, `redirects*`, `sections*`, `linking*`, `users*`, `import*`, `settings/{forms*,submissions*,spam*,media*,site,contact,email,api,themes*,sections*,menus*,appearance,...}`, `analytics/agents`) | Go: 301 (GET, HEAD) or 308 (other methods) to the new path (`docs/REDIRECTS.md`) |
 | `<admin>/entities/{id}/edit` | the builder for pages and every entity with Page Builder sections; Go blog editor (v1-13) for the post types (`post`, `article`, `blog_post`, `blog`) |
 | `<admin>/entities/{id}/edit` (a page with a parseable `page_doc`) | Go builder editor (B3), see "Builder editor (B3)"; `POST` is its no-JS outline form |
@@ -897,7 +897,7 @@ Services reach the admin through `Deps.Growth.Packages` (`PackageAdmin`, `packag
   directories show developer entries too (see `docs/site/themes/sections.md`).
 * **Plugins subnav.** Every `<admin>/plugins*` page sits in a secondary sidebar built like the Settings
   one (`plugins_nav.go`, `partials/pluginsnav.html`): "All plugins", then one entry per installed plugin
-  (`<admin>/plugins/{name}/settings`), read from the plugin registry so a new install adds an entry.
+  (linking straight to the plugin's first tab, `/app` or `/settings`), read from the plugin registry so a new install adds an entry.
   A plugin that is off or uninstalling is muted with an "Off" marker; a failed or blocked one with
   "Failed". At 640px and below it is a horizontal scroller of links. The route `<admin>/plugins/go?plugin=<name>` stays for old links (a GET, 303 to that plugin; an empty value is the list, an unknown name
   lands on the role's home), so a plugin named `go` has no bare `<admin>/plugins/go` shortcut; its `/go/settings` still works. An editor sees only the plugins whose UI admits editors, and no "All plugins".
@@ -907,14 +907,17 @@ Services reach the admin through `Deps.Growth.Packages` (`PackageAdmin`, `packag
   unsigned-packages banner and the update strip sit above the list when they apply.
 * **Browse.** `<admin>/plugins/browse` shows the registry as cards with search, facets and paging;
   `<admin>/plugins/<name>/about` is the detail page, shown in a side panel when script is on.
-* **Plugin pages.** `<admin>/plugins/{name}/settings` renders for every installed plugin. The owner gets
-  the header (status, "Update to X", Turn on/off) and two link tabs. The **Settings** tab holds the
-  plugin's settings form and its admin UI, an `<iframe sandbox="allow-scripts">`; `pluginframe.js`
-  relays `postMessage` to `POST <admin>/plugins/{name}/bridge`. The **Permissions** tab
+* **Plugin pages.** The owner gets the header (status, "Update to X", Turn on/off) and link tabs. A
+  plugin with an admin UI has its own screen as the first tab, `<admin>/plugins/{name}/app`, labelled
+  `ui.title` (the plugin name when empty): an `<iframe sandbox="allow-scripts">`, full width, whose
+  height follows the page through the `bridge.js` height message (clamped 320-20000 px);
+  `pluginframe.js` relays `postMessage` to `POST <admin>/plugins/{name}/bridge`. The **Settings** tab
+  (`<admin>/plugins/{name}/settings`) holds only the settings form. The **Permissions** tab
   (`<admin>/plugins/{name}/permissions`) holds the grants, hosts, routes, cron, cookies, functions, the
-  signature and Uninstall. An editor may open `/settings` only for a plugin whose UI admits editors and
-  sees just the frame. `<admin>/plugins/{name}` redirects (302) to `/settings`, and the old
-  `<admin>/plugins/{name}/ui` redirects (301) there. The sandboxed document is served
+  signature and Uninstall. An editor in `ui.roles` is sent from `/settings` to `/app` and sees just the
+  frame. `<admin>/plugins/{name}` redirects (302) to `/app` when the user may open the screen, else to
+  `/settings`; the old `<admin>/plugins/{name}/ui` redirects (302) the same way. The sidebar and the
+  plugins subnav link to that same first tab. The sandboxed document is served
   outside `<admin>` (`/plugin-ui/{plugin}/{file}`) with its own strict CSP; see PLUGIN_API.md "Admin page".
   The document URL carries a one-time ticket (`?t=`, 60 seconds, bound to the session and the
   file) minted when the page renders (stored in the database, `hatamoto_frame_tickets`, 60 seconds, deleted on first use, so any replica can serve the frame); scripts, styles and images stay public. A page that

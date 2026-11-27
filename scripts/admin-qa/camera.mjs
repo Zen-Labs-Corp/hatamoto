@@ -20,7 +20,7 @@ const check = (ok, msg, detail = "") => {
 
 const b = await launch("chromium", ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"]);
 const p = await newSession(b, { width: 1440 });
-const pageUrl = `${base}/admin/plugins/frameplug/settings`;
+const pageUrl = `${base}/admin/plugins/frameplug/app`;
 const pframe = () => p.frames().find((f) => f.url().includes("/plugin-ui/frameplug/index.html"));
 
 // The plugin page, loaded; returns the main response.

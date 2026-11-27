@@ -62,12 +62,12 @@ func TestSchemaformPagesLoadTheirHooks(t *testing.T) {
 		assertHooksLoaded(t, p, body)
 	}
 
-	// A plugin with an admin UI loads the frame module on its Settings tab.
-	body := g.do("GET", "/admin/plugins/board/settings", "owner-token", nil, nil).Body.String()
+	// A plugin with an admin UI loads the frame module on its screen tab.
+	body := g.do("GET", "/admin/plugins/board/app", "owner-token", nil, nil).Body.String()
 	if !strings.Contains(body, "data-hm-pluginframe") {
 		t.Fatal("the plugin page rendered no frame host")
 	}
-	assertHooksLoaded(t, "/admin/plugins/board/settings", body)
+	assertHooksLoaded(t, "/admin/plugins/board/app", body)
 
 	c := newContentRig(t)
 	for _, p := range []string{"/admin/entities/" + fid(14).String()} {

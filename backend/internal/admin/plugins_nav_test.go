@@ -29,15 +29,15 @@ func TestPluginsSubnavListsEveryPlugin(t *testing.T) {
 	if !strings.Contains(body, `<nav class="hm-subnav" aria-label="Plugins">`) || !strings.Contains(body, ">All plugins<") {
 		t.Fatalf("no Plugins subnav")
 	}
-	for _, name := range []string{"hello", "quiet", "devonly", "ownerui", "board"} {
-		if subnavLink(body, "/admin/plugins/"+name+"/settings") == "" {
+	for name, tab := range map[string]string{"hello": "app", "quiet": "settings", "devonly": "settings", "ownerui": "app", "board": "app"} {
+		if subnavLink(body, "/admin/plugins/"+name+"/"+tab) == "" {
 			t.Errorf("subnav lacks %s", name)
 		}
 	}
 	if n := strings.Count(body, `class="hm-subnav__link`); n != 6 {
 		t.Errorf("%d subnav links, want 6", n)
 	}
-	if n := strings.Count(body, `aria-current="page"`); n < 1 || !strings.Contains(subnavLink(body, "/admin/plugins/hello/settings"), `aria-current="page"`) {
+	if n := strings.Count(body, `aria-current="page"`); n < 1 || !strings.Contains(subnavLink(body, "/admin/plugins/hello/app"), `aria-current="page"`) {
 		t.Errorf("the hello entry must be current")
 	}
 	if strings.Contains(subnavLink(body, "/admin/plugins"), "aria-current") {
@@ -61,7 +61,7 @@ func TestPluginsSubnavListsEveryPlugin(t *testing.T) {
 		}
 	}
 	about := g.do("GET", "/admin/plugins/hello/about", "owner-token", nil, nil).Body.String()
-	if strings.Contains(subnavLink(about, "/admin/plugins"), "aria-current") || !strings.Contains(subnavLink(about, "/admin/plugins/hello/settings"), "aria-current") {
+	if strings.Contains(subnavLink(about, "/admin/plugins"), "aria-current") || !strings.Contains(subnavLink(about, "/admin/plugins/hello/app"), "aria-current") {
 		t.Error("an installed plugin's About page keeps its own entry current")
 	}
 	if n := strings.Count(subnavSection(about), `aria-current="page"`); n != 1 {
@@ -93,14 +93,14 @@ func TestPluginsSubnavFramesEveryPluginsPage(t *testing.T) {
 		if rec.Code != wantCode[name] {
 			t.Errorf("%s: status %d, want %d", name, rec.Code, wantCode[name])
 		}
-		if !strings.Contains(body, `<nav class="hm-subnav" aria-label="Plugins">`) || subnavLink(body, "/admin/plugins/hello/settings") == "" {
+		if !strings.Contains(body, `<nav class="hm-subnav" aria-label="Plugins">`) || subnavLink(body, "/admin/plugins/hello/app") == "" {
 			t.Errorf("%s: no Plugins subnav", name)
 		}
 	}
 	if body := pages["422 settings re-render"].Body.String(); !strings.Contains(body, "hm-tabs") || !strings.Contains(body, "hm-pluginhead") {
 		t.Error("the 422 re-render lost the plugin header or tabs")
 	}
-	if !strings.Contains(subnavLink(pages["uninstall confirm"].Body.String(), "/admin/plugins/hello/settings"), `aria-current="page"`) {
+	if !strings.Contains(subnavLink(pages["uninstall confirm"].Body.String(), "/admin/plugins/hello/app"), `aria-current="page"`) {
 		t.Error("the uninstall page must mark hello current")
 	}
 }
@@ -143,7 +143,7 @@ func TestPluginsSubnavMutesOffAndFailedPlugins(t *testing.T) {
 	if !strings.Contains(crashed, "hm-subnav__link--muted") || !strings.Contains(crashed, ">Failed<") {
 		t.Errorf("a failed plugin is muted with Failed: %s", crashed)
 	}
-	if hello := subnavLink(body, "/admin/plugins/hello/settings"); strings.Contains(hello, "muted") || strings.Contains(hello, "hm-subnav__marker") {
+	if hello := subnavLink(body, "/admin/plugins/hello/app"); strings.Contains(hello, "muted") || strings.Contains(hello, "hm-subnav__marker") {
 		t.Errorf("an active plugin is neither muted nor marked: %s", hello)
 	}
 }
@@ -194,6 +194,7 @@ func TestPluginEmptyStateFollowsTheDeclaredUI(t *testing.T) {
 		{"quiet", off, []string{failed, hidden, nothing}}, // turned off, no UI
 		{"stuck", blocked + ", so it is not running. Reason: needs a newer host", []string{off, failed, hidden, nothing, leaving}},
 		{"leaving", leaving, []string{off, failed, hidden, nothing, blocked}},
+		{"hello", "This plugin has no settings. Its admin page is on the Hello board tab.", []string{off, failed, hidden, nothing}},
 		{"edonly", hidden, []string{off, failed, nothing}},  // UI exists, the owner may not see it
 		{"devonly", nothing, []string{off, failed, hidden}}, // loaded, nothing declared
 	} {
@@ -231,6 +232,10 @@ func TestPluginsSubnavForEditors(t *testing.T) {
 
 	g, _, _ := newPackageRig(t)
 	rec := g.do("GET", "/admin/plugins/board/settings", "editor-token", nil, nil)
+	if rec.Code != 302 || rec.Header().Get("Location") != "/admin/plugins/board/app" {
+		t.Fatalf("editor on Settings: %d %q, want a redirect to the screen", rec.Code, rec.Header().Get("Location"))
+	}
+	rec = g.do("GET", "/admin/plugins/board/app", "editor-token", nil, nil)
 	body := rec.Body.String()
 	if rec.Code != 200 {
 		t.Fatalf("editor on an editor-open plugin: %d", rec.Code)
@@ -238,7 +243,7 @@ func TestPluginsSubnavForEditors(t *testing.T) {
 	if strings.Contains(body, "All plugins") || strings.Contains(body, "/admin/plugins/ownerui/") || strings.Contains(body, "/admin/plugins/quiet/") {
 		t.Error("the editor's subnav lists only plugins open to editors, and no All plugins")
 	}
-	if subnavLink(body, "/admin/plugins/board/settings") == "" {
+	if subnavLink(body, "/admin/plugins/board/app") == "" {
 		t.Error("the editor's subnav lists board")
 	}
 	for _, owned := range []string{"hm-tabs", "Turn off", ">Save<", `href="/admin/plugins/board/permissions"`} {
@@ -257,7 +262,7 @@ func TestPluginsSubnavForEditors(t *testing.T) {
 		}
 	}
 	// The sidebar offers an editor the first plugin they may open.
-	if side := g.do("GET", "/admin/profile", "editor-token", nil, nil).Body.String(); !strings.Contains(side, `href="/admin/plugins/board/settings"`) {
+	if side := g.do("GET", "/admin/profile", "editor-token", nil, nil).Body.String(); !strings.Contains(side, `href="/admin/plugins/board/app"`) {
 		t.Error("the editor's Plugins item must open the first plugin they may use")
 	}
 }
@@ -279,7 +284,7 @@ func TestPluginsGoSelect(t *testing.T) {
 		return loc
 	}
 	for query, want := range map[string]string{
-		"?plugin=hello":             "/admin/plugins/hello/settings",
+		"?plugin=hello":             "/admin/plugins/hello/app",
 		"?plugin=":                  "/admin/plugins",
 		"":                          "/admin/plugins",
 		"?plugin=ghost":             "/admin/plugins",
@@ -291,7 +296,7 @@ func TestPluginsGoSelect(t *testing.T) {
 		}
 	}
 	for query, want := range map[string]string{
-		"?plugin=board":   "/admin/plugins/board/settings",
+		"?plugin=board":   "/admin/plugins/board/app",
 		"?plugin=ownerui": "/admin",
 		"?plugin=":        "/admin",
 		"?plugin=//evil":  "/admin",
@@ -307,7 +312,7 @@ func TestPluginsGoSelect(t *testing.T) {
 		t.Errorf("a plugin named all: %q", got)
 	}
 	body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String()
-	for _, want := range []string{`href="/admin/plugins" aria-current="page"><span class="hm-subnav__text">All plugins</span>`, `href="/admin/plugins/all/settings"><span class="hm-subnav__text">all</span>`, `href="/admin/plugins/hello/settings"><span class="hm-subnav__text">hello</span>`} {
+	for _, want := range []string{`href="/admin/plugins" aria-current="page"><span class="hm-subnav__text">All plugins</span>`, `href="/admin/plugins/all/settings"><span class="hm-subnav__text">all</span>`, `href="/admin/plugins/hello/app"><span class="hm-subnav__text">hello</span>`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the subnav lacks %q", want)
 		}
@@ -322,12 +327,21 @@ func TestPluginRedirects(t *testing.T) {
 
 	g, _, _ := newPackageRig(t)
 	rec := g.do("GET", "/admin/plugins/hello", "owner-token", nil, nil)
-	if rec.Code != 302 || rec.Header().Get("Location") != "/admin/plugins/hello/settings" {
+	if rec.Code != 302 || rec.Header().Get("Location") != "/admin/plugins/hello/app" {
 		t.Errorf("/admin/plugins/hello: %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	if rec := g.do("GET", "/admin/plugins/devonly", "owner-token", nil, nil); rec.Code != 302 || rec.Header().Get("Location") != "/admin/plugins/devonly/settings" {
+		t.Errorf("a plugin without ui opens on Settings: %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	if rec := g.do("GET", "/admin/plugins/ownerui", "editor-token", nil, nil); rec.Code != 302 || rec.Header().Get("Location") != "/admin/plugins/ownerui/settings" {
+		t.Errorf("a role outside ui.roles opens on Settings: %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	if rec := g.do("GET", "/admin/plugins/devonly/ui", "owner-token", nil, nil); rec.Code != 302 || rec.Header().Get("Location") != "/admin/plugins/devonly/settings" {
+		t.Errorf("/ui without a page: %d %q", rec.Code, rec.Header().Get("Location"))
 	}
 	for _, token := range []string{"owner-token", "editor-token"} {
 		rec := g.do("GET", "/admin/plugins/board/ui", token, nil, nil)
-		if rec.Code != 301 || rec.Header().Get("Location") != "/admin/plugins/board/settings" {
+		if rec.Code != 302 || rec.Header().Get("Location") != "/admin/plugins/board/app" {
 			t.Errorf("/ui as %s: %d %q", token, rec.Code, rec.Header().Get("Location"))
 		}
 	}
@@ -341,12 +355,15 @@ func TestPluginPagesPassA11y(t *testing.T) {
 	t.Parallel()
 
 	g, _, _ := newPackageRig(t)
-	for _, p := range []string{"/admin/plugins", "/admin/plugins/hello/settings", "/admin/plugins/hello/permissions", "/admin/plugins/devonly/settings"} {
+	for _, p := range []string{"/admin/plugins", "/admin/plugins/hello/settings", "/admin/plugins/hello/app", "/admin/plugins/hello/permissions", "/admin/plugins/devonly/settings"} {
 		rec := g.do("GET", p, "owner-token", nil, nil)
 		if rec.Code != 200 {
 			t.Fatalf("%s: %d", p, rec.Code)
 		}
 		a11yOK(t, rec.Body.String())
+	}
+	if body := g.do("GET", "/admin/plugins/hello/settings", "owner-token", nil, nil).Body.String(); strings.Contains(body, "data-hm-pluginframe") || strings.Contains(body, "plugin-page") {
+		t.Error("the Settings tab carries no plugin frame")
 	}
 }
 
@@ -362,8 +379,12 @@ func TestPluginTabsHaveDistinctTitles(t *testing.T) {
 		return m[1]
 	}
 	settings, perms := title("/admin/plugins/hello/settings"), title("/admin/plugins/hello/permissions")
+	app := title("/admin/plugins/hello/app")
 	if !strings.Contains(settings, "hello settings") || !strings.Contains(perms, "hello permissions") {
 		t.Errorf("titles %q and %q", settings, perms)
+	}
+	if !strings.Contains(app, "Hello board") || app == settings || app == perms {
+		t.Errorf("the screen tab title %q must be its own", app)
 	}
 }
 

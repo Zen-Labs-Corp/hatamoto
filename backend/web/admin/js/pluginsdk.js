@@ -17,6 +17,8 @@
 //                                      Needs a click in the page just before; without the grant, or without
 //                                      the click, the promise rejects with an Error.
 //                                      (core shows its own dialog; a person presses Capture; longest side <= 1280px)
+//   (automatic) the page's height is reported to the admin, which sizes the frame to it (min 320px, max 20000px);
+//   keep content in normal flow and do not size the page to 100vh/100%.
 // The page has no network access of its own; this is its only way out.
 (() => {
   const pending = new Map();
@@ -35,6 +37,7 @@
       nonce = m.nonce || "";
       window.hatamoto.camera.available = m.camera === true;
       hello({ plugin: m.plugin, functions: m.functions, camera: m.camera === true });
+      reportHeight();
     }
     if (m.type === "result" && pending.has(m.id)) {
       const p = pending.get(m.id);
@@ -43,6 +46,34 @@
       else p.resolve(m.result);
     }
   });
+
+  // The admin sizes the frame to the page: report the document height (rAF-throttled,
+  // only changes) once the host's greeting gave us the nonce. No reply is expected.
+  let sizing = false;
+  function reportHeight() {
+    if (sizing) return; // the host may greet twice
+    sizing = true;
+    let last = 0;
+    let queued = false;
+    const post = () => {
+      queued = false;
+      const height = Math.ceil(document.documentElement.getBoundingClientRect().height);
+      if (!height || height === last) return;
+      last = height;
+      parent.postMessage({ hm: 1, nonce, op: "height", height }, "*");
+    };
+    const queue = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(post);
+    };
+    if (typeof ResizeObserver === "function") {
+      const ro = new ResizeObserver(queue);
+      ro.observe(document.documentElement);
+      if (document.body) ro.observe(document.body);
+    }
+    queue();
+  }
 
   function send(msg) {
     return new Promise((resolve, reject) => {

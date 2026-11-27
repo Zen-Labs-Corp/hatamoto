@@ -157,7 +157,7 @@ func TestPluginCameraIntegration(t *testing.T) {
 
 	// (a) installed with the ask but no grant: today's page and headers.
 	install(pack("1.0.0", []string{sdk.UIAllowCamera}))
-	page := get("/admin/plugins/camp/settings")
+	page := get("/admin/plugins/camp/app")
 	if page.Code != 200 || hasCamera(page.Body.String()) || page.Header().Get("Permissions-Policy") != globalPolicy {
 		t.Fatalf("ungranted: %d policy=%q camera=%v", page.Code, page.Header().Get("Permissions-Policy"), hasCamera(page.Body.String()))
 	}
@@ -171,7 +171,7 @@ func TestPluginCameraIntegration(t *testing.T) {
 	if rec := postForm("/admin/plugins/camp/grant", url.Values{"permission": {"kv", sdk.PermUICamera}}); rec.Code != 303 {
 		t.Fatalf("grant: %d %s", rec.Code, rec.Body.String())
 	}
-	page = get("/admin/plugins/camp/settings")
+	page = get("/admin/plugins/camp/app")
 	body := page.Body.String()
 	if !hasCamera(body) || page.Header().Get("Permissions-Policy") != hostPolicy {
 		t.Fatalf("granted: policy=%q camera=%v", page.Header().Get("Permissions-Policy"), hasCamera(body))
@@ -202,7 +202,7 @@ func TestPluginCameraIntegration(t *testing.T) {
 	if err := srv.plugins.Grants().Set(ctx, "camp", []sdk.Permission{sdk.PermKV, sdk.PermUICamera}); err != nil {
 		t.Fatal(err)
 	}
-	page = get("/admin/plugins/camp/settings")
+	page = get("/admin/plugins/camp/app")
 	if page.Code != 200 || hasCamera(page.Body.String()) || page.Header().Get("Permissions-Policy") != globalPolicy {
 		t.Errorf("after the ask is dropped: %d policy=%q camera=%v", page.Code, page.Header().Get("Permissions-Policy"), hasCamera(page.Body.String()))
 	}

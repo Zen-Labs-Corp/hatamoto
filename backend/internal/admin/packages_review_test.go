@@ -43,7 +43,7 @@ func TestBridgeHostCallsAreForTheOwnerOnly(t *testing.T) {
 	}
 
 	// The editor's host page does not even list functions.
-	body := g.do("GET", "/admin/plugins/board/settings", "editor-token", nil, nil).Body.String()
+	body := g.do("GET", "/admin/plugins/board/app", "editor-token", nil, nil).Body.String()
 	if !strings.Contains(body, `data-functions=""`) {
 		t.Errorf("an editor's page must carry no host functions:\n%s", body)
 	}
@@ -52,7 +52,7 @@ func TestBridgeHostCallsAreForTheOwnerOnly(t *testing.T) {
 			t.Errorf("an editor's plugin page must not carry %q", owned)
 		}
 	}
-	if body := g.do("GET", "/admin/plugins/board/settings", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `data-functions="settings.get,mail.send"`) {
+	if body := g.do("GET", "/admin/plugins/board/app", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `data-functions="settings.get,mail.send"`) {
 		t.Errorf("the owner's page lists the granted functions")
 	}
 }
@@ -83,8 +83,11 @@ func TestPluginPageWidthFollowsTheFrame(t *testing.T) {
 	t.Parallel()
 
 	g, _, _ := newPackageRig(t)
-	if body := g.do("GET", "/admin/plugins/hello/settings", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `data-width="wide"`) || strings.Contains(body, `data-width="narrow"`) {
+	if body := g.do("GET", "/admin/plugins/hello/app", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `data-width="wide"`) || strings.Contains(body, `data-width="narrow"`) {
 		t.Error("a plugin page with an admin UI frame must keep the wide page")
+	}
+	if body := g.do("GET", "/admin/plugins/hello/settings", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `data-width="narrow"`) {
+		t.Error("the Settings tab is a narrow form page")
 	}
 	if body := g.do("GET", "/admin/plugins/devonly/settings", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `data-width="narrow"`) {
 		t.Error("a plugin page without a frame must be narrow")
@@ -95,7 +98,7 @@ func TestPluginFrameIsBuiltByTheHostScript(t *testing.T) {
 	t.Parallel()
 
 	g, _, _ := newPackageRig(t)
-	body := g.do("GET", "/admin/plugins/hello/settings", "owner-token", nil, nil).Body.String()
+	body := g.do("GET", "/admin/plugins/hello/app", "owner-token", nil, nil).Body.String()
 	if !strings.Contains(body, "<template><iframe") || strings.Contains(body, `<iframe class="hm-pluginframe" sandbox="allow-scripts" title="Hello board" referrerpolicy="no-referrer" src=`) {
 		t.Errorf("the iframe must sit in a template without a src:\n%s", body)
 	}
@@ -587,12 +590,14 @@ func TestPluginUIConfinementIsPinned(t *testing.T) {
 	if uiCSP != csp {
 		t.Errorf("uiCSP = %q", uiCSP)
 	}
-	tpl, err := os.ReadFile("../../web/admin/pages/plugins/plugin.html")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(tpl), `sandbox="allow-scripts"`) || strings.Contains(string(tpl), "allow-same-origin") {
-		t.Error("the plugin iframe must keep sandbox=\"allow-scripts\" and nothing more")
+	for _, page := range []string{"app.html", "runs.html"} {
+		tpl, err := os.ReadFile("../../web/admin/pages/plugins/" + page)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(tpl), `sandbox="allow-scripts"`) || strings.Contains(string(tpl), "allow-same-origin") {
+			t.Errorf("%s: the plugin iframe must keep sandbox=\"allow-scripts\" and nothing more", page)
+		}
 	}
 }
 

@@ -93,6 +93,7 @@ GET /admin/plugins/security/developer anon=303 editor=403 owner=503
 GET /admin/plugins/upload anon=303 editor=403 owner=503
 GET /admin/plugins/{name} anon=303 editor=302 owner=302
 GET /admin/plugins/{name}/about anon=303 editor=403 owner=503
+GET /admin/plugins/{name}/app anon=303 editor=503 owner=503
 GET /admin/plugins/{name}/automatic anon=303 editor=403 owner=503
 GET /admin/plugins/{name}/changesets/{id} anon=303 editor=403 owner=503
 GET /admin/plugins/{name}/changesets/{id}/preview anon=303 editor=403 owner=503
@@ -100,7 +101,7 @@ GET /admin/plugins/{name}/permissions anon=303 editor=403 owner=503
 GET /admin/plugins/{name}/runs anon=303 editor=403 owner=503
 GET /admin/plugins/{name}/runs/{id} anon=303 editor=403 owner=503
 GET /admin/plugins/{name}/settings anon=303 editor=503 owner=503
-GET /admin/plugins/{name}/ui anon=303 editor=301 owner=301
+GET /admin/plugins/{name}/ui anon=303 editor=302 owner=302
 GET /admin/plugins/{name}/uninstall anon=303 editor=403 owner=503
 GET /admin/preview/theme/{name} anon=303 editor=503 owner=503
 GET /admin/profile anon=303 editor=200 owner=200

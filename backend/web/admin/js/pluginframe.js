@@ -10,6 +10,7 @@
 //   iframe -> {hm:1, id, nonce, op:"inputs", values}                    (run inputs, kept in core's start form; no request is made)
 //   iframe -> {hm:1, id, nonce, op:"run.start", run, inputs}            (owner only, needs a recent click: core's confirm names the run and inputs; Start posts to the owner-only start route)
 //   iframe -> {hm:1, id, nonce, op:"camera.capture"}                    (only with the owner's camera grant and a recent click: core's own dialog, one JPEG back; no request is made)
+//   iframe -> {hm:1, nonce, op:"height", height}                       (the page's height; only the screen tab's frame follows it, clamped 320..20000 px; no request, no reply)
 //
 // The bridge belongs to the ONE document the frame loads first. A sandboxed
 // frame can still navigate itself, and the next document has the same opaque
@@ -38,6 +39,7 @@ function init() {
   const plugin = holder.dataset.plugin;
   const bridge = holder.dataset.bridge;
   const camera = holder.dataset.camera === "1";
+  const fit = holder.dataset.fit === "1"; // only the screen tab sizes its frame to the page
   const functions = new Set((holder.dataset.functions || "").split(",").filter(Boolean));
   let runs = new Map();
   try {
@@ -50,6 +52,85 @@ function init() {
   const nonce = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
   let loads = 0;
   let dead = false;
+
+  // The page reports its height; only this frame is resized, within bounds.
+  const MIN_HEIGHT = 320;
+  const MAX_HEIGHT = 20000;
+  // A page whose own height follows the frame (body { min-height: 100vh } plus a margin, or
+  // height: 110vh) reports a taller page right after every resize of ours. A taller report inside
+  // the echo window (max(ECHO_MS, ECHO_FRAMES host animation frames) after the last resize that
+  // changed the height) is taken as that echo, whatever its step. After RUNAWAY echoes in a row
+  // the frame freezes: it never drops a report, it keeps the latest as `pending` and applies it
+  // once, TRAILING_MS after the last report. If that apply is echoed again the page is a runaway
+  // and the frame stops growing until a report arrives outside the window (the user, say "Load
+  // more"), which is applied and ends the freeze. A shrinking report always applies.
+  const RUNAWAY = 4;
+  const ECHO_MS = 150;
+  const ECHO_FRAMES = 4;
+  const ECHO_CAP_MS = 1000;
+  const TRAILING_MS = 250;
+  let pending = 0, scheduled = false, lastSeen = 0, streak = 0;
+  let frozen = false, runaway = false, trailing = false, timer = 0;
+  let echoUntil = -Infinity, epoch = 0;
+  const reset = () => {
+    streak = 0;
+    frozen = runaway = trailing = false;
+    clearTimeout(timer);
+    timer = 0;
+  };
+  // write sets the frame to `pending`. A write that changes nothing leaves the echo window alone.
+  const write = () => {
+    const edge = frame.offsetHeight - frame.clientHeight; // borders (box-sizing: border-box)
+    if (pending + edge === frame.offsetHeight) return false;
+    frame.style.minHeight = "0";
+    frame.style.height = pending + edge + "px";
+    const at = performance.now(), mine = ++epoch;
+    echoUntil = at + ECHO_CAP_MS; // open until ECHO_FRAMES host frames have passed (a hidden tab runs none)
+    let ticks = 0;
+    const tick = () => {
+      if (mine !== epoch) return;
+      if (++ticks < ECHO_FRAMES) requestAnimationFrame(tick);
+      else echoUntil = Math.min(at + ECHO_CAP_MS, Math.max(at + ECHO_MS, performance.now()));
+    };
+    requestAnimationFrame(tick);
+    return true;
+  };
+  const apply = () => {
+    scheduled = false;
+    if (!frozen) write();
+  };
+  const applyTrailing = () => {
+    timer = 0;
+    trailing = write();
+  };
+  const setHeight = (h) => {
+    if (typeof h !== "number" || !Number.isFinite(h)) return;
+    const n = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.ceil(h)));
+    if (n === lastSeen) return;
+    lastSeen = n;
+    pending = n;
+    if (n > frame.clientHeight && performance.now() < echoUntil) {
+      if (runaway) return;
+      if (trailing) {
+        runaway = true;
+        clearTimeout(timer);
+        timer = 0;
+        return;
+      }
+      if (++streak >= RUNAWAY) frozen = true;
+      if (frozen) {
+        clearTimeout(timer);
+        timer = setTimeout(applyTrailing, TRAILING_MS);
+        return;
+      }
+    } else {
+      reset();
+    }
+    if (!scheduled) {
+      scheduled = true;
+      requestAnimationFrame(apply);
+    }
+  };
 
   const reply = (msg) => {
     if (!dead && loads <= 1) frame.contentWindow?.postMessage({ hm: 1, ...msg }, "*");
@@ -204,6 +285,10 @@ function init() {
       return;
     }
     if (m.nonce !== nonce) return;
+    if (m.op === "height") {
+      if (fit) setHeight(m.height);
+      return; // local only: nothing is forwarded or replied
+    }
     try {
       const result = await forward(m);
       reply({ type: "result", id: m.id, result });

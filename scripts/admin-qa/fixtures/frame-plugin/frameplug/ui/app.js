@@ -18,3 +18,12 @@ document.getElementById("startrun").addEventListener("click", async () => {
     out.textContent = JSON.stringify({ refused: String(err.message || err) });
   }
 });
+// grow: add 120 rows so the page is taller than the viewport (the host frame should follow).
+document.getElementById("grow").addEventListener("click", () => {
+  const rows = document.getElementById("rows");
+  for (let i = 0; i < 120; i++) {
+    const p = document.createElement("p");
+    p.textContent = "Row " + (rows.children.length + 1);
+    rows.append(p);
+  }
+});

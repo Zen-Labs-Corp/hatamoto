@@ -92,6 +92,7 @@ GET /admin/plugins/security/developer -> admin.(*Admin).handleAllowDeveloperPage
 GET /admin/plugins/upload -> admin.(*Admin).handleUploadPage-fm
 GET /admin/plugins/{name} -> admin.(*Admin).handlePluginRedirect-fm
 GET /admin/plugins/{name}/about -> admin.(*Admin).handleBrowseDetail-fm
+GET /admin/plugins/{name}/app -> admin.(*Admin).handlePluginApp-fm
 GET /admin/plugins/{name}/automatic -> admin.(*Admin).handlePluginStanding-fm
 GET /admin/plugins/{name}/changesets/{id} -> admin.(*Admin).handleChangeset-fm
 GET /admin/plugins/{name}/changesets/{id}/preview -> admin.(*Admin).handleChangesetPreview-fm

@@ -472,7 +472,7 @@ type Route struct {
 
 // AdminUI declares a plugin's admin page.
 type AdminUI struct {
-	// Title is the sidebar label and the page heading.
+	// Title is the label of the plugin page's first tab and its page heading.
 	Title string `json:"title"`
 	// Entry is the HTML file under ui/ (default "index.html").
 	Entry string `json:"entry,omitempty"`

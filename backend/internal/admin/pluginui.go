@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json/jsontext"
 	"io/fs"
@@ -71,6 +72,36 @@ func uiRoles(u *PluginUIInfo) []string {
 // uiAllows reports whether p's UI is loaded and open to role.
 func uiAllows(p PluginInfo, role string) bool {
 	return p.Loaded && p.UI != nil && slices.Contains(uiRoles(p.UI), role)
+}
+
+// pluginHomeTab is the tab a plugin page opens on: its own screen ("app")
+// when role may open the UI, else "settings".
+func pluginHomeTab(p PluginInfo, role string, manage, uiAccess bool) string {
+	if uiAllows(p, role) && (manage || uiAccess) {
+		return "app"
+	}
+	return "settings"
+}
+
+// mayOpenScreen reports whether the signed-in user may open p's screen tab.
+func (a *Admin) mayOpenScreen(ctx context.Context, p PluginInfo) bool {
+	obj := pluginObject(p.Name)
+	return pluginHomeTab(p, userFrom(ctx).Role, a.canObj(ctx, authz.ActionPluginManage, obj), a.canObj(ctx, authz.ActionPluginUIAccess, obj)) == "app"
+}
+
+// coreTabLabels are the labels of the tabs core adds next to the screen tab.
+var coreTabLabels = []string{"Settings", "Permissions", "Runs", "Automatic updates"}
+
+// screenLabel names the screen tab: ui.title, else the plugin name. A title
+// that reads like one of core's own tabs would give two tabs the same name, so
+// it falls back to the plugin name too.
+func screenLabel(p PluginInfo) string {
+	if p.UI != nil {
+		if t := strings.TrimSpace(p.UI.Title); t != "" && !slices.ContainsFunc(coreTabLabels, func(l string) bool { return strings.EqualFold(l, t) }) {
+			return t
+		}
+	}
+	return p.Name
 }
 
 // firstUIPlugin is the name of the first plugin whose UI role may open, or "".
@@ -154,7 +185,7 @@ func (a *Admin) pluginUIFor(r *http.Request, p PluginInfo, role string) *pluginU
 	if tok == "" {
 		return nil
 	}
-	d := &pluginUIData{Camera: p.UI.Camera, Name: p.Name, Title: p.UI.Title, Src: "/plugin-ui/" + p.Name + "/" + entry + "?t=" + tok, Bridge: a.adminPath + "/plugins/" + p.Name + "/bridge"}
+	d := &pluginUIData{Camera: p.UI.Camera, Name: p.Name, Title: screenLabel(p), Src: "/plugin-ui/" + p.Name + "/" + entry + "?t=" + tok, Bridge: a.adminPath + "/plugins/" + p.Name + "/bridge"}
 	if a.canObj(r.Context(), authz.ActionPluginUIHost, pluginObject(p.Name)) { // host functions are the owner's (see handlePluginBridge)
 		d.Functions = strings.Join(p.UI.Functions, ",")
 	}
@@ -179,9 +210,11 @@ func (a *Admin) pluginUIFor(r *http.Request, p PluginInfo, role string) *pluginU
 }
 
 // handlePluginUIRedirect keeps the old /ui address working: the UI now lives on
-// the plugin's Settings tab.
+// the plugin's first tab, /app (Settings for a plugin without a page the user
+// may open). It is a 302: the target depends on the session and the plugin's
+// state, and a browser keeps a 301 for good.
 func (a *Admin) handlePluginUIRedirect(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, a.pluginURL(r.PathValue("name"), "settings"), http.StatusMovedPermanently)
+	http.Redirect(w, r, a.pluginHome(r, r.PathValue("name")), http.StatusFound)
 }
 
 // handlePluginUIFile serves ui/<file> of the plugin's package. An HTML document

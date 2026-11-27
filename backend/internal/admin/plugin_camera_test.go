@@ -23,7 +23,7 @@ func TestPluginCameraSealedFrameAndCSP(t *testing.T) {
 	}
 }
 
-// The settings page and the runs page of a plugin both follow the grant.
+// The screen tab and the runs page of a plugin both follow the grant.
 func TestPluginCameraGrantedAndUngrantedPages(t *testing.T) {
 	t.Parallel()
 
@@ -31,8 +31,8 @@ func TestPluginCameraGrantedAndUngrantedPages(t *testing.T) {
 		name, path string
 		camera     bool
 	}{
-		{"settings granted", "/admin/plugins/hello/settings", true},
-		{"settings ungranted", "/admin/plugins/hello/settings", false},
+		{"app granted", "/admin/plugins/hello/app", true},
+		{"app ungranted", "/admin/plugins/hello/app", false},
 		{"runs granted", "/admin/plugins/hello/runs", true},
 		{"runs ungranted", "/admin/plugins/hello/runs", false},
 	} {

@@ -47,6 +47,7 @@ func (a *Admin) mountPlugins(authed *httpx.Group) {
 	both.HandleFunc("GET /plugins/go", a.handlePluginsGo)
 	both.HandleFunc("GET /plugins/{name}", a.handlePluginRedirect)
 	both.HandleFunc("GET /plugins/{name}/settings", a.handlePluginSettings)
+	both.HandleFunc("GET /plugins/{name}/app", a.handlePluginApp)
 	owner.HandleFunc("POST /plugins/{name}/settings", a.handlePluginSettingsSave)
 	owner.HandleFunc("GET /plugins/{name}/permissions", a.handlePluginPermissions)
 	owner.HandleFunc("POST /plugins/{name}/grant", a.handlePluginGrant)
@@ -197,11 +198,14 @@ func (a *Admin) newUpdateReview(p PluginInfo) *updateReview {
 	}
 }
 
-func (a *Admin) newPluginHead(p PluginInfo, tab string, owner bool) pluginHead {
-	tabs := []ui.Tab{
-		{Label: "Settings", Href: a.pluginURL(p.Name, "settings"), Active: tab == "settings"},
-		{Label: "Permissions", Href: a.pluginURL(p.Name, "permissions"), Active: tab == "permissions"},
+func (a *Admin) newPluginHead(r *http.Request, p PluginInfo, tab string, owner bool) pluginHead {
+	var tabs []ui.Tab
+	if a.mayOpenScreen(r.Context(), p) {
+		tabs = append(tabs, ui.Tab{Label: screenLabel(p), Href: a.pluginURL(p.Name, "app"), Active: tab == "app"})
 	}
+	tabs = append(tabs,
+		ui.Tab{Label: "Settings", Href: a.pluginURL(p.Name, "settings"), Active: tab == "settings"},
+		ui.Tab{Label: "Permissions", Href: a.pluginURL(p.Name, "permissions"), Active: tab == "permissions"})
 	if owner && len(p.Runs) > 0 {
 		tabs = append(tabs, ui.Tab{Label: "Runs", Href: a.pluginURL(p.Name, "runs"), Active: tab == "runs"})
 	}
@@ -445,29 +449,26 @@ func (a *Admin) handlePluginGrant(w http.ResponseWriter, r *http.Request) {
 
 // ---- plugin page (settings tab) ----
 
-// pluginPageData is the Settings tab. An editor gets only the UI frame: Owner
-// is false and the form, header actions and tabs are left out.
+// pluginPageData is the Settings tab: the settings form of a plugin for its
+// manager. ScreenLabel names the plugin's own screen tab, when it has one.
 type pluginPageData struct {
 	pluginHead
-	Owner     bool
-	HasSchema bool
-	Form      template.HTML
-	UI        *pluginUIData
-	Inactive  bool
-	Summary   []ui.FieldError
+	Owner       bool
+	HasSchema   bool
+	Form        template.HTML
+	ScreenLabel string
+	Inactive    bool
+	Summary     []ui.FieldError
 }
 
 // renderPlugin renders the Settings tab of p for the signed-in role. values
 // are the form's current values (read only for an owner and a plugin with a
 // settings schema).
 func (a *Admin) renderPlugin(w http.ResponseWriter, r *http.Request, pa PluginAdmin, status int, p PluginInfo, values map[string]any, errs schemaform.Errors, openPath string) {
-	role := userFrom(r.Context()).Role
 	owner := a.canObj(r.Context(), authz.ActionPluginManage, pluginObject(p.Name))
-	d := pluginPageData{pluginHead: a.newPluginHead(p, "settings", owner), Owner: owner, UI: a.pluginUIFor(r, p, role), Inactive: !p.Loaded && (p.Package == nil || (!p.Package.WidgetOnly && !p.Package.TagPack))}
-	setCameraPolicy(w, d.UI)
-	title := p.Name + " settings"
-	if !d.Owner && d.UI != nil {
-		title = d.UI.Title
+	d := pluginPageData{pluginHead: a.newPluginHead(r, p, "settings", owner), Owner: owner, Inactive: !p.Loaded && (p.Package == nil || (!p.Package.WidgetOnly && !p.Package.TagPack))}
+	if a.mayOpenScreen(r.Context(), p) {
+		d.ScreenLabel = screenLabel(p)
 	}
 	if d.Owner && len(p.SettingsSchema) > 0 {
 		secrets, unreadable, err := pa.StoredSecrets(r.Context(), p.Name)
@@ -489,16 +490,9 @@ func (a *Admin) renderPlugin(w http.ResponseWriter, r *http.Request, pa PluginAd
 			d.Summary = append(d.Summary, ui.FieldError{ID: strings.ReplaceAll(path, ".", "-"), Label: schemaform.Humanize(path[strings.LastIndex(path, ".")+1:]), Message: m})
 		}
 	}
-	v := a.NewView(w, r, title)
-	if d.UI == nil {
-		// A plugin admin app in the frame keeps the wide page: it lays out for the full column.
-		v.Width = "narrow"
-	}
-	if d.Owner {
-		v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: p.Name}}
-	} else {
-		v.Crumbs = []Crumb{{Label: title}}
-	}
+	v := a.NewView(w, r, p.Name+" settings")
+	v.Width = "narrow"
+	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: p.Name}}
 	v.Data = d
 	a.Render(w, r, status, "plugins/plugin", v)
 }
@@ -515,17 +509,87 @@ func (a *Admin) handlePluginsGo(w http.ResponseWriter, r *http.Request) {
 		to = a.adminPath + "/plugins"
 	}
 	if pa := a.deps.Growth.Plugins; pa != nil {
-		if p, found := a.findPlugin(pa, r.URL.Query().Get("plugin")); found && (a.canObj(r.Context(), authz.ActionPluginManage, pluginObject(p.Name)) ||
-			(a.canObj(r.Context(), authz.ActionPluginUIAccess, pluginObject(p.Name)) && uiAllows(p, role))) {
-			to = a.pluginURL(p.Name, "settings")
+		if p, found := a.findPlugin(pa, r.URL.Query().Get("plugin")); found {
+			obj := pluginObject(p.Name)
+			canManage, canUI := a.canObj(r.Context(), authz.ActionPluginManage, obj), a.canObj(r.Context(), authz.ActionPluginUIAccess, obj)
+			if canManage || (canUI && uiAllows(p, role)) {
+				to = a.pluginURL(p.Name, pluginHomeTab(p, role, canManage, canUI))
+			}
 		}
 	}
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
-// handlePluginRedirect sends /admin/plugins/{name} to the plugin's Settings tab.
+// handlePluginRedirect sends /admin/plugins/{name} to the plugin's first tab:
+// its own screen when the user may open it, else Settings.
 func (a *Admin) handlePluginRedirect(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, a.pluginURL(r.PathValue("name"), "settings"), http.StatusFound)
+	http.Redirect(w, r, a.pluginHome(r, r.PathValue("name")), http.StatusFound)
+}
+
+// pluginHome is the plugin's first tab for the signed-in user. Without a plugin
+// service or for an unknown plugin it is Settings (that page answers 503/404).
+func (a *Admin) pluginHome(r *http.Request, name string) string {
+	tab := "settings"
+	if pa := a.deps.Growth.Plugins; pa != nil {
+		if p, ok := a.findPlugin(pa, name); ok && a.mayOpenScreen(r.Context(), p) {
+			tab = "app"
+		}
+	}
+	return a.pluginURL(name, tab)
+}
+
+// pluginAppData is a plugin's own screen: its admin page in the frame.
+type pluginAppData struct {
+	pluginHead
+	Owner bool
+	UI    *pluginUIData
+}
+
+// handlePluginApp shows the plugin's own screen, the first tab of a plugin
+// with an admin page, to the roles its ui admits (anything else answers like
+// an unknown plugin).
+func (a *Admin) handlePluginApp(w http.ResponseWriter, r *http.Request) {
+	pa, ok := a.pluginAdmin(w, r)
+	if !ok {
+		return
+	}
+	name := r.PathValue("name")
+	p, found := a.findPlugin(pa, name)
+	manage := a.canObj(r.Context(), authz.ActionPluginManage, pluginObject(name))
+	var frame *pluginUIData
+	if found && a.mayOpenScreen(r.Context(), p) {
+		frame = a.pluginUIFor(r, p, userFrom(r.Context()).Role)
+		if frame == nil { // admitted, but the frame could not be built (no session, ticket store down)
+			back, label := a.adminPath, "Back to the admin"
+			if manage {
+				back, label = a.pluginURL(p.Name, "settings"), "Open its settings"
+			}
+			a.ErrorBack(w, r, http.StatusServiceUnavailable, "The plugin page could not be opened", "Something went wrong on our side. Try again in a moment.", back, label)
+			return
+		}
+	}
+	if frame == nil {
+		if manage && found { // installed but no screen to open (not running, no ui, or not for them): Settings explains
+			http.Redirect(w, r, a.pluginURL(p.Name, "settings"), http.StatusFound)
+			return
+		}
+		if manage {
+			a.ErrorBack(w, r, http.StatusNotFound, "Plugin not found", "That plugin is not installed, or it is not available to you.", a.adminPath+"/plugins", "Back to plugins")
+			return
+		}
+		a.ErrorBack(w, r, http.StatusNotFound, "Plugin not found", "That plugin is not installed, or it is not available to you.", a.adminPath, "Back to the admin")
+		return
+	}
+	d := pluginAppData{pluginHead: a.newPluginHead(r, p, "app", manage), Owner: manage, UI: frame}
+	setCameraPolicy(w, d.UI)
+	v := a.NewView(w, r, d.UI.Title) // a wide page: the app lays out for the full column
+	if manage {
+		v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: p.Name}}
+	} else {
+		v.Crumbs = []Crumb{{Label: d.UI.Title}}
+	}
+	v.Data = d
+	a.Render(w, r, http.StatusOK, "plugins/app", v)
 }
 
 // pluginPermsData is the Permissions tab.
@@ -562,7 +626,7 @@ func (a *Admin) handlePluginPermissions(w http.ResponseWriter, r *http.Request) 
 // renderPermissions draws the Permissions tab. A refused Mail card save comes
 // back through it with the field errors and the typed value.
 func (a *Admin) renderPermissions(w http.ResponseWriter, r *http.Request, status int, pa PluginAdmin, p PluginInfo, errs []ui.FieldError, typed string) {
-	d := pluginPermsData{pluginHead: a.newPluginHead(p, "permissions", true), HooksText: strings.Join(p.Hooks, ", "), Summary: errs, Errs: map[string]string{}}
+	d := pluginPermsData{pluginHead: a.newPluginHead(r, p, "permissions", true), HooksText: strings.Join(p.Hooks, ", "), Summary: errs, Errs: map[string]string{}}
 	for _, e := range errs {
 		d.Errs[e.ID] = e.Message
 	}
@@ -647,9 +711,9 @@ func (a *Admin) pluginWithSettings(w http.ResponseWriter, r *http.Request) (Plug
 	return pa, p, true
 }
 
-// handlePluginSettings shows a plugin's Settings tab: for the owner every
-// installed plugin, for an editor only a plugin whose UI admits them (anything
-// else answers like an unknown plugin).
+// handlePluginSettings shows a plugin's Settings tab to its manager, for every
+// installed plugin. An editor whose plugin UI admits them is sent to the
+// plugin's screen; anything else answers like an unknown plugin.
 func (a *Admin) handlePluginSettings(w http.ResponseWriter, r *http.Request) {
 	pa, ok := a.pluginAdmin(w, r)
 	if !ok {
@@ -667,8 +731,12 @@ func (a *Admin) handlePluginSettings(w http.ResponseWriter, r *http.Request) {
 		a.ErrorBack(w, r, http.StatusNotFound, "Plugin not found", "That plugin is not installed, or it is not available to you.", a.adminPath, "Back to the admin")
 		return
 	}
+	if !manage {
+		http.Redirect(w, r, a.pluginURL(p.Name, "app"), http.StatusFound)
+		return
+	}
 	var values map[string]any
-	if manage && len(p.SettingsSchema) > 0 {
+	if len(p.SettingsSchema) > 0 {
 		var err error
 		if values, err = pa.Settings(r.Context(), p.Name); err != nil {
 			a.logger().Error("load plugin settings failed", "plugin", p.Name, "err", err)
