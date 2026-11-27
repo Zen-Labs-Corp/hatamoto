@@ -56,12 +56,39 @@ function init() {
   // The page reports its height; only this frame is resized, within bounds.
   const MIN_HEIGHT = 320;
   const MAX_HEIGHT = 20000;
-  const setHeight = (h) => {
-    if (typeof h !== "number" || !Number.isFinite(h)) return;
-    const n = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.ceil(h)));
+  // A page whose own height follows the frame (body { min-height: 100vh } plus a margin) reports
+  // "frame + k" after every resize. Growth by the same positive step RUNAWAY times in a row is that
+  // loop: the frame keeps its height until a report no longer exceeds it.
+  const RUNAWAY = 4;
+  let pending = 0, scheduled = false, lastSeen = 0, step = 0, streak = 0, frozen = false;
+  const apply = () => {
+    scheduled = false;
+    const n = pending;
+    const delta = n - frame.clientHeight;
+    if (delta <= 0) {
+      step = 0;
+      streak = 0;
+      frozen = false;
+    } else {
+      streak = delta === step ? streak + 1 : 1;
+      step = delta;
+      if (streak >= RUNAWAY) frozen = true;
+    }
+    if (frozen || delta === 0) return;
     const edge = frame.offsetHeight - frame.clientHeight; // borders (box-sizing: border-box)
     frame.style.minHeight = "0";
     frame.style.height = n + edge + "px";
+  };
+  const setHeight = (h) => {
+    if (typeof h !== "number" || !Number.isFinite(h)) return;
+    const n = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.ceil(h)));
+    if (n === lastSeen) return;
+    lastSeen = n;
+    pending = n;
+    if (!scheduled) {
+      scheduled = true;
+      requestAnimationFrame(apply);
+    }
   };
 
   const reply = (msg) => {
