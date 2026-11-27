@@ -31,6 +31,8 @@ func TestDashboardColumns(t *testing.T) {
 	}{
 		{"full owner", []string{"dash-health", "dash-pages", "dash-missing", "dash-submissions", "dash-activity"},
 			[]string{"dash-health", "dash-activity"}, []string{"dash-pages", "dash-submissions", "dash-missing"}, false},
+		{"page protection first", []string{"dash-activity", "dash-health", "dash-csp", "dash-pages"},
+			[]string{"dash-csp", "dash-health", "dash-activity"}, []string{"dash-pages"}, false},
 		{"no analytics", []string{"dash-health", "dash-missing", "dash-submissions", "dash-activity"},
 			[]string{"dash-health", "dash-activity"}, []string{"dash-submissions", "dash-missing"}, false},
 		{"editor", []string{"dash-submissions"}, nil, []string{"dash-submissions"}, true},

@@ -363,6 +363,9 @@ type Deps struct {
 	// Settings > Updates and the one-time owner notice; nil hides both. Set it
 	// only when non-nil.
 	Stats StatsService
+	// CSP is the page protection switch behind the Overview card; nil hides
+	// the card. Set it only when non-nil.
+	CSP CSPService
 	// UpdatesUnavailable is why Updates is nil, shown on the page.
 	UpdatesUnavailable string
 	// Backups is the backup service behind Settings > Backups & recovery > Backups; nil answers
