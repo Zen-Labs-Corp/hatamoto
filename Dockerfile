@@ -25,7 +25,7 @@ ARG COMMIT=unknown
 # library, so the binary stays statically linked.
 ARG TAGS=""
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -tags "nodynamic ${TAGS}" \
-    -ldflags "-X hatamoto.dev/core/app.Version=${VERSION} -X hatamoto.dev/core/app.Commit=${COMMIT}" \
+    -ldflags "-s -w -X hatamoto.dev/core/app.Version=${VERSION} -X hatamoto.dev/core/app.Commit=${COMMIT}" \
     -o /out/hatamoto ./cmd/hatamoto
 
 # ---- Final: hatamoto ---------------------------------------------------------
