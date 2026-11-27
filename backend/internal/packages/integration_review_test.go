@@ -371,6 +371,50 @@ func TestPluginNamedWebhooksIsReserved(t *testing.T) {
 	}
 }
 
+func TestRetiredTrackingPluginNamesAreReserved(t *testing.T) {
+	for _, name := range []string{"gtm", "google-analytics"} {
+		t.Run(name, func(t *testing.T) {
+			r := newRig(t)
+			ctx := context.Background()
+			pack := func(version string) []byte {
+				files := r.plugin(version)
+				files[PluginManifest] = mustJSON(sdk.Manifest{Name: name, Version: version, SDK: "^0.7", Permissions: []string{sdk.PermLog}})
+				raw, err := PackFiles(files, &r.key)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return raw
+			}
+			count := func() int {
+				var n int
+				if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM hatamoto_packages`).Scan(&n); err != nil {
+					t.Fatal(err)
+				}
+				return n
+			}
+			if _, err := r.mgr.Install(ctx, pack("1.0.0"), InstallRequest{Source: SourceUpload}); !errors.Is(err, ErrReservedName) {
+				t.Fatalf("new install err = %v, want ErrReservedName", err)
+			}
+			if n := count(); n != 0 {
+				t.Fatalf("a refused package was stored: %d", n)
+			}
+			old, err := Parse(pack("1.0.0"), DefaultLimits)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := r.mgr.store.Put(ctx, old, SourceUpload, true); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := r.mgr.Install(ctx, pack("1.1.0"), InstallRequest{Source: SourceUpload}); !errors.Is(err, ErrReservedName) {
+				t.Fatalf("update err = %v, want ErrReservedName", err)
+			}
+			if err := r.mgr.Uninstall(ctx, KindPlugin, name, UninstallOpts{}); err != nil {
+				t.Fatalf("uninstall of an installed copy: %v", err)
+			}
+		})
+	}
+}
+
 // The reserved name only blocks installing: an old plugin of that name that is
 // still installed (not first-party, so not moved into core) can be uninstalled.
 func TestPluginNamedWebhooksCanStillBeUninstalled(t *testing.T) {

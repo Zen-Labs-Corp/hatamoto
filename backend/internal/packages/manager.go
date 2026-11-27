@@ -47,7 +47,7 @@ var (
 	ErrDevDisabled          = errors.New("development packages are disabled in production")
 	ErrThemeActive          = errors.New("this theme is active; activate another theme first")
 	errEntityFilterSnapshot = errors.New("packages: the record of installed plugins could not be written; try again")
-	ErrReservedName         = errors.New("that name is reserved (the built-in theme, the webhooks that moved into core, or a name the admin uses)")
+	ErrReservedName         = errors.New("that name is reserved (the built-in theme, a plugin whose feature moved into core, or a name the admin uses)")
 	ErrPermission           = errors.New("permission not requested by the plugin")
 	ErrUnknownSource        = errors.New("unknown package source")
 	ErrUninstalling         = errors.New("this package is being uninstalled; finish the uninstall first")
@@ -60,6 +60,17 @@ var (
 // Webhooks are core now and the boot step retires a plugin by this name, so no
 // new plugin may take it.
 const ReservedPluginName = "webhooks"
+
+// reservedPluginNames are former first-party plugins whose feature is core now
+// (webhooks; the gtm and google-analytics tracking tags, Settings > Tracking). No
+// plugin may be installed or updated under them; one still installed uninstalls.
+var reservedPluginNames = []string{ReservedPluginName, "gtm", "google-analytics"}
+
+// ReservedPluginNames lists the plugin names Install always refuses.
+func ReservedPluginNames() []string { return slices.Clone(reservedPluginNames) }
+
+// IsReservedPluginName says whether Install refuses a plugin of this name.
+func IsReservedPluginName(name string) bool { return slices.Contains(reservedPluginNames, name) }
 
 // reservedPluginPaths are plugin names the admin uses as /plugins/<name>
 // pages, so a new plugin of that name would be shadowed. One already installed
@@ -372,7 +383,7 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 			}
 		}
 	case KindPlugin:
-		if p.Name == ReservedPluginName {
+		if IsReservedPluginName(p.Name) {
 			return nil, ErrReservedName
 		}
 		man, _ := p.PluginManifest()
