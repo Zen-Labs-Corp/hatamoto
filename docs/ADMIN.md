@@ -897,7 +897,7 @@ Services reach the admin through `Deps.Growth.Packages` (`PackageAdmin`, `packag
   directories show developer entries too (see `docs/site/themes/sections.md`).
 * **Plugins subnav.** Every `<admin>/plugins*` page sits in a secondary sidebar built like the Settings
   one (`plugins_nav.go`, `partials/pluginsnav.html`): "All plugins", then one entry per installed plugin
-  (`<admin>/plugins/{name}`, which lands on the plugin's first tab), read from the plugin registry so a new install adds an entry.
+  (linking straight to the plugin's first tab, `/app` or `/settings`), read from the plugin registry so a new install adds an entry.
   A plugin that is off or uninstalling is muted with an "Off" marker; a failed or blocked one with
   "Failed". At 640px and below it is a horizontal scroller of links. The route `<admin>/plugins/go?plugin=<name>` stays for old links (a GET, 303 to that plugin; an empty value is the list, an unknown name
   lands on the role's home), so a plugin named `go` has no bare `<admin>/plugins/go` shortcut; its `/go/settings` still works. An editor sees only the plugins whose UI admits editors, and no "All plugins".

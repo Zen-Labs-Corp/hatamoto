@@ -133,7 +133,7 @@ Each func name matches `^[a-z][a-z0-9_]{0,31}$`, is unique, and is called from a
 
 ## ui
 
-`title` is 1 to 40 characters and is the sidebar label and the page heading. `entry` is a relative `.html` path under `ui/` (default `index.html`; no `..`, no `//`). `roles` lists who may open the page, `owner` and `editor` only. Empty means owner only. `allow` may list `"camera"` (SDK 0.22.2): the owner must also tick the camera switch on the plugin's Permissions tab before the page may call `hatamoto.camera.capture()`. A plugin that relies on it declares `^0.22.2`, because `^0.22` also matches a 0.22.1 host, which ignores `allow`. The viewer role is valid on routes but not on the admin page.
+`title` is 1 to 40 characters and is the label of the plugin page's first tab and its page heading. `entry` is a relative `.html` path under `ui/` (default `index.html`; no `..`, no `//`). `roles` lists who may open the page, `owner` and `editor` only. Empty means owner only. `allow` may list `"camera"` (SDK 0.22.2): the owner must also tick the camera switch on the plugin's Permissions tab before the page may call `hatamoto.camera.capture()`. A plugin that relies on it declares `^0.22.2`, because `^0.22` also matches a 0.22.1 host, which ignores `allow`. The viewer role is valid on routes but not on the admin page.
 
 ## builder_sources
 

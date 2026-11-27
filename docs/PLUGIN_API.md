@@ -123,9 +123,9 @@ Content-Security-Policy: sandbox allow-scripts; default-src 'none'; script-src '
   form-action 'none'; base-uri 'none'; frame-ancestors 'self'
 ```
 
-**Sizing.** The frame is full width and follows the page's height: `/plugin-ui/_sdk/bridge.js` reports it to the admin, which clamps it to 320-20000 px and applies it to the frame's own height only, after checking the frame's nonce. The page never scrolls inside the frame. Keep content in normal flow and do not size the page to `100vh` or `100%`. A page that does not load bridge.js keeps a fixed-height frame.
+**Sizing.** The frame is full width and follows the page's height: `/plugin-ui/_sdk/bridge.js` reports it to the admin, which clamps it to 320-20000 px and applies it to the frame's own height only, after checking the frame's nonce. The page does not scroll inside the frame up to 20000 px. Keep content in normal flow and do not size the page to `100vh` or `100%`. A page that does not load bridge.js keeps a fixed-height frame.
 
-**No menu entries.** A plugin cannot add items to the admin sidebar or any core menu. Its screen, Settings, Permissions and (owner) Runs tabs on its plugin page are the only places it appears.
+**No menu entries.** A plugin cannot add items to the admin sidebar or any core menu. Core lists it in the plugins subnav and list, and shows its screen, Settings, Permissions and, for the owner, Runs and Automatic updates tabs on its plugin page; it cannot add entries of its own.
 
 No inline script or style, no `eval`, no network of its own. The HTML document
 needs a signed-in user of an allowed role and the one-time ticket in its URL
