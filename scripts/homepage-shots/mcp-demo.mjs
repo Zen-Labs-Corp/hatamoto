@@ -70,13 +70,12 @@ const rows = [
 ];
 const html = `<!doctype html><meta charset="utf-8"><style>
 @font-face{font-family:"Geist";src:url(data:font/woff2;base64,${fontFile("Geist-Variable.woff2")});font-weight:100 900}
-@font-face{font-family:"Geist Mono";src:url(data:font/woff2;base64,${fontFile("GeistMono-Variable.woff2")});font-weight:100 900}
 html,body{margin:0;background:#0f1012;color:#e8e8e3;font-family:Geist,sans-serif}
 main{padding:64px 72px}
 h1{font-size:22px;font-weight:500;color:#9a9a93;margin:0 0 6px;letter-spacing:.02em}
 h1 b{color:#e8e8e3;font-weight:600}
-p.k{font:16px "Geist Mono",monospace;color:#6f6f69;margin:0 0 40px}
-table{border-collapse:collapse;font:19px/1.5 "Geist Mono",monospace;width:100%}
+p.k{font:16px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#6f6f69;margin:0 0 40px}
+table{border-collapse:collapse;font:19px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;width:100%}
 td{padding:12px 0;vertical-align:top}
 td.a{width:44px;color:#6f6f69}
 tr.in td.a{color:#e0533d}

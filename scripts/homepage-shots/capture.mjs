@@ -38,8 +38,7 @@ fs.mkdirSync(out, { recursive: true });
 
 // The admin ships Inter; the homepage uses Geist, so the shots alias the admin font tokens to it.
 const fontCSS = `@font-face{font-family:"Geist";src:url(${base}/theme/assets/fonts/Geist-Variable.woff2);font-weight:100 900}
-@font-face{font-family:"Geist Mono";src:url(${base}/theme/assets/fonts/GeistMono-Variable.woff2);font-weight:100 900}
-:root{--font-ui:"Geist",sans-serif !important;--font-mono:"Geist Mono",monospace !important}`;
+:root{--font-ui:"Geist",sans-serif !important;--font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace !important}`;
 const FORBIDDEN = /qa\.test|\bQA [A-Z]|\bQA\b/;
 
 async function resolveUrl(page, url) {
