@@ -559,6 +559,14 @@ func (a *Admin) handlePluginApp(w http.ResponseWriter, r *http.Request) {
 	var frame *pluginUIData
 	if found && a.mayOpenScreen(r.Context(), p) {
 		frame = a.pluginUIFor(r, p, userFrom(r.Context()).Role)
+		if frame == nil { // admitted, but the frame could not be built (no session, ticket store down)
+			back, label := a.adminPath, "Back to the admin"
+			if manage {
+				back, label = a.pluginURL(p.Name, "settings"), "Open its settings"
+			}
+			a.ErrorBack(w, r, http.StatusServiceUnavailable, "The plugin page could not be opened", "Something went wrong on our side. Try again in a moment.", back, label)
+			return
+		}
 	}
 	if frame == nil {
 		if manage {

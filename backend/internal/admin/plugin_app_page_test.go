@@ -1,8 +1,14 @@
 package admin
 
 import (
+	"context"
+	"errors"
+	"net/http"
 	"strings"
 	"testing"
+	"time"
+
+	"hatamoto.dev/core/internal/frameticket"
 )
 
 func TestPluginHomeTab(t *testing.T) {
@@ -119,5 +125,38 @@ func TestPluginTabsStartWithTheScreen(t *testing.T) {
 	}
 	if body := g.do("GET", "/admin/plugins/untitled/settings", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `href="/admin/plugins/untitled/app"`) || !strings.Contains(body, ">untitled<") {
 		t.Errorf("an untitled screen falls back to the plugin name:\n%s", body)
+	}
+}
+
+type failingTickets struct{}
+
+func (failingTickets) Put(context.Context, frameticket.Ticket, time.Time) error {
+	return errors.New("store down")
+}
+
+func (failingTickets) Take(context.Context, string, time.Time) (frameticket.Ticket, bool, error) {
+	return frameticket.Ticket{}, false, errors.New("store down")
+}
+
+// An allowed user whose frame cannot be built gets an error, not "not installed".
+func TestPluginAppPageFrameFailureIsNotA404(t *testing.T) {
+	t.Parallel()
+
+	fp := &fakePlugins{settings: map[string]map[string]any{}, list: []PluginInfo{
+		{Name: "hello", Version: "1.0.0", Loaded: true, UI: &PluginUIInfo{Title: "Hello"}},
+	}}
+	g := newRig(t, func(d *Deps) {
+		d.Growth.Plugins, d.Growth.Packages = fp, &fakePackages{enabled: map[string]bool{}}
+		d.FrameTickets = failingTickets{}
+	})
+	rec := g.do("GET", "/admin/plugins/hello/app", "owner-token", nil, nil)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("owner app with a broken ticket store: %d, want 503", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "not installed") {
+		t.Error("the page claims the plugin is not installed")
+	}
+	if rec := g.do("GET", "/admin/plugins/ghost/app", "owner-token", nil, nil); rec.Code != 404 {
+		t.Errorf("unknown plugin: %d, want 404", rec.Code)
 	}
 }
