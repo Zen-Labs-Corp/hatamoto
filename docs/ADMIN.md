@@ -916,7 +916,7 @@ Services reach the admin through `Deps.Growth.Packages` (`PackageAdmin`, `packag
   (`<admin>/plugins/{name}/permissions`) holds the grants, hosts, routes, cron, cookies, functions, the
   signature and Uninstall. An editor in `ui.roles` is sent from `/settings` to `/app` and sees just the
   frame. `<admin>/plugins/{name}` redirects (302) to `/app` when the user may open the screen, else to
-  `/settings`; the old `<admin>/plugins/{name}/ui` redirects (301) the same way. The sidebar and the
+  `/settings`; the old `<admin>/plugins/{name}/ui` redirects (302) the same way. The sidebar and the
   plugins subnav link to that same first tab. The sandboxed document is served
   outside `<admin>` (`/plugin-ui/{plugin}/{file}`) with its own strict CSP; see PLUGIN_API.md "Admin page".
   The document URL carries a one-time ticket (`?t=`, 60 seconds, bound to the session and the

@@ -336,12 +336,12 @@ func TestPluginRedirects(t *testing.T) {
 	if rec := g.do("GET", "/admin/plugins/ownerui", "editor-token", nil, nil); rec.Code != 302 || rec.Header().Get("Location") != "/admin/plugins/ownerui/settings" {
 		t.Errorf("a role outside ui.roles opens on Settings: %d %q", rec.Code, rec.Header().Get("Location"))
 	}
-	if rec := g.do("GET", "/admin/plugins/devonly/ui", "owner-token", nil, nil); rec.Code != 301 || rec.Header().Get("Location") != "/admin/plugins/devonly/settings" {
+	if rec := g.do("GET", "/admin/plugins/devonly/ui", "owner-token", nil, nil); rec.Code != 302 || rec.Header().Get("Location") != "/admin/plugins/devonly/settings" {
 		t.Errorf("/ui without a page: %d %q", rec.Code, rec.Header().Get("Location"))
 	}
 	for _, token := range []string{"owner-token", "editor-token"} {
 		rec := g.do("GET", "/admin/plugins/board/ui", token, nil, nil)
-		if rec.Code != 301 || rec.Header().Get("Location") != "/admin/plugins/board/app" {
+		if rec.Code != 302 || rec.Header().Get("Location") != "/admin/plugins/board/app" {
 			t.Errorf("/ui as %s: %d %q", token, rec.Code, rec.Header().Get("Location"))
 		}
 	}

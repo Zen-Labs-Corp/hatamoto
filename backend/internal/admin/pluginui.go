@@ -211,9 +211,10 @@ func (a *Admin) pluginUIFor(r *http.Request, p PluginInfo, role string) *pluginU
 
 // handlePluginUIRedirect keeps the old /ui address working: the UI now lives on
 // the plugin's first tab, /app (Settings for a plugin without a page the user
-// may open).
+// may open). It is a 302: the target depends on the session and the plugin's
+// state, and a browser keeps a 301 for good.
 func (a *Admin) handlePluginUIRedirect(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, a.pluginHome(r, r.PathValue("name")), http.StatusMovedPermanently)
+	http.Redirect(w, r, a.pluginHome(r, r.PathValue("name")), http.StatusFound)
 }
 
 // handlePluginUIFile serves ui/<file> of the plugin's package. An HTML document

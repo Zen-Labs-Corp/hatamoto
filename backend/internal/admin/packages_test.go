@@ -862,7 +862,7 @@ func TestPluginUIPageIsASandboxedIframe(t *testing.T) {
 	// The old /ui address redirects for both roles.
 	for _, token := range []string{"owner-token", "editor-token"} {
 		rec := g.do("GET", "/admin/plugins/board/ui", token, nil, nil)
-		if rec.Code != 301 || rec.Header().Get("Location") != "/admin/plugins/board/app" {
+		if rec.Code != 302 || rec.Header().Get("Location") != "/admin/plugins/board/app" {
 			t.Errorf("/ui as %s: %d %q", token, rec.Code, rec.Header().Get("Location"))
 		}
 	}
