@@ -19,6 +19,7 @@ t-hooks          .githooks/**,Makefile,.gitleaks.toml,scripts/test-hooks.sh,scri
 migrations       *                                                  bash scripts/check-migrations.sh
 t-migrations     scripts/check-migrations.sh,scripts/baseline-ref.sh,scripts/test-check-migrations.sh   bash scripts/test-check-migrations.sh
 t-version        scripts/version.sh,scripts/test-version.sh        bash scripts/test-version.sh
+t-bump-compose   scripts/bump-compose-image.sh,scripts/test-bump-compose-image.sh   bash scripts/test-bump-compose-image.sh
 t-publish-rel    scripts/publish-release.sh,scripts/fake-hmctl.sh,backend/tools/release/**,scripts/version.sh,scripts/test-publish-release.sh   bash scripts/test-publish-release.sh
 t-publish-reg    scripts/publish-registry.sh,scripts/deploy-host.sh,scripts/deploy-target.sh,scripts/fake-hmctl.sh,scripts/test-publish-registry.sh   bash scripts/test-publish-registry.sh
 t-publish-sdk    scripts/publish-sdk.sh,scripts/test-publish-sdk.sh   bash scripts/test-publish-sdk.sh
