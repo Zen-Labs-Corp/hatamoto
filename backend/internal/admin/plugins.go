@@ -569,6 +569,10 @@ func (a *Admin) handlePluginApp(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if frame == nil {
+		if manage && found && !p.Loaded { // installed but not running: Settings explains the state
+			http.Redirect(w, r, a.pluginURL(p.Name, "settings"), http.StatusFound)
+			return
+		}
 		if manage {
 			a.ErrorBack(w, r, http.StatusNotFound, "Plugin not found", "That plugin is not installed, or it is not available to you.", a.adminPath+"/plugins", "Back to plugins")
 			return

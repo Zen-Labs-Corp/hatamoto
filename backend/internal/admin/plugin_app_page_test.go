@@ -160,3 +160,23 @@ func TestPluginAppPageFrameFailureIsNotA404(t *testing.T) {
 		t.Errorf("unknown plugin: %d, want 404", rec.Code)
 	}
 }
+
+// A manager's bookmark of a plugin that is installed but not running opens its
+// Settings; an editor and an unknown plugin still get the 404.
+func TestPluginAppPageOfAStoppedPlugin(t *testing.T) {
+	t.Parallel()
+
+	g, _, fp := newPackageRig(t)
+	fp.list = append(fp.list, PluginInfo{Name: "stopped", Version: "1.0.0", UI: &PluginUIInfo{Title: "Stopped", Roles: []string{"owner", "editor"}}})
+
+	rec := g.do("GET", "/admin/plugins/stopped/app", "owner-token", nil, nil)
+	if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/admin/plugins/stopped/settings" {
+		t.Errorf("owner: %d %q, want 302 to Settings", rec.Code, rec.Header().Get("Location"))
+	}
+	if rec := g.do("GET", "/admin/plugins/stopped/app", "editor-token", nil, nil); rec.Code != 404 {
+		t.Errorf("editor: %d, want 404", rec.Code)
+	}
+	if rec := g.do("GET", "/admin/plugins/ghost/app", "owner-token", nil, nil); rec.Code != 404 {
+		t.Errorf("unknown plugin: %d, want 404", rec.Code)
+	}
+}
