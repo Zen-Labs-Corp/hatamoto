@@ -88,6 +88,9 @@ func seoHeadWith(ctx context.Context, v *PageView, replaceSiteGraph bool, sg Sit
 	if v.SEO != nil {
 		applySEOTemplates(&h, v, rawTitle)
 	}
+	// A page without its own description or a template one falls back to the
+	// site tagline; an empty tagline leaves no description tag at all.
+	h.Description = firstNonEmpty(h.Description, v.Site.Tagline)
 	h.Canonical = firstNonEmpty(v.Page.CanonicalURL, strings.TrimRight(v.BaseURL, "/")+v.Path)
 	h.Alt = hreflangLinks(v)
 	h.Icon = v.Site.FaviconURL
