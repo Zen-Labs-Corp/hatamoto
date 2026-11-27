@@ -920,8 +920,8 @@ func (s *Server) auditRetentionDays(ctx context.Context) (admin, agent int, err 
 // setupRoutes configures all API routes.
 //
 // Pure orchestrator after Phase 4. Mounts root-level routes, then
-// frames the /api/v1 hierarchy: rate-limited public auth + SES +
-// /track, the AuthMiddleware-protected admin group, and the
+// frames the /api/v1 hierarchy: rate-limited public auth (login) and the
+// /track beacon, the AuthMiddleware-protected admin group, and the
 // publicTenantMiddleware-fronted public CMS group. Inside each group
 // it dispatches to the per-domain mount methods defined in
 // server_core.go (CMS surface). Phase 6 deleted the matching
@@ -972,8 +972,9 @@ func (s *Server) setupRoutes() {
 			protected := []httpx.Middleware{middleware.AuthOrAPIKey(s.apiKeyService, s.apiKeyRateLimiter,
 				middleware.AuthMiddleware(validate, validateCookie, s.cfg.EnableCookieAuth))}
 			// Synchronizer CSRF for cookie-authenticated mutations (bearer-token
-			// requests are exempt inside the middleware). Only wired when cookie-auth
-			// is enabled, so a backend-only deploy can't 403 the legacy frontend.
+			// requests are exempt inside the middleware). Only wired when cookie auth
+			// is enabled (ENABLE_COOKIE_AUTH; bearer tokens are the default), so a
+			// bearer-only deploy never 403s on a missing CSRF token.
 			if s.cfg.EnableCookieAuth {
 				protected = append(protected, middleware.CSRF(s.csrfKey()))
 			}
@@ -1007,7 +1008,7 @@ func (s *Server) setupRoutes() {
 	// Prefixes compiled-in modules mounted through module/route.
 	s.mountModuleRoutes(s.routes)
 
-	// Go admin UI (/admin/*, incl. a fallback for screens still on Next).
+	// Go admin UI, mounted at the configurable admin address (see adminaddr_seam.go).
 	s.mountAdminRoutes(s.routes)
 
 	// Go-rendered public site (root HTML routes). Registered last among the
