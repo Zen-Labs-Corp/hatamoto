@@ -1,0 +1,9 @@
+# Build hatamoto from this checkout instead of pulling the release image:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up --build
+# A plain `docker compose up` does not read this file and pulls the image
+# named in docker-compose.yml.
+services:
+  hatamoto:
+    build: .
+    image: hatamoto:local
+    pull_policy: build

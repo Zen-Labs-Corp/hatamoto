@@ -2,6 +2,7 @@ package app
 
 import (
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -115,5 +116,27 @@ func TestComposeMailpitIsLocalAndPinned(t *testing.T) {
 				t.Errorf("mailpit image %q must be pinned to a version tag", ref)
 			}
 		}
+	}
+}
+
+// The compose file pulls a published release image; the source build is opt-in.
+func TestComposePullsPinnedReleaseImage(t *testing.T) {
+	raw, err := os.ReadFile("../../docker-compose.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	re := regexp.MustCompile(`(?m)^    image: ghcr\.io/zen-labs-corp/hatamoto:v\d+\.\d+\.\d+$`)
+	if n := len(re.FindAllIndex(raw, -1)); n != 1 {
+		t.Fatalf("want one pinned ghcr hatamoto image line (vX.Y.Z), got %d", n)
+	}
+	if regexp.MustCompile(`(?m)^    build:`).Match(raw) {
+		t.Fatal("docker-compose.yml must not build from source; that is docker-compose.build.yml")
+	}
+	b, err := os.ReadFile("../../docker-compose.build.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !regexp.MustCompile(`(?m)^  hatamoto:\n    build: \.$`).Match(b) {
+		t.Fatal("docker-compose.build.yml must build the hatamoto service from the checkout")
 	}
 }

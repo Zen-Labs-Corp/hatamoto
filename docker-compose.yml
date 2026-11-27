@@ -1,6 +1,10 @@
 # Local/demo stack for hatamoto core (single-tenant, core-only OSS build).
-# `docker compose up` boots db -> hatamoto (migrates, generates secrets, serves
-# the site and the admin on :8090). Open the setup address that
+# `docker compose up` pulls the signed release image named below and boots
+# db -> hatamoto (migrates, generates secrets, serves the site and the admin
+# on :8090). `scripts/bump-compose-image.sh vX.Y.Z` moves the pinned version.
+# To build from this checkout instead, run
+# `docker compose -f docker-compose.yml -f docker-compose.build.yml up --build`.
+# Open the setup address that
 # `docker compose logs hatamoto` prints ("Setup: open /<admin>/setup and enter
 # code ..."): the admin lives at a private path, which
 # `docker compose exec hatamoto hatamoto admin-url` prints at any time.
@@ -28,7 +32,7 @@ services:
       - "127.0.0.1:5432:5432"
 
   hatamoto:
-    build: .
+    image: ghcr.io/zen-labs-corp/hatamoto:v1.4.6
     depends_on:
       db:
         condition: service_healthy
