@@ -38,7 +38,7 @@ semver version, `sdk` range, see PLUGIN_API.md). A theme package needs
 `settings_schema`, `menus` (menu locations, see [THEMES.md](THEMES.md#menu-locations-menus); a malformed block fails `theme check` and `theme pack`) and `screenshot` (a preview image under `assets/`; an invalid one is ignored on install, and only `--registry` checks and requires it, see [THEMES.md](THEMES.md#writing-and-submitting-a-theme)), and must not hold `plugin.wasm` or `widgets/`. The name `default` is reserved
 for the built-in theme. Install and update are keyed by `(kind, name)`:
 installing version 1.1.0 of an installed package replaces 1.0.0.
-Plugin names `browse`, `security` and `webhooks` are reserved too (the admin serves `/plugins/browse` and `/plugins/security`; webhooks are part of core): a new install under one of them is refused. A plugin already installed as `browse` or `security` can still be updated and uninstalled.
+Plugin names `browse`, `security`, `webhooks`, `gtm` and `google-analytics` are reserved too (the admin serves `/plugins/browse` and `/plugins/security`; webhooks, Google Tag Manager and Google Analytics are part of core, see Settings > Privacy & tracking > Tracking): a new install under one of them is refused. A plugin already installed as `browse` or `security` can still be updated and uninstalled; one installed as `webhooks`, `gtm` or `google-analytics` can only be uninstalled.
 
 ### Widget packs
 
@@ -340,7 +340,7 @@ and point `HATAMOTO_REGISTRY_URL` at it.
 
 ## First-party plugins
 
-Two integrations ship as signed plugins instead of core code. Each lives in the
+One integration ships as a signed plugin instead of core code. It lives in the
 `Zen-Labs-Corp/hatamoto-first-party` monorepo, which is its source of record, and
 is listed in the plugins repository by a manifest with `"tier": "first-party"`
 (no `author`), like every other plugin:
@@ -348,17 +348,18 @@ is listed in the plugins repository by a manifest with `"tier": "first-party"`
 | Plugin | Repository | What it does |
 |---|---|---|
 | `searchconsole` | [Zen-Labs-Corp/hatamoto-first-party/plugins/searchconsole](https://github.com/Zen-Labs-Corp/hatamoto-first-party/tree/main/plugins/searchconsole) | Google Search Console: OAuth, sites, sitemap submit, URL inspection, daily performance import |
-| `gtm` | [Zen-Labs-Corp/hatamoto-first-party/plugins/gtm](https://github.com/Zen-Labs-Corp/hatamoto-first-party/tree/main/plugins/gtm) | Google Tag Manager: loads your container on every public page from a container ID in the plugin settings (`settings` permission only) |
+
+Google Tag Manager and Google Analytics were first-party plugins too; they are built into core now (Settings > Privacy & tracking > Tracking) and their names are reserved.
 
 First-party plugins are not mirrored: the plugins repository's
 `mirror-plugin.sh` skips them, so they are built from the monorepo (or reused
 from the signed build archive) instead of from a mirror.
 
-Their source is the reference for real-world plugins. The `tier` is only the
+Its source is the reference for real-world plugins. The `tier` is only the
 label in the plugin directory: `registry/build-community.sh` accepts it for a
 repository owner listed in `FIRST_PARTY_OWNERS` (the Makefile fixes it to
 `zenlabscorp Zen-Labs-Corp` (the first only until the plugin manifests move) with `override`, so an environment variable cannot widen it; to change it, edit that line in a reviewed commit) and refuses it, never downgrading silently, for anyone else; the
-names `gtm` and `searchconsole` are reserved for it. Trust is the signature, not
+name `searchconsole` is reserved for it. Trust is the signature, not
 the label.
 
 `make registry COMMUNITY_DIR=<plugins clone>` builds every manifest and the signed

@@ -1,7 +1,7 @@
 # Plugin registry
 
 The default registry (`https://hatamoto.dev/registry.json`) lists the plugins
-Hatamoto ships (`searchconsole` and `gtm`, first-party, each in its own folder of the
+Hatamoto ships (`searchconsole`, first-party, in its own folder of the
 monorepo `Zen-Labs-Corp/hatamoto-first-party`) and the approved community plugins, all built from manifests in the
 plugins repository and signed with the **hatamoto first-party** key.
 
@@ -66,8 +66,8 @@ change in the plugins repository can stop it. The fix belongs there, not in `COM
 A manifest may carry `"tier": "first-party"` (and then no `author`). The script accepts it
 only when the repository owner is in `FIRST_PARTY_OWNERS` (space separated, case-insensitive;
 the Makefile fixes it to `zenlabscorp Zen-Labs-Corp` (the first only until the plugin manifests move) with `override`, so only an edit of the Makefile changes it; the script's own default is nobody) and dies otherwise.
-The names `gtm` and `searchconsole` are reserved for such manifests, `webhooks` and `hello`
-for everyone. The tier is only the label on the page: trust is the signature.
+The name `searchconsole` is reserved for such manifests; `webhooks`, `hello`, `gtm` and `google-analytics`
+for everyone (Google Tag Manager and Google Analytics are built into core). The tier is only the label on the page: trust is the signature.
 
 The optional manifest keys `about` and `features` (plugins and themes) feed the detail
 page of a package. Both are plain text, never HTML or Markdown. `about` is 1 to 1500

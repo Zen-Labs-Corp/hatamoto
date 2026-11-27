@@ -567,7 +567,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 
 | Field | Meaning |
 |---|---|
-| `name` | `^[a-z][a-z0-9-]{1,39}$`; equals the directory name. `browse`, `security` and `webhooks` are reserved: a new install under them is refused (the admin serves `/plugins/browse` and `/plugins/security`), while a plugin already installed as `browse` or `security` can still be updated and uninstalled |
+| `name` | `^[a-z][a-z0-9-]{1,39}$`; equals the directory name. `browse`, `security`, `webhooks`, `gtm` and `google-analytics` are reserved: a new install under them is refused (the admin serves `/plugins/browse` and `/plugins/security`), while a plugin already installed as `browse` or `security` can still be updated and uninstalled |
 | `version` | the plugin's own semver |
 | `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.28.1 and also serves `^0.5` to `^0.28.0` plugins |
 | `license` | `""` (default) or `"commercial"` (SDK 0.26). A commercial plugin installs and runs only on a host whose edition registered a plugin key (`edition.RegisterPluginKey`), is signed by that key and is entitled (`edition.PluginEntitled`). Declare `"sdk": "^0.26"` or later: an older host ignores the field, so install refuses a range that admits one. A new install refuses any other value (`"Commercial"`, `"MIT"`, an object); a plugin already installed with one keeps loading as a normal plugin, because only the exact string `"commercial"` has meaning when a manifest is loaded |
