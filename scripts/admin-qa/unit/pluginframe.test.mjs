@@ -51,17 +51,32 @@ function mountFrame() {
     getElementById: () => null,
   };
   const clock = { t: 1000 };
+  const timers = new Map();
+  let timerId = 0;
   const g = {
     performance: { now: () => clock.t },
     window: win, document: doc, crypto: { getRandomValues: (a) => a },
     requestAnimationFrame: (f) => frames.push(f),
+    setTimeout: (f, ms) => { const id = ++timerId; timers.set(id, { f, at: clock.t + ms }); return id; },
+    clearTimeout: (id) => { timers.delete(id); },
   };
   new Function(...Object.keys(g), src)(...Object.values(g));
   frame.listeners.load?.();
   const nonce = "00".repeat(16);
   const report = (height) => win.handlers.message({ source: frame.contentWindow, data: { hm: 1, op: "height", nonce, height } });
   const flush = () => { const q = frames.splice(0); q.forEach((f) => f()); return q.length; };
-  return { frame, report, flush, frames, clock };
+  // run advances the clock 1 ms at a time: due timers fire, host animation frames run every
+  // `period` ms, and onTick(t) lets a fake page report.
+  const run = (ms, period, onTick = () => {}) => {
+    const end = clock.t + ms;
+    while (clock.t < end) {
+      clock.t++;
+      for (const [id, tm] of [...timers]) if (tm.at <= clock.t) { timers.delete(id); tm.f(); }
+      if (clock.t % period === 0) flush();
+      onTick(clock.t);
+    }
+  };
+  return { frame, report, flush, frames, clock, run };
 }
 
 test("a page whose height follows the frame stops growing", () => {
@@ -134,6 +149,80 @@ test("unchanged heights are dropped and reports in one frame apply once", () => 
   assert.equal(frames.length, 1, "one apply per animation frame");
   flush();
   assert.equal(frame.clientHeight, 900);
+  const queued = frames.length; // the echo-window frame counter
   report(900);
-  assert.equal(frames.length, 0, "an unchanged height schedules nothing");
+  assert.equal(frames.length, queued, "an unchanged height schedules nothing");
+});
+
+// A fake page that reports content(clientHeight) `latency` ms after each change of the frame height.
+function echoPage(m, content, latency, period) {
+  let seen = m.frame.clientHeight, due = -1;
+  return (t) => {
+    if (m.frame.clientHeight !== seen) { seen = m.frame.clientHeight; due = t + latency; }
+    if (t === due) m.report(content(seen));
+  };
+}
+
+for (const [name, latency, period] of [["60 Hz", 16, 16], ["30 Hz", 80, 33]]) {
+  test(`a +16px echo loop stops well below the clamp at ${name}`, () => {
+    const m = mountFrame();
+    m.report(1000);
+    m.run(20000, period, echoPage(m, (h) => h + 16, latency, period));
+    assert.ok(m.frame.clientHeight < 2000, `frame ran away to ${m.frame.clientHeight}px`);
+  });
+
+  test(`a 110vh proportional loop stops well below the clamp at ${name}`, () => {
+    const m = mountFrame();
+    m.report(1000);
+    m.run(20000, period, echoPage(m, (h) => Math.round(h * 1.1), latency, period));
+    assert.ok(m.frame.clientHeight < 2000, `frame ran away to ${m.frame.clientHeight}px`);
+  });
+}
+
+test("a CSS-transition burst of taller reports ends at the final height", () => {
+  const m = mountFrame();
+  m.report(1000);
+  m.run(100, 16);
+  let h = 1000;
+  m.run(300, 16, (t) => { if (t % 16 === 0) m.report((h += 20)); });
+  m.run(2000, 16);
+  assert.equal(m.frame.clientHeight, h);
+});
+
+test("Load-more steps of equal size 1 s apart all apply", () => {
+  const m = mountFrame();
+  m.report(1000);
+  for (let i = 1; i <= 10; i++) {
+    m.run(1000, 16);
+    m.report(1000 + 800 * i);
+    m.run(16, 16);
+    assert.equal(m.frame.clientHeight, 1000 + 800 * i);
+  }
+});
+
+test("a runaway stops growing and a later user-driven report resumes", () => {
+  const m = mountFrame();
+  m.report(1000);
+  m.run(5000, 16, echoPage(m, (h) => h + 16, 16, 16));
+  const stuck = m.frame.clientHeight;
+  m.run(2000, 16);
+  assert.equal(m.frame.clientHeight, stuck, "no further growth once confirmed");
+  m.report(stuck + 800);
+  m.run(32, 16);
+  assert.equal(m.frame.clientHeight, stuck + 800);
+});
+
+test("a resize that changes nothing does not reset the echo window", () => {
+  const m = mountFrame();
+  m.report(1000);
+  m.run(500, 16); // the window after the first resize is over
+  m.report(1100);
+  m.report(1000); // same frame: the write is a no-op
+  m.flush();
+  for (let i = 1; i <= 4; i++) {
+    m.clock.t += 10;
+    m.report(1000 + 16 * i);
+    m.flush();
+  }
+  assert.equal(m.frame.clientHeight, 1000 + 16 * 4, "the first taller report is not an echo");
 });
