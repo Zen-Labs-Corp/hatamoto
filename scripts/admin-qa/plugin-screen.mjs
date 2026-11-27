@@ -19,6 +19,8 @@ const check = (ok, msg, detail = "") => {
 
 const b = await launch("chromium");
 const p = await newSession(b, { theme: "light", width: 1440 });
+// Chrome's full-page capture of an out-of-process frame paints only its first ~1500px (the rows after that
+// show blank in the PNG, the sidebar stops at the viewport); the live frame is not affected (see the height check below).
 const shot = (name) => (SHOTS ? p.screenshot({ path: path.join(SHOTS, `${name}-${role}.png`), fullPage: true }) : null);
 const pframe = () => p.frames().find((f) => f.url().includes("/plugin-ui/frameplug/index.html"));
 const frameHeight = () => p.locator("iframe.hm-pluginframe").evaluate((el) => el.offsetHeight);
@@ -64,6 +66,8 @@ check(tall > 900, "after Add rows: the frame is taller than the viewport", Strin
 const inner = await pframe().evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight);
 check(inner <= 1, "no inner scrollbar in the frame", String(inner));
 check(tall <= 20002, "the frame height is capped at 20000px", String(tall));
+const content = await pframe().evaluate(() => Math.ceil(document.documentElement.getBoundingClientRect().height));
+check(tall <= content + 64, "the frame is not much taller than its content (<= content + 64)", `${tall} vs ${content}`);
 await shot("plugin-screen-tall");
 
 // 6. The Settings tab has no frame (owner).
