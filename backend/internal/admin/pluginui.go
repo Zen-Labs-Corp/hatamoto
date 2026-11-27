@@ -89,10 +89,15 @@ func (a *Admin) mayOpenScreen(ctx context.Context, p PluginInfo) bool {
 	return pluginHomeTab(p, userFrom(ctx).Role, a.canObj(ctx, authz.ActionPluginManage, obj), a.canObj(ctx, authz.ActionPluginUIAccess, obj)) == "app"
 }
 
-// screenLabel names the screen tab: ui.title, else the plugin name.
+// coreTabLabels are the labels of the tabs core adds next to the screen tab.
+var coreTabLabels = []string{"Settings", "Permissions", "Runs", "Automatic updates"}
+
+// screenLabel names the screen tab: ui.title, else the plugin name. A title
+// that reads like one of core's own tabs would give two tabs the same name, so
+// it falls back to the plugin name too.
 func screenLabel(p PluginInfo) string {
 	if p.UI != nil {
-		if t := strings.TrimSpace(p.UI.Title); t != "" {
+		if t := strings.TrimSpace(p.UI.Title); t != "" && !slices.ContainsFunc(coreTabLabels, func(l string) bool { return strings.EqualFold(l, t) }) {
 			return t
 		}
 	}

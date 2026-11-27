@@ -38,6 +38,10 @@ func TestScreenLabel(t *testing.T) {
 		{PluginInfo{Name: "hello", UI: &PluginUIInfo{Title: "Board"}}, "Board"},
 		{PluginInfo{Name: "hello", UI: &PluginUIInfo{Title: "  "}}, "hello"},
 		{PluginInfo{Name: "hello"}, "hello"},
+		{PluginInfo{Name: "hello", UI: &PluginUIInfo{Title: "Settings"}}, "hello"},
+		{PluginInfo{Name: "hello", UI: &PluginUIInfo{Title: " permissions "}}, "hello"},
+		{PluginInfo{Name: "hello", UI: &PluginUIInfo{Title: "RUNS"}}, "hello"},
+		{PluginInfo{Name: "hello", UI: &PluginUIInfo{Title: "Automatic Updates"}}, "hello"},
 	} {
 		if got := screenLabel(c.p); got != c.want {
 			t.Errorf("%+v: got %q, want %q", c.p, got, c.want)
