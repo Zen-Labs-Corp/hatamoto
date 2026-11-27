@@ -89,12 +89,17 @@ func TestPluginAppPage(t *testing.T) {
 	for _, c := range []struct{ token, path string }{
 		{"editor-token", "/admin/plugins/ownerui/app"},
 		{"editor-token", "/admin/plugins/devonly/app"},
-		{"owner-token", "/admin/plugins/devonly/app"},
 		{"owner-token", "/admin/plugins/ghost/app"},
-		{"owner-token", "/admin/plugins/edonly/app"},
 	} {
 		if rec := g.do("GET", c.path, c.token, nil, nil); rec.Code != 404 {
 			t.Errorf("%s %s: %d, want 404", c.token, c.path, rec.Code)
+		}
+	}
+	// A manager with no screen they can open (no ui, or outside ui.roles) lands on Settings.
+	for _, name := range []string{"devonly", "edonly"} {
+		rec := g.do("GET", "/admin/plugins/"+name+"/app", "owner-token", nil, nil)
+		if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/admin/plugins/"+name+"/settings" {
+			t.Errorf("owner %s/app: %d %q, want 302 to Settings", name, rec.Code, rec.Header().Get("Location"))
 		}
 	}
 }

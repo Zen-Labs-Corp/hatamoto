@@ -569,7 +569,7 @@ func (a *Admin) handlePluginApp(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if frame == nil {
-		if manage && found && !p.Loaded { // installed but not running: Settings explains the state
+		if manage && found { // installed but no screen to open (not running, no ui, or not for them): Settings explains
 			http.Redirect(w, r, a.pluginURL(p.Name, "settings"), http.StatusFound)
 			return
 		}
