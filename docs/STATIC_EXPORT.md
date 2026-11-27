@@ -355,8 +355,9 @@ config, because a bucket cannot pass requests to Hatamoto.
 Static pages should get what public pages get from Hatamoto: `X-Frame-Options:
 SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy:
 strict-origin-when-cross-origin`, `X-XSS-Protection: 0`, a `Permissions-Policy`
-and the page Content-Security-Policy. The policy follows the server's
-`CSP_ENFORCE` setting (report-only until enforced), and
+and the page Content-Security-Policy. The policy follows the site's
+mode (enforcing by default; report-only on older installs until switched, or
+whatever `CSP_ENFORCE` says) and is picked up on the next export, and
 `Strict-Transport-Security` is added only in production. The setup card lists
 the header names it includes.
 

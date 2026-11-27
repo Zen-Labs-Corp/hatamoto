@@ -101,11 +101,11 @@ The policies are covered by golden tests with a corpus of real-world markup. The
 
 ## Security headers and CSP
 
-Every response gets the baseline headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-XSS-Protection: 0` and `Permissions-Policy: geolocation=(), camera=(), microphone=()`. The public-site Content-Security-Policy is delivered as `Content-Security-Policy-Report-Only` by default so you can watch for violations before enforcing it; set `CSP_ENFORCE=true` to enforce. `Strict-Transport-Security: max-age=31536000; includeSubDomains` is added only in the `production` environment (`ENVIRONMENT=production`; the default is `development`). `SECURITY_HEADERS_DISABLED` removes all of these and exists for local debugging only.
+Every response gets the baseline headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-XSS-Protection: 0` and `Permissions-Policy: geolocation=(), camera=(), microphone=()`. The public-site Content-Security-Policy is enforced by default on new installs. Sites installed earlier get `Content-Security-Policy-Report-Only` until the owner turns protection on from the Overview, so they can watch for violations first. `CSP_ENFORCE` (`true` or `false`) overrides the stored choice. `Strict-Transport-Security: max-age=31536000; includeSubDomains` is added only in the `production` environment (`ENVIRONMENT=production`; the default is `development`). `SECURITY_HEADERS_DISABLED` removes all of these and exists for local debugging only.
 
 The baseline policy is `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'`. Public pages built by the theme change it in three ways, so the admin editor can show them in a frame and embeds work: `X-Frame-Options: SAMEORIGIN`, `frame-ancestors 'self'`, and `img-src` and `frame-src` allow any `https:` source. The origins of the configured captcha provider are added too.
 
-The admin always uses its own strict policy, enforced regardless of `CSP_ENFORCE`: `default-src 'none'`, scripts and styles only from `'self'` plus a random per-request nonce, no `unsafe-inline`, `base-uri 'none'`, `object-src 'none'` and `frame-ancestors 'self'` (the preview frames are same-origin). Admin responses also set `X-Frame-Options: SAMEORIGIN`, drop the report-only header and send `Cache-Control: no-store`.
+The admin always uses its own strict policy, enforced regardless of the page policy mode: `default-src 'none'`, scripts and styles only from `'self'` plus a random per-request nonce, no `unsafe-inline`, `base-uri 'none'`, `object-src 'none'` and `frame-ancestors 'self'` (the preview frames are same-origin). Admin responses also set `X-Frame-Options: SAMEORIGIN`, drop the report-only header and send `Cache-Control: no-store`.
 
 Plugin responses are sandboxed too: HTML that a plugin route returns is served with `Content-Security-Policy: sandbox; default-src 'none'; ...` so it runs without scripts in an opaque origin and cannot act as the site or the admin. Plugin cookies are confined to the `hmp_<plugin>_<name>` namespace, so a plugin can neither read nor set the session or CSRF cookies.
 
@@ -126,7 +126,7 @@ The server secret (`HATAMOTO_SECRET`, at least 32 characters; `JWT_SECRET` is ac
 ## Hardening checklist
 
 - Serve over HTTPS and run with `ENVIRONMENT=production` semantics so HSTS and secure cookies are on (see the [hardening guide](../operate/hardening.md)).
-- Turn on `CSP_ENFORCE` once the report-only policy shows no violations for your theme.
+- On an older install, turn on stricter page protection once the browser console shows no Content Security Policy messages for your theme.
 - Keep API keys narrowly scoped and rotate them when people leave.
 - Review the admin audit log and the MCP audit log periodically.
 - Grant plugin permissions deliberately; each is shown to the owner before install.

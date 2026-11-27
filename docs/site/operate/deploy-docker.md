@@ -93,7 +93,7 @@ In this guide you make the Docker stack from the getting-started guide fit for p
    docker compose -f docker-compose.yml -f production.yml up -d
    ```
 
-6. Leave `CSP_ENFORCE: "false"` from the base file for now, so pages send a report-only policy. Set it to `"true"` in `production.yml` once your pages show no violations.
+6. Leave `CSP_ENFORCE: "true"` from the base file, so pages enforce the Content Security Policy. If you still use an older file with `"false"`, change it to `"true"` once your pages show no violations in the browser console.
 
 ### Run commands and update
 

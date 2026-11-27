@@ -41,14 +41,14 @@ The examples call the server directly on `http://127.0.0.1:8090`, so your **reve
    ```text
    HTTP/1.1 200 OK
    Cache-Control: public, max-age=60, s-maxage=300
-   Content-Security-Policy-Report-Only: default-src 'self'; ...
+   Content-Security-Policy: default-src 'self'; ...
    Content-Type: text/html; charset=utf-8
    X-Content-Type-Options: nosniff
    X-Frame-Options: SAMEORIGIN
    X-Request-Id: bd8bc1433d109735deeea10c6db995ae
    ```
 
-   No header says what built the page: the theme engine renders it and the response names no software. The security headers come from stage 1. The policy is report-only until you set `CSP_ENFORCE=true`, and `Strict-Transport-Security` is added only when `ENVIRONMENT=production`.
+   No header says what built the page: the theme engine renders it and the response names no software. The security headers come from stage 1. The policy is enforcing by default on new installs. On older installs it is report-only until the owner turns protection on (or `CSP_ENFORCE=true` is set), and `Strict-Transport-Security` is added only when `ENVIRONMENT=production`.
 
 2. Send your own request id. The server keeps an `X-Request-ID` you send and makes one up when you do not:
 
