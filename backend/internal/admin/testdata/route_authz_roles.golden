@@ -398,6 +398,8 @@ POST /admin/review/{id}/discard anon=303 read-only=403 author=403 contributor=40
 POST /admin/review/{id}/publish anon=303 read-only=403 author=403 contributor=403 reviewer=503
 POST /admin/review/{id}/send-back anon=303 read-only=403 author=403 contributor=403 reviewer=503
 POST /admin/review/{id}/withdraw anon=303 read-only=403 author=503 contributor=503 reviewer=503
+POST /admin/security/page-protection/enforce anon=303 read-only=403 author=403 contributor=403 reviewer=403
+POST /admin/security/page-protection/hide anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/admin-branding anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/admin-branding/reset anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/api-keys anon=303 read-only=403 author=403 contributor=403 reviewer=403
