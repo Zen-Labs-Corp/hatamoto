@@ -72,6 +72,11 @@ func TestHostingGolden(t *testing.T) {
 func sftpGoldenHosting() *fakeHosting {
 	f := sftpHosting()
 	f.view.SFTPHost, f.view.SFTPHostKey = "ssh.example.com", "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAtest"
+	at := time.Date(2026, 11, 20, 9, 30, 0, 0, time.UTC) // fixed: the default runs move with the clock
+	f.runs = []HostingRun{
+		{Started: at, Trigger: "manual", Pages: 214, Bytes: 38 << 20, Changed: 5, Duration: 9 * time.Second, Result: HostingRunOK},
+		{Started: at.Add(-2 * time.Hour), Trigger: "change", Errors: 1, FirstError: "upload refused", Result: HostingRunFailed},
+	}
 	f.setup = HostingSetup{
 		Saved: true, Target: HostingTargetSFTP, Site: "https://example.com", Reach: HostingCheckUnknown,
 		HostKey: f.view.SFTPHostKey, Remote: HostingCheckOK, RemoteDir: "public_html", HTAccess: true,

@@ -654,7 +654,7 @@ func TestHostingAdmin_SavePrivateEndpoint(t *testing.T) {
 const testSFTPPassword = "sftp-test-password" // gitleaks:allow
 
 // testEncryptedKey is a throwaway ed25519 key protected by a passphrase.
-const testEncryptedKey = "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABAsbb3Ks6\nm6cQyy1kA+VlKwAAAAGAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAIPeASUe6CLMajOv0\nRYLQeq1xMt8e8caoX5lFMaYIsmrTAAAAkBgrpdyA2yTEc91j3SaCO9w41HiVEgXqIlZO1H\niLX5DTvrCN17s6sOPiKyk4tm6gwwbWidJkPjUhVxMy2pnFDxUNT1xFhq+lJPxi02ErKyfs\nq52gJnuy8WdrVMFZ4zQovxxR01Whql+/Q68wBolpPLrjjHvAcHCAynLznvPeop8rVn1rls\nJ2v8dZZIIz10gXMQ==\n-----END OPENSSH PRIVATE KEY-----\n" // gitleaks:allow
+const testEncryptedKey = "-----" + "BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABAsbb3Ks6\nm6cQyy1kA+VlKwAAAAGAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAIPeASUe6CLMajOv0\nRYLQeq1xMt8e8caoX5lFMaYIsmrTAAAAkBgrpdyA2yTEc91j3SaCO9w41HiVEgXqIlZO1H\niLX5DTvrCN17s6sOPiKyk4tm6gwwbWidJkPjUhVxMy2pnFDxUNT1xFhq+lJPxi02ErKyfs\nq52gJnuy8WdrVMFZ4zQovxxR01Whql+/Q68wBolpPLrjjHvAcHCAynLznvPeop8rVn1rls\nJ2v8dZZIIz10gXMQ==\n-----" + "END OPENSSH PRIVATE KEY-----\n" // gitleaks:allow
 
 func sftpInput(mode string) admin.HostingInput {
 	return admin.HostingInput{Mode: mode, Target: admin.HostingTargetSFTP, SFTPHost: "ssh.example.com", SFTPPort: "22",

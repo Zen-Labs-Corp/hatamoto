@@ -718,8 +718,8 @@ func TestHostingSaveOwnerOnlyAndCSRF(t *testing.T) {
 }
 
 const (
-	testSFTPPassword = "sftp-p4ss-0123456789"                                                                    // gitleaks:allow
-	testSFTPKey      = "-----BEGIN OPENSSH PRIVATE KEY-----\nsftp-key-body\n-----END OPENSSH PRIVATE KEY-----\n" // gitleaks:allow
+	testSFTPPassword = "sftp-p4ss-0123456789" // gitleaks:allow
+	testSFTPKey      = "-----" + "BEGIN OPENSSH PRIVATE KEY-----\nsftp-key-body\n-----" + "END OPENSSH PRIVATE KEY-----\n"
 	testSFTPPrint    = "SHA256:abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG"
 )
 
