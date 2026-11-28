@@ -11,7 +11,7 @@ A seeded WordPress the importer tests run against. Two ways to start it, one see
 
 Both print `WP_FIXTURE_URL`, `WP_FIXTURE_USER`, `WP_FIXTURE_APP_PASSWORD` and `WP_FIXTURE_WXR`
 (a WXR export of the same site). Every download is pinned by version and sha256 (local) or
-tag (docker): WordPress 7.1.3, Yoast SEO 28.7, Contact Form 7 6.2.2.
+tag (docker): WordPress 7.1.3, Yoast SEO 28.7, Contact Form 7 6.2.2, Advanced Custom Fields 6.8.12.
 
 `seed.sh` (wp-cli, run by both) creates: title, tagline, `/%year%/%monthnum%/%postname%/`
 permalinks; pages `services > seo > local`, Home (front page), Blog (posts page), About,
@@ -19,7 +19,7 @@ Contact (Contact Form 7 shortcode) and an Elementor-marked landing page; posts w
 hierarchical category (`News > Product Updates`) and tags, dated permalinks, a gallery block,
 YouTube and Vimeo embeds, an unsupported shortcode, a private (members-only) post, a draft and a
 `noindex` post; Yoast titles, descriptions and a canonical on some of them; an author with a bio
-and a local avatar; a `portfolio` custom post type; two menus; six images (one uploaded twice
+and a local avatar; a `portfolio` custom post type whose two pieces carry custom fields (ACF: text, image, relationship and number, from one field group); two menus; six images (one uploaded twice
 under another name); an application password for the REST API.
 
 ## Run the tests
@@ -33,6 +33,15 @@ test/wpfixture/run-local.sh down                     # keep data; `reset` delete
 ```
 
 `run-local.sh wp <args>` runs wp-cli against the local site.
+
+## ACF in the export
+
+Field groups and their fields **are** in a WordPress export: `wp export` writes them as
+`acf-field-group` and `acf-field` items, so the importer reads the real types and the report
+does not say "types guessed". The app test (`assertACF`) expects that and fails if a future
+export drops them. The free plugin has no repeater, gallery or flexible content type (ACF PRO),
+so the fixture seeds the free types only; those shapes are covered by the unit fixtures in
+`backend/internal/wpimport/testdata`.
 
 ## The images
 

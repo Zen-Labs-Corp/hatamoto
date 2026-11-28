@@ -30,6 +30,7 @@ WP_PKG='wordpress-7.1.3.zip|https://downloads.wordpress.org/release/wordpress-7.
 SQLITE_PKG='sqlite-database-integration.3.1.0.zip|https://downloads.wordpress.org/plugin/sqlite-database-integration.3.1.0.zip|e260e3ada78676f1c0f4e09eb9ebcb9ecce4d4b85f0c6e5a70fb9a93f5b9847f'
 YOAST_PKG='wordpress-seo.28.7.zip|https://downloads.wordpress.org/plugin/wordpress-seo.28.7.zip|148b0ae90d90e82fb871bb8524755331d92154d4e30978d752f078416275420e'
 CF7_PKG='contact-form-7.6.2.2.zip|https://downloads.wordpress.org/plugin/contact-form-7.6.2.2.zip|13bfea4c2753051cd17953148f99d4e79d8c3ec63039129e54a2b9cbc4930f58'
+ACF_PKG='advanced-custom-fields.6.8.12.zip|https://downloads.wordpress.org/plugin/advanced-custom-fields.6.8.12.zip|90c26bf11d8cccb68de485a0a91272db71dab4e9bf05bfb3c0f42caa109b49a7'
 WPCLI_PKG='wp-cli.phar|https://github.com/wp-cli/wp-cli/releases/download/v2.12.0/wp-cli-2.12.0.phar|ce34ddd838f7351d6759068d09793f26755463b4a4610a5a5c0a97b68220d85c'
 
 log() { echo "wpfixture: $*" >&2; }
@@ -71,7 +72,7 @@ down() {
 }
 
 install_tools() {
-  for p in "$PHP_PKG" "$WP_PKG" "$SQLITE_PKG" "$YOAST_PKG" "$CF7_PKG" "$WPCLI_PKG"; do fetch "$p"; done
+  for p in "$PHP_PKG" "$WP_PKG" "$SQLITE_PKG" "$YOAST_PKG" "$CF7_PKG" "$ACF_PKG" "$WPCLI_PKG"; do fetch "$p"; done
   if [ ! -x "$PHP_BIN" ]; then
     mkdir -p "$CACHE/php"
     tar -xzf "$DL/${PHP_PKG%%|*}" -C "$CACHE/php"
@@ -84,7 +85,7 @@ install_site() {
   rm -rf "$WEBROOT"; mkdir -p "$SITE"
   unzip_to "$DL/${WP_PKG%%|*}" "$SITE"
   plugins=$WEBROOT/wp-content/plugins
-  for p in "$SQLITE_PKG" "$YOAST_PKG" "$CF7_PKG"; do unzip_to "$DL/${p%%|*}" "$plugins"; done
+  for p in "$SQLITE_PKG" "$YOAST_PKG" "$CF7_PKG" "$ACF_PKG"; do unzip_to "$DL/${p%%|*}" "$plugins"; done
   sed -e "s|{SQLITE_IMPLEMENTATION_FOLDER_PATH}|$plugins/sqlite-database-integration|" \
       -e "s|{SQLITE_PLUGIN}|sqlite-database-integration/load.php|" \
       "$plugins/sqlite-database-integration/db.copy" > "$WEBROOT/wp-content/db.php"

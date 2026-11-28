@@ -19,6 +19,7 @@ ADMIN_USER=admin
 ADMIN_PASS=${ADMIN_PASS:-fixture-admin-pass}
 YOAST_VERSION=28.7
 CF7_VERSION=6.2.2
+ACF_VERSION=6.8.12
 EMPTY='{}'
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -90,7 +91,8 @@ install_verified() { # name version sha256
 }
 wp plugin is-installed wordpress-seo   || install_verified wordpress-seo "$YOAST_VERSION" 148b0ae90d90e82fb871bb8524755331d92154d4e30978d752f078416275420e
 wp plugin is-installed contact-form-7  || install_verified contact-form-7 "$CF7_VERSION" 13bfea4c2753051cd17953148f99d4e79d8c3ec63039129e54a2b9cbc4930f58
-wp plugin activate wordpress-seo contact-form-7
+wp plugin is-installed advanced-custom-fields || install_verified advanced-custom-fields "$ACF_VERSION" 90c26bf11d8cccb68de485a0a91272db71dab4e9bf05bfb3c0f42caa109b49a7
+wp plugin activate wordpress-seo contact-form-7 advanced-custom-fields
 
 # ---- mu-plugins: a custom post type and a local avatar ---------------------
 mu=$(wp eval 'echo WPMU_PLUGIN_DIR;')
@@ -197,10 +199,38 @@ P6=$(post members-only-roadmap "Members Only Roadmap" members-only.html '2024-09
 P7=$(post upcoming-draft "Upcoming Draft" draft.html '2024-10-01 08:00:00' draft "$JANE" "$NEWS" "" '{}')
 
 # ---- custom post type --------------------------------------------------------
+PIECE=()
 for n in 1 2; do
-  wp post create "$(render "$HERE/content/portfolio-1.html")" --post_type=portfolio --post_status=publish \
-    --post_title="Portfolio Piece $n" --post_name="piece-$n" --post_date="2024-03-0$n 09:00:00" --porcelain >/dev/null
+  PIECE[$n]=$(wp post create "$(render "$HERE/content/portfolio-1.html")" --post_type=portfolio --post_status=publish \
+    --post_title="Portfolio Piece $n" --post_name="piece-$n" --post_date="2024-03-0$n 09:00:00" --porcelain)
 done
+
+# ---- custom fields (ACF) on the two portfolio pieces -------------------------
+# One field group with a text, an image, a relationship and a number field, and
+# a value of each on both pieces. The repeater and gallery types are ACF PRO and
+# are not in the free plugin. No posts or media are added.
+cat > "$tmp/acf.php" <<'PHP'
+<?php
+// args: first piece id, second piece id, hero image id
+[$p1, $p2, $hero] = array_map('intval', $args);
+acf_import_field_group([
+  'key' => 'group_0a1b2c3d4e5f0', 'title' => 'Portfolio details',
+  'location' => [[['param' => 'post_type', 'operator' => '==', 'value' => 'portfolio']]],
+  'fields' => [
+    ['key' => 'field_0a1b2c3d4e5f1', 'label' => 'Client', 'name' => 'client', 'type' => 'text'],
+    ['key' => 'field_0a1b2c3d4e5f2', 'label' => 'Hero', 'name' => 'hero', 'type' => 'image', 'return_format' => 'id'],
+    ['key' => 'field_0a1b2c3d4e5f3', 'label' => 'Related', 'name' => 'related', 'type' => 'relationship', 'post_type' => ['portfolio'], 'return_format' => 'id'],
+    ['key' => 'field_0a1b2c3d4e5f4', 'label' => 'Year', 'name' => 'year', 'type' => 'number'],
+  ],
+]);
+foreach ([$p1 => $p2, $p2 => $p1] as $id => $other) {
+  update_field('client', "Example Client $id", $id);
+  update_field('hero', $hero, $id);
+  update_field('related', [$other], $id);
+  update_field('year', 2024, $id);
+}
+PHP
+wp eval-file "$tmp/acf.php" "${PIECE[1]}" "${PIECE[2]}" "${IMG_ID[hero]}"
 
 # ---- menus -------------------------------------------------------------------
 wp menu create "Main Menu" >/dev/null
