@@ -53,11 +53,11 @@ func TestSuppress(t *testing.T) {
 }
 
 func TestSummary(t *testing.T) {
-	want := "staging mode: mail, webhooks, IndexNow, cache purge, off-site backup, updater, plugin outbound HTTP, install statistics, static export to S3 and media deletions in object storage are off"
+	want := "staging mode: mail, webhooks, IndexNow, cache purge, off-site backup, updater, plugin outbound HTTP, install statistics, static export to S3, static export over SFTP and media deletions in object storage are off"
 	if got := Summary(); got != want {
 		t.Errorf("Summary() = %q", got)
 	}
-	if n := len(Families()); n != 10 {
+	if n := len(Families()); n != 11 {
 		t.Errorf("Families() = %d", n)
 	}
 }

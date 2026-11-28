@@ -48,21 +48,22 @@ func Staging() bool {
 type Family string
 
 const (
-	Mail           Family = "mail"
-	Webhooks       Family = "webhooks"
-	IndexNow       Family = "IndexNow"
-	Purge          Family = "cache purge"
-	OffsiteBackup  Family = "off-site backup"
-	Updater        Family = "updater"
-	PluginHTTP     Family = "plugin outbound HTTP"
-	InstallStats   Family = "install statistics"
-	StaticExportS3 Family = "static export to S3"
-	MediaDelete    Family = "media deletions in object storage"
+	Mail             Family = "mail"
+	Webhooks         Family = "webhooks"
+	IndexNow         Family = "IndexNow"
+	Purge            Family = "cache purge"
+	OffsiteBackup    Family = "off-site backup"
+	Updater          Family = "updater"
+	PluginHTTP       Family = "plugin outbound HTTP"
+	InstallStats     Family = "install statistics"
+	StaticExportS3   Family = "static export to S3"
+	StaticExportSFTP Family = "static export over SFTP"
+	MediaDelete      Family = "media deletions in object storage"
 )
 
 // Families lists every sender family in boot-line order.
 func Families() []Family {
-	return []Family{Mail, Webhooks, IndexNow, Purge, OffsiteBackup, Updater, PluginHTTP, InstallStats, StaticExportS3, MediaDelete}
+	return []Family{Mail, Webhooks, IndexNow, Purge, OffsiteBackup, Updater, PluginHTTP, InstallStats, StaticExportS3, StaticExportSFTP, MediaDelete}
 }
 
 // ErrSuppressed is returned by a sender that staging mode stopped.
