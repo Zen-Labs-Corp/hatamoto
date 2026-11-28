@@ -1,7 +1,7 @@
 ---
 title: Public content API
 nav_title: Public content API
-description: Read published posts, pages and term lists as JSON from another program: the three routes, fields, paging, caching and limits.
+description: Read published content and term lists as JSON from another program: the three routes, fields, paging, caching and limits.
 ---
 
 The **public content API** lets another program, such as a mobile app or a separate front end, read the published content of your site as JSON. It is read-only, needs no key and is off until the site owner turns it on. This page lists every route, field, header and limit. To connect programs that write to the site, see [Invite people and create API keys](users-and-api-keys.md).
@@ -55,12 +55,12 @@ curl -s 'https://example.com/api/v1/public/content/post?per_page=2'
 | `id` | string | The entry's id. |
 | `schema` | string | The slug of its content type. |
 | `slug` | string | The entry's slug. |
-| `url` | string | The absolute address of the page on your site. Left out when the content type has no public page. |
+| `url` | string | The absolute address of the page on your site. Left out when the entry's address cannot be worked out. |
 | `title` | string | The entry's name. |
 | `excerpt` | string | The first non-empty text among the entry's `excerpt`, `summary` and `description` fields, exactly as stored. Left out when there is none. |
 | `published_at` | string | Publication time in UTC, RFC 3339. Left out when unset. |
 | `updated_at` | string | Last change in UTC, RFC 3339. |
-| `author` | object | `name`, and `slug` when the author is a public person. Left out when the entry has no byline. |
+| `author` | object | `name`, and `slug` when the author is a public person and the entry's content type links its authors. Left out when the entry has no byline. |
 | `terms` | array | The entry's terms, each with `kind`, `slug` and `name`. Empty when there are none. |
 
 No other field of an entry is sent. Content fields other than the excerpt, SEO settings, page layouts, internal notes and user data never appear.
@@ -73,7 +73,7 @@ No other field of an entry is sent. Content fields other than the excerpt, SEO s
 | `slug` | string | The term's slug. |
 | `name` | string | The term's name. |
 | `description` | string | Left out when empty. |
-| `count` | number | How many published entries have the term. |
+| `count` | number | How many published entries have the term, including entries the API hides (opted out or noindex). |
 
 Terms are ordered by name, then slug. An unknown kind answers `404`.
 
@@ -103,7 +103,6 @@ curl -si -H 'If-None-Match: W/"abc123"' 'https://example.com/api/v1/public/terms
 - Entries whose **Include in /llms.txt** switch is off. Only a stored `false` hides an entry; any other value keeps it listed.
 - Entries marked noindex, and content types marked noindex.
 - Entries in a language the site does not show.
-- Content types that have no public page.
 
 The opt-out and noindex rules are the same as for [llms.txt and the knowledge graph](../ai-seo/robots-llms.md), so one choice hides an entry from both. A hidden entry, and any entry that does not exist, answers `404` on its own route.
 
@@ -125,7 +124,7 @@ Errors are JSON, `{"error": "<message>"}`.
 | Status | When |
 |---|---|
 | `400` | A bad paging value, for example `page=0`, `per_page=abc`, or the unknown parameter `limit` (the message says to use `per_page`). |
-| `404` | The switch is off, the content type or term kind is unknown or has no public page, the entry is not listed, or the route does not exist. Also the site access modes above. |
+| `404` | The switch is off, the content type or term kind is unknown, the entry is not listed, or the route does not exist. Also the site access modes above. |
 | `429` | The rate limit was hit. |
 | `503` | Maintenance mode is on. |
 | `500` | The server failed to answer. Try again. |
