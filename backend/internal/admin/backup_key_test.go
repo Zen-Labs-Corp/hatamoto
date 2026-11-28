@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -175,12 +176,12 @@ func TestBackupKeyCardCountsPlainOffsiteCopies(t *testing.T) {
 	rows := backupRows()
 	rows[1].Offsite = "uploaded"
 	rows[2].Offsite, rows[2].OffsiteEncrypted = "uploaded", true
-	d := g.a.backupKeyCard(context.Background(), BackupsState{Rows: rows}, nil)
+	d := g.a.backupKeyCard(httptest.NewRequest("GET", backupsPath, nil), BackupsState{Rows: rows}, nil)
 	if d == nil || d.PlainOffsite != 1 || d.Selected != "public" || d.Status.Label != "On: public key set" {
 		t.Fatalf("card = %+v", d)
 	}
 	key.view = BackupKeyView{}
-	if d := g.a.backupKeyCard(context.Background(), BackupsState{Rows: rows}, nil); d.PlainOffsite != 0 || d.Selected != "generate" {
+	if d := g.a.backupKeyCard(httptest.NewRequest("GET", backupsPath, nil), BackupsState{Rows: rows}, nil); d.PlainOffsite != 0 || d.Selected != "generate" {
 		t.Fatalf("off card = %+v", d)
 	}
 }

@@ -66,7 +66,9 @@ type backupKeyData struct {
 	Mode       string
 	PublicKey  string // shown in the public key field
 	Unreadable bool
-	LoadFailed bool // the saved state could not be read
+	LoadFailed bool   // the saved state could not be read
+	NeedSudo   bool   // the password is not confirmed: the card links to it instead of the controls
+	SudoURL    string // the confirmation page, returning to Backups
 	Status     ui.Badge
 	StatusText string
 	Errs       map[string]string // by field name: public_key, passphrase, mode
@@ -82,12 +84,18 @@ type backupKeyData struct {
 // backupKeyCard builds the card from the saved state. posted, when set, is a
 // failed submit to show again. It returns nil when the service is not wired.
 // A state that cannot be read renders the card in an error state, not a 500.
-func (a *Admin) backupKeyCard(ctx context.Context, st BackupsState, posted *backupKeyData) *backupKeyData {
+func (a *Admin) backupKeyCard(r *http.Request, st BackupsState, posted *backupKeyData) *backupKeyData {
+	ctx := r.Context()
 	svc := a.deps.BackupKey
 	if svc == nil {
 		return nil
 	}
 	d := &backupKeyData{Mode: BackupKeyOff}
+	// Saving needs the password, and a POST is never replayed after it: a key
+	// generated first would be lost. Ask for the password before any control.
+	if sess := sessionFrom(ctx); sess == nil || !a.sudo.store.Active(sess.ID) {
+		d.NeedSudo, d.SudoURL = true, a.sudoURL(a.adminPath+backupsRel, false)
+	}
 	v, err := svc.View(ctx)
 	if err != nil {
 		a.logger().Error("backup encryption view", "err", err)
@@ -168,7 +176,7 @@ func (a *Admin) rerenderBackupKey(w http.ResponseWriter, r *http.Request, posted
 	if !ok {
 		return
 	}
-	a.renderBackupsKey(w, r, http.StatusUnprocessableEntity, st, of, a.backupKeyCard(r.Context(), st, posted))
+	a.renderBackupsKey(w, r, http.StatusUnprocessableEntity, st, of, a.backupKeyCard(r, st, posted))
 }
 
 func (a *Admin) handleBackupKeySave(w http.ResponseWriter, r *http.Request) {

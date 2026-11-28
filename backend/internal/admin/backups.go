@@ -352,7 +352,7 @@ func (a *Admin) offsiteCardOrError(w http.ResponseWriter, r *http.Request) (*off
 }
 
 func (a *Admin) renderBackups(w http.ResponseWriter, r *http.Request, status int, st BackupsState, of *offsiteData) {
-	a.renderBackupsKey(w, r, status, st, of, a.backupKeyCard(r.Context(), st, nil))
+	a.renderBackupsKey(w, r, status, st, of, a.backupKeyCard(r, st, nil))
 }
 
 // renderBackupsKey is renderBackups with the Backup encryption card as given,

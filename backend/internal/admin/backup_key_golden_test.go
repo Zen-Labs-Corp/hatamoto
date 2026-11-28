@@ -28,21 +28,25 @@ func TestBackupKeyCardStates(t *testing.T) {
 	for _, c := range []struct {
 		name    string
 		view    BackupKeyView
+		sudo    bool // the password is confirmed
 		wants   []string
 		absents []string
 	}{
-		{"key-off", BackupKeyView{Mode: BackupKeyOff}, []string{
+		{"key-needs-sudo", BackupKeyView{Mode: BackupKeyPublic, PublicKey: testBackupRecipient}, false, []string{
+			"Confirm your password", `href="/admin/sudo?next=%2Fadmin%2Fsettings%2Fbackups"`, ">On: public key set<",
+		}, []string{"data-hm-backupkey-generate", "data-hm-backupkey-reveal", `name="public_key"`, `name="passphrase"`, `name="mode"`, "Turn off", ">Save<", "backupkey-private"}},
+		{"key-off", BackupKeyView{Mode: BackupKeyOff}, true, []string{
 			"Backup encryption", ">Off<", "Generate a key pair for me", "I have a public key", "Use a passphrase instead",
 			`data-hm-backupkey-generate`, `data-hm-backupkey-reveal`, "The private key is shown once.", "To restore you need the private key",
 			`action="/admin/settings/backups/encryption"`, `name="mode"`, `name="public_key"`, `name="passphrase"`,
 			`href="/admin/settings/backups/20261018T141900Z-pre_update/download"`,
 		}, []string{"Turn off", "Download .tar.age", "before encryption was on"}},
-		{"key-set", BackupKeyView{Mode: BackupKeyPublic, PublicKey: testBackupRecipient}, []string{
+		{"key-set", BackupKeyView{Mode: BackupKeyPublic, PublicKey: testBackupRecipient}, true, []string{
 			">On: public key set<", testBackupRecipient, "Turn off", `form="backupkey-off-form"`, "Download .tar.age",
 			"1 off-site copy was uploaded before encryption was on. It stays as it is.",
 		}, nil},
-		{"key-passphrase", BackupKeyView{Mode: BackupKeyPassphrase}, []string{">On: passphrase<", "Turn off", "Download .tar.age"}, []string{testBackupRecipient}},
-		{"key-unreadable", BackupKeyView{Mode: BackupKeyPassphrase, Unreadable: true}, []string{">Key unreadable<", "cannot be read", "Turn off"}, nil},
+		{"key-passphrase", BackupKeyView{Mode: BackupKeyPassphrase}, true, []string{">On: passphrase<", "Turn off", "Download .tar.age"}, []string{testBackupRecipient}},
+		{"key-unreadable", BackupKeyView{Mode: BackupKeyPassphrase, Unreadable: true}, true, []string{">Key unreadable<", "cannot be read", "Turn off"}, nil},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -51,6 +55,9 @@ func TestBackupKeyCardStates(t *testing.T) {
 			f.state.Rows[0].Offsite = "uploaded"
 			g := newBackupsRig(t, f)
 			g.a.SetBackupKey(&fakeBackupKey{view: c.view})
+			if c.sudo {
+				grantSudo(g.ownerRig.rig)
+			}
 			body := g.get(t)
 			for _, w := range c.wants {
 				if !strings.Contains(body, w) {
@@ -62,7 +69,9 @@ func TestBackupKeyCardStates(t *testing.T) {
 					t.Errorf("page has %q", x)
 				}
 			}
-			assertPrivateFieldUnnamed(t, body)
+			if c.sudo {
+				assertPrivateFieldUnnamed(t, body)
+			}
 			compareGolden(t, "pages/settings-backups-"+c.name+".html", normalizePage(body))
 		})
 	}
