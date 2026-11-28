@@ -50,11 +50,15 @@ func (s *Server) mountPublicContentAPI(r *httpx.Group) {
 	g.HandleFunc("GET /terms/{kind}", s.handlePublicTermsList)
 }
 
+// maxPublicPage keeps (page-1)*perPage far from overflowing the SQL offset; a
+// deeper page is a 400 instead of a database error.
+const maxPublicPage = 100000
+
 // publicPaging reads page and per_page (default 20, at most 100). It answers
 // 400 and returns false on a bad value.
 func publicPaging(w http.ResponseWriter, r *http.Request) (page, perPage int, ok bool) {
 	pp := httpx.NewPaging(r.URL.Query(), 100)
-	page = pp.Page("page", 0)
+	page = pp.Page("page", maxPublicPage)
 	perPage = pp.Size("per_page", "limit", 20)
 	if err := pp.Err(); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())

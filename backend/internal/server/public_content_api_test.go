@@ -93,3 +93,19 @@ func TestPublicContentGate(t *testing.T) {
 		t.Error("a server without site config must read as off")
 	}
 }
+
+// A huge page would wrap (page-1)*perPage into a negative SQL offset and answer
+// 500; it is refused with 400 before any query runs.
+func TestPublicPagingRefusesHugePage(t *testing.T) {
+	for _, q := range []string{"page=9223372036854775807&per_page=100", "page=100001"} {
+		rec := httptest.NewRecorder()
+		_, _, ok := publicPaging(rec, httptest.NewRequest("GET", "/content/post?"+q, nil))
+		if ok || rec.Code != 400 {
+			t.Errorf("?%s: ok=%v code=%d, want 400", q, ok, rec.Code)
+		}
+	}
+	rec := httptest.NewRecorder()
+	if page, _, ok := publicPaging(rec, httptest.NewRequest("GET", "/x?page=100000", nil)); !ok || page != 100000 {
+		t.Errorf("page=100000: page=%d ok=%v", page, ok)
+	}
+}
