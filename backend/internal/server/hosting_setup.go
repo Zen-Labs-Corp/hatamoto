@@ -143,7 +143,12 @@ func (h *hostingAdmin) Setup(ctx context.Context) (admin.HostingSetup, error) {
 func (h *hostingAdmin) setupSFTP(ctx context.Context, set staticexport.Settings, out *admin.HostingSetup) {
 	out.HostKey, out.HTAccess, out.RemoteDir = set.SFTPHostKey, set.SFTPHTAccess, set.SFTPDir
 	out.Remote = admin.HostingCheckUnknown
-	key := staticexport.SFTPKey(set.SFTPUser, set.SFTPHost, set.SFTPPort, set.SFTPDir)
+	// Runs record the cleaned folder (public_html/ is public_html).
+	dir := set.SFTPDir
+	if clean, err := staticexport.ValidateRemoteDir(dir); err == nil {
+		dir = clean
+	}
+	key := staticexport.SFTPKey(set.SFTPUser, set.SFTPHost, set.SFTPPort, dir)
 	if runs, err := h.runs.List(ctx, 20); err == nil {
 		for _, r := range runs {
 			if r.Target != key {

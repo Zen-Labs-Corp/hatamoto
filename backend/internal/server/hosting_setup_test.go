@@ -272,6 +272,20 @@ func TestHostingSetupSFTPPreview(t *testing.T) {
 	}
 }
 
+func TestHostingSetupSFTPRemoteCheckUsesTheCleanedFolder(t *testing.T) {
+	t.Parallel()
+	fx := sftpSetupFixture(t)
+	fx.store.set.SFTPDir = "./public_html/"
+	fx.runs.runs = []staticexport.Run{{Target: staticexport.SFTPKey("site", "ssh.example.com", 22, "public_html"), Status: admin.HostingRunOK}}
+	got, err := fx.h.Setup(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Remote != admin.HostingCheckOK {
+		t.Fatalf("remote = %q, want ok", got.Remote)
+	}
+}
+
 func TestHostingSetupSFTPIgnoresStaleDir(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
