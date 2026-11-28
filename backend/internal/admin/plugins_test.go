@@ -228,6 +228,22 @@ func TestPluginsPageRetiredTrackingRow(t *testing.T) {
 	}
 }
 
+// A leftover gtm row for a directory plugin (no package) keeps the notice but has
+// no Remove link, as there is no package to uninstall.
+func TestPluginsPageRetiredRowWithoutPackageHasNoRemove(t *testing.T) {
+	t.Parallel()
+
+	g, fp := newPluginRig(t)
+	fp.list = append(fp.list, PluginInfo{Name: "gtm", Version: "0.2.0", Loaded: true})
+	body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `id="plugin-gtm-builtin"`) || !strings.Contains(body, ">Open Tracking<") {
+		t.Error("notice missing")
+	}
+	if strings.Contains(body, ">Remove<") || strings.Contains(body, "/plugins/gtm/uninstall") {
+		t.Error("Remove offered for a plugin without a package")
+	}
+}
+
 // Without a webhooks plugin the list has no notice at all.
 func TestPluginsPageHasNoLegacyNoticeWithoutWebhooks(t *testing.T) {
 	t.Parallel()

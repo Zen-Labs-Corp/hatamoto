@@ -254,7 +254,10 @@ func (a *Admin) handlePlugins(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if label, ok := trackingMovedLabels[p.Name]; ok {
-			row.Retired, row.RemoveHref = label, a.pluginURL(p.Name, "uninstall")
+			row.Retired = label
+			if p.Package != nil { // a directory (dev) plugin has no package to uninstall
+				row.RemoveHref = a.pluginURL(p.Name, "uninstall")
+			}
 		}
 		if p.Package != nil {
 			row.FirstParty = p.Package.FirstParty
