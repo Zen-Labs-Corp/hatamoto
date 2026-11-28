@@ -32,10 +32,13 @@ func NewSettingsStore(db Querier) *SettingsStore { return &SettingsStore{db: db}
 func (s *SettingsStore) Get(ctx context.Context) (set Settings, found bool, err error) {
 	err = s.db.QueryRow(ctx, `
 		SELECT mode, target, dir_path, service, endpoint, region, bucket, prefix, access_key,
-		       secret_sealed, live_origin, updated_at
+		       secret_sealed, live_origin, updated_at,
+		       sftp_host, sftp_port, sftp_user, sftp_auth, sftp_secret_sealed, sftp_dir, sftp_host_key, sftp_htaccess
 		FROM hatamoto_static_hosting_settings WHERE id`).Scan(
 		&set.Mode, &set.Target, &set.DirPath, &set.Service, &set.Endpoint, &set.Region, &set.Bucket,
-		&set.Prefix, &set.AccessKey, &set.SecretSealed, &set.LiveOrigin, &set.UpdatedAt)
+		&set.Prefix, &set.AccessKey, &set.SecretSealed, &set.LiveOrigin, &set.UpdatedAt,
+		&set.SFTPHost, &set.SFTPPort, &set.SFTPUser, &set.SFTPAuth, &set.SFTPSecretSealed, &set.SFTPDir,
+		&set.SFTPHostKey, &set.SFTPHTAccess)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Defaults(), false, nil
 	}
@@ -54,15 +57,23 @@ func (s *SettingsStore) Save(ctx context.Context, set Settings) error {
 	_, err := s.db.Exec(ctx, `
 		INSERT INTO hatamoto_static_hosting_settings
 			(id, mode, target, dir_path, service, endpoint, region, bucket, prefix, access_key,
-			 secret_sealed, live_origin, updated_at)
-		VALUES (TRUE, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+			 secret_sealed, live_origin, updated_at,
+			 sftp_host, sftp_port, sftp_user, sftp_auth, sftp_secret_sealed, sftp_dir, sftp_host_key, sftp_htaccess)
+		VALUES (TRUE, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(),
+			$12, $13, $14, $15, $16, $17, $18, $19)
 		ON CONFLICT (id) DO UPDATE SET mode = EXCLUDED.mode, target = EXCLUDED.target,
 			dir_path = EXCLUDED.dir_path, service = EXCLUDED.service, endpoint = EXCLUDED.endpoint,
 			region = EXCLUDED.region, bucket = EXCLUDED.bucket, prefix = EXCLUDED.prefix,
 			access_key = EXCLUDED.access_key, secret_sealed = EXCLUDED.secret_sealed,
-			live_origin = EXCLUDED.live_origin, updated_at = now()`,
+			live_origin = EXCLUDED.live_origin, updated_at = now(),
+			sftp_host = EXCLUDED.sftp_host, sftp_port = EXCLUDED.sftp_port, sftp_user = EXCLUDED.sftp_user,
+			sftp_auth = EXCLUDED.sftp_auth, sftp_secret_sealed = EXCLUDED.sftp_secret_sealed,
+			sftp_dir = EXCLUDED.sftp_dir, sftp_host_key = EXCLUDED.sftp_host_key,
+			sftp_htaccess = EXCLUDED.sftp_htaccess`,
 		set.Mode, set.Target, set.DirPath, set.Service, set.Endpoint, set.Region, set.Bucket,
-		set.Prefix, set.AccessKey, set.SecretSealed, set.LiveOrigin)
+		set.Prefix, set.AccessKey, set.SecretSealed, set.LiveOrigin,
+		set.SFTPHost, set.SFTPPort, set.SFTPUser, set.SFTPAuth, set.SFTPSecretSealed, set.SFTPDir,
+		set.SFTPHostKey, set.SFTPHTAccess)
 	if err != nil {
 		return fmt.Errorf("save static hosting settings: %w", err)
 	}

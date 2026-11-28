@@ -3,6 +3,7 @@ package staticexport
 import (
 	"errors"
 	"fmt"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -17,6 +18,14 @@ const (
 	ModeStatic = "static"
 	TargetDir  = "dir"
 	TargetS3   = "s3"
+
+	TargetSFTP       = "sftp"
+	SFTPAuthPassword = "password"
+	SFTPAuthKey      = "key"
+
+	// sftpSecretAAD is the AAD of the sealed SFTP credential, never the S3 one,
+	// so a blob of one target does not open as the other.
+	sftpSecretAAD = "static-hosting-settings:sftp-secret"
 
 	secretDomain  = "hatamoto/static/export-secret-key"
 	secretAAD     = "static-hosting-settings:secret-key"
@@ -48,11 +57,21 @@ type Settings struct {
 	SecretSealed []byte // sealed secret key; nil when none is saved
 	LiveOrigin   string
 	UpdatedAt    time.Time // set by the database
+
+	SFTPHost         string
+	SFTPPort         int
+	SFTPUser         string
+	SFTPAuth         string // SFTPAuthPassword or SFTPAuthKey: what SFTPSecretSealed holds
+	SFTPSecretSealed []byte // sealed password or private key; nil when none is saved
+	SFTPDir          string // folder relative to the login home
+	SFTPHostKey      string // "SHA256:..." the owner trusted; "" = not trusted yet
+	SFTPHTAccess     bool   // write the Hatamoto block of .htaccess
 }
 
 // Defaults are the settings of a site that never configured static hosting.
 func Defaults() Settings {
-	return Settings{Mode: ModeServed, Target: TargetDir, Service: offsite.ServiceAWS}
+	return Settings{Mode: ModeServed, Target: TargetDir, Service: offsite.ServiceAWS,
+		SFTPPort: 22, SFTPAuth: SFTPAuthPassword, SFTPDir: "public_html", SFTPHTAccess: true}
 }
 
 // EffectiveEndpoint is the endpoint requests go to: derived from the region
@@ -67,13 +86,37 @@ func (s Settings) EffectiveEndpoint() string {
 // HasSecret reports whether a sealed secret key is stored.
 func (s Settings) HasSecret() bool { return len(s.SecretSealed) > 0 }
 
+// HasSFTPSecret reports whether a sealed SFTP password or key is stored.
+func (s Settings) HasSFTPSecret() bool { return len(s.SFTPSecretSealed) > 0 }
+
+// ValidateRemoteDir checks an SFTP remote folder and returns it cleaned. It
+// must be a folder inside the login home: empty, "/", absolute, "~" and any
+// ".." segment are refused.
+func ValidateRemoteDir(dir string) (string, error) {
+	errBad := errors.New("remote folder must be a folder inside your home, for example public_html")
+	d := strings.TrimSpace(dir)
+	if d == "" || strings.HasPrefix(d, "/") || strings.HasPrefix(d, "~") || strings.Contains(d, "\\") {
+		return "", errBad
+	}
+	for _, seg := range strings.Split(d, "/") {
+		if seg == ".." {
+			return "", errBad
+		}
+	}
+	c := path.Clean(d)
+	if c == "." || c == ".." || strings.HasPrefix(c, "../") {
+		return "", errBad
+	}
+	return c, nil
+}
+
 // Validate checks the fields against their allowed values. The S3 fields are
 // checked only when static mode publishes to S3.
 func (s Settings) Validate() error {
 	if s.Mode != ModeServed && s.Mode != ModeStatic {
 		return fmt.Errorf("unknown mode %q", s.Mode)
 	}
-	if s.Target != TargetDir && s.Target != TargetS3 {
+	if s.Target != TargetDir && s.Target != TargetS3 && s.Target != TargetSFTP {
 		return fmt.Errorf("unknown target %q", s.Target)
 	}
 	if s.DirPath != "" && !filepath.IsAbs(s.DirPath) {
@@ -86,6 +129,10 @@ func (s Settings) Validate() error {
 	case TargetDir:
 		if s.DirPath == "" {
 			return errors.New("directory is required")
+		}
+	case TargetSFTP:
+		if err := s.validateSFTP(); err != nil {
+			return err
 		}
 	case TargetS3:
 		known := false
@@ -108,6 +155,28 @@ func (s Settings) Validate() error {
 	return nil
 }
 
+// validateSFTP checks the SFTP fields. The trusted host key is not required
+// here: a host change clears it and exports refuse until it is trusted again.
+func (s Settings) validateSFTP() error {
+	if s.SFTPHost == "" || strings.ContainsAny(s.SFTPHost, " \t\r\n/@") {
+		return errors.New("SFTP host is required, a name or address without a scheme or a path")
+	}
+	if s.SFTPPort < 1 || s.SFTPPort > 65535 {
+		return errors.New("SFTP port must be between 1 and 65535")
+	}
+	if strings.TrimSpace(s.SFTPUser) == "" {
+		return errors.New("SFTP user is required")
+	}
+	if s.SFTPAuth != SFTPAuthPassword && s.SFTPAuth != SFTPAuthKey {
+		return errors.New("SFTP sign-in must be password or key")
+	}
+	if !s.HasSFTPSecret() {
+		return errors.New("password or private key is required")
+	}
+	_, err := ValidateRemoteDir(s.SFTPDir)
+	return err
+}
+
 // SealSecret returns the sealed form of a secret key for Settings.SecretSealed.
 func SealSecret(key []byte, secret string) ([]byte, error) {
 	return secretbox.Seal(key, []byte(secretAAD), []byte(secret))
@@ -120,6 +189,25 @@ func (s Settings) Secret(key []byte) (secret string, ok bool) {
 		return "", false
 	}
 	b, err := secretbox.Open(key, []byte(secretAAD), s.SecretSealed)
+	if err != nil || len(b) == 0 {
+		return "", false
+	}
+	return string(b), true
+}
+
+// SealSFTPSecret returns the sealed form of an SFTP password or private key
+// for Settings.SFTPSecretSealed.
+func SealSFTPSecret(key []byte, secret string) ([]byte, error) {
+	return secretbox.Seal(key, []byte(sftpSecretAAD), []byte(secret))
+}
+
+// SFTPSecret opens the stored SFTP password or key. ok is false when none is
+// saved or it cannot be read.
+func (s Settings) SFTPSecret(key []byte) (secret string, ok bool) {
+	if len(s.SFTPSecretSealed) == 0 {
+		return "", false
+	}
+	b, err := secretbox.Open(key, []byte(sftpSecretAAD), s.SFTPSecretSealed)
 	if err != nil || len(b) == 0 {
 		return "", false
 	}
