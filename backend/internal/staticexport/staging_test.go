@@ -34,6 +34,12 @@ func TestStagingSuppressesStaticExportSFTP(t *testing.T) {
 	t.Setenv(runenv.EnvVar, "staging")
 	srv := newSFTPServer(t)
 	tgt := newTestSFTPTarget(t, srv, nil)
+	if _, _, err := tgt.Previous(context.Background()); !errors.Is(err, runenv.ErrSuppressed) {
+		t.Fatalf("Previous err = %v, want ErrSuppressed", err)
+	}
+	if srv.Conns() != 0 {
+		t.Fatalf("Previous connected %d times in staging", srv.Conns())
+	}
 	staged, next := stageFiles(t, map[string]string{"index.html": "<p>hi</p>"})
 	err := tgt.Publish(context.Background(), staged, Diff{Changed: []string{"index.html"}}, next)
 	if !errors.Is(err, runenv.ErrSuppressed) {

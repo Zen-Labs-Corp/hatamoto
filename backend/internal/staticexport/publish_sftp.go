@@ -277,6 +277,9 @@ func (t *SFTPTarget) connect(ctx context.Context) (*sftp.Client, func(), error) 
 // Previous reads the manifest in the remote folder. A missing file means a
 // first export.
 func (t *SFTPTarget) Previous(ctx context.Context) (Manifest, bool, error) {
+	if runenv.Suppress(ctx, nil, runenv.StaticExportSFTP, "target", t.describe) {
+		return Manifest{}, false, runenv.ErrSuppressed
+	}
 	c, closeConn, err := t.connect(ctx)
 	if err != nil {
 		return Manifest{}, false, err
