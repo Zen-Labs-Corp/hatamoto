@@ -6,11 +6,16 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"filippo.io/age"
+
+	"hatamoto.dev/core/internal/backupcrypt"
 	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/s3/s3test"
 	"hatamoto.dev/core/internal/supervisor"
@@ -224,5 +229,130 @@ func TestBackupRestoreFromOffsiteNeedsATarget(t *testing.T) {
 	err := runBackup(context.Background(), []string{"restore", "--from-offsite", "x", "--admin-url", "u"}, &out)
 	if err == nil || !strings.Contains(err.Error(), offsite.EnvSecretKey) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestParseRestoreArgsIdentity(t *testing.T) {
+	base := []string{"b.tar.age", "--admin-url", "postgres://su@h/postgres"}
+	a, err := parseRestoreArgs(append([]string{"--identity", "k.txt"}, base...))
+	if err != nil || a.identity != "k.txt" || a.passphraseStdin || a.source != "b.tar.age" {
+		t.Errorf("--identity: %+v, %v", a, err)
+	}
+	a, err = parseRestoreArgs(append([]string{"--passphrase-stdin"}, base...))
+	if err != nil || !a.passphraseStdin || a.identity != "" {
+		t.Errorf("--passphrase-stdin: %+v, %v", a, err)
+	}
+	_, err = parseRestoreArgs(append([]string{"--identity", "k.txt", "--passphrase-stdin"}, base...))
+	if err == nil || !strings.Contains(err.Error(), "use either --identity or --passphrase-stdin") {
+		t.Errorf("both: err = %v", err)
+	}
+}
+
+// stdinWith returns a pipe reader holding s; it is never a terminal.
+func stdinWith(t *testing.T, s string) *os.File {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.WriteString(w, s); err != nil {
+		t.Fatal(err)
+	}
+	w.Close()
+	t.Cleanup(func() { r.Close() })
+	return r
+}
+
+func TestRestoreIdentityKeyFile(t *testing.T) {
+	ident, _ := age.GenerateX25519Identity()
+	dir := t.TempDir()
+	priv := filepath.Join(dir, "key.txt")
+	pub := filepath.Join(dir, "pub.txt")
+	if err := os.WriteFile(priv, []byte("# created\n"+ident.String()+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(pub, []byte(ident.Recipient().String()+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if fn, err := restoreIdentity(restoreArgs{identity: priv}, nil, io.Discard); err != nil {
+		t.Errorf("private key: %v", err)
+	} else if id, err := fn(); err != nil || id == nil {
+		t.Errorf("identity = %v, %v", id, err)
+	}
+	_, err := restoreIdentity(restoreArgs{identity: pub}, nil, io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "public key") || strings.Contains(err.Error(), ident.Recipient().String()) {
+		t.Errorf("public-only file: err = %v", err)
+	}
+	if _, err := restoreIdentity(restoreArgs{identity: filepath.Join(dir, "missing")}, nil, io.Discard); err == nil {
+		t.Error("missing file: no error")
+	}
+}
+
+// A bad key file fails before any restore call, so before a download.
+func TestBackupRestoreBadIdentityFailsFirst(t *testing.T) {
+	restoreEnv(t)
+	ident, _ := age.GenerateX25519Identity()
+	pub := filepath.Join(t.TempDir(), "pub.txt")
+	if err := os.WriteFile(pub, []byte(ident.Recipient().String()+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	err := runBackup(context.Background(), []string{"restore", "--from-offsite", "20260102T030405Z-manual", "--identity", pub, "--admin-url", "postgres://su@h/postgres"}, &out)
+	if err == nil || !strings.Contains(err.Error(), "public key") {
+		t.Errorf("err = %v, want the public-key error (before any offsite access)", err)
+	}
+}
+
+func TestRestoreIdentityPassphraseStdinTrimsNewline(t *testing.T) {
+	const pass = "correct horse battery staple"
+	for _, in := range []string{pass + "\n", pass + "\r\n", pass} {
+		fn, err := restoreIdentity(restoreArgs{passphraseStdin: true}, stdinWith(t, in), io.Discard)
+		if err != nil {
+			t.Fatalf("%q: %v", in, err)
+		}
+		id, err := fn()
+		if err != nil {
+			t.Fatal(err)
+		}
+		// The identity opens a backup made with exactly the trimmed passphrase.
+		k, err := backupcrypt.PassphraseKey(pass)
+		if err != nil {
+			t.Fatal(err)
+		}
+		dir := t.TempDir()
+		plain := filepath.Join(dir, "a.tar")
+		os.WriteFile(plain, []byte("x"), 0o600)
+		if err := k.EncryptFile(plain, plain+".age"); err != nil {
+			t.Fatal(err)
+		}
+		if err := id.DecryptFile(plain+".age", filepath.Join(dir, "out.tar")); err != nil {
+			t.Errorf("%q: %v", in, err)
+		}
+	}
+}
+
+func TestRestoreIdentityNoTerminalNoFlag(t *testing.T) {
+	var stderr bytes.Buffer
+	fn, err := restoreIdentity(restoreArgs{}, stdinWith(t, ""), &stderr)
+	if err != nil {
+		t.Fatalf("a plain backup needs no key: %v", err)
+	}
+	_, err = fn()
+	if err == nil || !strings.Contains(err.Error(), "pass --identity") || !strings.Contains(err.Error(), "--passphrase-stdin") {
+		t.Errorf("err = %v", err)
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("prompted without a terminal: %q", stderr.String())
+	}
+}
+
+func TestRestoreIdentitySecretsNotInErrors(t *testing.T) {
+	const pass = "short"
+	_, err := restoreIdentity(restoreArgs{passphraseStdin: true}, stdinWith(t, pass+"\n"), io.Discard)
+	if err != nil && strings.Contains(err.Error(), pass) {
+		t.Errorf("error repeats the passphrase: %v", err)
+	}
+	if errors.Is(err, backupcrypt.ErrWrongKey) {
+		t.Errorf("unexpected err %v", err)
 	}
 }

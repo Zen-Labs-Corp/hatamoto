@@ -40,11 +40,13 @@ tests are the acceptance test for the runtime.
 | `github.com/modelcontextprotocol/go-sdk` | v1.8.0 | Apache-2.0 | MCP server for AI agents | `go get github.com/modelcontextprotocol/go-sdk@latest` |
 | `github.com/santhosh-tekuri/jsonschema/v5` | v5.3.1 | Apache-2.0 | JSON Schema validation (entity schemas, plugin settings) | `go get github.com/santhosh-tekuri/jsonschema/v5@latest` |
 | `github.com/coreos/go-oidc/v3` | v3.21.0 | Apache-2.0 | OIDC sign-in: discovery, key set and ID token checks | `go get github.com/coreos/go-oidc/v3@latest` |
+| `filippo.io/age` | v1.3.2 | BSD-3-Clause | Encrypts backup downloads and off-site copies, decrypts them for restore (`internal/backupcrypt`) | `go get filippo.io/age@latest` |
 | `golang.org/x/crypto` | v0.58.0 | BSD-3-Clause | argon2 password hashing | `go get golang.org/x/crypto@latest` |
 | `golang.org/x/image` | v0.47.0 | BSD-3-Clause | WebP decoding and resizing for media variants | `go get golang.org/x/image@latest` |
 | `golang.org/x/net` | v0.61.0 | BSD-3-Clause | HTML parsing and tokenising (`x/net/html`) | `go get golang.org/x/net@latest` |
 | `golang.org/x/oauth2` | v0.38.0 | BSD-3-Clause | OIDC sign-in token exchange; also used by the MCP go-sdk | `go get golang.org/x/oauth2@latest` |
 | `golang.org/x/text` | v0.43.0 | BSD-3-Clause | Unicode normalisation, language tags and names, slugs | `go get golang.org/x/text@latest` |
+| `golang.org/x/term` | v0.47.0 | BSD-3-Clause | Passphrase prompt of `hatamoto backup restore` | `go get golang.org/x/term@latest` |
 | `golang.org/x/time` | v0.16.0 | BSD-3-Clause | Rate limiters | `go get golang.org/x/time@latest` |
 | `github.com/oschwald/maxminddb-golang` | v1.13.1 | ISC | GeoIP country lookup from an owner-supplied .mmdb (read into memory by default; opt-in read-only mmap with `HATAMOTO_GEOIP_MMAP`; no cgo) | `go get github.com/oschwald/maxminddb-golang@latest` |
 | `github.com/klauspost/compress` | v1.20.3 | BSD-3-Clause | zstd and gzip response compression (pure Go, no cgo; `zstd` and `gzip` packages only) | `go get github.com/klauspost/compress@latest` |
@@ -73,6 +75,7 @@ tests are the acceptance test for the runtime.
 | `github.com/go-jose/go-jose/v4` | v4.1.4 | Apache-2.0 | go-oidc (JSON Web Key and signature handling) |
 | `golang.org/x/sync` | v0.24.0 | BSD-3-Clause | goose, MCP go-sdk |
 | `github.com/ebitengine/purego` | v0.8.3 | Apache-2.0 | gen2brain/webp and avif (system library loader; disabled by the `nodynamic` build tag) |
+| `filippo.io/hpke` | v0.4.0 | BSD-3-Clause | age |
 | `golang.org/x/sys` | v0.49.0 | BSD-3-Clause | wazero, pgx, x/crypto |
 | `github.com/dylibso/observe-sdk/go` | v0.0.0-20240828172851-9145d8ad07e1 | Apache-2.0 | Extism go-sdk (tracing adapter, unused) |
 | `github.com/gobwas/glob` | v1.0.0 | MIT | Extism go-sdk (allowed-host patterns) |
@@ -251,8 +254,11 @@ still serves them under `/_/vendor/`.
 | htmx | `htmx-2.0.11.min.js` | 2.0.11 | 0BSD | Admin interactions (partial swaps) | change the `@version` in `vendor.json`, `cd backend && go run ./tools/vendor fetch --update`, review the diff |
 | SortableJS | `sortable-1.15.7.min.js` | 1.15.7 | MIT | Drag and drop | same |
 | Tiptap module graph | `tiptap-3.31.3/` (62 files: Tiptap, ProseMirror, floating-ui, linkifyjs, orderedmap, rope-sequence, w3c-keyname) | 3.31.3 | MIT | Rich-text editor | same, then the editor checklist in `docs/QA.md` |
+| Age key generation | `noble-curves-2.4.0/` (14 files: `@noble/curves`, `@noble/hashes`), `scure-base-2.4.0/` (1 file: `@scure/base`) | 2.4.0 | MIT | X25519 and bech32 for the backup key pair made in the browser (Settings > Backups); audited upstream projects, loaded only on that page | same; then rerun `node --test scripts/admin-qa/unit/backupkeylogic.test.mjs` and check that npm and vendored output agree (below) |
 
-Licence texts: `backend/web/assets/licenses/` (22 files, one per package, hashed in
+The esm.sh build of these modules is pinned by SHA-256 like Tiptap. The npm registry integrity of the source packages it was checked against is `@noble/curves@2.4.0 sha512-P4/62zrgfH33CneE3Dn4WhJVA22YUU0eR51wKIan4NVRvwsA0YnPTwWGpNbpuacSujmSFLvyzpyuR30+fbq2Ew==`, `@noble/hashes@2.4.0 sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==` and `@scure/base@2.4.0 sha512-thZ1TuJwFwBblOhgsjDKvvGirBxNp+wSvY/DR6tJBJOTDhdAAcHJ8Vbr2eFnqaxeca4+t0i9KBf+uHYGWwZORg==`. Re-check them with `npm view <pkg>@<version> dist.integrity`. On an update, install the same versions in a temporary directory and compare their X25519 and bech32 output with the vendored files before you commit.
+
+Licence texts: `backend/web/assets/licenses/` (24 files, one per package, hashed in
 `vendor.json`) and `backend/web/assets/NOTICE`, both written by the vendor tool.
 
 ## Admin icons (Lucide)

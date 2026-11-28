@@ -80,8 +80,9 @@ The admin ships its browser dependencies as committed files, served from the bin
 | htmx | 2.0.11 | 0BSD | partial page updates in the admin |
 | SortableJS | 1.15.7 | MIT | drag and drop ordering |
 | Tiptap and ProseMirror module graph | 3.31.3 (62 files) | MIT | the rich text editor |
+| noble-curves and scure-base module graphs | 2.4.0 (15 files) | MIT | the backup encryption key pair made in the browser |
 
-The public site's own script, `hm.js`, is part of the default theme (`backend/internal/render/themes/default/assets/js/hm.js`), not a vendored dependency. Licence texts for the vendored files, including each package of the Tiptap module graph, are in `backend/web/assets/licenses/`, with a `NOTICE` file in `backend/web/assets/`.
+The public site's own script, `hm.js`, is part of the default theme (`backend/internal/render/themes/default/assets/js/hm.js`), not a vendored dependency. Licence texts for the vendored files, including each package of the Tiptap module graph and the noble and scure packages, are in `backend/web/assets/licenses/`, with a `NOTICE` file in `backend/web/assets/`.
 
 Two commands keep the vendored files honest:
 

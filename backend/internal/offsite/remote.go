@@ -18,7 +18,10 @@ import (
 	"hatamoto.dev/core/internal/s3"
 )
 
-const tarExt = ".tar"
+const (
+	tarExt = ".tar"
+	ageExt = ".tar.age"
+)
 
 // Target locates and opens a bucket. It carries the opened secret key, so it
 // is built per use and never stored, logged or printed.
@@ -59,79 +62,123 @@ func (s Settings) Target(key []byte) (Target, bool) {
 		Prefix: s.Prefix, AccessKey: s.AccessKey, SecretKey: secret}, true
 }
 
-// RemoteBackup is one backup archive found in the bucket.
+// RemoteBackup is one backup found in the bucket. Encrypted is true when the
+// object is an age file (<id>.tar.age).
 type RemoteBackup struct {
 	ID           string
 	Key          string
 	Size         int64
 	LastModified time.Time
+	Encrypted    bool
 }
 
-// remoteID returns the backup id of an object key, or false when the key is
-// not "<prefix><ValidID>.tar" exactly (nested keys and foreign files).
-func remoteID(prefix, key string) (string, bool) {
+// remoteID returns the backup id of an object key and whether it is the
+// encrypted form, or ok false when the key is not "<prefix><ValidID>.tar" or
+// "<prefix><ValidID>.tar.age" exactly (nested keys and foreign files).
+func remoteID(prefix, key string) (id string, encrypted, ok bool) {
 	rest, ok := strings.CutPrefix(key, prefix)
 	if !ok {
-		return "", false
+		return "", false, false
 	}
-	id, ok := strings.CutSuffix(rest, tarExt)
-	if !ok || strings.Contains(id, "/") || !backup.ValidID(id) {
-		return "", false
+	id, encrypted = strings.CutSuffix(rest, ageExt)
+	if !encrypted {
+		if id, ok = strings.CutSuffix(rest, tarExt); !ok {
+			return "", false, false
+		}
 	}
-	return id, true
+	if strings.Contains(id, "/") || !backup.ValidID(id) {
+		return "", false, false
+	}
+	return id, encrypted, true
 }
 
-// ListRemote returns the backups under prefix, newest id first.
-func ListRemote(ctx context.Context, c *s3.Client, prefix string) ([]RemoteBackup, error) {
+// listKeys returns every backup object under prefix grouped by id, and the
+// ids newest first.
+func listKeys(ctx context.Context, c *s3.Client, prefix string) (map[string][]RemoteBackup, []string, error) {
 	objs, err := c.List(ctx, prefix)
+	if err != nil {
+		return nil, nil, err
+	}
+	byID := map[string][]RemoteBackup{}
+	for _, o := range objs {
+		if id, enc, ok := remoteID(prefix, o.Key); ok {
+			byID[id] = append(byID[id], RemoteBackup{ID: id, Key: o.Key, Size: o.Size, LastModified: o.LastModified, Encrypted: enc})
+		}
+	}
+	ids := make([]string, 0, len(byID))
+	for id := range byID {
+		ids = append(ids, id)
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(ids)))
+	return byID, ids, nil
+}
+
+// ListRemote returns the backups under prefix, newest id first, one row per
+// id. When an id exists under both suffixes the encrypted object is listed.
+func ListRemote(ctx context.Context, c *s3.Client, prefix string) ([]RemoteBackup, error) {
+	byID, ids, err := listKeys(ctx, c, prefix)
 	if err != nil {
 		return nil, err
 	}
 	var out []RemoteBackup
-	for _, o := range objs {
-		if id, ok := remoteID(prefix, o.Key); ok {
-			out = append(out, RemoteBackup{ID: id, Key: o.Key, Size: o.Size, LastModified: o.LastModified})
+	for _, id := range ids {
+		row := byID[id][0]
+		for _, b := range byID[id] {
+			if b.Encrypted {
+				row = b
+			}
 		}
+		out = append(out, row)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].ID > out[j].ID })
 	return out, nil
 }
 
-// Prune deletes the backups under prefix beyond the newest keep and returns
-// the deleted keys. Only keys shaped "<prefix><ValidID>.tar" are considered;
-// everything else in the bucket is left alone.
+// Prune deletes the backups under prefix beyond the newest keep ids and
+// returns the deleted keys. An id counts once however many suffixes it has,
+// and every key of a pruned id goes. Only keys shaped
+// "<prefix><ValidID>.tar[.age]" are considered; everything else in the bucket
+// is left alone.
 func Prune(ctx context.Context, c *s3.Client, prefix string, keep int) (deleted []string, err error) {
 	if keep < 1 {
 		return nil, errors.New("keep must be at least 1")
 	}
-	all, err := ListRemote(ctx, c, prefix)
+	byID, ids, err := listKeys(ctx, c, prefix)
 	if err != nil {
 		return nil, err
 	}
-	if len(all) <= keep {
+	if len(ids) <= keep {
 		return nil, nil
 	}
 	var errs []error
-	for _, b := range all[keep:] {
-		if derr := c.Delete(ctx, b.Key); derr != nil {
-			errs = append(errs, derr)
-			continue
+	for _, id := range ids[keep:] {
+		for _, b := range byID[id] {
+			if derr := c.Delete(ctx, b.Key); derr != nil {
+				errs = append(errs, derr)
+				continue
+			}
+			deleted = append(deleted, b.Key)
 		}
-		deleted = append(deleted, b.Key)
 	}
 	return deleted, errors.Join(errs...)
 }
 
-// Download fetches backup id into destDir/.tmp-<id>.tar and returns the path.
-// The SHA-256 of the bytes must equal the one recorded on the object when it
-// was uploaded; on any mismatch or error the file is removed. The caller
+// Download fetches backup id into destDir/.tmp-<id>.tar.age (preferred) or
+// destDir/.tmp-<id>.tar and returns the path. The SHA-256 of the bytes must equal the one recorded on the object when it
+// was uploaded (for an encrypted object that is the ciphertext, which is
+// stored as is); on any mismatch or error the file is removed. The caller
 // removes the file when done.
 func Download(ctx context.Context, c *s3.Client, prefix, id, destDir string) (_ string, err error) {
 	if !backup.ValidID(id) {
 		return "", fmt.Errorf("invalid backup id %q", id)
 	}
-	key := prefix + id + tarExt
+	ext := ageExt
+	key := prefix + id + ext
 	head, err := c.Head(ctx, key)
+	if err != nil && s3.NotFound(err) {
+		ext = tarExt
+		key = prefix + id + ext
+		head, err = c.Head(ctx, key)
+	}
 	if err != nil {
 		if s3.NotFound(err) {
 			return "", fmt.Errorf("backup %s is not in the bucket", id)
@@ -150,7 +197,7 @@ func Download(ctx context.Context, c *s3.Client, prefix, id, destDir string) (_ 
 	if err := os.MkdirAll(destDir, 0o700); err != nil {
 		return "", err
 	}
-	tmp := filepath.Join(destDir, ".tmp-"+id+tarExt)
+	tmp := filepath.Join(destDir, ".tmp-"+id+ext)
 	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 	if err != nil {
 		return "", err

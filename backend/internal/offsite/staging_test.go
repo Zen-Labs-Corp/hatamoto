@@ -22,7 +22,7 @@ func TestUploadIsSuppressedInStaging(t *testing.T) {
 	srv.Put("site/"+idN(1)+".tar", []byte("old"), nil)
 	srv.Put("site/"+idN(2)+".tar", []byte("old"), nil)
 	path, _ := writeArchive(t, 1024)
-	res, err := Upload(t.Context(), c, "site/", idN(9), path, 1)
+	res, err := Upload(t.Context(), c, "site/", idN(9), path, 1, nil)
 	if !errors.Is(err, runenv.ErrSuppressed) || res.OK {
 		t.Fatalf("res = %+v, err = %v", res, err)
 	}

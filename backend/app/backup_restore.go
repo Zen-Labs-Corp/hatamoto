@@ -4,19 +4,24 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"golang.org/x/term"
 
 	"hatamoto.dev/core/internal/backup"
+	"hatamoto.dev/core/internal/backupcrypt"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/supervisor"
 )
 
-const backupRestoreUsage = "usage: hatamoto backup restore (<id|path.tar> | --from-offsite <id>) --admin-url <DSN> [--dry-run] [--config-out <path>] [--force]" +
+const backupRestoreUsage = "usage: hatamoto backup restore (<id|path.tar> | --from-offsite <id>) --admin-url <DSN> [--dry-run] [--config-out <path>] [--force] [--identity <file> | --passphrase-stdin]" +
 	" [--offsite-endpoint U] [--offsite-region R] [--offsite-bucket B] [--offsite-prefix P] [--offsite-access-key K]"
 
 // offsiteFlags are the flags that name an off-site target on the command line.
@@ -54,6 +59,8 @@ type restoreArgs struct {
 	fromOffsite                 string
 	dryRun, force               bool
 	offsite                     offsiteFlags
+	identity                    string // age private key file of an encrypted backup
+	passphraseStdin             bool   // read the passphrase of an encrypted backup from stdin
 }
 
 func parseRestoreArgs(args []string) (restoreArgs, error) {
@@ -64,8 +71,13 @@ func parseRestoreArgs(args []string) (restoreArgs, error) {
 		fs.StringVar(&a.adminURL, "admin-url", "", "superuser DSN for the role bootstrap")
 		fs.StringVar(&a.configOut, "config-out", "", "absolute path to write the saved config to; without it the config is not written")
 		fs.StringVar(&a.fromOffsite, "from-offsite", "", "restore backup `id` from the off-site bucket instead of a local archive")
+		fs.StringVar(&a.identity, "identity", "", "age private key `file` for an encrypted backup (.tar.age)")
+		fs.BoolVar(&a.passphraseStdin, "passphrase-stdin", false, "read the passphrase of an encrypted backup from stdin")
 		a.offsite.define(fs)
 	})
+	if err == nil && a.identity != "" && a.passphraseStdin {
+		return a, errors.New("use either --identity or --passphrase-stdin")
+	}
 	want := 1 // exactly one of the positional source and --from-offsite
 	if a.fromOffsite != "" {
 		want = 0
@@ -88,6 +100,11 @@ func runBackupRestore(ctx context.Context, args []string, out io.Writer, logger 
 		return err
 	}
 	if err := checkOwner(supervisor.NewLayout(config.ResolveDataDir())); err != nil {
+		return err
+	}
+	// Resolved before the download, so a bad key file fails before a long transfer.
+	identity, err := restoreIdentity(a, os.Stdin, os.Stderr)
+	if err != nil {
 		return err
 	}
 	if a.fromOffsite != "" {
@@ -113,12 +130,70 @@ func runBackupRestore(ctx context.Context, args []string, out io.Writer, logger 
 		Run:         backup.OSExec,
 		Trust:       trustIDs(logger),
 		Log:         logger,
-	}, backup.RestoreRequest{Source: a.source, AdminURL: a.adminURL, ConfigOut: a.configOut, DryRun: a.dryRun, Force: a.force})
+	}, backup.RestoreRequest{Source: a.source, AdminURL: a.adminURL, ConfigOut: a.configOut, DryRun: a.dryRun, Force: a.force, Identity: identity})
+	if errors.Is(err, backupcrypt.ErrWrongKey) {
+		return errors.New("the private key or passphrase does not open this backup; nothing was restored")
+	}
 	if err != nil {
 		return err
 	}
 	plan.Print(out)
 	return nil
+}
+
+// maxSecretFile caps what is read as a key file or passphrase.
+const maxSecretFile = 1 << 20
+
+// restoreIdentity returns what opens an encrypted backup, or nil-safe lazily
+// asks for it. A key file or stdin passphrase is read now; without either flag
+// the prompt runs only if the backup turns out to be encrypted. No error text
+// carries a key or passphrase.
+func restoreIdentity(a restoreArgs, stdin *os.File, stderr io.Writer) (func() (*backupcrypt.Identity, error), error) {
+	fixed := func(id *backupcrypt.Identity) func() (*backupcrypt.Identity, error) {
+		return func() (*backupcrypt.Identity, error) { return id, nil }
+	}
+	switch {
+	case a.identity != "":
+		f, err := os.Open(a.identity)
+		if err != nil {
+			return nil, fmt.Errorf("cannot read the identity file: %w", err)
+		}
+		defer f.Close()
+		id, err := backupcrypt.ParseIdentityFile(io.LimitReader(f, maxSecretFile))
+		if err != nil {
+			return nil, err
+		}
+		return fixed(id), nil
+	case a.passphraseStdin:
+		b, err := io.ReadAll(io.LimitReader(stdin, maxSecretFile))
+		if err != nil {
+			return nil, errors.New("cannot read the passphrase from stdin")
+		}
+		id, err := backupcrypt.PassphraseIdentity(trimOneNewline(string(b)))
+		if err != nil {
+			return nil, err
+		}
+		return fixed(id), nil
+	}
+	return func() (*backupcrypt.Identity, error) {
+		fd := int(stdin.Fd())
+		if !term.IsTerminal(fd) {
+			return nil, errors.New("the backup is encrypted: pass --identity <file>, or --passphrase-stdin")
+		}
+		fmt.Fprint(stderr, "Backup passphrase: ")
+		b, err := term.ReadPassword(fd)
+		fmt.Fprintln(stderr)
+		if err != nil {
+			return nil, errors.New("cannot read the passphrase")
+		}
+		return backupcrypt.PassphraseIdentity(string(b))
+	}, nil
+}
+
+// trimOneNewline drops one trailing \n or \r\n, as a file or echo leaves it.
+func trimOneNewline(s string) string {
+	s = strings.TrimSuffix(s, "\n")
+	return strings.TrimSuffix(s, "\r")
 }
 
 // fetchOffsite downloads the backup named by --from-offsite into the backups

@@ -11,7 +11,10 @@ import (
 	"io/fs"
 )
 
-//go:embed admin assets
+// The noble hashes graph has files starting with an underscore, which a plain
+// directory pattern skips, so its directory is embedded with the all: prefix.
+//
+//go:embed admin assets all:assets/noble-curves-2.4.0
 var content embed.FS
 
 // Admin is the admin tree: layouts/, partials/, pages/, css/, js/.

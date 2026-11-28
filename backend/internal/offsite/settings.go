@@ -56,8 +56,10 @@ type Result struct {
 	At     time.Time
 	OK     bool
 	Size   int64
-	SHA256 string
+	SHA256 string // of the stored object: the ciphertext when Encrypted
 	Error  string // never contains the secret key
+	// Encrypted is true when the object was uploaded as <id>.tar.age.
+	Encrypted bool
 }
 
 // Settings is the saved off-site configuration.

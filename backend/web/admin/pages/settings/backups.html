@@ -1,6 +1,7 @@
 {{template "layouts/shell" .}}
+{{define "modules"}}@hm/backupkey{{end}}
 {{define "main"}}{{with .Data}}{{if .Running}}{{template "hm/sectionheadact" dict "V" $ "Overflow" .Overflow}}{{else}}{{template "hm/sectionheadact" dict "V" $ "Overflow" .Overflow "Action" (dict "Label" "Back up now" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "form" "backup-form"))}}{{end}}
-{{template "hm/callout" (dict "Kind" "warning" "ID" "backups-secrets" "Body" "A backup holds secrets: password hashes, API keys and plugin credentials. Store downloads somewhere safe.")}}
+{{template "hm/callout" (dict "Kind" "warning" "ID" "backups-secrets" "Body" "A backup holds secrets: password hashes, API keys and plugin credentials. Backups kept on this server, pre-update backups included, are not encrypted. Store downloads somewhere safe.")}}
 <p class="hm-muted">{{.Keeping}}{{if .FreeDisk}} {{.FreeDisk}}{{end}}</p>
 {{/* While a backup runs the panel asks again every 3 seconds and swaps itself; when idle there is no trigger, so nothing polls. */}}
 <div id="backups-live" class="hm-stack hm-stack--loose"{{if .Running}} hx-get="{{.PollURL}}" hx-trigger="every 3s" hx-target="this" hx-select="#backups-live" hx-swap="outerHTML" hx-indicator="#backups-busy"{{end}}>
@@ -10,7 +11,9 @@
 {{end}}{{template "hm/table" .Table}}
 </div>
 <p class="hm-muted">Dates are in the site time zone: {{.Zone}}.</p>
-{{with .Offsite}}{{template "hm/formerrors" dict "Errors" .Summary}}
+{{with .Key}}{{template "hm/formerrors" dict "Errors" .Summary}}
+{{template "hm/backupkeyfields" (dict "K" . "V" $)}}{{with .PlainNote}}<p class="hm-muted">{{.}}</p>{{end}}
+{{end}}{{with .Offsite}}{{template "hm/formerrors" dict "Errors" .Summary}}
 {{if .Notice}}{{template "hm/flash" (dict "Kind" .NoticeKind "Message" .Notice "Inline" true)}}
 {{end}}<form id="offsite-form" method="post" action="{{adminPath}}/settings/backups/offsite" class="hm-cardform">
 {{template "hm/csrf" $}}
@@ -21,7 +24,7 @@
 <div role="status"><p class="hm-field__help">{{.StatusText}}{{if .NextRun}} {{.NextRun}}{{end}}</p></div></div>
 <div class="hm-setrow__control">{{template "hm/badge" .Status}}</div>
 </div></div>
-{{template "hm/callout" (dict "Kind" "info" "ID" "offsite-private" "Body" "A backup holds secrets.env and your database. Use a private bucket with server-side encryption turned on, and a key that can only write to this bucket.")}}
+{{template "hm/callout" (dict "Kind" "info" "ID" "offsite-private" "Body" "With backup encryption on, the bucket only receives encrypted .tar.age copies. Use a private bucket and a key that can only write to it.")}}
 {{template "hm/offsitefields" .Form}}
 {{template "hm/card-foot"}}{{if .CanRun}}{{template "hm/button" dict "Label" "Back up and upload now" "Type" "submit" "Attrs" (attrmap "form" "offsite-run-form")}}{{end}}
 {{template "hm/button" dict "Label" "Test connection" "Type" "submit" "Attrs" (attrmap "formaction" (adminPath "settings" "backups" "offsite" "test"))}}

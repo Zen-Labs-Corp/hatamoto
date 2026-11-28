@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"hatamoto.dev/core/internal/backupcrypt"
 	"hatamoto.dev/core/internal/media"
 )
 
@@ -51,12 +52,15 @@ type RestoreOptions struct {
 
 // RestoreRequest is one restore.
 type RestoreRequest struct {
-	Source    string // a backup id or the path of a .tar
+	Source    string // a backup id or the path of a .tar or .tar.age
 	AdminURL  string // DSN of a superuser, or of a role with CREATEROLE, CREATEDB and CREATE on the target database, for the role bootstrap
 	ConfigOut string // where to write the recorded config; empty means the config is not written
 	DryRun    bool
 	// Force restores a backup made under a different server secret; its commenter emails are blanked.
 	Force bool
+	// Identity returns the private key or passphrase for an age-encrypted
+	// source. It is called only when the source is encrypted; nil means none.
+	Identity func() (*backupcrypt.Identity, error)
 }
 
 // RestorePlan is what a restore checked and does (or would do).
@@ -107,6 +111,16 @@ func Restore(ctx context.Context, o RestoreOptions, req RestoreRequest) (*Restor
 	if err != nil {
 		return nil, err
 	}
+	if enc, err := backupcrypt.IsEncrypted(src); err != nil {
+		return nil, err
+	} else if enc {
+		tmp, err := x.decrypt(src)
+		if err != nil {
+			return nil, err
+		}
+		defer os.Remove(tmp)
+		src = tmp
+	}
 	x.src = src
 	if x.scan, err = scanArchive(src); err != nil {
 		return nil, err
@@ -135,16 +149,44 @@ func Restore(ctx context.Context, o RestoreOptions, req RestoreRequest) (*Restor
 	return plan, nil
 }
 
+// decrypt opens an encrypted source once into a temp file next to it (the
+// restore reads the tar several times) and returns its path. A wrong key fails
+// here, before any archive scan or database access. The caller removes the file.
+func (x *restorer) decrypt(src string) (string, error) {
+	if x.req.Identity == nil {
+		return "", backupcrypt.ErrNoKey
+	}
+	id, err := x.req.Identity()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Dir(src)
+	f, err := os.CreateTemp(dir, ".tmp-decrypt-*.tar")
+	if err != nil {
+		return "", fmt.Errorf("cannot write the decrypted copy next to the backup in %s: %w", dir, err)
+	}
+	tmp := f.Name()
+	f.Close()
+	// DecryptFile creates the file itself (O_EXCL) and removes it on failure.
+	if err := os.Remove(tmp); err != nil {
+		return "", err
+	}
+	if err := id.DecryptFile(src, tmp); err != nil {
+		return "", err
+	}
+	return tmp, nil
+}
+
 // resolveSource turns an id or a path into the archive path. A source ending
-// in .tar or holding a path separator is a path; anything else must be an id.
+// in .tar or .tar.age or holding a path separator is a path; anything else must be an id.
 func resolveSource(data, source string) (string, error) {
 	if source == "" {
 		return "", errors.New("no backup given")
 	}
 	path := source
-	if !strings.HasSuffix(source, archiveExt) && !strings.ContainsRune(source, filepath.Separator) {
+	if !strings.HasSuffix(source, archiveExt) && !strings.HasSuffix(source, archiveExt+".age") && !strings.ContainsRune(source, filepath.Separator) {
 		if !ValidID(source) {
-			return "", fmt.Errorf("%q is neither a backup id nor a .tar path", source)
+			return "", fmt.Errorf("%q is neither a backup id nor a .tar or .tar.age path", source)
 		}
 		path = filepath.Join(data, "backups", source+archiveExt)
 	}

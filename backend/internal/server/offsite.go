@@ -10,6 +10,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/backup"
+	"hatamoto.dev/core/internal/backupcrypt"
 	"hatamoto.dev/core/internal/idle"
 	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/runenv"
@@ -43,7 +44,8 @@ type offsiteEngine interface {
 type offsiteService struct {
 	store  offsiteStore
 	eng    offsiteEngine
-	key    []byte // seals the secret key
+	key    []byte          // seals the secret key
+	keys   backupKeySource // the backup encryption key; nil means no encryption
 	base   func() context.Context
 	now    func() time.Time
 	audit  func(ctx context.Context, e admin.AuditEvent)
@@ -170,8 +172,16 @@ func (o *offsiteService) begin(ctx context.Context, set offsite.Settings, kind b
 	if err != nil {
 		return backup.Info{}, nil, err
 	}
+	// Read the key before the backup lock is taken: a key that is configured
+	// but unreadable refuses the run, and nothing plain is uploaded instead.
+	var encKey *backupcrypt.Key
+	if o.keys != nil {
+		if encKey, err = o.keys.Current(ctx); err != nil {
+			return backup.Info{}, nil, err
+		}
+	}
 	req := backup.Request{Kind: kind, OnDone: func(ctx context.Context, in backup.Info, archive string) {
-		res, uerr := offsite.Upload(ctx, client, target.Prefix, in.ID, archive, set.Keep)
+		res, uerr := offsite.Upload(ctx, client, target.Prefix, in.ID, archive, set.Keep, encKey)
 		if uerr != nil {
 			res.Error = o.scrubText(target.SecretKey, uerr.Error())
 		}
@@ -184,6 +194,7 @@ func (o *offsiteService) begin(ctx context.Context, set offsite.Settings, kind b
 			if res.OK {
 				i.SHA256 = res.SHA256
 			}
+			i.OffsiteEncrypted = res.OK && res.Encrypted
 		}); err != nil {
 			o.logger.Warn("off-site backup: cannot update the backup record", "id", in.ID, "error", err)
 		}
@@ -207,7 +218,7 @@ func (o *offsiteService) record(ctx context.Context, id, actor string, res offsi
 	if err := o.store.SaveResult(ctx, res); err != nil {
 		o.logger.Error("off-site backup: cannot save the result", "id", id, "error", err)
 	}
-	detail := map[string]any{"id": id, "ok": res.OK, "size": res.Size}
+	detail := map[string]any{"id": id, "ok": res.OK, "size": res.Size, "encrypted": res.Encrypted}
 	if res.Error != "" {
 		detail["error"] = res.Error
 	}
@@ -239,7 +250,7 @@ func (s *Server) setupOffsite(eng *backup.Engine) {
 		return
 	}
 	s.offsite = &offsiteService{
-		store: offsite.NewStore(s.db.Pool()), eng: eng, key: offsite.SecretKey(s.cfg.Secret),
+		store: offsite.NewStore(s.db.Pool()), eng: eng, key: offsite.SecretKey(s.cfg.Secret), keys: s.backupKeys,
 		base:   func() context.Context { return s.lifecycleCtx },
 		audit:  s.adminAudit,
 		logger: s.logger, wg: &s.backups.wg,

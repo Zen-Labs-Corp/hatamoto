@@ -248,6 +248,7 @@ type Server struct {
 	// offsite takes the scheduled off-site backups (set with the backups).
 	offsite    *offsiteService
 	offsiteAdm *offsiteAdmin
+	backupKeys *backupKeys // the saved backup encryption key; nil without a database
 	// admin hands late services (updates, backups) to the live admin and to the
 	// retained deps (nil in a route-table build that failed). See admin_mount.go.
 	admin *adminHolder

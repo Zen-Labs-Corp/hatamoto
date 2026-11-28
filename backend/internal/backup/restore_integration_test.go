@@ -22,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"hatamoto.dev/core/internal/backupcrypt"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
 )
@@ -716,5 +717,37 @@ func TestRestoreIntegrationGrantsRefuseMultipleCommands(t *testing.T) {
 	}
 	if n != 0 {
 		t.Errorf("%d grants applied despite the error", n)
+	}
+}
+
+// An age-encrypted copy of the backup restores with its identity, and the
+// decrypted copy next to it is gone afterwards.
+func TestRestoreIntegrationEncryptedBackup(t *testing.T) {
+	ctx := context.Background()
+	d := seedAndDestroy(t)
+	enc, id := encryptedCopy(t, d.archive)
+	idf := func() (*backupcrypt.Identity, error) { return id, nil }
+	target := d.freshTarget(t, "hm_bk_enc")
+	o, mediaDir, _, configOut := d.options(t, target)
+
+	dry, err := Restore(ctx, o, RestoreRequest{Source: enc, AdminURL: d.adminURL, ConfigOut: configOut, DryRun: true, Identity: idf})
+	if err != nil || dry.Done {
+		t.Fatalf("dry run: %+v, %v", dry, err)
+	}
+	if _, err := os.Stat(mediaDir); err == nil {
+		t.Errorf("%s exists after a dry run", mediaDir)
+	}
+	noDecryptTemps(t, filepath.Dir(enc))
+
+	plan, err := Restore(ctx, o, RestoreRequest{Source: enc, AdminURL: d.adminURL, ConfigOut: configOut, Identity: idf})
+	if err != nil || !plan.Done {
+		t.Fatalf("Restore: %+v, %v", plan, err)
+	}
+	noDecryptTemps(t, filepath.Dir(enc))
+	if n := d.count(t, dbOf(t, target), `SELECT count(*) FROM hatamoto_entities WHERE id::text = $1`, d.entityID); n != 1 {
+		t.Errorf("entities = %d, want 1", n)
+	}
+	if got, err := os.ReadFile(filepath.Join(mediaDir, mediaKey)); err != nil || !bytes.Equal(got, mediaBytes) {
+		t.Errorf("media file = %v, %v", got, err)
 	}
 }

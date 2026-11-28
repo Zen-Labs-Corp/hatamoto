@@ -101,7 +101,8 @@ func OnPanic(f func()) RecoveryOption {
 	return func(o *recoveryOpts) { o.onPanic = f }
 }
 
-// RecoveryLogger recovers from panics and logs them. redact works as in
+// RecoveryLogger recovers from panics and logs them, except http.ErrAbortHandler,
+// which it re-panics untouched (not logged, not counted). redact works as in
 // RequestLogger.
 func RecoveryLogger(logger *slog.Logger, redact func(path string) string, opts ...RecoveryOption) func(http.Handler) http.Handler {
 	var o recoveryOpts
@@ -113,6 +114,12 @@ func RecoveryLogger(logger *slog.Logger, redact func(path string) string, opts .
 			path := redactPath(redact, r.URL.Path)
 			defer func() {
 				if err := recover(); err != nil {
+					if err == http.ErrAbortHandler {
+						// A deliberate abort (truncated download, module page):
+						// net/http must see it to cut the connection; a 500 body
+						// here would read as the tail of a finished response.
+						panic(err)
+					}
 					if o.onPanic != nil {
 						o.onPanic()
 					}

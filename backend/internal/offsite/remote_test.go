@@ -170,3 +170,72 @@ func TestSettingsTarget(t *testing.T) {
 		t.Fatal("opened with the wrong key")
 	}
 }
+
+func TestMixedBucketListPruneDownload(t *testing.T) {
+	srv := s3test.NewServer(t)
+	c := testClient(t, srv, "p/")
+	plain, enc := []byte("plain bytes"), []byte("age-encryption.org/v1\ncipher")
+	srv.Put("p/"+idN(1)+".tar", plain, map[string]string{"sha256": sum(plain)})
+	srv.Put("p/"+idN(2)+".tar.age", enc, map[string]string{"sha256": sum(enc)})
+	srv.Put("p/"+idN(3)+".tar", plain, map[string]string{"sha256": sum(plain)})
+	srv.Put("p/"+idN(3)+".tar.age", enc, map[string]string{"sha256": sum(enc)})
+	foreign := []string{"p/other.txt", "p/nested/" + idN(1) + ".tar.age"}
+	for _, k := range foreign {
+		srv.Put(k, []byte("keep me"), nil)
+	}
+
+	got, err := ListRemote(t.Context(), c, "p/")
+	if err != nil || len(got) != 3 {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+	if got[0].ID != idN(3) || !got[0].Encrypted || got[0].Key != "p/"+idN(3)+".tar.age" ||
+		got[1].ID != idN(2) || !got[1].Encrypted || got[2].ID != idN(1) || got[2].Encrypted {
+		t.Fatalf("got %+v", got)
+	}
+
+	dir := t.TempDir()
+	path, err := Download(t.Context(), c, "p/", idN(3), dir)
+	if err != nil || !strings.HasSuffix(path, ".tar.age") {
+		t.Fatalf("path = %s, %v", path, err)
+	}
+	if b, _ := os.ReadFile(path); !bytes.Equal(b, enc) {
+		t.Fatal("did not pick the encrypted object")
+	}
+	path, err = Download(t.Context(), c, "p/", idN(1), dir)
+	if err != nil || !strings.HasSuffix(path, ".tar") || strings.HasSuffix(path, ".tar.age") {
+		t.Fatalf("plain path = %s, %v", path, err)
+	}
+
+	deleted, err := Prune(t.Context(), c, "p/", 1)
+	if err != nil || len(deleted) != 2 {
+		t.Fatalf("deleted = %v, %v", deleted, err)
+	}
+	left := srv.Objects()
+	for _, k := range []string{"p/" + idN(3) + ".tar", "p/" + idN(3) + ".tar.age"} {
+		if _, ok := left[k]; !ok {
+			t.Errorf("newest key %s deleted", k)
+		}
+	}
+	for _, k := range []string{"p/" + idN(1) + ".tar", "p/" + idN(2) + ".tar.age"} {
+		if _, ok := left[k]; ok {
+			t.Errorf("old key %s kept", k)
+		}
+	}
+	for _, k := range foreign {
+		if _, ok := left[k]; !ok {
+			t.Errorf("foreign key %s deleted", k)
+		}
+	}
+}
+
+func TestPruneDeletesBothKeysOfAnOldID(t *testing.T) {
+	srv := s3test.NewServer(t)
+	c := testClient(t, srv, "")
+	srv.Put(idN(1)+".tar", []byte("x"), nil)
+	srv.Put(idN(1)+".tar.age", []byte("x"), nil)
+	srv.Put(idN(2)+".tar.age", []byte("x"), nil)
+	deleted, err := Prune(t.Context(), c, "", 1)
+	if err != nil || len(deleted) != 2 || len(srv.Objects()) != 1 {
+		t.Fatalf("deleted = %v, %v, left %d", deleted, err, len(srv.Objects()))
+	}
+}

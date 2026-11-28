@@ -57,6 +57,8 @@ type BackupInfo struct {
 	MediaMissing int    // referenced media files that were not on disk
 	Offsite      string // OffsiteUploaded, OffsiteFailed or "" (not copied)
 	OffsiteError string
+	// OffsiteEncrypted is true when the off-site copy is an encrypted .tar.age.
+	OffsiteEncrypted bool
 }
 
 // BackupsState is everything the page needs in one read.
@@ -69,6 +71,19 @@ type BackupsState struct {
 	KeepScheduled int // 0 when the page should not mention scheduled backups
 }
 
+// BackupFile is a backup to download. Encrypt is nil for a plain download;
+// otherwise the handler writes the archive through it and the client gets
+// <id>.tar.age.
+type BackupFile struct {
+	Info    BackupInfo
+	Body    io.ReadSeekCloser
+	Encrypt func(w io.Writer) (io.WriteCloser, error)
+}
+
+// ErrBackupKeyUnreadable is returned by Open when backup encryption is on but
+// its key cannot be read.
+var ErrBackupKeyUnreadable = errors.New("backup encryption key unreadable")
+
 // BackupsService is the backup engine as the admin uses it. The server
 // adapter implements it; Start never runs the backup on the request context.
 type BackupsService interface {
@@ -76,8 +91,10 @@ type BackupsService interface {
 	// Start begins a manual backup in the background and returns its id.
 	// It returns ErrBackupRunning when one is already running.
 	Start(ctx context.Context, actor string) (string, error)
-	// Open returns the archive for download. The caller closes it.
-	Open(ctx context.Context, id string) (io.ReadSeekCloser, BackupInfo, error)
+	// Open returns the archive for download. The caller closes Body. It
+	// returns ErrBackupKeyUnreadable when encryption is on but its key cannot
+	// be read; a plain archive is never returned in that case.
+	Open(ctx context.Context, id string) (BackupFile, error)
 	// Delete removes a finished backup; ErrBackupNotFound for an unknown id.
 	Delete(ctx context.Context, id string) error
 }
@@ -98,7 +115,8 @@ type backupsData struct {
 	Running  bool
 	Progress ui.Progress // the running backup, shown while Running
 	PollURL  string
-	Offsite  *offsiteData // nil when off-site backups are not wired
+	Offsite  *offsiteData   // nil when off-site backups are not wired
+	Key      *backupKeyData // nil when backup encryption is not wired
 	// Overflow is the header's more menu: the Backups to keep link, only when
 	// the engine can change the counts.
 	Overflow []ui.Action
@@ -121,6 +139,7 @@ func (a *Admin) mountBackupsSettings(owner *httpx.Group) {
 	owner.HandleFunc("GET /settings/backups/retention", a.handleRetentionPage)
 	owner.HandleFunc("POST /settings/backups/retention", a.handleRetentionSave)
 	a.mountOffsite(owner)
+	a.mountBackupKey(owner)
 }
 
 func (a *Admin) handleBackupStart(w http.ResponseWriter, r *http.Request) {
@@ -158,9 +177,14 @@ func (a *Admin) handleBackupDownload(w http.ResponseWriter, r *http.Request) {
 		a.backupNotFound(w, r)
 		return
 	}
-	f, info, err := a.deps.Backups.Open(r.Context(), id)
+	f, err := a.deps.Backups.Open(r.Context(), id)
 	if errors.Is(err, ErrBackupNotFound) {
 		a.backupNotFound(w, r)
+		return
+	}
+	if errors.Is(err, ErrBackupKeyUnreadable) {
+		a.Error(w, r, http.StatusInternalServerError, "Backup encryption key unreadable",
+			"Backup encryption is on but its key cannot be read. Set the key again under Backup encryption. Nothing was downloaded.")
 		return
 	}
 	if err != nil {
@@ -168,18 +192,48 @@ func (a *Admin) handleBackupDownload(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The backup could not be opened.")
 		return
 	}
-	defer f.Close()
-	a.audit(r, "backups.download", id, map[string]any{"id": id, "kind": info.Kind})
+	defer f.Body.Close()
+	enc := f.Encrypt != nil
 	h := w.Header()
-	h.Set("Content-Type", "application/x-tar")
-	h.Set("Content-Disposition", `attachment; filename="`+id+`.tar"`)
 	h.Set("Cache-Control", "no-store")
 	h.Set("X-Content-Type-Options", "nosniff")
+	if enc {
+		h.Set("Content-Type", "application/octet-stream")
+		h.Set("Content-Disposition", `attachment; filename="`+id+`.tar.age"`)
+		if r.Method == http.MethodHead {
+			// A probe: no encryption pass and no download audit.
+			return
+		}
+	}
+	a.audit(r, "backups.download", id, map[string]any{"id": id, "kind": f.Info.Kind, "encrypted": enc})
 	// A backup can take longer to send than the server's write timeout.
 	if err := http.NewResponseController(w).SetWriteDeadline(time.Time{}); err != nil && !errors.Is(err, http.ErrNotSupported) {
 		a.logger().Warn("backup download: clear write deadline", "err", err, "id", id)
 	}
-	http.ServeContent(w, r, id+".tar", info.Created, f)
+	if !enc {
+		h.Set("Content-Type", "application/x-tar")
+		h.Set("Content-Disposition", `attachment; filename="`+id+`.tar"`)
+		http.ServeContent(w, r, id+".tar", f.Info.Created, f.Body)
+		return
+	}
+	// Encrypted on the fly: the ciphertext differs on every run, so Range and
+	// resume cannot work and no Content-Length is sent. A cut stream must not
+	// look finished, so an error after the first byte aborts the connection.
+	wc, err := f.Encrypt(w)
+	if err != nil {
+		a.logger().Error("backup download: start encryption", "err", err, "id", id)
+		h.Del("Content-Disposition") // nothing was written: the error page is not a download
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The backup could not be encrypted.")
+		return
+	}
+	if _, err := io.Copy(wc, f.Body); err != nil {
+		a.logger().Error("backup download: stream", "err", err, "id", id)
+		panic(http.ErrAbortHandler)
+	}
+	if err := wc.Close(); err != nil {
+		a.logger().Error("backup download: finish", "err", err, "id", id)
+		panic(http.ErrAbortHandler)
+	}
 }
 
 func (a *Admin) backupNotFound(w http.ResponseWriter, r *http.Request) {
@@ -305,12 +359,19 @@ func (a *Admin) offsiteCardOrError(w http.ResponseWriter, r *http.Request) (*off
 }
 
 func (a *Admin) renderBackups(w http.ResponseWriter, r *http.Request, status int, st BackupsState, of *offsiteData) {
+	a.renderBackupsKey(w, r, status, st, of, a.backupKeyCard(r, st, nil))
+}
+
+// renderBackupsKey is renderBackups with the Backup encryption card as given,
+// for the re-render of a refused key form.
+func (a *Admin) renderBackupsKey(w http.ResponseWriter, r *http.Request, status int, st BackupsState, of *offsiteData, key *backupKeyData) {
 	loc := a.siteLocation(r.Context())
 	d := backupsData{
 		Zone:    loc.String(),
 		Keeping: keepingLine(st),
-		Table:   a.backupsTable(st.Rows, loc),
+		Table:   a.backupsTable(st.Rows, loc, key != nil && key.Mode != BackupKeyOff),
 		Offsite: of,
+		Key:     key,
 	}
 	if a.retentionService() != nil {
 		d.Overflow = []ui.Action{{Label: "Backups to keep", Hint: "How many of each kind stay", Href: a.adminPath + backupsRel + "/retention"}}
@@ -425,7 +486,8 @@ func backupBadge(b BackupInfo) ui.Badge {
 	return ui.Badge{Label: "Failed", Kind: "danger"}
 }
 
-func (a *Admin) backupsTable(rows []BackupInfo, loc *time.Location) ui.Table {
+// backupsTable is the list; encrypted says downloads come as .tar.age.
+func (a *Admin) backupsTable(rows []BackupInfo, loc *time.Location, encrypted bool) ui.Table {
 	t := ui.Table{
 		ID: "backups", Caption: "Backups", BaseURL: a.adminPath + backupsRel,
 		Columns: []ui.Col{
@@ -450,7 +512,11 @@ func (a *Admin) backupsTable(rows []BackupInfo, loc *time.Location) ui.Table {
 			{Badge: &badge},
 		}}
 		if b.State == BackupOK {
-			row.Actions = append(row.Actions, ui.Action{Label: "Download", Href: a.adminPath + backupsRel + "/" + b.ID + "/download"})
+			label := "Download"
+			if encrypted {
+				label = "Download .tar.age"
+			}
+			row.Actions = append(row.Actions, ui.Action{Label: label, Href: a.adminPath + backupsRel + "/" + b.ID + "/download"})
 		}
 		if b.State != BackupRunning {
 			row.Actions = append(row.Actions, ui.Action{Label: "Delete", Href: a.adminPath + backupsRel + "/" + b.ID + "/delete", Post: a.adminPath + backupsRel + "/" + b.ID + "/delete",

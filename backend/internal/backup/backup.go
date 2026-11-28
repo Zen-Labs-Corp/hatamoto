@@ -55,6 +55,9 @@ type Info struct {
 	SHA256       string `json:"sha256,omitempty"`
 	Offsite      string `json:"offsite,omitempty"`
 	OffsiteError string `json:"offsite_error,omitempty"`
+	// OffsiteEncrypted is true when the off-site copy is an age-encrypted
+	// .tar.age; SHA256 is then the hash of that ciphertext.
+	OffsiteEncrypted bool `json:"offsite_encrypted,omitzero"`
 }
 
 var idPattern = regexp.MustCompile(`^[0-9]{8}T[0-9]{6}Z-(manual|pre_update|scheduled)$`)

@@ -16,6 +16,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/backup"
+	"hatamoto.dev/core/internal/backupcrypt"
 	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/s3/s3test"
 	"hatamoto.dev/core/internal/worker"
@@ -446,5 +447,85 @@ func TestOffsiteAdminSaveRefusesTheMediaPrefix(t *testing.T) {
 	in.Prefix = "backups/"
 	if errs, err := o.Save(t.Context(), in); err != nil || len(errs) != 0 {
 		t.Fatalf("a prefix outside the media prefix was refused: %v, %v", errs, err)
+	}
+}
+
+type fixedKeys struct {
+	key *backupcrypt.Key
+	err error
+}
+
+func (f fixedKeys) Current(context.Context) (*backupcrypt.Key, error) { return f.key, f.err }
+
+func TestOffsiteEncryptedUploadWithKey(t *testing.T) {
+	r := newOffsiteRig(t, at(1, 3, 5))
+	key, err := backupcrypt.ParseRecipient(testRecipient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.svc.keys = fixedKeys{key: key}
+	r.store.set.NextDueAt = at(1, 3, 0)
+	if err := r.svc.tick(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	objs := r.srv.Objects()
+	if len(objs) != 1 {
+		t.Fatalf("objects = %d", len(objs))
+	}
+	for k := range objs {
+		if !strings.HasSuffix(k, ".tar.age") {
+			t.Fatalf("object key %q is not .tar.age", k)
+		}
+	}
+	for _, in := range r.eng.records {
+		if !in.OffsiteEncrypted || in.Offsite != "uploaded" {
+			t.Fatalf("record = %+v", in)
+		}
+	}
+	if len(r.events) != 1 || r.events[0].Detail["encrypted"] != true {
+		t.Fatalf("events = %+v", r.events)
+	}
+}
+
+func TestOffsiteUnreadableKeyUploadsNothing(t *testing.T) {
+	r := newOffsiteRig(t, at(1, 3, 5))
+	r.svc.keys = fixedKeys{err: backupcrypt.ErrUnreadable}
+	r.store.set.NextDueAt = at(1, 3, 0)
+	if err := r.svc.tick(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(r.srv.Objects()); n != 0 {
+		t.Fatalf("objects = %d, want none", n)
+	}
+	if r.eng.begun.Load() != 0 {
+		t.Fatal("a backup was begun although the key is unreadable")
+	}
+	if len(r.store.results) != 1 || r.store.results[0].OK || !strings.Contains(r.store.results[0].Error, backupcrypt.ErrUnreadable.Error()) {
+		t.Fatalf("results = %+v", r.store.results)
+	}
+	if _, err := r.svc.RunNow(context.Background(), "owner@example.com"); !errors.Is(err, backupcrypt.ErrUnreadable) {
+		t.Fatalf("RunNow err = %v", err)
+	}
+}
+
+func TestOffsiteWithoutKeyUploadsPlainTar(t *testing.T) {
+	r := newOffsiteRig(t, at(1, 3, 5))
+	r.svc.keys = fixedKeys{}
+	r.store.set.NextDueAt = at(1, 3, 0)
+	if err := r.svc.tick(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	for k := range r.srv.Objects() {
+		if !strings.HasSuffix(k, ".tar") {
+			t.Fatalf("object key %q is not .tar", k)
+		}
+	}
+	for _, in := range r.eng.records {
+		if in.OffsiteEncrypted {
+			t.Fatalf("record = %+v", in)
+		}
+	}
+	if len(r.events) != 1 || r.events[0].Detail["encrypted"] != false {
+		t.Fatalf("events = %+v", r.events)
 	}
 }

@@ -5,6 +5,7 @@ go 1.27
 toolchain go1.27.4
 
 require (
+	filippo.io/age v1.3.2
 	github.com/boombuler/barcode v1.1.0
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/extism/go-sdk v1.7.1
@@ -26,12 +27,14 @@ require (
 	golang.org/x/image v0.47.0
 	golang.org/x/net v0.62.0
 	golang.org/x/oauth2 v0.38.0
+	golang.org/x/term v0.47.0
 	golang.org/x/text v0.43.0
 	golang.org/x/time v0.16.0
 	hatamoto.dev/sdk v0.0.0-00010101000000-000000000000
 )
 
 require (
+	filippo.io/hpke v0.4.0 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/dylibso/observe-sdk/go v0.0.0-20240828172851-9145d8ad07e1 // indirect
 	github.com/ebitengine/purego v0.8.3 // indirect
