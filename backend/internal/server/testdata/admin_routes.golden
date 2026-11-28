@@ -394,6 +394,8 @@ POST /admin/review/{id}/discard -> admin.(*Admin).handleReviewDiscardEdit-fm
 POST /admin/review/{id}/publish -> admin.(*Admin).handleReviewRetryPublish-fm
 POST /admin/review/{id}/send-back -> admin.(*Admin).handleReviewSendBack-fm
 POST /admin/review/{id}/withdraw -> admin.(*Admin).handleReviewWithdraw-fm
+POST /admin/security/page-protection/enforce -> admin.(*Admin).handleCSPEnforce-fm
+POST /admin/security/page-protection/hide -> admin.(*Admin).handleCSPHide-fm
 POST /admin/settings/admin-branding -> admin.(*Admin).handleBrandingSave-fm
 POST /admin/settings/admin-branding/reset -> admin.(*Admin).handleBrandingReset-fm
 POST /admin/settings/api-keys -> admin.(*Admin).handleAPIKeyCreate-fm

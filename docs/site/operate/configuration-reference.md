@@ -111,7 +111,7 @@ With several processes, multiply the maximum by the number of processes and chec
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `CSP_ENFORCE` | `false` | `true` sends the Content Security Policy as an enforcing header. Otherwise it is sent as `Content-Security-Policy-Report-Only`. |
+| `CSP_ENFORCE` | `true` | `true` sends the Content Security Policy as an enforcing header. `false` sends it as `Content-Security-Policy-Report-Only`. When unset, the site's stored choice applies (set from the Overview card "Turn on stricter page protection"), and a new install enforces. Sites installed earlier stay report-only until the owner turns protection on. |
 | `SECURITY_HEADERS_DISABLED` | `false` | `true` turns off all the security headers. For local debugging only, never in production. |
 | `ADMIN_COOKIE_SECURE` | `true` when `ENVIRONMENT=production`, else `false` | Forces the `Secure` flag on admin cookies. Requests that arrive over HTTPS get it regardless. |
 | `ENABLE_COOKIE_AUTH` | `false` | Lets the JSON API session also travel as an HttpOnly cookie with CSRF checks. It is its own session with its own cookie: the admin sign-in cookie never authenticates the API. The admin does not depend on it. |
@@ -234,7 +234,7 @@ Every response gets these headers unless `SECURITY_HEADERS_DISABLED=true`:
 | `Referrer-Policy` | `strict-origin-when-cross-origin` |
 | `X-XSS-Protection` | `0` |
 | `Permissions-Policy` | `geolocation=(), camera=(), microphone=()` |
-| `Content-Security-Policy-Report-Only` | the policy below, until `CSP_ENFORCE=true` turns it into `Content-Security-Policy` |
+| `Content-Security-Policy-Report-Only` | the policy below, while the site is report-only; once protection is enforced it is sent as `Content-Security-Policy` |
 | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains`, only with `ENVIRONMENT=production` |
 
 Browsers cache the HSTS header for a year and apply it to every subdomain of the host. Before you turn on production mode, make sure no subdomain of your domain is still served over plain HTTP.
@@ -261,7 +261,7 @@ When a captcha provider is set up under **Forms > Spam** and its secret key is r
 
 The provider's frames are already allowed by `frame-src https:`. Cached pages pick the change up on the next request, but a CDN that caches whole responses can serve the old header for up to 5 minutes. Without a provider the policy is unchanged.
 
-Report-only mode never blocks anything. Images and frames may come from any HTTPS address, but scripts and connections must be same-origin, which a third-party script breaks. The admin always sends its own enforcing policy with a per-request nonce, whatever `CSP_ENFORCE` says.
+Report-only mode (older installs until the owner switches) never blocks anything, and enforcing mode (the default on new installs) blocks what the policy does not allow. Images and frames may come from any HTTPS address, but scripts and connections must be same-origin, which a third-party script breaks. The admin always sends its own enforcing policy with a per-request nonce, whatever the page policy mode is.
 
 ### Embeds in rich text
 

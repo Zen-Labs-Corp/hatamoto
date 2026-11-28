@@ -1,5 +1,12 @@
 # Release notes
 
+## Unreleased: new installs enforce the Content Security Policy
+
+- **What.** A new install (installer, Docker compose or plain binary) sends an enforcing `Content-Security-Policy` on public pages. Before, the default was report-only. A site that already exists is pinned to report-only by the migration, and its owner gets the Overview card "Turn on stricter page protection" ("Not now" hides it for 30 days). `CSP_ENFORCE` in the environment overrides the stored choice either way (`true` or `false`); empty or unset leaves the choice to the site. `docker-compose.yml` passes `CSP_ENFORCE` through empty, so pulling a new compose file does not change an existing site. See [Hardening](site/operate/hardening.md).
+- **Plugin authors.** On new installs inline scripts, inline event-handler attributes and scripts from hosts a plugin does not declare are blocked, not only reported. Test with `CSP_ENFORCE=true`. Upgraded sites still report only until their owner turns protection on.
+- **Compatibility.** No SDK or ABI change. A static export writes no headers; copy the updated server config from the hosting setup card again after switching.
+- **Migration.** Adds a nullable `csp_enforce` column to `hatamoto_site_config` and sets existing rows to `false`; safe to run twice. **Rollback floor:** unchanged for the schema. An older binary ignores the stored choice and reads only `CSP_ENFORCE`, defaulting to report-only, so an owner who turned protection on drops back to report-only. Set `CSP_ENFORCE=true` before rolling back to keep enforcing.
+
 ## v1.4.6: Security None reaches a mail catcher on a private network
 
 - **What.** **Settings > Email** accepts Security **None** for a host on a private network (Docker, LAN, Tailscale: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`, `fc00::/7`, link-local) when Username and Password are blank. A new `SMTP_SECURITY` variable (`starttls`, `tls` or `none`) sets the same for the environment; with `none`, `SMTP_HOST=localhost` counts as set up. At connect time Hatamoto refuses a public address, including a host name that resolves to one, and the error names the address. `docker-compose.yml` has an optional `mailpit` catcher: `docker compose --profile mail up`. See [Test with a mail catcher](site/operate/email.md#test-with-a-mail-catcher).

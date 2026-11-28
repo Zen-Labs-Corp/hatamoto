@@ -110,7 +110,7 @@ The Dockerfile below downloads the release binary and builds the container on yo
          DATABASE_URL: postgres://hatamoto:hatamoto@db:5432/hatamoto?sslmode=disable
          API_HOST: 0.0.0.0
          API_PORT: 8090
-         CSP_ENFORCE: "false"
+         CSP_ENFORCE: "${CSP_ENFORCE:-}"
        restart: unless-stopped
        stop_grace_period: 45s
        volumes:
@@ -129,7 +129,7 @@ The Dockerfile below downloads the release binary and builds the container on yo
 
    The database publishes no port on your computer, so a Postgres you already run there does not get in the way. Only Hatamoto reaches it, inside Docker; to open it yourself, run `docker compose exec db psql -U hatamoto`.
 
-   `CSP_ENFORCE: "false"` makes browsers only report, not block, scripts from other sites. [Hardening](../operate/hardening.md) explains when to turn blocking on for a real site.
+   A new install makes browsers block scripts from other sites, such as tag managers; the empty `CSP_ENFORCE` leaves that default alone. [Hardening](../operate/hardening.md) explains how to check your pages and what changes.
 
 ### Start Hatamoto
 

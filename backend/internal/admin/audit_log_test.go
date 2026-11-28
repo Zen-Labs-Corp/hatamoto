@@ -110,7 +110,10 @@ func (f *fakeAuditLog) Recent(_ context.Context, limit, offset int) ([]AuditRow,
 func TestAuditLabelNamesEveryActionTheAdminWrites(t *testing.T) {
 	t.Parallel()
 
-	for _, a := range []string{"updates.apply_without_backup", "entity.schedule", "plugin.mail_quota", "audit.retention"} {
+	if got := auditLabel("security.csp_enforce"); strings.Contains(strings.ToLower(got), "csp") {
+		t.Errorf("label shows the technical name: %q", got)
+	}
+	for _, a := range []string{"updates.apply_without_backup", "entity.schedule", "plugin.mail_quota", "audit.retention", "security.csp_enforce"} {
 		if l := auditLabel(a); l == a || strings.Contains(l, ".") {
 			t.Errorf("%s has no plain label (%q)", a, l)
 		}

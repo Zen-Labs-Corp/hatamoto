@@ -80,6 +80,7 @@ type dashSection struct {
 	Rows                   []dashRow // recent submissions
 	Health                 []healthGroup
 	Launch                 *launchCard // the launch checklist, only on #dash-launch
+	CSP                    *cspCard    // the page protection prompt, only on #dash-csp
 	Activity               []activityRow
 	More                   *ui.Button // link to the full screen, last in the card (only Label and Href are used)
 	ErrMsg                 string
@@ -104,10 +105,10 @@ type dashView struct {
 func (v *dashView) Top() []*dashSection { return v.pick("dash-launch") }
 
 // Left and Right are the two independent columns of the card grid, each in
-// display order: Site health and Activity on the left, the analytics and
+// display order: the page protection prompt, Site health and Activity on the left, the analytics and
 // content cards on the right. A column with no card is not rendered, so an
 // editor (no health, no activity) gets one full-width column.
-func (v *dashView) Left() []*dashSection { return v.pick("dash-health", "dash-activity") }
+func (v *dashView) Left() []*dashSection { return v.pick("dash-csp", "dash-health", "dash-activity") }
 
 func (v *dashView) Right() []*dashSection {
 	return v.pick("dash-pages", "dash-submissions", "dash-comments", "dash-missing")
@@ -646,6 +647,9 @@ func (a *Admin) dashJobs(v viewer) []dashJob {
 	}
 	if v.Can(authz.ActionSettingsManage) {
 		candidates = append(candidates, a.launchJob())
+	}
+	if owner && v.Can(authz.ActionSettingsManage) {
+		candidates = append(candidates, a.cspJob())
 	}
 	if owner {
 		candidates = append(candidates, a.healthJob(), a.referralsJob(), a.missingJob(), a.topPagesJob(), a.activityJob())

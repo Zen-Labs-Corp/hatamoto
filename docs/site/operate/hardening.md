@@ -41,7 +41,9 @@ In this guide you work through the checklist for an instance that faces the inte
 ### Security headers and CSP
 
 1. Leave `SECURITY_HEADERS_DISABLED` unset. It turns off every security header and is for local debugging only.
-2. Test the Content Security Policy, the header that tells browsers which scripts, styles and frames a page may load. It ships in report-only mode, so it never blocks anything. Open your public pages with the browser console open and look for violations. When the pages are clean, set `CSP_ENFORCE=true`. The admin always sends its own strict policy.
+2. Check the Content Security Policy, the header that tells browsers which scripts, styles and frames a page may load. New installs (installer, Docker compose or plain binary) enforce it by default. Sites installed before this release stay in report-only mode, which never blocks anything, until the owner turns protection on. The Overview shows owners a card, "Turn on stricter page protection", with the buttons "Turn on protection", "How to check first" and "Not now" (hides the card for 30 days). To check first, open each key public page, open the browser console (DevTools, then Console) and look for "Content Security Policy" messages. If there are none, turn protection on. Tag managers (for example Google Tag Manager) and inline third-party scripts are blocked under enforcement unless a plugin declares their hosts.
+
+   `CSP_ENFORCE` in the environment overrides the card, either way (`true` or `false`). A Docker install whose compose file or `.env` still says `"false"` stays report-only; remove that line to get the card. With several replicas, restart the others after switching so they pick up the new mode. A static export writes no headers: after switching, copy the updated server or CDN config from the hosting setup card again, because an export alone does not change the headers. The admin always sends its own strict policy.
 3. If editors embed video from hosts other than YouTube and Vimeo, list them in `HATAMOTO_EMBED_HOSTS`. A valid list replaces the default hosts, so include those too if you still want them.
 
 The full header list, the policy text and what a captcha provider adds to it are in the [configuration reference](configuration-reference.md).
@@ -76,6 +78,6 @@ x-frame-options: SAMEORIGIN
 referrer-policy: strict-origin-when-cross-origin
 ```
 
-You should also see `content-security-policy` once `CSP_ENFORCE=true` is set, or `content-security-policy-report-only` before that, and `<admin>/setup` no longer offers to create an owner: it sends you to the sign-in page or says setup is already finished.
+You should also see `content-security-policy` when protection is enforced, or `content-security-policy-report-only` on a site still in report-only mode, and `<admin>/setup` no longer offers to create an owner: it sends you to the sign-in page or says setup is already finished.
 
 If the service does not start after these changes, read the last log line. It names the setting, for example `HATAMOTO_SECRET must be at least 32 characters` or `HATAMOTO_TRUSTED_KEYS holds "...", which is not an ed25519 public key`.

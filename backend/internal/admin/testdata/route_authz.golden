@@ -398,6 +398,8 @@ POST /admin/review/{id}/discard anon=303 editor=503 owner=503
 POST /admin/review/{id}/publish anon=303 editor=503 owner=503
 POST /admin/review/{id}/send-back anon=303 editor=503 owner=503
 POST /admin/review/{id}/withdraw anon=303 editor=503 owner=503
+POST /admin/security/page-protection/enforce anon=303 editor=403 owner=503
+POST /admin/security/page-protection/hide anon=303 editor=403 owner=303
 POST /admin/settings/admin-branding anon=303 editor=403 owner=400
 POST /admin/settings/admin-branding/reset anon=303 editor=403 owner=303
 POST /admin/settings/api-keys anon=303 editor=403 owner=404

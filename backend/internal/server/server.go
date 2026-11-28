@@ -338,6 +338,11 @@ type Server struct {
 	// once loaded. The zero value (test shells) is off.
 	compressOn atomic.Bool
 
+	// cspMode is the live page protection mode (cspModeCfg, cspModeReport or
+	// cspModeEnforce), loaded with the stored site setting. The zero value
+	// follows cfg.Security.CSPEnforce, so test shells keep that semantics.
+	cspMode atomic.Int32
+
 	// lastReq is the UnixNano time of the latest request; the memory releaser
 	// reads it to tell an idle process from a busy one.
 	lastReq atomic.Int64
@@ -853,8 +858,8 @@ func (s *Server) buildHandler() http.Handler {
 }
 
 // securityHeadersMiddleware sets standard security headers on every response.
-// CSP ships as Content-Security-Policy-Report-Only until CSP_ENFORCE=true is
-// set (so operators can watch for violations before enforcing), HSTS is only
+// CSP ships as an enforcing Content-Security-Policy by default; CSP_ENFORCE=false
+// or the stored site choice switches it to Report-Only (see csp_mode.go), HSTS is only
 // added in production (never on local HTTP demo), and the whole thing can be
 // short-circuited via SECURITY_HEADERS_DISABLED for local debugging.
 func (s *Server) securityHeadersMiddleware(next http.Handler) http.Handler {

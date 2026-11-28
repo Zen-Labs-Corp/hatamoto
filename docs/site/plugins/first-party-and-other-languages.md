@@ -41,7 +41,7 @@ func addContainerMeta(c sdk.HeadContext) (sdk.HeadContext, error) {
 }
 ```
 
-`assets/plugin.js`, which the host links on every public page, reads the meta tag, validates the ID again and injects the Tag Manager script. The theme's base layout must include the plugin slots (the default theme does). The plugin has no `<noscript>` fallback and no consent mode, and under an enforced Content-Security-Policy (`CSP_ENFORCE=true`) the browser blocks the Tag Manager host until the policy allows it.
+`assets/plugin.js`, which the host links on every public page, reads the meta tag, validates the ID again and injects the Tag Manager script. The theme's base layout must include the plugin slots (the default theme does). The plugin has no `<noscript>` fallback and no consent mode, and under an enforced Content-Security-Policy (the default on new installs; older installs are report-only until switched) the browser blocks the Tag Manager host until the policy allows it.
 
 ### searchconsole: OAuth, routes, cron and a UI
 

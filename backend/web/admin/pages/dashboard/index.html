@@ -9,10 +9,14 @@
 {{with .HideHref}}{{template "hm/card-foot"}}<form method="post" action="{{.}}">{{template "hm/csrf" $}}{{template "hm/button" (dict "Label" "Hide checklist" "Variant" "ghost" "Size" "sm" "Type" "submit")}}</form>{{template "hm/card-foot-end"}}{{else}}{{template "hm/card-end"}}{{end}}</div>{{else}}<div class="hm-dash--top">{{template "hm/card-start" dict "ID" .ID "Title" .Title}}{{template "hm/callout" (dict "Kind" "error" "Title" "Couldn't load this card." "Body" .ErrMsg)}}{{template "hm/button" (dict "Label" "Reload the page" "Href" (adminPath) "Variant" "ghost")}}{{template "hm/card-end"}}</div>{{end}}{{end}}{{end}}{{if .Stats}}<div class="hm-statgrid hm-dash__kpis">{{range .Stats}}<div class="hm-dash__kpi">{{template "hm/stat" dict "Variant" "ticker" "Stat" .Stat}}
 {{if .Failed}}{{template "hm/callout" (dict "Kind" "error" "Title" "Couldn't load." "Body" "These numbers could not be read.")}}{{template "hm/button" (dict "Label" "Reload the page" "Href" (adminPath) "Variant" "ghost")}}
 {{end}}</div>{{end}}</div>{{end}}
-<div class="hm-dash hm-dash--cols{{if .OneColumn}} hm-dash--one{{end}}">{{with .Left}}<div class="hm-dash__col">{{template "dash-cards" .}}</div>{{end}}{{with .Right}}<div class="hm-dash__col">{{template "dash-cards" .}}</div>{{end}}</div>
+<div class="hm-dash hm-dash--cols{{if .OneColumn}} hm-dash--one{{end}}">{{with .Left}}<div class="hm-dash__col">{{template "dash-cards" (dict "Secs" . "CSRF" $.CSRF)}}</div>{{end}}{{with .Right}}<div class="hm-dash__col">{{template "dash-cards" (dict "Secs" . "CSRF" $.CSRF)}}</div>{{end}}</div>
 {{end}}{{end}}
-{{define "dash-cards"}}{{range .}}
-{{template "hm/card-start" dict "ID" .ID "Title" .Title "Description" .Description}}
+{{define "dash-cards"}}{{$root := .}}{{range .Secs}}
+{{if .CSP}}{{template "hm/card-start" dict "ID" .ID "Title" .Title}}
+{{template "hm/callout" (dict "Kind" "warning" "Body" "Your public pages only report script problems; they do not block anything. New sites block scripts from other sites. Check your pages in the browser console, then switch.")}}
+<p class="hm-muted">Technical name: Content Security Policy (CSP). It runs in report-only mode on this site.</p>
+{{with .CSP}}{{template "hm/card-foot"}}<form method="post" action="{{.HideHref}}">{{template "hm/csrf" $root}}{{template "hm/button" (dict "Label" "Not now" "Variant" "ghost" "Size" "sm" "Type" "submit")}}</form>{{template "hm/button" (dict "Label" "How to check first" "Href" .DocsHref "Variant" "ghost" "Size" "sm")}}<form method="post" action="{{.EnforceHref}}">{{template "hm/csrf" $root}}{{template "hm/button" (dict "Label" "Turn on protection" "Variant" "primary" "Size" "sm" "Type" "submit")}}</form>{{template "hm/card-foot-end"}}{{end}}
+{{else}}{{template "hm/card-start" dict "ID" .ID "Title" .Title "Description" .Description}}
 {{$card := .}}{{with .Warn}}{{template "hm/callout" (dict "Kind" "warning" "Compact" true "Body" .)}}{{with $card.WarnHref}}{{template "hm/button" (dict "Label" "Go to Settings > General" "Href" . "Variant" "ghost")}}{{end}}{{end}}{{if eq .State "error"}}{{template "hm/callout" (dict "Kind" "error" "Title" "Couldn't load this card." "Body" .ErrMsg)}}{{template "hm/button" (dict "Label" "Reload the page" "Href" (adminPath) "Variant" "ghost")}}
 {{else if eq .State "empty"}}{{template "hm/empty" .Empty}}
 {{else if .Tracker}}{{template "hm/tracker" .Tracker}}
@@ -22,4 +26,4 @@
 {{else if .Rows}}<ul class="hm-dash__rows" role="list">{{range .Rows}}<li class="hm-dash__row">{{if .Unread}}<span class="hm-dash__dot" role="img" aria-label="Unread"></span>{{end}}<a href="{{.Href}}">{{.Title}}</a>{{with .Summary}}<span class="hm-muted">{{.}}</span>{{end}}<span class="hm-muted">{{.When}}</span></li>{{end}}</ul>
 {{else}}{{template "hm/barlist" .Bars}}{{end}}
 {{with .More}}<p class="hm-dash__more"><a href="{{.Href}}">{{.Label}} {{icon "chevron-right"}}</a></p>{{end}}
-{{template "hm/card-end"}}{{end}}{{end}}
+{{template "hm/card-end"}}{{end}}{{end}}{{end}}

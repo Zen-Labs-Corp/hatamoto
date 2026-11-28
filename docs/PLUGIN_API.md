@@ -71,7 +71,7 @@ On a theme with `csp.strictScripts` (the default theme) the public `script-src`
 is `'self'` only: plugins must load code with `<script src>` (a file under
 `/p/<plugin>/assets/` or a `script-src` head tag), never inline script, handler
 attributes (`onclick=...`) or `javascript:` URLs, including ones created at
-runtime. Those are reported (Report-Only) or blocked (`CSP_ENFORCE=true`).
+runtime. Those are blocked (enforcing; the default on new installs) or only reported (report-only, on sites installed earlier until the owner turns protection on).
 
 **Development.** `HATAMOTO_PLUGIN_DIR=./plugins` loads `./plugins/<name>/` as an
 unsigned in-memory package (nothing stored, restart to reload). It is a
