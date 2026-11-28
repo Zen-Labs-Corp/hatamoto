@@ -237,6 +237,30 @@ func TestRecoveryChainCountsServerErrorsAndPanics(t *testing.T) {
 	}
 }
 
+func TestRecoveryChainRepanicsAbortHandler(t *testing.T) {
+	s, _ := statsTestServer(false)
+	s.SetStats(s.stats)
+	rec := httptest.NewRecorder()
+	h := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("partial"))
+		panic(http.ErrAbortHandler)
+	})
+	func() {
+		defer func() {
+			if got := recover(); got != http.ErrAbortHandler {
+				t.Fatalf("recovered %v, want http.ErrAbortHandler", got)
+			}
+		}()
+		httpx.Chain(s.recoveryChain()...)(h).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/x", nil))
+	}()
+	if rec.Body.String() != "partial" || rec.Code != http.StatusOK {
+		t.Fatalf("response = %d %q, want 200 \"partial\" with nothing appended", rec.Code, rec.Body.String())
+	}
+	if c := s.healthSink().Drain(); c.Panics != 0 || c.HTTP5xx != 0 {
+		t.Fatalf("counts = %+v, want none", c)
+	}
+}
+
 func TestRecoveryChainBeforeSetStatsIsHarmless(t *testing.T) {
 	s, _ := statsTestServer(false) // SetStats not called: no collector yet
 	serveThrough(s, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(500) }))
