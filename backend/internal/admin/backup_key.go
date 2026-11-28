@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"unicode"
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
@@ -188,6 +189,11 @@ func (a *Admin) handleBackupKeySave(w http.ResponseWriter, r *http.Request) {
 	mode := r.PostFormValue("mode")
 	posted := &backupKeyData{Selected: mode, PublicKey: strings.TrimSpace(r.PostFormValue("public_key"))}
 	fail := func(field, id, label, msg string) {
+		// Only a value that can be a public key is shown again: anything else
+		// may be a private key that was pasted by mistake.
+		if !plausiblePublicKey(posted.PublicKey) {
+			posted.PublicKey = ""
+		}
 		posted.Errs = map[string]string{field: msg}
 		posted.Summary = []ui.FieldError{{ID: id, Label: label, Message: msg}}
 		a.rerenderBackupKey(w, r, posted)
@@ -230,6 +236,13 @@ func (a *Admin) handleBackupKeySave(w http.ResponseWriter, r *http.Request) {
 	a.audit(r, "backups.encryption.update", "backups", map[string]any{"mode": auditMode})
 	a.SetFlash(w, r, "success", "Backup encryption is on. Downloads and off-site copies are encrypted from now on.")
 	http.Redirect(w, r, a.adminPath+backupsRel+"#backupkey", http.StatusSeeOther)
+}
+
+// plausiblePublicKey is a single token that starts with age1, the shape of an
+// age public key, so it is safe to put back in the form.
+func plausiblePublicKey(s string) bool {
+	return strings.HasPrefix(s, "age1") && !strings.ContainsFunc(s, unicode.IsSpace) &&
+		!strings.Contains(strings.ToUpper(s), "SECRET-KEY")
 }
 
 func (a *Admin) handleBackupKeyOff(w http.ResponseWriter, r *http.Request) {

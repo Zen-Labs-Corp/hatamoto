@@ -103,7 +103,8 @@ func TestWrongKeyIsErrWrongKey(t *testing.T) {
 
 func TestParseRecipientRefusesPrivateKey(t *testing.T) {
 	ident, _ := age.GenerateX25519Identity()
-	for _, in := range []string{ident.String(), strings.ToLower(ident.String())} {
+	flat := "# created: 2026-11-28T00:00:00Z# public key: " + ident.Recipient().String() + ident.String()
+	for _, in := range []string{ident.String(), strings.ToLower(ident.String()), flat, "x " + strings.ToLower(ident.String())} {
 		_, err := ParseRecipient(in)
 		if !errors.Is(err, ErrPrivateKey) {
 			t.Fatalf("err = %v, want ErrPrivateKey", err)

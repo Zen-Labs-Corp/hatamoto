@@ -113,6 +113,10 @@ func TestBackupKeyRefusals(t *testing.T) {
 	}{
 		{"private key", url.Values{"mode": {"public"}, "public_key": {testBackupPrivate}},
 			func(f *fakeBackupKey) { f.pubErr = ErrBackupPrivateKey }, []string{testBackupPrivate}},
+		{"private key inside a flattened key file", url.Values{"mode": {"public"}, "public_key": {"# public key: " + testBackupRecipient + testBackupPrivate}},
+			func(f *fakeBackupKey) { f.pubErr = ErrBackupKeyInvalid }, []string{testBackupPrivate, "# public key"}},
+		{"private key beside a short passphrase", url.Values{"mode": {"passphrase"}, "public_key": {testBackupPrivate}, "passphrase": {"short pass"}},
+			func(f *fakeBackupKey) { f.passErr = ErrBackupPassphraseShort }, []string{testBackupPrivate}},
 		{"invalid key", url.Values{"mode": {"public"}, "public_key": {"nonsense"}},
 			func(f *fakeBackupKey) { f.pubErr = ErrBackupKeyInvalid }, nil},
 		{"short passphrase", url.Values{"mode": {"passphrase"}, "passphrase": {"short pass"}},

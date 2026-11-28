@@ -41,11 +41,12 @@ type Key struct {
 	passphrase bool
 }
 
-// ParseRecipient parses an age public key (age1...). A private key is refused
+// ParseRecipient parses an age public key (age1...). A private key, anywhere in
+// the input (a pasted key file), is refused
 // with ErrPrivateKey. The error never echoes the input.
 func ParseRecipient(s string) (*Key, error) {
 	s = strings.TrimSpace(s)
-	if strings.HasPrefix(strings.ToUpper(s), privatePrefix) {
+	if strings.Contains(strings.ToUpper(s), privatePrefix) {
 		return nil, ErrPrivateKey
 	}
 	r, err := age.ParseX25519Recipient(s)
