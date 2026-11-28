@@ -201,6 +201,7 @@ different repository.
 > (see [ADR 0003](adr/0003-public-locales.md)) the existing fields carry the page's locale; SDK 0.15 adds the fields listed below.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
+> hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
 >
 > **0.9 changes:** `render.page` sends slim blocks by default (see [PageContext](#pagecontext)):
 > `id`, `type`, `title`, `hidden` and a few scalar `fields`, no content; the host puts
