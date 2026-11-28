@@ -145,6 +145,7 @@ GET /admin/settings/general/locales/convert anon=303 editor=403 owner=503
 GET /admin/settings/general/locales/convert/apply anon=303 editor=403 owner=303
 GET /admin/settings/general/locales/convert/history/{id}/revert anon=303 editor=403 owner=303
 GET /admin/settings/hosting anon=303 editor=403 owner=503
+GET /admin/settings/hosting/host-key anon=303 editor=403 owner=503
 GET /admin/settings/hosting/mode anon=303 editor=403 owner=303
 GET /admin/settings/import anon=303 editor=403 owner=503
 GET /admin/settings/import-export anon=303 editor=403 owner=302
@@ -435,6 +436,7 @@ POST /admin/settings/general/locales/convert/report anon=303 editor=403 owner=50
 POST /admin/settings/general/locales/convert/suggest anon=303 editor=403 owner=503
 POST /admin/settings/hosting anon=303 editor=403 owner=503
 POST /admin/settings/hosting/export anon=303 editor=403 owner=503
+POST /admin/settings/hosting/host-key anon=303 editor=403 owner=303
 POST /admin/settings/hosting/mode anon=303 editor=403 owner=303
 POST /admin/settings/hosting/rebuild anon=303 editor=403 owner=303
 POST /admin/settings/hosting/test anon=303 editor=403 owner=503

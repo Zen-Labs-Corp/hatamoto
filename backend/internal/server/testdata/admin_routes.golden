@@ -144,6 +144,7 @@ GET /admin/settings/general/locales/convert -> admin.(*Admin).handleConvert-fm
 GET /admin/settings/general/locales/convert/apply -> admin.(*Admin).handleConvertApplyConfirm-fm
 GET /admin/settings/general/locales/convert/history/{id}/revert -> admin.(*Admin).handleConvertRevertConfirm-fm
 GET /admin/settings/hosting -> admin.(*Admin).handleHosting-fm
+GET /admin/settings/hosting/host-key -> admin.(*Admin).handleHostingHostKeyConfirm-fm
 GET /admin/settings/hosting/mode -> admin.(*Admin).handleHostingModeConfirm-fm
 GET /admin/settings/import -> admin.(*Admin).handleImportSource-fm
 GET /admin/settings/import-export -> admin.(*Admin).mountSettingsFrame.func1
@@ -431,6 +432,7 @@ POST /admin/settings/general/locales/convert/report -> admin.(*Admin).handleConv
 POST /admin/settings/general/locales/convert/suggest -> admin.(*Admin).handleConvertSuggest-fm
 POST /admin/settings/hosting -> admin.(*Admin).handleHostingSave-fm
 POST /admin/settings/hosting/export -> admin.(*Admin).handleHostingExport-fm
+POST /admin/settings/hosting/host-key -> admin.(*Admin).handleHostingTrustHostKey-fm
 POST /admin/settings/hosting/mode -> admin.(*Admin).handleHostingMode-fm
 POST /admin/settings/hosting/rebuild -> admin.(*Admin).handleHostingRebuild-fm
 POST /admin/settings/hosting/test -> admin.(*Admin).handleHostingTest-fm
