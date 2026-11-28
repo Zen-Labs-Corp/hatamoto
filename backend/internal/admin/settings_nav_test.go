@@ -292,7 +292,7 @@ func TestSettingsNavGroups(t *testing.T) {
 			t.Errorf("owner %s sections %q, want %q", g, got, want)
 		}
 	}
-	// An editor keeps only the Content sections; Site and System have no
+	// An editor keeps only the Publishing sections; Site and System have no
 	// section left, so their headings are not produced at all.
 	order, _ = groupsOf(SettingsFor("editor"))
 	if got := strings.Join(order, ","); got != "Publishing" {

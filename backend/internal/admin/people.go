@@ -19,7 +19,7 @@ import (
 // peoplePerPage is the People list's page size.
 const peoplePerPage = 50
 
-// mountPeople registers Entities > People. A person is edited in the generic
+// mountPeople registers Content > People. A person is edited in the generic
 // entity form (grouped fields, and any field a site adds to the type), so the
 // list links there; only the list and "Add person" live here.
 func (a *Admin) mountPeople(authed *httpx.Group) {
