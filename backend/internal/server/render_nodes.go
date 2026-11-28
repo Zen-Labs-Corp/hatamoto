@@ -94,7 +94,6 @@ func (h *renderAdminHandlers) handleRenderNodes(w http.ResponseWriter, r *http.R
 		return
 	}
 	v.Doc, v.Preview, v.Canvas = doc, true, true
-	v.PluginDirectory, v.ThemeDirectory = h.directoryFor(r.Context(), v.Sections, doc)
 
 	out := renderNodesResponse{Fragments: []render.Fragment{}, CSS: map[string]string{}, Order: []string{}, Seq: req.Seq}
 	// A node under a loop cannot render without its item scope: render the loop.

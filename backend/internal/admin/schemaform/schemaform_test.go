@@ -44,8 +44,8 @@ func golden(t *testing.T, name, got string) {
 func themeSchemas(t *testing.T) map[string]jsontext.Value {
 	t.Helper()
 	files, err := filepath.Glob(filepath.Join("..", "..", "render", "themes", "default", "schemas", "*.json"))
-	if err != nil || len(files) != 25 {
-		t.Fatalf("expected the 25 default-theme section schemas, found %d (%v)", len(files), err)
+	if err != nil || len(files) != 23 {
+		t.Fatalf("expected the 23 default-theme section schemas, found %d (%v)", len(files), err)
 	}
 	out := map[string]jsontext.Value{}
 	for _, f := range files {

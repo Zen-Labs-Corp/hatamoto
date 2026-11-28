@@ -36,7 +36,7 @@ func (s *Server) handleFormPage(w http.ResponseWriter, r *http.Request) {
 		h.writeFailure(w, r, err)
 		return
 	}
-	if rr != nil && (rr.Redirect != nil || rr.Page != nil || rr.Archive != nil || rr.Listing != nil || rr.Registry != nil) {
+	if rr != nil && (rr.Redirect != nil || rr.Page != nil || rr.Archive != nil || rr.Listing != nil) {
 		h.handleRenderCatchAll(w, r)
 		return
 	}

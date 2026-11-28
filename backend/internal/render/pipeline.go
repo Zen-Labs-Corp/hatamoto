@@ -33,14 +33,10 @@ type preparedSection struct {
 
 // sectionPage is the slice of PageView exposed to section templates as .Page.
 type sectionPage struct {
-	Forms map[string]FormView
-	// PluginDirectory is nil unless the page has a plugin_directory section.
-	PluginDirectory *PluginDirectoryView
-	// ThemeDirectory is nil unless the page has a theme_directory section.
-	ThemeDirectory *ThemeDirectoryView
-	Path           string
-	Submitted      bool
-	FormError      bool
+	Forms     map[string]FormView
+	Path      string
+	Submitted bool
+	FormError bool
 	// PageNum and Params are the request's ?page= and query string (pageNum
 	// and queryParam read them from a section's ".").
 	PageNum int

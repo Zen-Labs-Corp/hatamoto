@@ -15,8 +15,7 @@ headers, `encode zstd gzip` and the `www` to apex redirect. It also serves stati
 itself: `/releases/**`, the package registry (`/registry.json`, `/packages/*`) and
 and the append-only `/archive/*`, the last two from
 `/opt/hatamoto/registry` (see [`registry/README.md`](../../registry/README.md)).
-`/plugins` and `/themes` are ordinary pages proxied to the app (the "Plugin directory"
-and "Theme directory" sections). Only `/screenshots/<name>.(png|webp|jpg)` is static, from
+`/plugins` and `/themes` are ordinary pages proxied to the app. Only `/screenshots/<name>.(png|webp|jpg)` is static, from
 the same root, with the same hardening headers as `/archive`; any other name under
 `/screenshots/` falls through to the app.
 

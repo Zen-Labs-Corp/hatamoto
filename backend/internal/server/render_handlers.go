@@ -30,8 +30,8 @@ import (
 
 const (
 	cachePublic = "public, max-age=60, s-maxage=300"
-	// A page with a plugin directory may sit in a shared cache no longer than
-	// it sits in the page cache (pluginDirectoryCacheAge).
+	// A page that carries data-hm-directory (a site theme's registry directory
+	// or detail templates) sits in a shared cache for at most 60 seconds.
 	cachePublicDirectory = "public, max-age=60, s-maxage=60"
 	cachePrivate         = "private, no-cache, no-store"
 
@@ -556,7 +556,7 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		return
 	}
 
-	if rr.Page == nil && rr.Archive == nil && rr.Listing == nil && rr.Registry == nil {
+	if rr.Page == nil && rr.Archive == nil && rr.Listing == nil {
 		// A route that resolved without any page data must never become a
 		// cached blank 200.
 		h.logger.ErrorContext(r.Context(), "render: route resolved without page data", "path", path)
@@ -742,7 +742,7 @@ func (h *renderHandlers) serveCached(w http.ResponseWriter, r *http.Request, pat
 }
 
 // pageTTLFor is the cache lifetime of v's page: the configured TTL, capped by
-// the view's own MaxCacheAge (a page with live registry data).
+// the view's own MaxCacheAge (for example a today-relative query loop).
 func (h *renderHandlers) pageTTLFor(v *render.PageView) time.Duration {
 	ttl := h.pageCacheTTL()
 	if v.MaxCacheAge > 0 && v.MaxCacheAge < ttl {
@@ -937,10 +937,10 @@ func (h *renderHandlers) errorViewBuilt(r *http.Request, rr *routeResult) (*rend
 	return v, built
 }
 
-// directoryMarker is how writeHTML recognises a rendered page with a plugin
-// directory, for fresh renders and page-cache hits alike. The plugin_directory
-// template emits it on its own root, so it is present on the legacy sections
-// path and on builder (page_doc) output, which carries no section markers.
+// directoryMarker is how writeHTML recognises a rendered registry directory
+// page, for fresh renders and page-cache hits alike. A theme emits it on the
+// root of such a page, on the legacy sections path and in builder (page_doc)
+// output.
 var directoryMarker = []byte(`data-hm-directory`)
 
 // writeHTML writes a rendered document with the renderer's headers. private

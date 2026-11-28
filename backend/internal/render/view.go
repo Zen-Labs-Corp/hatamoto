@@ -59,8 +59,6 @@ type PageView struct {
 	// already chained by the server (locale, then default locale). The engine
 	// merges them over the theme's declared defaults; undeclared keys are ignored.
 	StringOverrides map[string]string `json:"-"`
-	// Registry is set on registry detail views (KindRegistry).
-	Registry *RegistryPageView
 	// Access is set on a site access notice (RenderAccess).
 	Access *AccessView
 	// SearchType is the schema slug a search is limited to ("" for the whole site).
@@ -201,12 +199,6 @@ type PageView struct {
 	UpdatedAt   time.Time
 	// Forms is keyed by form slug, filled for each contact_form section.
 	Forms map[string]FormView
-	// PluginDirectory feeds plugin_directory sections; nil when the page has
-	// none.
-	PluginDirectory *PluginDirectoryView
-	// ThemeDirectory feeds theme_directory sections; nil when the page has
-	// none.
-	ThemeDirectory *ThemeDirectoryView
 	// MaxCacheAge, when > 0, caps how long the rendered page may be cached,
 	// whatever the configured page cache TTL.
 	MaxCacheAge time.Duration
@@ -315,9 +307,6 @@ const (
 	KindSearch   = "search"
 	// KindNotFound is set by RenderNotFound so the head uses the 404 title template.
 	KindNotFound = "notfound"
-	// KindRegistry is a plugin or theme detail page built from the verified
-	// registry index (see PageView.Registry).
-	KindRegistry = "registry"
 )
 
 // EntityView is the whitelisted view of the entity a page shows.
@@ -929,85 +918,6 @@ func (v *PageView) DocCurrentCrumb(sidebarLabel string) string {
 type Crumb struct {
 	Name string
 	URL  string
-}
-
-// Plugin directory states.
-const (
-	PluginDirectoryOK          = "ok"
-	PluginDirectoryEmpty       = "empty"
-	PluginDirectoryUnavailable = "unavailable"
-	PluginDirectoryOff         = "off" // no registry is configured
-)
-
-// PluginDirectoryView is the verified registry's plugin list for
-// plugin_directory sections. State is one of the PluginDirectory* constants.
-type PluginDirectoryView struct {
-	State string
-	Cards []PluginCard
-	// Linked is set when the page serves the detail pages (/plugins); card
-	// titles link to them only then.
-	Linked bool
-}
-
-// ThemeDirectoryView is the verified registry's theme list for
-// theme_directory sections. State is one of the PluginDirectory* constants.
-type ThemeDirectoryView struct {
-	State string
-	Cards []ThemeCard
-	// Linked is set when the page serves the detail pages (/themes); card
-	// titles link to them only then.
-	Linked bool
-}
-
-// ThemeCard is one theme entry of the directory. Source and Screenshot are
-// already restricted to safe https URLs; Search is the lowercased text the
-// search box matches against.
-//
-// About holds the optional manifest text as plain paragraphs and Features its
-// bullets; both are untrusted text, to be rendered escaped.
-type ThemeCard struct {
-	Name, Title, Version, Description, Source, Screenshot, Tier, TierLabel, Author, Search string
-	About, Features                                                                        []string
-}
-
-// PluginCard is one plugin entry of the directory. Source is already
-// restricted to safe https URLs; Search is the lowercased text the search box
-// matches against.
-//
-// PermCount is the number of permissions the plugin asks for, PermWarn the
-// short labels of the risky ones (empty: no warning badge) and PermLines the
-// plain-English lines shown in the collapsed list. Permissions holds the raw
-// names; the default theme no longer reads it, it is kept for theme overrides
-// written against older cores.
-type PluginCard struct {
-	Name, Title, Version, Tier, TierLabel, Author, Description, Source string
-	PermCount                                                          int
-	PermWarn                                                           []string
-	PermLines                                                          []PermLine
-	// Permissions lists the raw permission names. The default theme no longer
-	// reads it; it is kept for theme overrides written against older cores.
-	Permissions []string
-	Search      string
-	// About holds the optional manifest text as plain paragraphs and Features
-	// its bullets; both are untrusted text, to be rendered escaped.
-	About, Features []string
-}
-
-// RegistryPageView is the plugin or theme behind a registry detail page. Type
-// is "plugin" or "theme"; Plugin or Theme is set accordingly. ListName and
-// ListURL name the directory page the breadcrumb points back to.
-type RegistryPageView struct {
-	Type              string
-	ListName, ListURL string
-	Plugin            *PluginCard
-	Theme             *ThemeCard
-}
-
-// PermLine is one permission of a plugin card: its name, the plain-English
-// text and whether it is a risky one.
-type PermLine struct {
-	Name, Text string
-	Warn       bool
 }
 
 // FormView is a public form definition used by contact_form sections.

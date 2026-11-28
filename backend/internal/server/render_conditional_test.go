@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"errors"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"hatamoto.dev/core/internal/config"
@@ -265,11 +267,20 @@ func TestPageRedirectWinsOverNotModified(t *testing.T) {
 	}
 }
 
+// A page whose theme emits data-hm-directory (a site theme's registry
+// directory) gets the short shared-cache lifetime on a fresh 200 and on both
+// 304 paths; other pages keep cachePublic.
 func TestDirectoryPageValidators(t *testing.T) {
-	rig := newDirRig(t)
+	engine, err := render.New(render.Options{Layers: []fs.FS{fstest.MapFS{
+		"theme.json":        {Data: []byte(`{"name":"dir","version":"1.0.0"}`)},
+		"layouts/base.html": {Data: []byte(`<!doctype html><main data-hm-directory>directory</main>`)},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	f := newRenderFixture(t)
+	f.h.engine = engine
 	f.next = stablePage("Plugins")
-	withDirectory(f, directoryServer(rig), directorySection, nil)
 	f.advance(2 * time.Second)
 
 	first := f.get("/plugins")
@@ -285,6 +296,11 @@ func TestDirectoryPageValidators(t *testing.T) {
 		if w.Code != 304 || w.Body.Len() != 0 || w.Header().Get("Cache-Control") != cachePublicDirectory {
 			t.Errorf("%s: status %d Cache-Control=%q body=%d", name, w.Code, w.Header().Get("Cache-Control"), w.Body.Len())
 		}
+	}
+	other := newRenderFixture(t)
+	other.next = okPage("About")
+	if cc := other.get("/about").Header().Get("Cache-Control"); cc != cachePublic {
+		t.Errorf("other page Cache-Control = %q, want %q", cc, cachePublic)
 	}
 }
 

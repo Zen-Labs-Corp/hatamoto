@@ -7,9 +7,8 @@ import (
 	"hatamoto.dev/sdk"
 )
 
-// Line is one permission of a directory card in plain English. Field names,
-// types and order must match render.PermLine so a Line converts with
-// render.PermLine(l).
+// Line is one permission of a plugin card in plain English (admin install
+// prompt, CLI registry page).
 type Line struct {
 	Name, Text string
 	Warn       bool
