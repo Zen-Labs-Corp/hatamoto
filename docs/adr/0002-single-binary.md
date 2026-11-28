@@ -37,6 +37,7 @@ ROADMAP sections 2 to 4 and are binding for every 1.0 slug. Accepting this
 ADR also confirms the decisions listed in ROADMAP section 9 (Apache-2.0, no
 headless mode, the `legacy-hybrid` security-fix branch, owner and editor roles,
 `/blog/{slug}` post URLs, the autosave rule, public site before admin).
+(Decision 2 was later narrowed by [ADR 0017](0017-public-content-api.md): a read-only public content API, still no headless front end.)
 
 ### Architecture
 
