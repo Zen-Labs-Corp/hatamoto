@@ -48,6 +48,33 @@ func TestUpdatePromiseDocs(t *testing.T) {
 			t.Errorf("outbound connections page lacks the install stats detail %q", want)
 		}
 	}
+	// The report carries the feature flags and, for a site on an IP address,
+	// the public IP literal as host: the pages say so and drop the old promise.
+	stats := readDoc(t, "../../../docs/site/operate/install-stats.md")
+	for _, key := range []string{"comments_on", "static_mode", "sso_on", "locales_bucket", "forms_in_use",
+		"offsite_backups_on", "csp_enforced", "wp_imported"} {
+		if !strings.Contains(stats, "`"+key+"`") {
+			t.Errorf("install-stats.md does not list %q", key)
+		}
+	}
+	if !strings.Contains(stats, "public IP address") {
+		t.Error("install-stats.md must disclose the public IP address host")
+	}
+	for _, gone := range []string{"no IP address is collected", "**Got it**"} {
+		if strings.Contains(stats, gone) {
+			t.Errorf("install-stats.md still says %q", gone)
+		}
+	}
+	if !strings.Contains(outbound, "public IP address") || !strings.Contains(outbound, "which features are on") {
+		t.Error("outbound connections page must disclose the IP-literal host and the feature flags")
+	}
+	if strings.Contains(outbound, "No machine hostname, IP address") {
+		t.Error("outbound page still promises no IP address")
+	}
+	before := readDoc(t, "../../../docs/site/getting-started/before-you-install.md")
+	if !strings.Contains(before, "which features are on") {
+		t.Error("before-you-install must mention the feature flags")
+	}
 	if !strings.Contains(readme, "docs/UPGRADES.md") {
 		t.Errorf("README does not link to docs/UPGRADES.md")
 	}
