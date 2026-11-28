@@ -3,6 +3,7 @@ package admin
 import (
 	"errors"
 	"net/http"
+	"strings"
 )
 
 // handleHostingModeConfirm is the page between Save and the sudo-gated switch.
@@ -121,4 +122,65 @@ func (a *Admin) handleHostingTest(w http.ResponseWriter, r *http.Request) {
 		a.SetFlash(w, r, "success", "Test export started. It writes the files to the saved target and shows in the log as Test export.")
 	}
 	http.Redirect(w, r, a.adminPath+hostingPath, http.StatusSeeOther)
+}
+
+// handleHostingHostKeyConfirm reads the host key the saved SFTP host presents
+// and asks the owner to trust it. It writes nothing; the fingerprint is the
+// only hidden field of the form.
+func (a *Admin) handleHostingHostKeyConfirm(w http.ResponseWriter, r *http.Request) {
+	svc := a.deps.Hosting
+	if svc == nil {
+		a.unavailable(w, r, "Hosting")
+		return
+	}
+	back := a.adminPath + hostingPath
+	fp, err := svc.ProbeHostKey(r.Context())
+	switch {
+	case errors.Is(err, ErrHostingNoTarget):
+		a.SetFlash(w, r, "warning", "Save an SFTP target first.")
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	case err != nil:
+		a.SetFlash(w, r, "error", "Could not read the host key: "+fullStop(err.Error()))
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	v, err := svc.View(r.Context())
+	if err != nil {
+		a.logger().Error("hosting settings", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The hosting settings could not be loaded.")
+		return
+	}
+	a.renderConfirm(w, r, confirmData{
+		Post: back + "/host-key", Back: back, Hidden: []hiddenField{{Name: "host_key", Value: fp}},
+		Title: "Trust this host key?", Label: "Trust host key",
+		Message: v.SFTPHost + ":" + v.SFTPPort + " presented the key " + fp + ". Compare it with the fingerprint your hosting provider shows before you trust it. Exports stop if the key changes.",
+	})
+}
+
+// handleHostingTrustHostKey pins the shown fingerprint. The service checks the
+// host still presents it.
+func (a *Admin) handleHostingTrustHostKey(w http.ResponseWriter, r *http.Request) {
+	svc := a.deps.Hosting
+	if svc == nil {
+		a.unavailable(w, r, "Hosting")
+		return
+	}
+	back := a.adminPath + hostingPath
+	fp := strings.TrimSpace(r.PostFormValue("host_key"))
+	if !strings.HasPrefix(fp, "SHA256:") {
+		a.SetFlash(w, r, "error", "The host key was not trusted: no fingerprint was sent.")
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	switch err := svc.TrustHostKey(r.Context(), fp); {
+	case err == nil:
+		a.audit(r, "hosting.trust_host_key", "hosting", map[string]any{"fingerprint": fp})
+		a.SetFlash(w, r, "success", "Host key trusted.")
+	case errors.Is(err, ErrHostingHostKeyChanged):
+		a.SetFlash(w, r, "warning", err.Error())
+	default:
+		a.SetFlash(w, r, "error", "The host key was not trusted: "+fullStop(err.Error()))
+	}
+	http.Redirect(w, r, back, http.StatusSeeOther)
 }

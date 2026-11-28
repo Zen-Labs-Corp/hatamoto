@@ -13,6 +13,8 @@ const (
 	hostingSetupCaddy = "caddy"
 	hostingSetupNginx = "nginx"
 	hostingSetupS3    = "s3"
+	// hostingSetupApache is the tab of the SFTP target (cPanel / shared hosting).
+	hostingSetupApache = "apache"
 )
 
 // hostingCheck is one line of the setup checklist.
@@ -26,7 +28,7 @@ type hostingCheck struct {
 type hostingSetupView struct {
 	Show   bool
 	Tabs   []ui.Tab
-	Kind   string // hostingSetupCaddy, hostingSetupNginx or hostingSetupS3
+	Kind   string // hostingSetupCaddy, hostingSetupNginx, hostingSetupS3 or hostingSetupApache; "" shows only the note
 	Checks []hostingCheck
 	// Config is the readonly text of the Caddy or nginx tab; Note says why
 	// there is none; Error is a safe refusal from the generator.
@@ -37,37 +39,60 @@ type hostingSetupView struct {
 func setupBadge(kind, label string) ui.Badge { return ui.Badge{Label: label, Kind: kind} }
 
 // hostingSetupFrom builds the card. tab is the raw ?setup= value: only the
-// three known ones count, anything else gets the default for the target.
+// four known ones count, anything else gets the default for the target.
 func hostingSetupFrom(s HostingSetup, tab, adminPath string, loc *time.Location) hostingSetupView {
 	v := hostingSetupView{Show: s.Saved, Headers: s.HeaderNames}
 	if !v.Show {
 		return v
 	}
 	switch tab {
-	case hostingSetupCaddy, hostingSetupNginx, hostingSetupS3:
-		v.Kind = tab
+	case hostingSetupCaddy, hostingSetupNginx, hostingSetupS3, hostingSetupApache:
 	default:
-		v.Kind = hostingSetupCaddy
-		if s.Target == HostingTargetS3 {
-			v.Kind = hostingSetupS3
+		switch s.Target {
+		case HostingTargetS3:
+			tab = hostingSetupS3
+		case HostingTargetSFTP:
+			tab = hostingSetupApache
+		default:
+			tab = hostingSetupCaddy
 		}
 	}
-	for _, t := range []struct{ id, label string }{{hostingSetupCaddy, "Caddy"}, {hostingSetupNginx, "nginx"}, {hostingSetupS3, "S3 + CDN"}} {
-		v.Tabs = append(v.Tabs, ui.Tab{Label: t.label, Href: adminPath + hostingPath + "?setup=" + t.id + "#hosting-setup", Active: t.id == v.Kind})
+	v.Kind = tab
+	for _, t := range []struct{ id, label string }{{hostingSetupCaddy, "Caddy"}, {hostingSetupNginx, "nginx"}, {hostingSetupS3, "S3 + CDN"}, {hostingSetupApache, "Apache / cPanel"}} {
+		v.Tabs = append(v.Tabs, ui.Tab{Label: t.label, Href: adminPath + hostingPath + "?setup=" + t.id + "#hosting-setup", Active: t.id == tab})
 	}
-	v.Checks = hostingChecks(s, v.Kind == hostingSetupS3, loc)
 	switch {
-	case v.Kind == hostingSetupS3:
-	case s.Target == HostingTargetS3:
-		v.Note = "The files are in a bucket, so there is no web server config to copy. See S3 + CDN."
-	case s.GenError != "":
-		v.Error = s.GenError
-	case v.Kind == hostingSetupNginx:
-		v.Config = s.Nginx
+	case s.Target == HostingTargetSFTP && tab == hostingSetupApache:
+		v.Checks = hostingApacheChecks(s, loc)
+		v.Config = s.HTAccessBlock
+		if s.HTAccess && s.HTAccessBlock == "" {
+			v.Note = "There are no redirect rules, so the export writes no .htaccess block."
+		}
+	case s.Target == HostingTargetSFTP:
+		// Another web server's tab: the files go to the host, which serves them.
+		v.Kind = ""
+		v.Note = "Your files go to your host over SFTP and its web server serves them. See the Apache / cPanel tab."
+	case tab == hostingSetupApache:
+		v.Kind = ""
+		v.Note = "The Apache / cPanel setup is for the SFTP target. Choose SFTP under Publish to."
 	default:
-		v.Config = s.Caddy
+		v.Checks = hostingChecks(s, tab == hostingSetupS3, loc)
+		switch {
+		case tab == hostingSetupS3:
+		case s.Target == HostingTargetS3:
+			v.Note = "The files are in a bucket, so there is no web server config to copy. See S3 + CDN."
+		case s.GenError != "":
+			v.Error = s.GenError
+		case tab == hostingSetupNginx:
+			v.Config = s.Nginx
+		default:
+			v.Config = s.Caddy
+		}
 	}
-	if v.Config != "" && s.Upstream != "" {
+	switch {
+	case v.Kind == hostingSetupApache && v.Config != "":
+		v.Help = "Preview from your redirect rules. Each export writes this block between # BEGIN Hatamoto and # END Hatamoto and keeps the rest of .htaccess."
+	case v.Config != "" && s.Upstream != "":
 		v.Help = fmt.Sprintf("Upstream %s is this server's listen address. Change it if your web server reaches it differently. Copy the config again after you change captcha, plugins or the theme.", s.Upstream)
 	}
 	return v
@@ -113,6 +138,31 @@ func hostingChecks(s HostingSetup, onS3Tab bool, loc *time.Location) []hostingCh
 	}
 	out = append(out, hostingCheck{"Security headers", headers, setupBadge("warning", "Add")})
 	out = append(out, hostingRedirectsCheck(s, onS3Tab))
+	return out
+}
+
+// hostingApacheChecks lists the rows of the Apache / cPanel tab. It never
+// connects: the remote folder row reads the last run to this target.
+func hostingApacheChecks(s HostingSetup, loc *time.Location) []hostingCheck {
+	var out []hostingCheck
+	if s.HostKey != "" {
+		out = append(out, hostingCheck{"Host key", "Trusted: " + s.HostKey + ".", setupBadge("success", "OK")})
+	} else {
+		out = append(out, hostingCheck{"Host key", "Not trusted. Use Trust host key under Target.", setupBadge("warning", "Check")})
+	}
+	switch s.Remote {
+	case HostingCheckOK:
+		out = append(out, hostingCheck{"Remote folder", "The last export wrote to " + s.RemoteDir + ".", setupBadge("success", "OK")})
+	case HostingCheckFailed:
+		out = append(out, hostingCheck{"Remote folder", "The last export to " + s.RemoteDir + " failed. See the log below.", setupBadge("warning", "Check")})
+	default:
+		out = append(out, hostingCheck{"Remote folder", "Run Test export to check.", setupBadge("info", "Not checked")})
+	}
+	if s.HTAccess {
+		out = append(out, hostingCheck{"Redirects", fmt.Sprintf("Written to .htaccess as real redirects: %d exact, %d wildcard. mod_rewrite is needed only for wildcard rules.", s.Exact, s.Wildcard), setupBadge("success", "OK")})
+	} else {
+		out = append(out, hostingCheck{"Redirects", "Write .htaccess is off, so redirects are meta-refresh pages.", setupBadge("warning", "Check")})
+	}
 	return out
 }
 

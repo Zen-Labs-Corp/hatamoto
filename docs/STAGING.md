@@ -25,7 +25,7 @@ defaults. A staging copy usually keeps `ENVIRONMENT=production` so it behaves li
 At start, `serve` logs one line:
 
 ```
-staging mode: mail, webhooks, IndexNow, cache purge, off-site backup, updater, plugin outbound HTTP, install statistics, static export to S3 and media deletions in object storage are off
+staging mode: mail, webhooks, IndexNow, cache purge, off-site backup, updater, plugin outbound HTTP, install statistics, static export to S3, static export over SFTP and media deletions in object storage are off
 ```
 
 Each blocked send also logs one `staging mode: suppressed` line that names the sender.
@@ -43,6 +43,7 @@ Each blocked send also logs one `staging mode: suppressed` line that names the s
 | Plugin outbound HTTP (`http.fetch`, downloads, import by URL) | Refused | The plugin gets a blocked-fetch error |
 | Install statistics | No report is sent | A log line |
 | Static export to S3 | The upload is refused (the local directory target still works) | The export reports the staging message |
+| Static export over SFTP | The upload is refused, with no connection to the host | The export reports the staging message |
 | Media deletions in object storage | The object is kept; the media record is still removed on the copy | A log line with the object key |
 
 Why these: a copy holds the real credentials and the real install identity. Without the stops it would

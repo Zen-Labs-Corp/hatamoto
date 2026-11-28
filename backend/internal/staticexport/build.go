@@ -36,6 +36,10 @@ const (
 type BuildOptions struct {
 	Concurrency int
 	Progress    func(format string, a ...any)
+	// HTAccess writes the Hatamoto block of .htaccess for an Apache host to
+	// the staged root. The file is never in the manifest; an empty file means
+	// "no rules: remove the block".
+	HTAccess bool
 }
 
 // Report counts what Build wrote.
@@ -590,6 +594,15 @@ func (b *builder) writeRedirects(patterns []*redirect.Redirect) {
 	body, warns := WriteRedirects(b.lines, patterns)
 	for _, w := range warns {
 		b.warn("%s", w)
+	}
+	if b.o.HTAccess {
+		block, warns := RenderHTAccess(b.lines, patterns)
+		for _, w := range warns {
+			b.warn("%s", w)
+		}
+		if err := os.WriteFile(filepath.Join(b.dir, HTAccessFile), block, 0o644); err != nil {
+			b.fail("%s: %v", HTAccessFile, err)
+		}
 	}
 	if len(body) == 0 {
 		return

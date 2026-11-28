@@ -491,3 +491,49 @@ func TestStore_ListingCollisionKeepsManifestAndFileInStep(t *testing.T) {
 		}
 	}
 }
+
+func TestBuild_HTAccessBlockNotInManifest(t *testing.T) {
+	f := newFake("/admin", "/")
+	f.html("/", `<a href="/old">o</a>`)
+	f.pages["/old"] = fakeResp{status: 301, loc: "/new"}
+	f.html("/new", "<p>new</p>")
+	dir := t.TempDir()
+	m, _, err := Build(context.Background(), f, f.site, dir, BuildOptions{HTAccess: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, HTAccessFile))
+	if err != nil || !strings.Contains(string(got), "RedirectMatch 301 ^/old/?$ /new") {
+		t.Fatalf(".htaccess = %q, %v", got, err)
+	}
+	if _, ok := m.Files[HTAccessFile]; ok {
+		t.Errorf("manifest lists %s: %v", HTAccessFile, keys(m))
+	}
+	mustHave(t, m, RedirectsFile)
+}
+
+func TestBuild_HTAccessEmptyWithoutRedirects(t *testing.T) {
+	f := newFake("/admin", "/")
+	f.html("/", "<p>home</p>")
+	dir := t.TempDir()
+	if _, _, err := Build(context.Background(), f, f.site, dir, BuildOptions{HTAccess: true}); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Stat(filepath.Join(dir, HTAccessFile)); err != nil || fi.Size() != 0 {
+		t.Fatalf("want an empty %s, got %v, %v", HTAccessFile, fi, err)
+	}
+}
+
+func TestBuild_NoHTAccessByDefault(t *testing.T) {
+	f := newFake("/admin", "/")
+	f.html("/", `<a href="/old">o</a>`)
+	f.pages["/old"] = fakeResp{status: 301, loc: "/new"}
+	f.html("/new", "<p>new</p>")
+	_, _, dir, err := build(t, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, HTAccessFile)); !os.IsNotExist(err) {
+		t.Fatalf("%s written without the option: %v", HTAccessFile, err)
+	}
+}

@@ -127,6 +127,7 @@
 <fieldset id="hosting-target" class="hm-field__group"><legend class="hm-field__label">Publish to</legend>
 <label class="hm-field__check" for="hosting-target-0"><input class="hm-field__box" type="radio" id="hosting-target-0" name="target" value="dir" checked><span>Local directory</span></label>
 <label class="hm-field__check" for="hosting-target-1"><input class="hm-field__box" type="radio" id="hosting-target-1" name="target" value="s3"><span>S3-compatible storage</span></label>
+<label class="hm-field__check" for="hosting-target-2"><input class="hm-field__box" type="radio" id="hosting-target-2" name="target" value="sftp"><span>SFTP (cPanel / shared hosting)</span></label>
 </fieldset>
 </div>
 <div data-hosting-only="dir"><div class="hm-field">
@@ -169,6 +170,51 @@
 <input class="hm-field__control" type="password" id="hosting-secret-key" name="secret_key" aria-describedby="hosting-secret-key-help" autocomplete="new-password">
 <p class="hm-field__help" id="hosting-secret-key-help">The key stays on the server and is never shown again.</p>
 </div></div>
+</div>
+<div data-hosting-only="sftp">
+<div class="hm-pair"><div class="hm-field">
+<label class="hm-field__label" for="hosting-sftp-host">Host</label>
+<input class="hm-field__control" type="text" id="hosting-sftp-host" name="sftp_host" placeholder="ssh.example.com" aria-describedby="hosting-sftp-host-help" autocomplete="off">
+<p class="hm-field__help" id="hosting-sftp-host-help">The SFTP or SSH host name from your hosting provider.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="hosting-sftp-port">Port</label>
+<input class="hm-field__control" type="text" id="hosting-sftp-port" name="sftp_port" value="22" autocomplete="off" inputmode="numeric">
+</div></div>
+<div class="hm-pair"><div class="hm-field">
+<label class="hm-field__label" for="hosting-sftp-user">User</label>
+<input class="hm-field__control" type="text" id="hosting-sftp-user" name="sftp_user" autocomplete="off">
+</div>
+<div class="hm-field">
+<fieldset id="hosting-sftp-auth" class="hm-field__group"><legend class="hm-field__label">Sign in with</legend>
+<label class="hm-field__check" for="hosting-sftp-auth-0"><input class="hm-field__box" type="radio" id="hosting-sftp-auth-0" name="sftp_auth" value="password" checked><span>Password</span></label>
+<label class="hm-field__check" for="hosting-sftp-auth-1"><input class="hm-field__box" type="radio" id="hosting-sftp-auth-1" name="sftp_auth" value="key"><span>Private key</span></label>
+</fieldset>
+</div></div>
+<div data-hosting-only="sftp-password"><div class="hm-field">
+<label class="hm-field__label" for="hosting-sftp-password">Password</label>
+<input class="hm-field__control" type="password" id="hosting-sftp-password" name="sftp_password" aria-describedby="hosting-sftp-password-help" autocomplete="new-password">
+<p class="hm-field__help" id="hosting-sftp-password-help">The password stays on the server and is never shown again.</p>
+</div></div>
+<div data-hosting-only="sftp-key"><div class="hm-field">
+<label class="hm-field__label" for="hosting-sftp-key">Private key</label>
+<textarea class="hm-field__control" id="hosting-sftp-key" name="sftp_key" rows="6" aria-describedby="hosting-sftp-key-help" autocomplete="off" data-hm-code="" spellcheck="false"></textarea>
+<p class="hm-field__help" id="hosting-sftp-key-help">An OpenSSH private key without a passphrase. It stays on the server and is never shown again.</p>
+</div></div>
+<div class="hm-field">
+<label class="hm-field__label" for="hosting-sftp-dir">Remote folder</label>
+<input class="hm-field__control" type="text" id="hosting-sftp-dir" name="sftp_dir" value="public_html" aria-describedby="hosting-sftp-dir-help" autocomplete="off">
+<p class="hm-field__help" id="hosting-sftp-dir-help">A folder in your home on the host, for example public_html. Hatamoto deletes only files it published.</p>
+</div>
+<div class="hm-setlist"><div class="hm-setrow">
+<div class="hm-setrow__text"><p class="hm-setrow__name">Host key</p><p class="hm-field__help">Not trusted yet. Save the target, then check the key.</p></div>
+<div class="hm-setrow__control"><button type="submit" class="hm-btn hm-btn--secondary" aria-describedby="hosting-trust-why" disabled="disabled" form="hostkey-form"><span>Trust host key</span></button></div>
+</div></div>
+<p class="hm-field__help" id="hosting-trust-why">Save an SFTP target first.</p>
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="hosting-sftp-htaccess"><input class="hm-field__box" type="checkbox" role="switch" id="hosting-sftp-htaccess" name="sftp_htaccess" value="on" aria-describedby="hosting-sftp-htaccess-help"><span>Write .htaccess</span></label><input type="hidden" name="sftp_htaccess" value="off">
+<p class="hm-field__help" id="hosting-sftp-htaccess-help">Redirects become real redirects on Apache. Hatamoto edits only its own block of .htaccess.</p>
+</div>
 </div>
 </div></section>
 <section class="hm-card" id="hosting-addresses" aria-labelledby="hosting-addresses-title">
@@ -219,6 +265,7 @@
 <li><a class="hm-tabs__tab" href="/admin/settings/hosting?setup=caddy#hosting-setup" aria-current="page">Caddy</a></li>
 <li><a class="hm-tabs__tab" href="/admin/settings/hosting?setup=nginx#hosting-setup">nginx</a></li>
 <li><a class="hm-tabs__tab" href="/admin/settings/hosting?setup=s3#hosting-setup">S3 &#43; CDN</a></li>
+<li><a class="hm-tabs__tab" href="/admin/settings/hosting?setup=apache#hosting-setup">Apache / cPanel</a></li>
 </ul></nav>
 <div class="hm-setlist"><div class="hm-setrow">
 <div class="hm-setrow__text"><p class="hm-setrow__name">Site address</p><p class="hm-field__help">Not checked yet. It runs after the next export on this server.</p></div>
@@ -272,6 +319,7 @@
 </footer></section>
 </form>
 <form id="hosting-setup-form" hidden></form>
+<form id="hostkey-form" method="get" action="/admin/settings/hosting/host-key"></form>
 <form id="test-form" method="post" action="/admin/settings/hosting/test"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
 <form id="export-form" method="post" action="/admin/settings/hosting/export"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
 <form id="rebuild-form" method="post" action="/admin/settings/hosting/rebuild"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>

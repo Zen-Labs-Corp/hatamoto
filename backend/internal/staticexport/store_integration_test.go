@@ -228,3 +228,33 @@ func TestRunStore_PruneRuns(t *testing.T) {
 		t.Fatalf("left %d runs, err %v", len(runs), err)
 	}
 }
+
+func TestSettingsStore_SFTPRoundTrip(t *testing.T) {
+	pool := newIntegrationPool(t)
+	ctx := context.Background()
+	st := NewSettingsStore(pool)
+	sealed, err := SealSFTPSecret(SecretKey("server-secret"), "hunter2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := validSFTP()
+	set.SFTPHost, set.SFTPPort, set.SFTPUser, set.SFTPAuth = "sftp.example.com", 2222, "owner", SFTPAuthKey
+	set.SFTPSecretSealed, set.SFTPDir, set.SFTPHostKey, set.SFTPHTAccess = sealed, "www/site", "SHA256:abc", false
+	if err := st.Save(ctx, set); err != nil {
+		t.Fatal(err)
+	}
+	got, found, err := st.Get(ctx)
+	if err != nil || !found {
+		t.Fatalf("get: %v %v", found, err)
+	}
+	if got.Target != TargetSFTP || got.SFTPHost != "sftp.example.com" || got.SFTPPort != 2222 || got.SFTPUser != "owner" ||
+		got.SFTPAuth != SFTPAuthKey || got.SFTPDir != "www/site" || got.SFTPHostKey != "SHA256:abc" || got.SFTPHTAccess {
+		t.Fatalf("got = %+v", got)
+	}
+	if s, ok := got.SFTPSecret(SecretKey("server-secret")); !ok || s != "hunter2" {
+		t.Fatal("sealed SFTP secret did not round trip")
+	}
+	if got.HasSecret() {
+		t.Fatal("the S3 secret column was filled by an SFTP save")
+	}
+}

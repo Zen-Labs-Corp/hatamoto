@@ -14,6 +14,7 @@ import (
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/importjob"
+	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/staticexport"
 	"hatamoto.dev/core/internal/statichost"
 	"hatamoto.dev/core/internal/webconf"
@@ -33,6 +34,8 @@ type hostingSetupDeps struct {
 	headers   func(ctx context.Context, live string) []secHeader
 	folder    func(dir string) string
 	reach     func() (string, time.Time)
+	// rules lists the active redirect rules for the .htaccess preview; nil = no preview.
+	rules func(ctx context.Context) ([]*redirect.Redirect, error)
 }
 
 // uploadLimitMB is the request body limit a web server in front of Hatamoto
@@ -92,6 +95,10 @@ func (h *hostingAdmin) Setup(ctx context.Context) (admin.HostingSetup, error) {
 			out.HeaderNames = append(out.HeaderNames, x.Name)
 		}
 	}
+	if set.Target == staticexport.TargetSFTP {
+		h.setupSFTP(ctx, set, &out)
+		return out, nil
+	}
 	if set.Target != staticexport.TargetS3 && set.DirPath != "" {
 		if d.folder != nil {
 			out.Folder = d.folder(set.DirPath)
@@ -128,6 +135,56 @@ func (h *hostingAdmin) Setup(ctx context.Context) (admin.HostingSetup, error) {
 		}
 	}
 	return out, nil
+}
+
+// setupSFTP fills the SFTP part of the setup card. It makes no network call:
+// the remote check reads the run log and the preview comes from the saved
+// redirect rules (the export also writes redirects it finds while crawling).
+func (h *hostingAdmin) setupSFTP(ctx context.Context, set staticexport.Settings, out *admin.HostingSetup) {
+	out.HostKey, out.HTAccess, out.RemoteDir = set.SFTPHostKey, set.SFTPHTAccess, set.SFTPDir
+	out.Remote = admin.HostingCheckUnknown
+	// Runs record the cleaned folder (public_html/ is public_html).
+	dir := set.SFTPDir
+	if clean, err := staticexport.ValidateRemoteDir(dir); err == nil {
+		dir = clean
+	}
+	key := staticexport.SFTPKey(set.SFTPUser, set.SFTPHost, set.SFTPPort, dir)
+	if runs, err := h.runs.List(ctx, 20); err == nil {
+		for _, r := range runs {
+			if r.Target != key {
+				continue
+			}
+			switch r.Status {
+			case admin.HostingRunOK:
+				out.Remote = admin.HostingCheckOK
+			case admin.HostingRunFailed:
+				out.Remote = admin.HostingCheckFailed
+			default:
+				continue // still running: look at the one before
+			}
+			break
+		}
+	}
+	if h.setup.rules == nil {
+		return
+	}
+	rules, err := h.setup.rules(ctx)
+	if err != nil {
+		return
+	}
+	var exact []staticexport.Line
+	var patterns []*redirect.Redirect
+	for _, r := range rules {
+		if redirect.IsPatternSource(r.SourcePath) {
+			patterns = append(patterns, r)
+		} else {
+			exact = append(exact, staticexport.Line{From: r.SourcePath, To: r.TargetURL, Status: r.StatusCode})
+		}
+	}
+	block, skipped := staticexport.RenderHTAccess(exact, patterns)
+	out.HTAccessBlock, out.Skipped = string(block), skipped
+	out.Exact, out.Wildcard, out.RedirectsSplit = len(exact), len(patterns), true
+	out.RedirectsTotal = len(exact) + len(patterns)
 }
 
 // readRedirects returns the _redirects file of the last export in dir, "" when

@@ -1,6 +1,6 @@
 // Settings > Hosting with the same host setup (QA_SEED_HOSTING=1 QA_HOSTING_LIVE_ORIGIN= so the seed saves no
 // live origin): Same host is chosen and Advanced is closed, the "Set up your web server" card has the Caddy,
-// nginx and S3 + CDN tabs, the config holds the proxy and the admin path, and the page has no console or page
+// nginx, S3 + CDN and Apache / cPanel tabs, the config holds the proxy and the admin path, and the page has no console or page
 // error. The QA instance has no site address, so the run sets https://example.com on Settings > General first
 // (saving it also refreshes the running server's island snapshot, which the seed wrote straight to the
 // database; that is what turns the island status into "via proxy") and puts the original back at the end.
@@ -49,7 +49,7 @@ ok(await page.locator("#hosting-islands tbody tr").count() > 0, "the island list
 ok((await page.locator("#hosting-islands tbody td[data-label=Status]").first().innerText()).trim() === "via proxy", "the island status reads via proxy");
 ok((await page.locator("#hosting-setup").count()) === 1, "the setup card is shown");
 const tabs = (await page.locator("#hosting-setup .hm-tabs__tab").allInnerTexts()).map((t) => t.trim());
-ok(tabs.join("|") === "Caddy|nginx|S3 + CDN", `tabs: ${tabs.join(" | ")}`);
+ok(tabs.join("|") === "Caddy|nginx|S3 + CDN|Apache / cPanel", `tabs: ${tabs.join(" | ")}`);
 const config = () => page.locator("#hosting-setup-config").inputValue();
 let c = await config();
 ok(c.includes("reverse_proxy") && c.includes(admin), "the Caddy config proxies to Hatamoto and passes the admin path");

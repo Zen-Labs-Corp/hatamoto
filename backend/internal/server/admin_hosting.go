@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
@@ -58,6 +59,8 @@ type hostingAdmin struct {
 	lookup     safefetch.Lookup    // nil: no save-time DNS lookup
 	setup      hostingSetupDeps
 	finished   func() // after a Test export ends (nil = nothing)
+	// probe reads the host key an SFTP host presents; nil = the real handshake.
+	probe func(ctx context.Context, host string, port int, allowPrivate bool) (string, error)
 }
 
 func (h *hostingAdmin) load(ctx context.Context) (staticexport.Settings, error) {
@@ -73,8 +76,11 @@ func (h *hostingAdmin) load(ctx context.Context) (staticexport.Settings, error) 
 
 // hostingTargetSaved reports whether the saved target can be exported to.
 func hostingTargetSaved(set staticexport.Settings) bool {
-	if set.Target == staticexport.TargetS3 {
+	switch set.Target {
+	case staticexport.TargetS3:
 		return set.Bucket != ""
+	case staticexport.TargetSFTP:
+		return set.SFTPHost != "" && set.SFTPUser != "" && set.HasSFTPSecret()
 	}
 	return set.DirPath != ""
 }
@@ -85,10 +91,14 @@ func (h *hostingAdmin) View(ctx context.Context) (admin.HostingView, error) {
 		return admin.HostingView{}, err
 	}
 	_, readable := set.Secret(h.key)
+	_, sftpReadable := set.SFTPSecret(h.key)
 	v := admin.HostingView{
 		Mode: set.Mode, Target: set.Target, Dir: set.DirPath, Service: set.Service, Endpoint: set.Endpoint,
 		Bucket: set.Bucket, Prefix: set.Prefix, Region: set.Region, AccessKey: set.AccessKey, LiveOrigin: set.LiveOrigin,
 		SecretSaved: readable, SecretLost: set.HasSecret() && !readable,
+		SFTPHost: set.SFTPHost, SFTPPort: strconv.Itoa(set.SFTPPort), SFTPUser: set.SFTPUser, SFTPAuth: set.SFTPAuth,
+		SFTPDir: set.SFTPDir, SFTPHostKey: set.SFTPHostKey, SFTPHTAccess: set.SFTPHTAccess,
+		SFTPSecretSaved: sftpReadable, SFTPSecretLost: set.HasSFTPSecret() && !sftpReadable,
 		WorkerOff: h.trigger == nil,
 	}
 	if set.Mode == staticexport.ModeStatic {
@@ -120,10 +130,19 @@ func (h *hostingAdmin) Save(ctx context.Context, in admin.HostingInput) ([]ui.Fi
 		}
 		next.SecretSealed = sealed
 	}
+	if errs := h.applySFTP(&next, cur, in); len(errs) > 0 {
+		return errs, nil
+	}
 	check := next
 	check.Mode = in.Mode
 	// Before Validate: a link-local http endpoint would otherwise fail with the
 	// generic https message. Built by hand, hostingFieldError would misroute it.
+	if check.Target == staticexport.TargetSFTP && !staticexport.AllowPrivateSFTP(h.getenv) {
+		if err := staticexport.CheckSFTPHost(check.SFTPHost); err != nil {
+			return []ui.FieldError{{ID: "hosting-sftp-host", Label: "Host",
+				Message: "This address is on a private network. Use the host name from your hosting provider, or set " + staticexport.EnvSFTPAllowPrivate + "=1 on the server for a host on your own network."}}, nil
+		}
+	}
 	if check.Target == staticexport.TargetS3 && !staticexport.AllowPrivateS3(h.getenv) {
 		if err := staticexport.ResolveS3Endpoint(ctx, check.EffectiveEndpoint(), h.lookup); err != nil {
 			return []ui.FieldError{{ID: "hosting-endpoint", Label: "Endpoint",
@@ -131,11 +150,11 @@ func (h *hostingAdmin) Save(ctx context.Context, in admin.HostingInput) ([]ui.Fi
 		}
 	}
 	if err := check.Validate(); err != nil {
-		return []ui.FieldError{hostingFieldError(err)}, nil
+		return []ui.FieldError{sftpFieldError(err, check.SFTPAuth)}, nil
 	}
 	// The store validates with the mode it keeps; Save never changes it.
 	if err := next.Validate(); err != nil {
-		return []ui.FieldError{hostingFieldError(err)}, nil
+		return []ui.FieldError{sftpFieldError(err, next.SFTPAuth)}, nil
 	}
 	if in.Mode == staticexport.ModeStatic {
 		if errs := h.staticChecks(ctx, check); len(errs) > 0 {
@@ -147,6 +166,71 @@ func (h *hostingAdmin) Save(ctx context.Context, in admin.HostingInput) ([]ui.Fi
 	}
 	h.refresh(ctx)
 	return nil, nil
+}
+
+// applySFTP copies the SFTP fields into next, drops the pin when the host or
+// port changed (Decision 5) and seals a typed password or key under the SFTP
+// AAD. A switch of sign-in method without a new secret drops the old one: a
+// stored password is never opened as a key.
+func (h *hostingAdmin) applySFTP(next *staticexport.Settings, cur staticexport.Settings, in admin.HostingInput) []ui.FieldError {
+	port := 22
+	if p := strings.TrimSpace(in.SFTPPort); p != "" {
+		n, err := strconv.Atoi(p)
+		if err != nil {
+			return []ui.FieldError{{ID: "hosting-sftp-port", Label: "Port", Message: "Enter a port number from 1 to 65535."}}
+		}
+		port = n
+	}
+	next.SFTPHost, next.SFTPPort, next.SFTPUser = in.SFTPHost, port, in.SFTPUser
+	next.SFTPDir, next.SFTPHTAccess = in.SFTPDir, in.SFTPHTAccess
+	if in.SFTPAuth != "" {
+		next.SFTPAuth = in.SFTPAuth
+	}
+	if next.SFTPHost != cur.SFTPHost || next.SFTPPort != cur.SFTPPort {
+		next.SFTPHostKey = ""
+	}
+	typed, field, label := in.SFTPPassword, "hosting-sftp-password", "Password"
+	if next.SFTPAuth == staticexport.SFTPAuthKey {
+		typed, field, label = normaliseKey(in.SFTPKey), "hosting-sftp-key", "Private key"
+	}
+	switch {
+	case typed != "":
+		if next.SFTPAuth == staticexport.SFTPAuthKey {
+			if _, err := staticexport.ParseSFTPKey(typed); err != nil {
+				return []ui.FieldError{{ID: field, Label: label, Message: capitalize(fullStopText(err.Error()))}}
+			}
+		}
+		sealed, err := staticexport.SealSFTPSecret(h.key, typed)
+		if err != nil {
+			return []ui.FieldError{{ID: field, Label: label, Message: "Could not store the " + strings.ToLower(label) + "."}}
+		}
+		next.SFTPSecretSealed = sealed
+	case next.SFTPAuth != cur.SFTPAuth:
+		next.SFTPSecretSealed = nil
+	}
+	return nil
+}
+
+// normaliseKey makes a pasted private key a clean OpenSSH block: LF line ends
+// and one final newline. An empty paste stays empty.
+func normaliseKey(raw string) string {
+	k := strings.TrimSpace(strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(raw))
+	if k == "" {
+		return ""
+	}
+	return k + "\n"
+}
+
+// sftpFieldError maps a Validate message to its field. The "password or
+// private key" message belongs to whichever of the two the sign-in uses.
+func sftpFieldError(err error, auth string) ui.FieldError {
+	if strings.Contains(strings.ToLower(err.Error()), "password or private key") {
+		if auth == staticexport.SFTPAuthKey {
+			return ui.FieldError{ID: "hosting-sftp-key", Label: "Private key", Message: capitalize(fullStopText(err.Error()))}
+		}
+		return ui.FieldError{ID: "hosting-sftp-password", Label: "Password", Message: capitalize(fullStopText(err.Error()))}
+	}
+	return hostingFieldError(err)
 }
 
 // staticChecks are the checks a static configuration must pass: the target
@@ -188,12 +272,23 @@ func (h *hostingAdmin) SetMode(ctx context.Context, mode string) error {
 		if err := cur.Validate(); err != nil {
 			return errors.New(capitalize(fullStopText(err.Error())))
 		}
-		if cur.Target == staticexport.TargetDir {
+		switch cur.Target {
+		case staticexport.TargetSFTP:
+			if _, err := cur.SFTPConfig(h.key, h.getenv); err != nil {
+				return errors.New(capitalize(fullStopText(err.Error())))
+			}
+			if cur.SFTPHostKey == "" {
+				//lint:ignore ST1005 shown to the owner verbatim as a sentence
+				return errors.New("Trust the host key of the SFTP host first.")
+			}
+		case staticexport.TargetS3:
+			if _, err := cur.S3Target(h.key); err != nil {
+				return errors.New(capitalize(fullStopText(err.Error())))
+			}
+		default:
 			if _, err := staticexport.NewDirTarget(cur.DirPath, h.dirGuard); err != nil {
 				return errors.New(capitalize(fullStopText(err.Error())))
 			}
-		} else if _, err := cur.S3Target(h.key); err != nil {
-			return errors.New(capitalize(fullStopText(err.Error())))
 		}
 	} else {
 		cur.Mode = staticexport.ModeServed
@@ -332,6 +427,43 @@ func (h *hostingAdmin) LastRun(ctx context.Context) (admin.HostingRun, bool, err
 	return admin.HostingRun{}, false, nil
 }
 
+// ProbeHostKey reads the host key the SAVED SFTP host presents now. The
+// handshake stops before sign-in, so no credential is sent.
+func (h *hostingAdmin) ProbeHostKey(ctx context.Context) (string, error) {
+	set, err := h.load(ctx)
+	if err != nil {
+		return "", err
+	}
+	if set.Target != staticexport.TargetSFTP || set.SFTPHost == "" {
+		return "", admin.ErrHostingNoTarget
+	}
+	probe := h.probe
+	if probe == nil {
+		probe = func(ctx context.Context, host string, port int, allowPrivate bool) (string, error) {
+			return staticexport.ProbeSFTPHostKey(ctx, host, port, allowPrivate, nil)
+		}
+	}
+	return probe(ctx, set.SFTPHost, set.SFTPPort, staticexport.AllowPrivateSFTP(h.getenv))
+}
+
+// TrustHostKey stores fingerprint after a fresh probe still shows it. It is
+// the only writer of the pinned host key: an export never pins.
+func (h *hostingAdmin) TrustHostKey(ctx context.Context, fingerprint string) error {
+	got, err := h.ProbeHostKey(ctx)
+	if err != nil {
+		return err
+	}
+	if got != fingerprint {
+		return admin.ErrHostingHostKeyChanged
+	}
+	cur, err := h.load(ctx)
+	if err != nil {
+		return err
+	}
+	cur.SFTPHostKey = fingerprint
+	return h.settings.Save(ctx, cur)
+}
+
 func (h *hostingAdmin) Islands() ([]admin.HostingIsland, []string) {
 	var live []admin.HostingIsland
 	var stays []string
@@ -358,6 +490,9 @@ func hostingFieldError(err error) ui.FieldError {
 	msg := err.Error()
 	low := strings.ToLower(msg)
 	for _, f := range []struct{ word, id, label string }{
+		{"remote folder", "hosting-sftp-dir", "Remote folder"}, {"sftp host", "hosting-sftp-host", "Host"},
+		{"sftp port", "hosting-sftp-port", "Port"}, {"sftp user", "hosting-sftp-user", "User"},
+		{"sftp sign-in", "hosting-sftp-auth", "Sign in with"}, {"private key", "hosting-sftp-key", "Private key"},
 		{"directory", "hosting-dir", "Directory"}, {"secret key", "hosting-secret-key", "Secret key"},
 		{"service", "hosting-service", "Storage service"}, {"region", "hosting-region", "Region"},
 		{"bucket", "hosting-bucket", "Bucket"}, {"prefix", "hosting-prefix", "Folder prefix"},

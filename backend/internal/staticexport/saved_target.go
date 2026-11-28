@@ -11,7 +11,7 @@ import (
 )
 
 // SavedTarget builds the publish target from saved settings: the directory
-// through NewDirTarget (guard g), or S3 with the sealed secret opened by key.
+// through NewDirTarget (guard g), S3 or SFTP with the sealed secret opened by key.
 // It refuses an S3 target that overlaps the media object storage. Errors
 // never contain the secret.
 func SavedTarget(set Settings, key []byte, g DirGuard, getenv func(string) string) (Target, error) {
@@ -27,6 +27,17 @@ func SavedTarget(set Settings, key []byte, g DirGuard, getenv func(string) strin
 			return nil, err
 		}
 		return S3TargetChecked(t, getenv)
+	case TargetSFTP:
+		cfg, err := set.SFTPConfig(key, getenv)
+		if err != nil {
+			return nil, err
+		}
+		if !cfg.AllowPrivate {
+			if err := CheckSFTPHost(cfg.Host); err != nil {
+				return nil, err
+			}
+		}
+		return NewSFTPTarget(cfg)
 	}
 	return nil, fmt.Errorf("unknown target %q", set.Target)
 }

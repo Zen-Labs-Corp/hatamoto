@@ -96,7 +96,9 @@ func Export(ctx context.Context, src Source, runs RunRecorder, t Target, o Optio
 		return fail(fmt.Errorf("stage: %w", err), Report{})
 	}
 
-	manifest, rep, err := Build(ctx, src, site, staged, BuildOptions{Concurrency: o.Concurrency, Progress: say})
+	htaccess, _ := t.(interface{ WritesHTAccess() bool })
+	manifest, rep, err := Build(ctx, src, site, staged, BuildOptions{Concurrency: o.Concurrency, Progress: say,
+		HTAccess: htaccess != nil && htaccess.WritesHTAccess()})
 	res.Report = rep
 	for _, w := range rep.Warnings {
 		say("static: warning: %s", w)

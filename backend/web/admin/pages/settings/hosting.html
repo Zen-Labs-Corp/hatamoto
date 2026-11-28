@@ -20,6 +20,21 @@
 {{template "hm/pair-start"}}{{template "hm/field" dict "ID" "hosting-access-key" "Name" "access_key" "Label" "Access key" "Value" .Form.AccessKey "Error" (index .Errs "hosting-access-key") "Attrs" (attrmap "autocomplete" "off")}}
 {{template "hm/field" dict "ID" "hosting-secret-key" "Name" "secret_key" "Label" "Secret key" "Type" "password" "Placeholder" (or (and .Form.SecretSaved "Saved") "") "Help" (or (and .Form.SecretLost "The saved secret key can no longer be read. Enter it again.") (and .Form.SecretSaved "Saved. Leave blank to keep the saved key.") "The key stays on the server and is never shown again.") "Error" (index .Errs "hosting-secret-key") "Attrs" (attrmap "autocomplete" "new-password")}}{{template "hm/pair-end"}}
 </div>
+<div data-hosting-only="sftp">
+{{template "hm/pair-start"}}{{template "hm/field" dict "ID" "hosting-sftp-host" "Name" "sftp_host" "Label" "Host" "Value" .Form.SFTPHost "Placeholder" "ssh.example.com" "Help" "The SFTP or SSH host name from your hosting provider." "Error" (index .Errs "hosting-sftp-host") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "hosting-sftp-port" "Name" "sftp_port" "Label" "Port" "Value" .Form.SFTPPort "Error" (index .Errs "hosting-sftp-port") "Attrs" (attrmap "inputmode" "numeric" "autocomplete" "off")}}{{template "hm/pair-end"}}
+{{template "hm/pair-start"}}{{template "hm/field" dict "ID" "hosting-sftp-user" "Name" "sftp_user" "Label" "User" "Value" .Form.SFTPUser "Error" (index .Errs "hosting-sftp-user") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "hosting-sftp-auth" "Name" "sftp_auth" "Label" "Sign in with" "Control" "radio" "Options" .AuthOptions "Error" (index .Errs "hosting-sftp-auth")}}{{template "hm/pair-end"}}
+<div data-hosting-only="sftp-password">{{template "hm/field" dict "ID" "hosting-sftp-password" "Name" "sftp_password" "Label" "Password" "Type" "password" "Placeholder" (or (and .Form.SFTPSecretSaved (eq .Form.SFTPAuth "password") "Saved") "") "Help" (or (and .Form.SFTPSecretLost "The saved password can no longer be read. Enter it again.") (and .Form.SFTPSecretSaved (eq .Form.SFTPAuth "password") "Saved. Leave blank to keep the saved password.") "The password stays on the server and is never shown again.") "Error" (index .Errs "hosting-sftp-password") "Attrs" (attrmap "autocomplete" "new-password")}}</div>
+<div data-hosting-only="sftp-key">{{template "hm/field" dict "ID" "hosting-sftp-key" "Name" "sftp_key" "Label" "Private key" "Control" "textarea" "Rows" 6 "Placeholder" (or (and .Form.SFTPSecretSaved (eq .Form.SFTPAuth "key") "Saved") "") "Help" (or (and .Form.SFTPSecretLost "The saved key can no longer be read. Enter it again.") (and .Form.SFTPSecretSaved (eq .Form.SFTPAuth "key") "Saved. Leave blank to keep the saved key.") "An OpenSSH private key without a passphrase. It stays on the server and is never shown again.") "Error" (index .Errs "hosting-sftp-key") "Attrs" (attrmap "autocomplete" "off" "spellcheck" "false" "data-hm-code" "")}}</div>
+{{template "hm/field" dict "ID" "hosting-sftp-dir" "Name" "sftp_dir" "Label" "Remote folder" "Value" .Form.SFTPDir "Help" "A folder in your home on the host, for example public_html. Hatamoto deletes only files it published." "Error" (index .Errs "hosting-sftp-dir") "Attrs" (attrmap "autocomplete" "off")}}
+<div class="hm-setlist"><div class="hm-setrow">
+<div class="hm-setrow__text"><p class="hm-setrow__name">Host key</p><p class="hm-field__help">{{if .Form.SFTPHostKey}}<code>{{.Form.SFTPHostKey}}</code>{{else}}Not trusted yet. Save the target, then check the key.{{end}}</p></div>
+<div class="hm-setrow__control">{{template "hm/button" dict "Label" "Trust host key" "Type" "submit" "Attrs" (cond (ne .TrustWhy "") (attrmap "form" "hostkey-form" "disabled" "disabled" "aria-describedby" "hosting-trust-why") (attrmap "form" "hostkey-form"))}}</div>
+</div></div>
+{{with .TrustWhy}}<p class="hm-field__help" id="hosting-trust-why">{{.}}</p>{{end}}
+{{template "hm/field" dict "ID" "hosting-sftp-htaccess" "Name" "sftp_htaccess" "Label" "Write .htaccess" "Control" "switch" "Value" "on" "OffValue" "off" "Checked" .Form.SFTPHTAccess "Help" "Redirects become real redirects on Apache. Hatamoto edits only its own block of .htaccess."}}
+</div>
 {{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "hosting-addresses" "Title" "Addresses" "Heading" "h2"}}
 <div class="hm-setlist"><div class="hm-setrow">
@@ -68,6 +83,7 @@
 {{template "hm/card-foot-end"}}
 </form>
 <form id="hosting-setup-form" hidden></form>
+<form id="hostkey-form" method="get" action="{{adminPath}}/settings/hosting/host-key"></form>
 <form id="test-form" method="post" action="{{adminPath}}/settings/hosting/test">{{template "hm/csrf" $}}</form>
 <form id="export-form" method="post" action="{{adminPath}}/settings/hosting/export">{{template "hm/csrf" $}}</form>
 <form id="rebuild-form" method="post" action="{{adminPath}}/settings/hosting/rebuild">{{template "hm/csrf" $}}</form>

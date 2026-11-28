@@ -38,6 +38,10 @@ type fakeHosting struct {
 	live      []HostingIsland
 	stays     []string
 	setup     HostingSetup
+	probe     string
+	probeErr  error
+	trustErr  error
+	trusted   []string
 }
 
 func (f *fakeHosting) View(context.Context) (HostingView, error) { return f.view, f.viewErr }
@@ -89,8 +93,16 @@ func (f *fakeHosting) LastRun(context.Context) (HostingRun, bool, error) {
 	}
 	return HostingRun{}, false, nil
 }
-func (f *fakeHosting) Setup(context.Context) (HostingSetup, error) { return f.setup, nil }
-func (f *fakeHosting) Islands() ([]HostingIsland, []string)        { return f.live, f.stays }
+func (f *fakeHosting) Setup(context.Context) (HostingSetup, error)  { return f.setup, nil }
+func (f *fakeHosting) ProbeHostKey(context.Context) (string, error) { return f.probe, f.probeErr }
+func (f *fakeHosting) TrustHostKey(_ context.Context, fp string) error {
+	if f.trustErr != nil {
+		return f.trustErr
+	}
+	f.trusted = append(f.trusted, fp)
+	return nil
+}
+func (f *fakeHosting) Islands() ([]HostingIsland, []string) { return f.live, f.stays }
 
 func servedHosting() *fakeHosting {
 	return &fakeHosting{
@@ -447,7 +459,7 @@ func TestHostingSaveValidation(t *testing.T) {
 		want  string
 	}{
 		{"bad mode", url.Values{"mode": {"edge"}}, "Choose how pages are served."},
-		{"bad target", url.Values{"target": {"ftp"}}, "Choose a local directory or S3-compatible storage."},
+		{"bad target", url.Values{"target": {"ftp"}}, "Choose a local directory, S3-compatible storage or SFTP."},
 		{"bad service", url.Values{"service": {"gcs"}}, "Choose one of the listed services."},
 		{"relative dir", url.Values{"target": {"dir"}, "dir": {"site/out"}}, "Enter an absolute path"},
 		{"no bucket", url.Values{"bucket": {""}}, "Enter a bucket name."},
@@ -702,5 +714,157 @@ func TestHostingSaveOwnerOnlyAndCSRF(t *testing.T) {
 	}
 	if len(f.saved) != 0 {
 		t.Errorf("saved %v", f.saved)
+	}
+}
+
+const (
+	testSFTPPassword = "sftp-p4ss-0123456789" // gitleaks:allow
+	testSFTPKey      = "-----" + "BEGIN OPENSSH PRIVATE KEY-----\nsftp-key-body\n-----" + "END OPENSSH PRIVATE KEY-----\n"
+	testSFTPPrint    = "SHA256:abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG"
+)
+
+// sftpHosting is a static site that publishes over SFTP with a saved password.
+func sftpHosting() *fakeHosting {
+	f := staticHosting()
+	f.view = HostingView{
+		Mode: HostingStatic, Target: HostingTargetSFTP, SFTPHost: "ssh.example.net", SFTPPort: "22", SFTPUser: "alice",
+		SFTPAuth: HostingSFTPAuthPassword, SFTPDir: "public_html", SFTPHTAccess: true, SFTPSecretSaved: true,
+		SFTPHostKey: testSFTPPrint, LiveOrigin: "https://live.example.com",
+	}
+	return f
+}
+
+func sftpForm(extra url.Values) url.Values {
+	f := hostingForm(url.Values{
+		"target": {"sftp"}, "secret_key": {""}, "sftp_host": {"ssh.example.net"}, "sftp_port": {"22"}, "sftp_user": {"alice"},
+		"sftp_auth": {"password"}, "sftp_dir": {"public_html"}, "sftp_htaccess": {"on"},
+	})
+	for k, v := range extra {
+		f[k] = v
+	}
+	return f
+}
+
+func TestHostingSaveSFTPRefusedKeepsFields(t *testing.T) {
+	t.Parallel()
+
+	f := sftpHosting()
+	f.saveErrs = []ui.FieldError{{ID: "hosting-sftp-host", Label: "Host", Message: "That host is not allowed."}}
+	p := newHostingSaveRig(t, f)
+	grantSudo(p.rig)
+	form := sftpForm(url.Values{"sftp_host": {"posted.example.net"}, "sftp_user": {"posted-user"}, "sftp_password": {testSFTPPassword}, "sftp_key": {testSFTPKey}})
+	rec := p.do("POST", hostingURL, "owner-token", form, nil)
+	body := rec.Body.String()
+	if rec.Code != 422 || !strings.Contains(body, "That host is not allowed.") {
+		t.Fatalf("code %d, body lacks the error", rec.Code)
+	}
+	if strings.Contains(body, testSFTPPassword) || strings.Contains(body, "sftp-key-body") {
+		t.Fatal("the refused page echoes the password or key")
+	}
+	for _, want := range []string{`value="posted.example.net"`, `value="posted-user"`, `value="public_html"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the refused page lacks %s", want)
+		}
+	}
+	if len(p.events) != 0 {
+		t.Errorf("a refused save was audited: %+v", p.events)
+	}
+}
+
+func TestHostingSaveStaticSFTPChangeNeedsSudo(t *testing.T) {
+	t.Parallel()
+
+	for name, extra := range map[string]url.Values{
+		"host":     {"sftp_host": {"other.example.net"}},
+		"port":     {"sftp_port": {"2222"}},
+		"user":     {"sftp_user": {"bob"}},
+		"auth":     {"sftp_auth": {"key"}},
+		"dir":      {"sftp_dir": {"www"}},
+		"htaccess": {"sftp_htaccess": {"off"}},
+		"password": {"sftp_password": {testSFTPPassword}},
+		"key":      {"sftp_key": {testSFTPKey}},
+	} {
+		f := sftpHosting()
+		p := newHostingSaveRig(t, f)
+		form := sftpForm(extra)
+		rec := p.do("POST", hostingURL, "owner-token", form, nil)
+		if rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), p.a.sudoPath()) {
+			t.Fatalf("%s: save = %d %s, want the sudo page", name, rec.Code, rec.Header().Get("Location"))
+		}
+		if len(f.saved) != 0 || len(p.events) != 0 {
+			t.Fatalf("%s: saved %d, audited %d before sudo", name, len(f.saved), len(p.events))
+		}
+		grantSudo(p.rig)
+		if rec := p.do("POST", hostingURL, "owner-token", form, nil); rec.Code != 303 || len(f.saved) != 1 {
+			t.Fatalf("%s: with sudo = %d, saved %d", name, rec.Code, len(f.saved))
+		}
+		for k, v := range p.events[0].Detail {
+			if strings.Contains(toText(v), testSFTPPassword) || strings.Contains(toText(v), "sftp-key-body") {
+				t.Errorf("%s: audit %q leaks the secret", name, k)
+			}
+		}
+	}
+}
+
+func TestHostingSaveSFTPUnchangedNeedsNoSudo(t *testing.T) {
+	t.Parallel()
+
+	f := sftpHosting()
+	p := newHostingSaveRig(t, f)
+	f.view.LiveOrigin = ""
+	rec := p.do("POST", hostingURL, "owner-token", sftpForm(url.Values{
+		"live_origin": {""}, "service": {""}, "endpoint": {""}, "bucket": {""}, "prefix": {""}, "region": {""}, "access_key": {""},
+	}), nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != hostingURL || len(f.saved) != 1 {
+		t.Fatalf("save = %d %s, saved %d", rec.Code, rec.Header().Get("Location"), len(f.saved))
+	}
+	if f.saved[0].SFTPPassword != "" || f.saved[0].SFTPKey != "" || p.events[0].Detail["secret_changed"] != false {
+		t.Errorf("saved %+v, audit %v", f.saved[0], p.events[0].Detail)
+	}
+}
+
+func TestHostingValidateSFTP(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name  string
+		extra url.Values
+		want  string
+	}{
+		{"no host", url.Values{"sftp_host": {""}}, "Enter the SFTP host name."},
+		{"no user", url.Values{"sftp_user": {""}}, "Enter the SFTP user name."},
+		{"no dir", url.Values{"sftp_dir": {""}}, "Enter a folder on the host"},
+		{"port zero", url.Values{"sftp_port": {"0"}}, "Enter a port from 1 to 65535."},
+		{"port text", url.Values{"sftp_port": {"x"}}, "Enter a port from 1 to 65535."},
+		{"port high", url.Values{"sftp_port": {"70000"}}, "Enter a port from 1 to 65535."},
+		{"bad auth", url.Values{"sftp_auth": {"agent"}}, "Choose a password or a private key."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			f := servedHosting()
+			p := newHostingSaveRig(t, f)
+			rec := p.do("POST", hostingURL, "owner-token", sftpForm(tc.extra), nil)
+			if rec.Code != 422 || !strings.Contains(rec.Body.String(), tc.want) {
+				t.Fatalf("code %d, body lacks %q", rec.Code, tc.want)
+			}
+			if len(f.saved) != 0 {
+				t.Errorf("saved %v", f.saved)
+			}
+		})
+	}
+}
+
+func TestHostingSFTPSwitchOff(t *testing.T) {
+	t.Parallel()
+
+	for val, want := range map[string]bool{"on": true, "off": false} {
+		f := servedHosting()
+		p := newHostingSaveRig(t, f)
+		if rec := p.do("POST", hostingURL, "owner-token", sftpForm(url.Values{"sftp_htaccess": {val}}), nil); rec.Code != 303 {
+			t.Fatalf("%s: save = %d", val, rec.Code)
+		}
+		if len(f.saved) != 1 || f.saved[0].SFTPHTAccess != want {
+			t.Errorf("sftp_htaccess=%s: saved %+v, want %v", val, f.saved, want)
+		}
 	}
 }
