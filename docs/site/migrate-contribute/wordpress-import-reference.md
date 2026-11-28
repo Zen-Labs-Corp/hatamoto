@@ -117,7 +117,7 @@ Each field is mapped like this:
 | WYSIWYG | Rich text | HTML with `wp-content` URLs rewritten, sanitised by the rich-text policy. |
 | Email | Text (email format) | The string. |
 | URL, oEmbed | Text (URL format) | The string. |
-| Link | Text (URL format) | The link's URL. The link title is dropped and reported. |
+| Link | Text (URL format) | The link's URL. Only the URL is kept; the link title and target are not imported. |
 | Number, range | Number | The number. An unreadable value is kept as `<name>_raw`. |
 | True / false | Switch | True or false. |
 | Select, radio, button group | Text with fixed choices | The chosen key. A value outside the choices is kept as `<name>_raw`. |
