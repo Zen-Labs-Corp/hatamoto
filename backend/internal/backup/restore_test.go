@@ -19,6 +19,10 @@ import (
 	"testing"
 	"time"
 
+	"filippo.io/age"
+	"github.com/jackc/pgx/v5"
+
+	"hatamoto.dev/core/internal/backupcrypt"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/portability"
 )
@@ -848,4 +852,117 @@ func TestRestoreDryRunRefusesUnreadableDumps(t *testing.T) {
 	}
 	_, err := r.dry(t, buildArchive(t, nil))
 	wantRefusal(t, err, "cannot read the dumps for the role check")
+}
+
+// encryptedCopy encrypts the archive next to itself as .tar.age with a fresh
+// X25519 key and returns the copy's path and the identity that opens it.
+func encryptedCopy(t *testing.T, archive string) (string, *backupcrypt.Identity) {
+	t.Helper()
+	ident, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	k, err := backupcrypt.ParseRecipient(ident.Recipient().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	enc := archive + ".age"
+	if err := k.EncryptFile(archive, enc); err != nil {
+		t.Fatal(err)
+	}
+	return enc, mustIdentity(t, ident)
+}
+
+func mustIdentity(t *testing.T, ident *age.X25519Identity) *backupcrypt.Identity {
+	t.Helper()
+	id, err := backupcrypt.ParseIdentityFile(strings.NewReader(ident.String() + "\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func noDecryptTemps(t *testing.T, dir string) {
+	t.Helper()
+	left, _ := filepath.Glob(filepath.Join(dir, ".tmp-decrypt-*"))
+	if len(left) != 0 {
+		t.Errorf("decrypted copies left behind: %v", left)
+	}
+}
+
+func TestRestoreEncryptedSource(t *testing.T) {
+	plain := buildArchive(t, nil)
+	enc, id := encryptedCopy(t, plain)
+	dir := filepath.Dir(enc)
+	other, _ := age.GenerateX25519Identity()
+	dry := func(r *restoreRig, idf func() (*backupcrypt.Identity, error)) (*RestorePlan, error) {
+		return Restore(t.Context(), r.o, RestoreRequest{Source: enc, AdminURL: "postgres://su:pw@h/postgres", DryRun: true, Identity: idf})
+	}
+
+	t.Run("no key", func(t *testing.T) {
+		r := newRestoreRig(t)
+		if _, err := dry(r, nil); !errors.Is(err, backupcrypt.ErrNoKey) {
+			t.Fatalf("err = %v, want ErrNoKey", err)
+		}
+		noDecryptTemps(t, dir)
+	})
+	t.Run("wrong key touches nothing", func(t *testing.T) {
+		r := newRestoreRig(t)
+		wrong := mustIdentity(t, other)
+		q := &countingQuerier{Querier: r.q}
+		r.o.Q = q
+		if _, err := dry(r, func() (*backupcrypt.Identity, error) { return wrong, nil }); !errors.Is(err, backupcrypt.ErrWrongKey) {
+			t.Fatalf("err = %v, want ErrWrongKey", err)
+		}
+		if len(r.calls) != 0 || r.adminURL != "" || q.n != 0 {
+			t.Errorf("wrong key reached exec %v, admin %q, %d queries", r.calls, r.adminURL, q.n)
+		}
+		noDecryptTemps(t, dir)
+	})
+	t.Run("identity error", func(t *testing.T) {
+		r := newRestoreRig(t)
+		boom := errors.New("no tty")
+		if _, err := dry(r, func() (*backupcrypt.Identity, error) { return nil, boom }); !errors.Is(err, boom) {
+			t.Fatalf("err = %v", err)
+		}
+		noDecryptTemps(t, dir)
+	})
+	t.Run("right key dry run matches the plain plan", func(t *testing.T) {
+		want, err := newRestoreRig(t).dry(t, plain)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := dry(newRestoreRig(t), func() (*backupcrypt.Identity, error) { return id, nil })
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("plan = %+v, want %+v", got, want)
+		}
+		noDecryptTemps(t, dir)
+	})
+	t.Run("plain source never asks for a key", func(t *testing.T) {
+		asked := false
+		_, err := Restore(t.Context(), newRestoreRig(t).o, RestoreRequest{Source: plain, AdminURL: "postgres://su:pw@h/postgres", DryRun: true,
+			Identity: func() (*backupcrypt.Identity, error) { asked = true; return id, nil }})
+		if err != nil || asked {
+			t.Errorf("err = %v, asked = %v", err, asked)
+		}
+	})
+}
+
+// countingQuerier counts the queries sent through it.
+type countingQuerier struct {
+	Querier
+	n int
+}
+
+func (c *countingQuerier) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	c.n++
+	return c.Querier.Query(ctx, sql, args...)
+}
+
+func (c *countingQuerier) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	c.n++
+	return c.Querier.QueryRow(ctx, sql, args...)
 }
