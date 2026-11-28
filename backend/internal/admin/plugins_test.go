@@ -190,6 +190,44 @@ func TestPluginsPageLegacyWebhooksRow(t *testing.T) {
 	}
 }
 
+// A leftover gtm or google-analytics row says its feature is core now, points to
+// Tracking, keeps Remove and offers no update even when the registry has one.
+func TestPluginsPageRetiredTrackingRow(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct{ name, label string }{{"gtm", "Google Tag Manager"}, {"google-analytics", "Google Analytics"}} {
+		t.Run(tc.name, func(t *testing.T) {
+			g, fp := newPluginRig(t)
+			fp.list = append(fp.list, PluginInfo{Name: tc.name, Version: "0.2.0", Loaded: true,
+				Package: &PackageMeta{Signed: true, Signer: "ffff0000ffff0000", Update: "0.3.0"}})
+			rec := g.do("GET", "/admin/plugins", "owner-token", nil, nil)
+			body := rec.Body.String()
+			if rec.Code != 200 {
+				t.Fatalf("status %d", rec.Code)
+			}
+			for _, want := range []string{`id="plugin-` + tc.name + `-builtin"`, tc.label + " is built in now. Its settings moved to", `href="/admin/settings/tracking"`, ">Open Tracking<", `href="/admin/plugins/` + tc.name + `/uninstall"`} {
+				if !strings.Contains(body, want) {
+					t.Errorf("missing %q", want)
+				}
+			}
+			if n := strings.Count(body, "hm-callout--warning"); n != 1 {
+				t.Errorf("%d warning notices, want 1", n)
+			}
+			if n := strings.Count(body, ">Remove<"); n != 1 {
+				t.Errorf("%d Remove links, want 1", n)
+			}
+			for _, gone := range []string{"Update to v", "Review update", "Up to date"} {
+				if strings.Contains(body, gone) {
+					t.Errorf("unexpected %q", gone)
+				}
+			}
+			if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+				t.Errorf("a11y: %v", issues)
+			}
+		})
+	}
+}
+
 // Without a webhooks plugin the list has no notice at all.
 func TestPluginsPageHasNoLegacyNoticeWithoutWebhooks(t *testing.T) {
 	t.Parallel()

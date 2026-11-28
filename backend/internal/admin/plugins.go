@@ -82,6 +82,9 @@ type pluginRow struct {
 	// proven (no Remove), "other" for any other package of that name. RemoveHref is
 	// the owner-only uninstall confirmation. Both are empty on every other row.
 	Legacy, RemoveHref string
+	// Retired is the label of a former plugin whose feature is core now
+	// (trackingMovedLabels); its note points to Settings > Tracking.
+	Retired string
 	// ScriptsBlocked: the plugin's browser JavaScript is stopped until the
 	// owner grants site.scripts. AsksScripts says whether its manifest asks.
 	ScriptsBlocked, AsksScripts bool
@@ -123,7 +126,7 @@ func (r pluginRow) CanUpdate() bool { return r.Update != "" && len(r.UpdateNew) 
 // installed package that policy lets run and that is not on its way out. The
 // old webhooks plugin is core's now and never updated.
 func takesUpdate(p PluginInfo) bool {
-	return p.Package != nil && p.Name != legacyWebhooksPlugin && p.Package.Blocked == "" && !p.Package.Uninstalling
+	return p.Package != nil && p.Name != legacyWebhooksPlugin && trackingMovedLabels[p.Name] == "" && p.Package.Blocked == "" && !p.Package.Uninstalling
 }
 
 // Views of the installed list, the ?view= values of its tabs.
@@ -250,6 +253,9 @@ func (a *Admin) handlePlugins(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		if label, ok := trackingMovedLabels[p.Name]; ok {
+			row.Retired, row.RemoveHref = label, a.pluginURL(p.Name, "uninstall")
+		}
 		if p.Package != nil {
 			row.FirstParty = p.Package.FirstParty
 			row.Revoked = p.Package.RevokedText()
@@ -281,7 +287,7 @@ func (a *Admin) handlePlugins(w http.ResponseWriter, r *http.Request) {
 		}
 		for i := range rows {
 			row := &rows[i]
-			row.UpToDate = row.updatable && listed[row.Name] && row.Update == "" && row.Legacy == ""
+			row.UpToDate = row.updatable && listed[row.Name] && row.Update == "" && row.Legacy == "" && row.Retired == ""
 		}
 	}
 	counts := map[string]int{pluginsViewAll: len(rows)}
