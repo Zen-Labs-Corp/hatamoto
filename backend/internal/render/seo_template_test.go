@@ -119,11 +119,15 @@ func TestSEODescriptionFallsBackToTagline(t *testing.T) {
 	notFound := withTagline(PageMeta{Title: "Page not found", NoIndex: true}, nil, tagline)
 	notFound.Kind = KindNotFound
 
+	french := withTagline(PageMeta{Name: "N"}, nil, tagline)
+	french.Locale, french.Segment = "fr", "fr"
+
 	tests := []struct {
 		name string
 		v    *PageView
 		want string
 	}{
+		{"non-default language", french, ""},
 		{"tagline", withTagline(PageMeta{Name: "N"}, nil, tagline), tagline},
 		{"no tagline", withTagline(PageMeta{Name: "N"}, nil, ""), ""},
 		{"own description", withTagline(PageMeta{Name: "N", Description: "Mine", DescriptionSet: true}, nil, tagline), "Mine"},
