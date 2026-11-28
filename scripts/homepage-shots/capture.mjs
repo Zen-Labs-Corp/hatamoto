@@ -128,8 +128,6 @@ for (const s of shots) {
     if (s.waitFor) await page.waitForSelector(s.waitFor);
     // The rolled-back banner (seeded for the updates shot) would sit on top of every other page.
     if (!s.keepBanner) await page.evaluate(() => document.querySelectorAll(".hm-callout").forEach((e) => /Update rolled back/.test(e.textContent) && e.remove()));
-    // The install stats question is a first-run prompt, not part of any screen being shown.
-    await page.evaluate(() => document.querySelectorAll("[data-hm-stats-banner]").forEach((e) => e.remove()));
     // Per-shot polish, applied to the page only: css restyles, hide removes whatever should not be framed.
     if (s.css) await page.addStyleTag({ content: s.css });
     if (s.hide) await page.evaluate((sel) => document.querySelectorAll(sel).forEach((e) => e.remove()), s.hide);
