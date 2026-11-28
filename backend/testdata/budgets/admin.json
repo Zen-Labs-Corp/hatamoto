@@ -26,6 +26,14 @@
       "value": 52182,
       "unit": "bytes"
     },
+    "vendor_noble-curves_bytes": {
+      "value": 92232,
+      "unit": "bytes"
+    },
+    "vendor_scure-base_bytes": {
+      "value": 13233,
+      "unit": "bytes"
+    },
     "vendor_sortablejs_bytes": {
       "value": 45478,
       "unit": "bytes"
@@ -35,15 +43,11 @@
       "unit": "bytes"
     },
     "vendor_total_bytes": {
-      "value": 658206,
+      "value": 763671,
       "unit": "bytes"
     }
   },
   "history": [
-    {
-      "reason": "builder chrome rebased onto the Translations drawer: canvas_host_gzip 7986 -> 8045 (+59 B), the drawer opener and lazy chunk plus the chrome work, measured",
-      "date": "2026-11-01"
-    },
     {
       "reason": "admin-unslop phases 5, 6 and 7 landed in parallel: each fit the 1 KiB tolerance alone, together admin_css_gzip is 59383 B (setup/auth, builder and blog editor chrome, analytics screens restyled to the approved preview)",
       "date": "2026-11-01"
@@ -119,6 +123,10 @@
     {
       "reason": "query loop sort and attribute filters (loopattrs module, inspector rows): editor_js_total_gzip 297454 -> 300514, cap 297776 -> 301538; editor_js_first_gzip 109037 -> 109177; admin_css_gzip 71396 -> 71751, measured",
       "date": "2026-11-25"
+    },
+    {
+      "reason": "vendored @noble/curves 2.4.0 and @scure/base 2.4.0 for browser age key generation (backup encryption): vendor_noble-curves_bytes 92232, vendor_scure-base_bytes 13233, vendor_total_bytes 658206 -> 763671",
+      "date": "2026-11-28"
     }
   ]
 }

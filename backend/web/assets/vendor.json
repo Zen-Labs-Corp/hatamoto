@@ -391,6 +391,113 @@
         }
       ],
       "origin": "https://esm.sh"
+    },
+    {
+      "name": "noble-curves",
+      "version": "2.4.0",
+      "license": "MIT",
+      "kind": "module-graph",
+      "dir": "noble-curves-2.4.0",
+      "roots": {
+        "@noble/curves/ed25519.js": "/@noble/curves@2.4.0/ed25519.js?target=es2022"
+      },
+      "importmap": {
+        "@noble/curves/ed25519.js": "noble-curves-2.4.0/@noble/curves@2.4.0/es2022/ed25519.mjs"
+      },
+      "files": [
+        {
+          "path": "noble-curves-2.4.0/@noble/curves@2.4.0/es2022/abstract/curve.mjs",
+          "sha256": "958107f79814870bd0e349ab008006517af5a4606e864aa97b3622926ded05f5",
+          "bytes": 7154
+        },
+        {
+          "path": "noble-curves-2.4.0/@noble/curves@2.4.0/es2022/abstract/edwards.mjs",
+          "sha256": "9babbdb15c422b4ff6c708a464337ddfd36bcf8be19fd05a919211af7a16755a",
+          "bytes": 8920
+        },
+        {
+          "path": "noble-curves-2.4.0/@noble/curves@2.4.0/es2022/abstract/fft.mjs",
+          "sha256": "64c5ae44969e649fd7b4a044c70fee41a596f4c60fc25c74b29dbb0097fc5ce5",
+          "bytes": 7476
+        },
+        {
+          "path": "noble-curves-2.4.0/@noble/curves@2.4.0/es2022/abstract/frost.mjs",
+          "sha256": "817fb0612c15cde32d889e931df2308034e2defdf03ebc4b8d7740f30e65604d",
+          "bytes": 15454
+        },
+        {
+          "path": "noble-curves-2.4.0/@noble/curves@2.4.0/es2022/abstract/hash-to-curve.mjs",
+          "sha256": "3037640afb98cc78287303c7e03c180f82deaf3de4fd853cb80c1e3724c38dcf",
+          "bytes": 6440
+        },
+        {
+          "path": "noble-curves-2.4.0/@noble/curves@2.4.0/es2022/abstract/modular.mjs",
+          "sha256": "205338a95fb7f4d79a48d839e74f9f7c341d19a1766843e498b806a750f2ff87",
+          "bytes": 8789
+        },
+        {
+          "path": "noble-curves-2.4.0/@noble/curves@2.4.0/es2022/abstract/montgomery.mjs",
+          "sha256": "a488aa6e0c5a853ab9788e7fb9d071f0797589b5e86057db827eff7bbe0ea800",
+          "bytes": 2728
+        },
+        {
+          "path": "noble-curves-2.4.0/@noble/curves@2.4.0/es2022/abstract/oprf.mjs",
+          "sha256": "6c8a01b03ba3eb92e0e2382dab5d46346d9c833b837b2e8e6e02d783f3c0c4c8",
+          "bytes": 5952
+        },
+        {
+          "path": "noble-curves-2.4.0/@noble/curves@2.4.0/es2022/ed25519.mjs",
+          "sha256": "233a649285bb295d2a8a557d1792f57e23251a01514cd486a326be81c5868455",
+          "bytes": 7926
+        },
+        {
+          "path": "noble-curves-2.4.0/@noble/curves@2.4.0/es2022/utils.mjs",
+          "sha256": "bf37d39f773340ab412decac9e685b72f5259a9ec5215fe0a4cf0289967605be",
+          "bytes": 4886
+        },
+        {
+          "path": "noble-curves-2.4.0/@noble/hashes@2.4.0/es2022/_md.mjs",
+          "sha256": "3bdfa6d2db5a2e553a042603bfdcd3e29e612a967b32d960c03c16baf052c3aa",
+          "bytes": 2263
+        },
+        {
+          "path": "noble-curves-2.4.0/@noble/hashes@2.4.0/es2022/_u64.mjs",
+          "sha256": "e172bd53b9f18f6d50d7067f9ce0d1da3e8e4cbbccfef74398f2bebc041985de",
+          "bytes": 1277
+        },
+        {
+          "path": "noble-curves-2.4.0/@noble/hashes@2.4.0/es2022/sha2.mjs",
+          "sha256": "200da33336e05ec6a26911193cefcd2f1e4b8f3617bca4e57d9cc471fd164b27",
+          "bytes": 7212
+        },
+        {
+          "path": "noble-curves-2.4.0/@noble/hashes@2.4.0/es2022/utils.mjs",
+          "sha256": "b47dc5dcf9233275be882007cdae87e72864d36a6590ae95987fc969883dcc29",
+          "bytes": 5755
+        }
+      ],
+      "origin": "https://esm.sh"
+    },
+    {
+      "name": "scure-base",
+      "version": "2.4.0",
+      "license": "MIT",
+      "kind": "module-graph",
+      "dir": "scure-base-2.4.0",
+      "roots": {
+        "@scure/base": "/@scure/base@2.4.0?target=es2022"
+      },
+      "importmap": {
+        "@scure/base": "scure-base-2.4.0/@scure/base@2.4.0/es2022/base.mjs"
+      },
+      "files": [
+        {
+          "path": "scure-base-2.4.0/@scure/base@2.4.0/es2022/base.mjs",
+          "sha256": "5dd311521b8b45927f0e3df22c711f5e999da1ce62a67d63e401474f993fb5f5",
+          "bytes": 13233
+        }
+      ],
+      "origin": "https://esm.sh"
     }
   ],
   "licenses": [
@@ -583,6 +690,33 @@
       "file": "w3c-keyname-2.2.8.txt",
       "sha256": "869c30f368eb08735e779027b9f4bc9fea2f39624351856aebe42741f0bc0884",
       "bytes": 1100
+    },
+    {
+      "package": "@noble/curves",
+      "version": "2.4.0",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/@noble/curves@2.4.0/LICENSE",
+      "file": "noble-curves-2.4.0.txt",
+      "sha256": "4f221aee6e072336700c408c68ab3b96a3fc09f6aebe6f48f1bd99e5ef13faec",
+      "bytes": 1109
+    },
+    {
+      "package": "@noble/hashes",
+      "version": "2.4.0",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/@noble/hashes@2.4.0/LICENSE",
+      "file": "noble-hashes-2.4.0.txt",
+      "sha256": "4f221aee6e072336700c408c68ab3b96a3fc09f6aebe6f48f1bd99e5ef13faec",
+      "bytes": 1109
+    },
+    {
+      "package": "@scure/base",
+      "version": "2.4.0",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/@scure/base@2.4.0/LICENSE",
+      "file": "scure-base-2.4.0.txt",
+      "sha256": "3239e134eb6e6d64538ca76498c7fcb08a395249dd9d4af9927bf6d0169ee429",
+      "bytes": 1110
     }
   ]
 }
