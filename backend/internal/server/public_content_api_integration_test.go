@@ -18,6 +18,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/user"
 )
@@ -285,5 +286,31 @@ func TestPublicContentAPIIntegration(t *testing.T) {
 				t.Errorf("GET %s leaks %q: %s", p, bad, body)
 			}
 		}
+	}
+
+	// A multi-language site: shared (und) content is listed and served like the
+	// site renders it, and counts toward its terms.
+	var siteLang string
+	if err := db.Pool().QueryRow(ctx, `SELECT public.hatamoto_site_language()`).Scan(&siteLang); err != nil {
+		t.Fatal(err)
+	}
+	set, err := entity.NewLocaleSet(siteLang, []entity.LocaleEntry{{Tag: siteLang}, {Tag: "fr-CA", Segment: "fr"}}, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.entityService.URLRegistry().SetLocales(func(context.Context) (*entity.LocaleSet, error) { return set, nil })
+	t.Cleanup(func() { srv.entityService.URLRegistry().SetLocales(nil) })
+	sharedID := uuid.New()
+	exec(`INSERT INTO hatamoto_entities (id,schema_id,name,slug,locale,status,published_at,attributes)
+		VALUES ($1,$2,'Entry shared','shared',$3,'published',now() - interval '30 minutes','{}')`, sharedID, schemaID, entity.LocaleShared)
+	exec(`INSERT INTO hatamoto_entity_terms (entity_id,term_id) VALUES ($1,$2)`, sharedID, termID)
+	if got := strings.Join(slugs(decode(do(listPath, nil, nil))), ","); got != "shared,hello,world" {
+		t.Errorf("multi-language list slugs = %s, want shared,hello,world", got)
+	}
+	if rec := do(listPath+"/shared", nil, nil); rec.Code != 200 {
+		t.Errorf("shared single = %d %s", rec.Code, rec.Body)
+	}
+	if tl := decode(do(termsPath, nil, nil)); len(tl.Data) != 1 || tl.Data[0]["count"] != float64(2) {
+		t.Errorf("multi-language terms = %v, want count 2", tl.Data)
 	}
 }

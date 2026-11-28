@@ -54,6 +54,17 @@ func (s *Server) mountPublicContentAPI(r *httpx.Group) {
 // deeper page is a 400 instead of a database error.
 const maxPublicPage = 100000
 
+// visibleLocalesCtx scopes the request context like renderData.ctx(): on a
+// multi-locale site the visible locales are the default plus shared, so shared
+// content is served as the site renders it. Single-locale sites are unscoped.
+func (s *Server) visibleLocalesCtx(r *http.Request) context.Context {
+	ctx := r.Context()
+	if set := s.urlSnapshot(ctx).Locales(); set.Multi() {
+		ctx = entity.WithVisibleLocales(ctx, set.Default())
+	}
+	return ctx
+}
+
 // publicPaging reads page and per_page (default 20, at most 100). It answers
 // 400 and returns false on a bad value.
 func publicPaging(w http.ResponseWriter, r *http.Request) (page, perPage int, ok bool) {
@@ -145,7 +156,7 @@ func (s *Server) handlePublicContentList(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	rows, total, err := entity.NewPostgresPublicRepository(s.db).ListPublishedFiltered(r.Context(),
+	rows, total, err := entity.NewPostgresPublicRepository(s.db).ListPublishedFiltered(s.visibleLocalesCtx(r),
 		entity.ListFilter{SchemaSlugs: slugs, ExcludeOptedOut: true}, page, perPage)
 	if err != nil {
 		s.logger.Error("public content api: list", "error", err)
@@ -164,7 +175,7 @@ func (s *Server) handlePublicContentItem(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	ent, err := entity.NewPostgresPublicRepository(s.db).GetPublishedBySlugAndSchemas(r.Context(), r.PathValue("slug"), slugs)
+	ent, err := entity.NewPostgresPublicRepository(s.db).GetPublishedBySlugAndSchemas(s.visibleLocalesCtx(r), r.PathValue("slug"), slugs)
 	switch {
 	case errors.Is(err, entity.ErrEntityNotFound):
 		writeError(w, http.StatusNotFound, "not found")
@@ -187,7 +198,7 @@ func (s *Server) handlePublicTermsList(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ctx := r.Context()
+	ctx := s.visibleLocalesCtx(r)
 	kind := strings.ToLower(r.PathValue("kind"))
 	repo := taxonomy.NewPostgresRepository(s.db)
 	if !taxonomy.ValidKind(kind) {
