@@ -454,7 +454,9 @@ RewriteRule ^a/([^/]+)/?$ /b/$1 [R=301,L]
 - An exact rule is `RedirectMatch <status> ^/from/?$ /to`. Plain `Redirect` is
   not used: it matches by prefix, so a rule for `/blog` would also redirect
   `/blog/post-1`. A source or target with whitespace is skipped and reported as
-  a warning.
+  a warning. Apache matches the decoded path, so a source such as `/caf%C3%A9`
+  is written as `^/café/?$`. A target with a `%` is written as a `RewriteRule`
+  with the `NE` flag, because mod_alias would encode it a second time.
 - A wildcard rule is `RewriteRule ... [R=<status>,L]`. `RewriteEngine On` and
   mod_rewrite are needed only when wildcard rules exist.
 - The rules sit inside `<IfModule>`, so a missing module skips them instead of

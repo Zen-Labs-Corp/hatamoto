@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"hatamoto.dev/core/internal/redirect"
 )
@@ -48,7 +50,7 @@ func RenderHTAccess(exact []Line, patterns []*redirect.Redirect) (block []byte, 
 			warnings = append(warnings, fmt.Sprintf("redirect rule %s -> %s cannot be written to .htaccess, skipped", r.SourcePath, r.TargetURL))
 			continue
 		}
-		rules = append(rules, rewriteRule(re, to, r.StatusCode))
+		rules = append(rules, rewriteRule(re, to, r.StatusCode, ""))
 		sources = append(sources, r.SourcePath)
 	}
 
@@ -62,18 +64,27 @@ func RenderHTAccess(exact []Line, patterns []*redirect.Redirect) (block []byte, 
 			warnings = append(warnings, fmt.Sprintf("redirect %s: cannot be written to .htaccess, skipped", l.From))
 			continue
 		}
-		from := strings.TrimSuffix(l.From, "/")
+		// Apache matches the decoded URL path, so the regexp is built from the
+		// decoded source: /caf%C3%A9 is written as ^/café/?$.
+		decoded, err := url.PathUnescape(l.From)
+		if err != nil || strings.ContainsFunc(decoded, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) {
+			warnings = append(warnings, fmt.Sprintf("redirect %s: cannot be written to .htaccess, skipped", l.From))
+			continue
+		}
+		from := strings.TrimSuffix(decoded, "/")
 		re := regexp.QuoteMeta(from) + "/?$"
+		rp := strings.TrimPrefix(regexp.QuoteMeta(from), "/")
+		if strings.Contains(l.To, "%") {
+			// mod_alias re-escapes its target, so a percent-encoded one would
+			// go out double-encoded. RewriteRule with NE sends it as written.
+			rewrite = append(rewrite, rewriteRule(rp+"/?$", rewriteTarget(l.To), l.Status, ",NE"))
+			continue
+		}
 		to := htaccessTarget(l.To)
 		alias = append(alias, "RedirectMatch "+strconv.Itoa(l.Status)+" ^"+re+" "+to)
 		for _, src := range sources {
-			if _, hit := redirect.MatchPattern(src, l.From); hit {
-				rp := strings.TrimPrefix(regexp.QuoteMeta(from), "/")
-				if rp == "" {
-					rewrite = append(rewrite, rewriteRule("$", to, l.Status))
-				} else {
-					rewrite = append(rewrite, rewriteRule(rp+"/?$", to, l.Status))
-				}
+			if _, hit := redirect.MatchPattern(src, decoded); hit {
+				rewrite = append(rewrite, rewriteRule(rp+"/?$", to, l.Status, ""))
 				break
 			}
 		}
@@ -97,8 +108,15 @@ func RenderHTAccess(exact []Line, patterns []*redirect.Redirect) (block []byte, 
 }
 
 // rewriteRule renders one per-directory RewriteRule; re is anchored here and has no leading slash.
-func rewriteRule(re, to string, status int) string {
-	return "RewriteRule ^" + re + " " + to + " [R=" + strconv.Itoa(status) + ",L]"
+// flags is extra RewriteRule flags, each with a leading comma.
+func rewriteRule(re, to string, status int, flags string) string {
+	return "RewriteRule ^" + re + " " + to + " [R=" + strconv.Itoa(status) + flags + ",L]"
+}
+
+// rewriteTarget is htaccessTarget for a RewriteRule substitution, where % would
+// start a %N backreference or a %{variable}.
+func rewriteTarget(to string) string {
+	return strings.ReplaceAll(htaccessTarget(to), "%", `\%`)
 }
 
 // htaccessTarget escapes a redirect target for the Apache regexp substitution
@@ -112,7 +130,7 @@ func htaccessTarget(to string) string {
 // refuses an invalid or unsafe rule, a $n with no matching wildcard and a
 // target mod_rewrite would re-escape.
 func htaccessPattern(src, dst string) (re, to string, ok bool) {
-	if redirect.ValidatePatternRule(src, dst) != nil || !redirect.IsPatternSource(src) ||
+	if !plainToken(src) || redirect.ValidatePatternRule(src, dst) != nil || !redirect.IsPatternSource(src) ||
 		!redirect.SafeLocation(dst, true) || !plainToken(dst) || strings.Contains(dst, "%") {
 		return "", "", false
 	}

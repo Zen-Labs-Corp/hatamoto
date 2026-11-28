@@ -205,3 +205,40 @@ func TestMergeHTAccess_RefusesUnbalanced(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderHTAccess_PercentEncodedSourceMatchesDecodedPath(t *testing.T) {
+	got, w := render(t, []Line{{From: "/caf%C3%A9", To: "/new", Status: 301}}, nil)
+	if len(w) != 0 || !strings.Contains(got, "RedirectMatch 301 ^/café/?$ /new\n") {
+		t.Errorf("block = %s warnings %v", got, w)
+	}
+	if strings.Contains(got, "%C3") {
+		t.Errorf("the source is still percent-encoded:\n%s", got)
+	}
+}
+
+func TestRenderHTAccess_PercentEncodedTargetUsesRewriteRuleWithNE(t *testing.T) {
+	got, _ := render(t, []Line{{From: "/old", To: "/caf%C3%A9/%25", Status: 301}}, nil)
+	if strings.Contains(got, "RedirectMatch") {
+		t.Errorf("mod_alias would double-encode the target:\n%s", got)
+	}
+	want := `RewriteRule ^old/?$ /caf\%C3\%A9/\%25 [R=301,NE,L]` + "\n"
+	if !strings.Contains(got, "RewriteEngine On\n") || !strings.Contains(got, want) {
+		t.Errorf("block misses %q:\n%s", want, got)
+	}
+}
+
+func TestRenderHTAccess_UndecodableOrSpacedSourceSkipped(t *testing.T) {
+	for _, from := range []string{"/bad%zz", "/a%20b", "/a%0Ab"} {
+		got, w := render(t, []Line{{From: from, To: "/x", Status: 301}}, nil)
+		if got != "" || len(w) != 1 {
+			t.Errorf("%s: block %q warnings %v", from, got, w)
+		}
+	}
+}
+
+func TestRenderHTAccess_WildcardSourceWithWhitespaceSkipped(t *testing.T) {
+	got, w := render(t, nil, []*redirect.Redirect{patRule("/a b/*", "/c/$1", 301)})
+	if got != "" || len(w) != 1 {
+		t.Errorf("block %q warnings %v", got, w)
+	}
+}
