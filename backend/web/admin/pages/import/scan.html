@@ -19,7 +19,7 @@
 <dl class="hm-dl">
 <dt>SEO plugin</dt><dd>{{if .SEO}}{{.SEO}}: titles, descriptions, canonical addresses and noindex are imported{{else}}None found{{end}}</dd>
 <dt>Page builders</dt><dd>{{if .Rep.PageBuilders}}{{join .Rep.PageBuilders ", "}}: the text is kept, the layout is not; those pages are listed below{{else}}None found{{end}}</dd>
-<dt>Forms</dt><dd>{{if .Rep.Forms}}{{join .Rep.Forms ", "}}: form markup is removed; recreate each form under Forms{{else}}None found{{end}}</dd>
+<dt>Forms</dt><dd>{{if .Rep.Forms}}{{join .Rep.Forms ", "}}: form markup is removed; recreate each form under Forms{{else if not .Rep.FormsImported}}None found{{end}}{{if .Rep.FormsImported}}{{if .Rep.Forms}}. {{end}}{{.Rep.FormsImported}} Contact Form 7 shortcode(s) will be replaced by the imported forms{{end}}</dd>
 <dt>Languages</dt><dd>{{if .Rep.Multilingual}}{{join .Rep.Multilingual ", "}}: only the default language{{if .Rep.DefaultLang}} ({{.Rep.DefaultLang}}){{end}} is imported, a Hatamoto site has one language{{else}}One language{{end}}</dd>
 <dt>Other plugins</dt><dd>{{if .Rep.UnsupportedPlugins}}{{join .Rep.UnsupportedPlugins ", "}}: not imported{{else}}None found{{end}}</dd>
 <dt>Shortcodes left in text</dt><dd>{{if .Shortcodes}}<ul class="hm-badgelist">{{range .Shortcodes}}<li>{{template "hm/badge" (dict "Label" (printf "%s × %v" .Label .Value) "Mono" true)}}</li>{{end}}</ul>{{else}}None{{end}}</dd>

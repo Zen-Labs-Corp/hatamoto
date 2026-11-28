@@ -19,9 +19,11 @@ type Converted struct {
 	HTML       string
 	Shortcodes []string // names of shortcodes found (and removed)
 	Forms      []string // form plugins whose markup or shortcode was removed
-	Builders   []string // page builders whose markers were found
-	Embeds     int      // YouTube and Vimeo embeds kept
-	Dropped    []string // other things removed: unsupported iframes
+	// FormsImported counts the [contact-form-7] shortcodes replaced by an imported form (WithForms).
+	FormsImported int
+	Builders      []string // page builders whose markers were found
+	Embeds        int      // YouTube and Vimeo embeds kept
+	Dropped       []string // other things removed: unsupported iframes
 
 	WPBakery      int      // WPBakery shortcodes converted or unwrapped (layout only lost)
 	MissingImages []string // WPBakery image ids with no media in the source (sorted)
@@ -320,6 +322,7 @@ func (c *converter) text(n *xhtml.Node) {
 		changed = true
 		if name == "contact-form-7" && p[1] != "/" {
 			if slug, ok := c.opts.forms[cf7ShortcodeID(attrs)]; ok {
+				c.res.FormsImported++
 				return `[form slug="` + slug + `"]`
 			}
 		}
