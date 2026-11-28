@@ -328,10 +328,7 @@ index is valid 90 days, `--valid-days` 1 to 180, so re-run it on a schedule).
 `tier`, `screenshot`) from a JSON file keyed by package name
 (`{"seo-tools": {"title": "SEO Tools", "author": "acme", "source": "https://...", "commit": "...", "tier": "community"}}`).
 For a theme, add `"screenshot": "screenshots/<name>.webp"` there; the host serves the image next to the index.
-The "Plugin directory" page section (see `docs/site/themes/sections.md`) shows the plugins of
-the configured registry inside the site theme; it needs no build step.
-`hatamoto registry page registry.json --out plugins/index.html` is for operators without a
-CMS page: it renders the plugins of a
+`hatamoto registry page registry.json --out plugins/index.html` renders the plugins of a
 signed index as one self-contained HTML directory page; it verifies the index like a
 server does and writes nothing if it is unsigned, altered, expired or signed by an
 untrusted key. Outside authors publish through a developer account; see

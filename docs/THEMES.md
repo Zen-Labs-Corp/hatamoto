@@ -42,7 +42,6 @@ my-theme/
     taxonomy.html       optional: a category/tag page; taxonomy-<kind>.html for one kind
     author.html         optional: an author page
     search.html         optional: /search
-    registry.html       optional: a plugin or theme detail page, see Routes
     404.html            defines "content" for not-found
     comment-confirm.html  optional: the page behind the comment confirmation link, see Comments
     comment-signin.html   optional: the comment sign-in and sign-out page, see Comments
@@ -76,7 +75,7 @@ rejected; the previous good version keeps serving):
   `nav`, `footer`, `section`, `scripts` must exist.
 - **Smoke render.** An installed theme that loads is also trial-rendered
   against a fixture view of every layout kind (page, single, home, archive,
-  taxonomy, author, search, registry, 404, error). If any of those fails to execute (a
+  taxonomy, author, search, 404, error). If any of those fails to execute (a
   partial called with the wrong argument, a missing field), the error is logged
   and the engine serves the embedded **default theme** instead of returning a
   500 on every page. Installing or activating a theme runs the same check up front
@@ -630,7 +629,6 @@ The engine picks the first layout that exists, trying the candidates in order:
 | term archive (`/category/x`, `/tag/x`, `/genre/x/y`) | `taxonomy-<kind>` (`category`, `tag` or a custom kind) → `taxonomy` → `page` |
 | author (`/author/x`) | `author` → `page` |
 | search (`/search?q=`, optional `&type=<schema slug>`) | `search` → `page` |
-| registry detail page (`/plugins/<name>`, `/themes/<name>`) | `registry` → `page` |
 | not found / error | `404` / `error` |
 
 The default theme ships `archive-release.html`, a changelog layout for a schema
@@ -822,36 +820,7 @@ skipped by its circuit breaker, is served but not cached. Cached single pages em
 names and `terms` widgets; term changes clear the page cache like any other
 content change.
 
-**Registry detail pages.** `/plugins/<name>` and `/themes/<name>` show one
-entry of the verified registry index (the one the directory sections list).
-They are a fallback after the built-in listings, so the order at an exact path
-is: a published CMS page, then a built-in listing (for instance a custom term
-kind named `plugins`), then the registry page. The page exists only while the
-site's published `/plugins` (or `/themes`) page has a `plugin_directory` (or
-`theme_directory`) section, and only for a name in the verified index; anything
-else, including a registry that is off, unavailable or empty, is a normal 404.
-Like a directory page it is cached for at most 60 seconds.
-
-The layout `registry` receives `.Registry`:
-
-| Field | Meaning |
-| --- | --- |
-| `.Type` | `"plugin"` or `"theme"` |
-| `.ListName`, `.ListURL` | the directory page to link back to (`Plugins`, `/plugins`) |
-| `.Plugin` | the plugin card (`PluginCard`), set when `.Type` is `plugin` |
-| `.Theme` | the theme card (`ThemeCard`), set when `.Type` is `theme` |
-
-`PluginCard` and `ThemeCard` gain two additive fields, `About` (the optional
-manifest text, one string per paragraph) and `Features` (the optional bullets).
-Both are untrusted plain text: print them with `{{.}}`, never as HTML. The
-existing card fields are unchanged. The default directory sections link each
-card title to its page; a theme that overrides `plugin_directory.html` or
-`theme_directory.html` adds its own link, and without one the cards simply stay
-unlinked. A theme without `layouts/registry.html` renders the page through the
-embedded default layout, even when it ships its own `layouts/page.html`
-(`registry` never falls back to `page`). The root of the layout carries `data-hm-directory`,
-which gives the page the short shared-cache lifetime. `data-hm-contract` is
-unchanged.
+**Short shared-cache lifetime.** A page whose rendered HTML contains the attribute `data-hm-directory` (for example on the root of a theme's registry listing) is sent with `Cache-Control: public, max-age=60, s-maxage=60` instead of the usual `s-maxage=300`, on fresh renders, page-cache hits and 304s.
 
 **Default theme.** Ships every layout above, `blog.css` (cards, article,
 pagination), `wp-compat.css` (core Gutenberg block classes in rich-text

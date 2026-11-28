@@ -143,7 +143,7 @@ COMMUNITY_DIR=~/src/hatamoto-plugins HATAMOTO_REGISTRY_KEY_FILE=/path/to/first-p
 # registry/plugins/index.html   (optional static directory page, REGISTRY_PAGE=1)
 ```
 
-`make registry` builds every manifest with `registry/build-community.sh`, packs it with `hatamoto plugin pack --key`, signs the index with `hatamoto registry index --meta`, and, with `REGISTRY_PAGE=1`, renders a static directory page with `hatamoto registry page`. Sites normally show the registry with the "Plugin directory" section on a CMS page. The outputs are git-ignored build products.
+`make registry` builds every manifest with `registry/build-community.sh`, packs it with `hatamoto plugin pack --key`, signs the index with `hatamoto registry index --meta`, and, with `REGISTRY_PAGE=1`, renders a static directory page with `hatamoto registry page`. The outputs are git-ignored build products.
 
 | Variable | Meaning |
 |---|---|
