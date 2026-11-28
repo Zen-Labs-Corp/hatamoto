@@ -2,6 +2,7 @@ package staticexport
 
 import (
 	"context"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"os"
@@ -381,6 +382,36 @@ func TestSFTPTarget_Suppressed(t *testing.T) {
 	tgt := newTestSFTPTarget(t, srv, nil)
 	staged, next := stageFiles(t, map[string]string{"a.html": "a"})
 	if err := tgt.Publish(context.Background(), staged, Diff{Changed: []string{"a.html"}}, next); !errors.Is(err, runenv.ErrSuppressed) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestSFTPTarget_PreviousRefusesForgedManifestKeys(t *testing.T) {
+	for _, key := range []string{"../.ssh/authorized_keys", "a/../../x", "/etc/passwd", ".htaccess", "sub/.htaccess", ManifestFile, `a\b`} {
+		srv := newSFTPServer(t)
+		tgt := newTestSFTPTarget(t, srv, nil)
+		writeRoot(t, srv, ".ssh/authorized_keys", "ssh-ed25519 AAAA\n")
+		writeRoot(t, srv, "public_html/.htaccess", "Options -Indexes\n")
+		forged, err := json.Marshal(map[string]any{"version": manifestVersion, "files": map[string]any{key: map[string]any{}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeRoot(t, srv, "public_html/"+ManifestFile, string(forged))
+		_, _, err = tgt.Previous(context.Background())
+		if err == nil || !strings.Contains(err.Error(), "outside the export") {
+			t.Errorf("key %q: err = %v", key, err)
+		}
+		if readRoot(t, srv, ".ssh/authorized_keys") == "" || readRoot(t, srv, "public_html/.htaccess") == "" {
+			t.Errorf("key %q: a file outside the export was touched", key)
+		}
+	}
+}
+
+func TestSFTPTarget_PreviousCapsTheManifest(t *testing.T) {
+	srv := newSFTPServer(t)
+	tgt := newTestSFTPTarget(t, srv, nil)
+	writeRoot(t, srv, "public_html/"+ManifestFile, strings.Repeat(" ", sftpMaxManifest+1))
+	if _, _, err := tgt.Previous(context.Background()); err == nil || !strings.Contains(err.Error(), "too large") {
 		t.Fatalf("err = %v", err)
 	}
 }

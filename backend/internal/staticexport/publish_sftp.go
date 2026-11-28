@@ -36,6 +36,7 @@ const (
 	sftpProbeTimeout      = 10 * time.Second
 	sftpTmpSuffix         = ".hatamoto-tmp"
 	sftpMaxHTAccess       = 4 << 20
+	sftpMaxManifest       = 32 << 20
 )
 
 // Errors a caller can match; every message is safe to show.
@@ -289,11 +290,39 @@ func (t *SFTPTarget) Previous(ctx context.Context) (Manifest, bool, error) {
 		return Manifest{}, false, fmt.Errorf("read previous manifest: %w", err)
 	}
 	defer f.Close()
-	m, err := ReadManifest(f)
+	body, err := io.ReadAll(io.LimitReader(f, sftpMaxManifest+1))
+	if err != nil {
+		return Manifest{}, false, fmt.Errorf("read previous manifest: %w", err)
+	}
+	if len(body) > sftpMaxManifest {
+		return Manifest{}, false, errors.New("the manifest on the SFTP host is too large")
+	}
+	m, err := ReadManifest(bytes.NewReader(body))
 	if err != nil {
 		return Manifest{}, false, err
 	}
+	// The host can rewrite the manifest, and its keys become deletes below.
+	for k := range m.Files {
+		if !safeManifestKey(k) {
+			return Manifest{}, false, errors.New("the manifest on the SFTP host lists a path outside the export; remove " + ManifestFile + " there or fix it by hand")
+		}
+	}
 	return m, true, nil
+}
+
+// safeManifestKey reports whether k is a clean relative path this export could
+// have written: no "..", no absolute or backslash path, and neither the
+// manifest nor the owner's .htaccess.
+func safeManifestKey(k string) bool {
+	if k == "" || path.IsAbs(k) || path.Clean(k) != k || strings.ContainsAny(k, "\\\x00") {
+		return false
+	}
+	for seg := range strings.SplitSeq(k, "/") {
+		if seg == ".." || seg == HTAccessFile || strings.HasPrefix(seg, ManifestFile) {
+			return false
+		}
+	}
+	return true
 }
 
 // Publish uploads the changed files (each through a temporary name and a
