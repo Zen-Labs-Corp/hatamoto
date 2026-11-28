@@ -18,12 +18,13 @@ import (
 	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/themestrings"
 )
 
 func init() {
-	areaPages["packages"] = []string{"settings/pluginprompt", "settings/packageconfirm", "settings/pluginuninstall", "settings/theme", "settings/themeactivate", "settings/themesettings", "settings/themedesign", "settings/designtokens", "settings/designpresets"}
+	areaPages["packages"] = []string{"settings/pluginprompt", "settings/pluginretired", "settings/packageconfirm", "settings/pluginuninstall", "settings/theme", "settings/themeactivate", "settings/themesettings", "settings/themedesign", "settings/designtokens", "settings/designpresets"}
 }
 
 type installCall struct {
@@ -494,6 +495,57 @@ func TestUpdatePromptMarksNewPermissions(t *testing.T) {
 	}
 	if strings.Count(body, "New in this version") != 1 {
 		t.Error("only the permission the update adds is marked new")
+	}
+}
+
+func TestInstallRetiredTrackingNamePointsToTracking(t *testing.T) {
+	t.Parallel()
+
+	g, pk, _ := newPackageRig(t)
+	pk.fetchFails = map[string]string{"gtm": "fetched"} // a Fetch call would answer with this refusal
+	rec := g.do("POST", "/admin/plugins/fetch", "owner-token", url.Values{"name": {"gtm"}}, nil)
+	body := rec.Body.String()
+	if rec.Code != 200 {
+		t.Fatalf("fetch: %d %s", rec.Code, body)
+	}
+	for _, want := range []string{"Install gtm?", "Google Tag Manager is built in now. Set it up in Settings &gt; Privacy &amp; tracking &gt; Tracking.", `href="/admin/settings/tracking"`, ">Open Tracking<"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("pointer missing %q", want)
+		}
+	}
+	for _, bad := range []string{"fetched", `action="/admin/plugins/install"`, "perms-card", "It will be able to"} {
+		if strings.Contains(body, bad) {
+			t.Errorf("pointer must not contain %q", bad)
+		}
+	}
+	a11yOK(t, body)
+	compareGolden(t, "pages/plugins-install-retired.html", normalizePage(body))
+
+	rec = postMultipart(g, "/admin/plugins/upload", "owner-token", "ga.hmp", "upload:google-analytics")
+	body = rec.Body.String()
+	if rec.Code != 200 {
+		t.Fatalf("upload: %d %s", rec.Code, body)
+	}
+	for _, want := range []string{"Install google-analytics?", "Google Analytics is built in now.", `href="/admin/settings/tracking"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("upload pointer missing %q", want)
+		}
+	}
+	if strings.Contains(body, `action="/admin/plugins/install"`) || strings.Contains(body, "perms-card") {
+		t.Error("an upload of a retired name must not offer an install")
+	}
+	if len(pk.installed) != 0 {
+		t.Fatalf("nothing may be installed: %+v", pk.installed)
+	}
+}
+
+func TestRetiredLabelsAreReservedPackageNames(t *testing.T) {
+	t.Parallel()
+
+	for name := range trackingMovedLabels {
+		if !packages.IsReservedPluginName(name) {
+			t.Errorf("%q is retired in the admin but not reserved by the package manager", name)
+		}
 	}
 }
 
