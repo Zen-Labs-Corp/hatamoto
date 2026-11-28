@@ -38,6 +38,7 @@ Levels:
 | Host functions, the `hm_call` envelope, error codes and payload schemas | stable (pre-1.0 rules) | SDK rule | `docs/PLUGIN_API.md` (Host functions, Payload schemas) |
 | Hook names (actions, filters, export naming) | stable (pre-1.0 rules) | SDK rule | `docs/PLUGIN_API.md` (Hooks and exports) |
 | Permissions | stable (pre-1.0 rules) | permission rule | `docs/PLUGIN_API.md` (Permissions), `docs/SECURITY_MODEL.md` |
+| Plugin database (`db.query`, `db.exec`, the `plugin_<name>` schema): PostgreSQL 16+ SQL | stable (pre-1.0 rules) | SDK rule; the PostgreSQL floor rises only in a major SDK | "Plugin database" below, `docs/PLUGIN_API.md` (Own data) |
 | Theme contract: required layouts and partials (`base.html`, `page.html`, `404.html`, `error.html`, and the partials `head`, `header`, `nav`, `footer`, `section`, `scripts`; see `docs/THEMES.md`), optional layouts, `data-hm-contract`, `theme.json`, template functions, `PageView` fields, section schemas | stable (pre-1.0 rules) | product rule | `docs/THEMES.md` |
 | Widget packs | stable (pre-1.0 rules) | product rule | `docs/WIDGET_PACKS.md` |
 | Builder data sources | stable (pre-1.0 rules) | SDK rule for the plugin side, product rule for the widget side | `docs/WIDGET_PACKS.md` (Data sources), `docs/BUILDER.md` |
@@ -161,6 +162,24 @@ matches none of them.
 - `Manifest.Validate` accepts any known permission under any `sdk` range; the range does not gate a
   permission. A plugin that declares `site.scripts` under `^0.11` is valid, and a host that predates the
   permission rejects it as unknown. `^0.12` only says "built for SDK 0.12".
+
+## Plugin database (`db`)
+
+The plugin data contract is PostgreSQL. A plugin granted `db` writes PostgreSQL 16+ SQL and runs it
+through `db.exec` and `db.query`, in its own schema `plugin_<name>` (see `docs/PLUGIN_API.md`, Own data).
+
+- **Covered:** the PostgreSQL 16+ dialect, `db.exec` and `db.query`, and the `plugin_<name>` schema.
+- **Not covered:** the SQL guard. It is defence in depth, not the boundary, and it may tighten in any
+  release. A statement it refuses answers `blocked`.
+- **The floor.** The minimum PostgreSQL version rises only in a major SDK release.
+- **No portable layer.** There is no promise that plugin SQL runs on any other database, and SQLite is
+  not supported (`docs/ROADMAP.md`). Optional portable helpers (for example a table or a queue) may
+  come after SDK 1.0, as an addition next to `db`.
+- **Managed PostgreSQL.** Creating plugin roles needs `CREATEROLE`, which the application role should
+  not hold. On a managed cluster, run `deploy/sql/role-admin-bootstrap.sql` once with the provider's
+  admin role (`NOSUPERUSER CREATEROLE CREATEDB`); see
+  [`docs/site/operate/managed-postgresql.md`](https://hatamoto.dev/docs/operate/managed-postgresql).
+  Without it, `db.*` answers `unavailable` and everything else keeps working.
 
 ## The `site.scripts` drift
 
