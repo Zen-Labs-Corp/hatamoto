@@ -54,10 +54,6 @@ func (m *memStats) RecordResult(context.Context, string, string, *installstats.C
 	return nil
 }
 func (m *memStats) RecordKeptDay(context.Context, string) error { return nil }
-func (m *memStats) DismissNudge(context.Context) error          { return nil }
-func (m *memStats) Banner(context.Context) (installstats.BannerKind, error) {
-	return installstats.BannerNone, nil
-}
 func (m *memStats) ApplyDefault(context.Context) (bool, error) {
 	if m.st.Level != installstats.LevelUnset && m.st.Level != "" {
 		return false, nil
