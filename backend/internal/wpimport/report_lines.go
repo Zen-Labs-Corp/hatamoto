@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode"
 )
 
 // LineStatus is how well one thing of the source was carried over.
@@ -200,8 +201,19 @@ func WriteReportText(w io.Writer, r *Result) {
 	}
 }
 
+func stripControls(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
 // reportLineText renders one line with its status glyph and word.
 func reportLineText(l ReportLine) string {
+	// Titles come from the source site: no terminal escapes.
+	l.Label, l.Detail = stripControls(l.Label), stripControls(l.Detail)
 	text := l.Label
 	if l.Label != "" && l.Detail != "" {
 		text += ": " + l.Detail

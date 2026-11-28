@@ -56,10 +56,27 @@ func (r *Runner) newACFReader(ctx context.Context, it *Item, withEntities bool) 
 	return &acfReader{r: r, ctx: ctx, item: it, withEntities: withEntities, loc: loc}
 }
 
-// warn records a warning about this item, up to the cap.
+// acfQuoteMax is how many runes of a source value a warning quotes.
+const acfQuoteMax = 80
+
+// quoted shortens a source value for a warning.
+func quoted(s string) string {
+	if utf8.RuneCountInString(s) <= acfQuoteMax {
+		return s
+	}
+	return string([]rune(s)[:acfQuoteMax]) + "…"
+}
+
+// warn records a warning about this item, up to the cap. Text arguments come
+// from the source site and are shortened.
 func (rd *acfReader) warn(format string, a ...any) {
 	if rd.quiet {
 		return
+	}
+	for i, v := range a {
+		if s, ok := v.(string); ok {
+			a[i] = quoted(s)
+		}
 	}
 	r := rd.r
 	switch {

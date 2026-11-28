@@ -308,3 +308,16 @@ func TestACFValuesRefusedByTheValidatorStayRaw(t *testing.T) {
 		}
 	}
 }
+
+// A warning quotes at most a short piece of a source value.
+func TestACFWarningsCutLongSourceValues(t *testing.T) {
+	r, _ := acfTestRunner(t, ACFField{Name: "photo", Label: "Photo", Type: "image"})
+	it := &Item{ID: "5", Type: "listing", Meta: map[string]string{"photo": strings.Repeat("x", 1<<20)}}
+	r.acfAttrs(context.Background(), it, false)
+	if len(r.res.Warnings) == 0 {
+		t.Fatal("no warning")
+	}
+	if n := len(r.res.Warnings[0]); n > 300 {
+		t.Errorf("warning is %d bytes: %.120s", n, r.res.Warnings[0])
+	}
+}

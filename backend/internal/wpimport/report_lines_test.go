@@ -91,3 +91,10 @@ func TestReportOldStoredResult(t *testing.T) {
 		t.Errorf("old result gained a report: %q", b.String())
 	}
 }
+
+func TestReportTextStripsControlCharacters(t *testing.T) {
+	got := reportLineText(ReportLine{Status: LineMapped, Label: "Bad\x1b[2Jtitle\u009b", Detail: "x\ry"})
+	if strings.ContainsAny(got, "\x1b\u009b\r") || !strings.Contains(got, "Bad[2Jtitle: xy") {
+		t.Errorf("line = %q", got)
+	}
+}
