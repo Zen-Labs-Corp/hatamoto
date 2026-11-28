@@ -71,7 +71,7 @@ func (r *Runner) acfRelations(ctx context.Context) error {
 // has none.
 func (r *Runner) relationItem(ctx context.Context, info *entInfo) (entity.ImportItem, bool) {
 	it := info.item
-	rd := r.newACFReader(ctx, it, true, false)
+	rd := r.newACFReader(ctx, it, true)
 	attrs := map[string]any{}
 	var props []string
 	for _, m := range r.acf[it.Type] {

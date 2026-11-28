@@ -29,10 +29,10 @@ type acfReader struct {
 	item *Item
 	// withEntities is true in the link pass, where internal links resolve.
 	withEntities bool
-	// strict leaves a field out when a related item has no entity yet; the
-	// relations pass is not strict and drops the unresolved ids instead.
-	strict bool
-	loc    *time.Location
+	// quiet drops the warnings: the content step builds relation-bearing
+	// fields only to match the links step, which reports them.
+	quiet bool
+	loc   *time.Location
 	// unresolved counts related items without an entity; dropped counts
 	// media ids that were not imported.
 	unresolved, dropped int
@@ -44,18 +44,21 @@ type acfReader struct {
 	links, rows int
 }
 
-func (r *Runner) newACFReader(ctx context.Context, it *Item, withEntities, strict bool) *acfReader {
+func (r *Runner) newACFReader(ctx context.Context, it *Item, withEntities bool) *acfReader {
 	loc := time.UTC
 	if tz := r.dump.Site.Timezone; tz != "" {
 		if l, err := time.LoadLocation(tz); err == nil {
 			loc = l
 		}
 	}
-	return &acfReader{r: r, ctx: ctx, item: it, withEntities: withEntities, strict: strict, loc: loc}
+	return &acfReader{r: r, ctx: ctx, item: it, withEntities: withEntities, loc: loc}
 }
 
 // warn records a warning about this item, up to the cap.
 func (rd *acfReader) warn(format string, a ...any) {
+	if rd.quiet {
+		return
+	}
 	r := rd.r
 	switch {
 	case r.acfWarns < acfWarnCap:
@@ -94,25 +97,34 @@ func subsRelate(subs []ACFField) bool {
 }
 
 // acfAttrs builds the ACF attributes of one item from its meta and the fields
-// mapped for its type. A field with related items is included only when every
-// id resolves now, so a re-run's content write already carries it; otherwise
-// the links step writes it.
+// mapped for its type. A field with related items is built the way the links
+// step builds it (unresolved ids dropped, links resolved), so the content
+// write of a re-run carries the value the links step would write again.
 func (r *Runner) acfAttrs(ctx context.Context, it *Item, withEntities bool) map[string]any {
 	fields := r.acf[it.Type]
 	if len(fields) == 0 || len(it.Meta) == 0 {
 		return nil
 	}
 	out := map[string]any{}
-	rd := r.newACFReader(ctx, it, withEntities, true)
+	rd := r.newACFReader(ctx, it, withEntities)
+	rel := rd
+	if !withEntities {
+		rel = r.newACFReader(ctx, it, true)
+		rel.quiet = true
+	}
 	for _, m := range fields {
+		if acfRelationBearing(m) {
+			rel.field(m, out)
+			continue
+		}
 		rd.field(m, out)
-		if !withEntities && !acfRelationBearing(m) {
+		if !withEntities {
 			rd.count(m, out)
 		}
 	}
 	if !withEntities {
-		r.res.MediaRewritten += rd.rewritten
-		r.res.Unresolved = append(r.res.Unresolved, rd.left...)
+		r.res.MediaRewritten += rd.rewritten + rel.rewritten
+		r.res.Unresolved = append(r.res.Unresolved, append(rd.left, rel.left...)...)
 	}
 	if len(out) == 0 {
 		return nil
@@ -127,9 +139,6 @@ func (rd *acfReader) field(m acfMapped, out map[string]any) {
 	}
 	rd.unresolved, rd.dropped, rd.rows, rd.links = 0, 0, 0, 0
 	val, raw, ok := rd.value(m.Field, m.Kind, m.Node, rd.item.Meta, m.Field.Name)
-	if rd.strict && rd.unresolved > 0 {
-		return // not every related item exists yet
-	}
 	if raw != "" {
 		rd.keepRaw(out, m.Prop, m.Field, raw)
 		return
@@ -278,7 +287,7 @@ func (rd *acfReader) value(f ACFField, kind acfKind, node map[string]any, meta m
 			}
 		}
 		rd.links += len(out)
-		if rd.unresolved > 0 && !rd.strict {
+		if rd.unresolved > 0 {
 			rd.warn("ACF %s: %d related items were not imported and are left out", firstNonEmpty(f.Label, f.Name), rd.unresolved)
 		}
 		return out, "", true

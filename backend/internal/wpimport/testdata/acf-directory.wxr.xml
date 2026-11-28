@@ -236,7 +236,7 @@
  <wp:postmeta><wp:meta_key><![CDATA[_staff_1_role]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006d]]></wp:meta_value></wp:postmeta>
  <wp:postmeta><wp:meta_key><![CDATA[staff_1_photo]]></wp:meta_key><wp:meta_value><![CDATA[52]]></wp:meta_value></wp:postmeta>
  <wp:postmeta><wp:meta_key><![CDATA[_staff_1_photo]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006e]]></wp:meta_value></wp:postmeta>
- <wp:postmeta><wp:meta_key><![CDATA[related]]></wp:meta_key><wp:meta_value><![CDATA[a:1:{i:0;s:1:"1";}]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[related]]></wp:meta_key><wp:meta_value><![CDATA[a:2:{i:0;s:1:"1";i:1;s:3:"999";}]]></wp:meta_value></wp:postmeta>
  <wp:postmeta><wp:meta_key><![CDATA[_related]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006f]]></wp:meta_value></wp:postmeta>
  <wp:postmeta><wp:meta_key><![CDATA[gallery]]></wp:meta_key><wp:meta_value><![CDATA[a:3:{i:0;s:2:"50";i:1;s:2:"51";i:2;s:2:"52";}]]></wp:meta_value></wp:postmeta>
  <wp:postmeta><wp:meta_key><![CDATA[_gallery]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000070]]></wp:meta_value></wp:postmeta>

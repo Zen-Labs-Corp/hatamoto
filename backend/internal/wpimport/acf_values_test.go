@@ -194,22 +194,33 @@ func relationFields() []ACFField {
 	}
 }
 
-func TestACFRelationsOnlyWhenEveryIDResolves(t *testing.T) {
+func TestACFRelationsDropUnresolvedIDsLikeTheLinksStep(t *testing.T) {
 	r, _ := acfTestRunner(t, relationFields()...)
 	r.infos["1"] = &entInfo{ent: &entity.Entity{ID: acfEntA}}
 	meta := map[string]string{"related": `a:2:{i:0;s:1:"1";i:1;s:1:"2";}`, "price": "3"}
 	it := &Item{ID: "9", Type: "listing", Meta: meta}
-	attrs := r.acfAttrs(context.Background(), it, false)
-	if _, ok := attrs["related"]; ok {
-		t.Errorf("a partly resolvable relationship was written: %v", attrs["related"])
+	content := r.acfAttrs(context.Background(), it, false)
+	want := `["` + acfEntA.String() + `"]`
+	if got := acfJSON(t, content["related"]); got != want {
+		t.Errorf("related = %s, want %s", got, want)
 	}
-	if _, ok := attrs["price"]; !ok {
+	if _, ok := content["price"]; !ok {
 		t.Error("the plain field must still be written")
 	}
+	// The links step builds the same value, so a re-run changes nothing.
+	links := map[string]any{}
+	rd := r.newACFReader(context.Background(), it, true)
+	for _, m := range r.acf["listing"] {
+		if acfRelationBearing(m) {
+			rd.field(m, links)
+		}
+	}
+	if acfJSON(t, links["related"]) != acfJSON(t, content["related"]) {
+		t.Errorf("links step %s differs from content step %s", acfJSON(t, links["related"]), acfJSON(t, content["related"]))
+	}
 	r.relIDs["2"] = acfEntB
-	attrs = r.acfAttrs(context.Background(), it, false)
-	want := `["` + acfEntA.String() + `","` + acfEntB.String() + `"]`
-	if got := acfJSON(t, attrs["related"]); got != want {
+	want = `["` + acfEntA.String() + `","` + acfEntB.String() + `"]`
+	if got := acfJSON(t, r.acfAttrs(context.Background(), it, false)["related"]); got != want {
 		t.Errorf("related = %s, want %s", got, want)
 	}
 }
