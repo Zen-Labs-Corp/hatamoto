@@ -426,7 +426,7 @@ edits to it or to the page do not link them.
 **Blocks** (shared, synced across pages). A block is an entity of the built-in type `block` whose `attributes.page_doc` is a doc (the schema
 rows `block` and `theme_part` are inserted at boot by `entity.EnsureReuseSchemas`, data only, idempotent; if a site
 type already owns either slug, reuse is switched off for that type and logged once: the rules below apply only to
-the built-in rows, so the site's own type publishes, edits and schedules as before and a `ref` never resolves to it). Blocks are listed, created and deleted under Theme > Blocks (`<admin>/theme/blocks`), not in Entities (the built-in `block` and `theme_part` types are hidden from the Entities list, New menu and pickers; their `<admin>/entities/{id}/edit` URLs still open the builder). A page uses a block with a `ref` node
+the built-in rows, so the site's own type publishes, edits and schedules as before and a `ref` never resolves to it). Blocks are listed, created and deleted under Theme > Blocks (`<admin>/theme/blocks`), not in Content (the built-in `block` and `theme_part` types are hidden from the Content list, New menu and pickers; their `<admin>/entities/{id}/edit` URLs still open the builder). A page uses a block with a `ref` node
 (`{"t":"ref","p":{"block":"<uuid>"}}`). The renderer expands each `ref` into a wrapper `div` (id and styles of the ref
 node, class `hm-n-<ref id>`) holding a copy of the block's nodes; their ids are rewritten with the prefix
 `b<hash8 of the block id>_` so two uses, or a page and a block with equal ids, never collide. A page with a ref is builder-only (it has no derived `page_sections`).

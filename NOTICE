@@ -11,7 +11,7 @@ This product includes third-party software under its own licences:
 - Browser assets vendored for the admin (htmx, SortableJS, Tiptap
   and its dependencies): see backend/web/assets/NOTICE and
   backend/web/assets/licenses/.
-- The Geist and Geist Mono fonts in the default theme, under the SIL Open
+- The Geist font in the default theme, under the SIL Open
   Font License 1.1: see
   backend/internal/render/themes/default/assets/fonts/OFL.txt.
 - The Inter and JetBrains Mono fonts served by the admin, under the SIL Open

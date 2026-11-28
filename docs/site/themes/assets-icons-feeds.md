@@ -28,7 +28,7 @@ The default theme's `blog.css` styles cards, articles and pagination. `wp-compat
 
 ## Scripts and other files
 
-`assets/js/hm.js` is served at `/theme/assets/hm.js` with a five-minute cache. Any other file under `assets/` is served from `/theme/assets/<path>`, also with a five-minute cache (`public, max-age=300`) and an `ETag`. Unknown paths and directories return 404. Every response carries `X-Content-Type-Options: nosniff` and `Access-Control-Allow-Origin: *`, because the sandboxed editor canvas has an opaque origin and loads fonts in CORS mode. The default theme's fonts (Geist and Geist Mono, under the SIL Open Font Licence) live in `assets/fonts/`.
+`assets/js/hm.js` is served at `/theme/assets/hm.js` with a five-minute cache. Any other file under `assets/` is served from `/theme/assets/<path>`, also with a five-minute cache (`public, max-age=300`) and an `ETag`. Unknown paths and directories return 404. Every response carries `X-Content-Type-Options: nosniff` and `Access-Control-Allow-Origin: *`, because the sandboxed editor canvas has an opaque origin and loads fonts in CORS mode. The default theme's font (Geist, under the SIL Open Font Licence) lives in `assets/fonts/`; code blocks use the system monospace stack.
 
 Under the public content security policy, scripts must come from the site's own origin (`script-src 'self'`). Do not rely on inline scripts or third-party script hosts in a theme.
 

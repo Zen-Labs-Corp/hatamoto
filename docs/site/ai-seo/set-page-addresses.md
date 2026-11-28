@@ -44,7 +44,7 @@ The built-in page and post types keep their fixed addresses (`/<slug>` for pages
 
 6. Select **Save**.
 
-7. Open **Entities**, select **Create**, then **Guide**.
+7. Open **Content**, select **Create**, then **Guide**.
 
 8. Set **Name** to `Install the app`. Leave **Slug** empty: Hatamoto makes `install-the-app` from the name.
 

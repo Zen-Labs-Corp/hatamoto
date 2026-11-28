@@ -382,8 +382,8 @@ owner and an editor), then run the commands under "Harness".
 
 ### Information architecture
 
-* **Primary nav** (`nav.go`): as owner, the sidebar has exactly Entities, Theme, AI analytics,
-  Plugins and Settings; plugin pages are nested under Plugins. As editor: Entities, Theme,
+* **Primary nav** (`nav.go`): as owner, the sidebar has exactly Content, Theme, AI analytics,
+  Plugins and Settings; plugin pages are nested under Plugins. As editor: Content, Theme,
   AI analytics, Settings, and Plugins only when a plugin page is visible to editors.
 * **Footer**: avatar link to `/admin/profile`, a theme button and a sign-out button. The
   two buttons are icon only, each with an `aria-label` and a tooltip; hover and keyboard
@@ -400,7 +400,7 @@ owner and an editor), then run the commands under "Harness".
   Templates and Menus; every listed link returns 200 and the five owner-only URLs
   (`themes`, `colours`, `design-system`, `presets`, `parts`) typed by hand return 403. Theme
   is hidden from a role with no tab.
-* **Entities hides blocks and parts**: the list, its type tabs and counts, the Create menu,
+* **Content hides blocks and parts**: the list, its type tabs and counts, the Create menu,
   `/admin/entities/new`, the parent picker and the menu and linking pickers show no built-in
   `block` or `theme_part`; a block opened at `/admin/entities/{id}/edit` still works, and
   its back link goes to Theme > Blocks (a part's to Layout parts).
@@ -473,7 +473,7 @@ owner and an editor), then run the commands under "Harness".
   in the Network panel the click is a `document` request, not `fetch/xhr`, and the
   Performance navigation entry has `type` `navigate`.
 * **View Transitions** (Chrome 126 and later, Safari 18.2 and later): moving between
-  Entities, AI analytics and Settings keeps the sidebar and the Settings subnav still while
+  Content, AI analytics and Settings keeps the sidebar and the Settings subnav still while
   the main area cross-fades for about 120 ms. With the OS "reduce motion" setting on, the
   main area changes at once. Browsers without support just navigate.
 * **Speculation Rules**: every shell page has one `script[type=speculationrules]` carrying
@@ -481,7 +481,7 @@ owner and an editor), then run the commands under "Harness".
   pages have none. In DevTools, Application, Speculative loads, hovering a sidebar link
   shows it prerendered; logout, theme, delete confirm pages, `export.csv`, previews and
   plugin `ui` URLs are never listed.
-* **Back and scroll**: on the Entities list with 57 entities, scroll down, open a row, press
+* **Back and scroll**: on the Content list with 57 entities, scroll down, open a row, press
   Back: the list is at the same scroll position and the focus is on the page, not lost.
   The same on a Settings list. `nav.mjs` asserts the scroll position.
 * **Unsaved changes**: edit a page or a post and click a sidebar link: the browser's
@@ -489,7 +489,7 @@ owner and an editor), then run the commands under "Harness".
 * **Indicators**: throttle the network to Slow 3G and check that the entities filter, a media
   upload, the parent search, SEO analysis, a schema field move and the import progress poll
   each show a busy indicator while the request runs, and that nothing shifts when it appears.
-* **Per-page modules**: on the Entities list the Network panel lists no `editors`,
+* **Per-page modules**: on the Content list the Network panel lists no `editors`,
   `blogeditor` or `editor/*` request; on a screen with a rich-text field it does.
 * **Known limit, no bfcache**: admin HTML is sent `Cache-Control: no-store` (cookie
   authenticated pages, `csp.go`), which stops the browser's back/forward cache. Back is a
@@ -531,7 +531,7 @@ Method for `perf.mjs`: Chrome, a fresh context per load, `--disable-features=Pre
 CLS sums `layout-shift` entries without recent input; INP is the longest `event` entry (16 ms
 threshold) over a scripted run (open a ⋯ menu, open Filters, type in search, theme button,
 switch a tab); navigation time is `responseEnd` of the navigation entry and click to
-`DOMContentLoaded`. The primary screens are Entities, Crawlers, Referrals, Pageviews,
+`DOMContentLoaded`. The primary screens are Content, Crawlers, Referrals, Pageviews,
 Plugins, General, Media, Entity types and Forms.
 
 Results, run against the 57-entity seed on 2026-10-16 (Chrome 154.0.8037.57,
@@ -549,7 +549,7 @@ Navigation is `responseEnd`; where a sidebar click reaches the screen in one ste
 
 | Screen | CLS (median of 5) | INP (ms) | Navigation (ms, median of 5) |
 |---|---|---|---|
-| Entities | 0.0000 | 24 | 246 (284) |
+| Content | 0.0000 | 24 | 246 (284) |
 | AI analytics, Crawlers | 0.0000 | 0 | 251 (273) |
 | AI analytics, Referrals | 0.0000 | 0 | 237 |
 | AI analytics, Pageviews | 0.0000 | 0 | 227 |

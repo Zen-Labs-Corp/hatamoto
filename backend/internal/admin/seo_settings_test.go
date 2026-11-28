@@ -345,6 +345,20 @@ func TestSEOTitlesPreviewUsesTheTypedTemplates(t *testing.T) {
 	}
 }
 
+// A sample page without a description template shows the tagline, like the
+// public head does.
+func TestSEOTitlesPreviewFallsBackToTagline(t *testing.T) {
+	s := newSEORig(t, newFakeSEO())
+	s.a.deps.Site.(*fakeSite).cfg.Tagline = "Model it once."
+	rec := s.do("POST", "/admin/settings/seo/titles/preview", "owner-token", goodTitlesForm(), nil)
+	if rec.Code != 200 {
+		t.Fatalf("preview = %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), `<span class="hm-table__sub">Model it once.</span>`) {
+		t.Errorf("preview lacks the tagline fallback:\n%s", rec.Body)
+	}
+}
+
 func TestSEOGeneralSave(t *testing.T) {
 	s := newSEORig(t, newFakeSEO())
 	form := url.Values{"variable_name": {"brand", "", "tagline_long"}, "variable_value": {"Acme", "", "Making things"}}

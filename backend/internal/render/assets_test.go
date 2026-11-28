@@ -103,11 +103,17 @@ func TestAssetHandlerServesEmbeddedFonts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"Geist-Variable.woff2", "GeistMono-Variable.woff2"} {
+	for _, name := range []string{"Geist-Variable.woff2"} {
 		w := httptest.NewRecorder()
 		e.AssetHandler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, AssetPrefix+"fonts/"+name, nil))
 		if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "font/woff2" || w.Body.Len() < 10000 {
 			t.Errorf("%s: %d %q len=%d", name, w.Code, w.Header().Get("Content-Type"), w.Body.Len())
 		}
+	}
+	// The mono face was dropped for the system stack; it must not creep back.
+	w := httptest.NewRecorder()
+	e.AssetHandler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, AssetPrefix+"fonts/GeistMono-Variable.woff2", nil))
+	if w.Code != http.StatusNotFound {
+		t.Errorf("dropped mono font: %d, want 404", w.Code)
 	}
 }

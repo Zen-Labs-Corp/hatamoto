@@ -2,7 +2,6 @@
    theme_config overrides arrive as --hm-* custom properties on :root. */
 /* Fonts are self-hosted (SIL OFL 1.1, see fonts/OFL.txt); no third-party requests. */
 @font-face { font-family: "Geist"; src: url("/theme/assets/fonts/Geist-Variable.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
-@font-face { font-family: "Geist Mono"; src: url("/theme/assets/fonts/GeistMono-Variable.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
 
 :root {
   /* shiro / sumi palette. Colour is scarce: shu (red) is only the mark and the primary CTA. */
@@ -29,7 +28,7 @@
   --hm-text: var(--hm-sumi);
   --hm-font: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --hm-font-heading: var(--hm-font);
-  --hm-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --hm-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --hm-font-kanji: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", "Noto Sans CJK JP", "Meiryo", sans-serif;
   --hm-radius-sm: 6px;
   --hm-radius-md: 10px;

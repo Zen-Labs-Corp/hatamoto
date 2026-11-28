@@ -2,7 +2,7 @@
 {{define "modules"}}@hm/blogeditor @hm/seopanel @hm/repeater @hm/content @hm/editor/kit @hm/editor/blocks @hm/editor/slash @hm/editor/bubble @hm/editor/upload @hm/editor/paste @hm/editor/embed{{end}}
 {{define "scripts"}}sortablejs{{end}}
 {{define "editorbar"}}{{with .Data}}<a class="hm-editor-bar__back" href="{{.ListHref}}" aria-label="Back to posts">{{icon "chevron-left"}}</a>
-<nav class="hm-crumbs hm-editor-bar__crumbs" aria-label="Breadcrumb"><ol class="hm-crumbs__list"><li><a href="{{adminPath}}/entities">Entities</a></li><li><a href="{{.ListHref}}">{{.SchemaName}}</a></li><li><span aria-current="page">{{or .Name (printf "Untitled %s" .Noun)}}</span></li></ol></nav>
+<nav class="hm-crumbs hm-editor-bar__crumbs" aria-label="Breadcrumb"><ol class="hm-crumbs__list"><li><a href="{{adminPath}}/entities">Content</a></li><li><a href="{{.ListHref}}">{{.SchemaName}}</a></li><li><span aria-current="page">{{or .Name (printf "Untitled %s" .Noun)}}</span></li></ol></nav>
 {{with .StatusBadge}}{{template "hm/badge" .}}{{end}}
 <span class="hm-editor-bar__state" data-hm-be-status>{{if .UpdatedAt}}{{template "hm/savestate" (dict "State" "saved" "Text" (printf "Saved %s" .UpdatedAt))}}{{else}}{{template "hm/savestate" (dict "State" "idle" "Text" "")}}{{end}}</span><span class="hm-visually-hidden" role="status" aria-live="polite" data-hm-be-notice></span>
 <span class="hm-editor-bar__spacer"></span>

@@ -51,6 +51,7 @@ func (s *Server) applyLocaleSnap(ctx context.Context, snap *entity.URLSnapshot, 
 	v.Locale = loc
 	// Empty for a locale served without a prefix, even when a segment is stored.
 	v.Segment = strings.TrimPrefix(set.Prefix(loc), "/")
+	v.DefaultLocale = loc == set.Default()
 	if !shared {
 		v.LocaleName = set.DisplayName(loc)
 	}

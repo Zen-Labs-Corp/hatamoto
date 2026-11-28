@@ -22,7 +22,7 @@ func TestEntitySubnavListsEveryType(t *testing.T) {
 		c.ents.addEntity(300+i, sc, fmt.Sprintf("Spot %02d", i), fmt.Sprintf("spot-%02d", i), entity.StatusPublished, `{}`, t0)
 	}
 	body := c.get(t, "owner-token", "/admin/entities", "")
-	has(t, body, `aria-label="Entities"`)
+	has(t, body, `aria-label="Content"`)
 	for i := 0; i < 12; i++ {
 		has(t, body, fmt.Sprintf(`href="/admin/entities?type=city-%02d"`, i))
 	}

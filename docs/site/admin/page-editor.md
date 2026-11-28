@@ -10,13 +10,13 @@ In this guide you open a page, add a block, change its text and publish the resu
 ## Before you start
 
 - An owner or editor account. If you are new to the admin, read [Edit and publish content](content.md) first.
-- A page to work on. To make one, open **Entities**, then **Create > Page**: one click creates a draft called "Untitled page" and opens it in the editor.
+- A page to work on. To make one, open **Content**, then **Create > Page**: one click creates a draft called "Untitled page" and opens it in the editor.
 
 ## Steps
 
 ### Open the page
 
-1. Open **Entities**, choose **Pages** in the menu next to the list, and press **Edit** on the page's row.
+1. Open **Content**, choose **Pages** in the menu next to the list, and press **Edit** on the page's row.
 
 2. Every page opens in the **page builder**, a visual editor with your page in the middle. A page made before the builder existed opens with its content already turned into builder elements; nothing is stored, and no new version appears, until you save. Its theme blocks, called **sections** (such as a hero banner or a contact form), show up as elements you can select and edit.
 
@@ -69,7 +69,7 @@ In this guide you open a page, add a block, change its text and publish the resu
 
 ## Check it worked
 
-Press **View on site** on the page's row in **Entities**, or open its address. You see your new block with the text you typed.
+Press **View on site** on the page's row in **Content**, or open its address. You see your new block with the text you typed.
 
 If the status chip reads **Changed somewhere else**, someone else saved the same page after you opened it. A banner over the top of the preview explains that your changes are still there but not saved. Choose **Keep my version** to save yours over theirs, **Load their version** to load theirs and redo your change, or **Compare in Versions** to look at both first.
 

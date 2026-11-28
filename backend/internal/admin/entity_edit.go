@@ -732,7 +732,7 @@ func (a *Admin) findParents(ctx context.Context, q, selected string, exclude uui
 // select. The chosen parent stays in it.
 func (a *Admin) handleParentOptions(w http.ResponseWriter, r *http.Request) {
 	if a.deps.Content.Entities == nil {
-		a.unavailable(w, r, "Entities")
+		a.unavailable(w, r, "Content")
 		return
 	}
 	q := r.URL.Query()
@@ -835,7 +835,7 @@ func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status 
 	}
 	v := a.NewView(w, r, title)
 	v.Data = f
-	v.Crumbs = []Crumb{{Label: "Entities", Href: a.adminPath + "/entities"}, {Label: title}}
+	v.Crumbs = []Crumb{{Label: "Content", Href: a.adminPath + "/entities"}, {Label: title}}
 	a.Render(w, r, status, "entities/edit", v)
 }
 
@@ -943,7 +943,7 @@ func (a *Admin) handleEntityNew(w http.ResponseWriter, r *http.Request) {
 	}
 	c := a.deps.Content
 	if c.Entities == nil {
-		a.unavailable(w, r, "Entities")
+		a.unavailable(w, r, "Content")
 		return
 	}
 	schemas, err := c.Entities.ListSchemas(r.Context())
@@ -962,7 +962,7 @@ func (a *Admin) handleEntityNew(w http.ResponseWriter, r *http.Request) {
 				v := a.NewView(w, r, "Start a new "+draftNoun(sc))
 				v.Data = struct{ Type, Noun, Name string }{slug, draftNoun(sc), sc.Name}
 				v.Width = "narrow"
-				v.Crumbs = []Crumb{{Label: "Entities", Href: a.adminPath + "/entities"}, {Label: "New"}}
+				v.Crumbs = []Crumb{{Label: "Content", Href: a.adminPath + "/entities"}, {Label: "New"}}
 				a.Render(w, r, http.StatusOK, "entities/start", v)
 				return
 			}
@@ -997,7 +997,7 @@ func (a *Admin) handleEntityNew(w http.ResponseWriter, r *http.Request) {
 		Empty   ui.Empty
 	}{choices, empty}
 	v.Width = "narrow"
-	v.Crumbs = []Crumb{{Label: "Entities", Href: a.adminPath + "/entities"}, {Label: "New"}}
+	v.Crumbs = []Crumb{{Label: "Content", Href: a.adminPath + "/entities"}, {Label: "New"}}
 	a.Render(w, r, http.StatusOK, "entities/new", v)
 }
 
@@ -1146,7 +1146,7 @@ func (a *Admin) scheduleError(r *http.Request, typed string, current *entity.Ent
 func (a *Admin) handleEntityCreate(w http.ResponseWriter, r *http.Request) {
 	c := a.deps.Content
 	if c.Entities == nil {
-		a.unavailable(w, r, "Entities")
+		a.unavailable(w, r, "Content")
 		return
 	}
 	sc := a.schemaBySlug(r, r.PostFormValue("type"))

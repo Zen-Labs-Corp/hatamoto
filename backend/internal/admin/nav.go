@@ -205,13 +205,13 @@ func contains(ss []string, s string) bool {
 }
 
 // defaultNav registers the core sidebar under prefix: Overview, then Site
-// (Entities, Media, Forms, Comments, Analytics) and Customize (Plugins, Theme, Settings). Theme and
+// (Content, Media, Forms, Comments, Analytics) and Customize (Plugins, Theme, Settings). Theme and
 // Settings carry a secondary sidebar of their own (see adminArea).
 func defaultNav(prefix string) *Nav {
 	n := &Nav{}
 	for i, it := range []NavItem{
 		{ID: "overview", Label: "Overview", Href: prefix, Icon: "home", Exact: true},
-		{ID: "entities", Label: "Entities", Group: "Site", Href: prefix + "/entities", Icon: "file-text", Prefixes: []string{prefix + "/entities", prefix + "/people"}},
+		{ID: "entities", Label: "Content", Group: "Site", Href: prefix + "/entities", Icon: "file-text", Prefixes: []string{prefix + "/entities", prefix + "/people"}},
 		// Hidden until wireReviewNav finds review in use (Visible reads cached values only).
 		{ID: "review", Label: "Review", Group: "Site", Href: prefix + "/review", Icon: "check", Prefixes: []string{prefix + "/review"}, Visible: func(viewer) bool { return false }},
 		{ID: "media", Label: "Media", Group: "Site", Href: prefix + "/media", Icon: "image", Prefixes: []string{prefix + "/media"}},

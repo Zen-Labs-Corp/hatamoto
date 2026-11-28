@@ -16,7 +16,7 @@ In this guide you write a blog post, check how it will look in search results, p
 
 ### Write the post
 
-1. Open **Entities**, then **Create > Post**. A draft called "Untitled post" opens in the blog editor: the title at the top, the body below it, and a sidebar on the right.
+1. Open **Content**, then **Create > Post**. A draft called "Untitled post" opens in the blog editor: the title at the top, the body below it, and a sidebar on the right.
 
 2. Click the title and type your own, then write the body. Three tools help you:
 
@@ -47,7 +47,7 @@ In this guide you write a blog post, check how it will look in search results, p
 
 1. Open the **Author** picker in the sidebar and choose a person, or the site's own name for posts from the organisation. To credit someone new, type their name: Hatamoto creates a person who has no profile page and cannot sign in.
 
-2. Open **Entities > People** (`<admin>/people`) to see everyone. Press **Add person** and fill in the name, photo, job title, short bio and links.
+2. Open **Content > People** (`<admin>/people`) to see everyone. Press **Add person** and fill in the name, photo, job title, short bio and links.
 
 3. Decide on the two switches:
 

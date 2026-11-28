@@ -19,7 +19,7 @@ backend/internal/server/admin_mount.go   the only server -> admin edge
 
 ## Navigation and URL scheme
 
-The sidebar has five primary items: **Entities** (`<admin>/entities`), **Theme**
+The sidebar has five primary items: **Content** (`<admin>/entities`), **Theme**
 (`<admin>/theme`), **AI analytics** (`<admin>/analytics`), **Plugins**
 (`<admin>/plugins`; it never has children) and **Settings** (`<admin>/settings`). Theme and
 Settings are shown when the signed-in role can reach at least one of their tabs. The footer holds an avatar link to `<admin>/profile`
@@ -28,8 +28,8 @@ a real form with an `aria-label` and a tooltip. Sign-in lands on `<admin>/entiti
 pixels the sidebar becomes a top bar and the toggle goes; below 640 the section list becomes a horizontal scroller of links. Every nav and template icon name must exist in the icon map
 (`icons.go`); an unknown name is a render error.
 
-**People** (`<admin>/people`) sits under Entities (the Entities list has a People button, and the
-Entities item stays active there). It lists every `person` entity (search, `?team=yes|no`,
+**People** (`<admin>/people`) sits under Content (the Content list has a People button, and the
+Content item stays active there). It lists every `person` entity (search, `?team=yes|no`,
 sort), has **Add person** (a dialog, or `<admin>/people/new` without JS) and a **Possible
 duplicates (N)** button to `<admin>/people/duplicates`, where each group's Merge form posts to
 `POST <admin>/people/merge` (owner and editor). A person is edited in the normal
@@ -50,7 +50,7 @@ route. A user whose person has no name, or is public without a photo, is sent to
 `<admin>/theme/...` are gated). "Complete" is derived from the person (`person.Complete`), nothing is stored.
 A hidden person needs no photo: the site shows a person who is not public as a name only.
 
-The main menu lists Overview, then Site (Entities, Media, Forms, Analytics) and Customize
+The main menu lists Overview, then Site (Content, Media, Forms, Analytics) and Customize
 (Plugins, Theme, Settings). Forms and Media are main-menu items at `<admin>/forms` and
 `<admin>/media`, not Settings sections. The Forms item carries a badge with the number of
 new submissions (hidden at zero, the same for every role that sees Forms; spam is not
@@ -174,7 +174,7 @@ There are 15 sections in three groups (paths under `<admin>/settings/`):
 | Access & security | `site-access`, `security/admin-address` | owner |
 | Email | `email` (SMTP settings, test, reset), `email/log` | owner |
 | Privacy & tracking | `privacy` (Cookie consent), `tracking` | owner |
-| **Content** | | |
+| **Publishing** | | |
 | Entity models | `types`, `taxonomies` | owner |
 | SEO | `seo/general`, `seo/titles`, and the other SEO tabs | owner |
 | Redirects | `redirects` | owner, editor |
@@ -202,10 +202,10 @@ Theme has eleven sections, one tab each (paths under `<admin>/theme/`):
 | Additional CSS | `additional-css` (the site's own CSS, served as its own stylesheet) | owner |
 | Contact button | `contact-button` (the floating contact link on public pages) | owner |
 
-Entities does not list the built-in `block` and `theme_part` types (rows, counts, type tabs,
+Content does not list the built-in `block` and `theme_part` types (rows, counts, type tabs,
 Create menu, New chooser, parent and link pickers); they are managed under Theme, and their
 `<admin>/entities/{id}/edit` URLs still open the builder. A site's own non-built-in type
-named `block` stays in Entities.
+named `block` stays in Content.
 
 Roles are the gates the screens had before the move; the move changed no access. AI analytics
 is an area with its own sub-sidebar (like Settings and Theme): Overview (`<admin>/analytics`),
@@ -252,7 +252,7 @@ from the services in `Deps.Content` (`ContentDeps`: interfaces for
 handler tests run on in-memory fakes; the real services are exercised by
 `content_integration_test.go`, build tag `integration`, `DATABASE_URL`).
 
-* **Entities**: a secondary sidebar (like Settings and Plugins) lists "All
+* **Content**: a secondary sidebar (like Settings and Plugins) lists "All
   entities" and one entry per entity type with its entry count, then, for
   owners, "Manage entity types"; below 640px it is a horizontal scroller of links. `?type=<slug>` shows that type with its plural as the title,
   one "New <type>" button and no Type column; an unknown slug shows All. The
@@ -598,7 +598,7 @@ keyword, SEO title and description, canonical, social image, noindex, include in
 
 With review on, a change to published content waits for a reviewer instead of going live. The behaviour is the same on every admin screen; the REST, MCP and CLI side is in the API docs.
 
-* **Switch.** Settings > Content > Entity models > Review (`<admin>/settings/review`, owners). One switch, off by default. With it off nothing on this page applies and every screen behaves as before.
+* **Switch.** Settings > Publishing > Entity models > Review (`<admin>/settings/review`, owners). One switch, off by default. With it off nothing on this page applies and every screen behaves as before.
 * **Who waits.** Authors, Editors and Contributors. Owners and Reviewers publish directly. A compiled-in review policy may change this ([ADR 0011](adr/0011-review-policy.md)). Blocks and theme parts are not reviewed. A Contributor's publish with review off stays unavailable: the disabled button gives its reason.
 * **Sending.** In the classic entity form, the blog editor and the builder, the publish action reads "Send for review" for someone who waits. The change is staged; the live entry and the public page stay as they are. The editor shows "Waiting for review since 10:42. Your change goes live when approved." until a decision. A scheduled publish by such a person is staged the same way. One change waits per entry: the same person sending again replaces it; another person's change to that entry is refused while one waits.
 * **Queue.** Review in the sidebar (owners, editors and reviewers; the marker is the number waiting) opens `<admin>/review`: entry, requester, waiting since. A row opens `<admin>/review/{id}`, which shows what would change (field, live now, after approval) and a Preview button (`<admin>/review/{id}/preview`). A change with several stages, or a renamed stage, shows "Stage n of m: Name" under the entry, and the change page says which group it waits for. With a compiled-in group resolver, only members of the stage's group who also hold the decide right see and decide that stage.

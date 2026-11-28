@@ -2,6 +2,7 @@ package render
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/seo"
@@ -102,5 +103,72 @@ func TestSEODefaultPathDoesNotAllocate(t *testing.T) {
 	n := testing.AllocsPerRun(100, func() { applySEOTemplates(&h, v, "Exact") })
 	if n != 0 {
 		t.Fatalf("allocs = %v", n)
+	}
+}
+
+func TestSEODescriptionFallsBackToTagline(t *testing.T) {
+	t.Parallel()
+	const tagline = "Model it once."
+	withTagline := func(page PageMeta, set *seo.Settings, tl string) *PageView {
+		v := seoView(page, set)
+		v.Site.Tagline = tl
+		return v
+	}
+	docTpl := seo.Defaults()
+	docTpl.Types["doc"] = seo.TypeTemplates{Description: "Read %title%."}
+	notFound := withTagline(PageMeta{Title: "Page not found", NoIndex: true}, nil, tagline)
+	notFound.Kind = KindNotFound
+
+	french := withTagline(PageMeta{Name: "N"}, nil, tagline)
+	french.Locale, french.Segment = "fr", "fr"
+
+	prefixedDefault := withTagline(PageMeta{Name: "N"}, nil, tagline)
+	prefixedDefault.Locale, prefixedDefault.Segment, prefixedDefault.DefaultLocale = "en", "en", true
+	prefixedOther := withTagline(PageMeta{Name: "N"}, nil, tagline)
+	prefixedOther.Locale, prefixedOther.Segment = "fr", "fr"
+
+	tests := []struct {
+		name string
+		v    *PageView
+		want string
+	}{
+		{"non-default language", french, ""},
+		{"prefix_all default locale", prefixedDefault, tagline},
+		{"prefix_all non-default locale", prefixedOther, ""},
+		{"tagline", withTagline(PageMeta{Name: "N"}, nil, tagline), tagline},
+		{"no tagline", withTagline(PageMeta{Name: "N"}, nil, ""), ""},
+		{"own description", withTagline(PageMeta{Name: "N", Description: "Mine", DescriptionSet: true}, nil, tagline), "Mine"},
+		{"template description", withTagline(PageMeta{Name: "N"}, &docTpl, tagline), "Read N."},
+		{"not found", notFound, tagline},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			h := seoHead(tc.v, false)
+			if h.Description != tc.want {
+				t.Fatalf("Description = %q, want %q", h.Description, tc.want)
+			}
+			out := renderHead(t, h)
+			if tc.want == "" {
+				if strings.Contains(out, `name="description"`) {
+					t.Errorf("empty description still renders a tag:\n%s", out)
+				}
+				return
+			}
+			if want := `<meta name="description" content="` + tc.want + `">`; !strings.Contains(out, want) {
+				t.Errorf("head lacks %s:\n%s", want, out)
+			}
+		})
+	}
+
+	// The fallback is head-only: the admin "missing description" signal reads
+	// the hand-written value.
+	v := withTagline(PageMeta{Name: "N"}, nil, tagline)
+	seoHead(v, false)
+	if got := seoInput(v, "N").HandDescription; got != "" {
+		t.Errorf("HandDescription = %q, want empty", got)
+	}
+	if v.Page.Description != "" {
+		t.Errorf("Page.Description = %q, want empty", v.Page.Description)
 	}
 }

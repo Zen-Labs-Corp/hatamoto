@@ -186,7 +186,7 @@ func TestEntityListGoldenFiltersSortAndPaging(t *testing.T) {
 
 	c := newContentRig(t)
 	body := c.get(t, "owner-token", "/admin/entities", "entities-list")
-	has(t, body, "Alpha service", "Beta service", "About us", `aria-label="Select all rows in Entities"`, "Ada Writer", `/services/alpha`)
+	has(t, body, "Alpha service", "Beta service", "About us", `aria-label="Select all rows in Content"`, "Ada Writer", `/services/alpha`)
 	// the specialised editor stays where it is until v1-12
 	has(t, body, `href="/admin/entities/`+fid(14).String()+`/edit"`, `href="/admin/entities/`+fid(11).String()+`"`)
 

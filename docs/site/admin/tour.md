@@ -21,7 +21,7 @@ In this guide you sign in to the admin, the private part of your site where you 
 
 1. Run `hatamoto admin-url` on the server, or ask whoever runs it. It prints the full link when your site address is set. Otherwise it prints only the path, so put your site address in front, for example `https://example.com/k7qm-x2rf-9tdc`. If you are not signed in, the sign-in page opens at `<admin>/login`.
 
-2. Sign in with your email address and password. You arrive at **Entities** (`<admin>/entities`), the list of everything on your site. An **entity** is a piece of content: a page, a blog post, a person or any other item.
+2. Sign in with your email address and password. You arrive at **Content** (`<admin>/entities`), the list of everything on your site. An **entity** is a piece of content: a page, a blog post, a person or any other item.
 
    - If the site was installed a moment ago and nobody has finished setting it up, `<admin>/setup` opens a short wizard instead. The server logs the full setup address when it starts. It asks for the **setup code**, a one-time code the server prints to its log so only someone with access to the server can create the first owner. [First run](../getting-started/first-run.md) walks you through it.
 
@@ -33,7 +33,7 @@ In this guide you sign in to the admin, the private part of your site where you 
 
    | Item | What you find there | Who sees it |
    |---|---|---|
-   | **Entities** | your pages, posts and other content, and **People** | owners and editors |
+   | **Content** | your pages, posts and other content, and **People** | owners and editors |
    | **Theme** | how the site looks: themes, colours, menus, reusable blocks | anyone who may open at least one Theme screen |
    | **AI analytics** | which AI tools and search engines read your pages | owners and editors |
    | **Plugins** | add-ons that give the site extra features | owners |
@@ -52,7 +52,7 @@ In this guide you sign in to the admin, the private part of your site where you 
 
 ### See how the admin behaves
 
-1. Try a list. Open **Entities**, type a word in the search box and choose a status. The address in your browser changes to hold your search and filters, so you can bookmark the view or send it to a colleague.
+1. Try a list. Open **Content**, type a word in the search box and choose a status. The address in your browser changes to hold your search and filters, so you can bookmark the view or send it to a colleague.
 
 2. Notice how the admin protects you from mistakes:
 
@@ -64,7 +64,7 @@ In this guide you sign in to the admin, the private part of your site where you 
 
 ## Check it worked
 
-You can answer three questions: where your content list is (**Entities**), where the menus of your site are (**Theme > Menus**) and which role you have. If you cannot see **Plugins** or most of **Settings**, you are signed in as an editor, which is normal.
+You can answer three questions: where your content list is (**Content**), where the menus of your site are (**Theme > Menus**) and which role you have. If you cannot see **Plugins** or most of **Settings**, you are signed in as an editor, which is normal.
 
 If you forgot your password, open `<admin>/forgot` and enter your email address. When the site can send email, you receive a reset link that works once, for one hour. When it cannot, ask someone with access to the server to run this command there, with your address:
 

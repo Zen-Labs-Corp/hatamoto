@@ -57,7 +57,7 @@ func TestNavOwnerSeesSevenPrimaryItems(t *testing.T) {
 	t.Parallel()
 
 	got := editorPluginNav("hreflang").For(roleViewer("owner"), "/admin/entities")
-	if want := []string{"Overview", "Entities", "Media", "Forms", "Analytics", "Plugins", "Theme", "Settings"}; !eq(labels(got), want) {
+	if want := []string{"Overview", "Content", "Media", "Forms", "Analytics", "Plugins", "Theme", "Settings"}; !eq(labels(got), want) {
 		t.Fatalf("owner nav %v, want %v", labels(got), want)
 	}
 	if got[5].Href != "/admin/plugins" {
@@ -71,12 +71,12 @@ func TestNavEditor(t *testing.T) {
 	// No plugin page for the editor: Plugins is hidden. Settings shows because
 	// the editor reaches Redirects and more.
 	for _, n := range []*Nav{DefaultNav(), editorPluginNav("")} {
-		if got := n.For(roleViewer("editor"), "/admin/entities"); !eq(labels(got), []string{"Overview", "Entities", "Media", "Forms", "Analytics", "Theme", "Settings"}) {
+		if got := n.For(roleViewer("editor"), "/admin/entities"); !eq(labels(got), []string{"Overview", "Content", "Media", "Forms", "Analytics", "Theme", "Settings"}) {
 			t.Fatalf("editor nav %v", labels(got))
 		}
 	}
 	got := editorPluginNav("hreflang").For(roleViewer("editor"), "/admin/entities")
-	if want := []string{"Overview", "Entities", "Media", "Forms", "Analytics", "Plugins", "Theme", "Settings"}; !eq(labels(got), want) {
+	if want := []string{"Overview", "Content", "Media", "Forms", "Analytics", "Plugins", "Theme", "Settings"}; !eq(labels(got), want) {
 		t.Fatalf("editor nav with a plugin page %v, want %v", labels(got), want)
 	}
 	if pl := got[5]; pl.Href != "/admin/plugins/hreflang/settings" {
@@ -92,8 +92,8 @@ func TestNavActive(t *testing.T) {
 	for _, tc := range []struct{ path, label, cur string }{
 		{"/admin", "Overview", "page"},
 		{"/admin/", "Overview", "page"},
-		{"/admin/entities", "Entities", "page"},
-		{"/admin/entities/12/edit", "Entities", "page"},
+		{"/admin/entities", "Content", "page"},
+		{"/admin/entities/12/edit", "Content", "page"},
 		{"/admin/forms", "Forms", "page"},
 		{"/admin/forms/new", "Forms", "page"},
 		{"/admin/forms/edit/7", "Forms", "page"},
@@ -116,9 +116,9 @@ func TestNavActive(t *testing.T) {
 		{"/admin/media", "Media", "page"},
 		{"/admin/media/3", "Media", "page"},
 		{"/admin/settings/redirects", "Settings", "page"},
-		{"/admin/people", "Entities", "page"},
-		{"/admin/people/new", "Entities", "page"},
-		{"/admin/people/duplicates", "Entities", "page"},
+		{"/admin/people", "Content", "page"},
+		{"/admin/people/new", "Content", "page"},
+		{"/admin/people/duplicates", "Content", "page"},
 		{"/admin/entitiesx", "", ""},
 		{"/admin/profile", "", ""},
 	} {
@@ -198,8 +198,8 @@ func TestGroupNav(t *testing.T) {
 		role string
 		want string
 	}{
-		{"owner", editorPluginNav("hreflang"), "owner", ":Overview|Site:Entities,Media,Forms,Analytics|Customize:Plugins,Theme,Settings"},
-		{"editor", DefaultNav(), "editor", ":Overview|Site:Entities,Media,Forms,Analytics|Customize:Theme,Settings"},
+		{"owner", editorPluginNav("hreflang"), "owner", ":Overview|Site:Content,Media,Forms,Analytics|Customize:Plugins,Theme,Settings"},
+		{"editor", DefaultNav(), "editor", ":Overview|Site:Content,Media,Forms,Analytics|Customize:Theme,Settings"},
 	} {
 		if got := shape(GroupNav(tc.nav.For(roleViewer(tc.role), "/admin"))); got != tc.want {
 			t.Errorf("%s groups %q, want %q", tc.name, got, tc.want)

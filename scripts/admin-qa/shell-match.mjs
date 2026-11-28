@@ -51,7 +51,7 @@ try {
       // A page without a width cap fills the space beside the sidebar.
       await visit(p, { path: "/admin/entities" });
       const e = await probe(p, "2200 entities", () => ({ right: innerWidth - document.querySelector(".hm-page").getBoundingClientRect().right }));
-      check(e.right <= 32, `${width}: Entities content ends ${e.right}px from the viewport edge, want <= 32`);
+      check(e.right <= 32, `${width}: Content content ends ${e.right}px from the viewport edge, want <= 32`);
     }
     await p.close();
   }
@@ -66,12 +66,12 @@ try {
   });
   check(fonts.length > 0 && fonts.every(Boolean), "Inter woff2 was not fetched from the admin origin");
 
-  // Entities: a count in the sidebar, and the segmented counts sit on their label's baseline.
+  // Content: a count in the sidebar, and the segmented counts sit on their label's baseline.
   const ent = await probe(p, "entities", () => {
     const need = (s) => document.querySelector(s) ?? (() => { throw new Error("missing " + s); })();
     need(".hm-segmented__count");
-    const entLink = [...document.querySelectorAll(".hm-nav-link")].find((a) => a.textContent.includes("Entities"));
-    if (!entLink) throw new Error("missing the Entities nav link");
+    const entLink = [...document.querySelectorAll(".hm-nav-link")].find((a) => a.getAttribute("href").endsWith("/entities") && a.textContent.trim().startsWith("Content"));
+    if (!entLink) throw new Error("missing the Content nav link");
     const off = [...document.querySelectorAll(".hm-segmented__count")].map((c) => {
       const btn = c.closest(".hm-segmented__btn"), r = document.createRange();
       r.selectNodeContents(btn.firstChild);
@@ -80,7 +80,7 @@ try {
     return { entCount: entLink.querySelector(".hm-nav-link__badge [aria-hidden]")?.textContent.trim() ?? "", maxOff: Math.max(...off) };
   });
   // The marker is the draft count and is absent at 0 drafts; when present, its aria-hidden digits are a number.
-  if (ent.entCount) check(/^\d+$/.test(ent.entCount), `Entities nav marker is not a count (${ent.entCount})`);
+  if (ent.entCount) check(/^\d+$/.test(ent.entCount), `Content nav marker is not a count (${ent.entCount})`);
   check(ent.maxOff <= 1, `segmented counts are ${ent.maxOff}px off their label baseline`);
 
   // Sidebar toggle: click and Enter hide and show the sidebar (display none, subnav stays), aria-expanded follows, a reload keeps it.

@@ -120,7 +120,7 @@ The field editor builds the schema from rows. You can drag rows to reorder them 
 
 ## People
 
-People live at `<admin>/people`, reached from the Entities list. The list shows every `person` entity with search, a team filter (`?team=yes` or `?team=no`) and sorting. **Add person** opens a dialog, or `<admin>/people/new` without JavaScript. A person is edited in the ordinary entity form, so fields you add to the `person` type appear there. A person never opens in the page builder.
+People live at `<admin>/people`, reached from the Content list. The list shows every `person` entity with search, a team filter (`?team=yes` or `?team=no`) and sorting. **Add person** opens a dialog, or `<admin>/people/new` without JavaScript. A person is edited in the ordinary entity form, so fields you add to the `person` type appear there. A person never opens in the page builder.
 
 | Field | Meaning |
 |---|---|

@@ -18,7 +18,7 @@ In this guide you create a piece of content, save it as a draft, publish it and 
 
 > Your admin address is private to your install, for example `/k7qm-x2rf-9tdc`. Print it on the server with `hatamoto admin-url`. This page writes it as `<admin>`.
 
-1. Open **Entities** in the sidebar (`<admin>/entities`). Hatamoto calls every piece of content an **entity**: a page, a post, a person or any other item. The list shows them all, newest change first.
+1. Open **Content** in the sidebar (`<admin>/entities`). Hatamoto calls every piece of content an **entity**: a page, a post, a person or any other item. The list shows them all, newest change first.
 
 2. Look at the menu next to the list. It shows **All entities** and one line for each **content type**, the kind of content, which decides its fields and its address. Pages, posts and people are content types. The number after each one is how many items it holds. Choose one to see only that type.
 
@@ -76,7 +76,7 @@ Moving up or down does not edit the entry: no version is saved, and a page a plu
 
 ### Find, restore and remove content
 
-1. Find your item again. Back in **Entities**, use the search box (it searches titles and addresses), the **Status** filter and the extra filters for author, term and date. The browser address keeps your filters, so you can bookmark the view.
+1. Find your item again. Back in **Content**, use the search box (it searches titles and addresses), the **Status** filter and the extra filters for author, term and date. The browser address keeps your filters, so you can bookmark the view.
 
 2. Act on several items at once. Tick the rows, then choose **Publish**, **Move to draft**, **Archive** or **Delete**. Each row also has its own actions: **Edit**, **Settings** (the name, address and search details of a page or post), **View on site** once it is published, **Duplicate**, **Publish** or **Unpublish** (back to draft) and **Delete**.
 

@@ -741,7 +741,7 @@ func (s *Server) setupDependencies() {
 		}
 
 		// Entity-version retention: coalesce identical-consecutive versions and
-		// keep the newest N per entity (Settings > Content > Versions, read on
+		// keep the newest N per entity (Settings > Publishing > Versions, read on
 		// every run) plus every version live in the last 30 days.
 		if s.entityRepo != nil && workerJobEnabled("entity_versions") {
 			keep := func(ctx context.Context) (int, error) {

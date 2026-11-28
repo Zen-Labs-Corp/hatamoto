@@ -234,7 +234,7 @@ func parseDay(s string, loc *time.Location) (time.Time, bool) {
 func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 	c := a.deps.Content
 	if c.Entities == nil {
-		a.unavailable(w, r, "Entities")
+		a.unavailable(w, r, "Content")
 		return
 	}
 	ctx := r.Context()
@@ -369,7 +369,7 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 	chips := p.chips(a.adminPath, loc, authors, termOpts)
 
 	types := counts.types
-	caption := "Entities"
+	caption := "Content"
 	if resolved != nil {
 		caption = typePluralFor(resolved.Slug, resolved.Name)
 	}
@@ -548,7 +548,7 @@ func (a *Admin) newTypeAction(label, slug string, draft bool) ui.Action {
 // the Create menu, or one type's list with a single "New <type>" button. Both
 // carry the Entities subnav built from types.
 func (a *Admin) renderEntities(w http.ResponseWriter, r *http.Request, p listParams, t ui.Table, total int, types []typeTab, resolved *entity.EntitySchema) {
-	d := entitiesData{Table: t, Title: "Entities", Description: "Pages, posts and other content on your site."}
+	d := entitiesData{Table: t, Title: "Content", Description: "Pages, posts and other content on your site."}
 	if total >= 0 {
 		d.Status = fmt.Sprintf("%d %s", total, plural(total, "entity", "entities"))
 	}
@@ -706,7 +706,7 @@ func (a *Admin) entityCounts(ctx context.Context, schemas []*entity.EntitySchema
 func (a *Admin) handleEntitiesBulk(w http.ResponseWriter, r *http.Request) {
 	c := a.deps.Content
 	if c.Entities == nil {
-		a.unavailable(w, r, "Entities")
+		a.unavailable(w, r, "Content")
 		return
 	}
 	_ = r.ParseForm()

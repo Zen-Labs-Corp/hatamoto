@@ -49,7 +49,7 @@ func TestEntitiesSubnavAllView(t *testing.T) {
 	warmNavCounts(c)
 	body := c.get(t, "owner-token", "/admin/entities", "")
 	nav := subnavOf(body)
-	has(t, nav, `aria-label="Entities"`, `<h2 class="hm-subnav__title hm-visually-hidden">Entities</h2>`)
+	has(t, nav, `aria-label="Content"`, `<h2 class="hm-subnav__title hm-visually-hidden">Content</h2>`)
 	all := subnavLink(nav, "/admin/entities")
 	has(t, all, `aria-current="page"`, ">All entities<", `hm-subnav__marker">6<`) // 3 services (archived counts) + page + 2 posts
 	if l := subnavLink(nav, "/admin/entities?type=post"); !strings.Contains(l, `hm-subnav__marker">2<`) || strings.Contains(l, "aria-current") {
@@ -71,7 +71,7 @@ func TestEntitiesSubnavAllView(t *testing.T) {
 	lacks(t, nav, "<svg") // no lone icon: every entry is text, as in the Plugins subnav
 	// the old tab row is gone; the header and Create menu stay
 	lacks(t, body, "entity-types-more", "Find a type")
-	has(t, body, "<h1>Entities</h1>", "Pages, posts and other content on your site.", `popovertarget="create-menu"`, `<th scope="col"`, ">Type<")
+	has(t, body, "<h1>Content</h1>", "Pages, posts and other content on your site.", `popovertarget="create-menu"`, `<th scope="col"`, ">Type<")
 	if c.ents.counts != 1 {
 		t.Errorf("count queries = %d, want 1", c.ents.counts)
 	}
@@ -90,7 +90,7 @@ func TestEntitiesSubnavTypeView(t *testing.T) {
 	// filters keep the type in the forms
 	has(t, body, `name="type" value="post"`)
 	// header: plural title, one primary button, no Create menu, no description
-	has(t, body, "<h1>Posts</h1>", `<li><a href="/admin/entities">Entities</a></li><li aria-current="page">Posts</li>`)
+	has(t, body, "<h1>Posts</h1>", `<li><a href="/admin/entities">Content</a></li><li aria-current="page">Posts</li>`)
 	lacks(t, body, `popovertarget="create-menu"`, "Pages, posts and other content")
 	if n := strings.Count(body, "New post"); n != 1 {
 		t.Errorf("New post appears %d times, want 1", n)
@@ -156,7 +156,7 @@ func TestEntitiesUnknownTypeIsAll(t *testing.T) {
 	if strings.Count(subnavOf(body), `aria-current="page"`) != 1 {
 		t.Error("exactly one current entry")
 	}
-	has(t, body, "<h1>Entities</h1>", `popovertarget="create-menu"`, ">Type<")
+	has(t, body, "<h1>Content</h1>", `popovertarget="create-menu"`, ">Type<")
 }
 
 func TestEntitiesSubnavEditorHasNoManageLink(t *testing.T) {

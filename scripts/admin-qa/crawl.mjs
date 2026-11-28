@@ -40,7 +40,7 @@ async function links(page) {
 if (selfTest) {
   const b = await launch();
   const page = await (await b.newContext()).newPage();
-  await page.setContent('<nav id="hm-sidebar"><a class="hm-nav-link" href="/admin/ghost">Ghost</a><a class="hm-nav-link" href="/admin/entities">Entities</a><a class="hm-nav-link" href="/admin/logout">Out</a><a class="hm-nav-link" href="https://example.com/admin/x">Ext</a></nav>');
+  await page.setContent('<nav id="hm-sidebar"><a class="hm-nav-link" href="/admin/ghost">Ghost</a><a class="hm-nav-link" href="/admin/entities">Content</a><a class="hm-nav-link" href="/admin/logout">Out</a><a class="hm-nav-link" href="https://example.com/admin/x">Ext</a></nav>');
   const keys = (await links(page)).map((h) => normalise(h)).filter(Boolean);
   // BFS over a fake three-level site: sidebar -> settings -> subnav page -> tab row page.
   const O = "http://qa.test", nav = (cls, hrefs) => `<nav class="${cls}">${hrefs.map((h) => `<a href="${h}" class="hm-nav-link hm-subnav__link">x</a>`).join("")}</nav>`;

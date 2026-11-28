@@ -35,11 +35,11 @@ func TestSubPageTrailsKeepIntermediateLevels(t *testing.T) {
 	id := fid(11).String()
 	c.post("/admin/entities/"+id, url.Values{"name": {"Alpha service"}, "slug": {"alpha"}, "status": {"published"}, "attr.summary": {"Second"}})
 	cases := []struct{ path, want string }{
-		{"/admin/entities/" + id, "Home > Entities > Alpha service"},
-		{"/admin/entities/" + id + "/versions", "Home > Entities > Alpha service > Versions"},
-		{"/admin/entities/" + id + "/versions/compare?from=1&to=0", "Home > Entities > Alpha service > Versions > Compare"},
-		{"/admin/entities/" + id + "/versions/1", "Home > Entities > Alpha service > Versions > v1"},
-		{"/admin/entities/new", "Home > Entities > New"},
+		{"/admin/entities/" + id, "Home > Content > Alpha service"},
+		{"/admin/entities/" + id + "/versions", "Home > Content > Alpha service > Versions"},
+		{"/admin/entities/" + id + "/versions/compare?from=1&to=0", "Home > Content > Alpha service > Versions > Compare"},
+		{"/admin/entities/" + id + "/versions/1", "Home > Content > Alpha service > Versions > v1"},
+		{"/admin/entities/new", "Home > Content > New"},
 		{"/admin/settings/types/" + fid(1).String(), "Home > Settings > Entity models > Entity types > Service"},
 	}
 	for _, tc := range cases {

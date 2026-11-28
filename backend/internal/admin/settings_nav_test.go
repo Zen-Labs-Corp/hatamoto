@@ -280,23 +280,23 @@ func TestSettingsNavGroups(t *testing.T) {
 	t.Parallel()
 
 	order, members := groupsOf(SettingsFor("owner"))
-	if got := strings.Join(order, ","); got != "Site,Content,System" {
+	if got := strings.Join(order, ","); got != "Site,Publishing,System" {
 		t.Fatalf("owner group order %q", got)
 	}
 	for g, want := range map[string]string{
-		"Site":    "general branding locales users access-security email privacy-tracking",
-		"Content": "entity-models seo redirects linking comments kits",
-		"System":  "integrations performance updates jobs hosting backups-recovery tools",
+		"Site":       "general branding locales users access-security email privacy-tracking",
+		"Publishing": "entity-models seo redirects linking comments kits",
+		"System":     "integrations performance updates jobs hosting backups-recovery tools",
 	} {
 		if got := strings.Join(members[g], " "); got != want {
 			t.Errorf("owner %s sections %q, want %q", g, got, want)
 		}
 	}
-	// An editor keeps only the Content sections; Site and System have no
+	// An editor keeps only the Publishing sections; Site and System have no
 	// section left, so their headings are not produced at all.
 	order, _ = groupsOf(SettingsFor("editor"))
-	if got := strings.Join(order, ","); got != "Content" {
-		t.Errorf("editor groups %q, want Content only", got)
+	if got := strings.Join(order, ","); got != "Publishing" {
+		t.Errorf("editor groups %q, want Publishing only", got)
 	}
 	// The Theme area shows no headings.
 	for _, s := range ThemeFor("owner") {
@@ -315,7 +315,7 @@ func TestAreaNavRendersGroupHeadings(t *testing.T) {
 		t.Fatalf("status %d", rec.Code)
 	}
 	html := rec.Body.String()
-	for _, h := range []string{">Site</li>", ">Content</li>", ">System</li>"} {
+	for _, h := range []string{">Site</li>", ">Publishing</li>", ">System</li>"} {
 		if !strings.Contains(html, h) {
 			t.Errorf("areanav missing %q", h)
 		}

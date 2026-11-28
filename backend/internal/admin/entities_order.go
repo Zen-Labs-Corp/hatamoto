@@ -101,7 +101,7 @@ func (a *Admin) orderSchema(r *http.Request, slug string) *entity.EntitySchema {
 
 func (a *Admin) handleEntityOrder(w http.ResponseWriter, r *http.Request) {
 	if a.deps.Content.Entities == nil {
-		a.unavailable(w, r, "Entities")
+		a.unavailable(w, r, "Content")
 		return
 	}
 	slug := r.URL.Query().Get("type")

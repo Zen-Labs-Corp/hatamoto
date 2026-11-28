@@ -91,7 +91,7 @@ A CSV file holds the entries of one content type, one per row, so you can edit t
 
 ### Export
 
-Open a content type under **Entities** and choose **Export CSV**. Pick the columns and the status to include, then **Download CSV**. Owners and editors can export.
+Open a content type under **Content** and choose **Export CSV**. Pick the columns and the status to include, then **Download CSV**. Owners and editors can export.
 
 - The fixed columns are `key`, `name`, `slug`, `status`, `published_at`, `locale`, `parent_key`, `order` and `id`. `order` is for reading only and is not imported.
 - Each attribute of the type is a column named `attr:` plus its path, for example `attr:price` or `attr:address.city`. A list of values is written with `|` between the items.
