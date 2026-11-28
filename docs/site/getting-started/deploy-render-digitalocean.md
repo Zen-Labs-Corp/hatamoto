@@ -1,7 +1,7 @@
 ---
 title: Deploy on Render or DigitalOcean
 nav_title: Deploy on Render or DigitalOcean
-description: Start Hatamoto on Render or DigitalOcean App Platform with one click, and learn which of the two keeps your files between restarts.
+description: Start Hatamoto on DigitalOcean App Platform with one click, or on Render from the included Blueprint (untested), and learn which keeps your files between restarts.
 next: first-run.md, ../operate/email.md, ../operate/configuration-reference.md
 ---
 
@@ -11,7 +11,7 @@ In this guide you deploy Hatamoto on **Render** or on **DigitalOcean App Platfor
 
 Only the DigitalOcean button is offered. The Render Blueprint is in the repository but has not been tested, see [Deploy on Render](#deploy-on-render).
 
-The two are not equal. Render gives the service a **persistent disk**, storage that is kept when the service restarts or is redeployed, so it suits a site you keep. DigitalOcean App Platform has no persistent storage: every file Hatamoto writes is lost on each deploy or restart. Treat the App Platform button as a way to try Hatamoto. For a DigitalOcean site you keep, use the droplet image described in [deploy/digitalocean/README.md](https://github.com/Zen-Labs-Corp/hatamoto/blob/main/deploy/digitalocean/README.md), or [Install on a VPS](install-vps.md).
+The two are not equal. Render gives the service a **persistent disk**, storage that is kept when the service restarts or is redeployed, so it would suit a site you keep once the untested Blueprint is confirmed to work (see below). DigitalOcean App Platform has no persistent storage: every file Hatamoto writes is lost on each deploy or restart. Treat the App Platform button as a way to try Hatamoto. For a DigitalOcean site you keep, use the droplet image described in [deploy/digitalocean/README.md](https://github.com/Zen-Labs-Corp/hatamoto/blob/main/deploy/digitalocean/README.md), or [Install on a VPS](install-vps.md).
 
 ## Before you start
 
