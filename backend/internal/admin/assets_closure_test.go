@@ -151,6 +151,7 @@ func TestPagesDeclareEntryModules(t *testing.T) {
 	}
 	// The module map: which pages declare which modules.
 	want := map[string][]string{
+		"settings/backups":         {"@hm/backupkey"},
 		"analytics/overview":       {"@hm/aia"},
 		"analytics/crawlers":       {"@hm/aia"},
 		"analytics/content":        {"@hm/aia"},

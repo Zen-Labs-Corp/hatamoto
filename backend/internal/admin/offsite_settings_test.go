@@ -88,7 +88,7 @@ func TestOffsiteCardStates(t *testing.T) {
 	}{
 		{"disabled", defaultOffsiteView(), []string{
 			"Off-site copy", "Backups are not copied off this server.", ">Off<", "Test connection", `autocomplete="off"`,
-			`type="password"`, "private bucket with server-side encryption", `action="/admin/settings/backups/offsite"`,
+			`type="password"`, "only receives encrypted .tar.age copies", `action="/admin/settings/backups/offsite"`,
 		}, []string{"Back up and upload now", "Saved. Leave blank"}},
 		{"enabled ok", func() OffsiteView {
 			v := enabledOffsiteView()

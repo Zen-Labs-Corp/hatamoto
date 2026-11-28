@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -67,12 +68,15 @@ type backupKeyData struct {
 	Unreadable bool
 	LoadFailed bool // the saved state could not be read
 	Status     ui.Badge
+	StatusText string
 	Errs       map[string]string // by field name: public_key, passphrase, mode
 	Summary    []ui.FieldError
 	Selected   string // the mode radio that is checked: generate, public or passphrase
+	Modes      []ui.RadioCardItem
 	// PlainOffsite counts off-site copies uploaded before encryption was on;
-	// it is only shown while encryption is on.
+	// it is only shown while encryption is on. PlainNote is the sentence.
 	PlainOffsite int
+	PlainNote    string
 }
 
 // backupKeyCard builds the card from the saved state. posted, when set, is a
@@ -88,13 +92,13 @@ func (a *Admin) backupKeyCard(ctx context.Context, st BackupsState, posted *back
 	if err != nil {
 		a.logger().Error("backup encryption view", "err", err)
 		d.LoadFailed = true
-		d.Status = ui.Badge{Label: "Unavailable", Kind: "danger"}
+		d.Status, d.StatusText = ui.Badge{Label: "Unavailable", Kind: "danger"}, "The backup encryption setting could not be read."
 	} else {
 		if v.Mode == "" {
 			v.Mode = BackupKeyOff
 		}
 		d.Mode, d.PublicKey, d.Unreadable = v.Mode, v.PublicKey, v.Unreadable
-		d.Status = backupKeyStatus(v)
+		d.Status, d.StatusText = backupKeyStatus(v)
 	}
 	switch d.Mode {
 	case BackupKeyPublic:
@@ -114,19 +118,34 @@ func (a *Admin) backupKeyCard(ctx context.Context, st BackupsState, posted *back
 	if posted != nil {
 		d.Selected, d.PublicKey, d.Errs, d.Summary = posted.Selected, posted.PublicKey, posted.Errs, posted.Summary
 	}
+	d.Modes = backupKeyModes(d.Selected)
+	switch {
+	case d.PlainOffsite == 1:
+		d.PlainNote = "1 off-site copy was uploaded before encryption was on. It stays as it is."
+	case d.PlainOffsite > 1:
+		d.PlainNote = fmt.Sprintf("%d off-site copies were uploaded before encryption was on. They stay as they are.", d.PlainOffsite)
+	}
 	return d
 }
 
-func backupKeyStatus(v BackupKeyView) ui.Badge {
+func backupKeyModes(selected string) []ui.RadioCardItem {
+	return []ui.RadioCardItem{
+		{Value: "generate", Title: "Generate a key pair for me", Checked: selected == "generate"},
+		{Value: "public", Title: "I have a public key", Checked: selected == "public"},
+		{Value: "passphrase", Title: "Use a passphrase instead", Checked: selected == "passphrase"},
+	}
+}
+
+func backupKeyStatus(v BackupKeyView) (ui.Badge, string) {
 	switch {
 	case v.Mode == BackupKeyOff:
-		return ui.Badge{Label: "Off", Kind: "muted"}
+		return ui.Badge{Label: "Off", Kind: "muted"}, "Downloads and off-site copies are not encrypted."
 	case v.Unreadable:
-		return ui.Badge{Label: "Key unreadable", Kind: "danger"}
+		return ui.Badge{Label: "Key unreadable", Kind: "danger"}, "The saved key cannot be read. Nothing is downloaded or copied off-site until you set it again."
 	case v.Mode == BackupKeyPassphrase:
-		return ui.Badge{Label: "On: passphrase", Kind: "success"}
+		return ui.Badge{Label: "On: passphrase", Kind: "success"}, "Downloads and off-site copies are encrypted with the passphrase."
 	}
-	return ui.Badge{Label: "On: public key set", Kind: "success"}
+	return ui.Badge{Label: "On: public key set", Kind: "success"}, "Downloads and off-site copies are encrypted to the public key below."
 }
 
 func (a *Admin) backupKeyService(w http.ResponseWriter, r *http.Request) (BackupKeyService, bool) {

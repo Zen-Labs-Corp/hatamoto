@@ -1,0 +1,25 @@
+{{/* The Backup encryption card of Settings > Backups & recovery > Backups. Dict: K (a backupKeyData), V (the page view, for the csrf field). There is no passphrase and no private key value in K: the private key only ever lives in the unnamed #backupkey-private textarea, filled by @hm/backupkey. */}}
+{{define "hm/backupkeyfields"}}<form id="backupkey-form" method="post" action="{{adminPath}}/settings/backups/encryption" class="hm-cardform" data-hm-backupkey>
+{{template "hm/csrf" .V}}
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save</button>
+{{template "hm/card-start" dict "ID" "backupkey" "Title" "Backup encryption" "Heading" "h2" "Description" "Encrypt every backup before it is downloaded or copied off-site."}}
+<div class="hm-setlist"><div class="hm-setrow">
+<div class="hm-setrow__text"><p class="hm-setrow__name">Status</p>
+<div role="status"><p class="hm-field__help">{{.K.StatusText}}</p></div></div>
+<div class="hm-setrow__control">{{template "hm/badge" .K.Status}}</div>
+</div></div>
+{{template "hm/radiocard" dict "Legend" "How to encrypt" "Name" "mode" "ID" "backupkey-mode" "Items" .K.Modes}}
+{{template "hm/button" dict "Label" "Generate key" "Attrs" (attrmap "data-hm-backupkey-generate" "" "hidden" "hidden")}}
+<div class="hm-stack hm-stack--tight" data-hm-backupkey-reveal hidden>
+{{template "hm/callout" (dict "Kind" "warning" "ID" "backupkey-private-warning" "Body" "The private key is shown once. Save it in your password manager. This server never keeps it. Do not leave this page before you save it.")}}
+{{template "hm/copyfield-start" (dict "ID" "backupkey-private" "Label" "Private key")}}{{template "hm/button" dict "Label" "I saved the private key" "Attrs" (attrmap "data-hm-backupkey-saved" "")}}{{template "hm/copyfield-end"}}
+</div>
+{{template "hm/field" dict "ID" "backupkey-public" "Name" "public_key" "Label" "Public key" "Value" .K.PublicKey "Help" "Starts with age1." "Error" (index .K.Errs "public_key") "Attrs" (attrmap "autocomplete" "off" "spellcheck" "false")}}
+{{template "hm/field" dict "ID" "backupkey-passphrase" "Name" "passphrase" "Label" "Passphrase" "Type" "password" "Help" "At least 12 characters. Stored sealed with the server secret: it protects a leaked bucket, not a compromised server." "Error" (index .K.Errs "passphrase") "Attrs" (attrmap "autocomplete" "new-password")}}
+{{template "hm/callout" (dict "Kind" "info" "ID" "backupkey-restore" "Body" "To restore you need the private key or the passphrase. Without it the backup cannot be opened. Changing the key does not re-encrypt older copies: keep old private keys.")}}
+<p class="hm-muted" role="status" data-hm-backupkey-status></p>
+{{template "hm/card-foot"}}{{if ne .K.Mode "off"}}{{template "hm/button" dict "Label" "Turn off" "Type" "submit" "Attrs" (attrmap "form" "backupkey-off-form")}}{{end}}
+{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+</form>
+<form id="backupkey-off-form" method="post" action="{{adminPath}}/settings/backups/encryption/off">{{template "hm/csrf" .V}}</form>{{end}}

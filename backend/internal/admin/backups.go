@@ -362,7 +362,7 @@ func (a *Admin) renderBackupsKey(w http.ResponseWriter, r *http.Request, status 
 	d := backupsData{
 		Zone:    loc.String(),
 		Keeping: keepingLine(st),
-		Table:   a.backupsTable(st.Rows, loc),
+		Table:   a.backupsTable(st.Rows, loc, key != nil && key.Mode != BackupKeyOff),
 		Offsite: of,
 		Key:     key,
 	}
@@ -479,7 +479,8 @@ func backupBadge(b BackupInfo) ui.Badge {
 	return ui.Badge{Label: "Failed", Kind: "danger"}
 }
 
-func (a *Admin) backupsTable(rows []BackupInfo, loc *time.Location) ui.Table {
+// backupsTable is the list; encrypted says downloads come as .tar.age.
+func (a *Admin) backupsTable(rows []BackupInfo, loc *time.Location, encrypted bool) ui.Table {
 	t := ui.Table{
 		ID: "backups", Caption: "Backups", BaseURL: a.adminPath + backupsRel,
 		Columns: []ui.Col{
@@ -504,7 +505,11 @@ func (a *Admin) backupsTable(rows []BackupInfo, loc *time.Location) ui.Table {
 			{Badge: &badge},
 		}}
 		if b.State == BackupOK {
-			row.Actions = append(row.Actions, ui.Action{Label: "Download", Href: a.adminPath + backupsRel + "/" + b.ID + "/download"})
+			label := "Download"
+			if encrypted {
+				label = "Download .tar.age"
+			}
+			row.Actions = append(row.Actions, ui.Action{Label: label, Href: a.adminPath + backupsRel + "/" + b.ID + "/download"})
 		}
 		if b.State != BackupRunning {
 			row.Actions = append(row.Actions, ui.Action{Label: "Delete", Href: a.adminPath + backupsRel + "/" + b.ID + "/delete", Post: a.adminPath + backupsRel + "/" + b.ID + "/delete",
