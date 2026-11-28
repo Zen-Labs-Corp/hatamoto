@@ -17,6 +17,16 @@ func has(issues []string, sub string) bool {
 	return false
 }
 
+// A read-only control in a form shows a value and never posts it, so it needs no name.
+func TestCheckAllowsUnnamedReadonlyInForm(t *testing.T) {
+	if got := Check(`<form><textarea readonly aria-label="Value"></textarea></form>`, Options{}); has(got, "no name") {
+		t.Errorf("read-only textarea flagged: %v", got)
+	}
+	if got := Check(`<form><textarea aria-label="Value"></textarea></form>`, Options{}); !has(got, "no name") {
+		t.Errorf("an editable unnamed textarea was not flagged: %v", got)
+	}
+}
+
 // The checker must flag each class of mistake it claims to catch.
 func TestCheckFlagsViolations(t *testing.T) {
 	cases := map[string]struct{ html, want string }{

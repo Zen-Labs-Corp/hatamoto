@@ -242,7 +242,9 @@ func (c *checker) forms() {
 			if t == "submit" || t == "button" || t == "reset" || t == "image" {
 				return
 			}
-			if hasAncestor(n, "form") != nil && attrv(n, "name") == "" && attrv(n, "form") == "" {
+			// A read-only control shows a value and never posts it (a copy field
+			// next to its form's inputs), so it needs no name.
+			if _, readonly := attr(n, "readonly"); hasAncestor(n, "form") != nil && !readonly && attrv(n, "name") == "" && attrv(n, "form") == "" {
 				c.addf("%s inside a form has no name", desc(n))
 			}
 		case "form":
