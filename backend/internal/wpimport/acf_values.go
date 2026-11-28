@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"github.com/santhosh-tekuri/jsonschema/v5"
+
+	"hatamoto.dev/core/internal/entity"
 )
 
 // acfWarnCap is how many value warnings one run records; the rest are summed up.
@@ -307,7 +309,7 @@ func (rd *acfReader) mediaURL(id string) string {
 func (rd *acfReader) text(v string, node map[string]any) (any, string, bool) {
 	switch node["format"] {
 	case "email":
-		if !acfEmailRe().MatchString(strings.TrimSpace(v)) {
+		if !jsonschema.Formats["email"](strings.TrimSpace(v)) {
 			return nil, v, false
 		}
 		return strings.TrimSpace(v), "", true
@@ -335,16 +337,18 @@ func (rd *acfReader) text(v string, node map[string]any) (any, string, bool) {
 	return v, "", true
 }
 
-// acfLooksLikeURI is a lenient check: a scheme, an absolute path or a fragment, no spaces.
+// acfLooksLikeURI is the check the entity validator makes for format "uri",
+// minus the schemes that run code when followed.
 func acfLooksLikeURI(v string) bool {
-	if v == "" || strings.ContainsAny(v, " \t\r\n") {
+	if !entity.IsValidURI(v) {
 		return false
 	}
-	if v[0] == '/' || v[0] == '#' {
-		return true
+	scheme, _, _ := strings.Cut(v, ":")
+	switch strings.ToLower(scheme) {
+	case "javascript", "data", "vbscript":
+		return false
 	}
-	u, err := url.Parse(v)
-	return err == nil && u.Scheme != ""
+	return true
 }
 
 func truncateUTF8(s string, n int) string {

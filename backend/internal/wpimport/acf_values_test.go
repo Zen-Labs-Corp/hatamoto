@@ -274,3 +274,37 @@ func TestACFValuesHostileInput(t *testing.T) {
 		t.Errorf("%d rows kept", len(rows))
 	}
 }
+
+// URL and email values the entity validator would refuse are kept as <name>_raw
+// instead of sinking the item; code-running schemes are never stored as links.
+func TestACFValuesRefusedByTheValidatorStayRaw(t *testing.T) {
+	r, _ := acfTestRunner(t,
+		ACFField{Name: "site", Label: "Site", Type: "url"},
+		ACFField{Name: "mail", Label: "Mail", Type: "email"},
+		ACFField{Name: "cta", Label: "CTA", Type: "link"},
+		ACFField{Name: "alt", Label: "Alt", Type: "url"},
+		ACFField{Name: "good", Label: "Good", Type: "url"},
+		ACFField{Name: "ok", Label: "Ok", Type: "email"},
+	)
+	it := &Item{ID: "5", Type: "listing", Meta: map[string]string{
+		"site": "#contact", "mail": "info@bücher.example", "cta": `a:1:{s:3:"url";s:17:"javascript:run(1)";}`,
+		"alt": "//host.example.test/x", "good": "https://example.test/a", "ok": "info@example.test",
+	}}
+	attrs := r.acfAttrs(context.Background(), it, false)
+	for _, k := range []string{"site", "mail", "cta", "alt"} {
+		if _, ok := attrs[k]; ok {
+			t.Errorf("%s = %v was stored as a typed value", k, attrs[k])
+		}
+	}
+	if attrs["site_raw"] != "#contact" || attrs["mail_raw"] != "info@bücher.example" || attrs["alt_raw"] != "//host.example.test/x" {
+		t.Errorf("raw fallbacks missing: %v", attrs)
+	}
+	if attrs["good"] != "https://example.test/a" || attrs["ok"] != "info@example.test" {
+		t.Errorf("valid values lost: %v", attrs)
+	}
+	for _, v := range []string{"data:text/html,x", "JavaScript:run(1)", "vbscript:x"} {
+		if acfLooksLikeURI(v) {
+			t.Errorf("%q accepted", v)
+		}
+	}
+}
