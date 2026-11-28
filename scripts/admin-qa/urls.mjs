@@ -24,7 +24,7 @@ const newDialog = { name: "new-dialog", click: "[data-hm-open]" };
 export const screens = [
   // PR-0 admin-component-contracts: the dev styleguide shows every component in every variant (HATAMOTO_DEV=1).
   ...(process.env.HATAMOTO_DEV === "1" ? [{ name: "styleguide", path: "/admin/_styleguide", mock: null, roles: O }] : []),
-  // Entities
+  // Content
   { name: "entities", path: "/admin/entities", mock: "content", roles: OE, states: [rowMenu, { name: "filters", click: '[popovertarget$="filters"]' }], primary: true },
   { name: "entities-seo", path: "/admin/entities?view=seo", mock: null, roles: OE, expect: "[data-hm-cell-edit]" },
   { name: "entities-type", path: "/admin/entities?type=post", mock: null, roles: OE },
@@ -97,7 +97,7 @@ export const screens = [
   { name: "settings-performance", path: "/admin/settings/performance", mock: null, roles: O },
   { name: "settings-performance-memory", path: "/admin/settings/performance/memory", mock: null, roles: O },
   { name: "settings-updates", path: "/admin/settings/updates", mock: null, roles: O },
-  { name: "settings-review", path: "/admin/settings/review", mock: null, roles: O }, // Settings > Content > Entity models > Review: the switch (off by default; review-edit-flow.mjs seeds it on and walks the whole flow)
+  { name: "settings-review", path: "/admin/settings/review", mock: null, roles: O }, // Settings > Publishing > Entity models > Review: the switch (off by default; review-edit-flow.mjs seeds it on and walks the whole flow)
   { name: "review-queue", path: "/admin/review", mock: null, roles: OE, expect: ".hm-empty, #review-queue" }, // the empty state on the default seed; review-edit-flow.mjs fills it
   { name: "review-detail-missing", path: "/admin/review/0", mock: null, roles: OE, status: 404 }, // a change that is not there; the real detail page needs a waiting change: review-edit-flow.mjs walks it
   { name: "settings-changes", path: "/admin/settings/changes", mock: null, roles: O }, // empty without plugin runs; review-flow.mjs walks the populated page and Undo

@@ -4,7 +4,7 @@
 //  ISC-21 the shell carries <script type="speculationrules">
 //  ISC-22 scroll position is restored after row click + history.back()
 //  ISC-23 the entities list loads no editor modules
-//  ISC-11 the main menu reads Entities, Media, Forms, Analytics; Settings has no Forms or Media entry
+//  ISC-11 the main menu reads Content, Media, Forms, Analytics; Settings has no Forms or Media entry
 // node scripts/admin-qa/nav.mjs      Exit 1 when a check fails.
 import { launch, newSession, writeResult, base, role } from "./lib.mjs";
 
@@ -69,11 +69,11 @@ await check("ISC-23 entities list loads no editor modules", async () => {
   if (editors.length) throw new Error("editor modules loaded: " + editors.join(", "));
   return `${js.length} scripts, none editor`;
 });
-await check("ISC-11 main menu order is Entities, Media, Forms, Analytics", async () => {
+await check("ISC-11 main menu order is Content, Media, Forms, Analytics", async () => {
   await p.goto(base + "/admin/entities");
   const labels = (await p.$$eval(".hm-sidebar a.hm-nav-link", (as) => as.map((a) => a.querySelector("span")?.textContent.trim() || a.textContent.trim())))
-    .filter((t) => ["Entities", "Media", "Forms", "Analytics"].includes(t));
-  if (labels.join() !== "Entities,Media,Forms,Analytics") throw new Error("menu order " + labels.join());
+    .filter((t) => ["Content", "Media", "Forms", "Analytics"].includes(t));
+  if (labels.join() !== "Content,Media,Forms,Analytics") throw new Error("menu order " + labels.join());
   return labels.join(", ");
 });
 await check("ISC-11 Settings sidebar has no Forms or Media entry", async () => {
