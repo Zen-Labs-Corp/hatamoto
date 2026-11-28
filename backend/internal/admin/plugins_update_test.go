@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-// updateRig has: alpha and beta with plain updates, gtm whose update widens
+// updateRig has: alpha and beta with plain updates, tagkit whose update widens
 // access (site.scripts), perms whose update asks for a new permission, fine
 // up to date, and rows that must never show update UI.
 func updateRig(t *testing.T) (*rig, *fakePackages, *fakePlugins) {
@@ -23,7 +23,7 @@ func updateRig(t *testing.T) (*rig, *fakePackages, *fakePlugins) {
 	fp := &fakePlugins{settings: map[string]map[string]any{}, list: []PluginInfo{
 		{Name: "beta", Version: "1.0.0", Loaded: true, Package: pkg("1.1.0")},
 		{Name: "alpha", Version: "0.1.0", Loaded: true, Package: pkg("0.2.0")},
-		{Name: "gtm", Version: "0.1.0", Loaded: true, Package: pkg("0.2.0", "site.scripts")},
+		{Name: "tagkit", Version: "0.1.0", Loaded: true, Package: pkg("0.2.0", "site.scripts")},
 		{Name: "fine", Version: "3.0.0", Loaded: true, Package: pkg("")},
 		{Name: "dirplugin", Version: "0.0.1", Loaded: true},
 		{Name: "bad", Version: "1.0.0", Package: &PackageMeta{Enabled: true, Blocked: "untrusted signer", Update: "2.0.0"}},
@@ -31,11 +31,11 @@ func updateRig(t *testing.T) (*rig, *fakePackages, *fakePlugins) {
 		{Name: "webhooks", Version: "1.0.0", Loaded: true, Package: &PackageMeta{Enabled: true, Update: "2.0.0"}},
 	}}
 	pk := &fakePackages{enabled: map[string]bool{}, settings: map[string]any{},
-		fetchAs: map[string]string{"gtm": "plugin-scripts:gtm"},
+		fetchAs: map[string]string{"tagkit": "plugin-scripts:tagkit"},
 		registry: RegistryView{Entries: []RegistryEntry{
 			{Kind: "plugin", Name: "beta", Version: "1.1.0", Installed: true, Update: true},
 			{Kind: "plugin", Name: "alpha", Version: "0.2.0", Installed: true, Update: true},
-			{Kind: "plugin", Name: "gtm", Version: "0.2.0", Installed: true, Update: true},
+			{Kind: "plugin", Name: "tagkit", Version: "0.2.0", Installed: true, Update: true},
 			{Kind: "plugin", Name: "fine", Version: "3.0.0", Installed: true},
 			// Listed at their current version, yet they must not say "Up to date".
 			{Kind: "plugin", Name: "bad", Version: "1.0.0", Installed: true},
@@ -88,7 +88,7 @@ func TestPluginsListShowsVersionsAndUpdates(t *testing.T) {
 	}
 	for _, want := range []string{
 		`action="/admin/plugins/alpha/update"`, `aria-label="Update alpha to v0.2.0"`,
-		`aria-label="Update beta to v1.1.0"`, `aria-label="Review the update of gtm to v0.2.0"`,
+		`aria-label="Update beta to v1.1.0"`, `aria-label="Review the update of tagkit to v0.2.0"`,
 		`action="/admin/plugins/update-all"`,
 	} {
 		if !strings.Contains(body, want) {
@@ -105,7 +105,7 @@ func TestPluginsListShowsVersionsAndUpdates(t *testing.T) {
 		t.Errorf("Up to date shown %d times, want 1 (only fine, not blocked, uninstalling, legacy or directory rows)", n)
 	}
 	// Review goes through the existing prompt flow, never the one-click route.
-	if strings.Contains(body, `action="/admin/plugins/gtm/update"`) {
+	if strings.Contains(body, `action="/admin/plugins/tagkit/update"`) {
 		t.Error("a review update has a one-click form")
 	}
 	for _, name := range []string{"bad", "leaving", "webhooks", "dirplugin"} {
@@ -171,7 +171,7 @@ func TestPluginUpdateNeedingReviewShowsThePrompt(t *testing.T) {
 	t.Parallel()
 
 	g, pk, fp := updateRig(t)
-	rec := g.do("POST", "/admin/plugins/gtm/update", "owner-token", url.Values{}, nil)
+	rec := g.do("POST", "/admin/plugins/tagkit/update", "owner-token", url.Values{}, nil)
 	body := rec.Body.String()
 	if rec.Code != 200 || !strings.Contains(body, `name="staged"`) || !strings.Contains(body, "site.scripts") {
 		t.Fatalf("want the permission prompt, got %d %s", rec.Code, body)
@@ -226,7 +226,7 @@ func TestPluginUpdateAllSetsAsideContentTypeChanges(t *testing.T) {
 	if len(pk.installed) != 1 || pk.installed[0].data != "plugin:beta" {
 		t.Fatalf("installs: %+v", pk.installed)
 	}
-	if f := updateFlash(t, rec); f.Message != "Updated 1 plugin (beta). 2 need review: alpha, gtm." {
+	if f := updateFlash(t, rec); f.Message != "Updated 1 plugin (beta). 2 need review: alpha, tagkit." {
 		t.Errorf("flash %q", f.Message)
 	}
 }
@@ -275,7 +275,7 @@ func TestPluginUpdateAllMixed(t *testing.T) {
 	t.Parallel()
 
 	g, pk, _ := updateRig(t)
-	rec := g.do("POST", "/admin/plugins/update-all", "owner-token", url.Values{"name": {"gtm"}}, nil)
+	rec := g.do("POST", "/admin/plugins/update-all", "owner-token", url.Values{"name": {"tagkit"}}, nil)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
@@ -288,7 +288,7 @@ func TestPluginUpdateAllMixed(t *testing.T) {
 		}
 	}
 	f := updateFlash(t, rec)
-	if f.Kind != "success" || f.Message != "Updated 2 plugins (alpha, beta). 1 needs review: gtm." {
+	if f.Kind != "success" || f.Message != "Updated 2 plugins (alpha, beta). 1 needs review: tagkit." {
 		t.Errorf("flash %+v", f)
 	}
 }
@@ -302,7 +302,7 @@ func TestPluginUpdateAllSkipsConfirmationFromInspect(t *testing.T) {
 	if len(pk.installed) != 1 || pk.installed[0].data != "plugin:beta" {
 		t.Fatalf("installs: %+v", pk.installed)
 	}
-	if f := updateFlash(t, rec); f.Message != "Updated 1 plugin (beta). 2 need review: alpha, gtm." {
+	if f := updateFlash(t, rec); f.Message != "Updated 1 plugin (beta). 2 need review: alpha, tagkit." {
 		t.Errorf("flash %q", f.Message)
 	}
 }
@@ -313,12 +313,12 @@ func TestPluginUpdateAllReviewOnlyFetchFailureDoesNotStop(t *testing.T) {
 	t.Parallel()
 
 	g, pk, _ := updateRig(t)
-	pk.fetchFails = map[string]string{"gtm": "download timed out"}
+	pk.fetchFails = map[string]string{"tagkit": "download timed out"}
 	rec := g.do("POST", "/admin/plugins/update-all", "owner-token", url.Values{}, nil)
 	if len(pk.installed) != 2 || pk.installed[0].data != "plugin:alpha" || pk.installed[1].data != "plugin:beta" {
 		t.Fatalf("installs: %+v", pk.installed)
 	}
-	if f := updateFlash(t, rec); f.Kind != "success" || f.Message != "Updated 2 plugins (alpha, beta). 1 needs review: gtm." {
+	if f := updateFlash(t, rec); f.Kind != "success" || f.Message != "Updated 2 plugins (alpha, beta). 1 needs review: tagkit." {
 		t.Errorf("flash %+v", f)
 	}
 }
@@ -331,7 +331,7 @@ func TestPluginUpdateAllEarlyStopNamesReviewPlugins(t *testing.T) {
 	pk.installFails = map[string]string{"plugin:alpha": "boom"}
 	rec := g.do("POST", "/admin/plugins/update-all", "owner-token", url.Values{}, nil)
 	f := updateFlash(t, rec)
-	if f.Kind != "error" || !strings.Contains(f.Message, "1 needs review: gtm.") || !strings.Contains(f.Message, "Stopped; 1 more not tried.") {
+	if f.Kind != "error" || !strings.Contains(f.Message, "1 needs review: tagkit.") || !strings.Contains(f.Message, "Stopped; 1 more not tried.") {
 		t.Errorf("flash %+v", f)
 	}
 }

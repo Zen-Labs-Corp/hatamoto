@@ -455,7 +455,7 @@ func TestFreshInstallLeavesSiteScriptsUnticked(t *testing.T) {
 	t.Parallel()
 
 	g, pk, _ := newPackageRig(t)
-	body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin-fresh-scripts:gtm").Body.String()
+	body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin-fresh-scripts:tagkit").Body.String()
 	if !strings.Contains(body, `type="hidden" name="permission" value="kv"`) {
 		t.Errorf("kv is posted as a hidden grant:\n%s", body)
 	}
@@ -481,7 +481,7 @@ func TestPromptNeverContradictsCodeOnPublicPages(t *testing.T) {
 	t.Parallel()
 
 	g, _, _ := newPackageRig(t)
-	for _, src := range []string{"plugin-fresh-scripts:gtm", "plugin-island:blocks"} {
+	for _, src := range []string{"plugin-fresh-scripts:tagkit", "plugin-island:blocks"} {
 		body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", src).Body.String()
 		if !strings.Contains(body, "It will never be able to") || strings.Contains(body, "Run code on your public pages") {
 			t.Errorf("%s: contradiction on the prompt:\n%s", src, body)
@@ -517,8 +517,8 @@ func TestPromptRefusesPermissionsTheRegistryDidNotReview(t *testing.T) {
 	t.Parallel()
 
 	g, _, _ := newPackageRig(t)
-	body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin-unreviewed:gtm").Body.String()
-	for _, want := range []string{"It will not be installed", "Can&#39;t install gtm: it asks for permissions the registry did not review"} {
+	body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin-unreviewed:tagkit").Body.String()
+	for _, want := range []string{"It will not be installed", "Can&#39;t install tagkit: it asks for permissions the registry did not review"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("prompt lacks %q:\n%s", want, body)
 		}
