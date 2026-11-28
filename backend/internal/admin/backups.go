@@ -115,7 +115,8 @@ type backupsData struct {
 	Running  bool
 	Progress ui.Progress // the running backup, shown while Running
 	PollURL  string
-	Offsite  *offsiteData // nil when off-site backups are not wired
+	Offsite  *offsiteData   // nil when off-site backups are not wired
+	Key      *backupKeyData // nil when backup encryption is not wired
 	// Overflow is the header's more menu: the Backups to keep link, only when
 	// the engine can change the counts.
 	Overflow []ui.Action
@@ -138,6 +139,7 @@ func (a *Admin) mountBackupsSettings(owner *httpx.Group) {
 	owner.HandleFunc("GET /settings/backups/retention", a.handleRetentionPage)
 	owner.HandleFunc("POST /settings/backups/retention", a.handleRetentionSave)
 	a.mountOffsite(owner)
+	a.mountBackupKey(owner)
 }
 
 func (a *Admin) handleBackupStart(w http.ResponseWriter, r *http.Request) {
@@ -350,12 +352,19 @@ func (a *Admin) offsiteCardOrError(w http.ResponseWriter, r *http.Request) (*off
 }
 
 func (a *Admin) renderBackups(w http.ResponseWriter, r *http.Request, status int, st BackupsState, of *offsiteData) {
+	a.renderBackupsKey(w, r, status, st, of, a.backupKeyCard(r.Context(), st, nil))
+}
+
+// renderBackupsKey is renderBackups with the Backup encryption card as given,
+// for the re-render of a refused key form.
+func (a *Admin) renderBackupsKey(w http.ResponseWriter, r *http.Request, status int, st BackupsState, of *offsiteData, key *backupKeyData) {
 	loc := a.siteLocation(r.Context())
 	d := backupsData{
 		Zone:    loc.String(),
 		Keeping: keepingLine(st),
 		Table:   a.backupsTable(st.Rows, loc),
 		Offsite: of,
+		Key:     key,
 	}
 	if a.retentionService() != nil {
 		d.Overflow = []ui.Action{{Label: "Backups to keep", Hint: "How many of each kind stay", Href: a.adminPath + backupsRel + "/retention"}}

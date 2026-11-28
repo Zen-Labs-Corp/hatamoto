@@ -45,6 +45,8 @@ var auditLabels = map[string]string{
 	"backups.download":             "Downloaded a backup",
 	"backups.delete":               "Deleted a backup",
 	"backups.retention":            "Changed backup retention",
+	"backups.encryption.update":    "Changed backup encryption",
+	"backups.encryption.off":       "Turned off backup encryption",
 	"audit.retention":              "Changed audit log retention",
 	"security.csp_enforce":         "Turned on stricter page protection",
 	"email.settings":               "Changed email settings",

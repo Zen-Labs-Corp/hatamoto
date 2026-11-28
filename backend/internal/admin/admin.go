@@ -374,6 +374,9 @@ type Deps struct {
 	// Offsite is the off-site backup target on Settings > Backups & recovery > Backups; nil hides
 	// the card. Set it only when non-nil and only with Backups.
 	Offsite OffsiteService
+	// BackupKey is the backup encryption setting on Settings > Backups & recovery > Backups; nil
+	// hides the card. Set it only when non-nil and only with Backups.
+	BackupKey BackupKeyService
 	// Hosting is the static export service behind Settings > System > Hosting; nil answers
 	// that page as unavailable. Set it only when non-nil.
 	Hosting HostingService
