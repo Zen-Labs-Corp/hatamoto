@@ -78,7 +78,7 @@ func sftpGoldenHosting() *fakeHosting {
 		{Started: at.Add(-2 * time.Hour), Trigger: "change", Errors: 1, FirstError: "upload refused", Result: HostingRunFailed},
 	}
 	f.setup = HostingSetup{
-		Saved: true, Target: HostingTargetSFTP, Site: "https://example.com", Reach: HostingCheckUnknown,
+		Saved: true, Target: HostingTargetSFTP, Site: "https://example.com", Upstream: "127.0.0.1:8090", Reach: HostingCheckUnknown,
 		HostKey: f.view.SFTPHostKey, Remote: HostingCheckOK, RemoteDir: "public_html", HTAccess: true,
 		HTAccessBlock: "# BEGIN Hatamoto\n<IfModule mod_alias.c>\nRedirectMatch 301 ^/old/?$ /new\n</IfModule>\n# END Hatamoto\n",
 		Exact:         1, RedirectsSplit: true, RedirectsTotal: 1,

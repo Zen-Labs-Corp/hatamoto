@@ -89,10 +89,10 @@ func hostingSetupFrom(s HostingSetup, tab, adminPath string, loc *time.Location)
 			v.Config = s.Caddy
 		}
 	}
-	if v.Kind == hostingSetupApache && v.Config != "" {
+	switch {
+	case v.Kind == hostingSetupApache && v.Config != "":
 		v.Help = "Preview from your redirect rules. Each export writes this block between # BEGIN Hatamoto and # END Hatamoto and keeps the rest of .htaccess."
-	}
-	if v.Config != "" && s.Upstream != "" {
+	case v.Config != "" && s.Upstream != "":
 		v.Help = fmt.Sprintf("Upstream %s is this server's listen address. Change it if your web server reaches it differently. Copy the config again after you change captcha, plugins or the theme.", s.Upstream)
 	}
 	return v
