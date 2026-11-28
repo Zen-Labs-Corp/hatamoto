@@ -97,14 +97,88 @@ The report ends with the expected fidelity: the share of items that import witho
 | Menus | Menus with nesting. Pages become entity links. |
 | Private, protected and draft content | Drafts, listed in the report. |
 | Comments (WXR file only) | Status kept (approved, pending, spam, trash), threading from `comment_parent` (deeper than the maximum depth attaches to the deepest allowed reply), original dates, and commenters from name and email with trust capped at *known*. Author website URLs are dropped, IP addresses are stored only as hashes and the user agent is not imported. Bodies become comment text; empty or over-16 KiB comments, comments without a usable email, and pingbacks and trackbacks are skipped and listed or counted. Re-runs skip comments already imported. **Importing never turns comments on.** |
+| Contact Form 7 forms (WXR file only) | Hatamoto forms with the WordPress slug (`-2`, `-3` added when the slug is taken). See [Forms](#forms-contact-form-7). |
+| ACF field groups and values (WXR file only) | New fields on custom types, and values on every item. See [Custom fields (ACF)](#custom-fields-acf). |
 
-Body conversion strips Gutenberg comments, keeps YouTube and Vimeo embeds, removes form markup and shortcodes (and reports them rather than guessing), turns `[caption]` into a figure and drops any other iframe. No `wp-content` URL remains in imported content: images and files are rewritten to their new media URL, and the run checks the database at the end. Internal links such as `/2024/05/hello/` or `?p=12` become entity links, so they follow later renames.
+Body conversion strips Gutenberg comments, keeps YouTube and Vimeo embeds, removes form markup and shortcodes (and reports them rather than guessing; a Contact Form 7 shortcode of an imported form is replaced by `[form slug=...]` instead), turns `[caption]` into a figure and drops any other iframe. No `wp-content` URL remains in imported content: images and files are rewritten to their new media URL, and the run checks the database at the end. Internal links such as `/2024/05/hello/` or `?p=12` become entity links, so they follow later renames.
 
 In the wizard, switching **Download images and files** off copies no file, and images and attachments are left out of the text.
+
+## Custom fields (ACF)
+
+A WXR file from a site with Advanced Custom Fields carries the field group definitions and the values. The importer reads both. A live (REST) import brings no ACF values, and ACF options pages are not imported.
+
+Each field is mapped like this:
+
+| ACF type | Hatamoto field | Stored value |
+|---|---|---|
+| Text, password, colour picker | Text | The string. |
+| Textarea | Long text | The string. |
+| WYSIWYG | Rich text | HTML with `wp-content` URLs rewritten, sanitised by the rich-text policy. |
+| Email | Text (email format) | The string. |
+| URL, oEmbed | Text (URL format) | The string. |
+| Link | Text (URL format) | The link's URL. The link title is dropped and reported. |
+| Number, range | Number | The number. An unreadable value is kept as `<name>_raw`. |
+| True / false | Switch | True or false. |
+| Select, radio, button group | Text with fixed choices | The chosen key. A value outside the choices is kept as `<name>_raw`. |
+| Multi select, checkbox | List of text | The chosen keys. |
+| Date picker | Date | `YYYY-MM-DD`. An unreadable value is kept as `<name>_raw`. |
+| Date time picker | Date and time | RFC 3339, read in the site time zone from the export (UTC when it has none). |
+| Time picker | Text | The raw time, such as `14:30:00`. |
+| Image, file | File URL | The URL of the imported media file. |
+| Gallery | List of file URLs | The URLs of the imported files. Captions are not carried. |
+| Relationship, post object, page link | List of entries | The imported entries, linked in a second pass once every item exists. |
+| Group | Group of fields | An object. |
+| Repeater | Repeating rows | A list of rows. |
+| Flexible content | Repeating rows | A list of rows, each with a `layout` key that names its layout. |
+| Repeater or flexible content inside a row | Long text | Readable text. The report lists it as Partly. |
+| Message, tab, accordion | None | These only lay out the editor. |
+| Any other type | Text | The raw string, with a warning that names the type. |
+
+What to know:
+
+- Fields are added to custom types only. An existing field is never removed or retyped. A field whose name clashes with an existing field of another type is skipped and reported.
+- A field that you deleted in Hatamoto after an import is not added back by a re-run.
+- Built-in types cannot gain fields. On posts and pages the values are kept as data on the entry, and the report shows a Partly line such as "values kept as data". They show in exports and templates but have no editor field.
+- Flexible content becomes a list of rows with a `layout` key. Page builder sections are not created from it.
+- Names are cleaned to letters, digits and underscores. A name that clashes with a core field, such as `content` or `title`, gets an `acf_` prefix.
+- Schemas have a size limit. When a type would pass it, the remaining fields are left out and listed.
+- Without field group definitions in the export, field types are guessed from the values, and a warning says so.
+
+## Forms (Contact Form 7)
+
+Each Contact Form 7 form in a WXR file becomes a Hatamoto form, created before the content, with its WordPress slug. The form is active.
+
+| Contact Form 7 | Hatamoto |
+|---|---|
+| text, email, url, tel, number, date, textarea | The matching field type. `tel` becomes phone. A `*` marks the field required. |
+| select, radio, checkbox | A choice field with the same options. |
+| file | A file field. Allowed types and the size limit are read from the tag and clamped to what Hatamoto allows. |
+| acceptance | A consent field. |
+| hidden | A hidden field with a fixed value. |
+| submit | The submit button text. |
+| quiz, captcha, other tags | Dropped, and listed in the report. |
+
+Mail settings and notifications are not imported, and one report line says so. Set the recipient under Forms. Conditional add-on rules are dropped and listed. A form that cannot be built is reported as an error, and the rest of the import goes on.
+
+## The status lines
+
+The report groups ACF and form results under "Custom fields (ACF)" and "Forms (Contact Form 7)". Each line has a status:
+
+| Status | Meaning |
+|---|---|
+| Mapped | A field or form was created as it was in WordPress. |
+| Partly | It came across with a loss, such as values kept as data or a nested repeater turned into text. |
+| Imported | Values or forms were written. |
+| Skipped | Nothing was written, for example a field that clashes with an existing one. |
+
+The first line reads "Run N", where N counts the runs of this source. A run that finds nothing to do reads "Run N: nothing new, 0 changed".
 
 ## Re-runs and re-sync
 
 Running the import again changes nothing that is already up to date. Each run is a row of `hatamoto_import_runs`, and the id of everything imported is kept in `hatamoto_import_map`, scoped by site. A re-run updates the same rows. Entities are updated in place, media with the same source id or bytes is reused, and a person you edited is left alone.
+
+Forms and ACF fields are kept in the same map, by kind `form` (keyed by the WordPress post id) and `acf_field` (keyed by the ACF field key). A re-run creates no form and adds no field, and reports 0 changed. A form you deleted in Hatamoto is created again. A form you edited is never overwritten. A field you deleted is not added back.
 
 Content edited in Hatamoto after the import is overwritten by the next sync, so re-sync only before cutover. The report lists every overwritten item. With `--keep-edited` (in the wizard: **On a re-import, leave pages alone that I edited here since the last import**) those items are left alone and listed as kept.
 
