@@ -38,6 +38,8 @@ releases/channels/**                                       backend  ./tools/rele
 docker-compose.yml                                         backend  ./app
 README.md                                                  backend  ./app
 docker-compose.build.yml                                   backend  ./app
+render.yaml                                                backend  ./app
+.do/deploy.template.yaml                                   backend  ./app
 backend/cmd/hatamoto/**                                    backend  ./app
 backend/web/assets/**                                      backend  ./tools/vendor
 backend/internal/server/admin_*.go                         backend  ./internal/admin
