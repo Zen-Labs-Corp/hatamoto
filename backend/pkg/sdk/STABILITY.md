@@ -125,6 +125,14 @@ The change rules in the table are:
 - **Product rule**: at least two product minors and at least 90 days between the notice and the
   removal, whichever is later.
 
+### Exception: the registry directory sections
+
+The minor release after core 1.4.6 removes, without the notice period of the product rule, these parts of the
+theme contract: the `plugin_directory` and `theme_directory` section schemas, the optional `registry` layout
+(the `/plugins/<name>` and `/themes/<name>` detail pages) and the `PageView` fields `Registry`, `PluginDirectory`
+and `ThemeDirectory`. The owner granted this because the project's own site, the one known user, has moved to a
+plugin. Pages that still use the sections render nothing visible. A theme template that reads the removed fields fails at execution, so a theme should delete such templates. It is not a precedent.
+
 ## SDK versions and `CompatibleWith`
 
 The `sdk` range in `plugin.json` is the handshake between a plugin and a host. A host serves its own
