@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-const backupEncryptionVersion = 202611281200
+const backupEncryptionVersion = 202611281300
 
 func TestBackupEncryptionUpDownUp(t *testing.T) {
 	ctx := context.Background()
