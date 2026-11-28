@@ -43,7 +43,7 @@ With `HATAMOTO_ENV=staging` the server makes none of the sends above that it own
 |---|---|
 | Update check, schedule | `backend/internal/updater/run.go:43` (`checkEvery`, `checkJitter`), first run at `:148` |
 | Update fetches | `backend/internal/updater/fetch.go:23` (default host), `:45` (no headers of its own), `:120` (manifest), `:128` (record), `:147` (download) |
-| Install stats | `backend/internal/installstats/service.go:267` (`Run`), `:27` (user agent), `:109` (10 second client), `:111` (no redirects), `:350` (POST); `backend/internal/installstats/store.go:32` (20 hour rule), `:37` (30 minute guard after a version change), `:316` (`Claim`); `backend/internal/installstats/env.go:21` (default URL), `:25` (`HATAMOTO_TELEMETRY=off`); `backend/internal/server/stats_wiring.go:22` (hourly check), `:17` (`stats_ping` job), `:131` (scheduling); `backend/internal/worker/catalog.go:40` (job list) |
+| Install stats | `backend/internal/installstats/service.go:239` (`Run`), `:28` (user agent), `:107` (10 second client), `:109` (no redirects), `:326` (POST); `backend/internal/installstats/store.go:32` (20 hour rule), `:37` (30 minute guard after a version change), `:295` (`Claim`); `backend/internal/installstats/env.go:21` (default URL), `:15` (`HATAMOTO_TELEMETRY=off`); `backend/internal/server/stats_wiring.go:22` (hourly check), `:17` (`stats_ping` job), `:117` (scheduling); `backend/internal/worker/catalog.go:46` (job list) |
 | Cache purge | `backend/internal/cdnpurge/webhook.go` |
 | `HATAMOTO_UPDATES` | `backend/internal/updater/types.go:31` and `:89` |
 | Registry | `backend/internal/config/packages.go:13` (default URL), `:50` (`off`); `backend/internal/packages/registry.go:324`; `backend/internal/server/admin_packages.go:71` |
