@@ -22,10 +22,9 @@ import (
 
 // memStats is an in-memory installstats.Backend.
 type memStats struct {
-	mu        sync.Mutex
-	st        installstats.State
-	added     installstats.Counts // everything AddHealth received
-	defaulted bool
+	mu    sync.Mutex
+	st    installstats.State
+	added installstats.Counts // everything AddHealth received
 }
 
 func (m *memStats) Load(context.Context) (installstats.State, error) { return m.st, nil }
@@ -57,17 +56,13 @@ func (m *memStats) RecordResult(context.Context, string, string, *installstats.C
 func (m *memStats) RecordKeptDay(context.Context, string) error { return nil }
 func (m *memStats) DismissNudge(context.Context) error          { return nil }
 func (m *memStats) Banner(context.Context) (installstats.BannerKind, error) {
-	if m.st.Level == installstats.LevelDetailed && m.defaulted {
-		return installstats.BannerDefaulted, nil
-	}
 	return installstats.BannerNone, nil
 }
 func (m *memStats) ApplyDefault(context.Context) (bool, error) {
 	if m.st.Level != installstats.LevelUnset && m.st.Level != "" {
 		return false, nil
 	}
-	m.st = installstats.State{Consent: installstats.ConsentYes, Level: installstats.LevelDetailed, InstallID: "0123456789abcdef0123456789abcdef", DefaultNoticePending: true}
-	m.defaulted = true
+	m.st = installstats.State{Consent: installstats.ConsentYes, Level: installstats.LevelDetailed, InstallID: "0123456789abcdef0123456789abcdef"}
 	return true, nil
 }
 
@@ -203,15 +198,6 @@ func TestStartupSkipsDefaultBeforeSetupAndUnderEnvOff(t *testing.T) {
 	s.SetStats(s.stats)
 	if m.st.Level == installstats.LevelDetailed || strings.Contains(logs.String(), "action=stats.consent actor=system") {
 		t.Fatalf("default applied under env off: %+v", m.st)
-	}
-}
-
-func TestAdminStatsBannerMapsDefaulted(t *testing.T) {
-	s, m := statsTestServer(false)
-	m.st = installstats.State{Consent: installstats.ConsentYes, Level: installstats.LevelDetailed}
-	m.defaulted = true
-	if got, err := (adminStats{s.stats}).Banner(context.Background()); err != nil || got != "defaulted" {
-		t.Fatalf("Banner = %q, %v", got, err)
 	}
 }
 

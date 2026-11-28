@@ -85,15 +85,6 @@ func (a adminStats) View(ctx context.Context) (admin.StatsView, error) {
 	return admin.StatsView{Level: level, ForcedOff: v.ForcedOff, LastSent: v.LastSent}, nil
 }
 
-func (a adminStats) Banner(ctx context.Context) (string, error) {
-	k, err := a.svc.Banner(ctx)
-	switch k {
-	case installstats.BannerDefaulted:
-		return "defaulted", err
-	}
-	return "", err
-}
-
 func (a adminStats) ForcedOff() bool { return a.svc.ForcedOff() }
 
 // Choose refuses a level the service does not know: the admin validates first,
@@ -113,8 +104,6 @@ func (a adminStats) ApplyDefault(ctx context.Context) error {
 	_, err := a.svc.ApplyDefault(ctx)
 	return err
 }
-
-func (a adminStats) DismissNudge(ctx context.Context) error { return a.svc.DismissNudge(ctx) }
 
 // scheduleStats puts the ping on the worker scheduler: a check every hour
 // (sending at most once a day), the first 5 to 15 minutes after start. Nothing is scheduled in a public demo or
