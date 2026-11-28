@@ -2,7 +2,6 @@ package staticexport
 
 import (
 	"context"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"os"
@@ -12,6 +11,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/runenv"
 )
 
@@ -392,7 +392,7 @@ func TestSFTPTarget_PreviousRefusesForgedManifestKeys(t *testing.T) {
 		tgt := newTestSFTPTarget(t, srv, nil)
 		writeRoot(t, srv, ".ssh/authorized_keys", "ssh-ed25519 AAAA\n")
 		writeRoot(t, srv, "public_html/.htaccess", "Options -Indexes\n")
-		forged, err := json.Marshal(map[string]any{"version": manifestVersion, "files": map[string]any{key: map[string]any{}}})
+		forged, err := jsonx.MarshalPinned(map[string]any{"version": manifestVersion, "files": map[string]any{key: map[string]any{}}})
 		if err != nil {
 			t.Fatal(err)
 		}
