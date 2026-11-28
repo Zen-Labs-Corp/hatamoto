@@ -316,10 +316,10 @@ la() { # la <label> <theme> <other-kind: plugin|theme|none> <other-name> <substr
   esac
   refuses "$l" "$s" "$d" "$@"
 }
-la "one edit from a plugin" gtn plugin gtm 'looks like "gtm"'
-la "hyphen form of a plugin" g-tm plugin gtm 'looks like "gtm"'
+la "one edit from a plugin" searchconsolf plugin searchconsole 'looks like "searchconsole"'
+la "hyphen form of a plugin" search-console plugin searchconsole 'looks like "searchconsole"'
 la "digit swap of a plugin" kum0 plugin kumo 'looks like "kumo"'
-la "folds equal, two edits from a plugin" g--tm plugin gtm 'looks like "gtm"'
+la "folds equal, two edits from a plugin" search--console plugin searchconsole 'looks like "searchconsole"'
 la "folds equal, two edits from a sibling theme" han-sh-i theme hanshi 'name looks like'
 la "one edit from a built-in name" webhook none none 'looks like "webhooks"'
 la "one edit from a policy name" formz none none 'looks like "forms"'
@@ -332,7 +332,7 @@ if out=$(run "$d" HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_ALLOW_FILE_ARCHIVES=1); t
 grep -q 'looks like "auroro"' <<<"$out" || fail "look-alike reuse: $out"
 # A clear name beside a plugin and a theme passes pass 1 (it fails later at the fetch).
 d="$work/la-ok"; manifest "$d" kumoyama "$(base kumoyama "file://$work/nonexistent" $good)"
-manifest "$d" hanshi "$(base hanshi "file://$work/nonexistent" $good)"; printf '{}' >"$d/manifests/gtm.json"
+manifest "$d" hanshi "$(base hanshi "file://$work/nonexistent" $good)"; printf '{}' >"$d/manifests/searchconsole.json"
 out=$(run "$d" HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_THEMES_SKIP=hanshi) && fail "kumoyama built nothing"
 grep -q "cannot fetch" <<<"$out" || fail "kumoyama refused: $out"
 rm -rf "$work/o"

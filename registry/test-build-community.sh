@@ -609,11 +609,14 @@ for o in zenlabscorp-evil zenlabscorpx zenlabscorp.evil zen-labs-corp-evil zen-l
   fp_neg "look-alike owner $o" acme-seo "$(fp acme-seo https://github.com/$o/x)" "not allowed for the owner"
 done
 fp_neg "first-party from a file repo outside the owner dir" acme-seo "$(fp acme-seo file://$work/acme/x)" "not allowed for the owner" Zen-Labs-Corp
-fp_neg "gtm first-party from another owner" gtm "$(fp gtm https://github.com/acme/gtm)" "reserved for a first-party plugin"
-fp_neg "searchconsole first-party from another owner" searchconsole "$(fp searchconsole https://github.com/acme/x)" "reserved for a first-party plugin"
-fp_neg "gtm without the tier" gtm "$(fp gtm $zl/gtm | jq 'del(.tier) + {author:"acme"}')" "reserved for a first-party plugin"
-fp_neg "community gtm" gtm "$(base gtm https://github.com/acme/gtm $good)" "reserved for a first-party plugin"
+fp_neg "searchconsole first-party from another owner" searchconsole "$(fp searchconsole https://github.com/acme/searchconsole)" "reserved for a first-party plugin"
+fp_neg "searchconsole without the tier" searchconsole "$(fp searchconsole $zl/searchconsole | jq 'del(.tier) + {author:"acme"}')" "reserved for a first-party plugin"
+fp_neg "community searchconsole" searchconsole "$(base searchconsole https://github.com/acme/searchconsole $good)" "reserved for a first-party plugin"
 fp_neg "webhooks first-party from the owner" webhooks "$(fp webhooks $zl/webhooks)" "name is reserved"
+fp_neg "gtm first-party from the owner" gtm "$(fp gtm $zl/gtm)" "name is reserved"
+fp_neg "community gtm" gtm "$(base gtm https://github.com/acme/gtm $good)" "name is reserved"
+fp_neg "google-analytics first-party from the owner" google-analytics "$(fp google-analytics $zl/google-analytics)" "name is reserved"
+fp_neg "community google-analytics" google-analytics "$(base google-analytics https://github.com/acme/google-analytics $good)" "name is reserved"
 fp_neg "hello first-party from the owner" hello "$(fp hello $zl/hello)" "name is reserved"
 fp_neg "community hello" hello "$(base hello https://github.com/acme/hello $good)" "name is reserved"
 fp_neg "first-party with an author" acme-seo "$(fp acme-seo $zl/x | jq '.author="acme"')" "must not have an author"
@@ -624,17 +627,17 @@ echo "ok: $fpn first-party negative cases"
 
 # Accepted: an allowlisted owner (case-insensitive) builds with no author in the meta.
 for ownerdir in zen-labs-corp Zen-Labs-Corp; do
-  fpup="$work/$ownerdir/gtm"; rm -rf "$work/zen-labs-corp" "$work/Zen-Labs-Corp"; mkdir -p "$fpup"
+  fpup="$work/$ownerdir/searchconsole"; rm -rf "$work/zen-labs-corp" "$work/Zen-Labs-Corp"; mkdir -p "$fpup"
   cp -r "$plug/." "$fpup/"; rm -rf "$fpup/.git"
-  jq '.name = "gtm"' "$fpup/plugin.json" >"$fpup/plugin.json.new" && mv "$fpup/plugin.json.new" "$fpup/plugin.json"
+  jq '.name = "searchconsole"' "$fpup/plugin.json" >"$fpup/plugin.json.new" && mv "$fpup/plugin.json.new" "$fpup/plugin.json"
   git -C "$fpup" init -q; git -C "$fpup" add -A
   git -C "$fpup" -c user.name=t -c user.email=t@example.com commit -q -m init
-  manifest "$work/fp-ok" gtm "$(fp gtm "file://$fpup" | jq --arg c "$(git -C "$fpup" rev-parse HEAD)" '.commit=$c | .title="Google Tag Manager" | .about="Tags for every page." | .features=["One tag"]')"
+  manifest "$work/fp-ok" searchconsole "$(fp searchconsole "file://$fpup" | jq --arg c "$(git -C "$fpup" rev-parse HEAD)" '.commit=$c | .title="Search Console" | .about="Tags for every page." | .features=["One tag"]')"
   rm -rf "$work/fp-ok-pk" "$work/fp-ok-meta.json"
   FIRST_PARTY_OWNERS=Zen-Labs-Corp HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" \
     "$script" "$work/fp-ok" "$bin" "$key" "$work/fp-ok-pk" "$work/fp-ok-meta.json" >"$work/fp.log" 2>&1 || fail "first-party build ($ownerdir): $(cat "$work/fp.log")"
-  [ -s "$work/fp-ok-pk/gtm.hmp" ] || fail "first-party build: no package"
-  jq -e --arg s "file://$fpup" '.gtm == {source: $s, commit: .gtm.commit, tier: "first-party", title: "Google Tag Manager", about: "Tags for every page.", features: ["One tag"]} and (.gtm | has("author") | not)' "$work/fp-ok-meta.json" >/dev/null \
+  [ -s "$work/fp-ok-pk/searchconsole.hmp" ] || fail "first-party build: no package"
+  jq -e --arg s "file://$fpup" '.searchconsole == {source: $s, commit: .searchconsole.commit, tier: "first-party", title: "Search Console", about: "Tags for every page.", features: ["One tag"]} and (.searchconsole | has("author") | not)' "$work/fp-ok-meta.json" >/dev/null \
     || fail "first-party meta wrong: $(cat "$work/fp-ok-meta.json")"
 done
 echo "ok: first-party build"
@@ -831,9 +834,9 @@ v=$(variant nodesc sh -c 'jq "del(.description)" plugin.json >p.new && mv p.new 
 manifest "$work/nodesc" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)")"
 build_neg "missing description" "description must be a string" "$work/nodesc"
 # A banned description is refused for a first-party plugin too.
-v=$(variant fpdesc sh -c 'jq ".name=\"gtm\" | .description=\"The best way to tag your site\"" plugin.json >p.new && mv p.new plugin.json')
-mkdir -p "$work/zen-labs-corp"; rm -rf "$work/zen-labs-corp/gtm"; cp -r "$v" "$work/zen-labs-corp/gtm"
-manifest "$work/fpdesc" gtm "$(fp gtm "file://$work/zen-labs-corp/gtm" | jq --arg c "$(git -C "$v" rev-parse HEAD)" '.commit=$c | .title="Google Tag Manager"')"
+v=$(variant fpdesc sh -c 'jq ".name=\"searchconsole\" | .description=\"The best way to tag your site\"" plugin.json >p.new && mv p.new plugin.json')
+mkdir -p "$work/zen-labs-corp"; rm -rf "$work/zen-labs-corp/searchconsole"; cp -r "$v" "$work/zen-labs-corp/searchconsole"
+manifest "$work/fpdesc" searchconsole "$(fp searchconsole "file://$work/zen-labs-corp/searchconsole" | jq --arg c "$(git -C "$v" rev-parse HEAD)" '.commit=$c | .title="Search Console"')"
 if out=$(FIRST_PARTY_OWNERS="Zen-Labs-Corp" HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" "$script" "$work/fpdesc" "$bin" "$key" "$work/fpd-pk" "$work/fpd-meta.json" 2>&1); then fail "first-party banned description accepted"; fi
 grep -q 'banned word "best"' <<<"$out" || fail "first-party description: $out"
 # Raw plugin.json text (not one JSON object, or odd keys) through the full build.
