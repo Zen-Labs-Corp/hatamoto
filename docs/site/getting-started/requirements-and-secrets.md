@@ -52,7 +52,7 @@ Download the files from the [GitHub releases](https://github.com/Zen-Labs-Corp/h
 
 The current versions are listed in the stable channel file, `https://hatamoto.dev/releases/channels/stable.json`. It is a signed document: the list sits under `index`, next to `signer`, `algorithm` and `signature`. Take the highest version number in `index.releases` that is not marked `"halted": true` and does not appear in `index.yanked`. Both flags mean the release was withdrawn because of a problem. A withdrawn version stays in `index.releases`, and `index.yanked` comes after it in the file. `index.releases` is in the order the releases were published, not in version order: a fix for an older line published later is listed after a newer version, so the last entry is not always the one to take. `stable` is the default channel; `edge` and `canary` files exist at the same place for the other channels.
 
-To build the program from source instead, see [Contributing](../migrate-contribute/contributing.md); a source checkout also has its own `Dockerfile` and `docker-compose.yml` that build from source.
+To build the program from source instead, see [Contributing](../migrate-contribute/contributing.md); a source checkout also has its own `Dockerfile`; its `docker-compose.yml` runs the pinned release image, and `docker-compose.build.yml` builds from the checkout.
 
 To list the versions and their flags from a terminal:
 
