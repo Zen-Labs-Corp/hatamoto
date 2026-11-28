@@ -79,6 +79,9 @@ type Config struct {
 	// ReviewEnabled is the site's review switch: changes to published content
 	// by people without the bypass right wait for a reviewer.
 	ReviewEnabled bool
+	// PublicContentAPI is the switch for the read-only JSON content API under
+	// /api/v1/public/content and /terms/{kind}; off answers 404.
+	PublicContentAPI bool
 	// EntityVersionsKeep is how many earlier versions of each item the daily
 	// prune keeps (10 to 500).
 	EntityVersionsKeep int
@@ -800,6 +803,24 @@ func (s *Store) SetCSPEnforce(ctx context.Context, on bool) error {
 	return nil
 }
 
+// SetPublicContentAPI stores the public content API switch and drops the
+// cached settings.
+func (s *Store) SetPublicContentAPI(ctx context.Context, on bool) error {
+	conn, err := s.db.GetConn(database.WithSuperadmin(ctx))
+	if err != nil {
+		return fmt.Errorf("acquire db conn: %w", err)
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, `
+		UPDATE hatamoto_site_config SET public_content_api = $1, updated_at = NOW()
+		WHERE id = TRUE`, on); err != nil {
+		return fmt.Errorf("set public content api: %w", err)
+	}
+	s.Invalidate()
+	return nil
+}
+
 // ReviewEnabled reads the switch from the database, bypassing the 60 s cache:
 // the review gate must not let a change through on a server whose cache is
 // stale. When the read fails, a fresh cached copy that says off answers off, so
@@ -952,7 +973,8 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		       entity_versions_keep, audit_retention_days, agent_audit_retention_days,
 		       admin_brand_name, admin_logo_url, admin_accent,
 		       admin_managed_by_text, admin_managed_by_url,
-		       visitor_entry, favicon_url, review_enabled, csp_enforce
+		       visitor_entry, favicon_url, review_enabled, csp_enforce,
+		       public_content_api
 		FROM hatamoto_site_config
 		WHERE id = TRUE
 		LIMIT 1
@@ -973,6 +995,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		&cfg.AdminBrand.Name, &cfg.AdminBrand.LogoURL, &cfg.AdminBrand.Accent,
 		&cfg.AdminBrand.ManagedText, &cfg.AdminBrand.ManagedURL,
 		&visitorEntry, &cfg.FaviconURL, &cfg.ReviewEnabled, &cspEnforce,
+		&cfg.PublicContentAPI,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotConfigured
