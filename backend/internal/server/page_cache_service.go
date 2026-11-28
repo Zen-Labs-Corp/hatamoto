@@ -54,6 +54,9 @@ type pageCacheService struct {
 	// setCompress flips the live response compression switch; nil in tests
 	// that build the service by hand.
 	setCompress func(bool)
+	// setCSP applies the stored page protection choice; nil in tests that
+	// build the service by hand.
+	setCSP func(*bool)
 	// compressionResult and runCompressionCheck expose the public-address
 	// compression check; nil in tests that build the service by hand.
 	compressionResult   func() *compressionResult
@@ -111,6 +114,9 @@ func (p *pageCacheService) Apply(c siteconfig.Config) (wasOn, isOn bool) {
 	p.preloadOn.Store(c.PagePreloadEnabled)
 	if p.setCompress != nil {
 		p.setCompress(c.CompressResponses)
+	}
+	if p.setCSP != nil {
+		p.setCSP(c.CSPEnforce)
 	}
 	if !c.PageCacheEnabled || !c.PagePreloadEnabled || !c.PagePreloadAfterChanges {
 		p.cancelPendingPreload()
@@ -354,6 +360,7 @@ func (s *Server) newPageCacheService() *pageCacheService {
 		lifecycle:  func() context.Context { return s.lifecycleCtx },
 
 		setCompress:         s.compressOn.Store,
+		setCSP:              s.applyStoredCSP,
 		compressionResult:   s.compressCheck.Load,
 		runCompressionCheck: s.checkCompression,
 	}

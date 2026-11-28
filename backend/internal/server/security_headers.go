@@ -15,9 +15,9 @@ const apiCSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; " +
 	"font-src 'self'; connect-src 'self'; frame-ancestors 'none'; " +
 	"object-src 'none'; base-uri 'self'; form-action 'self'"
 
-// cspHeaderName is Content-Security-Policy once CSP_ENFORCE is on, else Report-Only.
+// cspHeaderName is Content-Security-Policy while the site enforces, else Report-Only.
 func (s *Server) cspHeaderName() string {
-	if s.cfg.Security.CSPEnforce {
+	if s.cspEnforcing() {
 		return "Content-Security-Policy"
 	}
 	return "Content-Security-Policy-Report-Only"
@@ -25,7 +25,7 @@ func (s *Server) cspHeaderName() string {
 
 // baseSecurityHeaders are the headers securityHeadersMiddleware sets on every
 // response, in the order it sets them; nil when headers are disabled. CSP is
-// enforced or report-only per CSP_ENFORCE, HSTS only in production.
+// enforced or report-only per the live CSP mode, HSTS only in production.
 func (s *Server) baseSecurityHeaders() []secHeader {
 	if s.cfg.Security.HeadersDisabled {
 		return nil

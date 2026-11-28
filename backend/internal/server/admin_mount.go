@@ -264,6 +264,9 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	if s.mediaFormatsSvc != nil {
 		d.MediaFormats = s.mediaFormatsSvc
 	}
+	if s.siteConfig != nil {
+		d.CSP = s
+	}
 	d.Growth = s.adminGrowth()
 	if s.db != nil && s.entityService != nil {
 		s.importManager = s.newImportManager()
