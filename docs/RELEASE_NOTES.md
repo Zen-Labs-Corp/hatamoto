@@ -1,5 +1,12 @@
 # Release notes
 
+## Unreleased: the plugin and theme directory sections leave core
+
+- **What.** Core no longer ships the `plugin_directory` and `theme_directory` sections, the registry detail pages at `/plugins/<name>` and `/themes/<name>`, or the default theme's `registry` layout and its styles. The two sections are gone from the add-section picker. A page that still uses one renders nothing visible in its place (an HTML comment, `<!-- unknown section type: plugin_directory -->`); the rest of the page is unchanged. `hatamoto registry page` and **Browse plugins** / **Browse themes** in the admin are unchanged, and so are `HATAMOTO_REGISTRY_URL`, `HATAMOTO_DEVELOPER_REGISTRY_URL` and `HATAMOTO_REGISTRY_ALLOW_HTTP`.
+- **Theme authors.** The `PageView` fields `Registry`, `PluginDirectory` and `ThemeDirectory`, the `PluginCard`, `ThemeCard` and `PermLine` types and the optional `registry` layout are removed; a theme's `layouts/registry.html` is no longer read (the server logs a warning). The default theme's strings for these templates (`registry_*`, `plugin_dir_*`, `theme_dir_*`, `permission_one`, `permission_other`, `developer_note`, `by`, `more`, `source`, `warning`) are removed. A page whose HTML carries `data-hm-directory` still gets the 60-second shared-cache lifetime.
+- **Compatibility.** No SDK or ABI change. These parts of the theme contract are removed without the usual notice period, as a recorded exception (see [STABILITY.md](../STABILITY.md)).
+- **Migration.** None: page content is not changed. **Rollback floor:** unchanged; an older binary shows the sections again.
+
 ## Unreleased: new installs enforce the Content Security Policy
 
 - **What.** A new install (installer, Docker compose or plain binary) sends an enforcing `Content-Security-Policy` on public pages. Before, the default was report-only. A site that already exists is pinned to report-only by the migration, and its owner gets the Overview card "Turn on stricter page protection" ("Not now" hides it for 30 days). `CSP_ENFORCE` in the environment overrides the stored choice either way (`true` or `false`); empty or unset leaves the choice to the site. `docker-compose.yml` passes `CSP_ENFORCE` through empty, so pulling a new compose file does not change an existing site. See [Hardening](site/operate/hardening.md).
