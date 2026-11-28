@@ -57,6 +57,8 @@ type BackupInfo struct {
 	MediaMissing int    // referenced media files that were not on disk
 	Offsite      string // OffsiteUploaded, OffsiteFailed or "" (not copied)
 	OffsiteError string
+	// OffsiteEncrypted is true when the off-site copy is an encrypted .tar.age.
+	OffsiteEncrypted bool
 }
 
 // BackupsState is everything the page needs in one read.

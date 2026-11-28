@@ -297,3 +297,39 @@ func TestManifestSecretCheckField(t *testing.T) {
 		t.Fatalf("an unknown member must be ignored: %v", err)
 	}
 }
+
+func TestSidecarOffsiteEncryptedRoundTrip(t *testing.T) {
+	st, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := Info{ID: headPinID, Kind: KindManual, State: StateOK, Created: pinCreated, SHA256: "abc", Offsite: "uploaded", OffsiteEncrypted: true}
+	if err := st.Write(in); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(st.sidecar(headPinID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"offsite_encrypted": true`) {
+		t.Fatalf("sidecar lacks offsite_encrypted:\n%s", b)
+	}
+	got, err := st.Get(headPinID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, in) {
+		t.Fatalf("info = %+v\nwant   %+v", got, in)
+	}
+	// A sidecar written before the field existed decodes as not encrypted.
+	if err := os.WriteFile(st.sidecar(headPinID), []byte(headSidecarFull), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	old, err := st.Get(headPinID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if old.OffsiteEncrypted {
+		t.Fatal("old sidecar decoded as encrypted")
+	}
+}
