@@ -168,6 +168,8 @@ type Runner struct {
 	termPaths     map[string]string   // old term/author path -> new path
 	hiddenAuthors map[string]string   // old author path of a non-public person -> person name
 	schemas       map[string]*entity.EntitySchema
+	// acf is the ACF fields mapped per post type, set by the schemas step.
+	acf map[string][]acfMapped
 }
 
 // NewRunner prepares a run over dump.
@@ -260,7 +262,7 @@ func (r *Runner) Run(ctx context.Context, resume uuid.UUID) (res *Result, err er
 		fn   func(context.Context) error
 	}{
 		{"settings", r.importSettings},
-		{"schemas", r.prepareSchemas},
+		{"schemas", r.schemasStep},
 		{"seo", r.importSEO},
 		{"media", func(ctx context.Context) error { r.importMedia(ctx); return nil }},
 		{"authors", r.importAuthors},

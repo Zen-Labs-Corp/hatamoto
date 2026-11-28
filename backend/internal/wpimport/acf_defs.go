@@ -58,7 +58,7 @@ func cf7FromWXR(w wxrItem) CF7Form {
 	}
 }
 
-type acfNode struct {
+type acfDefNode struct {
 	field    ACFField
 	parent   string
 	layout   string
@@ -69,11 +69,11 @@ type acfNode struct {
 // with their field trees. Bad settings never stop the build: the field keeps
 // what could be read.
 func buildACFGroups(groups, fields []wxrItem) []ACFGroup {
-	byParent := map[string][]acfNode{}
+	byParent := map[string][]acfDefNode{}
 	for _, w := range fields {
 		f := w.fields
 		set, _ := phpUnserialize(f["content"])
-		n := acfNode{parent: f["post_parent"], settings: set}
+		n := acfDefNode{parent: f["post_parent"], settings: set}
 		n.layout = phpText(set, "parent_layout")
 		n.field = ACFField{
 			ID: f["post_id"], Key: f["post_name"], Name: f["excerpt"], Label: htmlText(f["title"]), Type: phpText(set, "type"),
