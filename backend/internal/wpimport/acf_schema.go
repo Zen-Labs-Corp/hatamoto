@@ -63,6 +63,8 @@ type acfMapped struct {
 	// with another type, or the schema had no room for it.
 	Skipped bool
 	Lossy   bool
+	// Stored is the property the schema already had, when the values follow it.
+	Stored map[string]any
 }
 
 // propNode is a property to add to a schema.
@@ -650,12 +652,20 @@ func (p *acfPlan) adopt(stored map[string]any) bool {
 	if !sameShape(stored, p.m.Node) {
 		return false
 	}
-	node := make(map[string]any, len(p.m.Node))
-	for k, v := range p.m.Node {
-		node[k] = v
+	p.m.Node = followStored(p.m.Node, stored)
+	p.m.Stored = stored
+	return true
+}
+
+// followStored is node with the enum and maxLength of the stored property
+// instead of its own.
+func followStored(node, stored map[string]any) map[string]any {
+	out := make(map[string]any, len(node))
+	for k, v := range node {
+		out[k] = v
 	}
-	delete(node, "enum")
-	delete(node, "maxLength")
+	delete(out, "enum")
+	delete(out, "maxLength")
 	if l, ok := stored["enum"].([]any); ok {
 		var enum []string
 		for _, v := range l {
@@ -664,19 +674,18 @@ func (p *acfPlan) adopt(stored map[string]any) bool {
 			}
 		}
 		if len(enum) == len(l) {
-			node["enum"] = enum
+			out["enum"] = enum
 		}
 	}
 	switch n := stored["maxLength"].(type) {
 	case float64:
-		node["maxLength"] = int(n)
+		out["maxLength"] = int(n)
 	case int:
-		node["maxLength"] = n
+		out["maxLength"] = n
 	case int64:
-		node["maxLength"] = int(n)
+		out["maxLength"] = int(n)
 	}
-	p.m.Node = node
-	return true
+	return out
 }
 
 // schemaProps decodes the properties of a stored schema; nil when unreadable.

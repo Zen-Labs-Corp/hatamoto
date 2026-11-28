@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"encoding/json/jsontext"
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
@@ -319,5 +320,39 @@ func TestACFWarningsCutLongSourceValues(t *testing.T) {
 	}
 	if n := len(r.res.Warnings[0]); n > 300 {
 		t.Errorf("warning is %d bytes: %.120s", n, r.res.Warnings[0])
+	}
+}
+
+// Nested enums and maxLength follow the stored property: a value outside the
+// stored enum is kept as text under <name>_raw, a long text is cut, a flexible
+// row whose layout the stored enum does not list is left out.
+func TestACFValuesFollowTheStoredNestedProperties(t *testing.T) {
+	rep := ACFField{Name: "blocks", Label: "Blocks", Type: "repeater", Sub: []ACFField{
+		{Name: "size", Label: "Size", Type: "select", Choices: []ACFChoice{{"small", "Small"}, {"large", "Large"}}},
+		{Name: "note", Label: "Note", Type: "textarea"}}}
+	flex := ACFField{Name: "sections", Label: "Sections", Type: "flexible_content", Layouts: []ACFLayout{
+		{Key: "layout_1", Name: "hero", Label: "Hero"}, {Key: "layout_2", Name: "columns", Label: "Columns"}}}
+	r, _ := acfTestRunner(t, rep, flex)
+	have := schemaProps(jsontext.Value(`{"type":"object","properties":{
+		"blocks":{"type":"array","items":{"type":"object","properties":{"size":{"type":"string","enum":["small"]},"note":{"type":"string","maxLength":4}}}},
+		"sections":{"type":"array","items":{"type":"object","properties":{"layout":{"type":"string","enum":["hero"]}}}}}}`))
+	for i := range r.acf["listing"] {
+		m := &r.acf["listing"][i]
+		p := &acfPlan{m: *m}
+		if !p.adopt(have[m.Prop]) {
+			t.Fatalf("%s: the stored property is not the same shape", m.Prop)
+		}
+		*m = p.m
+	}
+	it := &Item{ID: "9", Type: "listing", Meta: map[string]string{
+		"blocks": "2", "blocks_0_size": "large", "blocks_0_note": "abcdefgh", "blocks_1_size": "small", "blocks_1_note": "ab",
+		"sections": `a:2:{i:0;s:4:"hero";i:1;s:7:"columns";}`,
+	}}
+	attrs := r.acfAttrs(context.Background(), it, false)
+	if got, want := acfJSON(t, attrs["blocks"]), `[{"note":"abcd","size_raw":"large"},{"note":"ab","size":"small"}]`; got != want {
+		t.Errorf("blocks = %s, want %s", got, want)
+	}
+	if got, want := acfJSON(t, attrs["sections"]), `[{"layout":"hero"}]`; got != want {
+		t.Errorf("sections = %s, want %s", got, want)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -45,6 +46,9 @@ type acfReader struct {
 	// links counts the relation ids kept, rows the repeater rows and flexible
 	// content rows rebuilt.
 	links, rows int
+	// rowProps are the stored properties of the row fields of the field being
+	// read; their enum and maxLength win over the ACF definition.
+	rowProps map[string]any
 }
 
 func (r *Runner) newACFReader(ctx context.Context, it *Item, withEntities bool) *acfReader {
@@ -211,6 +215,7 @@ func (rd *acfReader) field(m acfMapped, out map[string]any) {
 		return
 	}
 	rd.unresolved, rd.dropped, rd.rows, rd.links = 0, 0, 0, 0
+	rd.rowProps = storedRowProps(m.Stored, m.Kind)
 	val, raw, ok := rd.value(m.Field, m.Kind, m.Node, rd.item.Meta, m.Field.Name)
 	if raw != "" {
 		rd.keepRaw(out, m.Prop, m.Field, raw)
@@ -458,6 +463,19 @@ func (rd *acfReader) link(v string) (any, string, bool) {
 	return u, "", true
 }
 
+// storedRowProps are the properties of the rows of a stored repeater, group or
+// flexible content property; nil for any other kind or without a stored one.
+func storedRowProps(stored map[string]any, kind acfKind) map[string]any {
+	obj := stored
+	if kind == acfKindRepeater || kind == acfKindFlex {
+		obj, _ = stored["items"].(map[string]any)
+	} else if kind != acfKindGroup {
+		return nil
+	}
+	props, _ := obj["properties"].(map[string]any)
+	return props
+}
+
 // repeater rebuilds the rows of a repeater field from <key>_<i>_<sub>.
 func (rd *acfReader) repeater(f ACFField, meta map[string]string, key string) (any, string, bool) {
 	n := rd.rowCount(f, meta[key])
@@ -526,7 +544,14 @@ func (rd *acfReader) flex(f ACFField, meta map[string]string, key string) (any, 
 			continue
 		}
 		prefix := key + "_" + strconv.Itoa(i) + "_"
-		row := map[string]any{"layout": layoutLabel(f.Layouts[li])}
+		layout := layoutLabel(f.Layouts[li])
+		if lp, ok := rd.rowProps["layout"].(map[string]any); ok {
+			if enum, ok := lp["enum"].([]any); ok && !slices.Contains(enum, any(layout)) {
+				rd.warn("ACF %s: row %d has the layout %q, which the stored property does not list, and is left out", firstNonEmpty(f.Label, f.Name), i+1, layout)
+				continue
+			}
+		}
+		row := map[string]any{"layout": layout}
 		for si, s := range f.Layouts[li].Sub {
 			rd.subValue(row, names[li][si], s, meta, prefix+s.Name)
 		}
@@ -541,6 +566,9 @@ func (rd *acfReader) subValue(row map[string]any, name string, s ACFField, meta 
 	node, kind, _, _ := acfNode(s, true)
 	if node == nil {
 		return
+	}
+	if sp, ok := rd.rowProps[name].(map[string]any); ok {
+		node = followStored(node, sp)
 	}
 	val, raw, ok := rd.value(s, kind, node, meta, key)
 	switch {
