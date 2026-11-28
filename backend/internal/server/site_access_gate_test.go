@@ -254,6 +254,7 @@ func TestSiteAccessGatesPublicAPIOnRealMux(t *testing.T) {
 		"/api/v1/public/llms.txt", "/api/v1/public/sitemap.xml", "/api/v1/public/sitemap-posts.xml",
 		"/api/v1/public/knowledge-graph?page=1", "/api/v1/public/terms/tag/news/entities",
 		"/api/v1/public/forms/contact",
+		"/api/v1/public/content/post", "/api/v1/public/content/post/hello", "/api/v1/public/terms/tag",
 	}
 	for mode, want := range map[siteaccess.Mode]int{
 		siteaccess.ModeComingSoon: 404, siteaccess.ModePassword: 404, siteaccess.ModeMaintenance: 503,

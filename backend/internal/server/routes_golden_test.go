@@ -80,6 +80,9 @@ func allowedExtraPattern(pattern string, expected map[string]bool) bool {
 	if path == "/api/v1/public/consent" && method == "POST" || path == "/api/v1/public/consent/region" && method == "GET" {
 		return true // cookie consent: the region answer and the choice counter
 	}
+	if method == "GET" && (strings.HasSuffix(path, "/api/v1/public/content/{schema}") || strings.HasSuffix(path, "/api/v1/public/content/{schema}/{slug}") || strings.HasSuffix(path, "/api/v1/public/terms/{kind}")) {
+		return true // public read-only content API (switch, default off)
+	}
 	switch path {
 	case "/feed.xml", "/atom.xml": // v1-07 post feeds, root only
 		return method == "GET"
