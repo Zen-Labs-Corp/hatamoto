@@ -133,13 +133,4 @@ func TestShellNoticesAreOneHairlineGroup(t *testing.T) {
 			t.Errorf("viz.css must style the notice rows as group rows: missing %q", want)
 		}
 	}
-	shell := readWeb(t, "layouts/shell.html")
-	if !strings.Contains(shell, `"Label" "Got it" "Size" "sm" "Variant" "ghost"`) {
-		t.Error(`the stats notice's "Got it" must be a ghost button`)
-	}
-	for _, line := range strings.Split(shell, "\n") {
-		if strings.Contains(line, "data-hm-stats-banner") && strings.Contains(line, `"Variant" "primary"`) {
-			t.Error(`the stats notice's "Change in Settings" must be a secondary (outline) button`)
-		}
-	}
 }

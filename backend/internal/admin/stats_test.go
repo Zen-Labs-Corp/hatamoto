@@ -12,17 +12,13 @@ import (
 
 // fakeStats is a StatsService that records what the handlers asked of it.
 type fakeStats struct {
-	view       StatsView
-	banner     string // what Banner answers; "" for none
-	viewErr    error
-	chooseE    error
-	dismissE   error
-	views      int
-	asks       int
-	chosen     []string
-	dismissals int
-	defaults   int
-	defaultE   error
+	view     StatsView
+	viewErr  error
+	chooseE  error
+	views    int
+	chosen   []string
+	defaults int
+	defaultE error
 }
 
 func (f *fakeStats) View(context.Context) (StatsView, error) {
@@ -30,24 +26,11 @@ func (f *fakeStats) View(context.Context) (StatsView, error) {
 	return f.view, f.viewErr
 }
 
-func (f *fakeStats) Banner(context.Context) (string, error) {
-	f.asks++
-	if f.view.ForcedOff {
-		return "", f.viewErr
-	}
-	return f.banner, f.viewErr
-}
-
 func (f *fakeStats) ForcedOff() bool { return f.view.ForcedOff }
 
 func (f *fakeStats) Choose(_ context.Context, level string) error {
 	f.chosen = append(f.chosen, level)
 	return f.chooseE
-}
-
-func (f *fakeStats) DismissNudge(context.Context) error {
-	f.dismissals++
-	return f.dismissE
 }
 
 func (f *fakeStats) ApplyDefault(context.Context) error {
@@ -66,7 +49,7 @@ func newStatsRig(t *testing.T, f *fakeStats) *updatesRig {
 	return u
 }
 
-var statsPosts = []string{"/stats", "/stats/dismiss"}
+var statsPosts = []string{"/stats"}
 
 func TestStatsPostsAreOwnerOnlyAndNeedCSRF(t *testing.T) {
 	f := &fakeStats{view: StatsView{Level: "unset"}}
@@ -83,7 +66,7 @@ func TestStatsPostsAreOwnerOnlyAndNeedCSRF(t *testing.T) {
 			t.Errorf("no CSRF POST %s = %d, want 403", target, rec.Code)
 		}
 	}
-	if f.views != 0 || len(f.chosen) != 0 || f.dismissals != 0 || len(u.events) != 0 {
+	if f.views != 0 || len(f.chosen) != 0 || len(u.events) != 0 {
 		t.Error("a refused request reached the service")
 	}
 }
@@ -134,12 +117,10 @@ func TestStatsLevelPost(t *testing.T) {
 	}
 }
 
-func TestStatsDismissCallsServiceOnce(t *testing.T) {
-	f := &fakeStats{view: StatsView{Level: "basic"}, banner: statsBannerDefaulted}
-	u := newStatsRig(t, f)
-	rec := u.do("POST", "/admin/settings/updates/stats/dismiss", "owner-token", url.Values{}, nil)
-	if rec.Code != 303 || f.dismissals != 1 || len(f.chosen) != 0 {
-		t.Errorf("dismiss = %d, dismissals %d, chosen %v", rec.Code, f.dismissals, f.chosen)
+func TestStatsDismissRouteIsGone(t *testing.T) {
+	u := newStatsRig(t, &fakeStats{view: StatsView{Level: "basic"}})
+	if rec := u.do("POST", "/admin/settings/updates/stats/dismiss", "owner-token", url.Values{}, nil); rec.Code == 303 {
+		t.Errorf("dismiss route still answers %d", rec.Code)
 	}
 }
 
@@ -155,8 +136,8 @@ func TestStatsForcedOffChangesNothing(t *testing.T) {
 			t.Errorf("POST %s: flash missing %q", p, statsForcedOffNote)
 		}
 	}
-	if len(f.chosen) != 0 || f.dismissals != 0 || len(u.events) != 0 {
-		t.Errorf("forced off: Choose %v, dismissals %d, audit %d", f.chosen, f.dismissals, len(u.events))
+	if len(f.chosen) != 0 || len(u.events) != 0 {
+		t.Errorf("forced off: Choose %v, audit %d", f.chosen, len(u.events))
 	}
 }
 
@@ -168,7 +149,6 @@ func TestStatsServiceErrorsAreQuietAndNotAudited(t *testing.T) {
 		path string
 	}{
 		{"level", &fakeStats{view: StatsView{Level: "detailed"}, chooseE: boom}, "/stats"},
-		{"dismiss", &fakeStats{view: StatsView{Level: "basic"}, dismissE: boom}, "/stats/dismiss"},
 		{"view", &fakeStats{viewErr: boom}, "/stats"},
 	} {
 		t.Run(c.name, func(t *testing.T) {

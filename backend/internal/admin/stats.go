@@ -3,10 +3,7 @@ package admin
 import (
 	"context"
 	"net/http"
-	"strings"
 	"time"
-
-	"hatamoto.dev/core/authz"
 )
 
 // Install stats levels, as the service and the forms name them.
@@ -17,30 +14,20 @@ const (
 	statsLevelDetailed = "detailed"
 )
 
-// statsBannerDefaulted is the one banner kind: the one-time notice that
-// stats are on by default.
-const statsBannerDefaulted = "defaulted"
-
 // statsDocsURL is the page that says what each level collects.
 const statsDocsURL = "https://hatamoto.dev/docs/operate/install-stats"
 
-// StatsService is the install stats as Settings > Updates, the setup
-// wizard and the owner banner use it. The server implements it on top of the
+// StatsService is the install stats as Settings > Updates, and the setup
+// wizard use it. The server implements it on top of the
 // installstats package; the admin only validates forms and calls through.
 type StatsService interface {
 	// View is the stored level and whether the server configuration forces it
 	// off.
 	View(ctx context.Context) (StatsView, error)
-	// Banner is the notice to show the owner: "defaulted" (Detailed was
-	// applied by default, notice not yet acknowledged) or "" for none. It
-	// must be cheap, the banner asks it on every owner page.
-	Banner(ctx context.Context) (string, error)
 	// ForcedOff reports HATAMOTO_TELEMETRY=off. It reads no state.
 	ForcedOff() bool
 	// Choose stores the owner's answer: "off" or "detailed".
 	Choose(ctx context.Context, level string) error
-	// DismissNudge acknowledges the defaulted notice ("Got it").
-	DismissNudge(ctx context.Context) error
 	// ApplyDefault stores the Detailed default for an install that was never
 	// asked, once setup is complete. It is a no-op when the server forbids it.
 	ApplyDefault(ctx context.Context) error
@@ -129,47 +116,4 @@ func (a *Admin) handleStatsLevel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.statsChoose(w, r, level)
-}
-
-// handleStatsDismiss acknowledges the one-time defaulted notice.
-func (a *Admin) handleStatsDismiss(w http.ResponseWriter, r *http.Request) {
-	v, ok := a.statsView(w, r)
-	if !ok {
-		return
-	}
-	if v.ForcedOff {
-		a.SetFlash(w, r, "info", statsForcedOffNote)
-		http.Redirect(w, r, a.adminPath+updatesPath, http.StatusSeeOther)
-		return
-	}
-	if err := a.deps.Stats.DismissNudge(r.Context()); err != nil {
-		a.statsQuietRedirect(w, r, "stats dismiss", err)
-		return
-	}
-	http.Redirect(w, r, a.adminPath+updatesPath, http.StatusSeeOther)
-}
-
-// StatsBanner is the one-time notice that install stats are on by default.
-type StatsBanner struct {
-	Kind    string // statsBannerDefaulted
-	DocsURL string
-}
-
-// statsBanner is the banner for a page view: nil unless the owner is on a GET
-// page of a finished setup and the service has a question for them (never
-// under a forced-off server). Editors never reach the service, and the Updates
-// pages already show the choice as their Usage stats card. Got it is a POST
-// (see handleStatsDismiss), not a browser-side dismissal.
-func (a *Admin) statsBanner(r *http.Request, u *CurrentUser, setupPending bool) *StatsBanner {
-	if a.deps.Stats == nil || a.deps.Demo.Enabled || !canUser(r.Context(), a.logger(), u, authz.ActionSettingsManage) || setupPending {
-		return nil
-	}
-	if strings.HasPrefix(r.URL.Path, a.adminPath+updatesPath) {
-		return nil
-	}
-	kind, err := a.deps.Stats.Banner(r.Context())
-	if err != nil || (kind != statsBannerDefaulted) {
-		return nil
-	}
-	return &StatsBanner{Kind: kind, DocsURL: statsDocsURL}
 }
