@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"sync"
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/backup"
+	"hatamoto.dev/core/internal/backupcrypt"
 )
 
 // adminBackups implements admin.BackupsService over the backup engine. The
@@ -17,16 +17,17 @@ import (
 // handed in through SetBackups, so there is one construction.
 type adminBackups struct {
 	eng    *backup.Engine
+	keys   backupKeySource        // nil means downloads are never encrypted
 	base   func() context.Context // the server lifecycle context; nil reads as Background
 	logger *slog.Logger
 	wg     sync.WaitGroup // background manual backups
 }
 
-func newAdminBackups(eng *backup.Engine, logger *slog.Logger, base func() context.Context) *adminBackups {
+func newAdminBackups(eng *backup.Engine, keys backupKeySource, logger *slog.Logger, base func() context.Context) *adminBackups {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &adminBackups{eng: eng, base: base, logger: logger}
+	return &adminBackups{eng: eng, keys: keys, base: base, logger: logger}
 }
 
 func (b *adminBackups) List(context.Context) (admin.BackupsState, error) {
@@ -128,12 +129,30 @@ func (b *adminBackups) Start(_ context.Context, actor string) (string, error) {
 	return info.ID, nil
 }
 
-func (b *adminBackups) Open(_ context.Context, id string) (io.ReadSeekCloser, admin.BackupInfo, error) {
+// Open returns the archive and, when a backup key is saved, the encryption the
+// handler streams it through. A key that cannot be read refuses the download:
+// the plain archive is never handed out in its place.
+func (b *adminBackups) Open(ctx context.Context, id string) (admin.BackupFile, error) {
 	f, info, err := b.eng.Open(id)
 	if err != nil {
-		return nil, admin.BackupInfo{}, mapBackupErr(err)
+		return admin.BackupFile{}, mapBackupErr(err)
 	}
-	return f, backupInfo(info), nil
+	file := admin.BackupFile{Info: backupInfo(info), Body: f}
+	if b.keys == nil {
+		return file, nil
+	}
+	key, err := b.keys.Current(ctx)
+	if err != nil {
+		_ = f.Close()
+		if !errors.Is(err, backupcrypt.ErrUnreadable) {
+			b.logger.Error("backup download: read the encryption key", "err", err)
+		}
+		return admin.BackupFile{}, admin.ErrBackupKeyUnreadable
+	}
+	if key != nil {
+		file.Encrypt = key.Encrypt
+	}
+	return file, nil
 }
 
 func (b *adminBackups) Delete(_ context.Context, id string) error {
@@ -180,7 +199,7 @@ func (s *Server) SetBackups(eng *backup.Engine) {
 	if s.db != nil {
 		s.backupKeys = newBackupKeys(s.db.Pool(), s.cfg.Secret)
 	}
-	s.backups = newAdminBackups(eng, s.logger, func() context.Context { return s.lifecycleCtx })
+	s.backups = newAdminBackups(eng, s.backupKeys, s.logger, func() context.Context { return s.lifecycleCtx })
 	if s.admin != nil {
 		s.admin.SetBackups(s.backups)
 	}

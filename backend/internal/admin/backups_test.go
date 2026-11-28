@@ -22,6 +22,8 @@ type fakeBackups struct {
 	startErr  error
 	starts    []string // the actor of each Start
 	archive   string
+	encrypt   func(w io.Writer) (io.WriteCloser, error) // set: Open returns an encrypted download
+	openErr   error                                     // set: Open fails with it
 	opened    []string
 	deleted   []string
 	deleteErr error
@@ -42,14 +44,17 @@ func (f *fakeBackups) Start(_ context.Context, actor string) (string, error) {
 	f.starts = append(f.starts, actor)
 	return f.startID, f.startErr
 }
-func (f *fakeBackups) Open(_ context.Context, id string) (io.ReadSeekCloser, BackupInfo, error) {
+func (f *fakeBackups) Open(_ context.Context, id string) (BackupFile, error) {
 	f.opened = append(f.opened, id)
+	if f.openErr != nil {
+		return BackupFile{}, f.openErr
+	}
 	for _, b := range f.state.Rows {
 		if b.ID == id && b.State == BackupOK {
-			return nopSeekCloser{strings.NewReader(f.archive)}, b, nil
+			return BackupFile{Info: b, Body: nopSeekCloser{strings.NewReader(f.archive)}, Encrypt: f.encrypt}, nil
 		}
 	}
-	return nil, BackupInfo{}, ErrBackupNotFound
+	return BackupFile{}, ErrBackupNotFound
 }
 func (f *fakeBackups) Delete(_ context.Context, id string) error {
 	f.deleted = append(f.deleted, id)
@@ -415,5 +420,95 @@ func TestBackupsDownloadClearsTheWriteDeadline(t *testing.T) {
 	}
 	if len(w.deadlines) == 0 || !w.deadlines[len(w.deadlines)-1].IsZero() {
 		t.Fatalf("write deadline not cleared: %v", w.deadlines)
+	}
+}
+
+// markerWriter stands in for age: a start marker, the bytes upper-cased, an end marker.
+type markerWriter struct{ w io.Writer }
+
+func (m markerWriter) Write(p []byte) (int, error) {
+	if _, err := m.w.Write([]byte(strings.ToUpper(string(p)))); err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}
+func (m markerWriter) Close() error { _, err := m.w.Write([]byte("<END>")); return err }
+
+func markerEncrypt(w io.Writer) (io.WriteCloser, error) {
+	if _, err := w.Write([]byte("<AGE>")); err != nil {
+		return nil, err
+	}
+	return markerWriter{w}, nil
+}
+
+func TestBackupDownloadEncrypted(t *testing.T) {
+	t.Parallel()
+
+	f := baseBackups()
+	f.archive = "tardata"
+	f.encrypt = markerEncrypt
+	f.state.Rows = backupRows()
+	g := newBackupsRig(t, f)
+	const id = "20261018T141900Z-pre_update"
+	rec := g.do("GET", backupsPath+"/"+id+"/download", "owner-token", nil, nil)
+	if rec.Code != 200 || rec.Body.String() != "<AGE>TARDATA<END>" {
+		t.Fatalf("download = %d %q", rec.Code, rec.Body.String())
+	}
+	for k, want := range map[string]string{
+		"Content-Type": "application/octet-stream", "Content-Disposition": `attachment; filename="` + id + `.tar.age"`,
+		"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+	} {
+		if got := rec.Header().Get(k); got != want {
+			t.Errorf("%s = %q, want %q", k, got, want)
+		}
+	}
+	if rec.Header().Get("Content-Length") != "" {
+		t.Errorf("Content-Length = %q, want none", rec.Header().Get("Content-Length"))
+	}
+	if len(g.events) != 1 || g.events[0].Detail["encrypted"] != true {
+		t.Errorf("audit: %+v", g.events)
+	}
+	// Ciphertext differs per run, so a Range request is answered in full.
+	rec = g.do("GET", backupsPath+"/"+id+"/download", "owner-token", nil, map[string]string{"Range": "bytes=0-9"})
+	if rec.Code != 200 || rec.Body.String() != "<AGE>TARDATA<END>" {
+		t.Errorf("ranged encrypted download = %d %q, want the whole file", rec.Code, rec.Body.String())
+	}
+}
+
+func TestBackupDownloadPlainStillServesRanges(t *testing.T) {
+	t.Parallel()
+
+	f := baseBackups()
+	f.state.Rows = backupRows()
+	g := newBackupsRig(t, f)
+	rec := g.do("GET", backupsPath+"/20261018T141900Z-pre_update/download", "owner-token", nil, map[string]string{"Range": "bytes=0-3"})
+	if rec.Code != 206 || rec.Body.String() != "TARD" {
+		t.Fatalf("ranged plain download = %d %q", rec.Code, rec.Body.String())
+	}
+	if len(g.events) != 1 || g.events[0].Detail["encrypted"] != false {
+		t.Errorf("audit: %+v", g.events)
+	}
+}
+
+func TestBackupDownloadKeyUnreadableSendsNothing(t *testing.T) {
+	t.Parallel()
+
+	f := baseBackups()
+	f.archive = "tardata"
+	f.openErr = ErrBackupKeyUnreadable
+	f.state.Rows = backupRows()
+	g := newBackupsRig(t, f)
+	rec := g.do("GET", backupsPath+"/20261018T141900Z-pre_update/download", "owner-token", nil, nil)
+	if rec.Code != 500 || strings.Contains(rec.Body.String(), "tardata") {
+		t.Fatalf("download = %d %q", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "Backup encryption key unreadable") {
+		t.Errorf("body lacks the explanation: %q", rec.Body.String())
+	}
+	if cd := rec.Header().Get("Content-Disposition"); cd != "" {
+		t.Errorf("Content-Disposition = %q on an error", cd)
+	}
+	if len(g.events) != 0 {
+		t.Errorf("a refused download was audited: %+v", g.events)
 	}
 }

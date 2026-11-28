@@ -71,6 +71,19 @@ type BackupsState struct {
 	KeepScheduled int // 0 when the page should not mention scheduled backups
 }
 
+// BackupFile is a backup to download. Encrypt is nil for a plain download;
+// otherwise the handler writes the archive through it and the client gets
+// <id>.tar.age.
+type BackupFile struct {
+	Info    BackupInfo
+	Body    io.ReadSeekCloser
+	Encrypt func(w io.Writer) (io.WriteCloser, error)
+}
+
+// ErrBackupKeyUnreadable is returned by Open when backup encryption is on but
+// its key cannot be read.
+var ErrBackupKeyUnreadable = errors.New("backup encryption key unreadable")
+
 // BackupsService is the backup engine as the admin uses it. The server
 // adapter implements it; Start never runs the backup on the request context.
 type BackupsService interface {
@@ -78,8 +91,10 @@ type BackupsService interface {
 	// Start begins a manual backup in the background and returns its id.
 	// It returns ErrBackupRunning when one is already running.
 	Start(ctx context.Context, actor string) (string, error)
-	// Open returns the archive for download. The caller closes it.
-	Open(ctx context.Context, id string) (io.ReadSeekCloser, BackupInfo, error)
+	// Open returns the archive for download. The caller closes Body. It
+	// returns ErrBackupKeyUnreadable when encryption is on but its key cannot
+	// be read; a plain archive is never returned in that case.
+	Open(ctx context.Context, id string) (BackupFile, error)
 	// Delete removes a finished backup; ErrBackupNotFound for an unknown id.
 	Delete(ctx context.Context, id string) error
 }
@@ -160,9 +175,14 @@ func (a *Admin) handleBackupDownload(w http.ResponseWriter, r *http.Request) {
 		a.backupNotFound(w, r)
 		return
 	}
-	f, info, err := a.deps.Backups.Open(r.Context(), id)
+	f, err := a.deps.Backups.Open(r.Context(), id)
 	if errors.Is(err, ErrBackupNotFound) {
 		a.backupNotFound(w, r)
+		return
+	}
+	if errors.Is(err, ErrBackupKeyUnreadable) {
+		a.Error(w, r, http.StatusInternalServerError, "Backup encryption key unreadable",
+			"Backup encryption is on but its key cannot be read. Set the key again under Backup encryption. Nothing was downloaded.")
 		return
 	}
 	if err != nil {
@@ -170,18 +190,41 @@ func (a *Admin) handleBackupDownload(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The backup could not be opened.")
 		return
 	}
-	defer f.Close()
-	a.audit(r, "backups.download", id, map[string]any{"id": id, "kind": info.Kind})
-	h := w.Header()
-	h.Set("Content-Type", "application/x-tar")
-	h.Set("Content-Disposition", `attachment; filename="`+id+`.tar"`)
-	h.Set("Cache-Control", "no-store")
-	h.Set("X-Content-Type-Options", "nosniff")
+	defer f.Body.Close()
+	enc := f.Encrypt != nil
+	a.audit(r, "backups.download", id, map[string]any{"id": id, "kind": f.Info.Kind, "encrypted": enc})
 	// A backup can take longer to send than the server's write timeout.
 	if err := http.NewResponseController(w).SetWriteDeadline(time.Time{}); err != nil && !errors.Is(err, http.ErrNotSupported) {
 		a.logger().Warn("backup download: clear write deadline", "err", err, "id", id)
 	}
-	http.ServeContent(w, r, id+".tar", info.Created, f)
+	h := w.Header()
+	h.Set("Cache-Control", "no-store")
+	h.Set("X-Content-Type-Options", "nosniff")
+	if !enc {
+		h.Set("Content-Type", "application/x-tar")
+		h.Set("Content-Disposition", `attachment; filename="`+id+`.tar"`)
+		http.ServeContent(w, r, id+".tar", f.Info.Created, f.Body)
+		return
+	}
+	// Encrypted on the fly: the ciphertext differs on every run, so Range and
+	// resume cannot work and no Content-Length is sent. A cut stream is a
+	// truncated file that age refuses to open.
+	h.Set("Content-Type", "application/octet-stream")
+	h.Set("Content-Disposition", `attachment; filename="`+id+`.tar.age"`)
+	wc, err := f.Encrypt(w)
+	if err != nil {
+		a.logger().Error("backup download: start encryption", "err", err, "id", id)
+		h.Del("Content-Disposition") // nothing was written: the error page is not a download
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The backup could not be encrypted.")
+		return
+	}
+	if _, err := io.Copy(wc, f.Body); err != nil {
+		a.logger().Error("backup download: stream", "err", err, "id", id)
+		return
+	}
+	if err := wc.Close(); err != nil {
+		a.logger().Error("backup download: finish", "err", err, "id", id)
+	}
 }
 
 func (a *Admin) backupNotFound(w http.ResponseWriter, r *http.Request) {

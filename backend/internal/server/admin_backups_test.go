@@ -1,17 +1,20 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/backup"
+	"hatamoto.dev/core/internal/backupcrypt"
 )
 
 // newTestBackups builds the adapter over an engine with no database, so a run
@@ -20,7 +23,7 @@ func newTestBackups(t *testing.T, ctx context.Context) (*adminBackups, string) {
 	t.Helper()
 	data := t.TempDir()
 	eng := backup.New(backup.Options{Data: data, Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
-	return newAdminBackups(eng, nil, func() context.Context { return ctx }), data
+	return newAdminBackups(eng, nil, nil, func() context.Context { return ctx }), data
 }
 
 func TestAdminBackupsStartRunsInBackgroundAndJoins(t *testing.T) {
@@ -68,7 +71,7 @@ func TestAdminBackupsSecondStartIsBusy(t *testing.T) {
 
 func TestAdminBackupsNotFoundAndList(t *testing.T) {
 	b, _ := newTestBackups(t, context.Background())
-	if _, _, err := b.Open(context.Background(), "20260101T000000Z-manual"); !errors.Is(err, admin.ErrBackupNotFound) {
+	if _, err := b.Open(context.Background(), "20260101T000000Z-manual"); !errors.Is(err, admin.ErrBackupNotFound) {
 		t.Fatalf("Open unknown = %v", err)
 	}
 	if err := b.Delete(context.Background(), "20260101T000000Z-manual"); !errors.Is(err, admin.ErrBackupNotFound) {
@@ -153,5 +156,89 @@ func TestAdminBackupsKeepingFromResolver(t *testing.T) {
 	st, err := b.List(context.Background())
 	if err != nil || st.KeepManual != 6 || st.KeepPreUpdate != 9 || st.KeepScheduled != 7 {
 		t.Fatalf("List keeps = %d/%d/%d, %v", st.KeepManual, st.KeepPreUpdate, st.KeepScheduled, err)
+	}
+}
+
+// putBackup writes an ok backup (sidecar and archive) the engine can open.
+func putBackup(t *testing.T, data, id string, archive []byte) {
+	t.Helper()
+	dir := filepath.Join(data, "backups")
+	st, err := backup.NewStore(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Write(backup.Info{ID: id, Kind: backup.KindManual, State: backup.StateOK, Created: time.Now().UTC()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, id+".tar"), archive, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func openFDs(t *testing.T) int {
+	t.Helper()
+	ents, err := os.ReadDir("/proc/self/fd")
+	if err != nil {
+		t.Skip("no /proc/self/fd")
+	}
+	return len(ents)
+}
+
+func TestAdminBackupsOpenEncryptsWithTheSavedKey(t *testing.T) {
+	const id = "20260101T000000Z-manual"
+	archive := []byte("PLAINTEXT-MARKER secrets.env payload")
+	b, data := newTestBackups(t, context.Background())
+	putBackup(t, data, id, archive)
+
+	// No key: a plain download.
+	f, err := b.Open(context.Background(), id)
+	if err != nil || f.Encrypt != nil {
+		t.Fatalf("Open without a key = %+v, %v", f, err)
+	}
+	f.Body.Close()
+
+	key, err := backupcrypt.ParseRecipient(testRecipient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b.keys = fixedKeys{key: key}
+	f, err = b.Open(context.Background(), id)
+	if err != nil || f.Encrypt == nil {
+		t.Fatalf("Open with a key = %+v, %v", f, err)
+	}
+	defer f.Body.Close()
+	var out bytes.Buffer
+	wc, err := f.Encrypt(&out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.Copy(wc, f.Body); err != nil {
+		t.Fatal(err)
+	}
+	if err := wc.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(out.String(), backupcrypt.Magic) {
+		t.Fatalf("output does not start with the age header: %q", out.Bytes()[:30])
+	}
+	if bytes.Contains(out.Bytes(), []byte("secrets.env")) || bytes.Contains(out.Bytes(), []byte("PLAINTEXT-MARKER")) {
+		t.Fatal("the encrypted download contains archive plaintext")
+	}
+}
+
+func TestAdminBackupsOpenRefusesAnUnreadableKey(t *testing.T) {
+	const id = "20260101T000000Z-manual"
+	b, data := newTestBackups(t, context.Background())
+	putBackup(t, data, id, []byte("tar"))
+	for _, kerr := range []error{backupcrypt.ErrUnreadable, errors.New("database down")} {
+		b.keys = fixedKeys{err: kerr}
+		before := openFDs(t)
+		f, err := b.Open(context.Background(), id)
+		if !errors.Is(err, admin.ErrBackupKeyUnreadable) || f.Body != nil || f.Encrypt != nil {
+			t.Fatalf("Open with key error %v = %+v, %v", kerr, f, err)
+		}
+		if after := openFDs(t); after != before {
+			t.Fatalf("file descriptors %d -> %d: the archive was not closed", before, after)
+		}
 	}
 }
