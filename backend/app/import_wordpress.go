@@ -267,6 +267,7 @@ func printImportResult(out io.Writer, r *wpimport.Result, took time.Duration, as
 	}
 	printSEOResult(out, r.SEO)
 	printCommentsResult(out, r.Comments)
+	wpimport.WriteReportText(out, r)
 	if a := r.Audit; a != nil {
 		fmt.Fprintf(out, "  URL audit: %d checked, %d answer 200, %d answer one 301, %d failed\n", a.Checked, a.OK, a.Redirected, len(a.Failures))
 		for _, fl := range a.Failures {

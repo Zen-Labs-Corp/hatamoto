@@ -1,0 +1,14 @@
+  WordPress import report                   Run 2: nothing new, 0 changed
+  Custom fields (ACF)                       2 groups found
+    ✔ Mapped      Listing > Price (number)  Phone (text)  Photo (image)  Website (link)
+    ✔ Mapped      Staff (repeater): 41 rows rebuilt
+    ✔ Mapped      Related listings (relationship): 38 links, second pass done
+    ~ Partly      Gallery (gallery): kept as an image list; captions not carried
+    ✔ Mapped      Page sections (flexible content): 6 pages, rows rebuilt with a "layout" key
+    ~ Partly      Nested blocks (flexible content): nested content kept as text, rebuild in the page editor
+    ~ Partly      Intro (text): values kept as data, built-in types cannot gain fields
+    ✗ Skipped     Sections > Map (google map): a property map of another type exists; field skipped
+  Forms (Contact Form 7)                    2 forms
+    ✔ Imported    Contact: 5 fields -> form "contact"; [contact-form-7] replaced by [form slug=contact]
+    ~ Partly      Quote request: 4 fields -> form "quote-request"; 1 conditional rule not carried, quiz dropped
+  Notifications and mail templates are not imported: set the recipient under Forms.
