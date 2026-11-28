@@ -27,7 +27,7 @@ Every other topic has a section of its own, listed below this introduction. Each
 
 ## Privacy and licence
 
-Hatamoto is licensed under Apache-2.0. It checks for updates on its own: one request for a signed list of current releases, and you can turn it off. [How updates work](updates/overview.md) explains what the check does and how to stop it. Once setup is finished it also sends **install stats**, a daily report about the install (among other things its random ID, version, site domain, platform, theme, plugins and error counts), never about your content or your visitors. They are on by default and one switch turns them off: see [Install stats](operate/install-stats.md). [Outbound connections](operate/outbound-connections.md) lists every call the server makes.
+Hatamoto is licensed under Apache-2.0. It checks for updates on its own: one request for a signed list of current releases, and you can turn it off. [How updates work](updates/overview.md) explains what the check does and how to stop it. Once setup is finished it also sends **install stats**, a daily report about the install (among other things its random ID, version, site address, platform, theme, plugins, which features are on and error counts), never about your content or your visitors. They are on by default and one switch turns them off: see [Install stats](operate/install-stats.md). [Outbound connections](operate/outbound-connections.md) lists every call the server makes.
 
 ## Two kinds of page
 
