@@ -112,7 +112,6 @@ func TestDefaultThemePublicPagesHaveNoInlineScript(t *testing.T) {
 			}
 			v := minimalView()
 			v.Forms, v.Submitted, v.FormError = sf.Forms, sf.Submitted, sf.FormError
-			v.PluginDirectory, v.ThemeDirectory = sf.PluginDirectory, sf.ThemeDirectory
 			v.Sections = []Section{{ID: sf.ID, Type: sf.Type, Title: sf.Title, Content: sf.Content, SortOrder: sf.SortOrder}}
 			if err := e.RenderPage(&buf, v); err != nil {
 				t.Fatal(err)

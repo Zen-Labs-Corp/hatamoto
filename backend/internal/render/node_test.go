@@ -67,7 +67,6 @@ func TestDocV1ShapedMatchesGoldens(t *testing.T) {
 			}
 			v := minimalView()
 			v.Forms, v.Submitted, v.FormError = sf.Forms, sf.Submitted, sf.FormError
-			v.PluginDirectory, v.ThemeDirectory = sf.PluginDirectory, sf.ThemeDirectory
 			v.Doc = builder.FromSections([]builder.Section{{ID: sf.ID, Type: sf.Type, Title: sf.Title, Content: sf.Content, SortOrder: sf.SortOrder}})
 			var buf bytes.Buffer
 			if err := e.RenderPage(&buf, v); err != nil {

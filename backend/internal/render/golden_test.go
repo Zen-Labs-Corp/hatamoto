@@ -25,10 +25,6 @@ type sectionFixture struct {
 	Forms     map[string]FormView `json:"forms"`
 	Submitted bool                `json:"submitted"`
 	FormError bool                `json:"form_error"`
-	// PluginDirectory is the registry data plugin_directory reads.
-	PluginDirectory *PluginDirectoryView `json:"plugin_directory"`
-	// ThemeDirectory is the registry data theme_directory reads.
-	ThemeDirectory *ThemeDirectoryView `json:"theme_directory"`
 }
 
 func minimalView() *PageView {
@@ -115,8 +111,6 @@ func TestGolden(t *testing.T) {
 			}
 			v := minimalView()
 			v.Forms, v.Submitted, v.FormError = sf.Forms, sf.Submitted, sf.FormError
-			v.PluginDirectory = sf.PluginDirectory
-			v.ThemeDirectory = sf.ThemeDirectory
 			v.Sections = []Section{{ID: sf.ID, Type: sf.Type, Title: sf.Title, Content: sf.Content, SortOrder: sf.SortOrder}}
 			if err := e.RenderPage(&buf, v); err != nil {
 				t.Fatal(err)
