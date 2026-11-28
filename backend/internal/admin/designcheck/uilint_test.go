@@ -65,6 +65,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-01", File: "pages/settings/layoutparts.html", Needle: `printf "Create %s part"`, Reason: "one create button per slot, each in its own one-button form in a row"},
 	{Rule: "UI-01", File: "pages/entities/new.html", Needle: `<button class="hm-choice__link" type="submit">`, Reason: "a type card is its own one-button form: one click creates the draft, as the Create menu does"},
 	{Rule: "UI-01", File: "pages/settings/security-change.html", Needle: `"Regenerate"`, Reason: "inline action beside the copy button: formaction posts a new candidate without changing the address"},
+	{Rule: "UI-01", File: "pages/settings/hosting.html", Needle: `"Label" "Trust host key"`, Reason: "setting row action bound to its own GET form by the form attribute: it opens the host key confirm page and saves nothing"},
 	{Rule: "UI-01", File: "pages/settings/updates.html", Needle: `"Check now"`, Reason: "setting row action bound to its own form by the form attribute"},
 	{Rule: "UI-01", File: "pages/settings/updates.html", Needle: `"Unpin"`, Reason: "setting row action bound to its own form by the form attribute"},
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `"Turn off now"`, Reason: "banner action in its own form: turns the opt-in off at once"},

@@ -1,7 +1,13 @@
-/* Target and live origin of Settings > Hosting: only the fields of the chosen target show, and the live origin
+/* Target, SFTP sign-in and live origin of Settings > Hosting: only the fields of the chosen target show, and the live origin
    field shows only for a separate live origin. All fields stay in the form, so a hidden one keeps its saved
    values and the toggle needs no script. */
 [data-hosting-only] { display: flex; flex-direction: column; gap: var(--space-4); }
 form:has(input[name="target"][value="dir"]:checked) [data-hosting-only="s3"],
-form:has(input[name="target"][value="s3"]:checked) [data-hosting-only="dir"] { display: none; }
+form:has(input[name="target"][value="dir"]:checked) [data-hosting-only="sftp"],
+form:has(input[name="target"][value="s3"]:checked) [data-hosting-only="dir"],
+form:has(input[name="target"][value="s3"]:checked) [data-hosting-only="sftp"],
+form:has(input[name="target"][value="sftp"]:checked) [data-hosting-only="dir"],
+form:has(input[name="target"][value="sftp"]:checked) [data-hosting-only="s3"] { display: none; }
+form:has(input[name="sftp_auth"][value="password"]:checked) [data-hosting-only="sftp-key"],
+form:has(input[name="sftp_auth"][value="key"]:checked) [data-hosting-only="sftp-password"] { display: none; }
 form:has(input[name="live_mode"][value="same"]:checked) [data-hosting-only="live"] { display: none; }

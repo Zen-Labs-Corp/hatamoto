@@ -761,6 +761,11 @@ func TestHostingSaveSFTPRefusedKeepsFields(t *testing.T) {
 	if strings.Contains(body, testSFTPPassword) || strings.Contains(body, "sftp-key-body") {
 		t.Fatal("the refused page echoes the password or key")
 	}
+	for _, want := range []string{`value="posted.example.net"`, `value="posted-user"`, `value="public_html"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the refused page lacks %s", want)
+		}
+	}
 	if len(p.events) != 0 {
 		t.Errorf("a refused save was audited: %+v", p.events)
 	}

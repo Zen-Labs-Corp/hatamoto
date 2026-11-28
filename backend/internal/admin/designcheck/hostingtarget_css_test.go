@@ -19,15 +19,24 @@ func TestHostingTargetHideRule(t *testing.T) {
 		t.Fatal(err)
 	}
 	const hide = `form:has(input[name="target"][value="dir"]:checked) [data-hosting-only="s3"], ` +
-		`form:has(input[name="target"][value="s3"]:checked) [data-hosting-only="dir"] { display: none; }`
+		`form:has(input[name="target"][value="dir"]:checked) [data-hosting-only="sftp"], ` +
+		`form:has(input[name="target"][value="s3"]:checked) [data-hosting-only="dir"], ` +
+		`form:has(input[name="target"][value="s3"]:checked) [data-hosting-only="sftp"], ` +
+		`form:has(input[name="target"][value="sftp"]:checked) [data-hosting-only="dir"], ` +
+		`form:has(input[name="target"][value="sftp"]:checked) [data-hosting-only="s3"] { display: none; }`
+	const hideAuth = `form:has(input[name="sftp_auth"][value="password"]:checked) [data-hosting-only="sftp-key"], ` +
+		`form:has(input[name="sftp_auth"][value="key"]:checked) [data-hosting-only="sftp-password"] { display: none; }`
 	if !strings.Contains(css, hide) {
 		t.Errorf("hostingtarget.css lacks the whole hide rule %q", hide)
+	}
+	if !strings.Contains(css, hideAuth) {
+		t.Errorf("hostingtarget.css lacks the whole SFTP sign-in rule %q", hideAuth)
 	}
 	const hideLive = `form:has(input[name="live_mode"][value="same"]:checked) [data-hosting-only="live"] { display: none; }`
 	if !strings.Contains(css, hideLive) {
 		t.Errorf("hostingtarget.css lacks the whole live origin rule %q", hideLive)
 	}
-	for _, kind := range []string{"dir", "s3", "live"} {
+	for _, kind := range []string{"dir", "s3", "sftp", "sftp-password", "sftp-key", "live"} {
 		if !strings.Contains(string(html), `data-hosting-only="`+kind+`"`) {
 			t.Errorf("hosting.html lacks the data-hosting-only=%q wrapper", kind)
 		}
