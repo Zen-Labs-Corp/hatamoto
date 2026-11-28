@@ -156,6 +156,9 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 		}
 		d.AuditRetention = auditRetentionAdmin{site: s.siteConfig}
 	}
+	if s.siteConfig != nil {
+		d.PublicAPI = publicAPIAdmin{site: s.siteConfig}
+	}
 	if s.spamStore != nil {
 		d.Spam = spamAdmin{store: s.spamStore, verifier: s.spamVerifier, key: s.spam.SecretKey}
 	}

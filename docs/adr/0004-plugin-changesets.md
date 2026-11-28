@@ -333,8 +333,8 @@ content writes outside a run.
 Hatamoto stays a single binary that renders its own public site
 ([ADR 0002](0002-single-binary.md), ROADMAP decision 2: no headless mode). This
 ADR adds no public content API. It does keep every boundary at the level of
-structured data, so a content API can be added later (a future ADR) without
-changing how plugins work:
+structured data, so a content API can be added later (a future ADR, now
+[ADR 0017](0017-public-content-api.md)) without changing how plugins work:
 
 - **Changesets hold structured data**: entity fields, attributes, terms,
   redirects and proposals as typed values, never rendered pages.
@@ -385,6 +385,7 @@ they need their own design, not this one.
 **A public content API and headless front ends** are out of scope (section
 11). A future ADR decides them; this one only keeps the boundaries at the data
 level so that decision does not reopen plugin design.
+[ADR 0017](0017-public-content-api.md) decides the read-only content API; headless front ends stay out of scope.
 
 **Supply chain hardening** (separate signing keys for packages and for the
 registry index, an append-only public release log, installs and updates that

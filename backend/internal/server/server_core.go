@@ -311,6 +311,7 @@ func (s *Server) mountCorePublicMetaRoutes(r *httpx.Group) {
 func (s *Server) mountCorePublicCMSRoutes(r *httpx.Group) {
 	r.HandleFunc("GET /sitemap.xml", s.handlePublicSitemap)
 	r.HandleFunc("GET /knowledge-graph", s.handleKnowledgeGraph)
+	s.mountPublicContentAPI(r) // read-only JSON content API, off until the owner turns it on
 	r.HandleFunc("GET /llms.txt", s.handleLLMsTxt)
 	r.HandleFunc("GET /llms-full.txt", s.handleLLMsFullTxt)
 

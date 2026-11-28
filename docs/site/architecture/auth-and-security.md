@@ -83,6 +83,7 @@ Several routes carry in-memory per-IP limiters (token buckets):
 | pageview beacon (`/api/v1/track`) | 20 per second | 50 |
 | public plugin routes (`/p/{plugin}/...`) | 10 per second | 30 |
 | public term archives (`/api/v1/public/terms/{kind}/{slug}/entities`) | 10 per second | 30 |
+| public content API (`/api/v1/public/content/...`, `/api/v1/public/terms/{kind}`, only when switched on) | 10 per second | 30 |
 | access log ingest (`/api/v1/public/agent-logs`, only when `AGENT_LOG_INGEST` is on with a secret) | 2 per second | 10 |
 
 A limited request gets `429` with `Retry-After: 1`.

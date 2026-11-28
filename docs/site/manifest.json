@@ -41,6 +41,7 @@
         "accessibility-and-security",
         "accessibility",
         "webhooks",
+        "public-content-api",
         "performance-cache"
       ]
     },

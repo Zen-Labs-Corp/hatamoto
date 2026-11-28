@@ -303,7 +303,7 @@ The comment is left out when the entity has **Include in /llms.txt** switched of
 | `per_page` | `50` | Items per page, 1 to 100. A larger number is clamped to 100; zero, a negative number or text is answered with `400`. |
 | `schema` | none | Only entities of this content type slug. |
 
-`_meta` holds `total`, `page`, `per_page`, `total_pages` and `has_next`. The feed honours the same opt-out as `llms.txt`. With `?schema=` the opt-out is applied after paging, so a page can hold fewer items than `per_page` and `total` counts the opted-out entities too.
+`_meta` holds `total`, `page`, `per_page`, `total_pages` and `has_next`. The feed honours the same opt-out as `llms.txt`. With `?schema=` the opt-out is applied after paging, so a page can hold fewer items than `per_page` and `total` counts the opted-out entities too. The same **Include in /llms.txt** opt-out and the same noindex also hide an entry from the [public content API](../admin/public-content-api.md).
 
 ```bash
 curl -s 'https://example.com/api/v1/public/knowledge-graph?schema=post&per_page=20' | head -c 600

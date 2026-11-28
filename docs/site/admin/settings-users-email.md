@@ -28,7 +28,7 @@ Settings holds everything about the site as a whole rather than one entity. Each
 | Redirects | `redirects` | owner, editor |
 | Internal linking | `linking` | owner, editor |
 | **System** | | |
-| Integrations | `api-keys`, `webhooks`, `webhooks/deliveries` (Delivery log) | owner |
+| Integrations | `api-keys`, `webhooks`, `webhooks/deliveries` (Delivery log), `public-api` | owner |
 | Performance | `performance` | owner |
 | Updates | `updates` | owner |
 | Jobs | `jobs` | owner |

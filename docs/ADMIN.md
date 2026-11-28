@@ -180,7 +180,7 @@ There are 15 sections in three groups (paths under `<admin>/settings/`):
 | Redirects | `redirects` | owner, editor |
 | Internal linking | `linking` | owner, editor |
 | **System** | | |
-| Integrations | `api-keys`, `webhooks`, `webhooks/deliveries` (Delivery log) | owner |
+| Integrations | `api-keys`, `webhooks`, `webhooks/deliveries` (Delivery log), `public-api` | owner |
 | Performance | `performance` (page cache: on/off, lifetime, size limit, clear, preload) | owner |
 | Updates | `updates` | owner |
 | Backups & recovery | `backups`, `versions`, `changes` | owner |

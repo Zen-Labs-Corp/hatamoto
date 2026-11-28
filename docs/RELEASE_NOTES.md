@@ -1,5 +1,11 @@
 # Release notes
 
+## Unreleased: a read-only public content API, off by default
+
+- **What.** Three `GET` routes under `/api/v1/public` give other programs the published content as JSON: `content/{schema}` (a page of entries), `content/{schema}/{slug}` (one entry) and `terms/{kind}` (terms with their entry counts). An entry has `id`, `schema`, `slug`, `url`, `title`, `excerpt`, `published_at`, `updated_at`, `author` and `terms`. Lists page with `page` and `per_page` (1 to 100) and answer `meta` with the totals. Answers are cached for 60 seconds, carry a weak `ETag` and honour `If-None-Match`. The owner turns the API on in **Settings > Integrations > Public content API**. See [Public content API](site/admin/public-content-api.md).
+- **Compatibility.** Additive. The API is off by default, so nothing changes until the owner turns it on. While it is off every route answers `404`. Entries that opt out of `llms.txt` or are noindex are never listed.
+- **Migration.** One expand-only column, `hatamoto_site_config.public_content_api`. **Rollback floor:** unchanged. An older binary ignores the column and has no routes, so they answer `404`.
+
 ## Unreleased: the plugin and theme directory sections leave core
 
 - **What.** Core no longer ships the `plugin_directory` and `theme_directory` sections, the registry detail pages at `/plugins/<name>` and `/themes/<name>`, or the default theme's `registry` layout and its styles. The two sections are gone from the add-section picker. A page that still uses one renders nothing visible in its place (an HTML comment, `<!-- unknown section type: plugin_directory -->`); the rest of the page is unchanged. `hatamoto registry page` and **Browse plugins** / **Browse themes** in the admin are unchanged, and so are `HATAMOTO_REGISTRY_URL`, `HATAMOTO_DEVELOPER_REGISTRY_URL` and `HATAMOTO_REGISTRY_ALLOW_HTTP`.

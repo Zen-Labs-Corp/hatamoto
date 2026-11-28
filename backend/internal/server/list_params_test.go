@@ -34,6 +34,9 @@ func TestListEndpointsRefuseBadPaging(t *testing.T) {
 		{"link rules", s.handleListLinkRules, "page=-2", "page"},
 		{"knowledge graph", s.handleKnowledgeGraph, "per_page=abc", "per_page"},
 		{"entities", s.handleListEntities, "limit=-1", "limit"},
+		{"content list", s.handlePublicContentList, "per_page=abc", "per_page"},
+		{"content list limit", s.handlePublicContentList, "limit=5", "use per_page"},
+		{"terms list", s.handlePublicTermsList, "page=0", "page"},
 	} {
 		req := httptest.NewRequest(http.MethodGet, "/x?"+tc.query, nil)
 		req.SetPathValue("id", id)

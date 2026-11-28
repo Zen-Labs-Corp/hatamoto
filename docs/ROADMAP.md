@@ -371,7 +371,6 @@ Every phase is additive and N-1 safe, and an install with no locale list stays b
 - React, Next.js, npm/Node tooling, Tailwind, CodeMirror, Alpine.
 - GeoIP and IP-based or cookie-based locale routing (the reverse proxy does that), machine translation. Multi-locale sites are covered by [ADR 0003](adr/0003-public-locales.md).
 - Gated content, lead capture beyond forms, CRM features.
-- A headless or public content JSON API (one renderer only).
 - SQLite or any second database.
 - Compiled-in Go plugins.
 - Redis, OpenTelemetry, JWT, CORS, Google sign-in.
@@ -385,7 +384,7 @@ Every phase is additive and N-1 safe, and an install with no locale list stays b
 ## 9. Decisions taken for 1.0
 
 1. Apache-2.0 licence.
-2. No headless mode in 1.0.
+2. Public read-only content API in 1.x (opt-in, published content only, [ADR 0017](adr/0017-public-content-api.md)); no write API, no GraphQL, no headless front end: the Go renderer stays the only public renderer.
 3. Roles: owner, editor, author, contributor, reviewer and read-only. The content rules of author, contributor and reviewer are done: authors manage their own entries, contributors their own drafts without publishing, reviewers publish and edit any entry.
 4. Post URLs default to `/blog/{slug}` (WordPress imports keep their own structure).
 5. Autosave: drafts autosave; published posts change only on "Update".

@@ -675,6 +675,60 @@ func (r *PostgresRepository) ListPublicTerms(ctx context.Context, kind string, l
 	return out, rows.Err()
 }
 
+// ListPublicTermsPage returns one page of the terms of kind that have at least
+// one published entity (the rules of ListPublicTerms), ordered by name, slug,
+// id so pages stay stable, with the count of published entities per term and
+// the total number of such terms. page below 1 reads as 1, perPage below 1 as
+// 20 and above 100 as 100.
+func (r *PostgresRepository) ListPublicTermsPage(ctx context.Context, kind string, page, perPage int) ([]*TermWithCount, int, error) {
+	page = max(page, 1)
+	switch {
+	case perPage < 1:
+		perPage = 20
+	case perPage > 100:
+		perPage = 100
+	}
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer conn.Release()
+	const from = `
+          FROM hatamoto_terms t
+          JOIN hatamoto_entity_terms et ON et.term_id = t.id
+          JOIN hatamoto_entities e ON e.id = et.entity_id
+                                  AND e.status = 'published' AND e.variant_key IS NULL
+          JOIN hatamoto_entity_schemas s ON s.id = e.schema_id AND `
+	visible := entity.HiddenPersonFor("$2")
+	locales := entity.VisibleLocales(ctx)
+	var total int
+	if err := conn.QueryRow(ctx, `
+        SELECT COUNT(DISTINCT t.id)`+from+visible+`
+         WHERE t.kind = $1`, kind, locales).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := conn.Query(ctx, `
+        SELECT `+termColsT+`, COUNT(e.id)`+from+visible+`
+         WHERE t.kind = $1
+         GROUP BY t.id
+         ORDER BY t.name, t.slug, t.id
+         LIMIT $3 OFFSET $4
+    `, kind, locales, perPage, (page-1)*perPage)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out := []*TermWithCount{}
+	for rows.Next() {
+		t := &TermWithCount{}
+		if err := scanTerm(rows, &t.Term, nil, &t.EntityCount); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, t)
+	}
+	return out, total, rows.Err()
+}
+
 // SitemapTerm is a term archive the sitemap may list.
 type SitemapTerm struct {
 	Kind      string

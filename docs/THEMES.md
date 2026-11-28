@@ -1597,7 +1597,9 @@ set, and a theme overrides any of them by shipping a file of the same name.
 
 The public JSON page endpoints are gone: the Go renderer is the only public
 front end. The remaining `/api/v1/public/...` routes are forms, sitemaps,
-`llms.txt`, the knowledge graph and taxonomy archives. The same binary serves
+`llms.txt`, the knowledge graph, taxonomy archives and the read-only content
+API (`/content/{schema}`, `/terms/{kind}`, off by default). The API is a second
+output of the same data, not a second renderer. The same binary serves
 the admin. See `docs/deploy/caddy-hatamoto.md`.
 
 ## Known gaps

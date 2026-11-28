@@ -31,6 +31,11 @@ type ListFilter struct {
 	// inside Japanese, Chinese and Korean text match too (search_cjk.go). Entities
 	// marked no_index never appear in search results.
 	Search string
+	// ExcludeOptedOut leaves out entities the owner kept out of AI feeds
+	// (attributes.seo.include_in_llms_txt = false) and noindex entities
+	// (NoIndexSQL): the public content API and the knowledge graph list the
+	// same set, and the total stays exact.
+	ExcludeOptedOut bool
 	// ExcludeSchemaSlugs leaves entities of these schemas out of a Search; it
 	// is how noindex types stay out of site search results and their paging.
 	ExcludeSchemaSlugs []string
@@ -310,6 +315,9 @@ func (r *PostgresPublicRepository) ListPublishedFiltered(ctx context.Context, f 
 		}
 		rank = "ts_rank(e.search_vector, " + tsq + ") DESC, "
 	}
+	if f.ExcludeOptedOut {
+		where = append(where, "NOT "+OptedOutSQL, "NOT "+NoIndexSQL)
+	}
 	cond := strings.Join(where, " AND ")
 	from := `FROM hatamoto_entities e JOIN hatamoto_entity_schemas s ON e.schema_id = s.id WHERE ` + cond
 
@@ -349,6 +357,12 @@ func (r *PostgresPublicRepository) ListPublishedFiltered(ctx context.Context, f 
 	}
 	return items, total, rows.Err()
 }
+
+// OptedOutSQL is true for an entity row aliased e whose owner turned off
+// "Include in /llms.txt". It compares the stored JSON instead of casting it,
+// so a malformed value never fails the query; only the boolean false opts out,
+// as in the Go check the single-entry reads use.
+const OptedOutSQL = `COALESCE(e.attributes->'seo'->'include_in_llms_txt' = 'false'::jsonb, false)`
 
 // NoIndexSQL is true for an entity row aliased e that must stay out of
 // sitemaps and search: metadata.no_index, attributes.no_index or an
