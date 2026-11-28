@@ -131,7 +131,7 @@ The minor release after core 1.4.6 removes, without the notice period of the pro
 theme contract: the `plugin_directory` and `theme_directory` section schemas, the optional `registry` layout
 (the `/plugins/<name>` and `/themes/<name>` detail pages) and the `PageView` fields `Registry`, `PluginDirectory`
 and `ThemeDirectory`. The owner granted this because the project's own site, the one known user, has moved to a
-plugin. Pages that still use the sections render nothing visible. It is not a precedent.
+plugin. Pages that still use the sections render nothing visible. A theme template that reads the removed fields fails at execution, so a theme should delete such templates. It is not a precedent.
 
 ## SDK versions and `CompatibleWith`
 

@@ -97,7 +97,6 @@ The `contact_form` section renders a form chosen in the editor. When that form h
 | `split` | `eyebrow, heading, lede, footnote, layout, ratio, rowsStyle (definitions\|chips-grid), rows[{term, description}], panel{title, meta, code, language}, outputs[{label, value}], panelHeight (auto\|match)` | text column plus code panel; `match` stretches the panel to the height of the text column above 960px (the code panel grows, outputs sit at the bottom) |
 | `card_columns` | `eyebrow, heading, subheading, columnCount, columns[{label, title, description, items[]}], notes[{title, text}]` | markers such as `columns.N.items.M` |
 | `comparison` | `eyebrow, heading, subheading, sides[{tag, title, tone (negative\|positive), items[]}]` | glyphs are CSS pseudo-elements, never content |
-| | `eyebrow, heading, subheading (alias intro), writeUrl, submitUrl, installHint, otherUrl, otherLabel, showSearch` | cards come from the server's signed registry, not from the fields; see below |
 | `hero` | includes optional `panel`, `commandChip`, `stripLabel`, `stripItems[]` and `backdrop (none\|grid)` | the code panel shows with `layout: split` and no image; `stripLabel` plus `stripItems` show a row of short items between the actions and the media (the label needs items to render); `backdrop: grid` draws a faint grid behind a taller hero |
 
 Read the files under `backend/internal/render/themes/default/schemas/` for the remaining types; each schema is the authoritative field list.
