@@ -5,9 +5,11 @@
 -- the upgrade does not start blocking scripts. A fresh database has no row yet
 -- (first boot inserts it after migrations), so it stays NULL and enforces.
 -- Expand-only: the previous binary ignores the column.
--- hatamoto:backfill idempotent
-ALTER TABLE hatamoto_site_config ADD COLUMN IF NOT EXISTS csp_enforce boolean;
-UPDATE hatamoto_site_config SET csp_enforce = false WHERE csp_enforce IS NULL;
+-- The pin is a metadata-only column default that is cleared right away: the
+-- existing rows keep false without being rewritten, so re-running the
+-- migration never writes a row and never pins a row created since.
+ALTER TABLE hatamoto_site_config ADD COLUMN IF NOT EXISTS csp_enforce boolean DEFAULT false;
+ALTER TABLE hatamoto_site_config ALTER COLUMN csp_enforce SET DEFAULT NULL;
 
 -- +goose Down
 ALTER TABLE hatamoto_site_config DROP COLUMN IF EXISTS csp_enforce;
