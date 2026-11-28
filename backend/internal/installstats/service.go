@@ -36,8 +36,6 @@ type Backend interface {
 	AddHealth(ctx context.Context, d Counts) error
 	RecordResult(ctx context.Context, status, version string, sent *Counts) error
 	RecordKeptDay(ctx context.Context, version string) error
-	DismissNudge(ctx context.Context) error
-	Banner(ctx context.Context) (BannerKind, error)
 	ApplyDefault(ctx context.Context) (bool, error)
 }
 
@@ -145,23 +143,6 @@ func (s *Service) Health() *Health { return s.health }
 
 // ForcedOff reports whether HATAMOTO_TELEMETRY=off is set.
 func (s *Service) ForcedOff() bool { return ForcedOff(s.getenv) }
-
-// Banner says which owner banner to show. It reads the choice only, so it is
-// cheap enough for every page view. Nothing shows under HATAMOTO_TELEMETRY=off.
-func (s *Service) Banner(ctx context.Context) (BannerKind, error) {
-	if s.ForcedOff() {
-		return BannerNone, nil
-	}
-	return s.store.Banner(ctx)
-}
-
-// DismissNudge acknowledges the defaulted notice for good.
-func (s *Service) DismissNudge(ctx context.Context) error {
-	if s.ForcedOff() {
-		return ErrForcedOff
-	}
-	return s.store.DismissNudge(ctx)
-}
 
 // Choose records the owner's answer. Detailed creates the install ID; Off
 // deletes it. Basic is no longer a choice.

@@ -369,43 +369,68 @@ func TestAddHealthIgnoredUnlessDetailed_Integration(t *testing.T) {
 	}
 }
 
-func TestBannerKinds_Integration(t *testing.T) {
+// noticePending reads the column older binaries use for their one-time notice.
+func noticePending(t *testing.T, st *Store) bool {
+	t.Helper()
+	var pending bool
+	if err := st.db.QueryRow(context.Background(), `SELECT default_notice_pending FROM hatamoto_install_stats WHERE id`).Scan(&pending); err != nil {
+		t.Fatal(err)
+	}
+	return pending
+}
+
+func wantNoticeFalse(t *testing.T, st *Store, after string) {
+	t.Helper()
+	if noticePending(t, st) {
+		t.Fatalf("%s left default_notice_pending TRUE", after)
+	}
+}
+
+// The column stays for older binaries, which show their one-time notice while
+// it is TRUE. This binary must never set it, and an owner's choice clears it.
+func TestStoreNeverSetsNoticePending_Integration(t *testing.T) {
 	ctx := context.Background()
 	st := NewStore(scratchPool(t))
-	want := func(k BannerKind) {
+	seedTrue := func() {
 		t.Helper()
-		if got, err := st.Banner(ctx); err != nil || got != k {
-			t.Fatalf("banner = %q (%v), want %q", got, err, k)
+		if _, err := st.db.Exec(ctx, `UPDATE hatamoto_install_stats SET default_notice_pending = TRUE WHERE id`); err != nil {
+			t.Fatal(err)
 		}
 	}
-	want(BannerNone) // no row
-	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
-		t.Fatal(err)
+	reset := func() {
+		t.Helper()
+		if _, err := st.db.Exec(ctx, `DELETE FROM hatamoto_install_stats`); err != nil {
+			t.Fatal(err)
+		}
 	}
-	want(BannerNone)
-	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
-		t.Fatal(err)
-	}
-	want(BannerNone)
-	if err := st.Disable(ctx); err != nil {
-		t.Fatal(err)
-	}
-	want(BannerNone)
-	// A defaulted row shows the notice until acknowledged.
-	if err := st.Disable(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := st.db.Exec(ctx, `DELETE FROM hatamoto_install_stats`); err != nil {
-		t.Fatal(err)
-	}
+
 	if applied, err := st.ApplyDefault(ctx); err != nil || !applied {
 		t.Fatalf("ApplyDefault = %v, %v", applied, err)
 	}
-	want(BannerDefaulted)
-	if err := st.DismissNudge(ctx); err != nil {
+	wantNoticeFalse(t, st, "ApplyDefault on a fresh database")
+
+	seedTrue()
+	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
 		t.Fatal(err)
 	}
-	want(BannerNone)
+	wantNoticeFalse(t, st, "Enable")
+
+	seedTrue()
+	if err := st.Disable(ctx); err != nil {
+		t.Fatal(err)
+	}
+	wantNoticeFalse(t, st, "Disable")
+
+	// Reconcile repairs a yes/basic row to detailed without setting it.
+	reset()
+	if _, err := st.db.Exec(ctx, `INSERT INTO hatamoto_install_stats (id, consent, level, install_id, default_notice_pending)
+		VALUES (TRUE, 'yes', 'basic', '0123456789abcdef0123456789abcdef', FALSE)`); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := st.Load(ctx); err != nil || got.Level != LevelDetailed {
+		t.Fatalf("reconcile: %+v (%v)", got, err)
+	}
+	wantNoticeFalse(t, st, "reconcile")
 }
 
 func TestStoreApplyDefault_Integration(t *testing.T) {
@@ -419,9 +444,10 @@ func TestStoreApplyDefault_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Consent != ConsentYes || got.Level != LevelDetailed || got.InstallID == "" || !got.DefaultNoticePending || got.WindowStart == nil {
+	if got.Consent != ConsentYes || got.Level != LevelDetailed || got.InstallID == "" || got.WindowStart == nil {
 		t.Fatalf("defaulted state = %+v", got)
 	}
+	wantNoticeFalse(t, st, "ApplyDefault")
 	if applied, err := st.ApplyDefault(ctx); err != nil || applied {
 		t.Fatalf("second ApplyDefault = %v, %v; want false", applied, err)
 	}
@@ -432,9 +458,7 @@ func TestStoreApplyDefault_Integration(t *testing.T) {
 	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
 		t.Fatal(err)
 	}
-	if cur, _ := st.Load(ctx); cur.DefaultNoticePending {
-		t.Fatal("Enable left the notice pending")
-	}
+	wantNoticeFalse(t, st, "Enable")
 
 	for name, setup := range map[string]func(*Store) error{
 		"basic": func(s *Store) error { _, err := s.Enable(ctx, LevelDetailed); return err },
@@ -451,12 +475,12 @@ func TestStoreApplyDefault_Integration(t *testing.T) {
 			t.Fatalf("%s: ApplyDefault = %v, %v; want false", name, applied, err)
 		}
 		after, _ := st.Load(ctx)
-		if after.Consent != before.Consent || after.Level != before.Level || after.InstallID != before.InstallID || after.DefaultNoticePending {
+		if after.Consent != before.Consent || after.Level != before.Level || after.InstallID != before.InstallID {
 			t.Fatalf("%s: row changed: %+v -> %+v", name, before, after)
 		}
 	}
 
-	// Disable clears a pending notice too.
+	// Disable writes FALSE too.
 	if _, err := st.db.Exec(ctx, `DELETE FROM hatamoto_install_stats`); err != nil {
 		t.Fatal(err)
 	}
@@ -466,9 +490,7 @@ func TestStoreApplyDefault_Integration(t *testing.T) {
 	if err := st.Disable(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if cur, _ := st.Load(ctx); cur.DefaultNoticePending {
-		t.Fatal("Disable left the notice pending")
-	}
+	wantNoticeFalse(t, st, "Disable")
 }
 
 func TestDisableWipesCounters_Integration(t *testing.T) {
@@ -541,13 +563,13 @@ func TestOldBinaryConsentChangeIsReconciled_Integration(t *testing.T) {
 			t.Fatalf("leftover basic: %+v (%v), want detailed", got, err)
 		}
 		var pending bool
-		if err := pool.QueryRow(ctx, `SELECT default_notice_pending FROM hatamoto_install_stats WHERE id`).Scan(&pending); err != nil || !pending {
-			t.Fatalf("notice pending = %v (%v), want true after repair", pending, err)
+		if err := pool.QueryRow(ctx, `SELECT default_notice_pending FROM hatamoto_install_stats WHERE id`).Scan(&pending); err != nil || pending {
+			t.Fatalf("notice pending = %v (%v), want false: the repair never sets it", pending, err)
 		}
 	})
 
-	// An off row stays off and gets no notice.
-	t.Run("off row gets no notice", func(t *testing.T) {
+	// An off row stays off and stays FALSE.
+	t.Run("off row stays unpended", func(t *testing.T) {
 		pool := scratchPool(t)
 		if _, err := pool.Exec(ctx, `INSERT INTO hatamoto_install_stats (id, consent, level, default_notice_pending) VALUES (TRUE, 'no', 'detailed', FALSE)`); err != nil {
 			t.Fatal(err)
@@ -579,9 +601,6 @@ func TestOldBinaryConsentChangeIsReconciled_Integration(t *testing.T) {
 		got, err := st.Load(ctx)
 		if err != nil || got.Level != LevelOff || got.InstallID != "" || !got.Counts.IsZero() || got.WindowStart != nil {
 			t.Fatalf("after old Disable: %+v (%v), want off, no id, no counts", got, err)
-		}
-		if kind, _ := st.Banner(ctx); kind != BannerNone {
-			t.Fatalf("banner = %q, want none", kind)
 		}
 	})
 }

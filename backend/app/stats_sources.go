@@ -16,6 +16,8 @@ import (
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/staticexport"
+	"hatamoto.dev/core/internal/wpimport"
 )
 
 // statsSources answers the facts the Detailed install stats report. It reads
@@ -28,6 +30,7 @@ type statsSources struct {
 	// baseURL is the PUBLIC_SITE base URL from the environment; it wins over
 	// the stored site config, like the admin address check.
 	baseURL string
+	csp     bool // CSP_ENFORCE: the policy is enforced, not report-only
 }
 
 var _ installstats.Sources = statsSources{}
@@ -149,4 +152,32 @@ func (s statsSources) WorkerOn() bool { return s.worker }
 // and community builds), never for a developer package or a self-built one.
 func isFirstPartyOrigin(o packages.Origin) bool {
 	return o == packages.OriginFirstParty || o == packages.OriginCommunity
+}
+
+// Flags reads one on/off fact per feature: settings switches and counts only,
+// never content, visitors or secret columns. A failed read leaves that flag nil.
+func (s statsSources) Flags(ctx context.Context) installstats.Flags {
+	f := installstats.Flags{CSPEnforced: &s.csp}
+	f.CommentsOn = s.flag(ctx, `SELECT enabled FROM hatamoto_comment_settings WHERE id`)
+	f.StaticMode = s.flag(ctx, `SELECT mode = $1 FROM hatamoto_static_hosting_settings WHERE id`, staticexport.ModeStatic)
+	f.SSOOn = s.flag(ctx, `SELECT enabled FROM hatamoto_signin_oidc WHERE id`)
+	f.FormsInUse = s.flag(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_forms WHERE status = 'active')`)
+	f.OffsiteBackupsOn = s.flag(ctx, `SELECT enabled FROM hatamoto_offsite_settings WHERE id`)
+	f.WPImported = s.flag(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_import_runs WHERE source = $1 AND status = $2)`,
+		wpimport.SourceName, wpimport.RunCompleted)
+	var n int
+	err := s.pool.QueryRow(ctx, `SELECT jsonb_array_length(locales) FROM hatamoto_site_config LIMIT 1`).Scan(&n)
+	if err == nil || errors.Is(err, pgx.ErrNoRows) { // no row = single locale
+		f.Locales = &n
+	}
+	return f
+}
+
+// flag runs a one-boolean query; no row is off, an error is unknown (nil).
+func (s statsSources) flag(ctx context.Context, q string, args ...any) *bool {
+	var on bool
+	if err := s.pool.QueryRow(ctx, q, args...).Scan(&on); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	return &on
 }

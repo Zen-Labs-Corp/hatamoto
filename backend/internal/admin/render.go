@@ -202,9 +202,6 @@ type View struct {
 	// AddressBanner nags the owner about a weak admin address nobody accepted
 	// (nil otherwise); NewView fills it for owner GET requests off the Security pages.
 	AddressBanner *AddressBanner
-	// StatsBanner asks the owner of an existing install about install stats
-	// (nil otherwise); NewView fills it for owner GET requests off the Updates page.
-	StatsBanner *StatsBanner
 	// AccessBanner tells owners and editors the public site is not open to
 	// visitors (nil while it is open); NewView fills it on GET requests.
 	AccessBanner *AccessBanner
@@ -610,7 +607,6 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 		v.Flash = a.takeFlash(w, r)
 		v.UpdateBanner = a.updateBanner(r, v.User)
 		v.AddressBanner = a.addressBanner(r, v.User)
-		v.StatsBanner = a.statsBanner(r, v.User, v.SetupPending)
 		v.AccessBanner = a.accessBanner(r, v.User)
 		v.ExportBanner = a.exportBanner(r, v.User)
 		v.ModuleBanners = a.moduleBanners(r, v.User)

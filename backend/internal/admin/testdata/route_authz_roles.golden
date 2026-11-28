@@ -521,7 +521,6 @@ POST /admin/settings/updates/apply-without-backup anon=303 read-only=403 author=
 POST /admin/settings/updates/check anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/updates/retry anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/updates/stats anon=303 read-only=403 author=403 contributor=403 reviewer=403
-POST /admin/settings/updates/stats/dismiss anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/updates/unpin anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/users anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/users/invite anon=303 read-only=403 author=403 contributor=403 reviewer=403

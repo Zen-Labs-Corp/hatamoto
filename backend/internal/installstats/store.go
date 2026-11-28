@@ -46,14 +46,6 @@ const (
 	LevelDetailed Level = "detailed"
 )
 
-// BannerKind says which owner banner, if any, to show.
-type BannerKind string
-
-const (
-	BannerNone      BannerKind = "none"
-	BannerDefaulted BannerKind = "defaulted" // Detailed was applied by default: tell the owner once
-)
-
 // maxPluginErrorKeys bounds the stored per-plugin error map; names beyond it
 // are summed under otherKey.
 const (
@@ -122,14 +114,11 @@ type State struct {
 	LastSentAt      *time.Time
 	LastOKAt        *time.Time // last successful report; unchanged by failed attempts
 	LastStatus      string
-	LastSentVersion string // version of the last successful report
-	NudgeDismissed  bool   // the owner dismissed the Detailed offer
-	// DefaultNoticePending is set when the default wrote the row, until the
-	// owner acknowledges it or makes an explicit choice.
-	DefaultNoticePending bool
-	WindowStart          *time.Time // start of the health counts; nil outside Detailed
-	Counts               Counts
-	Sent                 Counts // the counts the last report carried; Counts includes them until the next UTC day
+	LastSentVersion string     // version of the last successful report
+	NudgeDismissed  bool       // the owner dismissed the Detailed offer
+	WindowStart     *time.Time // start of the health counts; nil outside Detailed
+	Counts          Counts
+	Sent            Counts // the counts the last report carried; Counts includes them until the next UTC day
 	// DetailedSentAt is when the last ok report that carried a Detailed body
 	// was claimed; nil when none did since the level or consent changed.
 	DetailedSentAt *time.Time
@@ -147,7 +136,7 @@ type Store struct{ db Querier }
 func NewStore(db Querier) *Store { return &Store{db: db} }
 
 const stateColumns = `consent, level, install_id, last_sent_at, last_ok_at, last_status, last_sent_version,
-	nudge_dismissed, default_notice_pending, health_window_start, h_panics, h_http_5xx, h_render_errors, h_migration_failed, h_plugin_errors, h_sent,
+	nudge_dismissed, health_window_start, h_panics, h_http_5xx, h_render_errors, h_migration_failed, h_plugin_errors, h_sent,
 	h_sent_at, COALESCE((h_sent_at AT TIME ZONE 'UTC')::date = (now() AT TIME ZONE 'UTC')::date, FALSE)`
 
 func scanState(row pgx.Row) (State, error) {
@@ -158,7 +147,7 @@ func scanState(row pgx.Row) (State, error) {
 		sentJS []byte
 	)
 	if err := row.Scan(&st.Consent, &st.Level, &id, &st.LastSentAt, &st.LastOKAt, &st.LastStatus, &st.LastSentVersion,
-		&st.NudgeDismissed, &st.DefaultNoticePending, &st.WindowStart, &st.Counts.Panics, &st.Counts.HTTP5xx, &st.Counts.RenderErrors,
+		&st.NudgeDismissed, &st.WindowStart, &st.Counts.Panics, &st.Counts.HTTP5xx, &st.Counts.RenderErrors,
 		&st.Counts.MigrationFailed, &errsJS, &sentJS, &st.DetailedSentAt, &st.DetailedSentToday); err != nil {
 		return State{}, err
 	}
@@ -182,13 +171,12 @@ func scanState(row pgx.Row) (State, error) {
 // consent: its Enable leaves level off or unset (or basic), and its Disable
 // leaves basic or detailed (with the health counts). Consent wins: yes becomes
 // detailed (stats are on or off, there is no Basic), no becomes off with the
-// counts wiped. A repaired yes row also shows the notice once more. A row where the two agree is untouched.
+// counts wiped. A row where the two agree is untouched.
 func (s *Store) reconcile(ctx context.Context) error {
 	_, err := s.db.Exec(ctx, `
 		UPDATE hatamoto_install_stats SET
 			level = CASE consent WHEN 'yes' THEN 'detailed' ELSE 'off' END,
 			health_window_start = CASE consent WHEN 'yes' THEN COALESCE(health_window_start, now()) END,
-			default_notice_pending = CASE consent WHEN 'yes' THEN TRUE ELSE default_notice_pending END,
 			h_panics = 0, h_http_5xx = 0, h_render_errors = 0, h_migration_failed = 0, h_plugin_errors = '{}'::jsonb, h_sent = '{}'::jsonb, h_sent_at = NULL
 		WHERE (consent = 'yes' AND level <> 'detailed')
 		   OR (consent = 'no' AND level <> 'off')`)
@@ -229,6 +217,9 @@ func (s *Store) Enable(ctx context.Context, level Level) (State, error) {
 	}
 	// The counts restart whenever the Detailed state changes; staying put
 	// keeps them.
+	// default_notice_pending: older binaries show their one-time notice while it
+	// is TRUE; an owner's choice acknowledges it (rollback floor). Nothing reads it
+	// any more, and this binary only ever writes FALSE.
 	const t = `hatamoto_install_stats`
 	_, err = s.db.Exec(ctx, `
 		INSERT INTO hatamoto_install_stats (id, consent, level, install_id, nudge_dismissed, health_window_start)
@@ -254,7 +245,7 @@ func (s *Store) Enable(ctx context.Context, level Level) (State, error) {
 }
 
 // ApplyDefault records the default (consent yes, level detailed, a new ID, the
-// Detailed offer counted as made, the notice pending) when the install was
+// Detailed offer counted as made) when the install was
 // never asked. One statement, so replicas and repeated runs write it once;
 // applied is false when a row already holds an answer.
 func (s *Store) ApplyDefault(ctx context.Context) (applied bool, err error) {
@@ -262,12 +253,13 @@ func (s *Store) ApplyDefault(ctx context.Context) (applied bool, err error) {
 	if err != nil {
 		return false, err
 	}
+	// default_notice_pending stays FALSE: this binary never sets it (rollback floor).
 	const t = `hatamoto_install_stats`
 	err = s.db.QueryRow(ctx, `
 		INSERT INTO hatamoto_install_stats (id, consent, level, install_id, nudge_dismissed, health_window_start, default_notice_pending)
-		VALUES (TRUE, 'yes', 'detailed', $1, TRUE, now(), TRUE)
+		VALUES (TRUE, 'yes', 'detailed', $1, TRUE, now(), FALSE)
 		ON CONFLICT (id) DO UPDATE SET consent = EXCLUDED.consent, level = EXCLUDED.level, install_id = EXCLUDED.install_id,
-			nudge_dismissed = TRUE, health_window_start = now(), default_notice_pending = TRUE
+			nudge_dismissed = TRUE, health_window_start = now(), default_notice_pending = FALSE
 		WHERE `+t+`.level = 'unset' AND `+t+`.consent = 'unset'
 		RETURNING TRUE`, id).Scan(&applied)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -282,6 +274,7 @@ func (s *Store) ApplyDefault(ctx context.Context) (applied bool, err error) {
 // Disable records consent no (level off), deletes the ID and wipes the health
 // counts, in one statement.
 func (s *Store) Disable(ctx context.Context) error {
+	// default_notice_pending = FALSE acknowledges the notice for older binaries.
 	_, err := s.db.Exec(ctx, `
 		INSERT INTO hatamoto_install_stats (id, consent, level, install_id) VALUES (TRUE, 'no', 'off', NULL)
 		ON CONFLICT (id) DO UPDATE SET consent = 'no', level = 'off', install_id = NULL, default_notice_pending = FALSE,
@@ -405,37 +398,6 @@ func (s *Store) RecordKeptDay(ctx context.Context, version string) error {
 		return fmt.Errorf("record install stats kept day: %w", err)
 	}
 	return nil
-}
-
-// DismissNudge acknowledges the defaulted notice. nudge_dismissed is set too:
-// the column stays, and the previous release still reads it.
-func (s *Store) DismissNudge(ctx context.Context) error {
-	if _, err := s.db.Exec(ctx, `UPDATE hatamoto_install_stats SET nudge_dismissed = TRUE,
-		default_notice_pending = FALSE WHERE id`); err != nil {
-		return fmt.Errorf("dismiss install stats nudge: %w", err)
-	}
-	return nil
-}
-
-// Banner says which owner banner to show, from one cheap query: the defaulted
-// notice while it is pending, else none. The variable HATAMOTO_TELEMETRY=off is
-// the Service's concern, not the Store's.
-func (s *Store) Banner(ctx context.Context) (BannerKind, error) {
-	var (
-		level   Level
-		pending bool
-	)
-	err := s.db.QueryRow(ctx, `SELECT level, default_notice_pending FROM hatamoto_install_stats WHERE id`).Scan(&level, &pending)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return BannerNone, nil
-	}
-	if err != nil {
-		return BannerNone, fmt.Errorf("load install stats banner: %w", err)
-	}
-	if pending && level == LevelDetailed {
-		return BannerDefaulted, nil
-	}
-	return BannerNone, nil
 }
 
 // withLockedRow runs fn in a transaction holding the row's lock. A missing row

@@ -56,7 +56,7 @@ In this guide you check that your computer or server can run Hatamoto and write 
 
 6. Decide where the server secret will live. The **server secret** is a long random value the server uses to sign links and protect stored credentials; it must stay the same across restarts. You do not need to make one: on its first start Hatamoto creates it and saves it in the folder `data/secrets`, inside the folder you start it from. Keep that folder, and include it in your backups. For a production server you can supply your own instead; see [Requirements and secrets](requirements-and-secrets.md).
 
-7. Check that you have nothing else to install. Hatamoto needs no separate web server, no Node, no Redis and no programming tools on the server. On its own it checks for updates and, once setup is finished, sends **install stats**, a daily report about the install (among other things its random ID, version, site domain, platform, theme, plugins and error counts), never about your content or your visitors. You can turn both off later; [Outbound connections](../operate/outbound-connections.md) lists every connection and how to turn it off.
+7. Check that you have nothing else to install. Hatamoto needs no separate web server, no Node, no Redis and no programming tools on the server. On its own it checks for updates and, once setup is finished, sends **install stats**, a daily report about the install (among other things its random ID, version, site address, platform, theme, plugins, which features are on and error counts), never about your content or your visitors. You can turn both off later; [Outbound connections](../operate/outbound-connections.md) lists every connection and how to turn it off.
 
 ## Check it worked
 

@@ -48,14 +48,14 @@ func updaterEnv(pool *pgxpool.Pool, sessions wpimport.SessionSource, eng *backup
 
 // installStats builds the install stats service. Its channel is the
 // update channel; the update mode does not matter, stats have their own switch.
-func installStats(pool *pgxpool.Pool, version, baseURL string, worker, demo bool, logger *slog.Logger) *installstats.Service {
+func installStats(pool *pgxpool.Pool, version, baseURL string, worker, demo, csp bool, logger *slog.Logger) *installstats.Service {
 	us := updater.NewStore(pool)
 	h := installstats.NewHealth()
 	wasmhost.SetErrorObserver(h.PluginError)
 	svc := installstats.New(installstats.Config{
 		Store:   installstats.NewStore(pool),
 		Health:  h,
-		Sources: statsSources{pool: pool, pkgs: packages.NewStore(pool), worker: worker, baseURL: baseURL},
+		Sources: statsSources{pool: pool, pkgs: packages.NewStore(pool), worker: worker, baseURL: baseURL, csp: csp},
 		Version: version,
 		Demo:    demo,
 		SetupComplete: func(ctx context.Context) (bool, error) {
@@ -99,12 +99,12 @@ func countMigrationFailures(svc *installstats.Service, h *installstats.Health, d
 
 // startUpdater hands the update agent to the server. A problem here (say an
 // unusable update URL) is logged and never stops the site from starting.
-func startUpdater(srv *server.Server, pool *pgxpool.Pool, sessions wpimport.SessionSource, mediaDir, baseURL string, demo, worker bool, logger *slog.Logger) {
+func startUpdater(srv *server.Server, pool *pgxpool.Pool, sessions wpimport.SessionSource, mediaDir, baseURL string, demo, worker, csp bool, logger *slog.Logger) {
 	// One engine serves the updater's pre-update backup and the admin page.
 	version, _ := buildInfo()
 	eng := newBackupEngine(pool, mediaDir, version, logger)
 	srv.SetBackups(eng)
-	srv.SetStats(installStats(pool, version, baseURL, worker, demo, logger))
+	srv.SetStats(installStats(pool, version, baseURL, worker, demo, csp, logger))
 	if demo {
 		// Public demo: no update check, no apply. The Updates page says so.
 		srv.NoUpdater(errors.New("updates are switched off in the public demo"))

@@ -476,7 +476,6 @@ func (a *Admin) mountUpdatesSettings(owner *httpx.Group) {
 	owner.Group("", a.RequireSudo).HandleFunc("POST /settings/updates/retry", a.handleUpdatesRetry)
 	owner.HandleFunc("POST /settings/updates/unpin", a.handleUpdatesUnpin)
 	owner.HandleFunc("POST /settings/updates/stats", a.handleStatsLevel)
-	owner.HandleFunc("POST /settings/updates/stats/dismiss", a.handleStatsDismiss)
 }
 
 // updatesCheckTimeout bounds Check now: it only fetches and decides.

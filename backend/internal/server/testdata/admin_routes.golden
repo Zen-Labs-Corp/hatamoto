@@ -517,7 +517,6 @@ POST /admin/settings/updates/apply-without-backup -> admin.(*Admin).handleUpdate
 POST /admin/settings/updates/check -> admin.(*Admin).handleUpdatesCheck-fm
 POST /admin/settings/updates/retry -> admin.(*Admin).handleUpdatesRetry-fm
 POST /admin/settings/updates/stats -> admin.(*Admin).handleStatsLevel-fm
-POST /admin/settings/updates/stats/dismiss -> admin.(*Admin).handleStatsDismiss-fm
 POST /admin/settings/updates/unpin -> admin.(*Admin).handleUpdatesUnpin-fm
 POST /admin/settings/users -> admin.(*Admin).handleUserCreate-fm
 POST /admin/settings/users/invite -> admin.(*Admin).handleInvite-fm

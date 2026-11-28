@@ -542,7 +542,7 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	srv := server.New(cfg, db, logger)
 	// Boot garbage (parsed templates, migrations) is dead now: hand it back once.
 	debug.FreeOSMemory()
-	startUpdater(srv, db.Pool(), db.Direct(), cfg.Server.MediaUploadDir, cfg.PublicSite.BaseURL, cfg.Demo.Enabled, cfg.Server.EnableWorker, logger)
+	startUpdater(srv, db.Pool(), db.Direct(), cfg.Server.MediaUploadDir, cfg.PublicSite.BaseURL, cfg.Demo.Enabled, cfg.Server.EnableWorker, cfg.Security.CSPEnforce && !cfg.Security.HeadersDisabled, logger)
 	svcCtx, stopServices := context.WithCancel(ctx)
 	waitServices := startModuleServices(svcCtx, logger)
 	defer func() { stopServices(); waitServices(moduleServiceStopTimeout) }()
