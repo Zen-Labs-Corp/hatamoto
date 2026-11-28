@@ -68,7 +68,7 @@
 {{else}}<form method="post" action="{{adminPath}}/settings/updates/stats" class="hm-cardform" id="stats-form">
 {{template "hm/csrf" $}}
 {{template "hm/card-start" dict "ID" "updates-stats" "Title" "Usage stats" "Heading" "h2"}}
-{{template "hm/field" dict "ID" "stats-on" "Name" "level" "Label" "Share usage stats with Hatamoto" "Control" "switch" "Value" "detailed" "OffValue" "off" "Checked" $.Data.StatsOn "Help" "Version, site address, theme, plugins and error counts, once a day."}}
+{{template "hm/field" dict "ID" "stats-on" "Name" "level" "Label" "Share usage stats with Hatamoto" "Control" "switch" "Value" "detailed" "OffValue" "off" "Checked" $.Data.StatsOn "Help" "Version, site address, theme, plugins, which features are on (yes/no) and error counts, once a day."}}
 <p class="hm-field__help"><a href="{{$.Data.StatsDocsURL}}" target="_blank" rel="noopener">What is collected</a></p>
 {{if $.Data.StatsOn}}<p class="hm-field__help">Last sent: {{if $.Data.StatsLastSent}}{{$.Data.StatsLastSent}}{{else}}not sent yet. Hatamoto tries again once a day.{{end}}</p>{{end}}
 {{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
