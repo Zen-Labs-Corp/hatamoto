@@ -278,6 +278,7 @@ func (h *hostingAdmin) SetMode(ctx context.Context, mode string) error {
 				return errors.New(capitalize(fullStopText(err.Error())))
 			}
 			if cur.SFTPHostKey == "" {
+				//lint:ignore ST1005 shown to the owner verbatim as a sentence
 				return errors.New("Trust the host key of the SFTP host first.")
 			}
 		case staticexport.TargetS3:
