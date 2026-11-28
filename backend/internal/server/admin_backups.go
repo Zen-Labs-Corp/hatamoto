@@ -176,6 +176,10 @@ func backupInfo(i backup.Info) admin.BackupInfo {
 // The routes are mounted in New, before the engine exists; call it before the
 // server starts serving.
 func (s *Server) SetBackups(eng *backup.Engine) {
+	// The key provider exists before setupOffsite and the downloads use it.
+	if s.db != nil {
+		s.backupKeys = newBackupKeys(s.db.Pool(), s.cfg.Secret)
+	}
 	s.backups = newAdminBackups(eng, s.logger, func() context.Context { return s.lifecycleCtx })
 	if s.admin != nil {
 		s.admin.SetBackups(s.backups)
