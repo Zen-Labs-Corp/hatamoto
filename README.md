@@ -80,10 +80,10 @@ prints at any time. More: [Install with Docker](docs/site/getting-started/instal
 
 ## One-click deploy
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Zen-Labs-Corp/hatamoto)
 [![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/Zen-Labs-Corp/hatamoto/tree/main)
 
-Both start the signed image `ghcr.io/zen-labs-corp/hatamoto` with a managed Postgres.
+This starts the signed image `ghcr.io/zen-labs-corp/hatamoto` with a managed Postgres.
+A Render Blueprint (`render.yaml`) is included but untested, so there is no Render button yet; see the docs page below.
 Open the setup address printed in the service log, create your account, done.
 DigitalOcean App Platform keeps no files between deploys: set `HATAMOTO_SECRET` when asked and
 use the droplet image below for a site you keep. Details: [Deploy on Render or DigitalOcean](docs/site/getting-started/deploy-render-digitalocean.md).

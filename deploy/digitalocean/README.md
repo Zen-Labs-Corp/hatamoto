@@ -27,7 +27,8 @@ Packer starts a temporary droplet, builds and seals Hatamoto on it, then snapsho
 snapshot is named `hatamoto-` plus the build time. You can change the region, droplet size and
 installer address with `-var region=...`, `-var size=...` and `-var install_url=...`.
 
-To pin the installer, download `install.sh` and verify it as described in
+With `install_sha256` empty (the default), the build trusts HTTPS alone: it runs whatever `install_url`
+serves, with no checksum. To pin the installer, download `install.sh` and verify it as described in
 [Install on a VPS](../../docs/site/getting-started/install-vps.md), then pass its checksum. The
 build stops if the downloaded file differs:
 

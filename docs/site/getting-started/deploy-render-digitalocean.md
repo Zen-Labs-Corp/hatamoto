@@ -7,8 +7,9 @@ next: first-run.md, ../operate/email.md, ../operate/configuration-reference.md
 
 In this guide you deploy Hatamoto on **Render** or on **DigitalOcean App Platform**, two hosting services that run containers for you, so you need no server of your own. Both start the signed Hatamoto image from `ghcr.io/zen-labs-corp/hatamoto` together with a managed Postgres 16 database, where Hatamoto stores everything. When you finish, your site answers on a public address and you have created your owner account.
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Zen-Labs-Corp/hatamoto)
 [![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/Zen-Labs-Corp/hatamoto/tree/main)
+
+Only the DigitalOcean button is offered. The Render Blueprint is in the repository but has not been tested, see [Deploy on Render](#deploy-on-render).
 
 The two are not equal. Render gives the service a **persistent disk**, storage that is kept when the service restarts or is redeployed, so it suits a site you keep. DigitalOcean App Platform has no persistent storage: every file Hatamoto writes is lost on each deploy or restart. Treat the App Platform button as a way to try Hatamoto. For a DigitalOcean site you keep, use the droplet image described in [deploy/digitalocean/README.md](https://github.com/Zen-Labs-Corp/hatamoto/blob/main/deploy/digitalocean/README.md), or [Install on a VPS](install-vps.md).
 
@@ -20,12 +21,12 @@ The two are not equal. Render gives the service a **persistent disk**, storage t
 
 ## Deploy on Render
 
-1. Click **Deploy to Render** above. Render reads the blueprint in the repository (`render.yaml`) and lists what it will create: the **hatamoto** web service and the **hatamoto-db** database.
+**This path is unverified.** Hatamoto runs as an unprivileged user (uid 10001), and Render's documentation does not say who owns a persistent disk mounted at `/data`. If the disk is owned by root, Hatamoto cannot write its secret, uploads or updates and restarts in a loop. Nobody has yet deployed this blueprint to confirm. To check, create a new Blueprint from your fork or copy of the repository (**New > Blueprint** in the Render dashboard, pointing at the repository) and read the service log: a line saying it cannot persist a generated secret or write to `/data` means the disk is not writable. If it starts and prints a `Setup` line, it works.
+
+1. In the Render dashboard choose **New > Blueprint** and select the repository. Render reads the blueprint (`render.yaml`) and lists what it will create: the **hatamoto** web service and the **hatamoto-db** database.
 2. Click **Apply**. Render starts the database, then Hatamoto. The first start takes a minute or two: Hatamoto prepares the database and creates its own server secret.
 
 The blueprint mounts a 1 GB disk at `/data` and runs a single instance, because a disk can belong to only one instance. Uploads, the server secret, backups and downloaded updates live on the disk. Back up `/data` together with the database, since the secret on the disk is the key to stored credentials.
-
-Hatamoto runs as an unprivileged user. If the first start logs that it cannot write to `/data`, the disk was mounted without write access for that user. This is a known limit of this template: report it and do not rely on the deploy until it is fixed.
 
 ### Render settings
 
