@@ -460,7 +460,8 @@ RewriteRule ^a/([^/]+)/?$ /b/$1 [R=301,L]
 - The rules sit inside `<IfModule>`, so a missing module skips them instead of
   failing the site. The block has no access-control directives.
 - Turning off **Write .htaccess** removes nothing at once. The next export
-  removes the block.
+  removes the block (the `# BEGIN Hatamoto` to `# END Hatamoto` lines) and keeps
+  every other line. The file is deleted only if nothing else is left.
 - If the site shows a 500 after an export, the host forbids these directives
   (`AllowOverride` does not allow them). Turn **Write .htaccess** off and export
   again.

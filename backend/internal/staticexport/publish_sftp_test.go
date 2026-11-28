@@ -195,17 +195,54 @@ func TestSFTPTarget_MergesRemoteHTAccess(t *testing.T) {
 	}
 }
 
-func TestSFTPTarget_HTAccessOffLeavesRemoteAlone(t *testing.T) {
-	srv := newSFTPServer(t)
-	tgt := newTestSFTPTarget(t, srv, nil)
-	writeRoot(t, srv, "public_html/.htaccess", "Options -Indexes\n")
-	staged, next := stageFiles(t, map[string]string{"index.html": "x"})
-	if err := tgt.Publish(context.Background(), staged, Diff{Changed: []string{"index.html"}}, next); err != nil {
-		t.Fatal(err)
+func TestSFTPTarget_HTAccessOffRemovesTheBlock(t *testing.T) {
+	const block = "# BEGIN Hatamoto\n<IfModule mod_alias.c>\nRedirectMatch 301 ^/a/?$ /b\n</IfModule>\n# END Hatamoto\n"
+	publish := func(t *testing.T, remote string) (*sftpTestServer, error) {
+		srv := newSFTPServer(t)
+		tgt := newTestSFTPTarget(t, srv, nil)
+		if remote != "" {
+			writeRoot(t, srv, "public_html/.htaccess", remote)
+		}
+		staged, next := stageFiles(t, map[string]string{"index.html": "x"})
+		return srv, tgt.Publish(context.Background(), staged, Diff{Changed: []string{"index.html"}}, next)
 	}
-	if got := readRoot(t, srv, "public_html/.htaccess"); got != "Options -Indexes\n" {
-		t.Fatalf(".htaccess = %q", got)
-	}
+
+	t.Run("keeps the owner's lines", func(t *testing.T) {
+		srv, err := publish(t, "Options -Indexes\n"+block+"AddType x y\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := readRoot(t, srv, "public_html/.htaccess"); got != "Options -Indexes\nAddType x y\n" {
+			t.Fatalf(".htaccess = %q", got)
+		}
+	})
+	t.Run("deletes a file that held only the block", func(t *testing.T) {
+		srv, err := publish(t, block)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(srv.Root, "public_html", ".htaccess")); !os.IsNotExist(err) {
+			t.Fatalf(".htaccess still there: %v", err)
+		}
+	})
+	t.Run("leaves a file without a block", func(t *testing.T) {
+		srv, err := publish(t, "Options -Indexes\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := readRoot(t, srv, "public_html/.htaccess"); got != "Options -Indexes\n" {
+			t.Fatalf(".htaccess = %q", got)
+		}
+	})
+	t.Run("creates nothing when there is no file", func(t *testing.T) {
+		srv, err := publish(t, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(srv.Root, "public_html", ".htaccess")); !os.IsNotExist(err) {
+			t.Fatalf(".htaccess created: %v", err)
+		}
+	})
 }
 
 func TestSFTPTarget_HTAccessRemovedWhenFileWasOnlyTheBlock(t *testing.T) {

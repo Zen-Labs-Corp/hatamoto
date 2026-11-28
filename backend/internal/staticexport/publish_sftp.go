@@ -356,10 +356,8 @@ func (t *SFTPTarget) Publish(ctx context.Context, staged string, d Diff, next Ma
 		t.dels.Add(1)
 	}
 
-	if t.cfg.HTAccess {
-		if err := t.mergeHTAccess(c, staged); err != nil {
-			return err
-		}
+	if err := t.mergeHTAccess(c, staged); err != nil {
+		return err
 	}
 
 	body, err := next.Encode()
@@ -433,9 +431,15 @@ func (t *SFTPTarget) rename(c *sftp.Client, tmp, dst string) error {
 // mergeHTAccess keeps the Hatamoto block of the remote .htaccess current and
 // leaves every other line as it was.
 func (t *SFTPTarget) mergeHTAccess(c *sftp.Client, staged string) error {
-	block, err := os.ReadFile(filepath.Join(staged, HTAccessFile))
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
+	// With Write .htaccess off the block is empty: an earlier block is removed
+	// and a file without one is left alone.
+	var block []byte
+	if t.cfg.HTAccess {
+		var err error
+		block, err = os.ReadFile(filepath.Join(staged, HTAccessFile))
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
 	}
 	dst := path.Join(t.dir, HTAccessFile)
 	var remote []byte
