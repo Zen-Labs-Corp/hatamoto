@@ -630,7 +630,8 @@ func (a *Admin) renderSEOTitles(w http.ResponseWriter, r *http.Request, status i
 }
 
 // seoPreview resolves a sample page of each kind through seo.Resolve, the same
-// function the public head calls, so the lines match the live output.
+// function the public head calls, plus the tagline fallback, so the lines match
+// the live output.
 func (a *Admin) seoPreview(ctx context.Context, st titlesState) []seoPreviewLine {
 	site, tagline := "", ""
 	if a.deps.Site != nil {
@@ -645,7 +646,9 @@ func (a *Admin) seoPreview(ctx context.Context, st titlesState) []seoPreviewLine
 			in.Vars = vars
 		}
 		r := seo.Resolve(&set, in)
-		return seoPreviewLine{Label: label, Title: r.Title, Description: r.Description}
+		// The public head falls back to the tagline for a default-language page
+		// without a description; the preview shows default-language pages.
+		return seoPreviewLine{Label: label, Title: r.Title, Description: firstNonEmptyString(r.Description, tagline)}
 	}
 	lines := []seoPreviewLine{line("Homepage", seo.Input{Kind: seo.KindHome, Vars: seo.Vars{Title: firstNonEmptyString(site, "Home"), SiteName: site, Tagline: tagline}})}
 	for _, row := range st.Types {
