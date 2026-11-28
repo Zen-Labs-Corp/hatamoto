@@ -19,7 +19,9 @@ func (stubHosting) LiveRuns(context.Context, int) ([]admin.HostingRun, error) { 
 func (stubHosting) Setup(context.Context) (admin.HostingSetup, error) {
 	return admin.HostingSetup{}, nil
 }
-func (stubHosting) Islands() ([]admin.HostingIsland, []string) { return nil, nil }
+func (stubHosting) ProbeHostKey(context.Context) (string, error) { return "", nil }
+func (stubHosting) TrustHostKey(context.Context, string) error   { return nil }
+func (stubHosting) Islands() ([]admin.HostingIsland, []string)   { return nil, nil }
 
 // setupStaticExport runs inside New, before the admin is mounted. The service
 // it leaves on the server must reach the admin through the mount, or the

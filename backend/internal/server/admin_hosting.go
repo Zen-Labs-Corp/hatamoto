@@ -332,6 +332,15 @@ func (h *hostingAdmin) LastRun(ctx context.Context) (admin.HostingRun, bool, err
 	return admin.HostingRun{}, false, nil
 }
 
+// ProbeHostKey and TrustHostKey are placeholders until the SFTP adapter lands.
+func (h *hostingAdmin) ProbeHostKey(context.Context) (string, error) {
+	return "", errors.New("host key checks are not available on this server")
+}
+
+func (h *hostingAdmin) TrustHostKey(context.Context, string) error {
+	return errors.New("host key checks are not available on this server")
+}
+
 func (h *hostingAdmin) Islands() ([]admin.HostingIsland, []string) {
 	var live []admin.HostingIsland
 	var stays []string
