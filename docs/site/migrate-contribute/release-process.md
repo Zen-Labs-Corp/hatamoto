@@ -65,7 +65,7 @@ gh workflow run image.yml --ref main -f tag=vX.Y.Z
 
 The job sits behind the `release-image` environment, which holds required reviewers. It reads `scripts/verify-tag-signature.sh` and `.github/allowed_signers` from `main`, requires a valid tag signature (always checked in the public repository), the tag's commit on `main` and a published, non-draft GitHub release for the tag, then builds `ghcr.io/zen-labs-corp/hatamoto` for `linux/amd64` and `linux/arm64` at the tag's commit, signs it keyless with cosign, attaches an SPDX SBOM attestation and verifies both. The `latest` tag moves only for a release without a prerelease suffix. The signature's identity is `image.yml@refs/heads/main`.
 
-Once the image for a stable release is published, open a pull request that points the repository's `docker-compose.yml` at it:
+Once the image for a stable release is published, open a pull request that rewrites the repository's `docker-compose.yml` and the image tags quoted in `README.md`:
 
 ```bash
 scripts/bump-compose-image.sh vX.Y.Z

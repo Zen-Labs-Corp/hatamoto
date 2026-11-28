@@ -36,6 +36,7 @@ docs/MCP.md                                                backend  ./internal/s
 scripts/check-channel-freshness.sh                         backend  ./internal/release
 releases/channels/**                                       backend  ./tools/release
 docker-compose.yml                                         backend  ./app
+README.md                                                  backend  ./app
 docker-compose.build.yml                                   backend  ./app
 backend/cmd/hatamoto/**                                    backend  ./app
 backend/web/assets/**                                      backend  ./tools/vendor
