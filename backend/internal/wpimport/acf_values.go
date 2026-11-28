@@ -13,6 +13,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v5"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // acfWarnCap is how many value warnings one run records; the rest are summed up.
@@ -106,6 +107,56 @@ func acfRelationBearing(m acfMapped) bool {
 	return false
 }
 
+// acfHasRichtext reports whether a relation-bearing field holds rich text in
+// its rows. Its links resolve only in the links step, once every item has an
+// entity and a path.
+func acfHasRichtext(m acfMapped) bool {
+	var has func(subs []ACFField) bool
+	has = func(subs []ACFField) bool {
+		for _, s := range subs {
+			if _, k, _, _ := acfNode(s, true); k == acfKindRichtext || has(s.Sub) {
+				return true
+			}
+		}
+		return false
+	}
+	if has(m.Field.Sub) {
+		return true
+	}
+	for _, l := range m.Field.Layouts {
+		if has(l.Sub) {
+			return true
+		}
+	}
+	return false
+}
+
+// carryStored replaces the value the content step built for prop with the one
+// the item's entity holds, which the links step wrote on an earlier run. The
+// content step cannot resolve the links in such a value, so writing its own
+// would undo the links step on every run. A new item has no stored value.
+func (rd *acfReader) carryStored(prop string, out map[string]any) {
+	if _, ok := out[prop]; !ok {
+		return
+	}
+	r := rd.r
+	id, ok, err := r.st.Lookup(rd.ctx, KindEntity, rd.item.ID)
+	if err != nil || !ok {
+		return
+	}
+	ent, err := r.d.Entities.GetEntity(rd.ctx, id)
+	if err != nil {
+		return
+	}
+	var stored map[string]any
+	if jsonx.Unmarshal(ent.Attributes, &stored, jsonx.StoredLoose) != nil {
+		return
+	}
+	if v, ok := stored[prop]; ok {
+		out[prop] = v
+	}
+}
+
 func subsRelate(subs []ACFField) bool {
 	for _, s := range subs {
 		if _, k, _, _ := acfNode(s, true); k == acfKindRelation {
@@ -134,6 +185,9 @@ func (r *Runner) acfAttrs(ctx context.Context, it *Item, withEntities bool) map[
 	for _, m := range fields {
 		if acfRelationBearing(m) {
 			rel.field(m, out)
+			if !withEntities && acfHasRichtext(m) {
+				rd.carryStored(m.Prop, out)
+			}
 			continue
 		}
 		rd.field(m, out)

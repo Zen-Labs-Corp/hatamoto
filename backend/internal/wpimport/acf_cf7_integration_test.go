@@ -551,3 +551,78 @@ func TestImportACFRetypedPropertyKeepsItemsImporting_Integration(t *testing.T) {
 		t.Errorf("run 2 report has no line for the retyped property:\n%s", got)
 	}
 }
+
+// acfRichRowWXR has a repeater with a relationship and a wysiwyg sub-field on
+// a custom type. The host's row links to the target item and its rich text
+// links to it by old URL; the host body has no links.
+func acfRichRowWXR() string {
+	field := func(id, parent, name, content string) string {
+		return ` <item>
+  <title>` + name + `</title><link>https://old.example.test/f` + id + `/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[` + content + `]]></content:encoded><excerpt:encoded><![CDATA[` + name + `]]></excerpt:encoded>
+  <wp:post_id>` + id + `</wp:post_id><wp:post_name><![CDATA[field_0000000000` + id + `]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>` + parent + `</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[acf-field]]></wp:post_type>
+ </item>
+`
+	}
+	meta := func(k, v string) string {
+		return ` <wp:postmeta><wp:meta_key><![CDATA[` + k + `]]></wp:meta_key><wp:meta_value><![CDATA[` + v + `]]></wp:meta_value></wp:postmeta>
+`
+	}
+	item := func(id, slug, body, metas string) string {
+		return ` <item>
+  <title>` + slug + `</title><link>https://old.example.test/` + slug + `/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[` + body + `]]></content:encoded><excerpt:encoded><![CDATA[]]></excerpt:encoded>
+  <wp:post_id>` + id + `</wp:post_id><wp:post_name><![CDATA[` + slug + `]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>0</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[richrow]]></wp:post_type>
+` + metas + ` </item>
+`
+	}
+	return `<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/"
+ xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">
+<channel>
+ <title>Rich Row Site</title><link>https://old.example.test</link><description>Fixture</description><language>en-US</language>
+ <wp:base_site_url>https://old.example.test</wp:base_site_url>
+ <wp:author><wp:author_login><![CDATA[editor]]></wp:author_login><wp:author_display_name><![CDATA[Sample Editor]]></wp:author_display_name></wp:author>
+ <item>
+  <title>Rows</title><link>https://old.example.test/group_rr/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:1:{s:8:"location";a:1:{i:0;a:1:{i:0;a:3:{s:5:"param";s:9:"post_type";s:8:"operator";s:2:"==";s:5:"value";s:7:"richrow";}}}}]]></content:encoded><excerpt:encoded><![CDATA[]]></excerpt:encoded>
+  <wp:post_id>400</wp:post_id><wp:post_name><![CDATA[group_rr]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>0</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[acf-field-group]]></wp:post_type>
+ </item>
+` + field("401", "400", "rows", `a:1:{s:4:"type";s:8:"repeater";}`) +
+		field("402", "401", "rel", `a:1:{s:4:"type";s:12:"relationship";}`) +
+		field("403", "401", "text", `a:1:{s:4:"type";s:7:"wysiwyg";}`) +
+		item("20", "host", "<p>No links here</p>",
+			meta("rows", "1")+meta("_rows", "field_0000000000401")+
+				meta("rows_0_rel", `a:1:{i:0;s:2:"21";}`)+meta("_rows_0_rel", "field_0000000000402")+
+				meta("rows_0_text", `<p>See <a href="https://old.example.test/target/">the target</a></p>`)+meta("_rows_0_text", "field_0000000000403")) +
+		item("21", "target", "<p>Target</p>", "") + `</channel>
+</rss>
+`
+}
+
+// A row with a relationship and a rich text that links another imported item
+// ends in the same state on every run: the content step carries what the
+// links step wrote, so run 2 neither changes the relations nor adds a version.
+func TestImportACFRichTextInRelationRowIsStable_Integration(t *testing.T) {
+	e := newACFEnv(t, acfRichRowWXR(), "richrow")
+	e.run()
+	rows, _ := e.attrs("20")["rows"].([]any)
+	if len(rows) == 0 {
+		t.Fatalf("run 1 attributes = %v", e.attrs("20"))
+	}
+	row, _ := rows[0].(map[string]any)
+	if text, _ := row["text"].(string); !strings.Contains(text, "data-entity-id") {
+		t.Fatalf("run 1 row = %v, want the link resolved to an entity", row)
+	}
+	versions := func() int {
+		return e.count(`SELECT count(*) FROM hatamoto_entity_versions WHERE entity_id = $1::uuid`, e.entityID("20"))
+	}
+	before := versions()
+	r2 := e.run()
+	if r2.res.ACF.RelationsChanged != 0 {
+		t.Errorf("run 2 changed %d relations", r2.res.ACF.RelationsChanged)
+	}
+	if after := versions(); after != before {
+		t.Errorf("entity versions %d -> %d on run 2", before, after)
+	}
+}
