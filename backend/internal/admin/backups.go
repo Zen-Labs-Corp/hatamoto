@@ -194,14 +194,22 @@ func (a *Admin) handleBackupDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer f.Body.Close()
 	enc := f.Encrypt != nil
+	h := w.Header()
+	h.Set("Cache-Control", "no-store")
+	h.Set("X-Content-Type-Options", "nosniff")
+	if enc {
+		h.Set("Content-Type", "application/octet-stream")
+		h.Set("Content-Disposition", `attachment; filename="`+id+`.tar.age"`)
+		if r.Method == http.MethodHead {
+			// A probe: no encryption pass and no download audit.
+			return
+		}
+	}
 	a.audit(r, "backups.download", id, map[string]any{"id": id, "kind": f.Info.Kind, "encrypted": enc})
 	// A backup can take longer to send than the server's write timeout.
 	if err := http.NewResponseController(w).SetWriteDeadline(time.Time{}); err != nil && !errors.Is(err, http.ErrNotSupported) {
 		a.logger().Warn("backup download: clear write deadline", "err", err, "id", id)
 	}
-	h := w.Header()
-	h.Set("Cache-Control", "no-store")
-	h.Set("X-Content-Type-Options", "nosniff")
 	if !enc {
 		h.Set("Content-Type", "application/x-tar")
 		h.Set("Content-Disposition", `attachment; filename="`+id+`.tar"`)
@@ -209,10 +217,8 @@ func (a *Admin) handleBackupDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Encrypted on the fly: the ciphertext differs on every run, so Range and
-	// resume cannot work and no Content-Length is sent. A cut stream is a
-	// truncated file that age refuses to open.
-	h.Set("Content-Type", "application/octet-stream")
-	h.Set("Content-Disposition", `attachment; filename="`+id+`.tar.age"`)
+	// resume cannot work and no Content-Length is sent. A cut stream must not
+	// look finished, so an error after the first byte aborts the connection.
 	wc, err := f.Encrypt(w)
 	if err != nil {
 		a.logger().Error("backup download: start encryption", "err", err, "id", id)
@@ -222,10 +228,11 @@ func (a *Admin) handleBackupDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := io.Copy(wc, f.Body); err != nil {
 		a.logger().Error("backup download: stream", "err", err, "id", id)
-		return
+		panic(http.ErrAbortHandler)
 	}
 	if err := wc.Close(); err != nil {
 		a.logger().Error("backup download: finish", "err", err, "id", id)
+		panic(http.ErrAbortHandler)
 	}
 }
 

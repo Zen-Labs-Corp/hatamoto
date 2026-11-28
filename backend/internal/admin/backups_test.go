@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -510,5 +511,59 @@ func TestBackupDownloadKeyUnreadableSendsNothing(t *testing.T) {
 	}
 	if len(g.events) != 0 {
 		t.Errorf("a refused download was audited: %+v", g.events)
+	}
+}
+
+type failingWriter struct {
+	writeErr, closeErr error
+}
+
+func (f failingWriter) Write(p []byte) (int, error) { return len(p), f.writeErr }
+func (f failingWriter) Close() error                { return f.closeErr }
+
+// A failure after the first byte must abort the response, or the browser
+// keeps a cut file as if the download had finished.
+func TestBackupDownloadEncryptedFailureAbortsTheResponse(t *testing.T) {
+	t.Parallel()
+
+	for name, wc := range map[string]failingWriter{
+		"copy":  {writeErr: errors.New("read failed")},
+		"close": {closeErr: errors.New("flush failed")},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			f := baseBackups()
+			f.archive = "tardata"
+			f.encrypt = func(io.Writer) (io.WriteCloser, error) { return wc, nil }
+			f.state.Rows = backupRows()
+			g := newBackupsRig(t, f)
+			var got any
+			func() {
+				defer func() { got = recover() }()
+				g.h.ServeHTTP(httptest.NewRecorder(), httptestReq("GET", backupsPath+"/20261018T141900Z-pre_update/download", "owner-token"))
+			}()
+			if got != http.ErrAbortHandler {
+				t.Fatalf("recovered %v, want http.ErrAbortHandler", got)
+			}
+		})
+	}
+}
+
+func TestBackupDownloadEncryptedHeadDoesNotEncryptOrAudit(t *testing.T) {
+	t.Parallel()
+
+	f := baseBackups()
+	f.archive = "tardata"
+	encrypted := false
+	f.encrypt = func(w io.Writer) (io.WriteCloser, error) { encrypted = true; return markerEncrypt(w) }
+	f.state.Rows = backupRows()
+	g := newBackupsRig(t, f)
+	const id = "20261018T141900Z-pre_update"
+	rec := g.do("HEAD", backupsPath+"/"+id+"/download", "owner-token", nil, nil)
+	if rec.Code != 200 || rec.Body.Len() != 0 || encrypted || len(g.events) != 0 {
+		t.Fatalf("HEAD = %d, body %q, encrypted %v, audit %+v", rec.Code, rec.Body.String(), encrypted, g.events)
+	}
+	if got := rec.Header().Get("Content-Disposition"); got != `attachment; filename="`+id+`.tar.age"` {
+		t.Errorf("Content-Disposition = %q", got)
 	}
 }
