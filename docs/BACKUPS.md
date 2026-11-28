@@ -83,7 +83,7 @@ second manual request is refused while one is running, and a pre-update backup w
 **A backup holds secrets.** It carries password hashes, API keys, sessions, the credentials of
 plugin database roles (`hatamoto_plugin_credentials`) and everything else in the database, plus
 `secrets.env` (when present) and your config file if you stored one. Treat
-the file like the database itself: keep it private, and encrypt it before it leaves the server.
+the file like the database itself: keep it private, and set a key under "Backup encryption" so it is encrypted before it leaves the server.
 Anyone who can read a backup can read all of that.
 
 Commenter emails are encrypted with the server secret (`HATAMOTO_SECRET`). A backup records a check value of that secret (`secret_check` in `manifest.json`, never the secret itself). Restore compares it with the secret the restored server will use: `HATAMOTO_SECRET` or `JWT_SECRET` from the environment, else the backup's `secrets.env`, else an existing `secrets.env` in the secrets directory. A mismatch refuses the restore. `hatamoto backup restore --force` restores anyway and blanks the commenter emails after the database is restored; the plan says `drop N commenter emails (different server secret)`. The database also holds other data sealed with the server secret, and `--force` does not repair it: users' two-factor authenticator secrets and recovery codes, the SMTP password, the off-site backup secret key, the spam-protection (captcha) secret and write-only plugin settings stay unreadable. Remove a user's 2FA with `hatamoto user reset-2fa --email E`, and enter the SMTP password, off-site key and spam secret again in the admin, and the write-only values on each plugin's Settings tab. A backup without the check (made by an older release) restores with a warning.
@@ -117,6 +117,46 @@ are not listed, pruned or deleted. Delete them by hand when you no longer need t
   there is no `config.env`. Pre-update backups take no flags, so they use `HATAMOTO_CONFIG_FILE` only.
 - **Before an update:** see [UPGRADES.md](UPGRADES.md#automatic-updates-self-hosters).
 
+## Backup encryption
+
+Settings > Backups & recovery > Backups has a key card that encrypts what leaves the server with
+[age](https://age-encryption.org). Owners only. There are three ways to set a key:
+
+- **Generate a key in the browser.** The key pair is made on your machine. The private key is shown
+  once, for you to copy and keep, and is never sent to the server. The server stores only the public
+  key.
+- **Paste an age public key** (an `age1...` recipient) that you made elsewhere, for example with
+  `age-keygen`.
+- **Use a passphrase.** The server stores it sealed with the server secret.
+
+**What is encrypted.** Admin downloads, which arrive as `<id>.tar.age` and are streamed, so they have
+no size and cannot be resumed, and off-site copies, uploaded as `<prefix><id>.tar.age`. Local archives
+stay plain `.tar`, pre-update backups included, so a rollback or a restore on the server needs no key.
+Existing archives are never re-encrypted, renamed or deleted.
+
+**Limits.**
+
+- A passphrase protects a leaked bucket or a leaked download. It does not protect against a
+  compromised server: the server secret that seals it is on the server and in every backup.
+  A key pair kept off the server has no such limit.
+- Changing the key leaves older copies on the old key. Keep every old private key or passphrase for
+  as long as you keep copies made with it.
+- Off-site copies made before you turned encryption on stay plain. The page shows how many.
+- Turning encryption on, changing the key and turning it off ask for your password again.
+- If the saved passphrase cannot be read (for example after a restore under another server secret),
+  uploads fail and downloads are refused until you set it again. Nothing is sent unencrypted.
+- A release without backup encryption knows nothing of the key: after a rollback to one, off-site
+  uploads are unencrypted until you update again.
+
+To decrypt a copy by hand with the [age](https://age-encryption.org) tool:
+
+```sh
+age -d -i key.txt 20261127T030000Z-scheduled.tar.age > backup.tar
+```
+
+For a passphrase, run `age -d <file>` and type it at the prompt. To restore an encrypted copy with
+`hatamoto backup restore`, see "Restoring with the CLI".
+
 ## Off-site copy
 
 A backup on the same machine as the site does not survive losing the machine. Settings > Backups & recovery > Backups has
@@ -126,7 +166,9 @@ removes the oldest copies beyond the number you keep. Owners only. It needs no e
 server: the client is part of the binary.
 
 **What is uploaded.** The same tar a local backup produces, byte for byte, under the key
-`<prefix><id>.tar` (for example `prod/20261105T030000Z-scheduled.tar`). Only scheduled backups and
+`<prefix><id>.tar` (for example `prod/20261105T030000Z-scheduled.tar`). With a key set (see "Backup
+encryption") the object is the encrypted copy instead: `<prefix><id>.tar.age`, with the metadata
+`hatamoto-encrypted: age`. Only scheduled backups and
 "Back up and upload now" are uploaded. Pre-update backups stay on the machine.
 
 **Schedule.** Off, every day at a chosen hour, or every week on a chosen day and hour. Times are UTC.
@@ -138,7 +180,9 @@ replicas only one runs it, and a restart does not repeat it. The scheduler job i
 (`WORKER_DISABLE_JOBS` can switch it off).
 
 **Verification.** The upload sends the real SHA-256 of each request body, so the provider rejects bytes
-that do not match. The tar's own SHA-256 is stored on the object (`x-amz-meta-sha256`). After the
+that do not match. The tar's own SHA-256 is stored on the object (`x-amz-meta-sha256`); for an encrypted copy the
+size and SHA-256 are those of the encrypted object, and the `sha256` in the backup's `Info` and
+sidecar is then the hash of the ciphertext. After the
 upload hatamoto reads the object's size and that value back; a copy that does not match is deleted and
 the run is recorded as failed. This is a transfer check, not proof of authenticity: anyone with
 write access to the bucket can replace the tar and its recorded checksum together, so keep the write
@@ -148,7 +192,8 @@ last upload failed and amber when it is older than one and a half schedule perio
 10 days for weekly).
 
 **Retention.** After an upload whose size and checksum read back correctly the bucket is pruned to the newest N copies (1 to 365). Only
-keys of the form `<prefix><backup id>.tar` count. Anything else under the prefix, such as other files
+keys of the form `<prefix><backup id>.tar` or `<prefix><backup id>.tar.age` count (an id stored under
+both counts once). Anything else under the prefix, such as other files
 or nested folders, is never listed for deletion.
 
 **Settings.** Service, endpoint (required except for Amazon S3, which derives it from the region),
@@ -160,11 +205,14 @@ saved key. "Test connection" checks the bucket with the values in the form witho
 Changing the server secret makes the saved key unreadable; enter it again.
 
 **Audit.** `backups.offsite.update` (names of the changed fields and whether the key changed, never
-values), `backups.offsite.run` ("Back up and upload now") and `backups.offsite.upload` (each result).
+values), `backups.offsite.run` ("Back up and upload now") and `backups.offsite.upload` (each result,
+with whether it was `encrypted`). Backup encryption writes `backups.encryption.update` (a key was
+set or changed, never its value) and `backups.encryption.off`; `backups.download` also records
+`encrypted`.
 
-**Security.** The tar holds your database and `secrets.env`. Use a private bucket with server-side
-encryption turned on, and an access key limited to that bucket (write, read, list and delete on the
-prefix). Hatamoto does not encrypt the tar itself. A clock that is more than a few minutes off makes
+**Security.** The tar holds your database and `secrets.env`. Set a key under "Backup encryption" so
+the bucket only receives `.tar.age` copies, and use a private bucket and an access key limited to
+that bucket (write, read, list and delete on the prefix). A clock that is more than a few minutes off makes
 the provider answer `RequestTimeTooSkewed`; fix the server's time.
 
 ### Restoring from the bucket on a clean machine
@@ -251,11 +299,24 @@ hatamoto backup restore 20261025T101500Z-manual --admin-url postgres://postgres@
 
 | Argument | Meaning |
 |---|---|
-| `<id\|path.tar>` | A backup id from `hatamoto backup list`, or the path of a `.tar` (anything ending in `.tar` or holding a `/` is a path). |
+| `<id\|path.tar>` | A backup id from `hatamoto backup list`, or the path of a `.tar` or `.tar.age` (anything ending in `.tar` or `.tar.age`, or holding a `/`, is a path). |
 | `--admin-url <DSN>` | Required. A superuser DSN, used only to run the role bootstrap (`deploy/sql/role-admin-bootstrap.sql`, built into the binary). Restore passes the tools the DSN's parts through `PG*` environment variables, so no password is on their command lines. The `--admin-url` you type is on restore's own command line, though, and visible in the process list and your shell history: leave the password out (`postgres://postgres@host/postgres`) and give it through `PGPASSWORD` or a `~/.pgpass` entry, which the tools and restore's own checks read. A password in the DSN still works. `PGPASSWORD` beats `~/.pgpass` for every connection restore makes, including the app role's, so if `DATABASE_URL` has no password of its own, use `~/.pgpass` entries for both roles rather than `PGPASSWORD`. Restore hands the tools the DSN's host, port, user, database and password, plus the query parameters that have a libpq environment variable (`sslmode`, `sslrootcert`, `sslcert`, `sslkey`, `channel_binding`, `krbsrvname`, `connect_timeout`, `application_name`, `options`, `target_session_attrs`, `require_auth`, `sslnegotiation`, `min_protocol_version`, `max_protocol_version`, `passfile`). pgx-only parameters (`pool_*`, `default_query_exec_mode`, `statement_cache_capacity`, `description_cache_capacity`, `min_read_buffer_size`) are dropped. Restore refuses a list of hosts, `service` and `servicefile`, and any query parameter with no libpq environment variable (for example `search_path` or `sslpassword`), in `DATABASE_URL` as well, because it must write to the one server it checked. `backup create` refuses none of these. A `user` or `dbname` query parameter wins over the URL's user and path, as it does for the server. Restore also refuses while `PGSERVICE`, `PGSERVICEFILE` or `PGHOSTADDR` is set in the environment, because libpq would let them send the tools to another server than the one checked; unset them first. |
+| `--identity <file>` | The age private key file for a `.tar.age` backup (as written by the admin's Generate key or `age-keygen`). The path can be a `.tar.age` file or `--from-offsite <id>` of an encrypted copy. |
+| `--passphrase-stdin` | Read the passphrase of a `.tar.age` backup from standard input. Without `--identity` or this flag, restore asks for the passphrase at the prompt on a terminal. |
 | `--force` | Restore a backup made under a different server secret. Commenter emails are dropped; 2FA, the SMTP password, the off-site key, the spam secret and write-only plugin settings stay unreadable (see the paragraph on the server secret above). |
 | `--dry-run` | Verify the archive and run every check, print the plan, write nothing. |
 | `--config-out <path>` | Where to write the saved config. An absolute, clean path whose directory already exists; restore creates no directories for it. Without it the config is not written: a warning names the recorded `config_path` and the flag to pass. The recorded path is a hint only, because a backup archive must not choose where this machine writes a file. |
+
+An encrypted backup is restored the same way, with the key:
+
+```sh
+hatamoto backup restore --identity key.txt backups/20261025T101500Z-manual.tar.age --admin-url postgres://postgres@localhost/postgres
+hatamoto backup restore --from-offsite 20261105T030000Z-scheduled --passphrase-stdin --admin-url postgres://postgres@localhost/postgres < passphrase.txt
+```
+
+A wrong key stops the restore before the database is touched. The decrypted copy is written next to
+the backup and removed afterwards, also after `--dry-run`, so the restore needs free space equal to
+the size of the backup.
 
 A dry run prints what the real run would do:
 
