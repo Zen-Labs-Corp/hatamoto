@@ -232,3 +232,47 @@ func TestIsACFKeyIsFastOnHostileKeys(t *testing.T) {
 		}
 	}
 }
+
+func guessItem(id string, meta map[string]string) Item {
+	for k := range meta {
+		if !strings.HasPrefix(k, "_") && !strings.Contains(k, "_0_") {
+			meta["_"+k] = "field_0123456789abc"
+		}
+	}
+	if _, ok := meta["rows_0_name"]; ok {
+		meta["_rows_0_name"] = "field_0123456789abd"
+	}
+	return Item{ID: id, Type: "listing", Meta: meta}
+}
+
+func guessedType(t *testing.T, items []Item, name string) string {
+	t.Helper()
+	groups := inferACFGroups(items, map[string]bool{"2019": true})
+	if len(groups) != 1 {
+		t.Fatalf("groups = %+v", groups)
+	}
+	f := findACFField(groups[0].Fields, name)
+	if f == nil {
+		t.Fatalf("no field %s in %+v", name, groups[0].Fields)
+	}
+	return f.Type
+}
+
+// One value that happens to be an attachment id, or an empty repeater stored
+// as "0", must not fix the type of the field for every item.
+func TestACFInferenceLooksAtEveryItem(t *testing.T) {
+	items := []Item{
+		guessItem("1", map[string]string{"year": "2019", "rows": "0"}),
+		guessItem("2", map[string]string{"year": "2021", "rows": "1", "rows_0_name": "A"}),
+	}
+	if got := guessedType(t, items, "year"); got != "number" {
+		t.Errorf("year = %s, want number", got)
+	}
+	if got := guessedType(t, items, "rows"); got != "repeater" {
+		t.Errorf("rows = %s, want repeater", got)
+	}
+	photo := []Item{guessItem("1", map[string]string{"photo": "2019"}), guessItem("2", map[string]string{"photo": "2019"})}
+	if got := guessedType(t, photo, "photo"); got != "image" {
+		t.Errorf("photo = %s, want image when every value is an attachment", got)
+	}
+}

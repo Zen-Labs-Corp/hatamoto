@@ -199,6 +199,7 @@ func inferACFGroups(items []Item, media map[string]bool) []ACFGroup {
 	var order []string
 	byType := map[string]*ACFGroup{}
 	index := map[string]map[string]int{}
+	seen := map[string]map[string][]guessedValue{} // type -> key -> what each item suggests
 	for _, it := range items {
 		keys := make([]string, 0, len(it.Meta))
 		for k := range it.Meta {
@@ -213,15 +214,12 @@ func inferACFGroups(items []Item, media map[string]bool) []ACFGroup {
 			if g == nil {
 				g = &ACFGroup{ID: "guess:" + it.Type, Title: "Custom fields (" + it.Type + ")", Types: []string{it.Type}, Guessed: true}
 				byType[it.Type] = g
-				index[it.Type] = map[string]int{}
+				index[it.Type], seen[it.Type] = map[string]int{}, map[string][]guessedValue{}
 				order = append(order, it.Type)
 			}
 			f := guessACFField(it.Meta, keys, k, k, media, 0)
-			if i, seen := index[it.Type][k]; seen {
-				if it.Meta[k] != "" && g.Fields[i].Type == "text" && len(g.Fields[i].Sub) == 0 {
-					f.Order = g.Fields[i].Order
-					g.Fields[i] = f
-				}
+			seen[it.Type][k] = append(seen[it.Type][k], guessedValue{f, it.Meta[k] == ""})
+			if _, ok := index[it.Type][k]; ok {
 				continue
 			}
 			f.Order = len(g.Fields)
@@ -229,11 +227,81 @@ func inferACFGroups(items []Item, media map[string]bool) []ACFGroup {
 			g.Fields = append(g.Fields, f)
 		}
 	}
+	// One value can mislead (a year that is also an attachment id, an empty
+	// repeater stored as "0"): the type follows every item that has the field.
+	for t, g := range byType {
+		for k, i := range index[t] {
+			f := resolveGuess(seen[t][k])
+			f.Order = g.Fields[i].Order
+			g.Fields[i] = f
+		}
+	}
 	var out []ACFGroup
 	for _, t := range order {
 		out = append(out, *byType[t])
 	}
 	return out
+}
+
+// guessedValue is the field one item's value suggests; empty is true when the
+// item has no value for it.
+type guessedValue struct {
+	f     ACFField
+	empty bool
+}
+
+// resolveGuess picks the field of one key from what every item suggests. Rows
+// in any item make it a repeater or flexible content field. Otherwise the
+// types of the items with a value must agree; a type that depends on ids (an
+// attachment, a post) is not trusted when they do not, and when the typed
+// values still differ the field is text. A value of another type than the
+// field's is kept as <name>_raw when the item is imported.
+func resolveGuess(vals []guessedValue) ACFField {
+	for _, v := range vals {
+		if v.f.Type == "repeater" || v.f.Type == "flexible_content" {
+			return v.f
+		}
+	}
+	var have []ACFField
+	for _, v := range vals {
+		if !v.empty {
+			have = append(have, v.f)
+		}
+	}
+	if len(have) == 0 {
+		return vals[0].f
+	}
+	mixed := false
+	for _, f := range have {
+		mixed = mixed || f.Type != have[0].Type
+	}
+	if !mixed {
+		return have[0]
+	}
+	var typed []ACFField
+	for _, f := range have {
+		switch f.Type {
+		case "image":
+			f.Type = "number"
+		case "gallery", "relationship":
+			f.Type, f.Choices, f.Multiple = "checkbox", nil, true
+		}
+		if f.Type != "text" {
+			typed = append(typed, f)
+		}
+	}
+	for _, f := range typed {
+		if f.Type != typed[0].Type {
+			typed = nil
+			break
+		}
+	}
+	if len(typed) == 0 {
+		out := have[0]
+		out.Type, out.Choices, out.Multiple = "text", nil, false
+		return out
+	}
+	return typed[0]
 }
 
 // isRowKey reports whether k is a row key of an ACF parent.
