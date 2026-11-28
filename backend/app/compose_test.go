@@ -125,9 +125,26 @@ func TestComposePullsPinnedReleaseImage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	re := regexp.MustCompile(`(?m)^    image: ghcr\.io/zen-labs-corp/hatamoto:v\d+\.\d+\.\d+$`)
-	if n := len(re.FindAllIndex(raw, -1)); n != 1 {
-		t.Fatalf("want one pinned ghcr hatamoto image line (vX.Y.Z), got %d", n)
+	// Same tag rule as scripts/bump-compose-image.sh: vX.Y.Z, no leading zeros.
+	const semver = `v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)`
+	re := regexp.MustCompile(`(?m)^    image: ghcr\.io/zen-labs-corp/hatamoto:(` + semver + `)$`)
+	m := re.FindAllSubmatch(raw, -1)
+	if len(m) != 1 {
+		t.Fatalf("want one pinned ghcr hatamoto image line (vX.Y.Z), got %d", len(m))
+	}
+	tag := string(m[0][1])
+	readme, err := os.ReadFile("../../README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tags := regexp.MustCompile(`ghcr\.io/zen-labs-corp/hatamoto:(v\d+\.\d+\.\d+)`).FindAllSubmatch(readme, -1)
+	if len(tags) == 0 {
+		t.Error("README.md names no hatamoto image tag")
+	}
+	for _, g := range tags {
+		if string(g[1]) != tag {
+			t.Errorf("README.md names image tag %s, docker-compose.yml pins %s (scripts/bump-compose-image.sh rewrites both)", g[1], tag)
+		}
 	}
 	if regexp.MustCompile(`(?m)^    build:`).Match(raw) {
 		t.Fatal("docker-compose.yml must not build from source; that is docker-compose.build.yml")

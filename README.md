@@ -60,7 +60,7 @@ docker compose up
     image: ghcr.io/zen-labs-corp/hatamoto:v1.4.6
 ```
 
-Replace `v1.4.6` with the [latest release](https://github.com/Zen-Labs-Corp/hatamoto/releases/latest). Check its
+Replace the tag with the [latest release](https://github.com/Zen-Labs-Corp/hatamoto/releases/latest). Check its
 signature: [Verify a download](docs/site/updates/verify-a-download.md). To build from this checkout instead:
 `docker compose -f docker-compose.yml -f docker-compose.build.yml up --build`.
 
