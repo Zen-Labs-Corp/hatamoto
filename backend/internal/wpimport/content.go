@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -132,7 +133,7 @@ func Convert(in string, raw bool, opts ...ConvertOption) Converted {
 	for _, n := range nodes {
 		root.AppendChild(n)
 	}
-	cv := &converter{res: &res, shortcodes: shortcodes, forms: map[string]bool{}}
+	cv := &converter{res: &res, shortcodes: shortcodes, forms: map[string]bool{}, opts: &o}
 	cv.walk(root)
 	cv.finish()
 	var b strings.Builder
@@ -152,6 +153,7 @@ type converter struct {
 	forms      map[string]bool
 	drop       []*xhtml.Node
 	replace    map[*xhtml.Node]*xhtml.Node
+	opts       *convertOpts
 }
 
 func (c *converter) finish() {
@@ -316,6 +318,11 @@ func (c *converter) text(n *xhtml.Node) {
 			return m // "[sic]", "[1]": not a shortcode
 		}
 		changed = true
+		if name == "contact-form-7" && p[1] != "/" {
+			if slug, ok := c.opts.forms[cf7ShortcodeID(attrs)]; ok {
+				return `[form slug="` + slug + `"]`
+			}
+		}
 		c.shortcodes[name] = true
 		for _, f := range formMarkers {
 			if f.Shortcode == name {
@@ -335,6 +342,28 @@ func (c *converter) text(n *xhtml.Node) {
 			c.drop = append(c.drop, n)
 		}
 	}
+}
+
+// cf7ShortcodeID reads the form id or hash out of the attributes of a
+// [contact-form-7] shortcode: id="123", id=123, or the old bare form
+// [contact-form-7 123 "Title"].
+func cf7ShortcodeID(attrs string) string {
+	for _, p := range attrPairRe().FindAllStringSubmatch(attrs, -1) {
+		if strings.EqualFold(p[1], "id") {
+			return p[2] + p[3]
+		}
+	}
+	for _, tok := range cf7Tokens(attrs) {
+		if !tok.quoted {
+			if v, ok := strings.CutPrefix(tok.text, "id="); ok {
+				return strings.Trim(v, `"'`)
+			}
+			if _, err := strconv.Atoi(tok.text); err == nil {
+				return tok.text
+			}
+		}
+	}
+	return ""
 }
 
 // iframe keeps YouTube and Vimeo players in the form the sanitiser allows and

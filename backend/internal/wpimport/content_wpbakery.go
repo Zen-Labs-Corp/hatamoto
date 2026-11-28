@@ -140,6 +140,8 @@ func vcValue(span string, i int, noCloser map[vcKind]bool) (string, int) {
 type convertOpts struct {
 	media map[string]Media
 	raw   bool // the body is raw (paragraphs not wrapped yet)
+	// forms maps a Contact Form 7 id or hash to the slug of the imported form.
+	forms map[string]string
 }
 
 // vcBreak is the block boundary written where a container tag was removed.
@@ -159,6 +161,13 @@ type ConvertOption func(*convertOpts)
 // WithMedia lets Convert resolve WPBakery image ids to source URLs.
 func WithMedia(byID map[string]Media) ConvertOption {
 	return func(o *convertOpts) { o.media = byID }
+}
+
+// WithForms lets Convert replace [contact-form-7] shortcodes with the form
+// shortcode of the imported form. byIDOrHash maps a CF7 post id or 7-character
+// hash to the form slug. Without it the shortcode is removed.
+func WithForms(byIDOrHash map[string]string) ConvertOption {
+	return func(o *convertOpts) { o.forms = byIDOrHash }
 }
 
 // MediaByID indexes the dump's media by WordPress attachment id. Build it once
