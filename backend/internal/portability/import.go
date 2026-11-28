@@ -309,11 +309,14 @@ func importArchive(ctx context.Context, pool *pgxpool.Pool, r io.Reader, opts Im
 	if err := foldDefaultBusiness(ctx, tx); err != nil {
 		return nil, fmt.Errorf("fold the default locale's business details: %w", err)
 	}
-	// An archive without a csp_enforce value (an older release) would start
-	// enforcing, since NULL means enforce: pin it to report-only like the
-	// migration pins existing sites.
-	if _, err := tx.Exec(ctx, `UPDATE hatamoto_site_config SET csp_enforce = false WHERE csp_enforce IS NULL`); err != nil {
-		return nil, fmt.Errorf("pin page protection: %w", err)
+	// An archive from before the csp_enforce column carries no value and would
+	// start enforcing, since NULL means enforce: pin it to report-only like the
+	// migration pins existing sites. From the column's migration on, NULL is a
+	// real "enforce" and travels as it is.
+	if hdr.SchemaVersion < cspEnforceMigration {
+		if _, err := tx.Exec(ctx, `UPDATE hatamoto_site_config SET csp_enforce = false WHERE csp_enforce IS NULL`); err != nil {
+			return nil, fmt.Errorf("pin page protection: %w", err)
+		}
 	}
 	if err := stage.place(); err != nil {
 		return nil, err
@@ -323,6 +326,9 @@ func importArchive(ctx context.Context, pool *pgxpool.Pool, r io.Reader, opts Im
 	}
 	return res, nil
 }
+
+// cspEnforceMigration is the version of the migration that added csp_enforce.
+const cspEnforceMigration = 202611281000
 
 // foldDefaultBusiness folds a locale card stored under the default locale's tag
 // into the default business, as the migration does for a live database: an
