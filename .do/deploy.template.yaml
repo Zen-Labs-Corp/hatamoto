@@ -1,0 +1,45 @@
+# DigitalOcean App Platform: the signed release image with a dev Postgres 16.
+# App Platform storage is ephemeral: /data is lost on every deploy or restart. Set HATAMOTO_SECRET
+# (32+ characters) so sessions and stored credentials survive, and use S3 or Spaces for media.
+# For a persistent server use the droplet image: deploy/digitalocean/README.md.
+# scripts/bump-compose-image.sh rewrites the image tag together with docker-compose.yml.
+spec:
+  name: hatamoto
+  services:
+    - name: hatamoto
+      image:
+        registry_type: GHCR
+        registry: zen-labs-corp
+        repository: hatamoto
+        tag: v1.4.6
+      http_port: 8090
+      instance_count: 1
+      instance_size_slug: apps-s-1vcpu-1gb
+      health_check:
+        http_path: /health
+        initial_delay_seconds: 30
+      envs:
+        - key: DATABASE_URL
+          scope: RUN_TIME
+          value: ${db.DATABASE_URL}
+        - key: ENVIRONMENT
+          scope: RUN_TIME
+          value: production
+        - key: API_HOST
+          scope: RUN_TIME
+          value: 0.0.0.0
+        - key: API_PORT
+          scope: RUN_TIME
+          value: "8090"
+        - key: PUBLIC_BASE_URL
+          scope: RUN_TIME
+          value: ${APP_URL}
+        - key: HATAMOTO_SECRET
+          scope: RUN_TIME
+          type: SECRET
+          value: ""
+  databases:
+    - name: db
+      engine: PG
+      version: "16"
+      production: false

@@ -146,6 +146,23 @@ func TestComposePullsPinnedReleaseImage(t *testing.T) {
 			t.Errorf("README.md names image tag %s, docker-compose.yml pins %s (scripts/bump-compose-image.sh rewrites both)", g[1], tag)
 		}
 	}
+	for _, p := range []struct{ path, re string }{
+		{"../../render.yaml", `(?m)^      url: ghcr\.io/zen-labs-corp/hatamoto:(` + semver + `)$`},
+		{"../../.do/deploy.template.yaml", `(?m)^        tag: (` + semver + `)$`},
+	} {
+		b, err := os.ReadFile(p.path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := regexp.MustCompile(p.re).FindAllSubmatch(b, -1)
+		if len(m) != 1 {
+			t.Errorf("%s: want one pinned hatamoto image tag line, got %d", p.path, len(m))
+			continue
+		}
+		if string(m[0][1]) != tag {
+			t.Errorf("%s pins %s, docker-compose.yml pins %s (scripts/bump-compose-image.sh rewrites both)", p.path, m[0][1], tag)
+		}
+	}
 	if regexp.MustCompile(`(?m)^    build:`).Match(raw) {
 		t.Fatal("docker-compose.yml must not build from source; that is docker-compose.build.yml")
 	}

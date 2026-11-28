@@ -1,0 +1,37 @@
+# Render Blueprint: the signed release image with a managed Postgres 16.
+# scripts/bump-compose-image.sh rewrites the image tag together with docker-compose.yml.
+databases:
+  - name: hatamoto-db
+    databaseName: hatamoto
+    user: hatamoto
+    plan: basic-256mb
+    postgresMajorVersion: "16"
+    ipAllowList: []
+services:
+  - type: web
+    name: hatamoto
+    runtime: image
+    image:
+      url: ghcr.io/zen-labs-corp/hatamoto:v1.4.6
+    plan: starter
+    numInstances: 1
+    healthCheckPath: /health
+    disk:
+      name: hatamoto-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hatamoto-db
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_PORT
+        value: "8090"
+      - key: PORT
+        value: "8090"
+      - key: MEDIA_UPLOAD_DIR
+        value: /data/uploads
