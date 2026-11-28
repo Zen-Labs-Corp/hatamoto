@@ -408,6 +408,8 @@ POST /admin/settings/api-keys/{id}/delete anon=303 read-only=403 author=403 cont
 POST /admin/settings/api-keys/{id}/regenerate anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/api-keys/{id}/revoke anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/backups anon=303 read-only=403 author=403 contributor=403 reviewer=403
+POST /admin/settings/backups/encryption anon=303 read-only=403 author=403 contributor=403 reviewer=403
+POST /admin/settings/backups/encryption/off anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/backups/offsite anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/backups/offsite/run anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/backups/offsite/test anon=303 read-only=403 author=403 contributor=403 reviewer=403
