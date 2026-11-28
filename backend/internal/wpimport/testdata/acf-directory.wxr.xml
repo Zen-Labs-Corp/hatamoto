@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/"
+ xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">
+<channel>
+ <title>Directory Site</title><link>https://old.example.test</link><description>Fixture</description><language>en-US</language>
+ <wp:base_site_url>https://old.example.test</wp:base_site_url>
+ <wp:author><wp:author_login><![CDATA[editor]]></wp:author_login><wp:author_display_name><![CDATA[Sample Editor]]></wp:author_display_name></wp:author>
+ <item>
+  <title>Listing</title><link>https://old.example.test/group_0000000000064/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:2:{s:8:"location";a:1:{i:0;a:1:{i:0;a:3:{s:5:"param";s:9:"post_type";s:8:"operator";s:2:"==";s:5:"value";s:7:"listing";}}}s:8:"position";s:6:"normal";}]]></content:encoded><excerpt:encoded><![CDATA[]]></excerpt:encoded>
+  <wp:post_id>100</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[group_0000000000064]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>0</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[acf-field-group]]></wp:post_type>
+ </item>
+ <item>
+  <title>Price</title><link>https://old.example.test/field_0000000000065/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:1:{s:4:"type";s:6:"number";}]]></content:encoded><excerpt:encoded><![CDATA[price]]></excerpt:encoded>
+  <wp:post_id>101</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[field_0000000000065]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>100</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[acf-field]]></wp:post_type>
+ </item>
+ <item>
+  <title>Phone</title><link>https://old.example.test/field_0000000000066/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:1:{s:4:"type";s:4:"text";}]]></content:encoded><excerpt:encoded><![CDATA[phone]]></excerpt:encoded>
+  <wp:post_id>102</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[field_0000000000066]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>100</wp:post_parent><wp:menu_order>1</wp:menu_order><wp:post_type><![CDATA[acf-field]]></wp:post_type>
+ </item>
+ <item>
+  <title>Photo</title><link>https://old.example.test/field_0000000000067/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:1:{s:4:"type";s:5:"image";}]]></content:encoded><excerpt:encoded><![CDATA[photo]]></excerpt:encoded>
+  <wp:post_id>103</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[field_0000000000067]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>100</wp:post_parent><wp:menu_order>2</wp:menu_order><wp:post_type><![CDATA[acf-field]]></wp:post_type>
+ </item>
+ <item>
+  <title>Website</title><link>https://old.example.test/field_0000000000068/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:1:{s:4:"type";s:4:"link";}]]></content:encoded><excerpt:encoded><![CDATA[website]]></excerpt:encoded>
+  <wp:post_id>104</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[field_0000000000068]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>100</wp:post_parent><wp:menu_order>3</wp:menu_order><wp:post_type><![CDATA[acf-field]]></wp:post_type>
+ </item>
+ <item>
+  <title>Opening date</title><link>https://old.example.test/field_0000000000069/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:1:{s:4:"type";s:11:"date_picker";}]]></content:encoded><excerpt:encoded><![CDATA[opening_date]]></excerpt:encoded>
+  <wp:post_id>105</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[field_0000000000069]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>100</wp:post_parent><wp:menu_order>4</wp:menu_order><wp:post_type><![CDATA[acf-field]]></wp:post_type>
+ </item>
+ <item>
+  <title>Size</title><link>https://old.example.test/field_000000000006a/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:2:{s:4:"type";s:6:"select";s:7:"choices";a:3:{s:5:"small";s:5:"Small";s:6:"medium";s:6:"Medium";s:5:"large";s:5:"Large";}}]]></content:encoded><excerpt:encoded><![CDATA[size]]></excerpt:encoded>
+  <wp:post_id>106</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[field_000000000006a]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>100</wp:post_parent><wp:menu_order>5</wp:menu_order><wp:post_type><![CDATA[acf-field]]></wp:post_type>
+ </item>
+ <item>
+  <title>Staff</title><link>https://old.example.test/field_000000000006b/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:1:{s:4:"type";s:8:"repeater";}]]></content:encoded><excerpt:encoded><![CDATA[staff]]></excerpt:encoded>
+  <wp:post_id>107</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[field_000000000006b]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>100</wp:post_parent><wp:menu_order>6</wp:menu_order><wp:post_type><![CDATA[acf-field]]></wp:post_type>
+ </item>
+ <item>
+  <title>Name</title><link>https://old.example.test/field_000000000006c/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:1:{s:4:"type";s:4:"text";}]]></content:encoded><excerpt:encoded><![CDATA[name]]></excerpt:encoded>
+  <wp:post_id>108</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[field_000000000006c]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>107</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[acf-field]]></wp:post_type>
+ </item>
+ <item>
+  <title>Role</title><link>https://old.example.test/field_000000000006d/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:1:{s:4:"type";s:4:"text";}]]></content:encoded><excerpt:encoded><![CDATA[role]]></excerpt:encoded>
+  <wp:post_id>109</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[field_000000000006d]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>107</wp:post_parent><wp:menu_order>1</wp:menu_order><wp:post_type><![CDATA[acf-field]]></wp:post_type>
+ </item>
+ <item>
+  <title>Photo</title><link>https://old.example.test/field_000000000006e/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:1:{s:4:"type";s:5:"image";}]]></content:encoded><excerpt:encoded><![CDATA[photo]]></excerpt:encoded>
+  <wp:post_id>110</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[field_000000000006e]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>107</wp:post_parent><wp:menu_order>2</wp:menu_order><wp:post_type><![CDATA[acf-field]]></wp:post_type>
+ </item>
+ <item>
+  <title>Related</title><link>https://old.example.test/field_000000000006f/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:2:{s:4:"type";s:12:"relationship";s:9:"post_type";a:1:{i:0;s:7:"listing";}}]]></content:encoded><excerpt:encoded><![CDATA[related]]></excerpt:encoded>
+  <wp:post_id>111</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[field_000000000006f]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>100</wp:post_parent><wp:menu_order>7</wp:menu_order><wp:post_type><![CDATA[acf-field]]></wp:post_type>
+ </item>
+ <item>
+  <title>Gallery</title><link>https://old.example.test/field_0000000000070/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:1:{s:4:"type";s:7:"gallery";}]]></content:encoded><excerpt:encoded><![CDATA[gallery]]></excerpt:encoded>
+  <wp:post_id>112</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[field_0000000000070]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>100</wp:post_parent><wp:menu_order>8</wp:menu_order><wp:post_type><![CDATA[acf-field]]></wp:post_type>
+ </item>
+ <item>
+  <title>Map</title><link>https://old.example.test/field_0000000000071/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:1:{s:4:"type";s:10:"google_map";}]]></content:encoded><excerpt:encoded><![CDATA[map]]></excerpt:encoded>
+  <wp:post_id>113</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[field_0000000000071]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>100</wp:post_parent><wp:menu_order>9</wp:menu_order><wp:post_type><![CDATA[acf-field]]></wp:post_type>
+ </item>
+ <item>
+  <title>About</title><link>https://old.example.test/field_0000000000072/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:1:{s:4:"type";s:7:"wysiwyg";}]]></content:encoded><excerpt:encoded><![CDATA[about]]></excerpt:encoded>
+  <wp:post_id>114</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[field_0000000000072]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>100</wp:post_parent><wp:menu_order>10</wp:menu_order><wp:post_type><![CDATA[acf-field]]></wp:post_type>
+ </item>
+ <item>
+  <title>Sample image a</title><link>https://old.example.test/sample-image-a/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[]]></content:encoded><excerpt:encoded><![CDATA[]]></excerpt:encoded>
+  <wp:post_id>50</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[sample-image-a]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>0</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[attachment]]></wp:post_type><wp:attachment_url>https://old.example.test/wp-content/uploads/2025/03/sample-a.jpg</wp:attachment_url>
+ </item>
+ <item>
+  <title>Sample image b</title><link>https://old.example.test/sample-image-b/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[]]></content:encoded><excerpt:encoded><![CDATA[]]></excerpt:encoded>
+  <wp:post_id>51</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[sample-image-b]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>0</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[attachment]]></wp:post_type><wp:attachment_url>https://old.example.test/wp-content/uploads/2025/03/sample-b.jpg</wp:attachment_url>
+ </item>
+ <item>
+  <title>Sample image c</title><link>https://old.example.test/sample-image-c/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[]]></content:encoded><excerpt:encoded><![CDATA[]]></excerpt:encoded>
+  <wp:post_id>52</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[sample-image-c]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>0</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[attachment]]></wp:post_type><wp:attachment_url>https://old.example.test/wp-content/uploads/2025/03/sample-c.jpg</wp:attachment_url>
+ </item>
+ <item>
+  <title>Sample image d</title><link>https://old.example.test/sample-image-d/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[]]></content:encoded><excerpt:encoded><![CDATA[]]></excerpt:encoded>
+  <wp:post_id>53</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[sample-image-d]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>0</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[attachment]]></wp:post_type><wp:attachment_url>https://old.example.test/wp-content/uploads/2025/03/sample-d.jpg</wp:attachment_url>
+ </item>
+ <item>
+  <title>Sample Listing A</title><link>https://old.example.test/sample-listing-a/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[<p>Sample Listing A</p>]]></content:encoded><excerpt:encoded><![CDATA[]]></excerpt:encoded>
+  <wp:post_id>1</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[sample-listing-a]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>0</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[listing]]></wp:post_type>
+ <wp:postmeta><wp:meta_key><![CDATA[price]]></wp:meta_key><wp:meta_value><![CDATA[101]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_price]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000065]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[phone]]></wp:meta_key><wp:meta_value><![CDATA[+1 555 0100]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_phone]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000066]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[photo]]></wp:meta_key><wp:meta_value><![CDATA[50]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_photo]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000067]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[website]]></wp:meta_key><wp:meta_value><![CDATA[a:3:{s:5:"title";s:5:"Visit";s:3:"url";s:30:"https://listing1.example.test/";s:6:"target";s:0:"";}]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_website]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000068]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[opening_date]]></wp:meta_key><wp:meta_value><![CDATA[20260115]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_opening_date]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000069]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[size]]></wp:meta_key><wp:meta_value><![CDATA[medium]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_size]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006a]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff]]></wp:meta_key><wp:meta_value><![CDATA[2]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006b]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_0_name]]></wp:meta_key><wp:meta_value><![CDATA[Team Member A]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_0_name]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006c]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_0_role]]></wp:meta_key><wp:meta_value><![CDATA[Role 1]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_0_role]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006d]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_0_photo]]></wp:meta_key><wp:meta_value><![CDATA[51]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_0_photo]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006e]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_1_name]]></wp:meta_key><wp:meta_value><![CDATA[Team Member B]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_1_name]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006c]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_1_role]]></wp:meta_key><wp:meta_value><![CDATA[Role 2]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_1_role]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006d]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_1_photo]]></wp:meta_key><wp:meta_value><![CDATA[52]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_1_photo]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006e]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[related]]></wp:meta_key><wp:meta_value><![CDATA[a:1:{i:0;s:1:"2";}]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_related]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006f]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[gallery]]></wp:meta_key><wp:meta_value><![CDATA[a:3:{i:0;s:2:"50";i:1;s:2:"51";i:2;s:2:"52";}]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_gallery]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000070]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[map]]></wp:meta_key><wp:meta_value><![CDATA[a:3:{s:7:"address";s:15:"1 Sample Street";s:3:"lat";s:3:"1.5";s:3:"lng";s:3:"2.5";}]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_map]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000071]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[about]]></wp:meta_key><wp:meta_value><![CDATA[Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. Long sample text about this listing. ]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_about]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000072]]></wp:meta_value></wp:postmeta>
+ </item>
+ <item>
+  <title>Sample Listing B</title><link>https://old.example.test/sample-listing-b/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[<p>Sample Listing B</p>]]></content:encoded><excerpt:encoded><![CDATA[]]></excerpt:encoded>
+  <wp:post_id>2</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[sample-listing-b]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>0</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[listing]]></wp:post_type>
+ <wp:postmeta><wp:meta_key><![CDATA[price]]></wp:meta_key><wp:meta_value><![CDATA[102]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_price]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000065]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[phone]]></wp:meta_key><wp:meta_value><![CDATA[+1 555 0100]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_phone]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000066]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[photo]]></wp:meta_key><wp:meta_value><![CDATA[50]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_photo]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000067]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[website]]></wp:meta_key><wp:meta_value><![CDATA[a:3:{s:5:"title";s:5:"Visit";s:3:"url";s:30:"https://listing2.example.test/";s:6:"target";s:0:"";}]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_website]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000068]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[opening_date]]></wp:meta_key><wp:meta_value><![CDATA[2026-13-45]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_opening_date]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000069]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[size]]></wp:meta_key><wp:meta_value><![CDATA[medium]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_size]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006a]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff]]></wp:meta_key><wp:meta_value><![CDATA[3]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006b]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_0_name]]></wp:meta_key><wp:meta_value><![CDATA[Team Member A]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_0_name]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006c]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_0_role]]></wp:meta_key><wp:meta_value><![CDATA[Role 1]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_0_role]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006d]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_0_photo]]></wp:meta_key><wp:meta_value><![CDATA[51]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_0_photo]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006e]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_1_name]]></wp:meta_key><wp:meta_value><![CDATA[Team Member B]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_1_name]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006c]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_1_role]]></wp:meta_key><wp:meta_value><![CDATA[Role 2]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_1_role]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006d]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_1_photo]]></wp:meta_key><wp:meta_value><![CDATA[52]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_1_photo]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006e]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_2_name]]></wp:meta_key><wp:meta_value><![CDATA[Team Member C]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_2_name]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006c]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_2_role]]></wp:meta_key><wp:meta_value><![CDATA[Role 3]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_2_role]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006d]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_2_photo]]></wp:meta_key><wp:meta_value><![CDATA[51]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_2_photo]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006e]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[related]]></wp:meta_key><wp:meta_value><![CDATA[a:1:{i:0;s:1:"1";}]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_related]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006f]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[gallery]]></wp:meta_key><wp:meta_value><![CDATA[a:3:{i:0;s:2:"50";i:1;s:2:"51";i:2;s:2:"52";}]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_gallery]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000070]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[map]]></wp:meta_key><wp:meta_value><![CDATA[a:3:{s:7:"address";s:15:"1 Sample Street";s:3:"lat";s:3:"1.5";s:3:"lng";s:3:"2.5";}]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_map]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000071]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[about]]></wp:meta_key><wp:meta_value><![CDATA[Short text.]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_about]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000072]]></wp:meta_value></wp:postmeta>
+ </item>
+ <item>
+  <title>Sample Listing C</title><link>https://old.example.test/sample-listing-c/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[<p>Sample Listing C</p>]]></content:encoded><excerpt:encoded><![CDATA[]]></excerpt:encoded>
+  <wp:post_id>3</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[sample-listing-c]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>0</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[listing]]></wp:post_type>
+ <wp:postmeta><wp:meta_key><![CDATA[price]]></wp:meta_key><wp:meta_value><![CDATA[103]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_price]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000065]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[phone]]></wp:meta_key><wp:meta_value><![CDATA[+1 555 0100]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_phone]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000066]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[photo]]></wp:meta_key><wp:meta_value><![CDATA[50]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_photo]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000067]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[website]]></wp:meta_key><wp:meta_value><![CDATA[a:3:{s:5:"title";s:5:"Visit";s:3:"url";s:30:"https://listing3.example.test/";s:6:"target";s:0:"";}]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_website]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000068]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[opening_date]]></wp:meta_key><wp:meta_value><![CDATA[20260301]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_opening_date]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000069]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[size]]></wp:meta_key><wp:meta_value><![CDATA[medium]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_size]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006a]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff]]></wp:meta_key><wp:meta_value><![CDATA[2]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006b]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_0_name]]></wp:meta_key><wp:meta_value><![CDATA[Team Member A]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_0_name]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006c]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_0_role]]></wp:meta_key><wp:meta_value><![CDATA[Role 1]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_0_role]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006d]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_0_photo]]></wp:meta_key><wp:meta_value><![CDATA[51]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_0_photo]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006e]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_1_name]]></wp:meta_key><wp:meta_value><![CDATA[Team Member B]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_1_name]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006c]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_1_role]]></wp:meta_key><wp:meta_value><![CDATA[Role 2]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_1_role]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006d]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[staff_1_photo]]></wp:meta_key><wp:meta_value><![CDATA[52]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_staff_1_photo]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006e]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[related]]></wp:meta_key><wp:meta_value><![CDATA[a:2:{i:0;s:1:"1";i:1;s:3:"999";}]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_related]]></wp:meta_key><wp:meta_value><![CDATA[field_000000000006f]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[gallery]]></wp:meta_key><wp:meta_value><![CDATA[a:3:{i:0;s:2:"50";i:1;s:2:"51";i:2;s:2:"52";}]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_gallery]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000070]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[map]]></wp:meta_key><wp:meta_value><![CDATA[a:3:{s:7:"address";s:15:"1 Sample Street";s:3:"lat";s:3:"1.5";s:3:"lng";s:3:"2.5";}]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_map]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000071]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[about]]></wp:meta_key><wp:meta_value><![CDATA[Short text.]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_about]]></wp:meta_key><wp:meta_value><![CDATA[field_0000000000072]]></wp:meta_value></wp:postmeta>
+ </item>
+</channel>
+</rss>

@@ -89,6 +89,15 @@ func (s *Store) ResumeRun(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+// RunNumber returns how many runs of this source, plain scans excluded, started
+// up to and including the given one.
+func (s *Store) RunNumber(ctx context.Context, id uuid.UUID) (int, error) {
+	var n int
+	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM hatamoto_import_runs WHERE source_ref = $1 AND status <> 'scanned'
+		AND started_at <= (SELECT started_at FROM hatamoto_import_runs WHERE id = $2)`, s.ref, id).Scan(&n)
+	return n, err
+}
+
 // SetPhase records the phase a run reached.
 func (s *Store) SetPhase(ctx context.Context, id uuid.UUID, phase string) error {
 	_, err := s.pool.Exec(ctx, `UPDATE hatamoto_import_runs SET phase = $2 WHERE id = $1`, id, phase)

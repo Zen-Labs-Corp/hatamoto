@@ -66,6 +66,9 @@ func lenientURI(v any) bool {
 	return false
 }
 
+// IsValidURI reports whether s passes the "uri" format check of every schema.
+func IsValidURI(s string) bool { return lenientURI(s) }
+
 // installLenientFormats overrides the strict "uri" / "uri-reference" /
 // "url" / "iri" formats on the supplied compiler with the lenient checker
 // above. Apply this to every Compiler we instantiate so all validation

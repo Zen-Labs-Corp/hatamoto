@@ -114,6 +114,13 @@ type Result struct {
 	// Comments is what the comments step did; nil when the source had none
 	// (and for runs stored before comments were imported).
 	Comments *CommentsResult `json:"comments,omitempty"`
+	// ACF and Forms are the custom field and Contact Form 7 results; nil when
+	// the source had none (and for runs stored before they were imported).
+	ACF   *ACFResult   `json:"acf,omitempty"`
+	Forms *FormsResult `json:"forms,omitempty"`
+	// RunNumber counts the runs of this source that are not plain scans, up to
+	// and including this one.
+	RunNumber int `json:"run_number,omitzero"`
 }
 
 type entInfo struct {
@@ -121,6 +128,7 @@ type entInfo struct {
 	ent     *entity.Entity
 	newPath string
 	body    entity.ImportItem
+	created bool // this run created the entity: its relation write is part of "new"
 }
 
 // URLConflict is an old URL the importer left alone, with the reason.
@@ -161,6 +169,16 @@ type Runner struct {
 	termPaths     map[string]string   // old term/author path -> new path
 	hiddenAuthors map[string]string   // old author path of a non-public person -> person name
 	schemas       map[string]*entity.EntitySchema
+	// acf is the ACF fields mapped per post type, set by the schemas step.
+	acf map[string][]acfMapped
+	// relIDs maps source post ids to entity ids from the id map, for related
+	// items outside this run's selection; loaded on first use.
+	relIDs map[string]uuid.UUID
+	// formSlugs maps a Contact Form 7 id and 7-character hash to the slug of
+	// the imported form, for the shortcodes in bodies.
+	formSlugs map[string]string
+	// acfWarns counts the ACF value warnings, which are capped.
+	acfWarns int
 }
 
 // NewRunner prepares a run over dump.
@@ -223,6 +241,11 @@ func (r *Runner) Run(ctx context.Context, resume uuid.UUID) (res *Result, err er
 		return nil, err
 	}
 	r.res.RunID = r.run.ID
+	if n, nerr := r.st.RunNumber(ctx, r.run.ID); nerr != nil {
+		r.res.Warnings = append(r.res.Warnings, fmt.Sprintf("run number unavailable: %v", nerr))
+	} else {
+		r.res.RunNumber = n
+	}
 	r.res.Warnings = append(r.res.Warnings, r.dump.Warnings...)
 	r.res.Report = Scan(r.dump, r.st.ref)
 	defer func() {
@@ -248,13 +271,13 @@ func (r *Runner) Run(ctx context.Context, resume uuid.UUID) (res *Result, err er
 		fn   func(context.Context) error
 	}{
 		{"settings", r.importSettings},
-		{"schemas", r.prepareSchemas},
+		{"schemas", r.schemasStep},
 		{"seo", r.importSEO},
 		{"media", func(ctx context.Context) error { r.importMedia(ctx); return nil }},
 		{"authors", r.importAuthors},
 		{"terms", r.importTerms},
-		{"content", r.importContentAndComments},
-		{"links", r.rewriteLinks},
+		{"content", r.contentStep},
+		{"links", r.linksStep},
 		{"menus", r.importMenus},
 		{"redirects", r.importRedirects},
 		{"finish", r.finish},

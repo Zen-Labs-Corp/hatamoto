@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/"
+ xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">
+<channel>
+ <title>Form Site</title><link>https://old.example.test</link><description>Fixture</description><language>en-US</language>
+ <wp:base_site_url>https://old.example.test</wp:base_site_url>
+ <wp:author><wp:author_login><![CDATA[editor]]></wp:author_login><wp:author_display_name><![CDATA[Sample Editor]]></wp:author_display_name></wp:author>
+ <item>
+  <title>Contact</title><link>https://old.example.test/contact/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[]]></content:encoded><excerpt:encoded><![CDATA[]]></excerpt:encoded>
+  <wp:post_id>300</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[contact]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>0</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[wpcf7_contact_form]]></wp:post_type>
+ <wp:postmeta><wp:meta_key><![CDATA[_form]]></wp:meta_key><wp:meta_value><![CDATA[<label> Your name (required)
+    [text* your-name] </label>
+<label> Your email (required)
+    [email* your-email] </label>
+<label> Phone
+    [tel your-phone] </label>
+<label> Message
+    [textarea your-message] </label>
+[acceptance terms] I accept the terms [/acceptance]
+[submit "Send"]]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_mail]]></wp:meta_key><wp:meta_value><![CDATA[a:4:{s:7:"subject";s:11:"New message";s:6:"sender";s:31:"Sample Site <info@example.test>";s:9:"recipient";s:17:"info@example.test";s:4:"body";s:14:"[your-message]";}]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_hash]]></wp:meta_key><wp:meta_value><![CDATA[a1b2c3d4e5f60718293a4b5c6d7e8f9012345678]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_locale]]></wp:meta_key><wp:meta_value><![CDATA[en_US]]></wp:meta_value></wp:postmeta>
+ </item>
+ <item>
+  <title>Quote request</title><link>https://old.example.test/quote-request/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[]]></content:encoded><excerpt:encoded><![CDATA[]]></excerpt:encoded>
+  <wp:post_id>301</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[quote-request]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>0</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[wpcf7_contact_form]]></wp:post_type>
+ <wp:postmeta><wp:meta_key><![CDATA[_form]]></wp:meta_key><wp:meta_value><![CDATA[<label> Company
+    [text* company] </label>
+<label> Brief
+    [file upload filetypes:pdf|png limit:2mb] </label>
+[quiz q "1+1?|2"]
+[submit "Ask"]]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_mail]]></wp:meta_key><wp:meta_value><![CDATA[a:4:{s:7:"subject";s:11:"New message";s:6:"sender";s:31:"Sample Site <info@example.test>";s:9:"recipient";s:17:"info@example.test";s:4:"body";s:14:"[your-message]";}]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_hash]]></wp:meta_key><wp:meta_value><![CDATA[9f8e7d6c5b4a39281706f5e4d3c2b1a009876543]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_locale]]></wp:meta_key><wp:meta_value><![CDATA[en_US]]></wp:meta_value></wp:postmeta>
+ </item>
+ <item>
+  <title>Get in touch</title><link>https://old.example.test/get-in-touch/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[<p>Write to us.</p>
+[contact-form-7 id="300" title="Contact"]
+<p>Or ask for a quote.</p>
+[contact-form-7 id="9f8e7d6" title="Quote request"]]]></content:encoded><excerpt:encoded><![CDATA[]]></excerpt:encoded>
+  <wp:post_id>310</wp:post_id><wp:post_date_gmt><![CDATA[2025-03-01 09:00:00]]></wp:post_date_gmt><wp:post_modified_gmt><![CDATA[2025-03-02 09:00:00]]></wp:post_modified_gmt>
+  <wp:post_name><![CDATA[get-in-touch]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>0</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[page]]></wp:post_type>
+ </item>
+</channel>
+</rss>

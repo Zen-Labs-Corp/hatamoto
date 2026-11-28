@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -18,9 +19,11 @@ type Converted struct {
 	HTML       string
 	Shortcodes []string // names of shortcodes found (and removed)
 	Forms      []string // form plugins whose markup or shortcode was removed
-	Builders   []string // page builders whose markers were found
-	Embeds     int      // YouTube and Vimeo embeds kept
-	Dropped    []string // other things removed: unsupported iframes
+	// FormsImported counts the [contact-form-7] shortcodes replaced by an imported form (WithForms).
+	FormsImported int
+	Builders      []string // page builders whose markers were found
+	Embeds        int      // YouTube and Vimeo embeds kept
+	Dropped       []string // other things removed: unsupported iframes
 
 	WPBakery      int      // WPBakery shortcodes converted or unwrapped (layout only lost)
 	MissingImages []string // WPBakery image ids with no media in the source (sorted)
@@ -132,7 +135,7 @@ func Convert(in string, raw bool, opts ...ConvertOption) Converted {
 	for _, n := range nodes {
 		root.AppendChild(n)
 	}
-	cv := &converter{res: &res, shortcodes: shortcodes, forms: map[string]bool{}}
+	cv := &converter{res: &res, shortcodes: shortcodes, forms: map[string]bool{}, opts: &o}
 	cv.walk(root)
 	cv.finish()
 	var b strings.Builder
@@ -152,6 +155,7 @@ type converter struct {
 	forms      map[string]bool
 	drop       []*xhtml.Node
 	replace    map[*xhtml.Node]*xhtml.Node
+	opts       *convertOpts
 }
 
 func (c *converter) finish() {
@@ -316,6 +320,12 @@ func (c *converter) text(n *xhtml.Node) {
 			return m // "[sic]", "[1]": not a shortcode
 		}
 		changed = true
+		if name == "contact-form-7" && p[1] != "/" {
+			if slug, ok := c.opts.forms[cf7ShortcodeID(attrs)]; ok {
+				c.res.FormsImported++
+				return `[form slug="` + slug + `"]`
+			}
+		}
 		c.shortcodes[name] = true
 		for _, f := range formMarkers {
 			if f.Shortcode == name {
@@ -335,6 +345,28 @@ func (c *converter) text(n *xhtml.Node) {
 			c.drop = append(c.drop, n)
 		}
 	}
+}
+
+// cf7ShortcodeID reads the form id or hash out of the attributes of a
+// [contact-form-7] shortcode: id="123", id=123, or the old bare form
+// [contact-form-7 123 "Title"].
+func cf7ShortcodeID(attrs string) string {
+	for _, p := range attrPairRe().FindAllStringSubmatch(attrs, -1) {
+		if strings.EqualFold(p[1], "id") {
+			return p[2] + p[3]
+		}
+	}
+	for _, tok := range cf7Tokens(attrs) {
+		if !tok.quoted {
+			if v, ok := strings.CutPrefix(tok.text, "id="); ok {
+				return strings.Trim(v, `"'`)
+			}
+			if _, err := strconv.Atoi(tok.text); err == nil {
+				return tok.text
+			}
+		}
+	}
+	return ""
 }
 
 // iframe keeps YouTube and Vimeo players in the form the sanitiser allows and

@@ -7,6 +7,7 @@ import (
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/person"
@@ -31,6 +32,7 @@ type Deps struct {
 	Site       *siteconfig.Store
 	SEO        *seo.Store
 	Comments   *comment.Importer // nil without a server secret: comments are not imported
+	Forms      *form.Service     // nil: Contact Form 7 forms are not imported (warning)
 	Logger     *slog.Logger
 }
 
@@ -78,6 +80,7 @@ func NewDeps(db *database.DB, cfg DepsConfig, logger *slog.Logger) *Deps {
 	}
 	return &Deps{
 		Comments: comments,
+		Forms:    form.NewService(form.NewPostgresRepository(db), logger),
 		DB:       db, Entities: ents, SchemaRepo: schemaRepo,
 		Media:    media.NewService(media.NewPostgresRepository(db), mc, logger),
 		Taxonomy: taxonomy.NewService(termRepo, logger), TermRepo: termRepo,

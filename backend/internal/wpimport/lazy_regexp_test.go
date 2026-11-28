@@ -9,6 +9,7 @@ import (
 // still fails the test run instead of the first import.
 func TestLazyRegexpsCompile(t *testing.T) {
 	lazy := map[string]func() *regexp.Regexp{
+		"acfDateRe": acfDateRe, "acfEmailRe": acfEmailRe, "acfKeyRe": acfKeyRe, "acfNumberRe": acfNumberRe, "acfRowKeyRe": acfRowKeyRe,
 		"attrPairRe": attrPairRe, "blankLinesRe": blankLinesRe, "blockStart": blockStart,
 		"canonicalRe": canonicalRe, "captionImg": captionImg, "captionRe": captionRe,
 		"commentRe": commentRe, "embedSCRe": embedSCRe, "linkTagRe": linkTagRe,

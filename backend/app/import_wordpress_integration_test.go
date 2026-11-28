@@ -56,7 +56,7 @@ func fixtureEnv(t *testing.T) (siteURL, user, pass string) {
 	return siteURL, user, pass
 }
 
-type counts struct{ Entities, Terms, Authors, Media, Menus, MenuItems, Redirects, Versions, MapRows int }
+type counts struct{ Entities, Terms, Authors, Media, Menus, MenuItems, Redirects, Versions, MapRows, Forms int }
 
 func countRows(t *testing.T, ctx context.Context, db *database.DB) counts {
 	t.Helper()
@@ -70,6 +70,7 @@ func countRows(t *testing.T, ctx context.Context, db *database.DB) counts {
 		`SELECT count(*) FROM hatamoto_menu_items`:      &c.MenuItems,
 		`SELECT count(*) FROM hatamoto_redirects`:       &c.Redirects,
 		`SELECT count(*) FROM hatamoto_import_map`:      &c.MapRows,
+		`SELECT count(*) FROM hatamoto_forms`:           &c.Forms,
 		`SELECT count(*) FROM hatamoto_entity_versions`: &c.Versions,
 	} {
 		if err := db.Pool().QueryRow(ctx, q).Scan(dst); err != nil {
@@ -231,6 +232,12 @@ func (r *wpRig) assertRerun(dump *wpimport.Dump) {
 	if a := res.Audit; a == nil || len(a.Failures) != 0 {
 		t.Errorf("audit after re-run: %+v", a)
 	}
+	if a := res.ACF; a != nil && (a.FieldsAdded != 0 || a.RelationsChanged != 0) {
+		t.Errorf("re-run ACF: %d fields added, %d relations changed", a.FieldsAdded, a.RelationsChanged)
+	}
+	if f := res.Forms; f != nil && f.Created != 0 {
+		t.Errorf("re-run created %d forms", f.Created)
+	}
 }
 
 func TestWordPressFixtureImport_Integration(t *testing.T) {
@@ -375,13 +382,52 @@ func TestWordPressFixtureWXR_Integration(t *testing.T) {
 	if c := r.content("video-roundup"); !strings.Contains(c, "youtube.com/embed/dQw4w9WgXcQ") || !strings.Contains(c, "player.vimeo.com/video/76979871") {
 		t.Errorf("embeds lost: %s", c)
 	}
-	if c := r.content("contact"); strings.Contains(c, "contact-form-7") {
-		t.Errorf("shortcode left: %s", c)
+	if c := r.content("contact"); strings.Contains(c, "contact-form-7") || strings.Contains(c, "wpcf7") || !strings.Contains(c, "[form slug=") {
+		t.Errorf("the contact page does not point at the imported form: %s", c)
 	}
+	if f := res.Forms; f == nil || f.Created != 1 {
+		t.Errorf("forms = %+v, want 1 created", f)
+	}
+	r.assertACF(file, res)
 	if s := r.str(`SELECT status FROM hatamoto_entities WHERE slug='members-only-roadmap'`); s != "draft" {
 		t.Errorf("private post status = %s", s)
 	}
 	r.assertRerun(dump)
+}
+
+// assertACF checks the custom fields the seed puts on the two portfolio pieces.
+// A WordPress export carries the field group definitions when they are there,
+// and the importer guesses the types from the values when they are not.
+func (r *wpRig) assertACF(wxrFile string, res *wpimport.Result) {
+	t := r.t
+	t.Helper()
+	raw, err := os.ReadFile(wxrFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hasDefs := bytes.Contains(raw, []byte("acf-field-group"))
+	a := res.ACF
+	if a == nil || a.FieldsAdded == 0 {
+		t.Fatalf("ACF = %+v, want fields added on the first run", a)
+	}
+	if a.TypesGuessed == hasDefs {
+		t.Errorf("types guessed = %v, but the export has field group definitions = %v", a.TypesGuessed, hasDefs)
+	}
+	for _, name := range []string{"client", "hero", "related", "year"} {
+		if r.str(`SELECT count(*)::text FROM hatamoto_entity_schemas WHERE slug='portfolio' AND schema->'properties' ? $1`, name) != "1" {
+			t.Errorf("the portfolio schema has no %q property", name)
+		}
+	}
+	piece2 := r.str(`SELECT id::text FROM hatamoto_entities WHERE slug='piece-2'`)
+	if got := r.str(`SELECT attributes->'related'->>0 FROM hatamoto_entities WHERE slug='piece-1'`); got != piece2 {
+		t.Errorf("piece-1 related = %q, want piece-2 (%s)", got, piece2)
+	}
+	if got := r.str(`SELECT attributes->>'hero' FROM hatamoto_entities WHERE slug='piece-1'`); !strings.Contains(got, "/media/") {
+		t.Errorf("piece-1 hero = %q, want a /media/ URL", got)
+	}
+	if got := r.str(`SELECT jsonb_typeof(attributes->'year') FROM hatamoto_entities WHERE slug='piece-1'`); got != "number" {
+		t.Errorf("piece-1 year is a %s, want a number", got)
+	}
 }
 
 // The CLI over REST: scan-only prints the report and writes no content.

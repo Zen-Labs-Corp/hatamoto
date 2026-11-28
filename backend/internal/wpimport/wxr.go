@@ -381,6 +381,7 @@ func buildFromWXR(d *Dump, raw []wxrItem, termByID map[string]TermRef, navNames 
 	seen := map[string]bool{}
 	polylangItems := false
 	cssModified := ""
+	var acfGroups, acfFields []wxrItem
 	for _, w := range raw {
 		f := w.fields
 		typ, status := f["post_type"], f["status"]
@@ -426,6 +427,20 @@ func buildFromWXR(d *Dump, raw []wxrItem, termByID map[string]TermRef, navNames 
 			}
 			d.CommentsDropped += len(w.comments)
 			continue
+		case typ == "acf-field-group" || typ == "acf-field":
+			if status != "acf-disabled" {
+				if typ == "acf-field" {
+					acfFields = append(acfFields, w)
+				} else {
+					acfGroups = append(acfGroups, w)
+				}
+			}
+			d.CommentsDropped += len(w.comments)
+			continue
+		case typ == "wpcf7_contact_form":
+			d.CF7 = append(d.CF7, cf7FromWXR(w))
+			d.CommentsDropped += len(w.comments)
+			continue
 		case typ == "" || skipType(typ):
 			d.CommentsDropped += len(w.comments)
 			continue
@@ -461,7 +476,7 @@ func buildFromWXR(d *Dump, raw []wxrItem, termByID map[string]TermRef, navNames 
 			}
 		}
 		for k, v := range w.meta {
-			if !strings.HasPrefix(k, "_oembed") && len(v) < 2048 {
+			if !strings.HasPrefix(k, "_oembed") && keepMeta(w.meta, k, v) {
 				it.Meta[k] = v
 			}
 		}
@@ -470,6 +485,16 @@ func buildFromWXR(d *Dump, raw []wxrItem, termByID map[string]TermRef, navNames 
 		d.Items = append(d.Items, it)
 		if typ != "post" && typ != "page" && !hasCustomType(d.Detect.CustomTypes, typ) {
 			d.Detect.CustomTypes = append(d.Detect.CustomTypes, CustomType{Slug: typ, Name: typ})
+		}
+	}
+	d.ACF = buildACFGroups(acfGroups, acfFields)
+	if len(d.ACF) == 0 {
+		media := map[string]bool{}
+		for _, m := range d.Media {
+			media[m.ID] = true
+		}
+		if d.ACF = inferACFGroups(d.Items, media); len(d.ACF) > 0 {
+			d.Warnings = append(d.Warnings, "ACF field types guessed: no field group definitions in the export")
 		}
 	}
 	for _, k := range menuOrder {

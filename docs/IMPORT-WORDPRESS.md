@@ -79,7 +79,7 @@ shortcodes. Over a limit the part is dropped (the text around it is kept) and re
 Counts (posts, pages, custom post types, drafts, private, media, terms, authors, menus, URLs in the old
 sitemap), the permalink structure and whether it becomes a Hatamoto URL pattern, the SEO plugin
 (Yoast, Rank Math, SEOPress, All in One SEO), page builders (Elementor, Divi, WPBakery, Avada, Beaver
-Builder, Bricks), forms (Contact Form 7, Gravity Forms, WPForms, Ninja Forms, Formidable), multilingual
+Builder, Bricks), forms (Contact Form 7, Gravity Forms, WPForms, Ninja Forms, Formidable), ACF field groups, multilingual
 plugins (WPML, Polylang: every language is imported and tagged where the source says which, and the report counts the items per language), the
 other plugins found (listed as unsupported), every shortcode left in a body, and **expected fidelity**:
 the share of items that import without loss, with each medium or low item and why. A WPBakery item whose only
@@ -107,11 +107,13 @@ counts the comments found and the pingbacks and trackbacks that will be skipped.
 | Global SEO settings (title separator, home, archive and 404 titles, per-type title templates and noindex, social handle and card, verification tags, robots.txt extras, per-type sitemap exclusion, organization name, logo and profiles) | the site's SEO settings, the `post`/type schemas' sitemap setting and the site configuration. See "Global SEO settings" below. |
 | Menus | menus with nesting; pages become entity links; location from the menu name (header, footer, sidebar); the imported menu takes the location from its previous holder, which is left unassigned |
 | Private, password-protected and draft content | drafts (listed in the report) |
+| Contact Form 7 forms (WXR file only) | Hatamoto forms with the WordPress slug (`-2`, `-3` on a clash), created before the content. Mail settings and notifications are not imported; quiz, captcha and conditional add-on tags are dropped and listed. See "ACF and Contact Form 7" below. |
+| ACF field groups and values (WXR file only) | Fields added to custom types, values written on every item. See "ACF and Contact Form 7" below. |
 | Comments (WXR file only, not the REST source) | Comments with their status, threading, dates and commenters; see "Comments" below. **Importing never turns comments on.** |
 
 Body conversion: Gutenberg comments are stripped; YouTube and Vimeo embeds are kept as iframes (also from a
 bare URL or an unrendered `wp-block-embed`); form markup and shortcodes are removed and reported (the
-text is not guessed); `[caption]` becomes a figure; responsive-image attributes are dropped; any other
+text is not guessed), except a Contact Form 7 shortcode of an imported form, which becomes `[form slug=...]`; `[caption]` becomes a figure; responsive-image attributes are dropped; any other
 iframe is removed and reported. WPBakery shortcodes are converted, from raw (WXR, edit context) and rendered
 REST bodies alike: custom headings become headings, single images become images (found by attachment id in the
 media library, so they are imported and rewritten like any other image; an id that is not in the source is
@@ -147,12 +149,28 @@ An old author URL (`/author/jane`) is redirected to the person's page only once 
 then it has no page to go to, so nothing is written. Run the import again after switching them on, or add the
 redirect by hand.
 
+## ACF and Contact Form 7
+
+Both come from a WXR file only. The REST source brings neither.
+
+**ACF.** `acf-field-group` and `acf-field` posts in the file are read as definitions. They are never imported as content. Field values are read from the post meta (values over 2048 bytes are kept up to 1 MiB, nested PHP-serialized data up to depth 32). Without definitions the types are guessed from the values and a warning says so.
+
+- On a custom type, each field becomes a schema property, added through the schema service. A property is never removed or retyped. A name clash with another type is skipped and reported.
+- Built-in `post` and `page` schemas are never edited (built-in types are read-only except person). Their values are stored as attributes, and the report shows a Partly line.
+- Mapping: text, textarea, wysiwyg (rich text), email, url, link (the URL), number, true/false, select, radio and checkbox (choices), date and date time, image, file and gallery (imported media URLs), relationship, post object and page link (entities), group, repeater and flexible content (rows; flexible rows carry a `layout` key). Nested repeaters and nested flexible content become text. Unknown types become text with a warning.
+- Relationships are written in a pass after the links are rewritten, so every target exists. A date that cannot be read is kept as `<name>_raw`.
+- Not imported: ACF options pages, gallery captions, builder sections for flexible content.
+
+**Contact Form 7.** `wpcf7_contact_form` posts become Hatamoto forms before the items are written. Template tags map to form fields; quiz, captcha and unknown tags are dropped and listed. The tag text is read with bounded sizes. A form that fails is an item error, not a failed run.
+
+**Report.** The result carries `acf`, `forms` and `run_number`. The CLI prints "Custom fields (ACF)" and "Forms (Contact Form 7)" sections with the lines `Mapped`, `Partly`, `Imported` and `Skipped`, and a headline "Run N: X new, Y changed". The admin report shows the same lines.
+
 ## Idempotency
 
 Each run is a row of `hatamoto_import_runs` (options without secrets, phase, report). The source id of
 everything imported is kept in `hatamoto_import_map` (scoped by site), and entities carry
 `metadata.import_key`. A re-run updates the same rows: entities are updated in place (a version snapshot
-only when the body changed), terms, menus and redirects are updated, authors that became people are found again by slug (a person you edited is left alone), comments already imported are skipped and never overwritten (a status a moderator changed stays, and a comment deleted here is not recreated), media with the same source
+only when the body changed), terms, menus and redirects are updated, authors that became people are found again by slug (a person you edited is left alone), forms (kind `form`, keyed by the WordPress post id) and added ACF fields (kind `acf_field`, keyed by the field key) are not created again and a re-run reports 0 changed, comments already imported are skipped and never overwritten (a status a moderator changed stays, and a comment deleted here is not recreated), media with the same source
 id or the same bytes is reused and not downloaded again. Entities and redirects are scoped by the source
 site's host **and path**, so two WordPress sub-sites on one host stay apart.
 
@@ -192,7 +210,7 @@ archives or 404 pages). A value that fails validation is listed there with the r
 ## Limits
 
 One language per install; WPBakery content is converted but its layout is not, and other page builders keep the text and the page is listed for review;
-forms are not converted; WooCommerce, events and other plugin data are not imported; comments come from a WXR
+forms other than Contact Form 7 are not converted; ACF and Contact Form 7 come from a WXR file only; WooCommerce, events and other plugin data are not imported; comments come from a WXR
 file only; Rank Math, SEOPress and All in One SEO data over REST are read from each page's `<head>`
 (published items only), Yoast's from its REST field. Sites with plain permalinks (`?p=12`) import, but their
 old URLs cannot be listed from posts: they are audited from the sitemap only.
@@ -202,7 +220,7 @@ The command prints one comments line in its summary.
 ## Development: the fixture
 
 `test/wpfixture` seeds a real WordPress (nested pages, dated permalinks, Yoast, gallery, YouTube and Vimeo,
-Contact Form 7, a private post, an author with avatar, a custom post type, menus) for the integration tests.
+Contact Form 7, an ACF field group on the custom post type, a private post, an author with avatar, a custom post type, menus) for the integration tests.
 CI runs it in Docker (`test/wpfixture/docker-up.sh`, job `wordpress-importer`); without Docker,
 `test/wpfixture/run-local.sh up` downloads a pinned static PHP and WordPress and serves it with `php -S`.
 

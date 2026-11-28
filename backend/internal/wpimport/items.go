@@ -74,7 +74,22 @@ func itemStatus(it *Item) entity.EntityStatus {
 // body converts an item's HTML and rewrites its links. withEntities resolves
 // internal links to imported entities (the second pass).
 func (r *Runner) body(ctx context.Context, it *Item, withEntities bool) (string, Converted, RewriteStats) {
-	conv := Convert(it.Content, r.dump.RawBodies, WithMedia(r.mediaByID))
+	return r.bodyOf(ctx, it.Content, withEntities)
+}
+
+// bodyHTML converts and rewrites an HTML value that is not an item body,
+// such as an ACF rich text field.
+func (r *Runner) bodyHTML(ctx context.Context, in string, withEntities bool) (string, RewriteStats) {
+	out, _, st := r.bodyOf(ctx, in, withEntities)
+	return out, st
+}
+
+func (r *Runner) bodyOf(ctx context.Context, in string, withEntities bool) (string, Converted, RewriteStats) {
+	opts := []ConvertOption{WithMedia(r.mediaByID)}
+	if len(r.formSlugs) > 0 {
+		opts = append(opts, WithForms(r.formSlugs))
+	}
+	conv := Convert(in, r.dump.RawBodies, opts...)
 	rw := &Rewriter{Hosts: r.hosts, Media: r.resolveMedia(ctx), Path: func(p string) (string, bool) {
 		np, ok := r.termPaths[normPath(p)]
 		return np, ok
@@ -174,6 +189,9 @@ func (r *Runner) buildItem(ctx context.Context, it *Item, withEntities bool) (en
 		if len(tags) > 0 {
 			attrs["tags"] = tags
 		}
+	}
+	for k, v := range r.acfAttrs(ctx, it, withEntities) {
+		attrs[k] = v
 	}
 	rawAttrs, err := jsonx.Marshal(attrs)
 	if err != nil {
@@ -369,7 +387,7 @@ func (r *Runner) record(ctx context.Context, it *Item, ir entity.ImportItemResul
 	}
 	r.byID[ent.ID] = ent
 	if info, ok := r.infos[it.ID]; ok {
-		info.ent, info.body = ent, ii
+		info.ent, info.body, info.created = ent, ii, ir.Created
 	}
 	if err := r.st.Put(ctx, r.run.ID, KindEntity, it.ID, ent.ID, stamp(ent.UpdatedAt)); err != nil {
 		r.res.Warnings = append(r.res.Warnings, "id map: "+err.Error())

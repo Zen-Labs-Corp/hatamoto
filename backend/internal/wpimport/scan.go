@@ -53,14 +53,17 @@ type Report struct {
 	// otherwise every changed URL gets a redirect.
 	PermalinkKept bool `json:"permalink_kept"`
 
-	SEOPlugin          string         `json:"seo_plugin,omitempty"`
-	PageBuilders       []string       `json:"page_builders,omitempty"`
-	Forms              []string       `json:"forms,omitempty"`
-	Multilingual       []string       `json:"multilingual,omitempty"`
-	DefaultLang        string         `json:"default_language,omitempty"`
-	Languages          map[string]int `json:"languages,omitempty"`
-	Shortcodes         map[string]int `json:"shortcodes,omitempty"`
-	UnsupportedPlugins []string       `json:"unsupported_plugins,omitempty"`
+	SEOPlugin    string         `json:"seo_plugin,omitempty"`
+	PageBuilders []string       `json:"page_builders,omitempty"`
+	Forms        []string       `json:"forms,omitempty"`
+	Multilingual []string       `json:"multilingual,omitempty"`
+	DefaultLang  string         `json:"default_language,omitempty"`
+	Languages    map[string]int `json:"languages,omitempty"`
+	Shortcodes   map[string]int `json:"shortcodes,omitempty"`
+	// FormsImported counts the Contact Form 7 shortcodes whose form is in the
+	// export: the run imports the form and replaces the shortcode.
+	FormsImported      int      `json:"forms_imported,omitzero"`
+	UnsupportedPlugins []string `json:"unsupported_plugins,omitempty"`
 
 	LowFidelity []ItemNote `json:"low_fidelity,omitempty"`
 	MembersOnly []ItemNote `json:"members_only,omitempty"`
@@ -98,6 +101,10 @@ func Scan(d *Dump, source string) *Report {
 		r.PermalinkPattern, r.PermalinkKept = p, true
 	}
 	var forms []string
+	cf7 := map[string]string{}
+	for _, f := range d.CF7 {
+		addFormSlug(cf7, f, f.Slug)
+	}
 	for _, ns := range d.Detect.Namespaces {
 		name, mapped := "", false
 		for prefix, n := range mappedNamespaces {
@@ -106,6 +113,8 @@ func Scan(d *Dump, source string) *Report {
 			}
 		}
 		switch {
+		case mapped && name == "Contact Form 7" && len(d.CF7) > 0:
+			// the forms come with the export: only a shortcode with no form is reported
 		case mapped && formPlugins[name]:
 			forms = appendUnique(forms, name)
 		case mapped && name == "Elementor":
@@ -146,8 +155,9 @@ func Scan(d *Dump, source string) *Report {
 				r.CommentPings++
 			}
 		}
-		c := Convert(it.Content, d.RawBodies, WithMedia(mediaByID))
+		c := Convert(it.Content, d.RawBodies, WithMedia(mediaByID), WithForms(cf7))
 		r.Embeds += c.Embeds
+		r.FormsImported += c.FormsImported
 		for _, sc := range c.Shortcodes {
 			r.Shortcodes[sc]++
 		}
@@ -271,6 +281,9 @@ func (r *Report) Summary() string {
 	list("SEO plugin", nonEmpty(r.SEOPlugin))
 	list("Page builders", r.PageBuilders)
 	list("Forms", r.Forms)
+	if r.FormsImported > 0 {
+		fmt.Fprintf(&b, "Forms imported: %d Contact Form 7 shortcodes are replaced by the imported forms\n", r.FormsImported)
+	}
 	list("Multilingual", r.Multilingual)
 	list("Unsupported plugins", r.UnsupportedPlugins)
 	if len(r.Shortcodes) > 0 {
