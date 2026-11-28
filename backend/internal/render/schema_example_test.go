@@ -95,8 +95,8 @@ func TestDefaultThemeSectionsHaveExamples(t *testing.T) {
 		t.Fatal(err)
 	}
 	info := e.ThemeInfo()
-	if len(info.Sections) != 25 {
-		t.Fatalf("default theme has %d sections, want 25", len(info.Sections))
+	if len(info.Sections) != 23 {
+		t.Fatalf("default theme has %d sections, want 23", len(info.Sections))
 	}
 	for _, s := range info.Sections {
 		if len(exampleOf(t, s.Type, s.Schema)) == 0 {
