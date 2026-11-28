@@ -400,5 +400,5 @@ func (a *Admin) handleVersionView(w http.ResponseWriter, r *http.Request) {
 // entityCrumbs is the top bar trail of an entity sub-page: Entities, the
 // entity itself, then tail.
 func (a *Admin) entityCrumbs(name, id string, tail ...Crumb) []Crumb {
-	return append([]Crumb{{Label: "Entities", Href: a.adminPath + "/entities"}, {Label: name, Href: a.adminPath + "/entities/" + id}}, tail...)
+	return append([]Crumb{{Label: "Content", Href: a.adminPath + "/entities"}, {Label: name, Href: a.adminPath + "/entities/" + id}}, tail...)
 }

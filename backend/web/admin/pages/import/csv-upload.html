@@ -7,7 +7,7 @@
 {{template "hm/card-start" dict "Title" "The file" "ID" "csv-file" "Heading" "h2"}}
 <div class="hm-stack">
 {{template "hm/field" dict "ID" "type" "Name" "type" "Label" "Content type" "Control" "select" "Options" .Types "Help" "Every row becomes an entry of this type." "Error" (index .Errors "type")}}
-{{template "hm/field" dict "ID" "file" "Name" "file" "Label" "CSV file" "Type" "file" "Required" true "Help" (printf "Up to %d MiB and %d rows. The first row names the columns. A file exported from Entities works as it is." .MaxMB .MaxRows) "Error" (index .Errors "file") "Attrs" (attrmap "accept" ".csv,text/csv")}}
+{{template "hm/field" dict "ID" "file" "Name" "file" "Label" "CSV file" "Type" "file" "Required" true "Help" (printf "Up to %d MiB and %d rows. The first row names the columns. A file exported from Content works as it is." .MaxMB .MaxRows) "Error" (index .Errors "file") "Attrs" (attrmap "accept" ".csv,text/csv")}}
 </div>
 {{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Back" "Href" .Back}}{{template "hm/button" dict "Label" "Upload and map the columns" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
 </form>

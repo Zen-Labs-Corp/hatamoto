@@ -44,7 +44,7 @@ func draftNoun(sc *entity.EntitySchema) string {
 func (a *Admin) handleEntityDraft(w http.ResponseWriter, r *http.Request) {
 	c := a.deps.Content
 	if c.Entities == nil {
-		a.unavailable(w, r, "Entities")
+		a.unavailable(w, r, "Content")
 		return
 	}
 	sc := a.schemaBySlug(r, r.PostFormValue("type"))

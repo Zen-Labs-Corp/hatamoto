@@ -41,7 +41,7 @@ func TestEntitiesSEOViewGolden(t *testing.T) {
 	lacks(t, body, `name="keyword"`)
 	// The default view keeps its columns and gains only the toggle.
 	def := c.get(t, "owner-token", "/admin/entities", "")
-	has(t, def, `aria-label="Select all rows in Entities"`, `aria-label="Columns"`, `aria-current="page">Default`)
+	has(t, def, `aria-label="Select all rows in Content"`, `aria-label="Columns"`, `aria-current="page">Default`)
 	lacks(t, def, `name="orig_title"`, `name="view"`)
 	// The toggle is part of the table header, not a strip above the table.
 	for name, page := range map[string]string{"default": def, "seo": body} {

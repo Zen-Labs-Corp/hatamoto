@@ -167,17 +167,17 @@ func TestSidebarShowsDraftCount(t *testing.T) {
 	t.Parallel()
 
 	c := newContentRig(t)
-	want := `<span>Entities</span><span class="hm-nav-link__badge" title="1 draft to review"><span aria-hidden="true">1</span><span class="hm-visually-hidden">1 draft to review</span></span>`
+	want := `<span>Content</span><span class="hm-nav-link__badge" title="1 draft to review"><span aria-hidden="true">1</span><span class="hm-visually-hidden">1 draft to review</span></span>`
 	body := c.get(t, "owner-token", "/admin/entities", "")
 	if !strings.Contains(body, want) {
-		t.Errorf("the Entities item lacks its labelled draft count of 1")
+		t.Errorf("the Content item lacks its labelled draft count of 1")
 	}
 	if strings.Contains(body, `<span>Analytics</span><span class="hm-nav-link__badge"`) {
 		t.Error("Analytics must not carry a marker")
 	}
 
 	// The marker and the list's own Draft segment come from the same page and must agree.
-	nav := regexp.MustCompile(`<span>Entities</span><span class="hm-nav-link__badge"[^>]*><span aria-hidden="true">(\d+)</span>`).FindStringSubmatch(body)
+	nav := regexp.MustCompile(`<span>Content</span><span class="hm-nav-link__badge"[^>]*><span aria-hidden="true">(\d+)</span>`).FindStringSubmatch(body)
 	seg := regexp.MustCompile(`id="entities-seg-draft-n">(\d+)</span>`).FindStringSubmatch(body)
 	if nav == nil || seg == nil {
 		t.Fatalf("nav marker %v, Draft segment %v: both must render", nav, seg)
@@ -194,8 +194,8 @@ func TestSidebarHidesMarkerWithoutDrafts(t *testing.T) {
 	c := newContentRig(t)
 	delete(c.ents.ents, fid(12))
 	body := c.get(t, "owner-token", "/admin/entities", "")
-	if strings.Contains(body, `<span>Entities</span><span class="hm-nav-link__badge"`) {
-		t.Error("the Entities item shows a marker at 0 drafts")
+	if strings.Contains(body, `<span>Content</span><span class="hm-nav-link__badge"`) {
+		t.Error("the Content item shows a marker at 0 drafts")
 	}
 }
 

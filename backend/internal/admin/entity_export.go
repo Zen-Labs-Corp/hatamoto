@@ -33,7 +33,7 @@ var exportStatuses = []struct{ Value, Label string }{
 // exportSchema finds the exportable type of the request, answering 404 itself.
 func (a *Admin) exportSchema(w http.ResponseWriter, r *http.Request) *entity.EntitySchema {
 	if a.deps.Content.Entities == nil {
-		a.unavailable(w, r, "Entities")
+		a.unavailable(w, r, "Content")
 		return nil
 	}
 	sc := a.orderSchema(r, r.URL.Query().Get("type"))

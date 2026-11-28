@@ -248,7 +248,7 @@ func (a *Admin) handlePeopleDuplicates(w http.ResponseWriter, r *http.Request) {
 	linked, _ := a.deps.People.LinkedUsers(ctx)
 	v := a.NewView(w, r, "Possible duplicates")
 	v.entityNav, v.entityManage = a.peopleSubnav(r.Context())
-	v.Crumbs = []Crumb{{Label: "Entities", Href: a.adminPath + "/entities"}, {Label: "People", Href: a.adminPath + "/people"}, {Label: "Possible duplicates"}}
+	v.Crumbs = []Crumb{{Label: "Content", Href: a.adminPath + "/entities"}, {Label: "People", Href: a.adminPath + "/people"}, {Label: "Possible duplicates"}}
 	v.Data = duplicatesData{Duplicates: duplicateGroups(list, posts, linked)}
 	a.Render(w, r, http.StatusOK, "people/duplicates", v)
 }
