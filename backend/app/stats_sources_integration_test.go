@@ -104,3 +104,64 @@ func TestStatsSources_Integration(t *testing.T) {
 		t.Fatal("worker flag lost")
 	}
 }
+
+func TestStatsSourcesFlags_Integration(t *testing.T) {
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, scratchDSN(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	log, _ := warnLog()
+	if err := migrateUp(ctx, pool, log); err != nil {
+		t.Fatal(err)
+	}
+	src := statsSources{pool: pool, pkgs: packages.NewStore(pool), csp: true}
+	exec := func(sql string, args ...any) {
+		t.Helper()
+		if _, err := pool.Exec(ctx, sql, args...); err != nil {
+			t.Fatalf("%s: %v", sql, err)
+		}
+	}
+	type flagSet struct {
+		comments, static, sso, forms, offsite, csp, wp bool
+		locales                                        int
+	}
+	read := func() flagSet {
+		t.Helper()
+		f := src.Flags(ctx)
+		for name, p := range map[string]*bool{"comments": f.CommentsOn, "static": f.StaticMode, "sso": f.SSOOn,
+			"forms": f.FormsInUse, "offsite": f.OffsiteBackupsOn, "csp": f.CSPEnforced, "wp": f.WPImported} {
+			if p == nil {
+				t.Fatalf("flag %s is nil", name)
+			}
+		}
+		if f.Locales == nil {
+			t.Fatal("locales is nil")
+		}
+		return flagSet{*f.CommentsOn, *f.StaticMode, *f.SSOOn, *f.FormsInUse, *f.OffsiteBackupsOn, *f.CSPEnforced, *f.WPImported, *f.Locales}
+	}
+
+	if got, want := read(), (flagSet{csp: true}); got != want {
+		t.Fatalf("fresh install flags = %+v, want %+v", got, want)
+	}
+
+	// Negative cases: an inactive form and an unfinished import do not count.
+	exec(`INSERT INTO hatamoto_forms (name, slug, status) VALUES ('Old', 'old', 'inactive')`)
+	exec(`INSERT INTO hatamoto_import_runs (source, source_ref, status) VALUES ('wordpress', 'https://example.com', 'scanned')`)
+	if got := read(); got.forms || got.wp {
+		t.Fatalf("inactive form / scanned import counted: %+v", got)
+	}
+
+	exec(`INSERT INTO hatamoto_comment_settings (id, enabled) VALUES (TRUE, TRUE) ON CONFLICT (id) DO UPDATE SET enabled = TRUE`)
+	exec(`INSERT INTO hatamoto_static_hosting_settings (id, mode) VALUES (TRUE, 'static') ON CONFLICT (id) DO UPDATE SET mode = 'static'`)
+	exec(`INSERT INTO hatamoto_signin_oidc (id, enabled) VALUES (TRUE, TRUE) ON CONFLICT (id) DO UPDATE SET enabled = TRUE`)
+	exec(`INSERT INTO hatamoto_offsite_settings (id, enabled) VALUES (TRUE, TRUE) ON CONFLICT (id) DO UPDATE SET enabled = TRUE`)
+	exec(`INSERT INTO hatamoto_forms (name, slug, status) VALUES ('Contact', 'contact', 'active')`)
+	exec(`INSERT INTO hatamoto_import_runs (source, source_ref, status) VALUES ('wordpress', 'https://example.com', 'completed')`)
+	exec(`INSERT INTO hatamoto_site_config (company_name, locales) SELECT 'Example', '[{},{},{},{}]'::jsonb WHERE NOT EXISTS (SELECT 1 FROM hatamoto_site_config)`)
+	exec(`UPDATE hatamoto_site_config SET locales = '[{},{},{},{}]'::jsonb`)
+	if got, want := read(), (flagSet{true, true, true, true, true, true, true, 4}); got != want {
+		t.Fatalf("all-on flags = %+v, want %+v", got, want)
+	}
+}
