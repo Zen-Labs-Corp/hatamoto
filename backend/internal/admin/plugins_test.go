@@ -205,7 +205,7 @@ func TestPluginsPageRetiredTrackingRow(t *testing.T) {
 			if rec.Code != 200 {
 				t.Fatalf("status %d", rec.Code)
 			}
-			for _, want := range []string{`id="plugin-` + tc.name + `-builtin"`, tc.label + " is built in now. Its settings moved to", `href="/admin/settings/tracking"`, ">Open Tracking<", `href="/admin/plugins/` + tc.name + `/uninstall"`} {
+			for _, want := range []string{`id="plugin-` + tc.name + `-builtin"`, tc.label + " is built in now. Set it up in Settings &gt; Privacy &amp; tracking &gt; Tracking, then remove this plugin.", `href="/admin/settings/tracking"`, ">Open Tracking<", `href="/admin/plugins/` + tc.name + `/uninstall"`} {
 				if !strings.Contains(body, want) {
 					t.Errorf("missing %q", want)
 				}
@@ -216,7 +216,7 @@ func TestPluginsPageRetiredTrackingRow(t *testing.T) {
 			if n := strings.Count(body, ">Remove<"); n != 1 {
 				t.Errorf("%d Remove links, want 1", n)
 			}
-			for _, gone := range []string{"Update to v", "Review update", "Up to date"} {
+			for _, gone := range []string{"settings moved", "Update to v", "Review update", "Up to date"} {
 				if strings.Contains(body, gone) {
 					t.Errorf("unexpected %q", gone)
 				}
