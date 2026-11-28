@@ -128,6 +128,7 @@ type entInfo struct {
 	ent     *entity.Entity
 	newPath string
 	body    entity.ImportItem
+	created bool // this run created the entity: its relation write is part of "new"
 }
 
 // URLConflict is an old URL the importer left alone, with the reason.

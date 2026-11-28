@@ -52,7 +52,10 @@ func (r *Runner) acfRelations(ctx context.Context) error {
 			case ir.Unchanged:
 				r.res.ACF.RelationsUnchanged++
 			default:
-				r.res.ACF.RelationsChanged++
+				// Writing the relations of an item this run created completes it: it is "new", not "changed".
+				if info, ok := r.infos[src[i].ID]; !ok || !info.created {
+					r.res.ACF.RelationsChanged++
+				}
 				// The write is an import write: stamp it, so it does not look like an owner edit.
 				if ent, err := r.d.Entities.GetEntity(ctx, ir.ID); err == nil {
 					if err := r.st.Put(ctx, r.run.ID, KindEntity, src[i].ID, ent.ID, stamp(ent.UpdatedAt)); err != nil {

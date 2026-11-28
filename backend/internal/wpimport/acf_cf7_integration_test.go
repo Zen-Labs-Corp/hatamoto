@@ -288,6 +288,11 @@ func TestImportACFDirectory_Integration(t *testing.T) {
 		t.Errorf("map = %v (%T), want a string", a["map"], a["map"])
 	}
 
+	// The links step writes the relations of items this run created: that is "new", never "changed".
+	if r1.res.ACF.RelationsChanged != 0 || !strings.Contains(reportText(r1.res), ", 0 changed") {
+		t.Errorf("run 1 counted %d relation writes as changed:\n%s", r1.res.ACF.RelationsChanged, reportText(r1.res))
+	}
+
 	before, schemaBefore := e.counts(), e.schemaJSON("listing")
 	r2 := e.run()
 	if r2.res.ACF.FieldsAdded != 0 || r2.res.ACF.RelationsChanged != 0 || r2.res.Created != 0 {

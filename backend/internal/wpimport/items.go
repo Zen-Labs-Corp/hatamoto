@@ -387,7 +387,7 @@ func (r *Runner) record(ctx context.Context, it *Item, ir entity.ImportItemResul
 	}
 	r.byID[ent.ID] = ent
 	if info, ok := r.infos[it.ID]; ok {
-		info.ent, info.body = ent, ii
+		info.ent, info.body, info.created = ent, ii, ir.Created
 	}
 	if err := r.st.Put(ctx, r.run.ID, KindEntity, it.ID, ent.ID, stamp(ent.UpdatedAt)); err != nil {
 		r.res.Warnings = append(r.res.Warnings, "id map: "+err.Error())
