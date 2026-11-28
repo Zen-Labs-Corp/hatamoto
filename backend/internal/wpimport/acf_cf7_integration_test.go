@@ -474,3 +474,80 @@ func TestImportCF7Forms_Integration(t *testing.T) { importCF7(t, false) }
 
 // A form slug that is taken gets a number and the owner's form is untouched.
 func TestImportCF7SlugClash_Integration(t *testing.T) { importCF7(t, true) }
+
+// acfBuiltinWXR has one field group on the built-in post and page types whose
+// field names are properties of those types, plus an item of each.
+func acfBuiltinWXR() string {
+	field := func(id, key, name, typ string) string {
+		return ` <item>
+  <title>` + name + `</title><link>https://old.example.test/` + key + `/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:1:{s:4:"type";s:` + typ + `;}]]></content:encoded><excerpt:encoded><![CDATA[` + name + `]]></excerpt:encoded>
+  <wp:post_id>` + id + `</wp:post_id><wp:post_name><![CDATA[` + key + `]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>300</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[acf-field]]></wp:post_type>
+ </item>
+`
+	}
+	item := func(id, typ, name, key, val string) string {
+		return ` <item>
+  <title>Sample ` + typ + `</title><link>https://old.example.test/sample-` + typ + `/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[<p>Sample</p>]]></content:encoded><excerpt:encoded><![CDATA[]]></excerpt:encoded>
+  <wp:post_id>` + id + `</wp:post_id><wp:post_name><![CDATA[sample-` + typ + `]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>0</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[` + typ + `]]></wp:post_type>
+ <wp:postmeta><wp:meta_key><![CDATA[` + name + `]]></wp:meta_key><wp:meta_value><![CDATA[` + val + `]]></wp:meta_value></wp:postmeta>
+ <wp:postmeta><wp:meta_key><![CDATA[_` + name + `]]></wp:meta_key><wp:meta_value><![CDATA[` + key + `]]></wp:meta_value></wp:postmeta>
+ </item>
+`
+	}
+	loc := func(typ string) string {
+		return `i:` + map[string]string{"post": "0", "page": "1"}[typ] + `;a:1:{i:0;a:3:{s:5:"param";s:9:"post_type";s:8:"operator";s:2:"==";s:5:"value";s:` + map[string]string{"post": "4", "page": "4"}[typ] + `:"` + typ + `";}}`
+	}
+	return `<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/"
+ xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">
+<channel>
+ <title>Builtin Site</title><link>https://old.example.test</link><description>Fixture</description><language>en-US</language>
+ <wp:base_site_url>https://old.example.test</wp:base_site_url>
+ <wp:author><wp:author_login><![CDATA[editor]]></wp:author_login><wp:author_display_name><![CDATA[Sample Editor]]></wp:author_display_name></wp:author>
+ <item>
+  <title>Builtin names</title><link>https://old.example.test/group_00000000000d1/</link><dc:creator><![CDATA[editor]]></dc:creator>
+  <content:encoded><![CDATA[a:1:{s:8:"location";a:2:{` + loc("post") + loc("page") + `}}]]></content:encoded><excerpt:encoded><![CDATA[]]></excerpt:encoded>
+  <wp:post_id>300</wp:post_id><wp:post_name><![CDATA[group_00000000000d1]]></wp:post_name><wp:status><![CDATA[publish]]></wp:status><wp:post_parent>0</wp:post_parent><wp:menu_order>0</wp:menu_order><wp:post_type><![CDATA[acf-field-group]]></wp:post_type>
+ </item>
+` + field("301", "field_00000000000e1", "description", "4:\"text\"") +
+		field("302", "field_00000000000e2", "series_part", "6:\"number\"") +
+		item("10", "page", "description", "field_00000000000e1", "About us") +
+		item("11", "post", "series_part", "field_00000000000e2", "2.5") + `</channel>
+</rss>
+`
+}
+
+// ACF values never go into a property the built-in types declare: a field
+// named like one is stored under an acf_ name, and the items import.
+func TestImportACFBuiltinNamesGetAPrefix_Integration(t *testing.T) {
+	e := newACFEnv(t, acfBuiltinWXR())
+	e.run()
+	page, post := e.attrs("10"), e.attrs("11")
+	if _, ok := page["description"]; ok || page["acf_description"] != "About us" {
+		t.Errorf("page attributes = %v, want acf_description and no description", page)
+	}
+	if _, ok := post["series_part"]; ok || post["acf_series_part"] != 2.5 {
+		t.Errorf("post attributes = %v, want acf_series_part 2.5 and no series_part", post)
+	}
+	e.run()
+}
+
+// A property the owner retyped after the import is left alone on the next
+// run; the item still imports.
+func TestImportACFRetypedPropertyKeepsItemsImporting_Integration(t *testing.T) {
+	e := newACFEnv(t, acfDirectoryWXR, "listing")
+	if _, err := e.d.Entities.CreateSchema(e.ctx, &entity.CreateSchemaInput{Name: "Listing", Slug: "listing",
+		Schema: []byte(`{"type":"object","properties":{"price":{"type":"boolean"}}}`)}); err != nil {
+		t.Fatal(err)
+	}
+	e.run()
+	if _, err := e.db.Pool().Exec(e.ctx, `UPDATE hatamoto_entity_schemas SET schema = jsonb_set(schema, '{properties,size}', '{"type":"boolean"}') WHERE slug = 'listing'`); err != nil {
+		t.Fatal(err)
+	}
+	r2 := e.run() // fails the run when an item cannot be saved
+	if got := reportText(r2.res); !strings.Contains(got, "was changed to another type") {
+		t.Errorf("run 2 report has no line for the retyped property:\n%s", got)
+	}
+}

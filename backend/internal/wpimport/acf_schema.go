@@ -532,6 +532,7 @@ func (r *Runner) mapGroup(ctx context.Context, g *ACFGroup, typ, slug string, as
 		}
 		return
 	}
+	have := schemaProps(sc.Schema)
 	var plans []*acfPlan
 	for _, f := range g.Fields {
 		node, kind, lossy, w := acfNode(f, false)
@@ -545,7 +546,11 @@ func (r *Runner) mapGroup(ctx context.Context, g *ACFGroup, typ, slug string, as
 			line(g, f, slug, "mapped", "same field name as another group: shares the property "+p)
 			continue
 		}
-		prop := propName(f.Name, taken)
+		name := f.Name
+		if sc.IsBuiltin && have[sanitizePropName(name)] != nil {
+			name = "acf_" + name // never write into a property the built-in type declares
+		}
+		prop := propName(name, taken)
 		assigned[f.Name] = prop
 		node["x-hm-group"] = g.Title
 		if kind == acfKindRelation && len(f.PostTypes) > 0 {
@@ -569,7 +574,14 @@ func (r *Runner) mapGroup(ctx context.Context, g *ACFGroup, typ, slug string, as
 		for _, p := range plans {
 			if _, imported := done[p.src]; imported {
 				// Imported by an earlier run: never added again, so a property
-				// the owner deleted stays deleted.
+				// the owner deleted stays deleted. One the owner retyped since
+				// is left alone and gets no values.
+				if stored := have[p.m.Prop]; stored != nil && !p.adopt(stored) {
+					warn("ACF field %q: the property %q of %q was changed to another type, so the field was skipped", p.m.Field.Label, p.m.Prop, slug)
+					p.skip(fmt.Sprintf("the property %s was changed to another type; field skipped", p.m.Prop))
+					p.status = "partly"
+					continue
+				}
 				res.FieldsExisting++
 				continue
 			}
@@ -583,6 +595,7 @@ func (r *Runner) mapGroup(ctx context.Context, g *ACFGroup, typ, slug string, as
 				p.skip(fmt.Sprintf("a property %s of another type exists; field skipped", p.m.Prop))
 				p.status = "partly"
 			case len(exist) > 0:
+				p.adopt(have[p.m.Prop])
 				res.FieldsExisting++
 			case len(merged) > acfSchemaBudget:
 				p.skip("schema size limit reached")
@@ -628,6 +641,53 @@ type acfPlan struct {
 	status string // mapped, partly or skipped
 	note   string
 	added  bool // the property is new and goes into the schema write
+}
+
+// adopt makes the values follow the property the schema has: its enum and
+// maxLength replace the ones of the ACF field. It reports false when the
+// stored property stores another kind of value.
+func (p *acfPlan) adopt(stored map[string]any) bool {
+	if !sameShape(stored, p.m.Node) {
+		return false
+	}
+	node := make(map[string]any, len(p.m.Node))
+	for k, v := range p.m.Node {
+		node[k] = v
+	}
+	delete(node, "enum")
+	delete(node, "maxLength")
+	if l, ok := stored["enum"].([]any); ok {
+		var enum []string
+		for _, v := range l {
+			if sv, ok := v.(string); ok {
+				enum = append(enum, sv)
+			}
+		}
+		if len(enum) == len(l) {
+			node["enum"] = enum
+		}
+	}
+	switch n := stored["maxLength"].(type) {
+	case float64:
+		node["maxLength"] = int(n)
+	case int:
+		node["maxLength"] = n
+	case int64:
+		node["maxLength"] = int(n)
+	}
+	p.m.Node = node
+	return true
+}
+
+// schemaProps decodes the properties of a stored schema; nil when unreadable.
+func schemaProps(schema jsontext.Value) map[string]map[string]any {
+	var root struct {
+		Properties map[string]map[string]any `json:"properties"`
+	}
+	if err := jsonx.Unmarshal(schema, &root, jsonx.StoredLoose); err != nil {
+		return nil
+	}
+	return root.Properties
 }
 
 func (p *acfPlan) skip(note string) {

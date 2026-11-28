@@ -233,3 +233,18 @@ func TestACFSchemaFixtureGroupsAreValid(t *testing.T) {
 		schemaWith(t, props)
 	}
 }
+
+func TestACFPlanAdoptFollowsTheStoredProperty(t *testing.T) {
+	node, kind, _, _ := acfNode(ACFField{Type: "select", Label: "Size", Choices: []ACFChoice{{"small", "Small"}, {"large", "Large"}}}, false)
+	p := &acfPlan{m: acfMapped{Prop: "size", Kind: kind, Node: node}}
+	have := schemaProps(jsontext.Value(`{"type":"object","properties":{"size":{"type":"string","enum":["huge"],"maxLength":5},"n":{"type":"boolean"}}}`))
+	if !p.adopt(have["size"]) {
+		t.Fatal("a string property with another enum is the same shape")
+	}
+	if enum, _ := p.m.Node["enum"].([]string); len(enum) != 1 || enum[0] != "huge" || p.m.Node["maxLength"] != 5 {
+		t.Errorf("node = %v, want the stored enum and maxLength", p.m.Node)
+	}
+	if (&acfPlan{m: acfMapped{Node: node}}).adopt(have["n"]) {
+		t.Error("a boolean property must not be adopted for a string field")
+	}
+}
