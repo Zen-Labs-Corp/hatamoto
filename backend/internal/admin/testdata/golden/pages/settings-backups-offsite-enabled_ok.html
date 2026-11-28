@@ -19,8 +19,26 @@
 <link rel="modulepreload" href="/admin/_/js/recovery.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/adminpath.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/admin.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/vendor/noble-curves-2.4.0/@noble/hashes@2.4.0/es2022/_u64.mjs" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/vendor/noble-curves-2.4.0/@noble/hashes@2.4.0/es2022/utils.mjs" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/vendor/noble-curves-2.4.0/@noble/hashes@2.4.0/es2022/_md.mjs" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/vendor/noble-curves-2.4.0/@noble/hashes@2.4.0/es2022/sha2.mjs" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/vendor/noble-curves-2.4.0/@noble/curves@2.4.0/es2022/utils.mjs" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/vendor/noble-curves-2.4.0/@noble/curves@2.4.0/es2022/abstract/modular.mjs" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/vendor/noble-curves-2.4.0/@noble/curves@2.4.0/es2022/abstract/curve.mjs" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/vendor/noble-curves-2.4.0/@noble/curves@2.4.0/es2022/abstract/edwards.mjs" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/vendor/noble-curves-2.4.0/@noble/curves@2.4.0/es2022/abstract/fft.mjs" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/vendor/noble-curves-2.4.0/@noble/curves@2.4.0/es2022/abstract/frost.mjs" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/vendor/noble-curves-2.4.0/@noble/curves@2.4.0/es2022/abstract/hash-to-curve.mjs" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/vendor/noble-curves-2.4.0/@noble/curves@2.4.0/es2022/abstract/montgomery.mjs" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/vendor/noble-curves-2.4.0/@noble/curves@2.4.0/es2022/abstract/oprf.mjs" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/vendor/noble-curves-2.4.0/@noble/curves@2.4.0/es2022/ed25519.mjs" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/vendor/scure-base-2.4.0/@scure/base@2.4.0/es2022/base.mjs" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/backupkeylogic.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/backupkey.HASH.js" integrity="sha256-SRI">
 <script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/backupkey.HASH.js" integrity="sha256-P6lcYikUv/06&#43;J//sfMOUJ2Y3nvsfFw/ClAYdJQ0/cA="></script>
 <script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/settings/import/csv/*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/developer*","/admin/*/check-updates*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/forms/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
 
 </head>
@@ -113,7 +131,7 @@
 <li><a class="hm-tabs__tab" href="/admin/settings/changes">Changes</a></li>
 </ul></nav>
 </header>
-<div class="hm-callout hm-callout--warning" id="backups-secrets" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body">A backup holds secrets: password hashes, API keys and plugin credentials. Store downloads somewhere safe.</div></div></div>
+<div class="hm-callout hm-callout--warning" id="backups-secrets" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body">A backup holds secrets: password hashes, API keys and plugin credentials. Backups kept on this server, pre-update backups included, are not encrypted. Store downloads somewhere safe.</div></div></div>
 <p class="hm-muted">Keeping the last 10 manual, 5 pre-update and 7 scheduled backups. Free disk: 50 GB.</p>
 
 <div id="backups-live" class="hm-stack hm-stack--loose">
@@ -137,7 +155,7 @@
 <div role="status"><p class="hm-field__help">Last upload 19 Oct 2026 14:00, 30 MB, size and checksum read back. Next run: 20 Oct 2026 03:00 UTC.</p></div></div>
 <div class="hm-setrow__control"><span class="hm-badge hm-badge--success"><span class="hm-badge__dot" aria-hidden="true"></span>OK</span></div>
 </div></div>
-<div class="hm-callout hm-callout--info" id="offsite-private" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body">A backup holds secrets.env and your database. Use a private bucket with server-side encryption turned on, and a key that can only write to this bucket.</div></div></div>
+<div class="hm-callout hm-callout--info" id="offsite-private" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body">With backup encryption on, the bucket only receives encrypted .tar.age copies. Use a private bucket and a key that can only write to it.</div></div></div>
 <div class="hm-field">
 <label class="hm-field__check hm-switch" for="offsite-enabled"><input class="hm-field__box" type="checkbox" role="switch" id="offsite-enabled" name="enabled" value="true" checked aria-describedby="offsite-enabled-help"><span>Copy backups off this server</span></label>
 <p class="hm-field__help" id="offsite-enabled-help">When on, each scheduled backup is uploaded to the bucket below and checked there.</p>
@@ -222,4 +240,5 @@
 <template id="hm-toast-tpl"><div class="hm-toast"><span class="hm-toast__icon" aria-hidden="true"><span data-hm-toast-icon="success"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span data-hm-toast-icon="error"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span><span data-hm-toast-icon="warning"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span data-hm-toast-icon="info"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span></span><span data-hm-toast-message></span><button type="button" class="hm-toast__close" data-hm-toast-close aria-label="Dismiss notification"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div></template>
 </body>
 </html>
+
 

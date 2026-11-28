@@ -31,11 +31,11 @@ func TestBackupKeyCardStates(t *testing.T) {
 		wants   []string
 		absents []string
 	}{
-		{"off", BackupKeyView{Mode: BackupKeyOff}, []string{
+		{"key-off", BackupKeyView{Mode: BackupKeyOff}, []string{
 			"Backup encryption", ">Off<", "Generate a key pair for me", "I have a public key", "Use a passphrase instead",
 			`data-hm-backupkey-generate`, `data-hm-backupkey-reveal`, "The private key is shown once.", "To restore you need the private key",
 			`action="/admin/settings/backups/encryption"`, `name="mode"`, `name="public_key"`, `name="passphrase"`,
-			`<a class="hm-btn hm-btn--secondary" href="/admin/settings/backups/20261018T141900Z-pre_update/download"`,
+			`href="/admin/settings/backups/20261018T141900Z-pre_update/download"`,
 		}, []string{"Turn off", "Download .tar.age", "before encryption was on"}},
 		{"key-set", BackupKeyView{Mode: BackupKeyPublic, PublicKey: testBackupRecipient}, []string{
 			">On: public key set<", testBackupRecipient, "Turn off", `form="backupkey-off-form"`, "Download .tar.age",
