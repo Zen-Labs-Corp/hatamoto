@@ -61,7 +61,7 @@ func (s *Server) resolveForRender(ctx context.Context, path string, r *http.Requ
 	if err != nil || rr == nil || !rr.NotFound {
 		return rr, outcome, err
 	}
-	// Listings and registry pages know the path without its locale segment;
+	// Listings know the path without its locale segment;
 	// the listing keeps the full path for its canonical and paging links.
 	bare := path
 	if rr.Rest != "" {
@@ -87,15 +87,6 @@ func (s *Server) resolveForRender(ctx context.Context, path string, r *http.Requ
 	}
 	if lr != nil {
 		return &routeResult{Listing: lr, Locale: locale, Rest: rr.Rest}, pageOutcome{Status: http.StatusOK}, nil
-	}
-	reg, err := s.resolveRegistry(ctx, bare, r)
-	if err != nil {
-		s.logLoadFailure("render: resolve registry page", err, "path", path)
-		return nil, pageOutcome{Status: http.StatusInternalServerError},
-			loadFailure(err, "failed to resolve path")
-	}
-	if reg != nil {
-		return &routeResult{Registry: reg, Locale: locale, Rest: rr.Rest}, pageOutcome{Status: http.StatusOK}, nil
 	}
 	return rr, outcome, nil
 }
@@ -230,8 +221,6 @@ func (s *Server) fillView(ctx context.Context, r *http.Request, rr *routeResult,
 		return s.fillArchive(ctx, r, rr, v)
 	case rr.Listing != nil:
 		return s.fillListing(ctx, r, rr.Listing, v)
-	case rr.Registry != nil:
-		fillRegistry(v, rr.Registry)
 	}
 	return nil
 }

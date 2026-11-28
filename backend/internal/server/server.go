@@ -295,9 +295,6 @@ type Server struct {
 
 	// packages installs plugin and theme packages and applies them live.
 	packages *packages.Manager
-	// directory feeds plugin_directory sections (see pluginDirectory).
-	directory     *registryDirectory
-	directoryOnce sync.Once
 	// preview signs and verifies theme-preview cookies (nil without packages).
 	preview *themePreview
 

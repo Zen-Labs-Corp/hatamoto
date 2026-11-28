@@ -73,7 +73,6 @@ func (s *Server) buildPageView(ctx context.Context, r *http.Request, rr *routeRe
 	v.EntityLinks = s.entityLinkTargets(ctx, v)
 	v.Uncacheable = new(bool)
 	s.fillComments(ctx, r, rr, v)
-	s.applyPluginDirectory(ctx, v)
 	v.PagedLoop, v.LoopOutOfRange = new(bool), new(bool)
 	v.Related = s.relatedFunc(ctx, v.EntityID, v.SchemaSlug, v.Uncacheable)
 	v.Series = s.seriesFunc(ctx, v.SchemaSlug, v.Attrs, v.Uncacheable)
@@ -305,76 +304,6 @@ func shortcodeFormSlugs(v any) []string {
 		return out
 	}
 	return nil
-}
-
-// pluginDirectoryCacheAge caps the page cache of a page with a plugin
-// directory, so a registry publish reaches visitors within minutes however long
-// the configured page TTL is (directoryTTL + this + the browser max-age).
-const pluginDirectoryCacheAge = 60 * time.Second
-
-// applyPluginDirectory feeds v's directory sections and limits how long the
-// page may be cached. v.Uncacheable must be set.
-func (s *Server) applyPluginDirectory(ctx context.Context, v *render.PageView) {
-	pd, td := s.directoriesFor(ctx, v.Sections, v.Doc)
-	if pd == nil && td == nil {
-		return
-	}
-	// The views are shared (cached): link on a copy. Detail pages are served
-	// only for the directory on /plugins resp. /themes.
-	if pd != nil {
-		c := *pd
-		c.Linked = v.Path == "/plugins"
-		pd = &c
-	}
-	if td != nil {
-		c := *td
-		c.Linked = v.Path == "/themes"
-		td = &c
-	}
-	v.PluginDirectory, v.ThemeDirectory = pd, td
-	v.MaxCacheAge = pluginDirectoryCacheAge
-	// An unavailable directory is served but not cached, so recovery shows on
-	// the next request.
-	*v.Uncacheable = pd != nil && pd.State == render.PluginDirectoryUnavailable ||
-		td != nil && td.State == render.PluginDirectoryUnavailable
-}
-
-// directoriesFor returns the views of the directory kinds that sections or the
-// doc's components include, nil for the others. Without any directory there is
-// no registry fetch; with both there is still one.
-func (s *Server) directoriesFor(ctx context.Context, sections []render.Section, doc *builder.Doc) (*render.PluginDirectoryView, *render.ThemeDirectoryView) {
-	var wantPlugins, wantThemes bool
-	for _, sec := range viewSections(sections, doc) {
-		if sec.IsVisible != nil && !*sec.IsVisible {
-			continue
-		}
-		switch sec.Type {
-		case "plugin_directory":
-			wantPlugins = true
-		case "theme_directory":
-			wantThemes = true
-		}
-	}
-	if !wantPlugins && !wantThemes {
-		return nil, nil
-	}
-	vs := s.pluginDirectory().Views(ctx)
-	var pd *render.PluginDirectoryView
-	var td *render.ThemeDirectoryView
-	if wantPlugins {
-		pd = &vs.plugins
-	}
-	if wantThemes {
-		td = &vs.themes
-	}
-	return pd, td
-}
-
-// pluginDirectoryFor returns the plugin directory view when sections or the
-// doc's components include a plugin_directory, and nil otherwise.
-func (s *Server) pluginDirectoryFor(ctx context.Context, sections []render.Section, doc *builder.Doc) *render.PluginDirectoryView {
-	pd, _ := s.directoriesFor(ctx, sections, doc)
-	return pd
 }
 
 func timeVal(t *time.Time) time.Time {

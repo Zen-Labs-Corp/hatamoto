@@ -44,10 +44,6 @@ type renderAdminHandlers struct {
 	// chrome loads the site-wide data and the forms the sections need.
 	chrome  func(ctx context.Context, sections []render.Section) (render.SiteView, map[string]render.FormView, error)
 	baseURL func(r *http.Request) string
-	// directories fills the views of plugin_directory and theme_directory
-	// sections so the builder canvas and preview show the cards; nil for a
-	// kind the draft has none of.
-	directories func(ctx context.Context, sections []render.Section, doc *builder.Doc) (*render.PluginDirectoryView, *render.ThemeDirectoryView)
 	// resolve, loadHome and buildView are the public renderer's own route
 	// resolution and view assembly. Unset (or failing to match the previewed
 	// entity), the preview is the attributes-only view.
@@ -75,7 +71,6 @@ func (s *Server) newRenderAdminHandlers(engine themeRenderer) *renderAdminHandle
 			return site, s.formsForSections(ctx, sections), nil
 		},
 		baseURL:     s.publicBaseURL,
-		directories: s.directoriesFor,
 		seoSettings: s.seoSettings,
 		resolve:     s.resolveRouteForRender,
 		loadHome:    s.loadHomepage,
@@ -234,7 +229,6 @@ func (h *renderAdminHandlers) attributesView(r *http.Request, req *previewReques
 		return nil, err
 	}
 	v.Site, v.Forms = site, forms
-	v.PluginDirectory, v.ThemeDirectory = h.directoryFor(r.Context(), sections, doc)
 	v.Related = noRelated
 	return v, nil
 }
@@ -253,15 +247,6 @@ func draftEntityView(v *render.PageView) *render.EntityView {
 		Excerpt: firstAttr(v.Attrs, excerptKeys...), Image: firstAttr(v.Attrs, imageKeys...),
 		Attributes: v.Attrs, PublishedAt: v.PublishedAt, UpdatedAt: v.UpdatedAt,
 	}
-}
-
-// directoryFor is the directory views of a draft, nil for a kind it has none
-// of or when the handler has no provider (tests).
-func (h *renderAdminHandlers) directoryFor(ctx context.Context, sections []render.Section, doc *builder.Doc) (*render.PluginDirectoryView, *render.ThemeDirectoryView) {
-	if h.directories == nil {
-		return nil, nil
-	}
-	return h.directories(ctx, sections, doc)
 }
 
 // routeView builds the preview through the public renderer's own path: the

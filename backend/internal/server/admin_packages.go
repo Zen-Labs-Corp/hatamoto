@@ -815,3 +815,12 @@ func pausedMeta(in []render.PausedTemplate) []admin.PausedTemplate {
 	}
 	return out
 }
+
+// screenshotBase is the registry URL a relative screenshot path of an entry of
+// tier resolves against: developer entries live on the developer index's host.
+func screenshotBase(tier, registryURL, developerURL string) string {
+	if tier == packages.TierDeveloper {
+		return developerURL
+	}
+	return registryURL
+}
