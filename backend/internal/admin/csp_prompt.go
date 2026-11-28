@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"encoding/json/jsontext"
 
@@ -24,8 +25,12 @@ type CSPService interface {
 }
 
 const (
-	// cspHiddenKey is the theme_extra key that hides the Overview card for the whole site.
-	cspHiddenKey   = "csp_prompt_hidden"
+	// cspHiddenKey is the theme_extra key that snoozes the Overview card for the
+	// whole site. Its value is the dismiss time (RFC3339, UTC).
+	cspHiddenKey = "csp_prompt_hidden"
+	// cspSnooze is how long "Not now" hides the card.
+	cspSnooze = 30 * 24 * time.Hour
+
 	cspEnforcePath = "/security/page-protection/enforce"
 	cspHidePath    = "/security/page-protection/hide"
 	cspDocsURL     = "https://hatamoto.dev/docs/operate/hardening"
@@ -35,9 +40,10 @@ const (
 // cspCard is the model of the Overview's page protection card.
 type cspCard struct{ EnforceHref, HideHref, DocsHref string }
 
-// cspPromptHidden reports whether an owner dismissed the card. A missing or
-// unreadable value counts as not dismissed.
-func cspPromptHidden(cfg *siteconfig.Config) bool {
+// cspPromptHidden reports whether an owner dismissed the card less than
+// cspSnooze before now. A missing, legacy (non-timestamp) or unreadable value
+// counts as not dismissed.
+func cspPromptHidden(cfg *siteconfig.Config, now time.Time) bool {
 	if cfg == nil || len(cfg.ThemeExtra) == 0 {
 		return false
 	}
@@ -45,9 +51,12 @@ func cspPromptHidden(cfg *siteconfig.Config) bool {
 	if jsonx.Unmarshal(cfg.ThemeExtra, &top, jsonx.StoredLoose) != nil {
 		return false
 	}
-	var hidden bool
-	_ = jsonx.Unmarshal(top[cspHiddenKey], &hidden, jsonx.StoredLoose)
-	return hidden
+	var at string
+	if jsonx.Unmarshal(top[cspHiddenKey], &at, jsonx.StoredLoose) != nil {
+		return false
+	}
+	t, err := time.Parse(time.RFC3339, at)
+	return err == nil && now.Sub(t) < cspSnooze
 }
 
 // cspJob is the page protection card, for owners who manage settings.
@@ -71,7 +80,7 @@ func (a *Admin) dashCSP(ctx context.Context) (dashResult, error) {
 		a.logger().Error("page protection card: site settings unreadable", "err", err)
 		return dashResult{}, nil
 	}
-	if cspPromptHidden(cfg) {
+	if cspPromptHidden(cfg, time.Now()) {
 		return dashResult{}, nil
 	}
 	return dashResult{Sec: &dashSection{ID: "dash-csp", Title: cspCardTitle, State: dashOK,
@@ -100,14 +109,15 @@ func (a *Admin) handleCSPEnforce(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.adminPath+"/", http.StatusSeeOther)
 }
 
-// handleCSPHide dismisses the card for the site. It writes one theme_extra key
+// handleCSPHide snoozes the card for the site. It writes one theme_extra key
 // and leaves the rest.
 func (a *Admin) handleCSPHide(w http.ResponseWriter, r *http.Request) {
 	if a.deps.Site == nil {
 		a.unavailable(w, r, "Page protection")
 		return
 	}
-	if err := a.deps.Site.PatchThemeExtra(r.Context(), cspHiddenKey, jsontext.Value("true")); err != nil {
+	stamp, _ := jsonx.Marshal(time.Now().UTC().Format(time.RFC3339))
+	if err := a.deps.Site.PatchThemeExtra(r.Context(), cspHiddenKey, jsontext.Value(stamp)); err != nil {
 		a.logger().Error("hide page protection card failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The card could not be hidden.")
 		return

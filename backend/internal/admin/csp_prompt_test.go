@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/siteconfig"
 )
@@ -35,6 +36,7 @@ func newCSPRig(t *testing.T, state CSPState, extra string) (*rig, *fakeCSP, *fak
 
 func TestCSPPromptHidden(t *testing.T) {
 	t.Parallel()
+	now := time.Now().UTC()
 	for _, tc := range []struct {
 		name  string
 		extra string
@@ -44,17 +46,18 @@ func TestCSPPromptHidden(t *testing.T) {
 		{"nil config", "", true, false},
 		{"empty", "", false, false},
 		{"other keys only", `{"additional_css":"a{}"}`, false, false},
-		{"true", `{"csp_prompt_hidden":true}`, false, true},
-		{"true among others", `{"additional_css":"a{}","csp_prompt_hidden":true}`, false, true},
-		{"false", `{"csp_prompt_hidden":false}`, false, false},
-		{"wrong type", `{"csp_prompt_hidden":"yes"}`, false, false},
+		{"dismissed now", `{"csp_prompt_hidden":"` + now.Format(time.RFC3339) + `"}`, false, true},
+		{"dismissed among others", `{"additional_css":"a{}","csp_prompt_hidden":"` + now.Format(time.RFC3339) + `"}`, false, true},
+		{"dismissed 31 days ago", `{"csp_prompt_hidden":"` + now.AddDate(0, 0, -31).Format(time.RFC3339) + `"}`, false, false},
+		{"legacy true", `{"csp_prompt_hidden":true}`, false, false},
+		{"garbage string", `{"csp_prompt_hidden":"yes"}`, false, false},
 		{"invalid JSON", `{"csp_prompt_hidden":`, false, false},
 	} {
 		var cfg *siteconfig.Config
 		if !tc.nilC {
 			cfg = &siteconfig.Config{ThemeExtra: []byte(tc.extra)}
 		}
-		if got := cspPromptHidden(cfg); got != tc.want {
+		if got := cspPromptHidden(cfg, now); got != tc.want {
 			t.Errorf("%s: %v, want %v", tc.name, got, tc.want)
 		}
 	}
@@ -90,7 +93,7 @@ func TestCSPCardHidden(t *testing.T) {
 	}{
 		{"enforcing", CSPState{Enforcing: true}, "", false},
 		{"env forced", CSPState{EnvForced: true}, "", false},
-		{"dismissed", CSPState{}, `{"csp_prompt_hidden":true}`, false},
+		{"dismissed", CSPState{}, `{"csp_prompt_hidden":"` + time.Now().UTC().Format(time.RFC3339) + `"}`, false},
 		{"no service", CSPState{}, "", true},
 	} {
 		g, _, _ := newCSPRig(t, tc.state, tc.extra)
@@ -155,7 +158,7 @@ func TestCSPHideRoute(t *testing.T) {
 	if rec := g.do("POST", path, "owner-token", nil, nil); rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/admin/" {
 		t.Fatalf("hide = %d %s: %s", rec.Code, rec.Header().Get("Location"), rec.Body)
 	}
-	if !cspPromptHidden(&site.cfg) {
+	if !cspPromptHidden(&site.cfg, time.Now()) {
 		t.Errorf("flag not stored: %s", site.cfg.ThemeExtra)
 	}
 	if got := string(site.cfg.ThemeExtra); !strings.Contains(got, `"additional_css":"a{}"`) {
