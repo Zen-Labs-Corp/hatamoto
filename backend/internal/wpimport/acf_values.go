@@ -181,6 +181,9 @@ func (r *Runner) acfAttrs(ctx context.Context, it *Item, withEntities bool) map[
 	}
 	out := map[string]any{}
 	rd := r.newACFReader(ctx, it, withEntities)
+	// The link pass rebuilds values the content step already reported on; the
+	// related items are reported once, by the relationship write.
+	rd.quiet = withEntities
 	rel := rd
 	if !withEntities {
 		rel = r.newACFReader(ctx, it, true)

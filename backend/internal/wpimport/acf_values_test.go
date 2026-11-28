@@ -356,3 +356,25 @@ func TestACFValuesFollowTheStoredNestedProperties(t *testing.T) {
 		t.Errorf("sections = %s, want %s", got, want)
 	}
 }
+
+// An item whose body links to another page is rebuilt in the link pass; the
+// related items it leaves out are still reported once.
+func TestACFUnresolvedRelationsAreReportedOnce(t *testing.T) {
+	r, _ := acfTestRunner(t, relationFields()...)
+	r.opts.Progress = func(string, string) {}
+	r.infos["1"] = &entInfo{ent: &entity.Entity{ID: acfEntA}}
+	it := &Item{ID: "9", Type: "listing", Meta: map[string]string{"related": `a:2:{i:0;s:1:"1";i:1;s:3:"404";}`}}
+	ctx := context.Background()
+	r.acfAttrs(ctx, it, false) // content step
+	r.acfAttrs(ctx, it, true)  // link pass: body with links
+	r.relationItem(ctx, &entInfo{item: it, ent: &entity.Entity{ID: acfEntB}})
+	n := 0
+	for _, w := range r.res.Warnings {
+		if strings.Contains(w, "related items were not imported") {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("%d warnings, want 1: %v", n, r.res.Warnings)
+	}
+}
