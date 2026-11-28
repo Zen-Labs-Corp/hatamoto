@@ -170,6 +170,11 @@ type Runner struct {
 	schemas       map[string]*entity.EntitySchema
 	// acf is the ACF fields mapped per post type, set by the schemas step.
 	acf map[string][]acfMapped
+	// relIDs maps source post ids to entity ids from the id map, for related
+	// items outside this run's selection; loaded on first use.
+	relIDs map[string]uuid.UUID
+	// acfWarns counts the ACF value warnings, which are capped.
+	acfWarns int
 }
 
 // NewRunner prepares a run over dump.
@@ -268,7 +273,7 @@ func (r *Runner) Run(ctx context.Context, resume uuid.UUID) (res *Result, err er
 		{"authors", r.importAuthors},
 		{"terms", r.importTerms},
 		{"content", r.importContentAndComments},
-		{"links", r.rewriteLinks},
+		{"links", r.linksStep},
 		{"menus", r.importMenus},
 		{"redirects", r.importRedirects},
 		{"finish", r.finish},
