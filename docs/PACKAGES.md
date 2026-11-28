@@ -349,7 +349,7 @@ is listed in the plugins repository by a manifest with `"tier": "first-party"`
 |---|---|---|
 | `searchconsole` | [Zen-Labs-Corp/hatamoto-first-party/plugins/searchconsole](https://github.com/Zen-Labs-Corp/hatamoto-first-party/tree/main/plugins/searchconsole) | Google Search Console: OAuth, sites, sitemap submit, URL inspection, daily performance import |
 
-Google Tag Manager and Google Analytics were first-party plugins too; they are built into core now (Settings > Privacy & tracking > Tracking) and their names are reserved.
+Google Tag Manager was a first-party plugin too. It and the former Google Analytics plugin are built into core now (Settings > Privacy & tracking > Tracking) and their names are reserved.
 
 First-party plugins are not mirrored: the plugins repository's
 `mirror-plugin.sh` skips them, so they are built from the monorepo (or reused
