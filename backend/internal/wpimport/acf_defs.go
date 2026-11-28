@@ -23,15 +23,22 @@ var (
 	acfMaxRows  = 500
 )
 
+// maxMetaKey is the longest meta key WordPress stores (the column is varchar(255)).
+const maxMetaKey = 255
+
 // isACFKey reports whether the meta key k holds an ACF value: its reference
-// key "_k" names a field, or it is a row key "<parent>_<i>_<sub>" of an ACF
-// parent.
+// key "_k" names a field, or it is a row key "<parent>_<i>_<sub>" whose parent
+// (any prefix before a row segment) has such a reference. Every prefix is
+// checked once, so the work is bounded by the key length, which is capped.
 func isACFKey(meta map[string]string, k string) bool {
+	if len(k) > maxMetaKey {
+		return false
+	}
 	if acfKeyRe().MatchString(meta["_"+k]) {
 		return true
 	}
 	for _, loc := range acfRowKeyRe().FindAllStringIndex(k, -1) {
-		if loc[0] > 0 && isACFKey(meta, k[:loc[0]]) {
+		if loc[0] > 0 && acfKeyRe().MatchString(meta["_"+k[:loc[0]]]) {
 			return true
 		}
 	}

@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"strings"
 	"testing"
+	"time"
 )
 
 //go:embed testdata/plain-blog.wxr.xml
@@ -212,6 +213,22 @@ func TestIsACFKey(t *testing.T) {
 	for k, want := range map[string]bool{"a": true, "a_0_b": true, "other": false, "missing": false} {
 		if got := isACFKey(meta, k); got != want {
 			t.Errorf("isACFKey(%s) = %v, want %v", k, got, want)
+		}
+	}
+}
+
+// A key made of many row segments must be answered at once: the check once
+// recursed on every prefix and took exponential time.
+func TestIsACFKeyIsFastOnHostileKeys(t *testing.T) {
+	meta := map[string]string{"a": "1", "_a": "field_0123456789abc"}
+	for _, k := range []string{strings.Repeat("b_1_", 60), "a" + strings.Repeat("_1_a", 60), strings.Repeat("a_1_", 62)} {
+		start := time.Now()
+		got := isACFKey(meta, k)
+		if d := time.Since(start); d > time.Second {
+			t.Fatalf("isACFKey(%d bytes) took %v", len(k), d)
+		}
+		if want := k[0] == 'a'; got != want && len(k) <= maxMetaKey {
+			t.Errorf("isACFKey(%.20s...) = %v, want %v", k, got, want)
 		}
 	}
 }
