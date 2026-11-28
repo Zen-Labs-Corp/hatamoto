@@ -357,9 +357,10 @@ SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy:
 strict-origin-when-cross-origin`, `X-XSS-Protection: 0`, a `Permissions-Policy`
 and the page Content-Security-Policy. The policy follows the site's
 mode (enforcing by default; report-only on older installs until switched, or
-whatever `CSP_ENFORCE` says) and is picked up on the next export, and
-`Strict-Transport-Security` is added only in production. The setup card lists
-the header names it includes.
+whatever `CSP_ENFORCE` says). An export writes no headers; they come from the
+web server or CDN config the setup card shows, so copy that config again after
+switching the mode. `Strict-Transport-Security` is added only in production.
+The setup card lists the header names it includes.
 
 ### Redirects on a plain web server
 
