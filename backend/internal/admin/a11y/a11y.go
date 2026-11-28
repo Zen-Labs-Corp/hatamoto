@@ -242,9 +242,12 @@ func (c *checker) forms() {
 			if t == "submit" || t == "button" || t == "reset" || t == "image" {
 				return
 			}
-			// A read-only control shows a value and never posts it (a copy field
-			// next to its form's inputs), so it needs no name.
-			if _, readonly := attr(n, "readonly"); hasAncestor(n, "form") != nil && !readonly && attrv(n, "name") == "" && attrv(n, "form") == "" {
+			// The read-only value of a copy field shows a value and never posts it
+			// (it sits next to its form's inputs), so it needs no name. Nothing
+			// else is exempt: readonly does nothing on a select or a checkbox.
+			_, readonly := attr(n, "readonly")
+			copyValue := n.Data == "textarea" && readonly && hasClass(n, "hm-copyfield__value")
+			if hasAncestor(n, "form") != nil && !copyValue && attrv(n, "name") == "" && attrv(n, "form") == "" {
 				c.addf("%s inside a form has no name", desc(n))
 			}
 		case "form":
