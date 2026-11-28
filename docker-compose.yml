@@ -37,7 +37,7 @@ services:
       DATABASE_URL: postgres://hatamoto:hatamoto@db:5432/hatamoto?sslmode=disable
       API_HOST: 0.0.0.0
       API_PORT: 8090
-      CSP_ENFORCE: "false"
+      CSP_ENFORCE: "true"
       SECURITY_HEADERS_DISABLED: "false"
     # The supervisor is PID 1: if it ever exits, Docker brings it back.
     restart: unless-stopped

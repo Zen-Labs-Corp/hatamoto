@@ -71,6 +71,7 @@ fb_gen_code() {
 # fb_render_env DBPASSWORD SECRET CODE BASE_URL prints the service environment file.
 # Plain KEY=value lines (systemd reads them); the password is hex so it needs no URL encoding.
 # HATAMOTO_UPDATES is left unset on purpose: the default is automatic signed updates.
+# CSP_ENFORCE=true: new installs block scripts from other sites (hardening guide).
 fb_render_env() {
   cat <<HM_ENV
 DATABASE_URL=postgres://$APP_USER:$1@127.0.0.1:5432/$APP_USER?sslmode=disable
@@ -80,6 +81,7 @@ API_HOST=127.0.0.1
 MEDIA_UPLOAD_DIR=$APP_DIR/uploads
 HATAMOTO_CONFIG_FILE=$APP_DIR/config/hatamoto.env
 HATAMOTO_SECRET=$2
+CSP_ENFORCE=true
 HM_ENV
   # No code once the owner exists (the clean-up removed it): nothing to write back.
   [ -z "$3" ] || printf 'HATAMOTO_SETUP_CODE=%s\n' "$3"

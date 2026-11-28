@@ -176,7 +176,7 @@ grepq() { grep "$@" >/dev/null; }
 env_out="$(pure fb_render_env pw123 sec456 K7M2-RT9P-QW4X https://x.example.com)"
 for want in 'DATABASE_URL=postgres://hatamoto:pw123@127.0.0.1:5432/hatamoto?sslmode=disable' ENVIRONMENT=production \
   PUBLIC_BASE_URL=https://x.example.com API_HOST=127.0.0.1 MEDIA_UPLOAD_DIR=/opt/hatamoto/uploads \
-  HATAMOTO_CONFIG_FILE=/opt/hatamoto/config/hatamoto.env HATAMOTO_SETUP_CODE=K7M2-RT9P-QW4X HATAMOTO_SECRET=sec456; do
+  HATAMOTO_CONFIG_FILE=/opt/hatamoto/config/hatamoto.env HATAMOTO_SETUP_CODE=K7M2-RT9P-QW4X HATAMOTO_SECRET=sec456 CSP_ENFORCE=true; do
   printf '%s\n' "$env_out" | grepq -xF "$want" || fail "env lacks $want"
 done
 if printf '%s\n' "$env_out" | grepq 'HATAMOTO_UPDATES'; then fail "env sets HATAMOTO_UPDATES"; fi
