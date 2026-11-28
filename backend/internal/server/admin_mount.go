@@ -354,6 +354,16 @@ func (h *adminHolder) SetOffsite(svc admin.OffsiteService) {
 	}
 }
 
+// SetBackupKey sets the backup encryption service.
+func (h *adminHolder) SetBackupKey(svc admin.BackupKeyService) {
+	h.s.adminMu.Lock()
+	defer h.s.adminMu.Unlock()
+	h.s.adminDeps.BackupKey = svc
+	if b := h.s.adminBundle.Load(); b != nil {
+		b.a.SetBackupKey(svc)
+	}
+}
+
 // SetHosting sets the static hosting service.
 func (h *adminHolder) SetHosting(svc admin.HostingService) {
 	h.s.adminMu.Lock()

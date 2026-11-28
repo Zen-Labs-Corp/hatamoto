@@ -202,6 +202,9 @@ func (s *Server) SetBackups(eng *backup.Engine) {
 	s.backups = newAdminBackups(eng, s.backupKeys, s.logger, func() context.Context { return s.lifecycleCtx })
 	if s.admin != nil {
 		s.admin.SetBackups(s.backups)
+		if s.backupKeys != nil {
+			s.admin.SetBackupKey(&adminBackupKey{store: s.backupKeys.store, sealKey: s.backupKeys.sealKey})
+		}
 	}
 	s.setupOffsite(eng)
 }
