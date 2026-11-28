@@ -16,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/seo"
 )
 
@@ -648,7 +649,7 @@ func (a *Admin) seoPreview(ctx context.Context, st titlesState) []seoPreviewLine
 		r := seo.Resolve(&set, in)
 		// The public head falls back to the tagline for a default-language page
 		// without a description; the preview shows default-language pages.
-		return seoPreviewLine{Label: label, Title: r.Title, Description: firstNonEmptyString(r.Description, tagline)}
+		return seoPreviewLine{Label: label, Title: r.Title, Description: render.TaglineFallback(r.Description, tagline, true)}
 	}
 	lines := []seoPreviewLine{line("Homepage", seo.Input{Kind: seo.KindHome, Vars: seo.Vars{Title: firstNonEmptyString(site, "Home"), SiteName: site, Tagline: tagline}})}
 	for _, row := range st.Types {

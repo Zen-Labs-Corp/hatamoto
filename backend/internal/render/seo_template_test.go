@@ -122,12 +122,19 @@ func TestSEODescriptionFallsBackToTagline(t *testing.T) {
 	french := withTagline(PageMeta{Name: "N"}, nil, tagline)
 	french.Locale, french.Segment = "fr", "fr"
 
+	prefixedDefault := withTagline(PageMeta{Name: "N"}, nil, tagline)
+	prefixedDefault.Locale, prefixedDefault.Segment, prefixedDefault.DefaultLocale = "en", "en", true
+	prefixedOther := withTagline(PageMeta{Name: "N"}, nil, tagline)
+	prefixedOther.Locale, prefixedOther.Segment = "fr", "fr"
+
 	tests := []struct {
 		name string
 		v    *PageView
 		want string
 	}{
 		{"non-default language", french, ""},
+		{"prefix_all default locale", prefixedDefault, tagline},
+		{"prefix_all non-default locale", prefixedOther, ""},
 		{"tagline", withTagline(PageMeta{Name: "N"}, nil, tagline), tagline},
 		{"no tagline", withTagline(PageMeta{Name: "N"}, nil, ""), ""},
 		{"own description", withTagline(PageMeta{Name: "N", Description: "Mine", DescriptionSet: true}, nil, tagline), "Mine"},

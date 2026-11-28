@@ -70,6 +70,16 @@ func hreflangLinks(v *PageView) []altLink {
 	return alt
 }
 
+// TaglineFallback returns description, or the site tagline when description is
+// empty and the page is in the site's default language. The tagline is written
+// in that language only, so any other locale gets no fallback.
+func TaglineFallback(description, tagline string, defaultLanguage bool) string {
+	if description == "" && defaultLanguage {
+		return tagline
+	}
+	return description
+}
+
 // seoHead builds the SEO-derived part of the head from the page view. With
 // replaceSiteGraph the generic Organization/WebSite graph is omitted because
 // a head filter supplies its own.
@@ -90,10 +100,9 @@ func seoHeadWith(ctx context.Context, v *PageView, replaceSiteGraph bool, sg Sit
 	}
 	// A page without its own description or a template one falls back to the
 	// site tagline; an empty tagline leaves no description tag at all. The
-	// tagline is single-language (ADR 0003), so only unprefixed pages use it.
-	if v.Segment == "" {
-		h.Description = firstNonEmpty(h.Description, v.Site.Tagline)
-	}
+	// tagline is single-language (ADR 0003), so only default-language pages
+	// use it, whether or not the default locale has a URL prefix.
+	h.Description = TaglineFallback(h.Description, v.Site.Tagline, v.Locale == "" || v.DefaultLocale)
 	h.Canonical = firstNonEmpty(v.Page.CanonicalURL, strings.TrimRight(v.BaseURL, "/")+v.Path)
 	h.Alt = hreflangLinks(v)
 	h.Icon = v.Site.FaviconURL

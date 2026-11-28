@@ -76,6 +76,9 @@ type PageView struct {
 	// Segment is the stored URL segment of Locale ("" when unprefixed or on a
 	// one-locale site).
 	Segment string
+	// DefaultLocale marks Locale as the site's default locale ("" Locale, a
+	// one-locale site, counts as the default too; see TaglineFallback).
+	DefaultLocale bool
 	// LocaleName is the display name of Locale ("" on a one-locale site and on
 	// shared pages).
 	LocaleName string
