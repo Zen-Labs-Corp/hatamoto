@@ -43,6 +43,11 @@ type Dump struct {
 	CustomCSSNote string
 	// CommentsDropped counts comments on items the import skips.
 	CommentsDropped int
+	// ACF holds the Advanced Custom Fields groups: read from the export's
+	// definitions, or inferred from meta values when it has none.
+	ACF []ACFGroup `json:"acf,omitempty"`
+	// CF7 holds the Contact Form 7 forms of the export.
+	CF7 []CF7Form `json:"cf7,omitempty"`
 	// Warnings are non-fatal problems met while reading.
 	Warnings []string
 }

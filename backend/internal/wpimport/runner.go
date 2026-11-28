@@ -114,6 +114,13 @@ type Result struct {
 	// Comments is what the comments step did; nil when the source had none
 	// (and for runs stored before comments were imported).
 	Comments *CommentsResult `json:"comments,omitempty"`
+	// ACF and Forms are the custom field and Contact Form 7 results; nil when
+	// the source had none (and for runs stored before they were imported).
+	ACF   *ACFResult   `json:"acf,omitempty"`
+	Forms *FormsResult `json:"forms,omitempty"`
+	// RunNumber counts the runs of this source that are not plain scans, up to
+	// and including this one.
+	RunNumber int `json:"run_number,omitzero"`
 }
 
 type entInfo struct {
@@ -223,6 +230,11 @@ func (r *Runner) Run(ctx context.Context, resume uuid.UUID) (res *Result, err er
 		return nil, err
 	}
 	r.res.RunID = r.run.ID
+	if n, nerr := r.st.RunNumber(ctx, r.run.ID); nerr != nil {
+		r.res.Warnings = append(r.res.Warnings, fmt.Sprintf("run number unavailable: %v", nerr))
+	} else {
+		r.res.RunNumber = n
+	}
 	r.res.Warnings = append(r.res.Warnings, r.dump.Warnings...)
 	r.res.Report = Scan(r.dump, r.st.ref)
 	defer func() {
