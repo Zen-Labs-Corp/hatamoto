@@ -111,6 +111,10 @@ stub and a line; a 200 means the page wins, and the rule is reported as shadowed
 Any same-site link found while crawling that answers 3xx also gets a stub and a
 line.
 
+On Apache, including cPanel hosting, the SFTP target can also write these
+rules into `.htaccess` as real 3xx answers; see
+[Apache / cPanel](#apache--cpanel).
+
 ## Directory target
 
 ```
@@ -192,9 +196,72 @@ A bucket does not turn `blog/my-post/index.html` into `/blog/my-post` by
 itself. Use a host or CDN setting that serves an index document for
 directories, and one that reads `_redirects` or serves the stubs.
 
+## SFTP target
+
+For shared hosting (cPanel and similar) that gives you an SSH login but not a
+web-server config. Choose "SFTP (cPanel / shared hosting)" in Settings >
+Hosting. It is set up on that screen and run by the export worker; the
+`hatamoto static` command keeps `--target dir|s3`.
+
+Fields:
+
+- **Host** and **port** (22 by default), and **user**.
+- **Auth:** a password, or an OpenSSH private key. A key with a passphrase is
+  refused: use one without. The password or key is stored sealed, never shown
+  again, and a blank field keeps the saved one.
+- **Remote folder**, relative to the login home, `public_html` by default. These
+  are refused: an empty value, `/`, an absolute path, `~`, `.` and anything with
+  a `..` segment.
+- **Write .htaccess** (on by default); see [Apache / cPanel](#apache--cpanel).
+
+```
+host: ssh.example.com   port: 22   user: site
+remote folder: public_html
+```
+
+**Trust host key.** Hatamoto never accepts a host key silently. After you save
+the host, press *Trust host key* on the Hosting page. It connects to the host
+(handshake only, no password or key is sent) and shows the SHA256 fingerprint.
+Compare it with the fingerprint your provider shows (cPanel lists it under SSH
+access) and confirm with your password. Only that action stores the
+fingerprint; an export or Test export never does. When the host presents a
+different key later, the export is refused with a message that names Trust host
+key: check why it changed, then trust it again. Changing the host or the port
+clears the trusted key, and switching to static mode with this target needs one.
+
+The credential is sealed with a key context of its own, derived from the server
+secret. It is never opened as an S3 key, and the S3 secret is never used as an
+SFTP password. If `HATAMOTO_SECRET` was changed, the saved credential cannot be
+opened: enter it again.
+
+A host on a private network (loopback, private, link-local or carrier-grade NAT
+ranges, or `localhost`) is refused when settings are saved and again each time
+the export connects, so a name that resolves to a private address is refused
+too. To publish to a host on your own network, set
+`HATAMOTO_STATIC_SFTP_ALLOW_PRIVATE=1` in the environment of the server. It is
+separate from `HATAMOTO_STATIC_S3_ALLOW_PRIVATE`: allowing a private S3 endpoint
+does not open SFTP.
+
+Order of work: each changed file is uploaded to a temporary file
+(`.<name>.hatamoto-tmp`) beside its place and then renamed over it (an atomic
+rename where the server offers one, else the old file is removed first); if any
+upload fails, stop with no deletes; delete the removed files; update the
+`.htaccess` block; write the manifest last. The export connects once to read
+the previous manifest and once to publish, so no connection is held while the
+site is built.
+
+Deletes come only from the previous manifest, the list of files an earlier
+export published. The folder is never listed to find things to delete. The first
+export into a folder has no manifest: everything is uploaded, nothing is
+deleted, and a warning says so. Other files already in the folder are left
+alone, but a file with the same name is overwritten. Use an empty folder, or one
+only Hatamoto publishes. If the folder holds an `index.php` (a default page or
+another CMS), the host's `DirectoryIndex` may serve it before `index.html`;
+remove it or the site shows the wrong page.
+
 ## Hosting setups
 
-There are three ways to publish the static files. Settings > Hosting shows a
+There are four ways to publish the static files. Settings > Hosting shows a
 "Set up your web server" card for the saved settings, with the exact
 configuration for your folder; the examples below show its shape.
 
@@ -362,6 +429,50 @@ web server or CDN config the setup card shows, so copy that config again after
 switching the mode. `Strict-Transport-Security` is added only in production.
 The setup card lists the header names it includes.
 
+### Apache / cPanel
+
+Apache reads no `_redirects`, so with the SFTP target the export keeps a block
+in the `.htaccess` file of the remote folder. The block sits between
+`# BEGIN Hatamoto` and `# END Hatamoto`. Each export reads the remote file,
+replaces only that block (or appends it when there is none) and writes the file
+through a temporary file and a rename. Every other line is kept as it was. When
+there are no redirect rules the block is removed. The file is not part of the
+manifest, so an export never deletes it.
+
+```
+# BEGIN Hatamoto
+<IfModule mod_alias.c>
+RedirectMatch 301 ^/old/?$ /new
+</IfModule>
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule ^a/([^/]+)/?$ /b/$1 [R=301,L]
+</IfModule>
+# END Hatamoto
+```
+
+- An exact rule is `RedirectMatch <status> ^/from/?$ /to`. Plain `Redirect` is
+  not used: it matches by prefix, so a rule for `/blog` would also redirect
+  `/blog/post-1`. A source or target with whitespace is skipped and reported as
+  a warning.
+- A wildcard rule is `RewriteRule ... [R=<status>,L]`. `RewriteEngine On` and
+  mod_rewrite are needed only when wildcard rules exist.
+- The rules sit inside `<IfModule>`, so a missing module skips them instead of
+  failing the site. The block has no access-control directives.
+- Turning off **Write .htaccess** removes nothing at once. The next export
+  removes the block.
+- If the site shows a 500 after an export, the host forbids these directives
+  (`AllowOverride` does not allow them). Turn **Write .htaccess** off and export
+  again.
+- `_redirects` and the meta-refresh stubs are still written, so crawlers and
+  browsers that skip the server rules still follow redirects.
+- `/.hatamoto-static.json` and `/_redirects` can be read on Apache: they are
+  public file lists, with no secrets.
+
+The Apache / cPanel tab of the setup card shows a preview of the block built
+from your redirect rules. The export also writes redirects it finds while
+crawling, so the block in the file is the authoritative one.
+
 ### Redirects on a plain web server
 
 `_redirects` is read by Netlify and Cloudflare Pages, not by Caddy, nginx or a
@@ -377,7 +488,8 @@ export's `_redirects` (for a directory target) and translates them:
 Rules the generator cannot express safely (a status other than 301, 302, 307 or
 308, unusual characters, a placeholder inside text) are left out as a
 `# skipped:` comment and listed on the card. For an S3 target the card shows
-only the total from the last run.
+only the total from the last run. On Apache, the SFTP target writes them to
+`.htaccess` itself; see [Apache / cPanel](#apache--cpanel).
 
 ### Checklist
 
@@ -445,6 +557,10 @@ exits 1 when:
 - the S3 endpoint is a private or link-local address
   (`endpoint refused: private or link-local address`; see
   [S3-compatible target](#s3-compatible-target));
+- the SFTP host key is not trusted yet, or the host now presents a different one
+  (`Trust host key` on the Hosting page);
+- the SFTP host is a private address (see [SFTP target](#sftp-target));
+- the SFTP private key is encrypted (use one without a passphrase);
 - the database has pending migrations (run `hatamoto migrate` first).
 
 ## Failures
@@ -482,8 +598,10 @@ inventory. On a served site the list shows which islands would stay live once
 the site is static, with no status until then. Switching the mode asks for your password again. It is refused while
 Site access or the demo is on, and while the target is incomplete.
 
-**Target.** A local directory, or S3-compatible storage (service, endpoint,
-region, bucket, folder prefix, access key and secret key). The page shows only
+**Target.** A local directory, S3-compatible storage (service, endpoint,
+region, bucket, folder prefix, access key and secret key), or SFTP (host, port,
+user, password or key, remote folder, Trust host key and the Write .htaccess
+switch; see [SFTP target](#sftp-target)). The page shows only
 the fields of the chosen target; the fields of the other one keep their saved
 values. The secret key is
 stored sealed with a key derived from the server secret, is never shown again
@@ -492,7 +610,9 @@ and a blank field keeps the saved one. The live islands card offers *Same host*
 origin stays empty) or, under *Advanced: separate live origin*, an address where
 the islands answer; that one must differ from the site address in its host.
 The *Set up your web server* card shows the config for the saved settings (see
-[Hosting setups](#hosting-setups)). While the site is static,
+[Hosting setups](#hosting-setups)); for SFTP it has an Apache / cPanel tab.
+Rolling back to an older release while an SFTP target is saved makes exports
+fail with an unknown target: switch the target back to a folder or S3 first. While the site is static,
 a Save that changes the target, any of its fields, the secret key or the live
 origin, including switching to Same host, asks for your password. Nothing is kept across the password page, so
 enter the changes again.
