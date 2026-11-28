@@ -196,11 +196,14 @@ Further flags of `import wordpress`: `--allow-private-hosts`, `--no-permalinks`,
 ```text
 hatamoto media migrate --to s3|local [--dry-run]
 hatamoto backup create [--config P] [--with-media]
+hatamoto backup restore <id|path.tar> [--dry-run] --admin-url DSN [--config-out P] [--force] [--identity F | --passphrase-stdin]
 ```
 
 `media migrate` copies the media library between local disk (`MEDIA_UPLOAD_DIR`) and S3-compatible object storage (the `HATAMOTO_MEDIA_S3_*` variables, read whatever `MEDIA_STORAGE` is set to). It checks every copy by SHA-256, skips files that are already at the destination with the same SHA-256 so a stopped run resumes, never deletes the source, and exits non-zero when any file fails. `--dry-run` writes nothing. When it ends it tells you to set `MEDIA_STORAGE=s3` and restart (or to unset it for `--to local`). It needs `DATABASE_URL`. See [Keep media in object storage](media-object-storage.md).
 
 `backup create` of a site with `MEDIA_STORAGE=s3` stores a manifest of the media files instead of their bytes; `--with-media` copies the bytes into the backup too. See [Back up and restore](backups.md).
+
+`backup restore` also accepts a `.tar.age` path, an encrypted backup. `--identity` is the age private key file (as written by the admin's Generate key or by `age-keygen`). `--passphrase-stdin` reads the passphrase from standard input. On a terminal without either flag, restore asks for the passphrase when the backup is encrypted. A wrong key stops the restore before the database is touched.
 
 ## Packages, keys and themes
 

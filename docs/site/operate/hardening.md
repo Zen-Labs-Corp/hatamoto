@@ -62,6 +62,7 @@ Before launch, or during a risky change, set Settings > Access & security > Site
 6. Leave unsigned packages off. If you must allow them once, open **Plugins**, the menu in the page header, then **Package security**, and pick the shortest time that fits: the allowance ends by itself.
 7. Decide on outbound calls. Hatamoto sends [install stats](install-stats.md) by default once setup is finished, unless an owner turns them off. For zero outbound calls from the server itself, set `HATAMOTO_UPDATES=off` (no update check at all), `HATAMOTO_TELEMETRY=off` (no install stats are sent, and none can be turned on), `HATAMOTO_REGISTRY_URL=off` (uploads still work) and `HATAMOTO_AGENT_RANGES=off` (no IP-range downloads), and `WORKER_DISABLE_JOBS=agent_verify` (no reverse-DNS lookups of addresses that claim to be known crawlers; their hits then stay unverified). Every call is listed in [Outbound connections](outbound-connections.md). Plugins only reach the hosts they declare and you grant. See [How updates work](../updates/index.md).
 8. Set up backups of the database, the secret and the uploads. See [Back up and restore](backups.md).
+9. Turn on backup encryption under **Settings > Backups** so downloads and off-site copies leave the server encrypted to your age key. Keep the private key off the server. See [Back up and restore](backups.md).
 
 ## Check it worked
 
