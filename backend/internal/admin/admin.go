@@ -304,12 +304,12 @@ type Deps struct {
 	// SiteAccess is the public site gate (open, coming soon, maintenance,
 	// password) behind Settings > Access & security > Site access; nil answers that page with 503.
 	SiteAccess SiteAccessService
-	// VersionRetention is the version history limit behind Settings > Content >
+	// VersionRetention is the version history limit behind Settings > Publishing >
 	// Versions and the rule on the versions panel; nil answers that page with
 	// 503 and the panel states the default.
 	VersionRetention VersionRetentionService
 	// Review is the review step for changes to published content: the switch
-	// behind Settings > Content > Entity models > Review and what the editors
+	// behind Settings > Publishing > Entity models > Review and what the editors
 	// show about a change waiting for review. Nil answers that page with 503
 	// and every editor looks as it does with review off.
 	Review ReviewFlow

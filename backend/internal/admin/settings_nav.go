@@ -23,7 +23,7 @@ type SettingsTab struct {
 // first tab the role may open.
 type SettingsSection struct {
 	ID, Label, Icon, Desc, Href string
-	// Group is the sidebar heading the section sits under (Site, Content,
+	// Group is the sidebar heading the section sits under (Site, Publishing,
 	// System); empty for areas that show no headings.
 	Group string
 	// Badge is a short count shown beside the label ("" shows none); AreaNav
@@ -105,12 +105,12 @@ var settingsRegistry = []settingsSectionDef{
 		{ID: "tracking", Label: "Tracking", Final: "/settings/tracking", Cap: authz.ActionSettingsManage},
 		{ID: "privacy", Label: "Cookie consent", Final: "/settings/privacy", Cap: authz.ActionSettingsManage},
 	}},
-	{ID: "entity-models", Label: "Entity models", Icon: "content-model", Desc: "The kinds of content your site holds and how it is grouped.", Group: "Content", Tabs: []settingsTabDef{
+	{ID: "entity-models", Label: "Entity models", Icon: "content-model", Desc: "The kinds of content your site holds and how it is grouped.", Group: "Publishing", Tabs: []settingsTabDef{
 		{ID: "types", Label: "Entity types", Final: "/settings/types", Cap: authz.ActionSchemaManage},
 		{ID: "taxonomies", Label: "Taxonomies", Final: "/settings/taxonomies", Cap: authz.ActionTermManage},
 		{ID: "review", Label: "Review", Final: "/settings/review", Cap: authz.ActionSettingsManage},
 	}},
-	{ID: "seo", Label: "SEO", Icon: "seo", Desc: "Titles, descriptions and the variables they use.", Group: "Content", Tabs: []settingsTabDef{
+	{ID: "seo", Label: "SEO", Icon: "seo", Desc: "Titles, descriptions and the variables they use.", Group: "Publishing", Tabs: []settingsTabDef{
 		{ID: "seo-general", Label: "General", Final: "/settings/seo/general", Cap: authz.ActionSettingsManage},
 		{ID: "seo-titles", Label: "Titles & meta", Final: "/settings/seo/titles", Cap: authz.ActionSettingsManage},
 		{ID: "seo-social", Label: "Social", Final: "/settings/seo/social", Cap: authz.ActionSettingsManage},
@@ -125,18 +125,18 @@ var settingsRegistry = []settingsSectionDef{
 		{ID: "seo-indexnow", Label: "IndexNow", Final: "/settings/seo/indexnow", Cap: authz.ActionSettingsManage},
 		{ID: "seo-404", Label: "404 monitor", Final: "/settings/seo/404-monitor", Cap: authz.ActionSettingsManage},
 	}},
-	{ID: "redirects", Label: "Redirects", Icon: "corner-up-right", Desc: "Send old and changed addresses to the right page.", Group: "Content", Tabs: []settingsTabDef{
+	{ID: "redirects", Label: "Redirects", Icon: "corner-up-right", Desc: "Send old and changed addresses to the right page.", Group: "Publishing", Tabs: []settingsTabDef{
 		{ID: "redirects", Label: "Redirects", Final: "/settings/redirects"},
 	}},
-	{ID: "linking", Label: "Internal linking", Icon: "link", Desc: "Links between your pages.", Group: "Content", Tabs: []settingsTabDef{
+	{ID: "linking", Label: "Internal linking", Icon: "link", Desc: "Links between your pages.", Group: "Publishing", Tabs: []settingsTabDef{
 		{ID: "linking", Label: "Internal linking", Final: "/settings/linking"},
 	}},
-	{ID: "comments", Label: "Comments", Icon: "quote", Desc: "Turn comments on, set trust levels and limits, and manage blocklists and commenters.", Group: "Content", Tabs: []settingsTabDef{
+	{ID: "comments", Label: "Comments", Icon: "quote", Desc: "Turn comments on, set trust levels and limits, and manage blocklists and commenters.", Group: "Publishing", Tabs: []settingsTabDef{
 		{ID: "comments", Label: "Comments", Final: "/settings/comments", Cap: authz.ActionCommentSettingsRead},
 		{ID: "comment-blocklists", Label: "Blocklists", Final: "/settings/comments/blocklists", Cap: authz.ActionCommentBlocklistManage},
 		{ID: "commenters", Label: "Commenters", Final: "/settings/comments/commenters", Cap: authz.ActionCommentRead},
 	}},
-	{ID: "kits", Label: "Kits", Icon: "puzzle", Desc: "Apply a ready-made site from the registry: plugins, a theme, content types, pages and a menu.", Group: "Content", Tabs: []settingsTabDef{
+	{ID: "kits", Label: "Kits", Icon: "puzzle", Desc: "Apply a ready-made site from the registry: plugins, a theme, content types, pages and a menu.", Group: "Publishing", Tabs: []settingsTabDef{
 		{ID: "kits", Label: "Kits", Final: "/settings/kits", Cap: authz.ActionKitApply},
 	}},
 	{ID: "integrations", Label: "Integrations", Icon: "key", Desc: "API keys for scripts and webhooks that send signed POSTs when content changes.", Group: "System", Tabs: []settingsTabDef{
