@@ -72,9 +72,10 @@
 #   COMMUNITY_SKIP="a b"          manifest names to leave out of this build (logged
 #     loudly). Escape hatch for a pinned commit that no longer exists upstream.
 #   FIRST_PARTY_OWNERS="a b"      GitHub owners whose manifests may carry "tier": "first-party"
-#     (space separated, compared case-insensitively; default empty = nobody). The names gtm
-#     and searchconsole are reserved for first-party manifests from these owners; webhooks
-#     and hello are reserved for everyone (core ships webhooks, hello is the example).
+#     (space separated, compared case-insensitively; default empty = nobody). The name
+#     searchconsole is reserved for first-party manifests from these owners; webhooks, hello,
+#     gtm and google-analytics are reserved for everyone (core ships webhooks and the gtm and
+#     google-analytics tracking tags, hello is the example).
 # Environment (tests only; honoured only when this script is run directly by the tests,
 # the Makefile unsets them so a stray shell export cannot reach a production build):
 #   HATAMOTO_ALLOW_FILE_REPOS=1   accept file:// repos (and a file:/// HATAMOTO_MIRROR_BASE); the
@@ -552,8 +553,8 @@ for f in ${manifests[@]+"${manifests[@]}"}; do
   owner_ok=
   owner_allowed "$(repo_owner "$repo")" && owner_ok=1
   case $name in
-    webhooks|hello) die "$name: name is reserved" ;;
-    gtm|searchconsole) { [ -n "$tier" ] && [ -n "$owner_ok" ]; } || die "$name: name is reserved for a first-party plugin from an allowed owner" ;;
+    webhooks|hello|gtm|google-analytics) die "$name: name is reserved" ;;
+    searchconsole) { [ -n "$tier" ] && [ -n "$owner_ok" ]; } || die "$name: name is reserved for a first-party plugin from an allowed owner" ;;
   esac
   if [ -n "$tier" ]; then
     [ -n "$owner_ok" ] || die "$name: tier first-party is not allowed for the owner of $repo"

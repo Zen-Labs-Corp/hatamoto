@@ -1,0 +1,4 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Title "CSRF" $.CSRF}}
+{{template "hm/callout-start" (dict "Kind" "info" "ID" "plugin-retired")}}<span class="hm-row hm-row--between hm-pluginlist__notice"><span>{{.Label}} is built in now. Set it up in Settings &gt; Privacy &amp; tracking &gt; Tracking.</span>{{template "hm/button" dict "Label" "Open Tracking" "Href" .Href "Variant" "primary" "Size" "sm"}}</span>{{template "hm/callout-end"}}
+{{end}}{{end}}

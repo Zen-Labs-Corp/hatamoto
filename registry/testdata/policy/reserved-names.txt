@@ -42,6 +42,7 @@ consent
 ads
 schema
 gtm
+google-analytics
 searchconsole
 webhooks
 hello

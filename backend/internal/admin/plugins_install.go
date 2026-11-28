@@ -126,7 +126,12 @@ func (a *Admin) handlePluginFetch(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	data, err := pk.Fetch(r.Context(), "plugin", r.PostFormValue("name"))
+	name := r.PostFormValue("name")
+	if label, ok := trackingMovedLabels[name]; ok {
+		a.retiredPlugin(w, r, name, label, true)
+		return
+	}
+	data, err := pk.Fetch(r.Context(), "plugin", name)
 	if err != nil {
 		a.refused(w, r, err, a.adminPath+"/plugins", "Back to plugins")
 		return
@@ -304,6 +309,10 @@ func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, 
 		a.refused(w, r, err, a.adminPath+"/plugins", "Back to plugins")
 		return
 	}
+	if label, ok := trackingMovedLabels[sum.Name]; ok && sum.Kind == "plugin" {
+		a.retiredPlugin(w, r, sum.Name, label, fromBrowse)
+		return
+	}
 	id, ok := a.staged.put(userFrom(r.Context()).ID, source, data)
 	if !ok {
 		a.ErrorBack(w, r, http.StatusTooManyRequests, "Too many pending installs", "Finish or cancel the installs you started, or wait a few minutes.", a.adminPath+"/plugins", "Back to plugins")
@@ -383,6 +392,18 @@ func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, 
 	}
 	v.Data = d
 	a.Render(w, r, http.StatusOK, "settings/pluginprompt", v)
+}
+
+// retiredPlugin answers an install of a former plugin whose feature is core now
+// (trackingMovedLabels): it points to Settings > Tracking instead of a prompt.
+func (a *Admin) retiredPlugin(w http.ResponseWriter, r *http.Request, name, label string, fromBrowse bool) {
+	v := a.NewView(w, r, "Install "+name)
+	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: name}}
+	if fromBrowse {
+		v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: "Browse", Href: a.adminPath + "/plugins/browse"}, {Label: name}}
+	}
+	v.Data = struct{ Title, Label, Href string }{"Install " + name + "?", label, a.adminPath + trackingPath}
+	a.Render(w, r, http.StatusOK, "settings/pluginretired", v)
 }
 
 // handlePluginInstall completes the prompt: the ticked permissions are granted.
