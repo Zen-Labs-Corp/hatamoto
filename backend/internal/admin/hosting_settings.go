@@ -31,6 +31,9 @@ func (a *Admin) mountHostingSettings(owner *httpx.Group) {
 	sudo := owner.Group("", a.RequireSudo)
 	sudo.HandleFunc("POST "+hostingPath+"/mode", a.handleHostingMode)
 	sudo.HandleFunc("POST "+hostingPath+"/rebuild", a.handleHostingRebuild)
+	// The host key is probed on a GET (it writes nothing); pinning it asks for the password.
+	owner.HandleFunc("GET "+hostingPath+"/host-key", a.handleHostingHostKeyConfirm)
+	sudo.HandleFunc("POST "+hostingPath+"/host-key", a.handleHostingTrustHostKey)
 }
 
 // hostingPage is the Settings > Hosting page. There is deliberately no secret
@@ -42,6 +45,7 @@ type hostingPage struct {
 	Static        bool // the saved mode
 	ModeCards     []ui.RadioCardItem
 	TargetOptions []ui.Option
+	AuthOptions   []ui.Option // SFTP: password or private key
 	// Live islands choice: one radio each, in one group (name live_mode).
 	LiveSameOptions     []ui.Option
 	LiveSeparateOptions []ui.Option
@@ -69,7 +73,9 @@ type hostingPage struct {
 	// TestWhy and ExportWhy say why a button is disabled; "" means it is enabled.
 	TestWhy   string
 	ExportWhy string
-	Zone      string
+	// TrustWhy says why Trust host key is disabled; "" means it is enabled.
+	TrustWhy string
+	Zone     string
 }
 
 func (a *Admin) handleHosting(w http.ResponseWriter, r *http.Request) {
@@ -122,6 +128,9 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 			Mode: form.Mode, Target: form.Target, Dir: form.Dir, Service: form.Service, Endpoint: form.Endpoint,
 			Bucket: form.Bucket, Prefix: form.Prefix, Region: form.Region, AccessKey: form.AccessKey,
 			LiveOrigin: form.LiveOrigin, SecretSaved: saved.SecretSaved, SecretLost: saved.SecretLost,
+			SFTPHost: form.SFTPHost, SFTPPort: form.SFTPPort, SFTPUser: form.SFTPUser, SFTPAuth: form.SFTPAuth,
+			SFTPDir: form.SFTPDir, SFTPHTAccess: form.SFTPHTAccess,
+			SFTPSecretSaved: saved.SFTPSecretSaved, SFTPSecretLost: saved.SFTPSecretLost, SFTPHostKey: saved.SFTPHostKey,
 		}
 	}
 	if f.Mode == "" {
@@ -132,6 +141,15 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 	}
 	if f.Service == "" {
 		f.Service = OffsiteAWS
+	}
+	if f.SFTPPort == "" {
+		f.SFTPPort = "22"
+	}
+	if f.SFTPDir == "" {
+		f.SFTPDir = "public_html"
+	}
+	if f.SFTPAuth == "" {
+		f.SFTPAuth = HostingSFTPAuthPassword
 	}
 	static := saved.Mode == HostingStatic
 	separate := f.LiveOrigin != ""
@@ -148,6 +166,11 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 		TargetOptions: []ui.Option{
 			{Value: HostingTargetDir, Label: "Local directory", Selected: f.Target == HostingTargetDir},
 			{Value: HostingTargetS3, Label: "S3-compatible storage", Selected: f.Target == HostingTargetS3},
+			{Value: HostingTargetSFTP, Label: "SFTP (cPanel / shared hosting)", Selected: f.Target == HostingTargetSFTP},
+		},
+		AuthOptions: []ui.Option{
+			{Value: HostingSFTPAuthPassword, Label: "Password", Selected: f.SFTPAuth == HostingSFTPAuthPassword},
+			{Value: HostingSFTPAuthKey, Label: "Private key", Selected: f.SFTPAuth == HostingSFTPAuthKey},
 		},
 		LiveSameOptions:     []ui.Option{{Value: HostingLiveSame, Label: "Same host", Selected: !separate}},
 		LiveSeparateOptions: []ui.Option{{Value: HostingLiveSeparate, Label: "Use a separate live origin", Selected: separate}},
@@ -175,6 +198,9 @@ func (a *Admin) hostingPage(r *http.Request, saved HostingView, form *HostingInp
 		p.ExportWhy = "The export worker is off on this server."
 	case !static:
 		p.ExportWhy = "Needs static mode. Use Test export first."
+	}
+	if saved.Target != HostingTargetSFTP || saved.SFTPHost == "" {
+		p.TrustWhy = "Save an SFTP target first."
 	}
 	p.IslandsDesc = "These apply once the site is in static mode."
 	p.Islands = ui.Table{
@@ -299,6 +325,12 @@ func hostingInputFrom(form url.Values) HostingInput {
 		Endpoint: typed("endpoint"), Bucket: typed("bucket"), Prefix: typed("prefix"), Region: typed("region"),
 		AccessKey: typed("access_key"), SecretKey: form.Get("secret_key"), LiveOrigin: typed("live_origin"),
 		LiveMode: typed("live_mode"),
+		SFTPHost: typed("sftp_host"), SFTPPort: typed("sftp_port"), SFTPUser: typed("sftp_user"),
+		SFTPAuth: typed("sftp_auth"), SFTPDir: typed("sftp_dir"),
+		// The password and key are taken as typed; the adapter normalises line endings.
+		SFTPPassword: form.Get("sftp_password"), SFTPKey: form.Get("sftp_key"),
+		// The switch posts "on" when checked and its OffValue otherwise.
+		SFTPHTAccess: form.Get("sftp_htaccess") == "on",
 	}
 	if in.LiveMode != HostingLiveSame && in.LiveMode != HostingLiveSeparate {
 		// A form without the choice (an older page) keeps its meaning: an origin means separate.
@@ -321,8 +353,8 @@ func hostingValidate(in HostingInput, siteURL string) []ui.FieldError {
 	if in.Mode != HostingServed && in.Mode != HostingStatic {
 		add("hosting-mode", "Mode", "Choose how pages are served.")
 	}
-	if in.Target != "" && in.Target != HostingTargetDir && in.Target != HostingTargetS3 {
-		add("hosting-target", "Publish to", "Choose a local directory or S3-compatible storage.")
+	if in.Target != "" && in.Target != HostingTargetDir && in.Target != HostingTargetS3 && in.Target != HostingTargetSFTP {
+		add("hosting-target", "Publish to", "Choose a local directory, S3-compatible storage or SFTP.")
 	}
 	if in.Service != "" {
 		known := false
@@ -351,6 +383,8 @@ func hostingValidate(in HostingInput, siteURL string) []ui.FieldError {
 		if in.Bucket == "" {
 			add("hosting-bucket", "Bucket", "Enter a bucket name.")
 		}
+	case HostingTargetSFTP:
+		hostingValidateSFTP(in, add)
 	case "":
 		add("hosting-target", "Publish to", "Choose where the files go.")
 	}
@@ -358,6 +392,26 @@ func hostingValidate(in HostingInput, siteURL string) []ui.FieldError {
 		add("hosting-live-origin", "Live origin", "Enter the address where the live islands answer.")
 	}
 	return errs
+}
+
+// hostingValidateSFTP checks the shape of the SFTP fields. The engine does the
+// remote folder and host rules.
+func hostingValidateSFTP(in HostingInput, add func(id, label, msg string)) {
+	if in.SFTPHost == "" {
+		add("hosting-sftp-host", "Host", "Enter the SFTP host name.")
+	}
+	if in.SFTPUser == "" {
+		add("hosting-sftp-user", "User", "Enter the SFTP user name.")
+	}
+	if in.SFTPDir == "" {
+		add("hosting-sftp-dir", "Remote folder", "Enter a folder on the host, for example public_html.")
+	}
+	if port, err := strconv.Atoi(in.SFTPPort); err != nil || port < 1 || port > 65535 {
+		add("hosting-sftp-port", "Port", "Enter a port from 1 to 65535.")
+	}
+	if in.SFTPAuth != HostingSFTPAuthPassword && in.SFTPAuth != HostingSFTPAuthKey {
+		add("hosting-sftp-auth", "Sign in with", "Choose a password or a private key.")
+	}
 }
 
 func (a *Admin) handleHostingSave(w http.ResponseWriter, r *http.Request) {
@@ -389,11 +443,11 @@ func (a *Admin) handleHostingSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(errs) > 0 {
-		in.SecretKey = ""
+		in.SecretKey, in.SFTPPassword, in.SFTPKey = "", "", ""
 		a.renderHosting(w, r, http.StatusUnprocessableEntity, &in, errs)
 		return
 	}
-	a.audit(r, "hosting.update", "hosting", map[string]any{"changed": hostingChanged(cur, in), "secret_changed": in.SecretKey != ""})
+	a.audit(r, "hosting.update", "hosting", map[string]any{"changed": hostingChanged(cur, in), "secret_changed": in.SecretKey != "" || in.SFTPPassword != "" || in.SFTPKey != ""})
 	if in.Mode != cur.Mode {
 		a.SetFlash(w, r, "info", "Settings saved. Confirm the switch.")
 		http.Redirect(w, r, a.adminPath+hostingPath+"/mode?to="+url.QueryEscape(in.Mode), http.StatusSeeOther)
@@ -410,7 +464,7 @@ func hostingNeedsSudo(cur HostingView, in HostingInput) bool {
 	if cur.Mode != HostingStatic {
 		return false
 	}
-	if in.SecretKey != "" {
+	if in.SecretKey != "" || in.SFTPPassword != "" || in.SFTPKey != "" {
 		return true
 	}
 	for _, f := range hostingChanged(cur, in) {
@@ -433,6 +487,8 @@ func hostingChanged(v HostingView, in HostingInput) []string {
 		{"service", v.Service != in.Service}, {"endpoint", v.Endpoint != in.Endpoint}, {"bucket", v.Bucket != in.Bucket},
 		{"prefix", v.Prefix != in.Prefix}, {"region", v.Region != in.Region}, {"access_key", v.AccessKey != in.AccessKey},
 		{"live_origin", v.LiveOrigin != in.LiveOrigin},
+		{"sftp_host", v.SFTPHost != in.SFTPHost}, {"sftp_port", v.SFTPPort != in.SFTPPort}, {"sftp_user", v.SFTPUser != in.SFTPUser},
+		{"sftp_auth", v.SFTPAuth != in.SFTPAuth}, {"sftp_dir", v.SFTPDir != in.SFTPDir}, {"sftp_htaccess", v.SFTPHTAccess != in.SFTPHTAccess},
 	} {
 		if c.diff {
 			changed = append(changed, c.name)

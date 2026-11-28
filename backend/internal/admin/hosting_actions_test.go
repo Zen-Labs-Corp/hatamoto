@@ -229,3 +229,96 @@ func TestHostingTestExportRefusedInStaticMode(t *testing.T) {
 		t.Errorf("test export ran in static mode: %d calls, audit %+v", f.tests, p.events)
 	}
 }
+
+func TestHostingHostKeyConfirmShowsFingerprint(t *testing.T) {
+	t.Parallel()
+
+	f := sftpHosting()
+	f.probe = testSFTPPrint
+	p := newHostingSaveRig(t, f)
+	rec := p.do("GET", hostingURL+"/host-key", "owner-token", nil, nil)
+	body := rec.Body.String()
+	if rec.Code != 200 || !strings.Contains(body, "Trust this host key?") || !strings.Contains(body, testSFTPPrint) {
+		t.Fatalf("confirm = %d", rec.Code)
+	}
+	if !strings.Contains(body, `name="host_key" value="`+testSFTPPrint+`"`) || !strings.Contains(body, `action="/admin/settings/hosting/host-key"`) {
+		t.Error("the confirm form lacks the fingerprint or posts elsewhere")
+	}
+	if len(f.trusted) != 0 || len(f.saved) != 0 || len(p.events) != 0 {
+		t.Errorf("the GET wrote: trusted %v, saved %v, audit %v", f.trusted, f.saved, p.events)
+	}
+}
+
+func TestHostingHostKeyConfirmNoTarget(t *testing.T) {
+	t.Parallel()
+
+	f := servedHosting()
+	f.probeErr = ErrHostingNoTarget
+	p := newHostingSaveRig(t, f)
+	rec := p.do("GET", hostingURL+"/host-key", "owner-token", nil, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != hostingURL {
+		t.Fatalf("confirm = %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if body := followFlashTo(p.ownerRig, hostingURL, rec); !strings.Contains(body, "Save an SFTP target first.") {
+		t.Error("no flash")
+	}
+}
+
+func TestHostingTrustHostKeyNeedsSudo(t *testing.T) {
+	t.Parallel()
+
+	f := sftpHosting()
+	p := newHostingSaveRig(t, f)
+	rec := p.do("POST", hostingURL+"/host-key", "owner-token", url.Values{"host_key": {testSFTPPrint}}, nil)
+	if rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), p.a.sudoPath()) {
+		t.Fatalf("trust = %d %s, want the sudo page", rec.Code, rec.Header().Get("Location"))
+	}
+	if len(f.trusted) != 0 {
+		t.Errorf("trusted before sudo: %v", f.trusted)
+	}
+}
+
+func TestHostingTrustHostKeyStoresAndAudits(t *testing.T) {
+	t.Parallel()
+
+	f := sftpHosting()
+	p := newHostingSaveRig(t, f)
+	grantSudo(p.rig)
+	rec := p.do("POST", hostingURL+"/host-key", "owner-token", url.Values{"host_key": {testSFTPPrint}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != hostingURL {
+		t.Fatalf("trust = %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if !reflect.DeepEqual(f.trusted, []string{testSFTPPrint}) {
+		t.Fatalf("trusted = %v", f.trusted)
+	}
+	if len(p.events) != 1 || p.events[0].Action != "hosting.trust_host_key" || p.events[0].Detail["fingerprint"] != testSFTPPrint {
+		t.Errorf("audit = %+v", p.events)
+	}
+	if body := followFlashTo(p.ownerRig, hostingURL, rec); !strings.Contains(body, "Host key trusted.") {
+		t.Error("no flash")
+	}
+	// A value that is not a fingerprint is refused before the service.
+	f.trusted = nil
+	if rec = p.do("POST", hostingURL+"/host-key", "owner-token", url.Values{"host_key": {"nope"}}, nil); rec.Code != 303 || len(f.trusted) != 0 {
+		t.Errorf("bad fingerprint = %d, trusted %v", rec.Code, f.trusted)
+	}
+}
+
+func TestHostingTrustHostKeyChanged(t *testing.T) {
+	t.Parallel()
+
+	f := sftpHosting()
+	f.trustErr = ErrHostingHostKeyChanged
+	p := newHostingSaveRig(t, f)
+	grantSudo(p.rig)
+	rec := p.do("POST", hostingURL+"/host-key", "owner-token", url.Values{"host_key": {testSFTPPrint}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != hostingURL {
+		t.Fatalf("trust = %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if body := followFlashTo(p.ownerRig, hostingURL, rec); !strings.Contains(body, "The host key changed since it was shown.") {
+		t.Error("no warning flash")
+	}
+	if len(p.events) != 0 {
+		t.Errorf("audited a refused trust: %+v", p.events)
+	}
+}
