@@ -3,6 +3,10 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"log/slog"
 	"net/netip"
@@ -14,6 +18,7 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/safefetch"
 	"hatamoto.dev/core/internal/staticexport"
 	"hatamoto.dev/core/internal/statichost"
@@ -642,5 +647,295 @@ func TestHostingAdmin_SavePrivateEndpoint(t *testing.T) {
 	}
 	if errs, err := fx.h.Save(context.Background(), s3Input(secret)); err != nil || len(errs) != 0 || fx.store.saves != 1 {
 		t.Fatalf("opt-in: %v %v", errs, err)
+	}
+}
+
+// testSFTPPassword is a throwaway; the tests assert it never leaves the store.
+const testSFTPPassword = "sftp-test-password" // gitleaks:allow
+
+// testEncryptedKey is a throwaway ed25519 key protected by a passphrase.
+const testEncryptedKey = "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABAsbb3Ks6\nm6cQyy1kA+VlKwAAAAGAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAIPeASUe6CLMajOv0\nRYLQeq1xMt8e8caoX5lFMaYIsmrTAAAAkBgrpdyA2yTEc91j3SaCO9w41HiVEgXqIlZO1H\niLX5DTvrCN17s6sOPiKyk4tm6gwwbWidJkPjUhVxMy2pnFDxUNT1xFhq+lJPxi02ErKyfs\nq52gJnuy8WdrVMFZ4zQovxxR01Whql+/Q68wBolpPLrjjHvAcHCAynLznvPeop8rVn1rls\nJ2v8dZZIIz10gXMQ==\n-----END OPENSSH PRIVATE KEY-----\n" // gitleaks:allow
+
+func sftpInput(mode string) admin.HostingInput {
+	return admin.HostingInput{Mode: mode, Target: admin.HostingTargetSFTP, SFTPHost: "ssh.example.com", SFTPPort: "22",
+		SFTPUser: "site", SFTPAuth: admin.HostingSFTPAuthPassword, SFTPPassword: testSFTPPassword, SFTPDir: "public_html", SFTPHTAccess: true}
+}
+
+// plainKeyPEM is an unencrypted key in PKCS#8 PEM, which the SFTP key parser accepts.
+func plainKeyPEM(t *testing.T) string {
+	t.Helper()
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	der, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
+}
+
+func saveSFTP(t *testing.T, fx *hostingFixture, in admin.HostingInput) []ui.FieldError {
+	t.Helper()
+	errs, err := fx.h.Save(context.Background(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return errs
+}
+
+func TestHostingSaveSFTPSealsWithSFTPAAD(t *testing.T) {
+	fx := newHostingFixture(t)
+	if errs, err := fx.h.Save(context.Background(), s3Input("s3-secret")); err != nil || len(errs) > 0 {
+		t.Fatalf("s3 save: %v %v", errs, err)
+	}
+	s3Sealed := append([]byte(nil), fx.store.set.SecretSealed...)
+	if errs := saveSFTP(t, fx, sftpInput(admin.HostingServed)); len(errs) > 0 {
+		t.Fatalf("sftp save: %v", errs)
+	}
+	set := fx.store.set
+	if got, ok := set.SFTPSecret(fx.h.key); !ok || got != testSFTPPassword {
+		t.Fatalf("SFTPSecret = %q %v", got, ok)
+	}
+	if bytes.Contains(set.SFTPSecretSealed, []byte(testSFTPPassword)) {
+		t.Fatal("the password is stored in clear")
+	}
+	if !bytes.Equal(set.SecretSealed, s3Sealed) {
+		t.Fatal("the S3 secret changed")
+	}
+	// The SFTP blob is not an S3 secret, and the S3 blob is not an SFTP secret.
+	swapped := set
+	swapped.SecretSealed = set.SFTPSecretSealed
+	if _, ok := swapped.Secret(fx.h.key); ok {
+		t.Fatal("an SFTP blob opened as an S3 secret")
+	}
+	swapped = set
+	swapped.SFTPSecretSealed = s3Sealed
+	if _, ok := swapped.SFTPSecret(fx.h.key); ok {
+		t.Fatal("an S3 blob opened as an SFTP secret")
+	}
+	v, err := fx.h.View(context.Background())
+	if err != nil || !v.SFTPSecretSaved || v.SFTPSecretLost || v.SFTPPort != "22" || v.SFTPHost != "ssh.example.com" {
+		t.Fatalf("view = %+v %v", v, err)
+	}
+}
+
+func TestHostingSaveSFTPKeyAuth(t *testing.T) {
+	fx := newHostingFixture(t)
+	in := sftpInput(admin.HostingServed)
+	in.SFTPAuth, in.SFTPPassword = admin.HostingSFTPAuthKey, ""
+	pemKey := plainKeyPEM(t)
+	in.SFTPKey = strings.ReplaceAll(pemKey, "\n", "\r\n") + "\r\n\r\n"
+	if errs := saveSFTP(t, fx, in); len(errs) > 0 {
+		t.Fatalf("save: %v", errs)
+	}
+	if got, ok := fx.store.set.SFTPSecret(fx.h.key); !ok || got != pemKey {
+		t.Fatalf("stored key = %q %v, want the LF-normalised key", got, ok)
+	}
+}
+
+func TestHostingSaveSFTPHostChangeClearsPin(t *testing.T) {
+	fx := newHostingFixture(t)
+	if errs := saveSFTP(t, fx, sftpInput(admin.HostingServed)); len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	fx.store.set.SFTPHostKey = "SHA256:pinned"
+	in := sftpInput(admin.HostingServed)
+	in.SFTPPassword, in.SFTPUser = "", "other"
+	if errs := saveSFTP(t, fx, in); len(errs) > 0 || fx.store.set.SFTPHostKey != "SHA256:pinned" {
+		t.Fatalf("a user change must keep the pin: %v %q", errs, fx.store.set.SFTPHostKey)
+	}
+	in.SFTPPort = "2222"
+	if errs := saveSFTP(t, fx, in); len(errs) > 0 || fx.store.set.SFTPHostKey != "" {
+		t.Fatalf("a port change must clear the pin: %v %q", errs, fx.store.set.SFTPHostKey)
+	}
+	fx.store.set.SFTPHostKey = "SHA256:pinned"
+	in.SFTPHost = "ssh2.example.com"
+	if errs := saveSFTP(t, fx, in); len(errs) > 0 || fx.store.set.SFTPHostKey != "" {
+		t.Fatalf("a host change must clear the pin: %v %q", errs, fx.store.set.SFTPHostKey)
+	}
+}
+
+func TestHostingSaveSFTPBadPort(t *testing.T) {
+	fx := newHostingFixture(t)
+	in := sftpInput(admin.HostingServed)
+	in.SFTPPort = "ssh"
+	if errs := saveSFTP(t, fx, in); len(errs) != 1 || errs[0].ID != "hosting-sftp-port" || fx.store.saves != 0 {
+		t.Fatalf("errs = %v", errs)
+	}
+	in.SFTPPort, in.Mode = "70000", admin.HostingStatic
+	if errs := saveSFTP(t, fx, in); len(errs) != 1 || errs[0].ID != "hosting-sftp-port" {
+		t.Fatalf("errs = %v", errs)
+	}
+	in.SFTPPort, in.Mode = "", admin.HostingServed
+	if errs := saveSFTP(t, fx, in); len(errs) != 0 || fx.store.set.SFTPPort != 22 {
+		t.Fatalf("an empty port is 22: %v %d", errs, fx.store.set.SFTPPort)
+	}
+}
+
+func TestHostingSaveSFTPAuthSwitchNeedsNewSecret(t *testing.T) {
+	fx := newHostingFixture(t)
+	if errs := saveSFTP(t, fx, sftpInput(admin.HostingServed)); len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	in := sftpInput(admin.HostingStatic)
+	in.SFTPAuth, in.SFTPPassword = admin.HostingSFTPAuthKey, ""
+	errs := saveSFTP(t, fx, in)
+	if len(errs) != 1 || errs[0].ID != "hosting-sftp-key" {
+		t.Fatalf("errs = %v", errs)
+	}
+	if fx.store.set.SFTPAuth != admin.HostingSFTPAuthPassword || !fx.store.set.HasSFTPSecret() {
+		t.Fatal("a refused save changed the stored settings")
+	}
+	// Same, but served: saved without a secret, never reading the password as a key.
+	in.Mode = admin.HostingServed
+	if errs := saveSFTP(t, fx, in); len(errs) != 0 {
+		t.Fatalf("served save: %v", errs)
+	}
+	if fx.store.set.HasSFTPSecret() {
+		t.Fatal("the password must not survive as a key")
+	}
+	in.Mode = admin.HostingStatic
+	if errs := saveSFTP(t, fx, in); len(errs) != 1 || errs[0].ID != "hosting-sftp-key" {
+		t.Fatalf("static without a key: %v", errs)
+	}
+	// And a password auth without a password maps to the password field.
+	in.SFTPAuth = admin.HostingSFTPAuthPassword
+	if errs := saveSFTP(t, fx, in); len(errs) != 1 || errs[0].ID != "hosting-sftp-password" {
+		t.Fatalf("static without a password: %v", errs)
+	}
+}
+
+func TestHostingSaveSFTPEncryptedKeyRefused(t *testing.T) {
+	fx := newHostingFixture(t)
+	in := sftpInput(admin.HostingServed)
+	in.SFTPAuth, in.SFTPPassword, in.SFTPKey = admin.HostingSFTPAuthKey, "", testEncryptedKey
+	errs := saveSFTP(t, fx, in)
+	if len(errs) != 1 || errs[0].ID != "hosting-sftp-key" || !strings.Contains(errs[0].Message, "passphrase") {
+		t.Fatalf("errs = %v", errs)
+	}
+	in.SFTPKey = "not a key"
+	if errs := saveSFTP(t, fx, in); len(errs) != 1 || errs[0].ID != "hosting-sftp-key" || strings.Contains(errs[0].Message, "not a key") {
+		t.Fatalf("errs = %v", errs)
+	}
+	if fx.store.saves != 0 {
+		t.Fatal("a refused key was saved")
+	}
+}
+
+func TestHostingSaveSFTPPrivateHostRefused(t *testing.T) {
+	for _, mode := range []string{admin.HostingServed, admin.HostingStatic} {
+		fx := newHostingFixture(t)
+		in := sftpInput(mode)
+		in.SFTPHost = "127.0.0.1"
+		errs := saveSFTP(t, fx, in)
+		if len(errs) != 1 || errs[0].ID != "hosting-sftp-host" || !strings.Contains(errs[0].Message, staticexport.EnvSFTPAllowPrivate) ||
+			strings.Contains(errs[0].Message, testSFTPPassword) || fx.store.saves != 0 {
+			t.Fatalf("%s: errs = %v", mode, errs)
+		}
+		fx.h.getenv = func(k string) string {
+			if k == staticexport.EnvSFTPAllowPrivate {
+				return "1"
+			}
+			return ""
+		}
+		if errs := saveSFTP(t, fx, in); len(errs) != 0 || fx.store.saves != 1 {
+			t.Fatalf("%s with the opt-in: errs = %v", mode, errs)
+		}
+	}
+}
+
+func TestHostingSaveSFTPRemoteDirRefused(t *testing.T) {
+	for _, dir := range []string{"", "/", "/abs", "~", ".", "a/../b"} {
+		fx := newHostingFixture(t)
+		in := sftpInput(admin.HostingStatic)
+		in.SFTPDir = dir
+		errs := saveSFTP(t, fx, in)
+		if len(errs) != 1 || errs[0].ID != "hosting-sftp-dir" || fx.store.saves != 0 {
+			t.Fatalf("dir %q: errs = %v", dir, errs)
+		}
+	}
+}
+
+func TestHostingViewSFTPSecretLost(t *testing.T) {
+	fx := newHostingFixture(t)
+	if errs := saveSFTP(t, fx, sftpInput(admin.HostingServed)); len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	fx.h.key = staticexport.SecretKey("another-secret")
+	v, err := fx.h.View(context.Background())
+	if err != nil || v.SFTPSecretSaved || !v.SFTPSecretLost {
+		t.Fatalf("view = %+v %v", v, err)
+	}
+}
+
+func TestHostingSetModeSFTPNeedsPin(t *testing.T) {
+	fx := newHostingFixture(t)
+	if errs := saveSFTP(t, fx, sftpInput(admin.HostingServed)); len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	err := fx.h.SetMode(context.Background(), admin.HostingStatic)
+	if err == nil || !strings.Contains(err.Error(), "Trust the host key") {
+		t.Fatalf("err = %v", err)
+	}
+	if fx.store.set.Mode != admin.HostingServed {
+		t.Fatal("the mode changed without a pin")
+	}
+	fx.store.set.SFTPHostKey = "SHA256:pinned"
+	if err := fx.h.SetMode(context.Background(), admin.HostingStatic); err != nil {
+		t.Fatalf("with a pin: %v", err)
+	}
+	// A lost secret refuses before the pin is looked at.
+	fx.h.key = staticexport.SecretKey("another-secret")
+	fx.store.set.Mode = admin.HostingServed
+	if err := fx.h.SetMode(context.Background(), admin.HostingStatic); err == nil || strings.Contains(err.Error(), testSFTPPassword) {
+		t.Fatalf("lost secret: %v", err)
+	}
+}
+
+func TestHostingProbeAndTrustHostKey(t *testing.T) {
+	fx := newHostingFixture(t)
+	ctx := context.Background()
+	if _, err := fx.h.ProbeHostKey(ctx); !errors.Is(err, admin.ErrHostingNoTarget) {
+		t.Fatalf("nothing saved: %v", err)
+	}
+	if errs, err := fx.h.Save(ctx, dirInput(t.TempDir(), admin.HostingServed)); err != nil || len(errs) > 0 {
+		t.Fatalf("dir save: %v %v", errs, err)
+	}
+	if err := fx.h.TrustHostKey(ctx, "SHA256:x"); !errors.Is(err, admin.ErrHostingNoTarget) {
+		t.Fatalf("dir target: %v", err)
+	}
+	if errs := saveSFTP(t, fx, sftpInput(admin.HostingServed)); len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	var gotHost string
+	var gotPort int
+	fx.h.probe = func(_ context.Context, host string, port int, allow bool) (string, error) {
+		gotHost, gotPort = host, port
+		return "SHA256:server", nil
+	}
+	if fp, err := fx.h.ProbeHostKey(ctx); err != nil || fp != "SHA256:server" || gotHost != "ssh.example.com" || gotPort != 22 {
+		t.Fatalf("probe = %q %v (%s:%d)", fp, err, gotHost, gotPort)
+	}
+	saves := fx.store.saves
+	if err := fx.h.TrustHostKey(ctx, "SHA256:shown-earlier"); !errors.Is(err, admin.ErrHostingHostKeyChanged) {
+		t.Fatalf("wrong fingerprint: %v", err)
+	}
+	if fx.store.saves != saves || fx.store.set.SFTPHostKey != "" {
+		t.Fatal("a refused trust stored a key")
+	}
+	if err := fx.h.TrustHostKey(ctx, "SHA256:server"); err != nil || fx.store.set.SFTPHostKey != "SHA256:server" {
+		t.Fatalf("trust: %v %q", err, fx.store.set.SFTPHostKey)
+	}
+	if !fx.store.set.HasSFTPSecret() {
+		t.Fatal("trusting a key dropped the saved secret")
+	}
+	// The probe error reaches the page as is, and nothing is stored.
+	fx.store.set.SFTPHostKey = ""
+	fx.h.probe = func(context.Context, string, int, bool) (string, error) {
+		return "", errors.New("cannot read the SFTP host key")
+	}
+	if err := fx.h.TrustHostKey(ctx, "SHA256:server"); err == nil || fx.store.set.SFTPHostKey != "" {
+		t.Fatalf("probe failure: %v", err)
 	}
 }

@@ -155,7 +155,7 @@ func (s *Server) setupStaticExport() {
 		setup: hostingSetupDeps{
 			adminPath: s.adminPathValue, apiPrefix: s.cfg.PublicSite.APIPrefix,
 			upstream: upstreamAddr(s.cfg.Server.Host, s.cfg.Server.Port), maxBodyMB: uploadLimitMB(s.cfg.Server.MediaMaxSizeMB), adminMB: adminUploadLimitMB(s.cfg.Server.MediaMaxSizeMB), headers: s.staticPageHeaders,
-			folder: folderState, reach: probe.result,
+			folder: folderState, reach: probe.result, rules: (&staticSource{s: s}).Redirects,
 		},
 	}
 	if s.admin != nil { // already mounted: hand it over directly

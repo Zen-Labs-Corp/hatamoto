@@ -12,6 +12,7 @@ import (
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/importjob"
+	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/staticexport"
 )
 
@@ -209,5 +210,81 @@ func TestHostingSetupPassesUploadLimit(t *testing.T) {
 		strings.Contains(server, fmt.Sprintf("client_max_body_size %dm;", adminUploadLimitMB(10))) ||
 		!strings.Contains(admin, fmt.Sprintf("client_max_body_size %dm;", adminUploadLimitMB(10))) {
 		t.Errorf("nginx config limits are wrong:\n%s", got.Nginx)
+	}
+}
+
+func sftpSetupFixture(t *testing.T) *hostingFixture {
+	t.Helper()
+	fx := setupFixture(t, "")
+	fx.store.set = staticexport.Settings{Mode: staticexport.ModeStatic, Target: staticexport.TargetSFTP,
+		SFTPHost: "ssh.example.com", SFTPPort: 22, SFTPUser: "site", SFTPAuth: staticexport.SFTPAuthPassword,
+		SFTPDir: "public_html", SFTPHostKey: "SHA256:pinned", SFTPHTAccess: true}
+	sealed, err := staticexport.SealSFTPSecret(fx.h.key, "pw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fx.store.set.SFTPSecretSealed = sealed
+	fx.h.setup.rules = func(context.Context) ([]*redirect.Redirect, error) {
+		return []*redirect.Redirect{
+			{SourcePath: "/old", TargetURL: "/new", StatusCode: 301},
+			{SourcePath: "/blog/*", TargetURL: "/posts/$1", StatusCode: 302},
+		}, nil
+	}
+	return fx
+}
+
+func TestHostingSetupSFTPPreview(t *testing.T) {
+	t.Parallel()
+	fx := sftpSetupFixture(t)
+	key := staticexport.SFTPKey("site", "ssh.example.com", 22, "public_html")
+	got, err := fx.h.Setup(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.Saved || got.Target != staticexport.TargetSFTP || got.HostKey != "SHA256:pinned" || !got.HTAccess ||
+		got.RemoteDir != "public_html" || got.Remote != admin.HostingCheckUnknown {
+		t.Fatalf("setup = %+v", got)
+	}
+	if !strings.Contains(got.HTAccessBlock, "RedirectMatch 301 ^/old/?$ /new") || !strings.Contains(got.HTAccessBlock, "RewriteRule") {
+		t.Fatalf("block = %q", got.HTAccessBlock)
+	}
+	if got.Exact != 1 || got.Wildcard != 1 || !got.RedirectsSplit || got.RedirectsTotal != 2 || got.Caddy != "" || got.Nginx != "" {
+		t.Fatalf("setup = %+v", got)
+	}
+	// Newest run to THIS target decides; another target's runs are ignored; a running row is skipped.
+	fx.runs.runs = []staticexport.Run{
+		{Target: "sftp:other@ssh.example.com:22/public_html", Status: admin.HostingRunFailed},
+		{Target: key, Status: admin.HostingRunRunning},
+		{Target: key, Status: admin.HostingRunOK},
+		{Target: key, Status: admin.HostingRunFailed},
+	}
+	if got, _ = fx.h.Setup(context.Background()); got.Remote != admin.HostingCheckOK {
+		t.Fatalf("remote = %q, want ok", got.Remote)
+	}
+	fx.runs.runs = []staticexport.Run{{Target: key, Status: admin.HostingRunFailed}, {Target: key, Status: admin.HostingRunOK}}
+	if got, _ = fx.h.Setup(context.Background()); got.Remote != admin.HostingCheckFailed {
+		t.Fatalf("remote = %q, want failed", got.Remote)
+	}
+	// No rule source: no preview, and no dial either (there is no probe on the deps).
+	fx.h.setup.rules = nil
+	if got, _ = fx.h.Setup(context.Background()); got.HTAccessBlock != "" || got.RedirectsSplit {
+		t.Fatalf("setup without rules = %+v", got)
+	}
+}
+
+func TestHostingSetupSFTPIgnoresStaleDir(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, staticexport.RedirectsFile), []byte("/stale /x 301\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fx := sftpSetupFixture(t)
+	fx.store.set.DirPath = dir
+	got, err := fx.h.Setup(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Caddy != "" || got.Nginx != "" || got.Folder != admin.HostingCheckUnknown || got.Exact != 1 {
+		t.Fatalf("a stale directory leaked into the SFTP setup: %+v", got)
 	}
 }
