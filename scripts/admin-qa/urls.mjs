@@ -98,6 +98,7 @@ export const screens = [
   { name: "settings-performance-memory", path: "/admin/settings/performance/memory", mock: null, roles: O },
   { name: "settings-updates", path: "/admin/settings/updates", mock: null, roles: O },
   { name: "settings-review", path: "/admin/settings/review", mock: null, roles: O }, // Settings > Publishing > Entity models > Review: the switch (off by default; review-edit-flow.mjs seeds it on and walks the whole flow)
+  { name: "settings-public-api", path: "/admin/settings/public-api", mock: null, roles: O }, // Settings > Integrations > Public content API: the switch (off by default)
   { name: "review-queue", path: "/admin/review", mock: null, roles: OE, expect: ".hm-empty, #review-queue" }, // the empty state on the default seed; review-edit-flow.mjs fills it
   { name: "review-detail-missing", path: "/admin/review/0", mock: null, roles: OE, status: 404 }, // a change that is not there; the real detail page needs a waiting change: review-edit-flow.mjs walks it
   { name: "settings-changes", path: "/admin/settings/changes", mock: null, roles: O }, // empty without plugin runs; review-flow.mjs walks the populated page and Undo

@@ -180,6 +180,7 @@ GET /admin/settings/performance anon=303 read-only=403 author=403 contributor=40
 GET /admin/settings/performance/memory anon=303 read-only=403 author=403 contributor=403 reviewer=403
 GET /admin/settings/privacy anon=303 read-only=403 author=403 contributor=403 reviewer=403
 GET /admin/settings/privacy-tracking anon=303 read-only=403 author=403 contributor=403 reviewer=403
+GET /admin/settings/public-api anon=303 read-only=403 author=403 contributor=403 reviewer=403
 GET /admin/settings/redirects anon=303 read-only=503 author=503 contributor=503 reviewer=503
 GET /admin/settings/redirects/404 anon=303 read-only=503 author=503 contributor=503 reviewer=503
 GET /admin/settings/redirects/404/{id}/delete anon=303 read-only=404 author=404 contributor=404 reviewer=404
@@ -471,6 +472,7 @@ POST /admin/settings/performance/clear anon=303 read-only=403 author=403 contrib
 POST /admin/settings/performance/preload anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/privacy anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/privacy/email-protection anon=303 read-only=403 author=403 contributor=403 reviewer=403
+POST /admin/settings/public-api anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/redirects anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/redirects/404/{id}/delete anon=303 read-only=403 author=403 contributor=403 reviewer=403
 POST /admin/settings/redirects/404/{id}/ignore anon=303 read-only=403 author=403 contributor=403 reviewer=403
