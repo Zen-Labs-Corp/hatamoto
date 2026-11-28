@@ -49,7 +49,7 @@ A **crawler** is a program that fetches web pages automatically, for a search en
 
    Rows you leave on add nothing, so your normal rules stay as they are.
 
-5. Open **Entities**, then the post you want to keep out, so it opens in the post editor.
+5. Open **Content**, then the post you want to keep out, so it opens in the post editor.
 
 6. Choose the **SEO and AEO** tab (AEO, answer engine optimisation, means being found by AI tools) and switch off **Include in /llms.txt**. **`llms.txt`** is a short index of your content written for AI tools; this switch removes the post from it and from the feed it links to.
 

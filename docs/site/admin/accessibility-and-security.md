@@ -29,7 +29,7 @@ The profile step blocks every admin page except the profile pages, sign-out, sta
 
 ## How screens behave
 
-- **Layout.** The sidebar has Entities, Theme, AI analytics, Plugins and Settings. People (`<admin>/people`) sits under Entities, and the Entities item stays highlighted there. Your avatar (a link to `<admin>/profile`), the light or dark button and the sign-out button sit at the bottom; each is a real form with a label and a tooltip.
+- **Layout.** The sidebar has Content, Theme, AI analytics, Plugins and Settings. People (`<admin>/people`) sits under Content, and the Content item stays highlighted there. Your avatar (a link to `<admin>/profile`), the light or dark button and the sign-out button sit at the bottom; each is a real form with a label and a tooltip.
 - **Second menus.** Settings and Theme each have a second sidebar. A section address such as `<admin>/settings/entity-models` redirects to the first tab your role may open, and `<admin>/settings` itself redirects to the first section you may open. The full list is in the [Settings reference](settings-users-email.md).
 - **Narrow screens.** Below 640 pixels wide the sidebar becomes a top bar, and secondary lists (the Settings and Theme sections, the entity types, the plugins) turn into a horizontal row of links you can scroll, which works without a script.
 - **Page widths.** Narrow for forms, wide for lists, full for the page and blog editors, which use their own layout without the sidebar.

@@ -22,7 +22,7 @@ Settings holds everything about the site as a whole rather than one entity. Each
 | Access & security | `site-access`, `security/admin-address` | owner |
 | Email | `email`, `email/log` | owner |
 | Privacy & tracking | `privacy` (Cookie consent), `tracking` | owner |
-| **Content** | | |
+| **Publishing** | | |
 | Entity models | `types`, `taxonomies` | owner |
 | SEO | `seo/...` | owner |
 | Redirects | `redirects` | owner, editor |
