@@ -64,7 +64,7 @@ var settingsLive = map[string]bool{
 	"admin-address": true, "site-access": true, "versions": true, "api": true, "updates": true, "jobs": true, "hosting": true, "backups": true, "changes": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
 	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-ai-files": true, "seo-robots": true, "seo-ads-txt": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
 	"privacy": true, "tracking": true, "contact-button": true, "theme-strings": true,
-	"review": true, "user-sign-in": true, "locales": true, "locale-addresses": true, "locale-business": true, "search-replace": true,
+	"review": true, "public-api": true, "user-sign-in": true, "locales": true, "locale-addresses": true, "locale-business": true, "search-replace": true,
 }
 
 // adminArea is a primary nav item with a secondary sidebar of sections and
@@ -139,10 +139,11 @@ var settingsRegistry = []settingsSectionDef{
 	{ID: "kits", Label: "Kits", Icon: "puzzle", Desc: "Apply a ready-made site from the registry: plugins, a theme, content types, pages and a menu.", Group: "Publishing", Tabs: []settingsTabDef{
 		{ID: "kits", Label: "Kits", Final: "/settings/kits", Cap: authz.ActionKitApply},
 	}},
-	{ID: "integrations", Label: "Integrations", Icon: "key", Desc: "API keys for scripts and webhooks that send signed POSTs when content changes.", Group: "System", Tabs: []settingsTabDef{
+	{ID: "integrations", Label: "Integrations", Icon: "key", Desc: "API keys, webhooks that send signed POSTs when content changes, and the read-only content API.", Group: "System", Tabs: []settingsTabDef{
 		{ID: "api", Label: "API keys", Final: "/settings/api-keys", Cap: authz.ActionAPIKeyManage},
 		{ID: "subscriptions", Label: "Webhooks", Final: "/settings/webhooks", Cap: authz.ActionWebhookManage},
 		{ID: "deliveries", Label: "Delivery log", Final: "/settings/webhooks/deliveries", Cap: authz.ActionWebhookManage},
+		{ID: "public-api", Label: "Public content API", Final: "/settings/public-api", Cap: authz.ActionSettingsManage},
 	}},
 	{ID: "performance", Label: "Performance", Icon: "database", Desc: "Page cache, size limit and preload.", Group: "System", Tabs: []settingsTabDef{
 		{ID: "performance", Label: "Performance", Final: "/settings/performance", Cap: authz.ActionSettingsManage},
