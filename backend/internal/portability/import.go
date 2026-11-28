@@ -309,6 +309,12 @@ func importArchive(ctx context.Context, pool *pgxpool.Pool, r io.Reader, opts Im
 	if err := foldDefaultBusiness(ctx, tx); err != nil {
 		return nil, fmt.Errorf("fold the default locale's business details: %w", err)
 	}
+	// An archive without a csp_enforce value (an older release) would start
+	// enforcing, since NULL means enforce: pin it to report-only like the
+	// migration pins existing sites.
+	if _, err := tx.Exec(ctx, `UPDATE hatamoto_site_config SET csp_enforce = false WHERE csp_enforce IS NULL`); err != nil {
+		return nil, fmt.Errorf("pin page protection: %w", err)
+	}
 	if err := stage.place(); err != nil {
 		return nil, err
 	}
