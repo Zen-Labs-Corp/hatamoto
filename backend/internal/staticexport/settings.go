@@ -235,6 +235,20 @@ func (s Settings) S3Target(key []byte) (offsite.Target, error) {
 	return t, nil
 }
 
+// SFTPConfig returns the connection details with the opened password or key.
+// The error never contains the secret. The S3 secret is never read.
+func (s Settings) SFTPConfig(key []byte, getenv func(string) string) (SFTPConfig, error) {
+	secret, ok := s.SFTPSecret(key)
+	if !ok {
+		if s.HasSFTPSecret() {
+			return SFTPConfig{}, errors.New("SFTP password or private key cannot be opened: was HATAMOTO_SECRET changed?")
+		}
+		return SFTPConfig{}, errors.New("SFTP password or private key is not saved")
+	}
+	return SFTPConfig{Host: s.SFTPHost, Port: s.SFTPPort, User: s.SFTPUser, Auth: s.SFTPAuth, Secret: secret,
+		Dir: s.SFTPDir, HostKey: s.SFTPHostKey, HTAccess: s.SFTPHTAccess, AllowPrivate: AllowPrivateSFTP(getenv)}, nil
+}
+
 // S3TargetFromEnv builds a target from HATAMOTO_STATIC_S3_*. ok is false when
 // EnvBucket is not set (the environment names no target). An empty endpoint
 // means AWS S3 in the given region.
