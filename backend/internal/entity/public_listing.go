@@ -359,9 +359,10 @@ func (r *PostgresPublicRepository) ListPublishedFiltered(ctx context.Context, f 
 }
 
 // OptedOutSQL is true for an entity row aliased e whose owner turned off
-// "Include in /llms.txt". It compares the stored text instead of casting it,
-// so a malformed value never fails the query; only an explicit false opts out.
-const OptedOutSQL = `(COALESCE(e.attributes->'seo'->>'include_in_llms_txt', '') = 'false')`
+// "Include in /llms.txt". It compares the stored JSON instead of casting it,
+// so a malformed value never fails the query; only the boolean false opts out,
+// as in the Go check the single-entry reads use.
+const OptedOutSQL = `COALESCE(e.attributes->'seo'->'include_in_llms_txt' = 'false'::jsonb, false)`
 
 // NoIndexSQL is true for an entity row aliased e that must stay out of
 // sitemaps and search: metadata.no_index, attributes.no_index or an

@@ -161,13 +161,16 @@ type Server struct {
 	consentStore      *consent.Store // cookie consent settings; nil in tests that skip them
 	consentCounter    *consent.Counter
 	tagsStore         *tags.Store // tracking (tag manager) settings; nil in tests that skip them
-	seoLogOnce        sync.Once
-	indexNow          *indexnow.Runner // nil in demo mode
-	indexNowBaseWarn  sync.Once
-	purge             *cdnpurge.Runner // nil when no purge target is set, and in demo mode
-	purgeBaseWarn     sync.Once
-	spamVerifier      *spam.HTTPVerifier
-	emailService      *email.Service
+	// publicContentAPIOn overrides the public content API switch read; a
+	// test seam (nil in production).
+	publicContentAPIOn func(context.Context) bool
+	seoLogOnce         sync.Once
+	indexNow           *indexnow.Runner // nil in demo mode
+	indexNowBaseWarn   sync.Once
+	purge              *cdnpurge.Runner // nil when no purge target is set, and in demo mode
+	purgeBaseWarn      sync.Once
+	spamVerifier       *spam.HTTPVerifier
+	emailService       *email.Service
 	// comments is the comment store (nil without a database or server secret).
 	comments *comment.Service
 	// commentIdentity confirms commenter emails and signs hm_c (nil = confirm route 404s).
