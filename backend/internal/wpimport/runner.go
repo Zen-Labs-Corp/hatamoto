@@ -173,6 +173,9 @@ type Runner struct {
 	// relIDs maps source post ids to entity ids from the id map, for related
 	// items outside this run's selection; loaded on first use.
 	relIDs map[string]uuid.UUID
+	// formSlugs maps a Contact Form 7 id and 7-character hash to the slug of
+	// the imported form, for the shortcodes in bodies.
+	formSlugs map[string]string
 	// acfWarns counts the ACF value warnings, which are capped.
 	acfWarns int
 }
@@ -272,7 +275,7 @@ func (r *Runner) Run(ctx context.Context, resume uuid.UUID) (res *Result, err er
 		{"media", func(ctx context.Context) error { r.importMedia(ctx); return nil }},
 		{"authors", r.importAuthors},
 		{"terms", r.importTerms},
-		{"content", r.importContentAndComments},
+		{"content", r.contentStep},
 		{"links", r.linksStep},
 		{"menus", r.importMenus},
 		{"redirects", r.importRedirects},

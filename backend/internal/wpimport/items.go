@@ -85,7 +85,11 @@ func (r *Runner) bodyHTML(ctx context.Context, in string, withEntities bool) (st
 }
 
 func (r *Runner) bodyOf(ctx context.Context, in string, withEntities bool) (string, Converted, RewriteStats) {
-	conv := Convert(in, r.dump.RawBodies, WithMedia(r.mediaByID))
+	opts := []ConvertOption{WithMedia(r.mediaByID)}
+	if len(r.formSlugs) > 0 {
+		opts = append(opts, WithForms(r.formSlugs))
+	}
+	conv := Convert(in, r.dump.RawBodies, opts...)
 	rw := &Rewriter{Hosts: r.hosts, Media: r.resolveMedia(ctx), Path: func(p string) (string, bool) {
 		np, ok := r.termPaths[normPath(p)]
 		return np, ok
