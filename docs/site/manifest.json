@@ -11,6 +11,7 @@
         "install-docker",
         "install-vps",
         "deploy-railway",
+        "deploy-render-digitalocean",
         "first-run",
         "create-users"
       ],

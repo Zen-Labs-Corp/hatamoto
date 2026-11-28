@@ -78,6 +78,19 @@ prints at any time. More: [Install with Docker](docs/site/getting-started/instal
 [Install the binary](docs/site/getting-started/install-binary.md), [First run](docs/site/getting-started/first-run.md),
 [Trust and signing](docs/site/updates/trust-and-signing.md).
 
+## One-click deploy
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Zen-Labs-Corp/hatamoto)
+[![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/Zen-Labs-Corp/hatamoto/tree/main)
+
+Both start the signed image `ghcr.io/zen-labs-corp/hatamoto` with a managed Postgres.
+Open the setup address printed in the service log, create your account, done.
+DigitalOcean App Platform keeps no files between deploys: set `HATAMOTO_SECRET` when asked and
+use the droplet image below for a site you keep. Details: [Deploy on Render or DigitalOcean](docs/site/getting-started/deploy-render-digitalocean.md).
+
+Prefer a plain server? `curl -fsSL https://hatamoto.dev/install.sh | sudo sh`
+DigitalOcean droplet image: see [deploy/digitalocean/README.md](deploy/digitalocean/README.md) (Packer template).
+
 > **Status: v1, plugin SDK v0.** It runs [hatamoto.dev](https://hatamoto.dev) in production. The plugin SDK
 > can still change between its minor versions. What stays stable, and for how long: [STABILITY.md](STABILITY.md).
 
