@@ -55,7 +55,35 @@ type Sources interface {
 	// Host is the raw public base URL (or domain) of the site; BuildDetailed
 	// normalises it and omits the key when it is not a public domain.
 	Host(ctx context.Context) (string, error)
+	// Flags answers each feature flag on its own; a failing one is nil.
+	Flags(ctx context.Context) Flags
 }
+
+// Flags are the on/off and bucket facts of a Detailed report: which features
+// are on, never content or visitors. A nil field means its source failed and
+// its key is left out; it never blocks the report.
+type Flags struct {
+	CommentsOn, StaticMode, SSOOn, FormsInUse, OffsiteBackupsOn, CSPEnforced, WPImported *bool
+	Locales                                                                              *int // configured locales, the default included; 0 = single locale
+}
+
+// localesBucket is the reported range of n configured locales; "" when unknown.
+func localesBucket(n *int) string {
+	switch {
+	case n == nil:
+		return ""
+	case *n <= 1:
+		return "1"
+	case *n <= 3:
+		return "2-3"
+	default:
+		return "4+"
+	}
+}
+
+// flagKeys is the fixed key order of the optional flags, after health.
+var flagKeys = []string{"comments_on", "static_mode", "sso_on", "locales_bucket", "forms_in_use",
+	"offsite_backups_on", "csp_enforced", "wp_imported"}
 
 // BuildInput is everything BuildDetailed needs.
 type BuildInput struct {
@@ -105,6 +133,15 @@ type detailedBody struct {
 	Plugins      []detailedPlugin `json:"plugins"`
 	OtherPlugins int              `json:"other_plugins"`
 	Health       detailedHealth   `json:"health"`
+
+	CommentsOn       *bool  `json:"comments_on,omitempty"`
+	StaticMode       *bool  `json:"static_mode,omitempty"`
+	SSOOn            *bool  `json:"sso_on,omitempty"`
+	LocalesBucket    string `json:"locales_bucket,omitempty"`
+	FormsInUse       *bool  `json:"forms_in_use,omitempty"`
+	OffsiteBackupsOn *bool  `json:"offsite_backups_on,omitempty"`
+	CSPEnforced      *bool  `json:"csp_enforced,omitempty"`
+	WPImported       *bool  `json:"wp_imported,omitempty"`
 }
 
 // BuildDetailed returns the Detailed body. An error means no valid body can be
@@ -157,6 +194,7 @@ func BuildDetailed(ctx context.Context, in BuildInput) ([]byte, error) {
 	if h, err := in.Src.Host(ctx); err == nil {
 		host = NormalizeHost(h)
 	}
+	fl := in.Src.Flags(ctx)
 	c := in.Counts
 	body := detailedBody{
 		Install: in.Install, Version: in.Version, Channel: in.Channel, Level: string(LevelDetailed), Host: host,
@@ -171,6 +209,8 @@ func BuildDetailed(ctx context.Context, in BuildInput) ([]byte, error) {
 			UpdateFailed: clamp(failed, maxCount), UpdateRolledBack: clamp(rolledBack, maxCount),
 			MigrationFailed: clamp(c.MigrationFailed, maxCount),
 		},
+		CommentsOn: fl.CommentsOn, StaticMode: fl.StaticMode, SSOOn: fl.SSOOn, LocalesBucket: localesBucket(fl.Locales),
+		FormsInUse: fl.FormsInUse, OffsiteBackupsOn: fl.OffsiteBackupsOn, CSPEnforced: fl.CSPEnforced, WPImported: fl.WPImported,
 	}
 	for {
 		out, err := jsonx.MarshalPinned(body)

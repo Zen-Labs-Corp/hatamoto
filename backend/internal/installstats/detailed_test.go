@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -28,13 +29,24 @@ func validateDetailed(body []byte) error {
 	if len(entries) > 4 && entries[4].Key == "host" { // optional, right after level
 		want = append(want[:4:4], append([]string{"host"}, want[4:]...)...)
 	}
-	if len(entries) != len(want) {
-		return fmt.Errorf("%d top-level keys, want %d", len(entries), len(want))
+	if len(entries) < len(want) {
+		return fmt.Errorf("%d top-level keys, want at least %d", len(entries), len(want))
 	}
-	for i, e := range entries {
-		if e.Key != want[i] {
-			return fmt.Errorf("key %d is %q, want %q", i, e.Key, want[i])
+	for i, k := range want {
+		if entries[i].Key != k {
+			return fmt.Errorf("key %d is %q, want %q", i, entries[i].Key, k)
 		}
+	}
+	// The rest are optional flags: a strictly increasing run of flagKeys.
+	next := 0
+	for _, e := range entries[len(want):] {
+		for next < len(flagKeys) && flagKeys[next] != e.Key {
+			next++
+		}
+		if next == len(flagKeys) {
+			return fmt.Errorf("key %q is unknown or out of order", e.Key)
+		}
+		next++
 	}
 	var b struct {
 		Install      string           `json:"install"`
@@ -51,6 +63,15 @@ func validateDetailed(body []byte) error {
 		Theme        detailedTheme    `json:"theme"`
 		Plugins      []detailedPlugin `json:"plugins"`
 		Health       map[string]any   `json:"health"`
+
+		CommentsOn       *bool   `json:"comments_on"`
+		StaticMode       *bool   `json:"static_mode"`
+		SSOOn            *bool   `json:"sso_on"`
+		LocalesBucket    *string `json:"locales_bucket"`
+		FormsInUse       *bool   `json:"forms_in_use"`
+		OffsiteBackupsOn *bool   `json:"offsite_backups_on"`
+		CSPEnforced      *bool   `json:"csp_enforced"`
+		WPImported       *bool   `json:"wp_imported"`
 	}
 	if err := jsonx.Unmarshal(body, &b, jsonx.StrictNoUnknown); err != nil {
 		return err
@@ -68,6 +89,8 @@ func validateDetailed(body []byte) error {
 		return errors.New("age bucket")
 	case !nameRE.MatchString(b.Theme.Name) || !validVersion(b.Theme.Version):
 		return errors.New("theme")
+	case b.LocalesBucket != nil && !slices.Contains([]string{"1", "2-3", "4+"}, *b.LocalesBucket):
+		return errors.New("locales bucket")
 	case len(b.Plugins) > maxPlugins || b.OtherPlugins < 0 || b.OtherPlugins > maxOtherPlugins:
 		return errors.New("plugin counts")
 	}
@@ -128,6 +151,7 @@ type fakeSources struct {
 	updErr         error
 	host           string
 	hostErr        error
+	flags          Flags
 	since          time.Time
 }
 
@@ -145,6 +169,8 @@ func (f *fakeSources) WorkerOn() bool { return true }
 func (f *fakeSources) Host(context.Context) (string, error) {
 	return f.host, f.hostErr
 }
+
+func (f *fakeSources) Flags(context.Context) Flags { return f.flags }
 
 var testNow = time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC)
 
@@ -177,6 +203,8 @@ func TestBuildDetailedExactBody(t *testing.T) {
 		{Name: "another-private", Version: "2.0.0"},
 	}
 	f.failed, f.rolled = 1, 2
+	f.flags = Flags{CommentsOn: ptr(true), StaticMode: ptr(false), SSOOn: ptr(false), Locales: ptr(2), FormsInUse: ptr(true),
+		OffsiteBackupsOn: ptr(false), CSPEnforced: ptr(true), WPImported: ptr(false)}
 	win := testNow.Add(-24 * time.Hour)
 	got := build(t, f, Counts{HTTP5xx: 3, PluginErrors: map[string]int64{"searchconsole": 1, "my-private-thing": 4}}, &win)
 	want := `{"install":"` + strings.Repeat("a", 32) + `","version":"v1.1.0","channel":"stable","level":"detailed",` +
@@ -184,7 +212,9 @@ func TestBuildDetailedExactBody(t *testing.T) {
 		`"theme":{"name":"hatamoto-dev","version":"1.6.0"},` +
 		`"plugins":[{"name":"searchconsole","version":"1.0.0","enabled":true}],"other_plugins":2,` +
 		`"health":{"since_hours":24,"panics":0,"http_5xx":3,"render_errors":0,` +
-		`"plugin_errors":{"other":4,"searchconsole":1},"update_failed":1,"update_rolled_back":2,"migration_failed":0}}`
+		`"plugin_errors":{"other":4,"searchconsole":1},"update_failed":1,"update_rolled_back":2,"migration_failed":0},` +
+		`"comments_on":true,"static_mode":false,"sso_on":false,"locales_bucket":"2-3","forms_in_use":true,` +
+		`"offsite_backups_on":false,"csp_enforced":true,"wp_imported":false}`
 	// Map key order is not part of the contract; compare after normalising it.
 	if strings.Replace(got, `"searchconsole":1,"other":4`, `"other":4,"searchconsole":1`, 1) != want {
 		t.Fatalf("body\n got %s\nwant %s", got, want)
@@ -401,7 +431,10 @@ func TestBuildDetailedHost(t *testing.T) {
 	}{
 		{"public domain", "https://Example.com:8443/x", nil, `"level":"detailed","host":"example.com","os":`},
 		{"localhost", "http://localhost:8080", nil, ""},
-		{"ip literal", "http://10.0.0.5", nil, ""},
+		{"private ip", "http://10.0.0.5", nil, ""},
+		{"documentation ip", "http://203.0.113.7/", nil, ""},
+		{"public ipv4", "http://8.8.8.8/", nil, `"host":"8.8.8.8"`},
+		{"public ipv6", "http://[2606:4700:4700::1111]:8080", nil, `"host":"2606:4700:4700::1111"`},
 		{"local suffix", "https://box.local", nil, ""},
 		{"empty", "", nil, ""},
 		{"source error", "https://example.com", errors.New("db down"), ""},
@@ -418,5 +451,68 @@ func TestBuildDetailedHost(t *testing.T) {
 				t.Fatalf("host must be omitted: %s", got)
 			}
 		})
+	}
+}
+
+func ptr[T any](v T) *T { return &v }
+
+func TestBuildDetailedFlags(t *testing.T) {
+	all := func() Flags {
+		return Flags{CommentsOn: ptr(false), StaticMode: ptr(false), SSOOn: ptr(false), Locales: ptr(0), FormsInUse: ptr(false),
+			OffsiteBackupsOn: ptr(false), CSPEnforced: ptr(false), WPImported: ptr(false)}
+	}
+	f := newFake()
+	f.flags = all()
+	got := build(t, f, Counts{}, nil)
+	for _, k := range flagKeys {
+		want := `"` + k + `":false`
+		if k == "locales_bucket" {
+			want = `"locales_bucket":"1"`
+		}
+		if !strings.Contains(got, want) {
+			t.Errorf("all-false body lacks %s: %s", want, got)
+		}
+	}
+	f = newFake() // every source failing
+	got = build(t, f, Counts{}, nil)
+	for _, k := range flagKeys {
+		if strings.Contains(got, `"`+k+`"`) {
+			t.Errorf("key %s present with no source: %s", k, got)
+		}
+	}
+	omit := map[string]func(*Flags){
+		"comments_on":        func(x *Flags) { x.CommentsOn = nil },
+		"static_mode":        func(x *Flags) { x.StaticMode = nil },
+		"sso_on":             func(x *Flags) { x.SSOOn = nil },
+		"locales_bucket":     func(x *Flags) { x.Locales = nil },
+		"forms_in_use":       func(x *Flags) { x.FormsInUse = nil },
+		"offsite_backups_on": func(x *Flags) { x.OffsiteBackupsOn = nil },
+		"csp_enforced":       func(x *Flags) { x.CSPEnforced = nil },
+		"wp_imported":        func(x *Flags) { x.WPImported = nil },
+	}
+	for key, clear := range omit {
+		t.Run("nil "+key, func(t *testing.T) {
+			f := newFake()
+			f.flags = all()
+			clear(&f.flags)
+			got := build(t, f, Counts{}, nil)
+			for _, k := range flagKeys {
+				if has := strings.Contains(got, `"`+k+`"`); has == (k == key) {
+					t.Errorf("key %s present=%v with only %s missing: %s", k, has, key, got)
+				}
+			}
+		})
+	}
+}
+
+func TestLocalesBucket(t *testing.T) {
+	cases := []struct {
+		in   *int
+		want string
+	}{{nil, ""}, {ptr(0), "1"}, {ptr(1), "1"}, {ptr(2), "2-3"}, {ptr(3), "2-3"}, {ptr(4), "4+"}, {ptr(30), "4+"}}
+	for _, c := range cases {
+		if got := localesBucket(c.in); got != c.want {
+			t.Errorf("localesBucket(%v) = %q, want %q", c.in, got, c.want)
+		}
 	}
 }

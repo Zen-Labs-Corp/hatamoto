@@ -150,3 +150,6 @@ func (s statsSources) WorkerOn() bool { return s.worker }
 func isFirstPartyOrigin(o packages.Origin) bool {
 	return o == packages.OriginFirstParty || o == packages.OriginCommunity
 }
+
+// Flags is filled in by the next change; nil fields mean every flag is left out.
+func (s statsSources) Flags(context.Context) installstats.Flags { return installstats.Flags{} }
