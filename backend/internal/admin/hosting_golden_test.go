@@ -14,11 +14,12 @@ func TestHostingGolden(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
-		name string
-		svc  func() *fakeHosting
+		name  string
+		svc   func() *fakeHosting
+		query string
 	}{
-		{"settings-hosting-served", servedHosting},
-		{"settings-hosting-static", func() *fakeHosting {
+		{name: "settings-hosting-served", svc: servedHosting},
+		{name: "settings-hosting-static", svc: func() *fakeHosting {
 			f := staticHosting()
 			at := time.Date(2026, 11, 20, 9, 30, 0, 0, time.UTC)
 			f.runs = []HostingRun{
@@ -29,7 +30,7 @@ func TestHostingGolden(t *testing.T) {
 			f.setup = HostingSetup{Saved: true, Target: HostingTargetS3, Site: "https://example.com", RedirectsTotal: 4, Reach: HostingCheckUnknown, HeaderNames: []string{"X-Content-Type-Options", "X-Frame-Options"}}
 			return f
 		}},
-		{"settings-hosting-static-samehost", func() *fakeHosting {
+		{name: "settings-hosting-static-samehost", svc: func() *fakeHosting {
 			f := staticHosting()
 			f.view = HostingView{Mode: HostingStatic, Target: HostingTargetDir, Dir: "/srv/site/public"}
 			at := time.Date(2026, 11, 20, 9, 30, 0, 0, time.UTC)
@@ -46,19 +47,36 @@ func TestHostingGolden(t *testing.T) {
 			}
 			return f
 		}},
+		{name: "settings-hosting-sftp", svc: sftpGoldenHosting},
+		{name: "settings-hosting-sftp-apache", svc: sftpGoldenHosting, query: "?setup=apache"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			p := newHostingSaveRig(t, tc.svc())
-			rec := p.do("GET", hostingURL, "owner-token", nil, nil)
+			rec := p.do("GET", hostingURL+tc.query, "owner-token", nil, nil)
 			if rec.Code != 200 {
 				t.Fatalf("GET = %d", rec.Code)
 			}
 			body := hostingAgo.ReplaceAllString(normalizePage(rec.Body.String()), "AGO")
-			if strings.Contains(body, testHostingSecret) {
-				t.Error("the page leaks the secret")
+			for _, secret := range []string{testHostingSecret, testSFTPPassword, "sftp-test-password"} {
+				if strings.Contains(body, secret) {
+					t.Errorf("the page leaks %q", secret)
+				}
 			}
 			compareGolden(t, "pages/"+tc.name+".html", body)
 		})
 	}
+}
+
+// sftpGoldenHosting is a static site on the SFTP target with a trusted host key and one redirect rule.
+func sftpGoldenHosting() *fakeHosting {
+	f := sftpHosting()
+	f.view.SFTPHost, f.view.SFTPHostKey = "ssh.example.com", "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAtest"
+	f.setup = HostingSetup{
+		Saved: true, Target: HostingTargetSFTP, Site: "https://example.com", Reach: HostingCheckUnknown,
+		HostKey: f.view.SFTPHostKey, Remote: HostingCheckOK, RemoteDir: "public_html", HTAccess: true,
+		HTAccessBlock: "# BEGIN Hatamoto\n<IfModule mod_alias.c>\nRedirectMatch 301 ^/old/?$ /new\n</IfModule>\n# END Hatamoto\n",
+		Exact:         1, RedirectsSplit: true, RedirectsTotal: 1,
+	}
+	return f
 }
