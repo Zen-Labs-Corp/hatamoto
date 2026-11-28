@@ -36,12 +36,33 @@ Open source, no plugin stack, no PHP, no Node, install stats on by default, one 
 
 ## Get started
 
+**On a server** (a Linux VPS with a domain):
+
+```sh
+curl -fsSL https://hatamoto.dev/install.sh | sudo sh
+```
+
+It sets up Postgres, Hatamoto under systemd and Caddy for automatic HTTPS, with nightly backups and signed
+automatic updates. [Install on a VPS](docs/site/getting-started/install-vps.md) shows how to verify the script first.
+
+**Try the demo:** [demo.hatamoto.dev](https://demo.hatamoto.dev), a public demo site that resets every hour.
+
 **Docker** (starts Postgres too):
 
 ```sh
 git clone https://github.com/Zen-Labs-Corp/hatamoto.git && cd hatamoto
 docker compose up
 ```
+
+`docker-compose.yml` runs the signed release image `ghcr.io/zen-labs-corp/hatamoto:v1.4.6`:
+
+```yaml
+    image: ghcr.io/zen-labs-corp/hatamoto:v1.4.6
+```
+
+Replace the tag with the [latest release](https://github.com/Zen-Labs-Corp/hatamoto/releases/latest). Check its
+signature: [Verify a download](docs/site/updates/verify-a-download.md). To build from this checkout instead:
+`docker compose -f docker-compose.yml -f docker-compose.build.yml up --build`.
 
 **Or the binary** (Linux or macOS, Intel or ARM), pointed at your own Postgres:
 

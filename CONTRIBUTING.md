@@ -42,7 +42,7 @@ cd backend && go run ./cmd/hatamoto migrate && go test -tags=integration ./... &
 make check
 ```
 
-Run the server locally with `docker compose up` (see the README quick start), or
+Run your checkout with `docker compose -f docker-compose.yml -f docker-compose.build.yml up --build` (a plain `docker compose up` pulls the pinned release image), or
 against the database above with `cd backend && go run ./cmd/hatamoto serve`.
 Set `HATAMOTO_ADMIN_DIR=backend/web/admin` to reload admin templates, CSS and JS
 from disk while you edit them.

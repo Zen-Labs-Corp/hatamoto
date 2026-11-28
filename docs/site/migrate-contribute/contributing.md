@@ -40,7 +40,7 @@ Hatamoto is licensed under Apache-2.0 and developed in the open. In this guide y
      ./bin/hatamoto serve
    ```
 
-   `docker compose up` at the repository root starts a database and Hatamoto with working defaults, which is the quickest way to see a change running. See [Install with Docker](../getting-started/install-docker.md).
+   `docker compose -f docker-compose.yml -f docker-compose.build.yml up --build` at the repository root builds your checkout and starts it with a database and working defaults, which is the quickest way to see a change running. A plain `docker compose up` runs the published release image instead. See [Install with Docker](../getting-started/install-docker.md).
 
 3. Find where your change goes. Run server commands from `backend/`. The main paths:
 

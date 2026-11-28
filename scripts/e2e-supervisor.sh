@@ -439,11 +439,13 @@ run_compose() {
   PROJECTS+=("$proj")
   web="$(free_port)"; pgp="$(free_port)"
   mkdir -p "$E2E/compose"
-  python3 - "$ROOT/docker-compose.yml" "$E2E/compose/docker-compose.yml" "hatamoto-e2e:$ID" "$web" "$pgp" <<'PY'
-import sys
+  python3 - "$ROOT/docker-compose.yml" "$E2E/compose/docker-compose.yml" "hatamoto-e2e:$ID" "$web" "$pgp" <<'PY' || { fail "compose file rewrite" "no hatamoto image line"; return; }
+import re, sys
 src, dst, image, web, pg = sys.argv[1:6]
 s = open(src).read()
-s = s.replace("    build: .\n", "    image: %s\n" % image)
+s, n = re.subn(r'(?m)^    image: ghcr\.io/zen-labs-corp/hatamoto:\S+\n', "    image: %s\n" % image, s)
+if n != 1:
+    sys.exit("docker-compose.yml: want one ghcr hatamoto image line, found %d" % n)
 s = s.replace('      ENVIRONMENT: development\n', '      ENVIRONMENT: development\n      # The harness pins the legacy address; real installs get a random one.\n      HATAMOTO_ADMIN_PATH: /admin\n')
 s = s.replace('"8090:8090"', '"127.0.0.1:%s:8090"' % web)
 s = s.replace('"127.0.0.1:5432:5432"', '"127.0.0.1:%s:5432"' % pg)

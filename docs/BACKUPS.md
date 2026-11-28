@@ -206,7 +206,7 @@ removed afterwards, also after `--dry-run` or a failure, which writes nothing el
 The image ships `pg_dump` from the PostgreSQL apt repository, major 16 to match the `postgres:16`
 in the shipped `docker-compose.yml`. `pg_dump` refuses a server newer than itself, and a client
 older than the server major is not supported here either, so if you run another PostgreSQL major,
-rebuild the image with `docker build --build-arg PG_MAJOR=<n> .` (in compose, `build.args`). Without
+rebuild the image with `docker build --build-arg PG_MAJOR=<n> .` (in compose, set `build.args` in `docker-compose.build.yml` and start with `-f docker-compose.yml -f docker-compose.build.yml up --build`; the base file pulls the published image). Without
 a usable `pg_dump` every backup fails, and so does every update that takes one first.
 
 ## Restoring a backup

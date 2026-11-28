@@ -15,11 +15,11 @@ no TinyGo.
    Keep the `.key` file out of version control.
 
 `hatamoto.dev/sdk` is fetched from the Go module proxy (the public repository `Zen-Labs-Corp/hatamoto-sdk`). `go.mod` and
-`go.sum` pin the SDK `v0.11.0`; a server with a newer SDK still loads it (`sdk.CompatibleWith`). To use a newer SDK,
+`go.sum` pin the SDK `v0.29.0`; a server with a newer SDK still loads it (`sdk.CompatibleWith`). To use a newer SDK,
 `go get hatamoto.dev/sdk@vX.Y.Z`, `go mod tidy` and update `"sdk"` in `plugin.json`. The SDK is `v0.x`: minor versions can
-still break, so pin the version you built against and declare the matching range in `plugin.json` (`"sdk": "^0.11"`).
+still break, so pin the version you built against and declare the matching range in `plugin.json` (`"sdk": "^0.29"`).
 
-This template declares `"sdk": "^0.11"` on purpose. SDK 0.12.0 ships with Hatamoto v0.31.0, and a host older than v0.31.0 refuses a plugin that declares `^0.12`. A newer host still serves `^0.11` plugins (see STABILITY.md). Move to `^0.12` once your users run v0.31.0 or later.
+SDK 0.29 ships with Hatamoto v1.4.6 (first tag with `Version = "0.29.0"`), and an older host refuses a plugin that declares `^0.29`. If your users run older servers, build against an older SDK and declare its range instead (see [STABILITY.md](../../STABILITY.md)).
 
 ## Learn more
 

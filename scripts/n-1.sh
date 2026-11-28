@@ -144,7 +144,7 @@ build() {
   [[ -n $mod ]] || fatal "no module line in $tree/backend/go.mod"
   (cd "$tree/backend" && env GOENV=off GOWORK=off GOTOOLCHAIN="$tc" GOAMD64=v1 GOARM64=v8.0 GOFLAGS= GOEXPERIMENT= \
     CGO_ENABLED=0 go build -tags nodynamic -trimpath -buildvcs=false \
-    -ldflags "-X $mod/app.Version=$ver -X $mod/app.Commit=n1" \
+    -ldflags "-s -w -X $mod/app.Version=$ver -X $mod/app.Commit=n1" \
     -o "$out" ./cmd/hatamoto)
 }
 

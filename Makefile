@@ -26,7 +26,7 @@ COMMIT  := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 # Passed through the environment so the values are data, never recipe text.
 export HM_VERSION := $(VERSION)
 export HM_COMMIT  := $(COMMIT)
-GO_LDFLAGS := -X hatamoto.dev/core/app.Version=$$HM_VERSION -X hatamoto.dev/core/app.Commit=$$HM_COMMIT
+GO_LDFLAGS := -s -w -X hatamoto.dev/core/app.Version=$$HM_VERSION -X hatamoto.dev/core/app.Commit=$$HM_COMMIT
 
 
 all: build
@@ -166,7 +166,7 @@ release-build:
 	for t in $(RELEASE_TARGETS); do os=$${t%/*}; arch=$${t#*/}; \
 	  (cd backend && env GOENV=off GOWORK=off GOTOOLCHAIN="$$tc" GOAMD64=v1 GOARM64=v8.0 GOFLAGS= GOEXPERIMENT= \
 	    CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -tags nodynamic -trimpath -buildvcs=false \
-	    -ldflags "-X hatamoto.dev/core/app.Version=$$RELEASE_VERSION -X hatamoto.dev/core/app.Commit=$$RELEASE_COMMIT" \
+	    -ldflags "-s -w -X hatamoto.dev/core/app.Version=$$RELEASE_VERSION -X hatamoto.dev/core/app.Commit=$$RELEASE_COMMIT" \
 	    -o "$$dist/hatamoto-$$os-$$arch" ./cmd/hatamoto) || exit 1; done
 	@$(MAKE) --no-print-directory release-bundles DIST="$(DIST)"
 
