@@ -839,9 +839,12 @@ type importReportData struct {
 	SiteMode    string
 	SEO         *seoReportView
 	Comments    *commentsReportView
-	ResyncURL   string
-	ResumeTo    string
-	CSRFHint    bool
+	// Extra are the custom field and form cards, ExtraHeadline the one-line outcome of the run.
+	Extra         []extraSectionView
+	ExtraHeadline string
+	ResyncURL     string
+	ResumeTo      string
+	CSRFHint      bool
 }
 
 // seoReportView is the "SEO settings" card: Applied on a new site, Would on
@@ -886,6 +889,41 @@ func newCommentsReportView(c *wpimport.CommentsResult) *commentsReportView {
 		v.MorePings = c.PingsTotal - len(v.Pings)
 	}
 	return v
+}
+
+// extraLineView is one line of an ACF or forms card. Kind is the badge kind.
+type extraLineView struct{ Badge, Kind, Label, Detail string }
+
+// extraSectionView is one card of the custom fields and forms report: lines
+// with a status badge, then notes without one.
+type extraSectionView struct {
+	Title, Summary string
+	Lines          []extraLineView
+	Notes          []string
+}
+
+// newExtraSections turns the report sections of a result into card views.
+func newExtraSections(secs []wpimport.ReportSection) []extraSectionView {
+	var out []extraSectionView
+	for _, s := range secs {
+		v := extraSectionView{Title: s.Title, Summary: s.Summary}
+		for _, l := range s.Lines {
+			switch l.Status {
+			case wpimport.LineMapped:
+				v.Lines = append(v.Lines, extraLineView{"Mapped", "success", l.Label, l.Detail})
+			case wpimport.LineImported:
+				v.Lines = append(v.Lines, extraLineView{"Imported", "success", l.Label, l.Detail})
+			case wpimport.LinePartly:
+				v.Lines = append(v.Lines, extraLineView{"Partly", "warning", l.Label, l.Detail})
+			case wpimport.LineSkipped:
+				v.Lines = append(v.Lines, extraLineView{"Skipped", "neutral", l.Label, l.Detail})
+			default:
+				v.Notes = append(v.Notes, l.Detail)
+			}
+		}
+		out = append(out, v)
+	}
+	return out
 }
 
 type lowRow struct {
@@ -958,6 +996,9 @@ func (a *Admin) renderImportReport(w http.ResponseWriter, r *http.Request, run *
 		}
 		if res.Comments != nil {
 			d.Comments = newCommentsReportView(res.Comments)
+		}
+		if secs := wpimport.ReportSections(res); secs != nil {
+			d.Extra, d.ExtraHeadline = newExtraSections(secs), wpimport.Headline(res)
 		}
 		for _, rd := range run.Redirects {
 			d.Redirects = append(d.Redirects, linkRow{Path: rd.From, Link: sitePath(rd.From), Note: fmt.Sprintf("%d to %s", rd.Code, rd.To)})

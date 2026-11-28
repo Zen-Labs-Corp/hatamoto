@@ -157,6 +157,27 @@ func TestImportWizardPagesGoldenAndA11y(t *testing.T) {
 	res.SiteMode = wpimport.ModeExisting
 	res.SEO = &wpimport.SEOResult{Plugin: "rankmath", Would: []wpimport.SEORow{{Key: "separator", Label: "Separator", Current: "-", Value: "–"}}, NotMapped: []string{"Local SEO module"}}
 	existingDone.Result = &res
+	// A run with custom fields and forms joins the fixtures just before its page too.
+	acfDone := *f.runs[ids["done"]]
+	acfDone.ID = uuid.MustParse("00000000-0000-4000-8000-00000000000a") // fixedID stops at 9
+	acfRes := *acfDone.Result
+	acfRes.RunNumber = 2
+	acfRes.ACF = &wpimport.ACFResult{Groups: 2, Fields: []wpimport.ACFFieldResult{
+		{Group: "Listing", Label: "Price", Type: "number", Target: "listing", Status: "mapped"},
+		{Group: "Listing", Label: "Phone", Type: "text", Target: "listing", Status: "mapped"},
+		{Group: "Listing", Label: "Staff", Type: "repeater", Target: "listing", Status: "mapped", Rows: 41},
+		{Group: "Listing", Label: "Related listings", Type: "relationship", Target: "listing", Status: "mapped", Links: 38},
+		{Group: "Listing", Label: "Gallery", Type: "gallery", Target: "listing", Status: "mapped"},
+		{Group: "Sections", Label: "Page sections", Type: "flexible_content", Target: "page", Status: "mapped", Items: 6, Rows: 14},
+		{Group: "Sections", Label: "Nested blocks", Type: "flexible_content", Target: "page", Status: "partly",
+			Note: "nested repeaters and flexible content inside rows are stored as text"},
+		{Group: "Sections", Label: "Map", Type: "google_map", Target: "page", Status: "skipped", Note: "a property map of another type exists; field skipped"},
+	}}
+	acfRes.Forms = &wpimport.FormsResult{Found: 2, MailNotImported: true, Forms: []wpimport.FormResult{
+		{Title: "Contact", Slug: "contact", Status: "imported", Fields: 5},
+		{Title: "Quote request", Slug: "quote-request", Status: "partly", Fields: 4, Dropped: []string{"1 conditional rule not carried"}},
+	}}
+	acfDone.Result = &acfRes
 	pages := []struct{ name, path string }{
 		{"source", "/admin/settings/import/wordpress"},
 		{"source-resync", "/admin/settings/import/wordpress?from=" + ids["done"].String()},
@@ -170,10 +191,14 @@ func TestImportWizardPagesGoldenAndA11y(t *testing.T) {
 		{"report-existing", "/admin/settings/import/wordpress/" + existingDone.ID.String()},
 		{"report-failed", "/admin/settings/import/wordpress/" + ids["failed"].String()},
 		{"report-interrupted", "/admin/settings/import/wordpress/" + ids["interrupted"].String()},
+		{"report-acf", "/admin/settings/import/wordpress/" + acfDone.ID.String()},
 	}
 	for _, p := range pages {
 		if p.name == "report-existing" {
 			f.runs[existingDone.ID] = &existingDone
+		}
+		if p.name == "report-acf" {
+			f.runs[acfDone.ID] = &acfDone
 		}
 		rec := g.do("GET", p.path, "owner-token", nil, nil)
 		if rec.Code != 200 {
