@@ -64,7 +64,7 @@ func TestScheduledUploadEndToEnd(t *testing.T) {
 			if err := os.WriteFile(path, []byte("archive "+id), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			res, err := Upload(ctx, c, got.Prefix, id, path, got.Keep)
+			res, err := Upload(ctx, c, got.Prefix, id, path, got.Keep, nil)
 			if err != nil || !res.OK {
 				t.Fatalf("upload day %d: %+v, %v", day, res, err)
 			}

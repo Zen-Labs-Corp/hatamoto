@@ -171,7 +171,7 @@ func (o *offsiteService) begin(ctx context.Context, set offsite.Settings, kind b
 		return backup.Info{}, nil, err
 	}
 	req := backup.Request{Kind: kind, OnDone: func(ctx context.Context, in backup.Info, archive string) {
-		res, uerr := offsite.Upload(ctx, client, target.Prefix, in.ID, archive, set.Keep)
+		res, uerr := offsite.Upload(ctx, client, target.Prefix, in.ID, archive, set.Keep, nil)
 		if uerr != nil {
 			res.Error = o.scrubText(target.SecretKey, uerr.Error())
 		}
